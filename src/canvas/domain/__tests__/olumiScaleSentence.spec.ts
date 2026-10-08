@@ -4,9 +4,28 @@
  * in stored model versions (shared DB, 10 days to 8 Oct), not units invented for the test.
  */
 import { describe, it, expect } from 'vitest'
-import { olumiScaleSentence, olumiScaleRangeText } from '../olumiScaleSentence'
+import { olumiScaleLines, olumiScaleSentence, olumiScaleRangeText } from '../olumiScaleSentence'
 
 const stamped = (cap: number, unit?: string) => ({ value: 0.5, cap, ...(unit !== undefined ? { unit } : {}), frame_source: 'olumi_convention' })
+
+describe('olumiScaleLines: plain line first, the full sentence behind Why?', () => {
+  it('the visible line is Science\'s short words verbatim; the why is the approved sentence', () => {
+    expect(olumiScaleLines({ label: 'Pro plan price', observedState: stamped(98, '£/month') })).toEqual({
+      short: "Sizing scale (Olumi's): £0\u2013£98 a month",
+      why: 'Olumi reads \u2018Pro plan price\u2019 on a scale of £0 to £98 a month: a scale for reading sizes, not a forecast or a limit.',
+    })
+  })
+  it.each([
+    ['%', 13, "Sizing scale (Olumi's): 0%\u201313%"],
+    ['hours/week', 40, "Sizing scale (Olumi's): 0\u201340 hours a week"],
+    ['GBP per café per month', 4000, "Sizing scale (Olumi's): GBP 0\u2013GBP 4,000 per café per month"],
+  ] as const)('%s → %s', (unit, cap, short) => {
+    expect(olumiScaleLines({ label: 'X', observedState: stamped(cap, unit) })?.short).toBe(short)
+  })
+  it('no stamp → nothing at all', () => {
+    expect(olumiScaleLines({ label: 'Pro plan price', observedState: { value: 0.5, cap: 98, unit: '£/month' } })).toBeNull()
+  })
+})
 
 describe('olumiScaleSentence', () => {
   it('says the approved words verbatim for the approved example', () => {

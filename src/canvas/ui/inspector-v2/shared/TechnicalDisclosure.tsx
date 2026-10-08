@@ -13,12 +13,18 @@ interface TechnicalDisclosureProps {
   /** Only render when tech toggle is active */
   visible: boolean
   label?: string
+  /** The button's words while open. Defaults to the model-detail wording every existing caller uses. */
+  openLabel?: string
+  /** Sits tight under the line it explains (mt-1) instead of opening a new block (mt-3). */
+  compact?: boolean
   children: React.ReactNode
 }
 
 export function TechnicalDisclosure({
   visible,
   label = 'Show model detail',
+  openLabel = 'Hide model detail',
+  compact = false,
   children,
 }: TechnicalDisclosureProps) {
   const [open, setOpen] = useState(false)
@@ -35,7 +41,7 @@ export function TechnicalDisclosure({
   if (!visible) return null
 
   return (
-    <div className="mt-3">
+    <div className={compact ? 'mt-1' : 'mt-3'}>
       <button
         type="button"
         onClick={toggle}
@@ -47,7 +53,7 @@ export function TechnicalDisclosure({
           ? <ChevronDown size={12} className="text-info" />
           : <ChevronRight size={12} className="text-info" />
         }
-        {open ? 'Hide model detail' : label}
+        {open ? openLabel : label}
       </button>
       {open && (
         <div className="mt-2 pl-3 border-l border-panel-border">

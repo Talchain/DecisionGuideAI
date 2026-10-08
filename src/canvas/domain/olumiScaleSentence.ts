@@ -5,7 +5,8 @@
  * figure arrived with no range (CEE #2848). Any write that changes the cap deletes the stamp, so a present stamp
  * always means the cap is still Olumi's. This module reads that stamp and never re-derives it.
  *
- * Words approved by Science (CEE #2848, comment 6060704017), with the example filled in:
+ * Visible (Paul 8 Oct, progressive disclosure; Science's words, 8 Oct): "Sizing scale (Olumi's): £0–£98 a month".
+ * Behind "Why?" (Science, CEE #2848, comment 6060704017), with the example filled in:
  *   "Olumi reads ‘Pro plan price’ on a scale of £0 to £98 a month: a scale for reading sizes, not a forecast or a limit."
  *
  * The range is written once, so "£0 to £98 a month" rather than "£0 / month to £98 / month". It's built from the stored
@@ -42,25 +43,33 @@ function trailingOf(rest: string): string {
   return ` ${r}`
 }
 
-/** "£0 to £98 a month", "0% to 13%", "0 to 40 hours a week"; null when the unit can't be read. */
-export function olumiScaleRangeText(cap: number, unit: string | null | undefined): string | null {
+/** The scale's two ends and what follows the upper end: {lo:'£0', hi:'£98', trailing:' a month'}. Null when unreadable. */
+export interface OlumiScaleRange { readonly lo: string; readonly hi: string; readonly trailing: string }
+
+export function olumiScaleRange(cap: number, unit: string | null | undefined): OlumiScaleRange | null {
   if (!Number.isFinite(cap) || cap <= 0) return null
   const u = typeof unit === 'string' ? unit.trim() : ''
   if (u.length > MAX_UNIT_LENGTH) return null
   const hi = formatNumber(cap)
-  if (u === '') return `0 to ${hi}`
-  if (u === '%') return `0% to ${hi}%`
-  for (const s of SYMBOLS) {
-    if (u.startsWith(s)) return `${s}0 to ${s}${hi}${trailingOf(u.slice(s.length))}`
+  if (u === '') return { lo: '0', hi, trailing: '' }
+  if (u === '%') return { lo: '0%', hi: `${hi}%`, trailing: '' }
+  for (const sym of SYMBOLS) {
+    if (u.startsWith(sym)) return { lo: `${sym}0`, hi: `${sym}${hi}`, trailing: trailingOf(u.slice(sym.length)) }
   }
   for (const c of CODES) {
     const next = u.charAt(c.length)
-    if (u.startsWith(c) && (next === '' || next === ' ' || next === '/')) return `${c} 0 to ${c} ${hi}${trailingOf(u.slice(c.length))}`
+    if (u.startsWith(c) && (next === '' || next === ' ' || next === '/')) return { lo: `${c} 0`, hi: `${c} ${hi}`, trailing: trailingOf(u.slice(c.length)) }
   }
   // A counted unit with a period ("hours/week", "tickets/month"): the noun after the upper end, then the period.
   const slash = u.indexOf('/')
-  if (slash > 0) return `0 to ${hi} ${u.slice(0, slash).trim()}${perPhrase(u.slice(slash + 1))}`
-  return `0 to ${hi} ${u}`
+  if (slash > 0) return { lo: '0', hi, trailing: ` ${u.slice(0, slash).trim()}${perPhrase(u.slice(slash + 1))}` }
+  return { lo: '0', hi, trailing: ` ${u}` }
+}
+
+/** "£0 to £98 a month", "0% to 13%", "0 to 40 hours a week"; null when the unit can't be read. */
+export function olumiScaleRangeText(cap: number, unit: string | null | undefined): string | null {
+  const r = olumiScaleRange(cap, unit)
+  return r === null ? null : `${r.lo} to ${r.hi}${r.trailing}`
 }
 
 export interface OlumiScaleInput {
@@ -68,8 +77,13 @@ export interface OlumiScaleInput {
   readonly observedState: unknown
 }
 
-/** The approved sentence, or null when Olumi did not choose this factor's scale (or it can't be said truthfully). */
-export function olumiScaleSentence(input: OlumiScaleInput): string | null {
+/**
+ * What the factor shows (Paul 8 Oct: plain first, the expert sentence behind "Why?"):
+ *   short: "Sizing scale (Olumi's): £0–£98 a month" (Science's amendment, 8 Oct);
+ *   why:   Science's full sentence, verbatim (CEE #2848 c6060704017).
+ * Null when Olumi did not choose this factor's scale, or it can't be said truthfully.
+ */
+export function olumiScaleLines(input: OlumiScaleInput): { readonly short: string; readonly why: string } | null {
   const os = input.observedState
   if (os === null || typeof os !== 'object') return null
   const { frame_source: source, cap, unit } = os as { frame_source?: unknown; cap?: unknown; unit?: unknown }
@@ -77,7 +91,15 @@ export function olumiScaleSentence(input: OlumiScaleInput): string | null {
   if (typeof cap !== 'number') return null
   const label = input.label.trim()
   if (label === '') return null
-  const range = olumiScaleRangeText(cap, typeof unit === 'string' ? unit : null)
-  if (range === null) return null
-  return `Olumi reads ‘${label}’ on a scale of ${range}: a scale for reading sizes, not a forecast or a limit.`
+  const r = olumiScaleRange(cap, typeof unit === 'string' ? unit : null)
+  if (r === null) return null
+  return {
+    short: `Sizing scale (Olumi's): ${r.lo}\u2013${r.hi}${r.trailing}`,
+    why: `Olumi reads \u2018${label}\u2019 on a scale of ${r.lo} to ${r.hi}${r.trailing}: a scale for reading sizes, not a forecast or a limit.`,
+  }
+}
+
+/** Science's full sentence alone (kept for callers that state it without the short line). */
+export function olumiScaleSentence(input: OlumiScaleInput): string | null {
+  return olumiScaleLines(input)?.why ?? null
 }
