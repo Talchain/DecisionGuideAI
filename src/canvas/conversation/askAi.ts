@@ -85,8 +85,8 @@ export function buildAskAiQuestion(req: AskAiRequest) {
     stage, otherLabel: labelOf(nodes.find(n => n.id === nodeIds[1])), label: labelOf(node), kind: node?.type, authoredContext,
     validateQuestion: labelOf(upstream) ? `How can I validate my assumption about ${labelOf(upstream)} and its effect on ${labelOf(node) || 'this outcome'}?${authoredContext ?? ''}` : undefined,
     optionLabels: req.includeOptions ? nodes.filter(n => n.type === 'option').map(labelOf).filter((label): label is string => !!label) : undefined,
-    sourceLabel: labelOf(nodes.find(n => n.id === edge?.source)),
-    targetLabel: labelOf(nodes.find(n => n.id === edge?.target)),
+    sourceLabel: labelOf(nodes.find(n => n.id === (edge?.source ?? (intent === 'edit-driver' || intent === 'edit-removed' ? nodeIds[0] : undefined)))),
+    targetLabel: labelOf(nodes.find(n => n.id === (edge?.target ?? (intent === 'edit-driver' || intent === 'edit-removed' ? nodeIds[1] : undefined)))),
     goalLabel: node?.type === 'goal' ? labelOf(node) : labelOf(nodes.find(n => n.type === 'goal')),
     decisionLabel: node?.type === 'decision' ? labelOf(node) : labelOf(nodes.find(n => n.type === 'decision')),
     baseline: resolveOptionIsBaseline(node?.data as { is_baseline?: unknown; label?: unknown },
@@ -96,6 +96,8 @@ export function buildAskAiQuestion(req: AskAiRequest) {
   // The action registry is the one mapper from an action to CEE's typed press id (S-B slice 0).
   const action = actionOfAsk(intent)
   let pressId = req.pressId ?? (action ? typedPressIdOf(action, stage) : undefined)
+  // Item 3: the drawn link's own press, host-bound to its pair by CEE (`drawn-link-press.ts`, #2776).
+  if (!pressId && edge && intent === 'drawn-link') pressId = `agent-drawn-link:${edge.source}>${edge.target}`
   if (!pressId && edge && (intent === 'question-link' || intent === 'examine-link')) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined

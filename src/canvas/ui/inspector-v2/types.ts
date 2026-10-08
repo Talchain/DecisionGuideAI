@@ -59,6 +59,8 @@ export interface DragHandlers {
 
 // ─── Shell props ───────────────────────────────────────────────────
 export interface InspectorShellProps {
+  /** Anatomy is opt-in; node panels retain the existing legacy shell. */
+  variant?: 'legacy' | 'anatomy'
   /** Node ID for rationale lookup (optional — edges don't have rationales) */
   nodeId?: string
   /** Editable label */
@@ -77,13 +79,18 @@ export interface InspectorShellProps {
   /** Drag handlers from InspectorModal — makes the header draggable */
   dragHandlers?: DragHandlers
   /**
-   * R5 quick actions, rendered at the TOP of the panel body above every group.
-   * Supplied by InspectorRouter, which knows the element's identity.
+   * R5 quick actions, rendered at the TOP of the legacy panel body above every
+   * group. Anatomy panels own their actions and ignore this slot.
    */
   quickActions?: ReactNode
+  /** Quiet header actions, rendered in the More actions menu when supplied. */
+  headerMenu?: ReactNode
+  /** Shell-level More items, placed after the panel's More items. */
+  more?: ReactNode
   /**
    * v3.1 `.inspector-note` — the pane's quiet save truth, rendered LAST in the
-   * body (after the technical-detail toggle). Supplied by InspectorRouter.
+   * body (after the technical-detail toggle), or last inside More in anatomy
+   * mode. Supplied by InspectorRouter.
    */
   footerNote?: ReactNode
   children: ReactNode

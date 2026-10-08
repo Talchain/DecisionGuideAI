@@ -8,6 +8,7 @@
  * typecheck and no install were executed — the cost constraints for that lane
  * forbade all three. CI at this head is the authority for whether it is green.
  */
+import { RENDERED_CARD_MARKS } from '../../nodes/shared/cardMarks'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -17,7 +18,9 @@ import {
   CanvasLegendPopover,
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
+  POST_RUN_CARD_MARKS,
 } from '../CanvasLegendPopover'
+import { STRENGTH_NOT_SET_DASH } from '../../edges/edgePresentation'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
@@ -141,6 +144,9 @@ const APPROVED = [
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
+  // Pre-run (this spec's phase): the run-only marks are not listed (Defect B); their post-run rows are bound in
+  // `cardMarks.registryB.spec.tsx`. Derived from the legend's own set, never a second list.
+  ...RENDERED_CARD_MARKS.filter(m => !POST_RUN_CARD_MARKS.has(m.id)).map(m => m.keyText),
 ]
 
 /**
@@ -163,7 +169,7 @@ describe('CanvasLegendPopover', () => {
     render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByRole('button', { name: 'How to read this' }))
     for (const s of APPROVED) {
-      expect(screen.getByText(s)).toBeDefined()
+      expect(screen.getAllByText(s).length).toBeGreaterThan(0)
     }
     expect(screen.queryByText('Choice')).toBeNull()
   })
@@ -262,7 +268,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
   it('explains grey as "not stated yet", the signal with no other channel', () => {
     open()
     expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
-    expect(screen.getByText('No strength suggested: thin and grey')).toBeInTheDocument()
+    expect(screen.getByText('No strength estimate: dotted')).toBeInTheDocument()
   })
 
   /**
@@ -288,7 +294,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     const swatch = screen.getByTestId('legend-thickness-unset')
     const rowText = swatch.closest('div')?.textContent ?? ''
     // Discrimination first: we are reading the right row, and it is not empty.
-    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('thin and grey')
+    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('No strength estimate: dotted')
     expect(rowText, `the thickness row opens with "${METRIC_UNSET.standalone}", the cards' settlement wording — two conditions, one label`)
       .not.toMatch(new RegExp(`^\\s*${METRIC_UNSET.standalone}`))
     // …and the card's own row IS still present under that wording, so the
@@ -329,6 +335,8 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
 
     // GREY — the row says "thin and grey"; this is the "grey".
     expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
+    expect(unset.getAttribute('stroke-dasharray')).toBe(STRENGTH_NOT_SET_DASH)
+    expect(unset.getAttribute('stroke-linecap')).toBe('round')
     expect(unset.getAttribute('stroke')).not.toBe(thinnest.getAttribute('stroke'))
 
     // THIN — bound to the constants, and asserted as an ORDERING so it cannot
@@ -678,14 +686,16 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   it('⭐ N2: "est." is shown only where its marker can actually render', () => {
     // (a) Inferred factor, standard view — the marker's own gate is satisfied.
     const shown = openBoard('idle', { inferredFactor: true })
-    expect(shown, '"est." withheld while its marker can render').toContain('est.')
+    expect(shown).toContain('est.')
+    expect(screen.getByTestId('legend-metric-est.')).toHaveTextContent('est.')
     cleanup()
 
     // (b) EXPERT VIEW. `FactorNode:911` is `isInferred && !isDetailed`, and
     // `isDetailed` is `viewMode === 'expert'` — BOARD-level, so the marker
     // renders on NO card. This is the definitive half of the finding.
     const expert = openBoard('idle', { inferredFactor: true, expertView: true })
-    expect(expert, 'expert view: the key explains a marking no card can render').not.toContain('est.')
+    expect(screen.queryByTestId('legend-metric-est.')).toBeNull()
+    expect(screen.getByTestId('legend-card-mark-source-olumi')).toHaveTextContent('est.')
     // Discrimination — the popover is populated and the inferred factor IS
     // still mounted, so this absence is the gate's doing, not an empty board.
     expect(expert).toContain(THICKNESS_SENTINEL)
@@ -695,7 +705,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // (c) Standard view, NO inferred factor — nothing on the board carries the
     // marking. Fails for a different reason than (b), which is the point.
     const noFactor = openBoard('idle')
-    expect(noFactor, 'no inferred factor is mounted, but the key promises one').not.toContain('est.')
+    expect(screen.queryByTestId('legend-metric-est.')).toBeNull()
+    expect(screen.getByTestId('legend-card-mark-source-olumi')).toHaveTextContent('est.')
     expect(noFactor).toContain(THICKNESS_SENTINEL)
     cleanup()
   })

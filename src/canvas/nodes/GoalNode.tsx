@@ -1,9 +1,11 @@
+import { BottomCardMark, CardMarkShape } from './shared/CardMark'
+import { cardMark } from './shared/cardMarks'
 /**
  * Goal node component — v3 wireframe
  *
  * Layer 1 (always visible):
  *  - No threshold (either phase): one compact "Target not captured" status chip
- *    that opens this node's inspector. R5/L-47: no instructional prose, no full
+ *    that opens the shared target editor on the canvas. R5/L-47: no instructional prose, no full
  *    buttons on the node. (It read "Target not captured — add one" until #1172
  *    round 3 withdrew the repair clause; see the chip's own block below for
  *    why the destination could not keep that promise.)
@@ -26,7 +28,7 @@
  *
  * No ExpertOverlay. No MetricPills.
  */
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { goalPeriodHorizonLine } from '../domain/goalPeriodHorizon'
 import Tooltip from '../../components/Tooltip'
 import {
@@ -70,6 +72,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
@@ -419,6 +422,7 @@ export function goalNoTargetChannels({
 }
 
 export const GoalNode = memo((props: NodeProps) => {
+  const [targetEditorAnchor, setTargetEditorAnchor] = useState<HTMLButtonElement | null>(null)
   const metadata = NODE_REGISTRY.goal
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
@@ -966,9 +970,8 @@ export const GoalNode = memo((props: NodeProps) => {
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a
   // "Help me set a target" chip — a billboard on the canvas. Both no-target
-  // branches now render one compact status chip that OPENS THIS NODE'S
-  // INSPECTOR, where setting a target actually happens. The explanation moves
-  // to the chip's tooltip and to the inspector; the canvas keeps the signal.
+  // branches render one compact status chip. Pressing it opens the shared
+  // target door directly on the canvas; the explanation stays in its editor.
   //
   // A <button>, not a chip-shaped div: click, tap, Tab and Enter/Space all
   // work with no key handling of our own (hover/click/keyboard parity, ruled).
@@ -1010,9 +1013,9 @@ export const GoalNode = memo((props: NodeProps) => {
       ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
       : null
   const noTargetStatusChip = (
-    <button
+    <BottomCardMark><Tooltip asChild content={`${GOAL_NO_TARGET_STATE} · Set a target`}><span className="inline-flex"><button
       type="button"
-      onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
+      onClick={(e) => { e.stopPropagation(); setTargetEditorAnchor(e.currentTarget) }}
       onPointerDown={(e) => e.stopPropagation()}
       // ⭐ TWO MEASURED FAILURES IN ONE CONTROL, both fixed here — and the
       // first fix RE-DECIDED under contract v3.1 (ANC-06 / PILL-04).
@@ -1043,12 +1046,14 @@ export const GoalNode = memo((props: NodeProps) => {
       className={`nodrag relative ${GOAL_STATE_WORD_CLASSES} before:absolute before:-inset-[3px] before:content-[''] hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       style={GOAL_STATE_WORD_STYLE}
       aria-label={noTargetChannels['aria-label']}
+      aria-haspopup="dialog"
+      aria-expanded={targetEditorAnchor !== null}
       title={noTargetChannels.title}
       data-testid="goal-node-no-target-chip"
       data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
-      {noTargetChannels.visible}
-    </button>
+      <span data-testid={`goal-target-status-${props.id}`} data-card-mark="target-not-captured" role="img" aria-label={GOAL_NO_TARGET_STATE}><CardMarkShape mark={cardMark('target-not-captured')} /></span>
+    </button></span></Tooltip></BottomCardMark>
   )
 
   const goalCoaching = useMemo(
@@ -1300,6 +1305,10 @@ export const GoalNode = memo((props: NodeProps) => {
 
         {showLayer2Inline && layer2Content}
       </BaseNode>
+
+      {canCaptureTarget && !goalOwnRowIsTheTarget && targetEditorAnchor !== null && (
+        <GoalTargetPopover goalNodeId={props.id} anchor={targetEditorAnchor} onClose={() => setTargetEditorAnchor(null)} />
+      )}
 
       {/* Layer 2: popover in Standard view (only for goals with threshold, post-analysis) */}
       {!isDetailed && showPopoverTrigger && (

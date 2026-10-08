@@ -79,7 +79,7 @@ describe('the glance: a two-marker figure per option, plain words, no figures by
     mount(runChangeDelta())
     expect(within(optionRow('opt_60')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'solid')
     expect(within(optionRow('opt_49')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'dashed')
-    expect(optionRow('opt_49')).toHaveTextContent('Scored lower than last time. Too small to tell apart from ordinary run-to-run movement.')
+    expect(optionRow('opt_49')).toHaveTextContent('Scored lower than last time. Too small to tell apart from ordinary run-to-run variation.')
   })
 
   it('⛔ draws NO figure when the size is not qualified — the picture may not show what the words withhold (control: a qualified row in the same render keeps its figure)', () => {
@@ -198,13 +198,16 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
   it('leads with the two endpoints, then the headline, then the reading note ABOVE the figures it says "below" about (v3 artefact)', () => {
     mount(runChangeDelta())
     const times = screen.getByTestId('compare-run-times')
-    const heading = screen.getByRole('heading')
+    // The RESULT heading (the inputs section has its own heading, Compare v3 rows).
+    const heading = within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading')
     const note = screen.getByTestId('compare-comparability')
     const figures = screen.getByTestId(COMPARE_SUPPORT_TESTID)
     const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
     expect(follows(times, heading)).toBe(true)
     expect(follows(heading, note)).toBe(true)
     expect(follows(note, figures)).toBe(true)
+    // The panel's one note style: the reading note carries its ⓘ, like the inputs section's coverage note.
+    expect(note.querySelector('svg[class*="lucide-info"]')).not.toBeNull()
     expect(times.querySelectorAll('[data-run-id]')[0]).toHaveTextContent(/^Earlier/)
     expect(times.querySelectorAll('[data-run-id]')[1]).toHaveTextContent(/^Latest/)
     // The static legend names the same two endpoints, in the same words.

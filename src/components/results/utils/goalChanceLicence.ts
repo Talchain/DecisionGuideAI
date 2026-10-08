@@ -105,6 +105,55 @@ export interface GoalChanceLicence {
   readonly driverByOption?: Readonly<Record<string, GoalChanceDriver>>
   /** CEE's deadline clause, present only with a well-formed horizon claim. */
   readonly horizonLine?: string | null
+  /**
+   * ⭐ Science 393023 (1), CEE #2775: the quoted options whose chance comes from a wider spread while their typical result
+   * falls short (CEE `spread_note_by_option`, decided on the threshold the Run sent, with the reversal half). The UI only
+   * words it, after that option's chance. Read only on `each`, only on a quoted option, only as one of CEE's two exact
+   * sentences; one malformed entry silences the whole Run, as in CEE. Absent or empty when CEE wrote none.
+   */
+  readonly spreadNoteOptionIds?: readonly string[]
+  /**
+   * ⭐ Science 393023 B19, CEE #2787: each quoted option's goal-relative shortfall sentence (`shortfall_note_by_option`),
+   * read only on `each`, only on a quoted option, only as one of CEE's two exact templates; one malformed entry silences
+   * the Run, as in CEE. The card says CEE's string verbatim and never formats a downside figure itself.
+   */
+  readonly shortfallNoteByOption?: Readonly<Record<string, string>>
+}
+
+/** CEE `goal-chance-licence.ts` SPREAD_NOTE_WITH_DOWNSIDE / _WITHOUT_DOWNSIDE, byte for byte: the only notes read. */
+const CEE_SPREAD_NOTES: ReadonlySet<string> = new Set([
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also widens how far short it could fall (see its downside).',
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.',
+])
+
+function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): string[] {
+  if (form !== 'each' || !isRec(v)) return []
+  const entries = Object.entries(v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && typeof note === 'string' && CEE_SPREAD_NOTES.has(note))) return []
+  return quotedIds.filter((id) => id in v)
+}
+
+/** CEE `goal-chance-licence.ts` SHORTFALL_TEMPLATE / TYPICAL_SHORTFALL_TEMPLATE; group 1 is the option's label. */
+const CEE_SHORTFALL_NOTES: readonly RegExp[] = [
+  /^In its worst 1 in 20 runs of this model, ‘([^\r\n]+)’ falls short of your target by [^\r\n]+ or more\.$/,
+  /^In this model, ‘([^\r\n]+)’ falls short of your target in almost every run, typically by about [^\r\n]+\.$/,
+]
+
+/** The option label CEE's shortfall sentence names, or `null` when the text is not one of its two templates. */
+export function shortfallNoteLabel(note: unknown): string | null {
+  if (typeof note !== 'string') return null
+  for (const pattern of CEE_SHORTFALL_NOTES) {
+    const m = pattern.exec(note)
+    if (m !== null) return m[1]
+  }
+  return null
+}
+
+function shortfallNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): Record<string, string> {
+  if (form !== 'each' || !isRec(v)) return {}
+  const entries = Object.entries(v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && shortfallNoteLabel(note) !== null)) return {}
+  return Object.fromEntries(entries) as Record<string, string>
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -166,6 +215,8 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
     horizonLine: readGoalChanceHorizonLine(r),
+    spreadNoteOptionIds: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
+    shortfallNoteByOption: shortfallNotesOf(r.shortfall_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
   }
 }
 

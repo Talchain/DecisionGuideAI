@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8177
+src/canvas/store.ts:8201
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -193,9 +193,13 @@ src/types/constraints.ts:78
 #    `topFigurePercent === 100` line; 100 copy lines were added above it. Scanner added/gone = exactly this pair.
 # 6 Oct 2026 (D3 #2550, the unsized-path withhold's first ask): re-lined 2730 → 2771, the same `topFigurePercent === 100`
 #    line; 41 lines (`unsizedPathAskOf` + its docblock, and one type import) were added above it. Scanner added/gone = exactly this pair.
+# 6 Oct 2026 (D3, RT-19 fx1: the withhold's own links named when it typed no ask): re-lined 2771 → 2786, the same
+#    `topFigurePercent === 100` line; 15 lines (`withheldLinkOf` + its docblock, and the no-ask reroute) were added above it.
 # 6 Oct 2026 (D3 near tie, the target warning's typed ask): re-lined 2771 → 2787, the same `topFigurePercent === 100`
 #    line; 16 lines (`targetLinkAskOf` + its docblock, and the one-line reroute in `unsizedPathAskOf`) were added above it.
-src/components/results/analysisNew/analysisNewCopy.ts:2787
+# 7 Oct 2026 (P39 carrier, #2561 merged with staging: both `withheldLinkOf` and `targetLinkAskOf` above it): re-lined → 2802,
+#    the same `topFigurePercent === 100` line, derived with the scanner. Scanner added/gone = exactly this key.
+src/components/results/analysisNew/analysisNewCopy.ts:2802
 # 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`

@@ -1,4 +1,6 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
+import { askAiStage } from './askAi'
+import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
  *
@@ -147,6 +149,7 @@ import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
+import { readAgentTurnReceipts } from '../undo/captureAgentTurnForUndo'
 import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
@@ -225,6 +228,9 @@ import {
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
+import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
+import { readActionBar } from './actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from './actionBar/actionBarStore'
 import { readProposalPreview } from './proposalPreview'
 import { readRecordedServerTurnId } from './serverTurnId'
 import {
@@ -6078,9 +6084,19 @@ export function useConversation(): UseConversationReturn {
           // The note owner excludes proposal attribution (applied_from) and confirmations.
           if (systemEvent && activeV5TurnIdRef.current === turnClientId) {
             const landed = useCanvasStore.getState()
+            const stage = askAiStage(landed)
             reportManualEditReceipt({ revision: editNoteRevision, event: systemEvent, response: target.response,
               before: { nodes: editNoteBefore.nodes, edges: editNoteBefore.edges, options: editNoteBefore.ceeAnalysisReady?.options },
-              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options } })
+              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options, goal_constraints: landed.goalConstraints },
+              // The Run the user can see. Its key is the run's own response hash (`results.hash`), else the v5 fact's;
+              // notes also clear on every Run (`clearPendingEditNotes`), so "first edit since that Run" re-arms.
+              lastRun: { visible: stage === 'ran-current' || stage === 'stale',
+                runId: landed.results?.hash ?? landed.v5AnalysisFact?.analysisHash ?? 'visible-run',
+                report: landed.results?.report,
+                fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
+                turningPoints: selectTurningPoints(landed.results?.report),
+                goalConstraints: landed.goalConstraints,
+              } })
           }
 
           const mappedBlocks =
@@ -6225,6 +6241,15 @@ export function useConversation(): UseConversationReturn {
           // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
           const narration = readNarration(target.response)
           const guidance = readGuidance(target.response)
+          // Additive wire fields may live in the parser sidecar until the turn schema declares them.
+          const scienceResponse = target.response as OlumiResponseWithExtensions & { _action?: unknown }
+          const action = scienceResponse._action ?? scienceResponse[ADDITIVE_EXTENSIONS_KEY]?._action
+          const actionScience = DskClaimProvenanceSchema.safeParse(
+            action !== null && typeof action === 'object' ? (action as Record<string, unknown>).science : undefined,
+          )
+          // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
+          // is drawn (the surfaces keep the controls they had).
+          useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration)) {
             latestRunKeyRef.current = narration.runKey
@@ -6243,8 +6268,10 @@ export function useConversation(): UseConversationReturn {
             proposalFields: readTurnProposalFields(target.response),
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
+            ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
+            ...(actionScience.success ? { actionScience: actionScience.data } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),
             ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),

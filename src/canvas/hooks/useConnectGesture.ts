@@ -52,6 +52,7 @@ import {
 } from '../validation/graphGuardrails'
 import { SHARED_MODEL_AUTHORITY_COPY } from '../mutations/mutationAuthority'
 import { openStrengthForNewCanvasOnlyLink } from '../utils/openEdgeStrengthEditor'
+import { proposeForDrawnLink } from '../conversation/drawnLinkProposal'
 import { isRefusedQuestionLink } from '../domain/questionLink'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
@@ -110,6 +111,9 @@ export function useConnectGesture({
       if (edge) reportManualEdit({ edit: { kind: 'structural_add_edge', elementId: edge.id, accepted: true },
         before: { nodes: landed.nodes, edges: landed.edges.filter(e => e.id !== edge.id) }, after: landed })
       openStrengthForNewCanvasOnlyLink(connection.source, connection.target)
+      // Item 3 (Paul 7 Oct): the link has no strength yet, so Olumi proposes one (direction, band, one reason) as a card
+      // the user accepts, changes or declines. The editor above still opens: the user's own figure always wins.
+      if (edge) proposeForDrawnLink(edge.id)
     },
     [showToast],
   )

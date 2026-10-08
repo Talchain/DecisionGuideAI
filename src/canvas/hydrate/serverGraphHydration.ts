@@ -25,6 +25,8 @@ import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
 import { readServerConversationTurns } from '../conversation/serverConversationTurns'
+import { parseActionBar } from '../conversation/actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from '../conversation/actionBar/actionBarStore'
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
@@ -48,6 +50,7 @@ import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { adoptChangedSinceRun } from '../changes/changedSinceRun'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -331,6 +334,12 @@ async function readAndMergeServerGraph(
 
   // ⭐ THE CHAT SURVIVES A RELOAD — offer the stored chat to the panel (it takes it only when empty with no local
   // transcript). The stale line keys on the SAME read verdict the held-Run drop uses, before any merge moves it.
+  // ⭐ S-B slice 1: the action bar CEE re-derived for THIS read's state, so a reload shows the bar the last answer
+  // showed when nothing changed, and a fresh one after an edit. A read that carries none leaves a live turn's bar alone;
+  // a bar is taken only from the scenario the read answered for.
+  if (result.scenarioId === scenarioId && result.actionBar !== undefined) {
+    useActionBarStore.getState().setBar(scenarioId, parseActionBar(result.actionBar, reportActionBarIssue))
+  }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
     const runState = result.analysisState?.run_state
@@ -346,6 +355,12 @@ async function readAndMergeServerGraph(
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
       },
     })
+  }
+
+  // ⭐ P48 (audit #27): what changed since the last Run, as CEE says it, held for the "Since the last run" cue.
+  // Only on the conversation read (the key's opt-in), and only for the scenario the payload came back for.
+  if (opts.includeConversationTurns === true && result.scenarioId === scenarioId) {
+    adoptChangedSinceRun(scenarioId, result.changedSinceRun)
   }
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────

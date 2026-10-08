@@ -48,6 +48,13 @@ const rebuild = (s: { lead: string; questions: string; after: string }) =>
 const HELD_AS_CONTEXT =
   'No option changes Feature-release value, so I held it as fixed context rather than a lever — tell me if one of the options should change it.'
 
+/** P47: the panel opens on ONE question; 'Show 3 more', then 'View all', reveal the rest. */
+function revealAll() {
+  for (let i = 0; i < 3 && screen.queryByTestId('message-open-questions-more'); i++) {
+    fireEvent.click(screen.getByTestId('message-open-questions-more'))
+  }
+}
+
 function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
   return {
     id: 'msg-open-questions',
@@ -257,9 +264,10 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
     expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
   })
 
-  it('RED (served): opening the panel shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
+  it('RED (served): opening the panel then "View all" shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
     render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
     fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    revealAll()
     const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
     expect(items).toEqual(LIST)
     expect(screen.getByTestId('message-open-questions').textContent).not.toMatch(/Ask me for the other/)
@@ -311,6 +319,7 @@ describe('open questions on a structured (answer-shape) reply', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(toggle.textContent).toContain(`${LIST.length} questions this model does not answer yet`)
     fireEvent.click(toggle)
+    revealAll()
     const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
     expect(items).toEqual(LIST)
   })
@@ -331,3 +340,52 @@ describe('open questions on a structured (answer-shape) reply', () => {
   })
 })
 
+
+/**
+ * P47 slice 1 (audit #12/#13): Show 1 → 'Show 3 more' → 'View all', and each question is a press that takes it up with
+ * Olumi (the existing chip send route). Producer order; no typed action until CEE declares one.
+ */
+describe('P47: one question first, then 3 more, then all; each question can be taken up in one press', () => {
+  const LIST = served2054.open_questions
+  const items = () => [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
+
+  it('opens on the first question only, then 4, then all 13, in the producer\'s order', () => {
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(items()).toEqual(LIST.slice(0, 1))
+    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('Show 3 more')
+    fireEvent.click(screen.getByTestId('message-open-questions-more'))
+    expect(items()).toEqual(LIST.slice(0, 4))
+    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('View all')
+    fireEvent.click(screen.getByTestId('message-open-questions-more'))
+    expect(items()).toEqual(LIST)
+    expect(screen.queryByTestId('message-open-questions-more')).toBeNull()
+  })
+
+  it('a list of 3 goes straight from 1 to all ("View all"); a list of 1 has no more-button', () => {
+    const { unmount } = render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST.slice(0, 3) })} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('View all')
+    unmount()
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST.slice(0, 1) })} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(items()).toEqual(LIST.slice(0, 1))
+    expect(screen.queryByTestId('message-open-questions-more')).toBeNull()
+  })
+
+  it('pressing a question sends ITS words, once; CONTRAST: with no send route it is plain text, not a dead button', () => {
+    const sent: string[] = []
+    const { unmount } = render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} onArtefactMessage={(t) => sent.push(t)} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    fireEvent.click(screen.getByTestId('message-open-questions-more'))
+    const presses = screen.getAllByTestId('message-open-question-discuss')
+    expect(presses).toHaveLength(4)
+    fireEvent.click(presses[2])
+    expect(sent).toEqual([LIST[2]])
+    unmount()
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(screen.queryByTestId('message-open-question-discuss')).toBeNull()
+    expect(items()).toEqual(LIST.slice(0, 1))
+  })
+})

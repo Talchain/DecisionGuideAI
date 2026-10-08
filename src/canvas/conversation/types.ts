@@ -25,6 +25,8 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Ephemeral live Agent-turn association with its undo journal gesture; never restored from a thread. */
+  undoTurnId?: string
   /** Recorded server echo on a live answer; only the transcript serializer promotes it to a restored association. */
   pendingServerTurnId?: string
   /** Deserialised server answer association; only a fresh server read authorises restored next steps. */
@@ -64,6 +66,8 @@ export interface ConversationMessage {
   narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
   /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
   guidance?: import('./guidanceRows').TurnGuidance
+  /** Validated decision-science claim receipt on this live action reply. */
+  actionScience?: V5DskClaimProvenance
   /**
    * Suggestion preview (`proposal_preview`, proposalPreview.ts): the proposal this turn offers on its consent chip,
    * as a display projection the canvas draws as a ghost. NOT persisted (transcriptStore keeps no chips and no preview),

@@ -76,7 +76,7 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { OptionNode } from '../OptionNode'
 import { optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
-import { VALUE_SOURCE_MARK_TOKEN, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../shared/valueSourceMark'
+import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { changeRowValueText } from './__helpers__/optionChangeRowText'
 import pricingStarter from '../../starters/data/pricing-model.draft.json'
@@ -164,7 +164,8 @@ function rowParts(container: HTMLElement, factorId: string) {
   const dd = q('option-change-row')
   const value = q('option-change-row-value')
   const mark = q('option-change-row-mark')
-  const source = q('option-change-row-source') ?? q('option-change-row-estimate')
+  const band = container.querySelector<HTMLElement>(`[data-testid="option-bottom-marks-${OPTION}"]`)!
+  const source = band.querySelector<HTMLElement>(`[data-testid="option-change-row-source-${OPTION}-${factorId}"]`) ?? band.querySelector<HTMLElement>(`[data-testid="option-change-row-estimate-${OPTION}-${factorId}"]`)
   expect(line, `row line ${factorId}`).not.toBeNull()
   expect(dd, `row amount ${factorId}`).not.toBeNull()
   expect(value, `row value ${factorId}`).not.toBeNull()
@@ -202,11 +203,14 @@ describe('audit #9 — the fixture is the served opt_hybrid card', () => {
   })
 })
 
-describe('audit #9 — the source mark sits on the value line', () => {
+describe('slice A — source marks move to the bottom band; value rows retain their geometry', () => {
   for (const r of ON_CARD_ROWS) {
-    it(`${r.factorId}: the only thing between "${r.value}" and its mark is one no-break space`, () => {
+    it(`${r.factorId}: the value row retains its no-break space and its source is in the bottom band`, () => {
       const { container } = renderHybrid()
-      const { dd, value, mark } = rowParts(container, r.factorId)
+      const { dd, value, mark, source } = rowParts(container, r.factorId)
+      expect(mark.contains(source)).toBe(false)
+      expect(source.closest(`[data-testid="option-bottom-marks-${OPTION}"]`)).not.toBeNull()
+      expect(source.querySelector(".lucide-file-text")).not.toBeNull()
       // Same amount cell, value first, mark after.
       expect(value.parentElement).toBe(dd)
       expect(mark.parentElement).toBe(dd)
@@ -224,20 +228,15 @@ describe('audit #9 — the source mark sits on the value line', () => {
       expect(strays.length, 'a breakable space between the value and its mark').toBe(0)
     })
 
-    it(`${r.factorId}: gluing the mark never makes an unbreakable run wider than the row budget`, () => {
-      const { value, source } = rowParts(container_(), r.factorId)
-      const kind = source.getAttribute('data-value-source') as ValueSourceMarkKind
-      // RE-PINNED 27 Sep (side-by-side DIFF item 1): no `·` separator any more
-      // (the contract row reads `£49 → £59 brief`) — the glue, then the token.
-      const suffix = ` ${VALUE_SOURCE_MARK_TOKEN[kind]}`
+    it(`${r.factorId}: moving the mark leaves value runs within the row budget`, () => {
+      const { value } = rowParts(container_(), r.factorId)
       const valueText = (value.textContent ?? '').replace(/\s+/g, ' ').trim()
-      // Every no-wrap run whose text ENDS the value now carries the mark too, so
-      // it must fit one line of the row budget WITH the mark (#2119's rule).
+      // The value retains its original row budget after the source moves below.
       const runs = [value, ...value.querySelectorAll<HTMLElement>('*')]
         .filter(el => tokens(el).has('whitespace-nowrap'))
         .filter(el => valueText.endsWith((el.textContent ?? '').replace(/\s+/g, ' ').trim()))
       for (const run of runs) {
-        const glued = `${(run.textContent ?? '').replace(/\s+/g, ' ').trim()}${suffix}`
+        const glued = `${(run.textContent ?? '').replace(/\s+/g, ' ').trim()}`
         expect(optionAmountSegmentNoWrap(glued), `"${glued}" is held on one line but does not fit the row`).toBe(true)
       }
     })

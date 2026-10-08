@@ -58,7 +58,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(screen.getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(1)
     // The details row follows the inputs: the last thing in the body.
     const details = screen.getByTestId('compare-result-details')
-    expect(section('What you changed').compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(section('What changed in the model').compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('reads each section from the licensed producer pair and ignores current graph values and unrelated result prose', () => {
@@ -72,8 +72,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Earlier')
     expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest')
     expect([...runTimes().querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
-    expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
+    expect(section('What changed in the model')).toHaveTextContent('Pro price, Raise to £60')
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(container.textContent).not.toMatch(/POISON|999999/)
     expect(globalThis.fetch).not.toHaveBeenCalled()
@@ -130,13 +130,13 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/)).toBeNull()
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
     expect(screen.queryByText(/%/)).toBeNull()
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
   })
 
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
     expect(section('What changed between runs')).toHaveTextContent('In this model, the option the most runs supported changed from Keep £49 to Raise to £60')
-    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
+    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run variation.')
     // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
     expect(screen.queryByText(/too close to call/i)).toBeNull()
   })
@@ -152,7 +152,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(runTimes()).toHaveTextContent('Earlier time not recorded')
     expect(runTimes()).toHaveTextContent('Latest time not recorded')
     expect(runTimes().querySelector('time')).toBeNull()
-    expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
+    expect(section('What changed in the model')).toHaveTextContent('Input changes were not recorded for this pair.')
     expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
     expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()
     expect(screen.queryByText('Both runs used the same input values.')).toBeNull()
@@ -161,7 +161,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('keeps business quantities visible and hides science numerics until result disclosure', () => {
     mount()
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
@@ -204,7 +204,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const nodes = useCanvasStore.getState().nodes
     useCanvasStore.setState({ nodes: [{ ...nodes[0], id: 'decoy' }, ...nodes] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
+    const button = within(section('What changed in the model')).getByTestId('analysis-new-whats-changed-input-row-focus')
     expect(button).toHaveAccessibleName('Show on the canvas: Pro price, Raise to £60: £59 → £60')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' }, { route: true })
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' })
@@ -224,10 +224,10 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('keeps every producer input reachable in order beyond the two-row preview', () => {
     const delta = runChangeDelta()
     mount(runChangeDelta({ input_changes: [delta.input_changes![0], { ...delta.input_changes![0], option_id: 'opt_49' }, { ...delta.input_changes![0], entity_id: 'other', label_after: 'Another input', option_id: 'opt_49' }] }))
-    expect(within(section('What you changed')).queryByText(/Another input/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'See all 3 changes' }))
-    expect(within(section('What you changed')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
-    expect(within(section('What you changed')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
+    expect(within(section('What changed in the model')).queryByText(/Another input/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'See all 3 recorded changes' }))
+    expect(within(section('What changed in the model')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
+    expect(within(section('What changed in the model')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
   })
 
 
@@ -235,7 +235,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const hash = seed(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     useCanvasStore.setState({ edges: [{ id: 'wrong-edge', source: 'fac_price', target: 'opt_49' }, { id: 'actual-edge', source: 'fac_price', target: 'opt_60' }] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
+    const button = within(section('What changed in the model')).getByTestId('analysis-new-whats-changed-input-row-focus')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'edge', id: 'actual-edge' }, { route: false })
     fireEvent.mouseEnter(button)
     expect(lightOn).toHaveBeenLastCalledWith(expect.objectContaining({ target: { kind: 'edge', id: 'actual-edge' } }))
@@ -247,8 +247,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('shows science input bands in plain words and never fabricates an exact value absent from the wire', () => {
     mount(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     // The shared link wording (`linkRowText`), the same sentence every surface prints.
-    expect(section('What you changed')).toHaveTextContent('moderate → strong')
-    expect(section('What you changed')).not.toHaveTextContent('0.5')
+    expect(section('What changed in the model')).toHaveTextContent('moderate → strong')
+    expect(section('What changed in the model')).not.toHaveTextContent('0.5')
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('0.5')
   })
@@ -258,12 +258,14 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Reasoning's inner measure (AnalysisNewTabBody), owned by the body (`padding: 'self'`).
     expect(screen.getByTestId('compare-run-pair').className).toBe('px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto')
     // Sections are divided by the shared full-width rule, never boxed.
-    expect(section('What you changed').className).toBe(PANEL_RULE)
-    // The one headline uses Reasoning's section heading style; it is the only heading in the body.
+    expect(section('What changed in the model').className).toBe(PANEL_RULE)
+    // The headline uses Reasoning's section heading style. Since Compare v3 the inputs section has its own heading, in
+    // the same style; those two are the only headings in the body.
     const heading = screen.getByRole('heading', { name: 'The latest run names no option' })
     expect(heading.className).toContain('text-sm font-medium')
     expect(heading.className).toContain('text-text-header')
-    expect(screen.getAllByRole('heading')).toHaveLength(1)
+    expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual(['The latest run names no option', 'What changed in the model'])
+    expect(screen.getAllByRole('heading')[1].className).toContain('text-sm font-medium')
     // CommitmentSummary's ✦: the shared PanelIconButton carrying the Olumi AI mark, beside the headline.
     const ask = screen.getByRole('button', { name: 'Ask Olumi about this comparison' })
     expect(ask).toHaveAttribute('data-ai', 'true')

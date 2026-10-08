@@ -22,7 +22,8 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoachingMarker'
+import { BottomCardMark, BottomMarksBand, BottomMarksProvider, useBottomBandHasMarks } from './shared/CardMark'
+import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
@@ -338,7 +339,7 @@ const CARD_MUTED_TOKEN_STYLE = {
   '--text-light': 'rgb(102 103 98)',
 } as CSSProperties
 
-/** The anchor's bottom padding (contract `.node.wide{padding:11px 13px 9px}`). */
+/** The anchor's bottom padding when its band holds no mark (contract `.node.wide{padding:11px 13px 9px}`). */
 const ANCHOR_PAD_BOTTOM_PX = 9
 
 /**
@@ -383,8 +384,10 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
+  // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
+  const anchorBandHasMarks = useBottomBandHasMarks()
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
    * actually carry constraints are not the one this started on.
@@ -674,8 +677,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * there are none: the reserve follows the MARK, so a rung that hides the
    * coaching glyph gives its width back.
    */
-  const coachingMarkShown = useNodeCoachingMarkerShown(id)
-  const cornerMarkCount = (attentionText !== null ? 1 : 0) + (coachingMarkShown ? 1 : 0)
+  // Information marks occupy the bottom band; the title reserves no corner width.
+  const cornerMarkCount = 0
 
   /**
    * The ONE line a node still says when it is too small to say anything else.
@@ -1540,14 +1543,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
     const actionsAtRung = normal ? !isCausalLens && !isEvidenceLens : showQuickActions
-    // ⭐ WS1 #16: an anchor never reserves the band or a whole-card right strip —
-    // its rail's footprint is on the BODY (`anchorBodyRailStyle`), identical at
-    // both rungs, so the layout measurer reads one box for it.
+    // Each full card reserves the existing bottom band for information marks.
+    // The action rail retains its own footprint and position.
     const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
+    const band = padAdj === 0
+      ? NODE_QUICK_ACTION_BAND_CSS
+      : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
     if (bandReservedAtRung) {
-      const band = padAdj === 0
-        ? NODE_QUICK_ACTION_BAND_CSS
-        : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
       return { paddingTop: side, paddingRight: side, paddingBottom: band, paddingLeft: side }
     }
     // ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): the legacy 24px band that
@@ -1556,16 +1558,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // cost ~12 units on every factor and option row at the landing floor. ED's
     // "fixed fit-safe box" resolves the rowed question below ("drop the
     // reservation below the floor, or keep one uniform card box").
-    // ⭐ S5 (24 Sep): an anchor keeps its `11 / 9` vertical rhythm at EVERY rung,
-    // rail beside or not. It used to fall back to 12 / 12 wherever the rail was
-    // not beside it — below the legibility floor, where the layout reserves the
-    // landing height — so the Question and Goal drew TALLER below the floor than
-    // anywhere above it (Canvas Browser Gate `heightVsZoom`, build-vs-buy
-    // 1280×800: decision 126 → 132, goal 131 → 134).
-    // Contract `.node.wide{padding:11px 13px 9px}` — 13px sides on the Question
-    // and Goal (they were 12, so every anchor row sat 1px left of the design).
+    // #2649 r3 band overlap (DL 8 Oct): an anchor reserves the marks band row ONLY when its band holds a mark, at
+    // every rung (one box above and below the legibility floor, so `heightVsZoom` gains no rung-dependent height).
+    // Without marks it keeps the contract's `.node.wide{padding:11px 13px 9px}`.
     if (isAnchorCard) {
-      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: '9px', paddingLeft: px(13) }
+      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: anchorBandHasMarks ? band : `${ANCHOR_PAD_BOTTOM_PX}px`, paddingLeft: px(13) }
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
@@ -2123,7 +2120,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
-      {runChangeMark !== null ? <RunChangeBadge mark={runChangeMark} nodeId={id} /> : null}
+      <BottomMarksBand nodeId={id} nodeType={nodeType} hidden={lodBodyHidden} style={{ right: `calc(${anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))}px * var(--canvas-glyph-scale, 1) + ${CANVAS_QUICK_ACTION_INSET_PX}px)` }} />
+      {runChangeMark !== null ? <BottomCardMark><span className="[&>*]:static"><RunChangeBadge mark={runChangeMark} nodeId={id} /></span></BottomCardMark> : null}
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
@@ -2165,7 +2163,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
-        <div
+        <BottomCardMark><div
           /* ⭐ NEUTRAL RING, NOT AMBER (contract v3.1 ICON-10). This is the
              USER's own annotation; amber on the canvas means an AI sign
              disagreement (Paul pt 9), and the edge's twin of this badge already
@@ -2173,7 +2171,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              user annotation"). The words carry it: role + accessible name. The
              box stays unscaled on purpose — at `-top-2 -left-2` a counter-scaled
              box would push into the title. */
-          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-panel-border shadow-1"
+          className="flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-panel-border shadow-1"
           title="Flagged as assumption"
           /* Paul 23 Sep contract feedback point 12: an icon needs a name a
              screen reader can read, not a `title` alone — the same pattern as
@@ -2181,9 +2179,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           role="img"
           aria-label="Flagged as assumption"
           data-testid="assumption-badge"
+          data-card-mark="flagged-assumption"
         >
           <FlagIcon size={12} aria-hidden="true" className="text-text-body" />
-        </div>
+        </div></BottomCardMark>
       )}
 
       {/* Connection handles */}
@@ -2437,7 +2436,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             ⭐ ITS SLOT NOW HOLDS THE ONE "WORTH REVIEWING" CUE (spec §2), an
             info-tinted ring — never the warning family (ED 02:31Z D1b) — with
             its reasons in a focusable tooltip and as its accessible name. */}
-        {attentionText !== null && <NodeAttentionMarker nodeId={id} sentence={attentionText} />}
+        {attentionText !== null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
 
         {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
             the per-card amber "edited since run" dot is REMOVED. It duplicated
@@ -2456,7 +2455,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             names this node (target_object.id). Replaces the permanently-empty
             CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
             surface the inspector uses. */}
-        <NodeCoachingMarker nodeId={id} />
+        <BottomCardMark><NodeCoachingMarker nodeId={id} /></BottomCardMark>
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.
@@ -2789,12 +2788,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             apart on spacing. The testid exists so the guard binds to THIS group
             by identity rather than by walking up from a mark (trap 19). */}
         {!isCausalLens && !isEvidenceLens && (
-          <span
+          <BottomCardMark><span
             data-testid="node-provenance-mark-group"
-            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+            className="inline-flex items-center gap-1 shrink-0"
           >
             <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
-          </span>
+          </span></BottomCardMark>
         )}
 
         {/*
@@ -2847,12 +2846,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             so the question each guard asks stays attached to its own object,
             and a future shared class cannot silently re-point either one. */}
         {headerSlot && !isCausalLens && !isEvidenceLens && (
-          <span
+          <BottomCardMark><span
             data-testid="node-header-slot-group"
             className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
           >
             {headerSlot as ReactNode}
-          </span>
+          </span></BottomCardMark>
         )}
 
         {/* Expand/collapse chevron for nodes with description */}
@@ -2936,9 +2935,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               them against the three badges that follow, which is what keeps those
               at their existing distance from the corner and the coaching marker
               rightmost. See the `cornerSlot` prop. */}
-          {cornerSlot}
+          <BottomCardMark>{cornerSlot}</BottomCardMark>
 
-          {statePill}
+          <BottomCardMark>{statePill}</BottomCardMark>
         </div>
       )}
 
@@ -3172,4 +3171,5 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   )
 })
 
+export const BaseNode = memo((props: BaseNodeProps) => <BottomMarksProvider><BaseNodeCard {...props} /></BottomMarksProvider>)
 BaseNode.displayName = 'BaseNode'

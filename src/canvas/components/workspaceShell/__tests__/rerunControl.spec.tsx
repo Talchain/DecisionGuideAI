@@ -3,14 +3,14 @@
  *
  * (1) The bar predicate moved out of `ReanalyseBar` VERBATIM: the full truth table over its three inputs, so the move
  *     cannot have widened or narrowed when the bar shows.
- * (2) The shell's choice is exactly one of bar / composer after the first Run, and none before it.
+ * (2) The shell's choice is exactly one of bar / composer after the first Run, and readiness / none before it.
  * (3) The chip side, on the real `SuggestedChips`: a host whose shell owns rerun drops the run chip after the first
- *     Run; a host that does not (the floating panel) keeps it as its only rerun control; before the first Run nothing
- *     changes. Non-run chips are never touched.
+ *     Run; a host that does not (the floating panel) keeps it as its only rerun control; before the first Run the chip
+ *     yields to the readiness Analyse only when it is shown. Non-run chips are never touched.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { reanalyseBarShows, shellRerunControl, hostRerunControl, chatRunChipStandsAside, dockSurfaceShowsRerun } from '../rerunControl'
+import { reanalyseBarShows, shellRerunControl, hostRerunControl, chatRunChipStandsAside, dockSurfaceShowsRerun, readinessBarShowsAnalyse } from '../rerunControl'
 import { SuggestedChips } from '../../../conversation/zones/SuggestedChips'
 import { useCanvasStore } from '../../../store'
 import type { FreshnessDisplaySemantic } from '../../../store/analysisFreshness'
@@ -52,7 +52,7 @@ describe('shellRerunControl: exactly one control after the first Run', () => {
   it('cannot confirm WITHOUT a hold → the bar is null, so the composer icon (never zero controls)', () => {
     expect(shellRerunControl({ semantic: 'cannot_confirm', importHold: false, hasCompletedFirstRun: true })).toBe('composer')
   })
-  it('no Run yet → none (a run control is not a rerun; pre-run controls are untouched)', () => {
+  it('no Run yet → none (a run control is not a rerun; no readiness button is offered)', () => {
     expect(shellRerunControl({ semantic: 'changed', importHold: false, hasCompletedFirstRun: false })).toBe('none')
   })
 })
@@ -75,10 +75,27 @@ describe('hostRerunControl: one control per chat host', () => {
     expect(hostRerunControl('floating-beside-dock', changed)).toBe('elsewhere')
     expect(chatRunChipStandsAside(hostRerunControl('floating-beside-dock', current))).toBe(true)
   })
-  it('before the first Run every host answers none and the chip (a run control then) stays', () => {
-    for (const host of ['docked', 'floating', 'floating-beside-dock'] as const) {
-      expect(chatRunChipStandsAside(hostRerunControl(host, preRun))).toBe(false)
-    }
+  it('pre-run: dock readiness owns the run, but a floating host without its own Analyse keeps the chip', () => {
+    const withModel = { ...preRun, preRunWithModel: true }
+    expect(shellRerunControl(withModel)).toBe('readiness')
+    expect(chatRunChipStandsAside(hostRerunControl('docked', withModel))).toBe(true)
+    expect(chatRunChipStandsAside(hostRerunControl('floating', withModel))).toBe(false)
+    expect(chatRunChipStandsAside(hostRerunControl('floating-beside-dock', withModel))).toBe(true)
+  })
+  it('pre-run CONTROL: no model means no readiness control, so the docked chip stays', () => {
+    const noModel = { ...preRun, preRunWithModel: false }
+    expect(readinessBarShowsAnalyse(false)).toBe(false)
+    expect(readinessBarShowsAnalyse(true)).toBe(true)
+    expect(chatRunChipStandsAside(hostRerunControl('docked', noModel))).toBe(false)
+    expect(chatRunChipStandsAside(hostRerunControl('floating', noModel))).toBe(false)
+  })
+  it('pre-run: defer only to the dock surface that actually renders an Analyse button', () => {
+    const withModel = { ...preRun, preRunWithModel: true }
+    expect(dockSurfaceShowsRerun('olumi', withModel)).toBe(true)
+    expect(dockSurfaceShowsRerun('olumi', { ...preRun, preRunWithModel: false })).toBe(false)
+    expect(dockSurfaceShowsRerun('analysisNew', withModel)).toBe(false)
+    expect(dockSurfaceShowsRerun('diagnostics', withModel)).toBe(true)
+    expect(dockSurfaceShowsRerun('compare', withModel)).toBe(false)
   })
   it('a dock surface defers only to the control it is SHOWING (buddy r2 P2)', () => {
     expect(dockSurfaceShowsRerun('diagnostics', changed)).toBe(true)
@@ -131,7 +148,7 @@ describe('SuggestedChips: the run chip when the host owns the rerun control', ()
     expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent(/^\s*Rerun\s*$/)
   })
 
-  it('CONTRAST: before the first Run the host owns no rerun, so CEE\'s "Run analysis" chip stays (a run, not a rerun)', () => {
+  it('CONTRAST: before the first Run without a model the host owns no run, so CEE\'s "Run analysis" chip stays (a run, not a rerun)', () => {
     seed(false)
     render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} rerunOwnedByHost={chatRunChipStandsAside(hostRerunControl('docked', { semantic: 'changed', importHold: false, hasCompletedFirstRun: false }))} />)
     expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent('Run analysis')

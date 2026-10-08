@@ -11,5 +11,23 @@ export const editNoteCopy = {
   // Not "Olumi can now say how likely…": the target may not be the last thing withholding the chance (unsized
   // links can still hold it), so the note claims only what the edit did.
   G1: (goal: string) => `Your target for ‘${goal}’ is set. Run to include it in the analysis.`,
-  actions: { option: 'Set it for an option', editOption: 'Edit option', link: 'Link it', rename: 'Rename', keep: 'Keep it', discuss: 'Discuss with Olumi', run: 'Run' },
+  // Slice 2 (EDIT-AI §3.4/§3.6): what the LAST Run rested on. Never a link figure; always "the last Run" where the
+  // sentence speaks of the past, so it stays true after the model has moved on. Science 393023 (7 Oct 20:47Z): S1 says
+  // "could move it", not "a lot" (driver_by_option is a RANK, not a size); D1 says "differently", not "very" (no draw
+  // samples a reversal). F3 names its metric: a turning point is a flip of the AVERAGE result, not of the goal chance
+  // (Science B5; its gate `factorTippingGate` is unbuilt, SCI-02, and will be read here too).
+  S1: (options: readonly string[]) => `The chance for ${quoted(options)} rests most on this link, so this change could move it. Run again to see.`,
+  S1Own: (options: readonly string[]) => `You’ve replaced Olumi’s estimate on the link the chance for ${quoted(options)} rested most on. Run again to see.`,
+  D1: (options: readonly string[]) => `You’ve reversed the link the chance for ${quoted(options)} rested most on. The options may now compare differently. Run again to see.`,
+  S2: 'The last Run’s comparison could change if this link’s strength changes. Run again to see whether it still holds.',
+  F4: (options: readonly string[], factor: string) => `The chance for ${quoted(options)} rested most on ‘${factor}’. Run again to see what your figure does to it.`,
+  F3: (factor: string, figure: string | null) => figure
+    ? `The last Run found a turning point for ‘${factor}’ at ${figure}. Your new figure is past it, so a different option may now have the higher average result in this model. Run again to see.`
+    : `The last Run found a turning point for ‘${factor}’. Your new figure is past the turning point Olumi found, so a different option may now have the higher average result in this model. Run again to see.`,
+  X1Link: (options: readonly string[]) => `The last Run’s chance for ${quoted(options)} rested most on this link. Run again to see the options without it.`,
+  X1Card: (options: readonly string[], label: string) => `The last Run’s chance for ${quoted(options)} rested most on ‘${label}’. Run again to see the options without it.`,
+  G2: 'The last Run measured each option’s chance against the old target. Run again to measure against this one.',
+  O3: (option: string, factor: string, value: string, side: string, limit: string) => `‘${option}’ now sets ‘${factor}’ to ${value}, ${side} the ${limit} limit you set.`,
+  O4: (node: string, limit: string) => `No option changes anything that leads to ‘${node}’, so the ${limit} limit can’t rule any option out yet.`,
+  actions: { option: 'Set it for an option', editOption: 'Edit option', link: 'Link it', rename: 'Rename', keep: 'Keep it', discuss: 'Discuss with Olumi', run: 'Run', runAgain: 'Run again', undo: 'Undo' },
 } as const

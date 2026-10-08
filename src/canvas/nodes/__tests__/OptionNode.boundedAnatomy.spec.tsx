@@ -244,7 +244,9 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // Truth stays on the card: the mark is the row's own `you` (user_specified).
       expect(mark.getAttribute('data-value-source')).toBe('you')
       expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(dd.contains(mark)).toBe(true)
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      expect(mark.querySelector('.lucide-user-check')).not.toBeNull()
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
       const lt = tokens(dt)
@@ -386,10 +388,12 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     it('pre-run it reads its meta, then the share line\'s reserved slot (no reference line)', () => {
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
-      expect(meta?.textContent).toBe('Baseline option')
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline option')
       // …then the share line's slot, reserved (empty) before the run so a run never grows the card.
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
-      expect(bodyLines(meta!)).toEqual([meta, onCard('option-share-slot-option-b')])
+      const reserved = onCard('option-baseline-slot-option-b')!
+      expect(bodyLines(reserved)).toEqual([reserved, onCard('option-share-slot-option-b')])
+      expect(screen.getByTestId('option-bottom-marks-option-b').contains(meta!)).toBe(true)
     })
 
     it('post-run the baseline meta STAYS on the card, above the share line', () => {
@@ -398,7 +402,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       const share = onCard('option-analysis-currency-option-b')
       const meta = onCard('option-baseline-meta-option-b')
       expect(share).not.toBeNull()
-      expect(meta?.textContent).toBe('Baseline option')
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline option')
       expect(meta!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(inPopover('option-baseline-meta-option-b')).toBeNull()
     })
@@ -421,7 +425,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
 
     it('CEE says is_baseline true → the baseline meta, even with no node flag', () => {
       renderCard({ id: 'option-keep', store: withKeep({ is_baseline: true }) })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
 
     /**
@@ -445,12 +449,12 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     it('CONTRAST: with no typed source ANYWHERE on the board, the label heuristic still decides (unchanged)', () => {
       const store = withKeep(null)
       renderCard({ id: 'option-keep', store: { ...store, nodes: store.nodes.filter((n) => n.id !== 'option-b') } })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
 
     it('the node\'s own flag still wins over CEE', () => {
       renderCard({ id: 'option-keep', data: { is_baseline: true }, store: withKeep({ is_baseline: false }) })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
   })
 

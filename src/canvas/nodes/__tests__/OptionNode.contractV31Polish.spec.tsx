@@ -460,7 +460,7 @@ describe('contract v3.1 — option card polish', () => {
         data: { label: 'Status quo', is_baseline: true, interventions: {} },
         store: { nodes: [FACTOR_HEAD, FACTOR_COST, FACTOR_RISK, OPTION_1, OPTION_2, BASELINE_SETS_NOTHING] },
       })
-      expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
+      expect(byTestId('option-baseline-meta-option-b')!.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
 
     // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 10; NODE-ANATOMY v3.2
@@ -477,8 +477,8 @@ describe('contract v3.1 — option card polish', () => {
         store: { nodes: [FACTOR_HEAD, FACTOR_COST, FACTOR_RISK, OPTION_1, OPTION_2, BASELINE_CHANGES_A_VALUE] },
       })
       const meta = byTestId('option-baseline-meta-option-b')!
-      expect(meta.textContent).toBe('Baseline option')
-      expect(meta.textContent).not.toContain('no changes')
+      expect(meta.getAttribute('aria-label')).toBe('Baseline option')
+      expect(meta.getAttribute('aria-label')).not.toContain('no changes')
     })
 
     it('a baseline whose targets equal the factors\' current values reads "Baseline · no changes"', () => {
@@ -486,7 +486,7 @@ describe('contract v3.1 — option card polish', () => {
         id: 'option-b',
         data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
       })
-      expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
+      expect(byTestId('option-baseline-meta-option-b')!.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
   })
 })

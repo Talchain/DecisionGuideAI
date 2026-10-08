@@ -811,7 +811,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const isPreRun = !hasCompletedFirstRun
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
   // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
-  const shellRerun = shellRerunControl(useReanalyseBarInputs())
+  const rerunInputs = useReanalyseBarInputs()
+  const shellRerun = shellRerunControl(rerunInputs)
   // Reasoning's pre-run status names a Run on record instead of "No analysis has run yet" (DL #75 5922639119).
   const runOnRecordWithoutResult = selectRunOnRecordWithoutResult({ isPreRun, savedRunUnconfirmed, runStateKind: runStateKindForStatus })
   // Empty state: hide panel when canvas has no nodes (FF off).
@@ -4368,7 +4369,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   }
                   return (
                     <AnalysisReadinessBar
-                      preRunWithModel={isPreRun && nodes.length > 0}
+                      preRunWithModel={rerunInputs.preRunWithModel}
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
                       /* The SAME pair `PreAnalysisPanelV3` receives above, from

@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowUp, Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -235,6 +235,8 @@ export interface SuccessTargetLineProps {
    * `sendWordsToOlumi` and `deferTarget`, so the write path cannot fork.
    */
   variant?: 'inspector' | 'reasoning'
+  /** A resolving canvas control opens the numeric form immediately, through the same seeding path as a press. */
+  openOnMount?: boolean
 }
 
 /** V2 prototype's success row, verbatim, for a goal with no target. */
@@ -247,6 +249,7 @@ export function SuccessTargetLine({
   testId,
   divider = true,
   variant = 'inspector',
+  openOnMount = false,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -345,6 +348,14 @@ export function SuccessTargetLine({
    * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
    */
   const attemptSeqRef = useRef(0)
+  const openedOnMountRef = useRef(false)
+
+  // Keep hooks above the null-goal return. The one-shot route uses the normal open's scenario/direction guards.
+  useEffect(() => {
+    if (!openOnMount || goalNodeId === null || openedOnMountRef.current) return
+    openedOnMountRef.current = true
+    if (!changeGoal) openEditor('number')
+  })
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.

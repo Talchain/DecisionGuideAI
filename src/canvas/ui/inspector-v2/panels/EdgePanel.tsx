@@ -8,6 +8,7 @@
 import { useRouteOnceHeld } from '../../../hooks/useRouteOnceHeld'
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Activity } from 'lucide-react'
+import type { Edge } from '@xyflow/react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
@@ -18,7 +19,8 @@ import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
-import { EDGE_CONSTRAINTS } from '../../../domain/edges'
+import { EDGE_CONSTRAINTS, type EdgeData } from '../../../domain/edges'
+import { isStructuralEdge } from '../../../domain/edgeUtils'
 import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -32,7 +34,6 @@ import {
   ACTION_LABELS,
   EDGE_LINK_NOTICES,
   EDGE_COPY,
-  resolveEdgeLinkTemplate,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -65,14 +66,21 @@ import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { EdgeRelationshipSummary } from '../shared/EdgeRelationshipSummary'
-import { INSPECTOR_RULE, inspectorButton, inspectorSectionHighlight } from '../inspectorStyle'
+import { inspectorButton, inspectorButtonPrimary, inspectorButtonRow, inspectorGroupLabel, inspectorSectionHighlight } from '../inspectorStyle'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { LINK_MARGIN_LABEL, linkMarginSentence } from '../../../../components/results/utils/fragileEdgeCopy'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { takeEdgeEditRefusalText } from '../../../conversation/pendingEdgeEdit'
-import { formatNumber } from '../../../utils/formatValueWithUnit'
 import { isQuestionAssumptionEnabled } from '../../../../flags'
 import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
+import { InspectorMoreItems } from '../shared/InspectorMore'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { buildEdgeInspectorSentence } from '../edgeInspectorSentence'
+import { buildExamineLinkView, EXAMINE_LINK_LIMIT } from '../examine/examineLinkView'
+import { requestExamineLink } from '../examine/ExamineLink'
+import { canReceiveAsk, requestAsk } from '../askSemantic'
+import { resolveAskTemplate } from '../inspectorStrings'
 import { TestWithoutLinkButton } from '../../../../components/results/analysisNew/sections/TestWithoutLinkButton'
 
 /**
@@ -227,6 +235,7 @@ export const EdgePanel = memo(function EdgePanel({
     n => n.type === 'goal' || n.data?.kind === 'goal' || n.data?.type === 'goal',
   )?.id ?? null)
   const sendScienceChip = useGuidanceStore(s => s._sendChip)
+  const canAsk = useGuidanceStore(canReceiveAsk)
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
@@ -422,71 +431,14 @@ export const EdgePanel = memo(function EdgePanel({
   }, [edge?.data, strengthIsPlaceholder, strengthIsAccepted, strengthIsStated, strengthIsExampleFigure, strengthIsDefinitional])
 
   /**
-   * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
-   * THIS IS THE CANONICAL EXPLANATION FOR ALL THREE READOUTS THIS CHANGE TOUCHES
-   * (`InterventionRow`'s disabled target and `FactorObservablePanel`'s unitless
-   * readout carry a back-reference rather than a copy of it).
-   *
-   * `formatNumber`'s bound is `maximumFractionDigits: 4`, which is right for the
-   * defect it was adopted to close (a 17-figure raw double reaching the founder)
-   * and WRONG below 5e-5, where it renders a real non-zero magnitude as `0` —
-   * and `-0.00001` as `-0`, which is worse, because the SIGN survives while the
-   * MAGNITUDE does not: the reader is given the direction of a quantity that is
-   * simultaneously reported as nothing.
-   *
-   * ⚠ THE PATH THIS REPLACED DID NOT HAVE THAT FAULT. `String(v)` printed
-   * `0.00001` faithfully. So the collapse is a REGRESSION INTRODUCED HERE, not a
-   * pre-existing behaviour of the estate — an earlier version of this comment
-   * called it a "residual", and that classification was wrong. Changing a caller
-   * makes that caller's behaviour yours.
-   *
-   * ⚠⚠ AND ON THIS SURFACE IT IS AN HONESTY DEFECT, NOT A COSMETIC ONE.
-   * `confirmCurrentStrength` commits the STORED magnitude. If the sentence reads
-   * `0` while the write carries 0.00001, the screen and the write disagree on
-   * the one control that asks the user to ratify a number.
-   *
-   * ── THE RULE ───────────────────────────────────────────────────────────────
-   * Keep the house bound; fall back to significant digits ONLY when the house
-   * bound has erased a non-zero magnitude. `Number(housed) === 0` is the test
-   * for "erased", and it also covers `'-0'` (`-0 === 0` is true in JS). A value
-   * at or above 1000 formats with thousand separators, so `Number('22,500.5')`
-   * is `NaN`, `NaN === 0` is false, and large values can never enter this
-   * branch — which matters, because applying significant digits to THEM would
-   * round 22,500.5 to 22,500, i.e. round a producer value to solve a display
-   * problem. That is banned here and is pinned as a control in the spec.
-   *
-   * ⚠ TWO significant digits, deliberately: enough to make the magnitude and
-   * its sign visible, few enough not to imply precision this class of value
-   * does not have.
-   *
-   * ⚠ THE `!== 0` CONJUNCT IS DEFENSIVE, NOT LOAD-BEARING, AND IS LABELLED THAT
-   * WAY BECAUSE A MUTANT PROVED IT. Removing it leaves all 27 spec cases green:
-   * `formatNumber(0, 2)` is also `'0'`, so it only ever routes a true zero to a
-   * formatter that returns the same string. It is kept because it states the
-   * intent — never substitute anything for a real zero — and would start
-   * mattering the moment the fallback stopped being a plain numeric format. It
-   * is NOT what makes the zero control pass; a mutant that returns `'<0.0001'`
-   * without it REDs on all three zero controls, which is the case that guards
-   * the actual risk. (A stored `-0` renders `-0` here, in both arms: that is the
-   * value the model holds, not an erased magnitude, so the guard leaves it be.)
-   *
-   * ⚠ IT PASSES `significantDigits`, WHOSE DOCBLOCK SAYS SINGLE-VALUE CALLERS
-   * MUST NOT. Named rather than hidden: that note reserves the parameter for
-   * CONTRAST callers on the grounds that the house bound is "the honest one" for
-   * everyone else — and for this value class the house bound is demonstrably NOT
-   * honest, it reports nothing where the model holds something. The durable fix
-   * is for `formatNumber` itself to stop erasing small magnitudes, which would
-   * fix every consumer in the estate at once; that file has a different owner,
-   * so this is the bounded display-only fix at the three callers changed here.
+   * The former `currentEstimatedWeightDisplay` duplicate is now the single
+   * ScienceQuantity readout. Its details preserve small non-zero magnitudes:
+   * the four-decimal house bound alone would erase values below 5e-5 and could
+   * make the displayed estimate disagree with the exact stored value ratified
+   * by confirmCurrentStrength. InterventionRow and FactorObservablePanel keep
+   * their bounded-number fallback for that same reason. Display formatting
+   * never changes the stored magnitude or the confirmation payload.
    */
-  const currentEstimatedWeightDisplay = useMemo(() => {
-    if (currentEstimatedWeight === null) return null
-    const housed = formatNumber(currentEstimatedWeight)
-    return Number(housed) === 0 && currentEstimatedWeight !== 0
-      ? formatNumber(currentEstimatedWeight, 2)
-      : housed
-  }, [currentEstimatedWeight])
-
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
@@ -927,29 +879,59 @@ export const EdgePanel = memo(function EdgePanel({
 
   if (!edgeId || !edge) return null
 
+  const linkKind = isOrganisational ? 'organisational' : isIntervention ? 'intervention' : 'causal'
+  const summary = buildEdgeInspectorSentence({
+    sourceLabel, targetLabel, data: edge.data as Record<string, unknown> | undefined,
+    strengthDisplay, linkKind,
+  })
+  const examineView = buildExamineLinkView({
+    sourceLabel, targetLabel, data: edge.data as Record<string, unknown> | undefined,
+    // Preserve the former Router → ExamineLink eligibility owner. This asks
+    // about structural wiring, independently of the panel's notice branch.
+    structural: isStructuralEdge(edge as unknown as Edge<EdgeData>, id => {
+      const node = nodes.find(n => n.id === id)
+      return ((node?.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? node?.type
+    }),
+    fragile: isFragile,
+  })
+  const questionAssumptionAvailable = !(isOrganisational || isIntervention) && canQuestionAssumption && !!sendScienceChip
+  const examineAvailable = !!examineView && canAsk
+  const handleAsk = () => {
+    if (questionAssumptionAvailable && sendScienceChip) {
+      sendScienceChip('Question this assumption', 'Question this assumption', {
+        id: `agent-question-assumption:${edge.source}>${edge.target}`,
+      })
+    } else if (examineAvailable && examineView) {
+      requestExamineLink(edgeId, examineView)
+    } else if (canAsk) {
+      const elementLabel = `${sourceLabel} → ${targetLabel}`
+      const landed = requestAsk({
+        text: resolveAskTemplate('edge', { sourceLabel, targetLabel }) ?? `Tell me about ${elementLabel} in this model.`,
+        label: `Ask about ${elementLabel}`, context: '', targetId: edgeId,
+        intent: 'link', edgeIds: [edgeId], nodeIds: [],
+      })
+      if (landed === 'none') window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+        detail: { message: 'Your question was not sent. Try again in the conversation.', level: 'warning' },
+      }))
+    }
+  }
+
   // ─── Render ──────────────────────────────────────────────────────
 
   return (
     <div>
+      <InspectorSummary sentence={summary.sentence} chip={summary.chip} />
       {/* ── Organisational / intervention link notices ────────── */}
       {isOrganisational ? (
         <div className="mt-3">
           <p className={`${typography.panelMeta} text-text-light`}>{EDGE_LINK_NOTICES.organisational.title}</p>
-          <p className={`${typography.panelMeta} text-text-light mt-1`}>{EDGE_LINK_NOTICES.organisational.body}</p>
         </div>
       ) : isIntervention ? (
         <div className="mt-3" data-testid="intervention-edge-notice">
           <p className={`${typography.panelMeta} text-text-light`}>{EDGE_LINK_NOTICES.intervention.title}</p>
-          <p className={`${typography.panelMeta} text-text-light mt-1`}>
-            {resolveEdgeLinkTemplate({ sourceLabel, targetLabel })}
-          </p>
         </div>
       ) : (
         <>
-          {/* ── v3.1 row 12: what the line says, from the stroke's own
-              resolvers — the detail the one-line hover no longer carries. ── */}
-          <EdgeRelationshipSummary edgeId={edgeId} data={edge.data as Record<string, unknown> | undefined} />
-
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
@@ -978,7 +960,7 @@ export const EdgePanel = memo(function EdgePanel({
                   )}
                   {techMode && edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
-                      Assumption robustness: {edgeEValue.toFixed(1)}x
+                      {LINK_MARGIN_LABEL}. {linkMarginSentence(edgeEValue)}
                     </p>
                   )}
                 </div>
@@ -990,42 +972,7 @@ export const EdgePanel = memo(function EdgePanel({
           )}
 
           {/* ── Your input group ──────────────────────────────── */}
-          <PanelGroup kind="input" label={GROUP_LABELS.input}>
-            {/* Who set these values — first, because its "not set" sentence
-                speaks of "the control below". */}
-            <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
-              {edgeValuesProvenance}
-            </p>
-            {canQuestionAssumption && sendScienceChip ? (
-              <button
-                type="button"
-                className={`${inspectorButton} mb-2`}
-                data-testid="edge-question-assumption"
-                onClick={() => sendScienceChip(
-                  'Question this assumption',
-                  'Question this assumption',
-                  { id: `agent-question-assumption:${edge.source}>${edge.target}` },
-                )}
-              >
-                Question this assumption
-              </button>
-            ) : null}
-            {/* "Test without this link" — reachable for ANY link on a current Run, not
-                only the one a Challenge signal happens to name. The Reasoning mount
-                needs the Run to report a sensitive Olumi-estimated link; a Run whose
-                leader is withheld reports none, so the press had no door at all.
-                The component owns the gate (flag, link, current Run, a conversation
-                to send into) and the sender, so this is the same press, not a second
-                one. A link that is on the canvas only is not in the Run. */}
-            {awaitingStatedStrength ? null : (
-              <TestWithoutLinkButton
-                key={edge.id}
-                edgeId={edge.id}
-                testId="edge-test-without-link"
-                buttonClassName={inspectorButton}
-                className="mb-2"
-              />
-            )}
+          <PanelGroup kind="input">
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
                 WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
                 may present itself as a shared-model edit. The fieldset is the
@@ -1185,12 +1132,24 @@ export const EdgePanel = memo(function EdgePanel({
                   its two call sites. This is the branch a user reaches by
                   selecting any connection they drew, so it is the one that was
                   lighting a band nobody chose. Same reader as the other site. */}
-              <StrengthBandButtons
-                value={signedValue}
-                onChange={handleStrengthPresetChange}
-                unset={!strengthDisplay.show}
+              <div className="flex flex-wrap items-start gap-1.5">
+                <StrengthBandButtons
+                  value={signedValue}
+                  onChange={handleStrengthPresetChange}
+                  unset={!strengthDisplay.show}
                   technicalDetails={techMode}
-              />
+                />
+                {currentEstimatedWeight !== null && (
+                  <button
+                    type="button"
+                    data-testid="edge-confirm-current-strength"
+                    onClick={handleConfirmCurrentStrength}
+                    className={inspectorButton}
+                  >
+                    Keep Olumi's estimate
+                  </button>
+                )}
+              </div>
               {/* ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
                   Renders ONLY where both the magnitude and the spread are
                   stamped — `resolveStrengthSpread` returns `known: false`
@@ -1198,94 +1157,11 @@ export const EdgePanel = memo(function EdgePanel({
                   more useful answer: "we do not know how uncertain this is"
                   beats a fabricated spread, and it is the truth about every
                   edge a user has drawn by hand. */}
-              {strengthSpread.known && (
+              {(strengthDisplay.show || strengthSpread.known) && (
                 <div className="mt-1.5" data-testid="edge-strength-spread">
                   <div className={`${typography.panelMeta} text-text-body`}>
                     <ScienceQuantity kind="strength" value={strengthDisplay.show ? strengthDisplay.value : signedValue} />
                   </div>
-                  {techMode && <p
-                    className={`${typography.panelMeta} text-text-body font-mono`}
-                    aria-label={EDGE_COPY.strengthSpreadReadoutLabel}
-                  >
-                    {EDGE_COPY.strengthSpreadReadout(
-                      strengthSpread.magnitude.toFixed(2),
-                      strengthSpread.spread.toFixed(2),
-                    )}
-                  </p>}
-                  {/* ⭐ THE SENTENCE. It appears only when the stated spread
-                      reaches across a cut point — i.e. only when the adjective
-                      highlighted immediately above is under-determined. A team
-                      reading "Strong" learns, in the same glance, that moderate
-                      would have fitted too. Where the interval stays inside one
-                      band the word IS earned, and saying so would be noise. */}
-                  {strengthSpread.crossesBand && (
-                    <p
-                      className={`${typography.panelMeta} text-text-body mt-1`}
-                      data-testid="edge-strength-spans-bands"
-                    >
-                      {EDGE_COPY.strengthSpansBands(
-                        inlineStrengthLabel(strengthSpread.lowLabel),
-                        inlineStrengthLabel(strengthSpread.highLabel),
-                        getStrengthLabel(strengthSpread.magnitude),
-                        { placeholder: strengthIsPlaceholder, exampleFigure: strengthIsExampleFigure },
-                      )}
-                    </p>
-                  )}
-                </div>
-              )}
-              {/* The same fabricated magnitude in a second channel, and this one
-                  prints it as a NUMBER in an editable field. Gated on the same
-                  union, exactly as #1677 gated `P(exists) =`, so techMode cannot
-                  reveal a figure the pills above now refuse to light. */}
-              {strengthDisplay.show ? (
-                <ExpertAnnotation techMode={techMode} editable value={strengthDisplay.value} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
-              ) : techMode ? (
-                <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="edge-strength-unset">
-                  {METRIC_UNSET.standalone}
-                </p>
-              ) : null}
-              {currentEstimatedWeight !== null && (
-                <div className={`mt-2 pt-2 border-t ${INSPECTOR_RULE.row}`}>
-                  {/* v3.1 row 32: a flat row under a hairline rule, not a box. */}
-                  <p className={`${typography.panelMeta} text-text-body`}>
-                    {/* ⛔⛔ `formatNumber`, NOT `String`. This printed the raw
-                        double: the founder read *"Olumi's current estimate is
-                        0.5428571428571428."* A sibling edge showed a clean
-                        `0.45` only because that value is short — the formatting
-                        was ABSENT, not inconsistent, so nothing would have
-                        caught it drifting. Seventeen significant figures assert
-                        a precision this quantity does not have: it is minted by
-                        a CEE rescale (a raw float division) and is not stable
-                        even in its ORDERING between two passes — the measured
-                        argument is at `formatValueWithUnit.ts:41-60`, whose
-                        four-decimal house bound this now adopts — bounded
-                        against small-magnitude erasure, see
-                        `currentEstimatedWeightDisplay` above.
-
-                        ⚠ DISPLAY ONLY, AND THAT IS LOAD-BEARING HERE.
-                        `handleConfirmCurrentStrength` calls
-                        `mutations.confirmCurrentStrength()`, which reads the
-                        edge from the STORE — it never reads this string. So
-                        consent still lands on the exact stored magnitude; only
-                        the claim made to the reader about its precision changes.
-
-                        ⚠ NOT `formatValueWithUnit`: that entry point turns an
-                        unqualified 0-1 value into a WORD ("moderate"), which
-                        would make this sentence unable to name the number the
-                        button ratifies. The number is the point of the
-                        sentence. */}
-                    Olumi’s current estimate is {techMode
-                      ? <span className="font-mono">{currentEstimatedWeightDisplay}</span>
-                      : <ScienceQuantity kind="strength" value={currentEstimatedWeight} />}.
-                  </p>
-                  <button
-                    type="button"
-                    data-testid="edge-confirm-current-strength"
-                    onClick={handleConfirmCurrentStrength}
-                    className={`${inspectorButton} mt-1.5`}
-                  >
-                    {ACTION_LABELS.confirmCurrentStrength}
-                  </button>
                 </div>
               )}
               {/* Confirmation feedback — SENT, not saved, and no re-run prompt:
@@ -1434,117 +1310,6 @@ export const EdgePanel = memo(function EdgePanel({
             </>
             )}
 
-            {/* ⛔ EVERYTHING BELOW WRITES NOTHING TO THE SHARED MODEL.
-                `setExistsProbability` and `setStd` each perform ONE local
-                `updateEdge` and emit no wire event, so a control that looked
-                saveable here would be destroyed by the next server rehydrate.
-                Unfencing this panel was a DUTY to fence these, not a licence to
-                let them through with the strength control. */}
-            <fieldset
-              disabled
-              aria-describedby="inspector-authority-notice"
-              data-authority="disabled"
-              className="contents"
-            >
-
-            {/* Existence slider — secondary control, outside card */}
-            <div className="mt-3">
-              <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
-                {INLINE_LABELS.existenceQuestion}
-              </p>
-              {/* S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
-                  "Very likely to exist" readout: one sentence, the same fact the coaching line states. */}
-              {existenceHeldByDefinition ? (
-                <p data-testid="edge-existence-held-by-definition" className={`${typography.panelMeta} text-text-light`}>
-                  {EDGE_COPY.existenceHeldByDefinitionNote}
-                </p>
-              ) : (<>
-              <div className="flex justify-between mb-1">
-                <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinUnlikely}</span>
-                <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxVeryLikely}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <InspectorSlider
-                    value={existenceDisplay.show && (edge?.data?.existenceHeld === true || routeOnceHeld) ? existenceDisplay.value : beliefExists}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    onChange={handleBeliefChange}
-                    trackFillColor={EXISTENCE_BAND_TRACK[existenceBand]}
-                    valueText={existenceDisplay.show ? undefined : METRIC_UNSET.standalone}
-                    aria-label="Connection existence probability"
-                  />
-                </div>
-                <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
-                  {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
-                </span>
-              </div>
-              {(edge?.data?.existenceHeld === true || routeOnceHeld) && (
-                <p data-testid="edge-existence-held-note" className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {edge?.data?.existenceHeld === true ? EDGE_COPY.existenceHeldNote : EDGE_COPY.existenceCountedOnceNote}
-                </p>
-              )}
-              {/* The same fabricated figure in a third channel. Gated on the
-                  same union so techMode cannot reveal what the panel withholds. */}
-              {existenceDisplay.show && (
-                <ExpertAnnotation techMode={techMode} editable value={edge?.data?.existenceHeld === true || routeOnceHeld ? existenceDisplay.value : beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
-              )}
-              </>)}
-            </div>
-
-            {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.
-                `EdgePanel`'s only mount is inside `InspectorRouter`'s
-                unconditional `<fieldset disabled>`, which natively inerts every
-                form-associated descendant, so `setMode` was never reachable from
-                a real render. It now mounts OUTSIDE that boundary as
-                `<EdgeLabelModeToggle />` — it writes no model value, so it is a
-                presentation control and does not belong under a notice saying
-                these fields cannot be saved. Do not move it back. */}
-
-            {/* Uncertainty — expert mode only */}
-            {techMode && (
-              <div className="mt-3">
-                <p className={`${typography.panelMeta} text-text-light mb-1`}>
-                  {INLINE_LABELS.strengthUncertainty}
-                </p>
-                <div className="flex justify-between mb-1">
-                  <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinPrecise}</span>
-                  <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxUncertain}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <InspectorSlider
-                      value={strengthStd}
-                      min={0.01}
-                      max={0.5}
-                      step={0.01}
-                      onChange={handleStdChange}
-                      /* The slider THUMB has to sit somewhere, so the control
-                         keeps its raw position — but `aria-valuenow` would
-                         announce the very figure the visible surface withholds.
-                         `aria-valuetext` is announced in preference to it, which
-                         is the seam #1677 added for exactly this. */
-                      valueText={stdDisplay.show ? undefined : METRIC_UNSET.standalone}
-                      aria-label="Strength uncertainty"
-                    />
-                  </div>
-                  {/* The loudest channel of the four: this printed a literal
-                      `σ = 0.15` for an edge nobody had characterised. Gated on
-                      the same union, so techMode cannot reveal what the rest of
-                      the panel refuses to say. */}
-                  {stdDisplay.show ? (
-                    <ExpertAnnotation techMode={techMode} editable value={stdDisplay.value} onChange={handleStdChange} suffix="σ =" step={0.01} min={0.01} max={0.5} />
-                  ) : (
-                    <span className={`${typography.panelMeta} text-text-light`} data-testid="edge-std-unset">
-                      {METRIC_UNSET.standalone}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            </fieldset>
-
             {/* Coaching */}
             <InspectorCoaching
               elementId={edgeId}
@@ -1553,6 +1318,204 @@ export const EdgePanel = memo(function EdgePanel({
               labelContext={{ label: `${sourceLabel} \u2192 ${targetLabel}`, sourceLabel, targetLabel }}
             />
           </PanelGroup>
+
+          <InspectorMoreItems>
+              <h4 className={inspectorGroupLabel}>Where this came from</h4>
+              <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
+                {edgeValuesProvenance}
+              </p>
+            {examineView && examineView.basis !== 'placeholder' && (
+              <div className="mt-3">
+                <h4 className={inspectorGroupLabel}>Why Olumi has this</h4>
+                <p data-testid="inspector-examine-link-why" data-basis={examineView.basis} className={`${typography.panelBody} text-text-body`}>
+                  {examineView.why}
+                </p>
+              </div>
+            )}
+            {!strengthIsDefinitional && !awaitingStatedStrength && strengthSpread.known && (
+              <fieldset
+                disabled={!strengthReachesTheModel}
+                className="contents"
+                {...(strengthReachesTheModel ? {} : {
+                  'data-authority': 'no-strength-basis', 'aria-describedby': 'inspector-authority-notice',
+                })}
+              >
+                <h4 className={inspectorGroupLabel}>How the range reads</h4>
+                    {techMode && <p
+                      className={`${typography.panelMeta} text-text-body font-mono`}
+                      aria-label={EDGE_COPY.strengthSpreadReadoutLabel}
+                    >
+                      {EDGE_COPY.strengthSpreadReadout(
+                        strengthSpread.magnitude.toFixed(2),
+                        strengthSpread.spread.toFixed(2),
+                      )}
+                    </p>}
+                    {/* ⭐ THE SENTENCE. It appears only when the stated spread
+                        reaches across a cut point — i.e. only when the adjective
+                        highlighted immediately above is under-determined. A team
+                        reading "Strong" learns, in the same glance, that moderate
+                        would have fitted too. Where the interval stays inside one
+                        band the word IS earned, and saying so would be noise. */}
+                    {strengthSpread.crossesBand && (
+                      <p
+                        className={`${typography.panelMeta} text-text-body mt-1`}
+                        data-testid="edge-strength-spans-bands"
+                      >
+                        {EDGE_COPY.strengthSpansBands(
+                          inlineStrengthLabel(strengthSpread.lowLabel),
+                          inlineStrengthLabel(strengthSpread.highLabel),
+                          getStrengthLabel(strengthSpread.magnitude),
+                          { placeholder: strengthIsPlaceholder, exampleFigure: strengthIsExampleFigure },
+                        )}
+                      </p>
+                    )}
+
+              </fieldset>
+            )}
+              {/* ⛔ EVERYTHING BELOW WRITES NOTHING TO THE SHARED MODEL.
+                  `setExistsProbability` and `setStd` each perform ONE local
+                  `updateEdge` and emit no wire event, so a control that looked
+                  saveable here would be destroyed by the next server rehydrate.
+                  Unfencing this panel was a DUTY to fence these, not a licence to
+                  let them through with the strength control. */}
+              <fieldset
+                disabled
+                aria-describedby="inspector-authority-notice"
+                data-authority="disabled"
+                className="contents"
+              >
+
+              {/* Existence slider — secondary control, outside card */}
+              <div className="mt-3">
+                <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
+                  {INLINE_LABELS.existenceQuestion}
+                </p>
+                {/* S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
+                    "Very likely to exist" readout: one sentence, the same fact the coaching line states. */}
+                {existenceHeldByDefinition ? (
+                  <p data-testid="edge-existence-held-by-definition" className={`${typography.panelMeta} text-text-light`}>
+                    {EDGE_COPY.existenceHeldByDefinitionNote}
+                  </p>
+                ) : (<>
+                <div className="flex justify-between mb-1">
+                  <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinUnlikely}</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxVeryLikely}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <InspectorSlider
+                      value={existenceDisplay.show && (edge?.data?.existenceHeld === true || routeOnceHeld) ? existenceDisplay.value : beliefExists}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={handleBeliefChange}
+                      trackFillColor={EXISTENCE_BAND_TRACK[existenceBand]}
+                      valueText={existenceDisplay.show ? undefined : METRIC_UNSET.standalone}
+                      aria-label="Connection existence probability"
+                    />
+                  </div>
+                  <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
+                    {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
+                  </span>
+                </div>
+                {(edge?.data?.existenceHeld === true || routeOnceHeld) && (
+                  <p data-testid="edge-existence-held-note" className={`${typography.panelMeta} text-text-light mt-1`}>
+                    {edge?.data?.existenceHeld === true ? EDGE_COPY.existenceHeldNote : EDGE_COPY.existenceCountedOnceNote}
+                  </p>
+                )}
+                {/* The same fabricated figure in a third channel. Gated on the
+                    same union so techMode cannot reveal what the panel withholds. */}
+                {existenceDisplay.show && (
+                  <ExpertAnnotation techMode={techMode} editable value={edge?.data?.existenceHeld === true || routeOnceHeld ? existenceDisplay.value : beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+                )}
+                </>)}
+              </div>
+
+              </fieldset>
+            <EdgeRelationshipSummary edgeId={edgeId} data={edge.data as Record<string, unknown> | undefined} />
+            {examineAvailable && (
+              <div className="mt-3">
+                <h4 className={inspectorGroupLabel}>Asking Olumi</h4>
+                <p className={`${typography.panelMeta} text-text-light`}>{EXAMINE_LINK_LIMIT}</p>
+              </div>
+            )}
+            {!strengthIsDefinitional && !awaitingStatedStrength && (
+              <fieldset
+                disabled={!strengthReachesTheModel}
+                data-testid="edge-strength-more-controls"
+                className="contents"
+                {...(strengthReachesTheModel ? {} : {
+                  'data-authority': 'no-strength-basis', 'aria-describedby': 'inspector-authority-notice',
+                })}
+              >
+                {/* The same fabricated magnitude in a second channel, and this one
+                    prints it as a NUMBER in an editable field. Gated on the same
+                    union, exactly as #1677 gated `P(exists) =`, so techMode cannot
+                    reveal a figure the pills above now refuse to light. */}
+                {strengthDisplay.show ? (
+                  <ExpertAnnotation techMode={techMode} editable value={strengthDisplay.value} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+                ) : techMode ? (
+                  <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="edge-strength-unset">
+                    {METRIC_UNSET.standalone}
+                  </p>
+                ) : null}
+              </fieldset>
+            )}
+            <fieldset disabled aria-describedby="inspector-authority-notice" data-authority="disabled" className="contents">
+              {/* Uncertainty — expert mode only */}
+              {techMode && (
+                <div className="mt-3">
+                  <p className={`${typography.panelMeta} text-text-light mb-1`}>
+                    {INLINE_LABELS.strengthUncertainty}
+                  </p>
+                  <div className="flex justify-between mb-1">
+                    <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinPrecise}</span>
+                    <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxUncertain}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <InspectorSlider
+                        value={strengthStd}
+                        min={0.01}
+                        max={0.5}
+                        step={0.01}
+                        onChange={handleStdChange}
+                        /* The slider THUMB has to sit somewhere, so the control
+                           keeps its raw position — but `aria-valuenow` would
+                           announce the very figure the visible surface withholds.
+                           `aria-valuetext` is announced in preference to it, which
+                           is the seam #1677 added for exactly this. */
+                        valueText={stdDisplay.show ? undefined : METRIC_UNSET.standalone}
+                        aria-label="Strength uncertainty"
+                      />
+                    </div>
+                    {/* The loudest channel of the four: this printed a literal
+                        `σ = 0.15` for an edge nobody had characterised. Gated on
+                        the same union, so techMode cannot reveal what the rest of
+                        the panel refuses to say. */}
+                    {stdDisplay.show ? (
+                      <ExpertAnnotation techMode={techMode} editable value={stdDisplay.value} onChange={handleStdChange} suffix="σ =" step={0.01} min={0.01} max={0.5} />
+                    ) : (
+                      <span className={`${typography.panelMeta} text-text-light`} data-testid="edge-std-unset">
+                        {METRIC_UNSET.standalone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </fieldset>
+            {/* ── Expert-only model detail ───────────────────────── */}
+            <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
+              {fragileEdgeSwitchProb !== null && (
+                <div>switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]</div>
+              )}
+              {/* This arm is reached only when the edge is NEITHER
+                  organisational NOR an intervention, so its strength IS read by
+                  the analysis. Passed explicitly rather than defaulted: the
+                  class is stated at every call site, never inferred. */}
+              <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
+            </TechnicalDisclosure>
+          </InspectorMoreItems>
 
           {/* ── Evidence group ─────────────────────────────────── */}
           {/* The generic "No evidence yet" note was removed: DraftChat strips
@@ -1578,29 +1541,53 @@ export const EdgePanel = memo(function EdgePanel({
             )
           })()}
 
-          {/* ── Expert-only model detail ───────────────────────── */}
-          <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
-            {fragileEdgeSwitchProb !== null && (
-              <div>switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]</div>
-            )}
-            {/* This arm is reached only when the edge is NEITHER
-                organisational NOR an intervention, so its strength IS read by
-                the analysis. Passed explicitly rather than defaulted: the
-                class is stated at every call site, never inferred. */}
-            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
-          </TechnicalDisclosure>
         </>
       )}
 
+      <div data-testid="inspector-quick-actions" className={`${inspectorButtonRow} pt-3`}>
+        {(questionAssumptionAvailable || canAsk) && (
+          <button
+            type="button"
+            data-testid="inspector-quick-ask"
+            aria-label={`Ask Olumi about ${sourceLabel} → ${targetLabel}`}
+            title={!questionAssumptionAvailable && examineAvailable ? EXAMINE_LINK_LIMIT : undefined}
+            onClick={handleAsk}
+            className={inspectorButtonPrimary}
+          >
+            Ask Olumi
+          </button>
+        )}
+        {!(isOrganisational || isIntervention) && !awaitingStatedStrength && (
+          <TestWithoutLinkButton key={edge.id} edgeId={edge.id} testId="edge-test-without-link"
+            buttonClassName={inspectorButton} className="" />
+        )}
+      </div>
+
       {/* For org/intervention edges, still show tech disclosure */}
       {(isOrganisational || isIntervention) && (
-        <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
-          <EdgeAdvancedEditor
-            edgeId={edgeId}
-            linkKind={isIntervention ? 'intervention' : 'organisational'}
-            onSendSettled={handleStrengthSendSettled}
-          />
-        </TechnicalDisclosure>
+        <InspectorMoreItems>
+          {examineView && examineView.basis !== 'placeholder' && (
+            <div className="mt-3">
+              <h4 className={inspectorGroupLabel}>Why Olumi has this</h4>
+              <p data-testid="inspector-examine-link-why" data-basis={examineView.basis} className={`${typography.panelBody} text-text-body`}>
+                {examineView.why}
+              </p>
+            </div>
+          )}
+          {examineAvailable && (
+            <div className="mt-3">
+              <h4 className={inspectorGroupLabel}>Asking Olumi</h4>
+              <p className={`${typography.panelMeta} text-text-light`}>{EXAMINE_LINK_LIMIT}</p>
+            </div>
+          )}
+          <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
+            <EdgeAdvancedEditor
+              edgeId={edgeId}
+              linkKind={isIntervention ? 'intervention' : 'organisational'}
+              onSendSettled={handleStrengthSendSettled}
+            />
+          </TechnicalDisclosure>
+        </InspectorMoreItems>
       )}
 
       {/* Live region for announcements */}

@@ -196,10 +196,11 @@ describe('DIFF item 1 — the mark follows the value with no separator (contract
       const { dd, mark, source } = hybridRow(container, r.factorId)
       expect(changeRowValueText(dd)).toBe(r.value)
       // The whole visible amount: the value, the U+00A0 glue, the mark's word.
-      expect(visibleText(dd)).toBe(`${r.value}\u00a0brief`)
+      expect(visibleText(dd)).toBe(r.value)
       // The mark cluster holds the source mark and nothing else — no separator span.
-      expect(visibleText(mark)).toBe('brief')
-      expect([...mark.children]).toEqual([source])
+      expect(source.getAttribute('aria-label')).toContain('From your brief')
+      expect(mark.children).toHaveLength(0)
+      expect(onCard(container, `option-bottom-marks-${HYBRID}`)?.contains(source)).toBe(true)
       expect(source.getAttribute('data-value-source')).toBe('brief')
     })
   }
@@ -318,7 +319,7 @@ describe('DIFF item 10 — a baseline whose targets are all non-changes reads "B
       const { container } = renderOption(draft, b.id)
       const meta = onCard(container, `option-baseline-meta-${b.id}`)
       expect(meta, 'the baseline meta is on the card').not.toBeNull()
-      expect(meta!.textContent).toBe('Baseline · no changes')
+      expect(meta!.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(onCard(container, `option-baseline-reference-${b.id}`), 'the dropped line is not on the card').toBeNull()
       expect(container.textContent ?? '').not.toContain('Reference for the other alternatives.')
       // The baseline states no delta rows of its own.
@@ -331,7 +332,7 @@ describe('DIFF item 10 — a baseline whose targets are all non-changes reads "B
     const { container } = renderOption(draft, 'opt_uk_fs')
     const meta = onCard(container, 'option-baseline-meta-opt_uk_fs')
     expect(meta, 'the baseline meta is on the card').not.toBeNull()
-    expect(meta!.textContent).toBe('Baseline option')
+    expect(meta!.getAttribute('aria-label')).toBe('Baseline option')
     expect(onCard(container, 'option-baseline-reference-opt_uk_fs')).toBeNull() // gate 5 item 4: dropped
   })
 })

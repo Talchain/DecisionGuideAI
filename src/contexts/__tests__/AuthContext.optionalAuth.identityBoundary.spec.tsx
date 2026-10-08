@@ -36,7 +36,13 @@ vi.mock('../../lib/posthog', async importOriginal => ({
 const boundary = vi.hoisted(() => ({ calls: 0 }))
 vi.mock('../../lib/auth/userScopedState', async importOriginal => {
   const real = await importOriginal<typeof import('../../lib/auth/userScopedState')>()
-  return { ...real, clearUserScopedState: () => { boundary.calls += 1; real.clearUserScopedState() } }
+  return {
+    ...real,
+    clearUserScopedState: (nextOwner?: string | null) => {
+      boundary.calls += 1
+      real.clearUserScopedState(nextOwner)
+    },
+  }
 })
 
 const EPOCH = 'olumi-canvas-identity-epoch'
@@ -134,6 +140,24 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
     expect(boundary.calls).toBe(0)
     expect(snapshot()).toEqual(before)
     expect(localStorage.getItem(EPOCH)).toBeNull()
+  })
+
+  it('a first sign-in adopts an epoch another tab rotated, without sweeping the guest\'s work', async () => {
+    const { crossIdentityBoundaryInThisTab, epochThisTabMayWriteUnder } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('this-tab-before-rotation', null)
+    localStorage.setItem(MAIN, A_SLOT)
+    localStorage.setItem(EPOCH, 'another-tab-boundary|owner:none')
+    const before = snapshot()
+
+    boundary.calls = 0
+    const { fire } = await renderGuestProvider()
+    await fire('SIGNED_IN', session('account-a'))
+
+    expect(boundary.calls).toBe(0)
+    expect(snapshot()).toEqual(before)
+    expect(epochThisTabMayWriteUnder(), 'the signed-in tab remained stale and unable to save').toEqual({
+      epoch: 'another-tab-boundary|owner:none',
+    })
   })
 
   it('CONTROL: a same-owner refresh (A → A) is not a boundary — storage is byte-identical', async () => {

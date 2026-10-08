@@ -68,6 +68,7 @@
 
 import type { RunDelta, RunDeltaGoalChanceSide, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
+import { compactCarriedReading, formatMoneyFigure } from '../../../utils/unitClassifier'
 import { scienceBand } from '../../../components/science/ScienceQuantity'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
@@ -195,6 +196,13 @@ export interface RunDeltaInputRow {
   readonly linkEnds: { readonly from: string; readonly to: string } | null
   /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
   readonly subject: string
+  /**
+   * The same input split for a row layout (Compare v3): the input's own name ("Pro price"; a link as "A → B") and, for an
+   * option setting, the option it belongs to ("Raise to £60"). Display only, from the same labels as `subject`; optional so
+   * a row built elsewhere without them still reads by `subject`.
+   */
+  readonly name?: string
+  readonly optionLabel?: string | null
   /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
   readonly before: string | null
   readonly after: string | null
@@ -323,8 +331,10 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   C1_attributable: null,
   // ⭐ PROVEN, NOT UNKNOWN. `hash_equal` is true by the case's own preconditions,
   // so this is the one arm entitled to say a model change is NOT the explanation.
+  // ⛔ ONLY THE CONSEQUENCE (COPY-SHAPE, 7 Oct): part A already says nothing the analysis uses differed. The rider said it
+  // again ("did not change … so"), so the C0 note read "nothing changed" twice. Same proven scope, said once.
   C0_identical:
-    'The parts of the model the analysis uses did not change between these two, so nothing below can be explained by an edit to them.',
+    'So no difference below comes from an edit to anything the analysis uses.',
   // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
   // is never consulted, so a change to the model may well be the cause and this
   // pair simply cannot show it.
@@ -375,7 +385,13 @@ function formatInputValue(
   if (field === 'effect' && typeof v.raw === 'number' && v.per !== undefined) {
     return `${formatRawValueWithUnit(v.raw, v.unit ?? null)} per ${formatRawValueWithUnit(v.per.amount, v.per.unit)}`
   }
-  if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
+  if (typeof v.raw === 'number') {
+    // The canvas card's own reading of the carried unit (Compare v3 served witness, 7 Oct: a row read "39 £ per paying
+    // customer per month"): money through the one money rule, a compound unit through the one compact owner. A unit
+    // neither recognises prints exactly as before. Same figure, same unit; only the notation.
+    const plain = formatRawValueWithUnit(v.raw, v.unit ?? null)
+    return formatMoneyFigure(v.raw, v.unit ?? null) ?? compactCarriedReading(plain, v.unit ?? null) ?? plain
+  }
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
 }
@@ -412,6 +428,24 @@ function inputSubject(
     default:
       return own ?? 'An input'
   }
+}
+
+/** `subject`'s two halves for a row layout: the input's own name and, for an option setting, its option. Same labels. */
+function inputName(
+  row: RunDeltaInputChange,
+  labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null,
+): { name: string; optionLabel: string | null } {
+  const own = row.label_after ?? row.label_before ?? nodeLabelFor(row.entity_id)
+  if (row.entity_kind === 'option_setting') {
+    return { name: own ?? 'A factor', optionLabel: (row.option_id !== undefined ? labelFor(row.option_id) : null) ?? 'an option' }
+  }
+  if (row.entity_kind === 'link') {
+    const from = row.link ? nodeLabelFor(row.link.from) : null
+    const to = row.link ? nodeLabelFor(row.link.to) : null
+    return { name: from && to ? `${from} → ${to}` : 'A link', optionLabel: null }
+  }
+  return { name: inputSubject(row, labelFor, nodeLabelFor), optionLabel: null }
 }
 
 /** "14:02" in the viewer's clock, or null when the producer sent no time. */
@@ -508,6 +542,7 @@ export function buildRunDeltaView(
               optionId: row.option_id ?? null,
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
+              ...inputName(row, labelFor, nodeLabelFor),
               before: formatInputValue(row.before, row.field),
               after: formatInputValue(row.after, row.field),
               change: row.change,

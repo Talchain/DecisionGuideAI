@@ -54,11 +54,13 @@ import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
   DOWNSIDE_HEADING_COPY,
+  DOWNSIDE_NOT_IN_USER_UNITS_COPY,
   DOWNSIDE_TAIL_CAVEAT_COPY,
   downsideSummaryCopy,
   downsideUnavailableCopy,
 } from './utils/downsideCopy'
 import { formatDownsideValue } from './utils/formatDownsideValue'
+import { goalBandIsInUserUnits } from './analysisNew/goalBandUnits'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
@@ -993,7 +995,15 @@ function OptionCard({
               magnitudes there — the same doctrine that removed the EVPI
               percentage-point pill from TriageCard. Showing it is a doctrine
               ruling, not a wiring gap. */}
-          {option.downside !== undefined ? (
+          {/* B19-0: figures only in the user's units (the one switch); otherwise the limit, said once. */}
+          {option.downside !== undefined && !goalBandIsInUserUnits() ? (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`option-downside-not-in-user-units-${option.id}`}
+            >
+              {DOWNSIDE_NOT_IN_USER_UNITS_COPY}
+            </p>
+          ) : option.downside !== undefined ? (
             <div className="mt-1" data-testid={`option-downside-${option.id}`}>
               <p className={`${typography.panelMeta} text-text-light`}>
                 {/* Run-in label. DS v5 §2.4 bans raw font-size AND font-weight

@@ -26,6 +26,10 @@
  * button. Both value paths: the served factor is controllable (the editor);
  * the contrast is the same data as an observable factor (plain text).
  *
+ * ⚠ RE-PINNED 7 Oct 2026 (#2633, Paul: "all icons in the bottom row"): `est.` is the card's bottom-band icon, so it
+ * can no longer sit alone on a line of the value row; the rows below pin that it is not in the row at all, that it
+ * keeps its name in the band, and that the value still wraps on its own words.
+ *
  * CLAIM SCOPE: jsdom — tokens, text and DOM order, never pixels.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -154,20 +158,24 @@ describe(`served 64c5eccc — ${ID}: "No AI assistant use in place", est. on the
   })
 
   for (const c of CASES) {
-    it(`${c.name}: the value line reads "No AI assistant use in place est."`, () => {
+    it(`${c.name}: the value line reads "No AI assistant use in place"; est. is the band's icon`, () => {
       renderFactor(c.data())
       const row = within(card()).getByTestId('factor-recorded-value')
-      expect(visibleText(row)).toBe('No AI assistant use in place est.')
+      expect(visibleText(row)).toBe('No AI assistant use in place')
+      const mark = within(card()).getByTestId('estimate-marker')
+      expect(row.contains(mark)).toBe(false)
+      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+      expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
       expect(Boolean(within(row).queryByTestId(`node-value-editor-${ID}`))).toBe(c.editor)
     })
 
-    it(`${c.name}: est. can only wrap WITH the value's last word — never alone`, () => {
+    it(`${c.name}: est. can never sit alone on a value line — the row holds only the value's words`, () => {
       renderFactor(c.data())
       const row = within(card()).getByTestId('factor-recorded-value')
       const runs = unbreakableRuns(row, `factor-value-mark-slot-${ID}`)
       const last = runs[runs.length - 1]
-      expect(last, `runs: ${JSON.stringify(runs)}`).not.toBe('est.')
-      expect(last.endsWith('place est.'), `runs: ${JSON.stringify(runs)}`).toBe(true)
+      expect(runs.includes('est.'), `runs: ${JSON.stringify(runs)}`).toBe(false)
+      expect(last.endsWith('place'), `runs: ${JSON.stringify(runs)}`).toBe(true)
       // …and the value itself still wraps inside the card: it is more than one run.
       expect(runs.length, `runs: ${JSON.stringify(runs)}`).toBeGreaterThan(1)
     })

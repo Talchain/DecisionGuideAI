@@ -1714,6 +1714,8 @@ interface CanvasState {
     runMeta: Partial<RunMetaState>
   }) => void
   setRunMeta: (meta: RunMetaState) => void
+  /** P02: after a reload, restore this browser's worksheet for the SAME current Run; no turn is sent. */
+  hydratePremortemWorksheet: () => void
   // Scenario actions
   loadScenario: (id: string) => boolean
   saveCurrentScenario: (name?: string) => string | null
@@ -4835,6 +4837,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   saveSnapshot: () => {
+    const blocked = scenarios.getIdentityWriteBlockReason()
+    if (blocked !== null) {
+      scenarios.showIdentityWriteBlockedToast(blocked)
+      return false
+    }
     const { nodes, edges } = get()
     return persistSnapshot({ nodes, edges })
   },
@@ -6541,6 +6548,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
 
+  hydratePremortemWorksheet: () => {
+    const s = get()
+    if (s.runMeta.premortemWorksheet?.status === 'available') return
+    const runState = s.analysisStateV1?.run_state
+    const scenarioId = s.currentScenarioId
+    // Only a Run the read proved current, on the canvas revision it ran on: never a stale or other-scenario Run.
+    if (!scenarioId || runState?.kind !== 'complete_current' || typeof s.lastServerGraphHash !== 'string' || s.analysisFreshnessDirty) return
+    const run = { scenarioId, graphHashAtRun: s.lastServerGraphHash, computedAt: runState.computed_at }
+    const worksheet = loadPremortemWorksheet(run)
+    if (worksheet) set(st => ({ runMeta: { ...st.runMeta, premortemRun: run, premortemWorksheet: { status: 'available', worksheet } } }))
+  },
+
   setRunMeta: (meta: RunMetaState) => {
     // Sanitisation at ingestion - single authoritative point for CEE/M1 data
     // Components receive clean data without needing to sanitise at render time
@@ -6789,6 +6808,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   saveCurrentScenario: (name?: string) => {
+    const blocked = scenarios.getIdentityWriteBlockReason()
+    if (blocked !== null) {
+      scenarios.showIdentityWriteBlockedToast(blocked)
+      return null
+    }
     const {
       nodes,
       edges,
@@ -8977,6 +9001,7 @@ export const ANALYSIS_CURRENCY_KEYS = [
 
 // A2 additions stay at the end to preserve the line-keyed UI claim baseline.
 import type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+import { loadPremortemWorksheet } from '../v5/readPremortemWorksheet'
 export type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
 export const selectPremortemWorksheet = (state: CanvasState) => state.runMeta.premortemWorksheet ?? null
 
