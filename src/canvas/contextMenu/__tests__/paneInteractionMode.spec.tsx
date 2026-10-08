@@ -137,6 +137,6 @@ describe('pointer mode on the pane context menu', () => {
   it('leaves the rest of the pane menu intact', () => {
     renderMenu({ interactionMode: 'select', onSetInteractionMode: vi.fn() })
     expect(screen.getByText('Add node')).toBeInTheDocument()
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
   })
 })

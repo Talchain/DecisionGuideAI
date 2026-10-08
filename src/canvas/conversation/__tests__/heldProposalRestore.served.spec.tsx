@@ -104,7 +104,11 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
     const f = read.proposal_fields.proposals[0].fields[0]
     const row = within(panel).getByTestId(`proposal-field-${PID}-${f.field_id}`)
     expect(row.textContent).toContain(`${f.from_label} → ${f.to_label}`)
-    expect(within(row).getByText("Olumi's placeholder")).toBeTruthy()
+    // Science 393023 LICENCE ruling 3, re-derived: the restored field is a placeholder (served current.source), so it says
+    // it is not sized and lights no band — the served wire bytes are unchanged.
+    expect(f.current.source).toBe('placeholder')
+    expect(within(row).getByText('Not sized yet')).toBeTruthy()
+    expect(within(row).getAllByRole('button').filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
     expect(send).not.toHaveBeenCalled(); expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

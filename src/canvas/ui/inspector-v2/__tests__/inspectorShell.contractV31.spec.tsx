@@ -24,6 +24,7 @@ const reveal = vi.fn(() => true)
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: () => reveal() }))
 
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -80,6 +81,7 @@ describe('v3.1 inspector shell — every pane', () => {
       const onClose = vi.fn()
       const { container } = render(
         <InspectorRouter nodeId={pane.nodeId} edgeId={pane.edgeId} onClose={onClose} />,
+        { wrapper: ToastProvider },
       )
       const shell = screen.getByRole('region', { name: 'Inspector panel' })
       expect(shell.getAttribute('data-inspector-width')).toBe('330')
@@ -99,16 +101,16 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(screen.queryByTestId('inspector-back-to-results')).toBeNull()
       expect(within(header).getByRole('button', { name: 'Close inspector' })).toBeTruthy()
 
-      // Edges opt in to More; node panels keep the existing body foot.
-      if (pane.name === 'edge') fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+      // Every live pane uses the anatomy's More destination.
+      fireEvent.click(screen.getByTestId('inspector-more-toggle'))
       // Technical detail stays reachable, at the foot of its content.
       const tech = screen.getByTestId('inspector-tech-toggle')
       expect(tech.getAttribute('aria-label')).toBe('Show technical detail')
       expect(header.contains(tech)).toBe(false)
 
       // The two contract buttons, and not the old chips.
-      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe(pane.name === 'edge' ? 'Ask Olumi' : 'Explore with Olumi')
-      if (pane.name === 'edge') fireEvent.click(screen.getByTestId('inspector-header-menu'))
+      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
+      fireEvent.click(screen.getByTestId('inspector-header-menu'))
       expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
       expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
       expect(screen.queryByTestId('inspector-quick-analysis')).toBeNull()
@@ -123,7 +125,7 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(notes).toHaveLength(1)
       const note = notes[0]
       expect(note.className).toContain('text-[10px]')
-      const body = screen.getByTestId(pane.name === 'edge' ? 'inspector-more' : 'inspector-body')
+      const body = screen.getByTestId('inspector-more')
       const lastBlock = body.lastElementChild
       expect(lastBlock === note || lastBlock?.contains(note)).toBe(true)
     })
@@ -144,7 +146,8 @@ describe('v3.1 inspector shell — every pane', () => {
   it('"Back to the conversation" fronts the conversation, then closes — the element stays selected', () => {
     const onClose = vi.fn()
     useCanvasStore.setState({ selection: { nodeIds: new Set(['fc']), edgeIds: new Set(), anchorPosition: null } } as never)
-    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />)
+    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />, { wrapper: ToastProvider })
+    fireEvent.click(screen.getByTestId('inspector-header-menu'))
     fireEvent.click(screen.getByTestId('inspector-back-to-conversation'))
     expect(reveal).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalledTimes(1)

@@ -9,7 +9,7 @@ export function InspectorSummary({
   chip?: ProvenanceKind | null
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="pt-3 space-y-1.5">
       <p data-testid="inspector-summary-sentence" className={`${typography.panelBody} text-text-body`}>
         {sentence}
       </p>

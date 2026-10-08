@@ -64,6 +64,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
+import ts from 'typescript'
 
 /** Panels whose guidance sentence lives INSIDE the group (proof in the header). */
 const GROUPED_PANELS = ['FactorControllablePanel.tsx', 'FactorObservablePanel.tsx'] as const
@@ -196,47 +197,89 @@ function guidanceBinding(src: string): {
   }
 }
 
+/**
+ * Anatomy puts influence in primary content and investigation value in More.
+ * Parse actual JSX parents: source order alone cannot prove this boundary or
+ * keep a visible label and its invitation attached to the bar they describe.
+ * The old stack instruments below remain unchanged for their mutation corpus.
+ */
+type JsxNode = ts.JsxElement | ts.JsxSelfClosingElement
+
+function jsxTag(node: JsxNode): string {
+  return (ts.isJsxElement(node) ? node.openingElement.tagName : node.tagName).getText()
+}
+
+function jsxAttribute(node: JsxNode, name: string): ts.JsxAttribute | undefined {
+  const attributes = ts.isJsxElement(node) ? node.openingElement.attributes : node.attributes
+  return attributes.properties.find(
+    (attribute): attribute is ts.JsxAttribute => ts.isJsxAttribute(attribute) && attribute.name.getText() === name,
+  )
+}
+
+function renderedExpression(node: JsxNode, expression: string): boolean {
+  return ts.isJsxElement(node) && node.children.some(child =>
+    ts.isJsxExpression(child) && child.expression?.getText() === expression,
+  )
+}
+
+function ancestorComponent(node: ts.Node, tag: string): ts.JsxElement | null {
+  let parent: ts.Node | undefined = node.parent
+  while (parent) {
+    if (ts.isJsxElement(parent) && jsxTag(parent) === tag) return parent
+    parent = parent.parent
+  }
+  return null
+}
+
+function anatomyBindings(src: string) {
+  const code = stripComments(src)
+  const file = ts.createSourceFile('panel.tsx', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const nodes: JsxNode[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) nodes.push(node)
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  const importance = nodes.filter(node => jsxTag(node) === 'ImportanceBar')
+  const more = nodes.filter(node => jsxTag(node) === 'InspectorMoreItems')
+  const voi = nodes.filter(node => jsxTag(node) === 'DataBar' &&
+    jsxAttribute(node, 'label')?.initializer?.getText() === '{INLINE_LABELS.investigationValue}')
+  const visibleLabels = nodes.filter(node => jsxTag(node) === 'div' &&
+    renderedExpression(node, 'INLINE_LABELS.investigationValue'))
+  const invitations = nodes.filter(node => jsxTag(node) === 'p' &&
+    ['evidence', 'measurement'].some(kind => renderedExpression(node, `INVESTIGATION_VALUE_INVITATION.${kind}`)))
+  const externalGuidance = nodes.filter(node => jsxTag(node) === 'p' &&
+    jsxAttribute(node, 'data-testid')?.initializer?.getText() === '"factor-external-guidance"')
+  return { code, importance, more, voi, visibleLabels, invitations, externalGuidance }
+}
+
+function classMargins(node: JsxNode): number[] {
+  const className = jsxAttribute(node, 'className')?.initializer?.getText() ?? ''
+  return [...className.matchAll(/\bmt-(\d+)\b/g)].map(match => Number(match[1]) * STEP_PX)
+}
+
 describe('the post-analysis factor stack groups each bar with its own sentences', () => {
-  it.each(ALL_PANELS)('%s — the between-group gap is at least 4x the largest within-group gap', (file) => {
-    const src = panelSource(file)
+  it.each(ALL_PANELS)('%s — influence is primary and the whole investigation-value group is in More', (file) => {
+    const binding = anatomyBindings(panelSource(file))
+    // Counts are positive controls; removing either metric, the disclosure,
+    // visible label or invitation cannot make the structural assertions pass.
+    expect(binding.importance, `${file}: exactly one influence owner must remain`).toHaveLength(1)
+    expect(binding.more, `${file}: the moved group needs one actual More boundary`).toHaveLength(1)
+    expect(binding.voi, `${file}: the investigation-value DataBar must remain`).toHaveLength(1)
+    expect(binding.visibleLabels, `${file}: the aria-label cannot replace the visible label`).toHaveLength(1)
+    expect(binding.invitations, `${file}: its own invitation must remain`).toHaveLength(1)
 
-    // ── PRECONDITIONS, PINNED IN-TEST ────────────────────────────────────────
-    // Without these the assertions below would pass on a file that no longer
-    // renders the stack at all — the guard would stop discriminating and nothing
-    // would go red.
-    //
-    // ⚠ BOUNDARY-MATCHED, NOT `toContain`. A substring precondition CANNOT see a
-    // removal: `<ImportanceBarREMOVED` contains `<ImportanceBar`, so a mutant that
-    // deleted the component passed the first version of this guard 4/4.
-    expect(
-      /<ImportanceBar[\s/>]/.test(src),
-      `${file} must still render <ImportanceBar> — precondition, not a style check`,
-    ).toBe(true)
-
-    // ⚠ AND THE VoI PRECONDITION HAD THE SAME HOLE ONE LEVEL DEEPER. It matched
-    // `INLINE_LABELS.investigationValue`, which occurs TWICE per panel: once as
-    // `DataBar`'s `label={…}` — rendered as an `aria-label` ONLY, never as text
-    // (`inspectorStrings.ts:405-407`) — and once as the visible `<div>`. Executed
-    // by review: delete the visible `<div>` and the old precondition still passed
-    // 3/3, on a file regressed to the exact unlabelled-bar state it claims to
-    // prevent. Pinning the COUNT is what closes that: the aria-label alone is 1.
-    const voiOccurrences = [...src.matchAll(/INLINE_LABELS\.investigationValue\b/g)].length
-    expect(
-      voiOccurrences,
-      `${file}: expected the VoI label BOTH as DataBar's aria-label AND as the visible ` +
-        `<div>, i.e. exactly 2 occurrences — found ${voiOccurrences}. One means the ` +
-        'visible label is gone and the bar is unlabelled again.',
-    ).toBe(2)
-
-    const spacing = stackSpacing(src)
-    expect(spacing, `${file}: could not find the ImportanceBar stack container`).not.toBeNull()
-
-    expect(
-      spacing!.ratio,
-      `${file}: between-group gap ${spacing!.between}px vs largest within-group gap ` +
-        `${spacing!.within}px — too close for a label or a sentence to bind to its own ` +
-        'bar. This is the "influence: Low" misreading.',
-    ).toBeGreaterThanOrEqual(REQUIRED_RATIO)
+    expect(ancestorComponent(binding.importance[0], 'InspectorMoreItems')).toBeNull()
+    expect(ancestorComponent(binding.voi[0], 'InspectorMoreItems')).toBe(binding.more[0])
+    const wrapper = binding.voi[0].parent
+    expect(ts.isJsxElement(wrapper)).toBe(true)
+    expect(jsxTag(wrapper as ts.JsxElement)).toBe('div')
+    expect(binding.visibleLabels[0].parent, "the visible label must be inside its bar's own wrapper").toBe(wrapper)
+    expect(binding.invitations[0].parent, "the invitation must be inside its bar's own wrapper").toBe(wrapper)
+    expect(binding.voi[0].pos).toBeLessThan(binding.visibleLabels[0].pos)
+    expect(binding.visibleLabels[0].pos).toBeLessThan(binding.invitations[0].pos)
+    expect(ancestorComponent(binding.visibleLabels[0], 'InspectorMoreItems')).toBe(binding.more[0])
+    expect(ancestorComponent(binding.invitations[0], 'InspectorMoreItems')).toBe(binding.more[0])
   })
 
   it('PRECONDITION: the comment stripper actually strips — otherwise every index below is raw text', () => {
@@ -249,42 +292,16 @@ describe('the post-analysis factor stack groups each bar with its own sentences'
     expect([...stripped.matchAll(/\{sensitivityGuidance\}/g)].length).toBe(1) // the prose mention does not
   })
 
-  it.each(GROUPED_PANELS)('%s — the influence sentence sits INSIDE the group it describes', (file) => {
-    const b = guidanceBinding(panelSource(file))
-    for (const [name, idx] of [
-      ['the stack container', b.container],
-      ['<ImportanceBar>', b.bar],
-      ['the guidance render', b.guidance],
-      ['the VoI label', b.voi],
-      ['</StaleGuardBanner>', b.banner],
-    ] as const) {
-      expect(idx, `${file}: ${name} not found in comment-stripped source`).toBeGreaterThan(-1)
-    }
-
-    // ORDER — the sentence follows the bar it describes and PRECEDES the group
-    // it must not join. `guidance < voi` is what closes a guidance nested inside
-    // the value-of-information group, which is B1 at maximum severity.
-    expect(b.bar, `${file}: the guidance renders BEFORE <ImportanceBar>`).toBeLessThan(b.guidance)
-    expect(
-      b.guidance,
-      `${file}: the influence sentence renders at or after the value-of-information ` +
-        'group, so proximity binds it there instead of to the influence bar.',
-    ).toBeLessThan(b.voi)
-    expect(b.guidance, `${file}: the guidance renders outside the stack`).toBeLessThan(b.banner)
-
-    // NESTING — order cannot see a guidance that is a DIRECT CHILD of the
-    // container: its index is in exactly the right place while it sits under the
-    // container's own `space-y-4`, 16px from both bars and belonging to neither.
-    expect(
-      b.depthAtGuidance,
-      `${file}: the guidance is a direct child of the stack container, so the ` +
-        'group separator governs it and it belongs to neither bar.',
-    ).toBeGreaterThanOrEqual(1)
-    expect(
-      b.closesBetweenBarAndGuidance,
-      `${file}: an element closes between <ImportanceBar> and the guidance, so they ` +
-        'are not in the same group.',
-    ).toBe(0)
+  it.each(GROUPED_PANELS)('%s — the single ordinal owner replaces the retired rank sentence', (file) => {
+    const binding = anatomyBindings(panelSource(file))
+    expect(binding.importance).toHaveLength(1)
+    expect(jsxAttribute(binding.importance[0], 'sensitivityRank')?.initializer?.getText()).toBe('{displayMetadata.sensitivityRank}')
+    expect(ancestorComponent(binding.importance[0], 'InspectorMoreItems')).toBeNull()
+    expect(binding.code).not.toContain('sensitivityGuidance')
+    expect(binding.code).not.toContain('Ranked #')
+    // This is still a pair of different quantities, with one owner for each.
+    expect(binding.voi).toHaveLength(1)
+    expect(ancestorComponent(binding.voi[0], 'InspectorMoreItems')).toBe(binding.more[0])
   })
 
   // ── THE FOUR PLACEMENTS ROUND 2 PROVED THE ONE-LINE PIN COULD NOT SEE ──────
@@ -362,21 +379,28 @@ describe('the post-analysis factor stack groups each bar with its own sentences'
     expect(b.closesBetweenBarAndGuidance).toBe(0)
   })
 
-  it(`${SEPARATED_PANEL} — the unconditional guidance is separated by MORE than the group separator`, () => {
-    const src = panelSource(SEPARATED_PANEL)
-    const spacing = stackSpacing(src)
-    expect(spacing).not.toBeNull()
-    const banner = src.indexOf('</StaleGuardBanner>')
-    const after = src.slice(banner)
-    const guidanceMargin = /data-testid="factor-external-guidance"/.test(after)
-      ? Number(/className=\{`\$\{typography\.panelBody\} text-text-body mt-(\d+)`\}/.exec(after)?.[1] ?? '0') * STEP_PX
-      : 0
-    expect(
-      guidanceMargin,
-      'the external guidance sentence must sit FURTHER from the stack than the stack’s own ' +
-        `groups sit from each other (${spacing!.between}px); found ${guidanceMargin}px. ` +
-        'Equal or closer and it reads as a third line of the value-of-information bar.',
-    ).toBeGreaterThan(spacing!.between)
+  it(`${SEPARATED_PANEL} — its unconditional guidance stays separate from both metrics`, () => {
+    const binding = anatomyBindings(panelSource(SEPARATED_PANEL))
+    expect(binding.importance).toHaveLength(1)
+    expect(binding.more).toHaveLength(1)
+    expect(binding.voi).toHaveLength(1)
+    expect(binding.visibleLabels).toHaveLength(1)
+    expect(binding.invitations).toHaveLength(1)
+    expect(binding.externalGuidance).toHaveLength(1)
+    const guidance = binding.externalGuidance[0]
+    const voiWrapper = binding.voi[0].parent
+    expect(ancestorComponent(guidance, 'InspectorMoreItems')).toBe(binding.more[0])
+    expect(ancestorComponent(binding.importance[0], 'InspectorMoreItems')).toBeNull()
+    expect(guidance.parent).not.toBe(voiWrapper)
+    expect(guidance.pos, 'external guidance must follow the complete VoI wrapper').toBeGreaterThan(voiWrapper.end)
+    expect(renderedExpression(guidance, 'externalGuidance')).toBe(true)
+    // Derive both sides from actual rendered class attributes, never from
+    // comments or a made-up stack-gap value after the stack was separated.
+    const guidanceMargins = classMargins(guidance)
+    const ownMargins = [...classMargins(binding.visibleLabels[0]), ...classMargins(binding.invitations[0])]
+    expect(guidanceMargins.length).toBeGreaterThan(0)
+    expect(ownMargins.length).toBeGreaterThan(0)
+    expect(Math.max(...guidanceMargins)).toBeGreaterThan(Math.max(...ownMargins))
   })
 
   // ── DISCRIMINATING PAIR, RUN THROUGH THE SHIPPED FUNCTION ──────────────────

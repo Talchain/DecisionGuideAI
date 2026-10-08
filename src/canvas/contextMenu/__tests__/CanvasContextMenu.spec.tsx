@@ -113,7 +113,7 @@ const DURABLE_CONNECTED_ADD_LABELS = [
 /**
  * The negative twin, for the Question card (edit-structure/F7). Bound by the
  * exact label text, so a renamed item cannot pass as "withheld"; the caller
- * asserts the menu did render (its `Ask AI` row) so an empty menu cannot either.
+ * asserts the menu did render (its `Ask Olumi` row) so an empty menu cannot either.
  */
 function expectConnectedAddsWithheld(): void {
   for (const label of DURABLE_CONNECTED_ADD_LABELS) {
@@ -188,7 +188,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
     )
 
     expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toBeInTheDocument()
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     expect(screen.getByText('Auto-arrange')).toBeInTheDocument()
     expect(screen.getByText('Switch to Detailed')).toBeInTheDocument()
     // ⭐⭐ BOTH FIXES KEPT (rebase, 13 Sep 2026). #1538's DOM witness that a human
@@ -244,7 +244,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(arrangeRow?.textContent).toContain('No nodes to arrange')
   })
 
-  it('opens the read-only Ask AI submenu with current DS and accessibility semantics', () => {
+  it('opens the read-only Ask Olumi submenu with current DS and accessibility semantics', () => {
     render(
       <CanvasContextMenu
         target={paneTarget}
@@ -252,7 +252,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    const askAi = screen.getByText('Ask AI').closest('button')!
+    const askAi = screen.getByText('Ask Olumi').closest('button')!
     fireEvent.click(askAi)
 
     // A9 — the submenu's z-index moved from 101 to 952 (above OutputsDock's
@@ -332,6 +332,50 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     screenPos: { x: 100, y: 100 },
   }
 
+  it('renders Ask Olumi and never Ask AI anywhere in node, edge, pane and multi menus', () => {
+    const edge = {
+      id: 'e1',
+      source: 'f1',
+      target: 'g1',
+      type: 'styled',
+      data: { ...DEFAULT_EDGE_DATA },
+    } as Edge<EdgeData>
+    const edgeTarget: EdgeTarget = {
+      kind: 'edge',
+      edgeId: 'e1',
+      edge,
+      isStructural: false,
+      screenPos: { x: 100, y: 100 },
+    }
+    const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 100 } }
+    const multiTarget: MultiTarget = {
+      kind: 'multi',
+      nodeIds: ['f1', 'g1'],
+      edgeIds: ['e1'],
+      screenPos: { x: 100, y: 100 },
+    }
+
+    for (const target of [factorTarget, edgeTarget, paneTarget, multiTarget]) {
+      const { unmount } = render(
+        <CanvasContextMenu
+          target={target}
+          onClose={onClose}
+          screenToFlowPosition={screenToFlowPosition}
+        />,
+      )
+      // The current label is the contrast control: an empty menu cannot pass.
+      expect(document.body).not.toHaveTextContent('Ask AI')
+      const askOlumi = screen.getByText('Ask Olumi')
+      expect(askOlumi).toBeInTheDocument()
+
+      fireEvent.click(askOlumi.closest('button')!)
+      expect(screen.getAllByRole('menu')).toHaveLength(2)
+      expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
+      expect(document.body).not.toHaveTextContent('Ask AI')
+      unmount()
+    }
+  })
+
   it('keeps factor explanation, exploration, copy and durable delete routes only', () => {
     render(
       <CanvasContextMenu
@@ -340,7 +384,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     expect(screen.getByText('Explore')).toBeInTheDocument()
     expect(screen.queryByText('Copy')).toBeNull() // A20 — Copy is hidden
     expect(screen.getByText('Delete')).toBeInTheDocument()
@@ -369,7 +413,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     expect(screen.queryByText('Copy')).toBeNull() // A20 — Copy is hidden
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Explore')).toBeNull()
@@ -407,7 +451,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     expectConnectedAddsOffered()
   })
 
@@ -433,7 +477,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expectLocalSemanticActionsInert()
   })
@@ -452,7 +496,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
     // A20 — Copy wrote only to an in-memory clipboard Paste could never
     // consume (Paste was always disabled with no server authority), so both
     // are hidden entirely rather than shown as a dead end.

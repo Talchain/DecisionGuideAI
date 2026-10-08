@@ -294,11 +294,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         })}
       </div>
       {/*
-        The slot is ALWAYS in the DOM and reserves its own height, so revealing a
-        consequence cannot shove the rest of the panel down the moment a pill
-        takes focus — a row that jumps as you Tab along it is its own usability
-        defect, and the one thing worse than an undisclosed number is a
-        disclosure that moves the control away from the pointer.
+        The slot stays in the DOM on both surfaces. Chat keeps its reserved
+        height so disclosure does not shift the proposal controls. The Inspector
+        leaves no empty consequence line; spacing appears with its disclosure.
 
         NOT an `aria-live` region and NOT `aria-hidden`. Every button already
         carries the same sentence as its accessible name, so announcing it again
@@ -307,7 +305,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         for anyone browsing the panel by structure.
       */}
       <div
-        className={`${size === 'chat' ? typography.chatMeta : typography.panelMeta} text-text-light min-h-[1rem] mt-1`}
+        className={size === 'chat'
+          ? `${typography.chatMeta} text-text-light min-h-[1rem] mt-1`
+          : `${typography.panelMeta} text-text-light${revealed ? ' mt-1' : ''}`}
         data-testid="strength-preset-consequence"
       >
         {revealed}

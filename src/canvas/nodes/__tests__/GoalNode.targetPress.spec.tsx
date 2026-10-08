@@ -108,6 +108,18 @@ describe('DGAI: the missing-target mark resolves on the canvas in one press', ()
     expect(showToast).toHaveBeenLastCalledWith(goalTargetSettlementNotice('refused', detail), 'error')
   })
 
+  it('6: the figure box can never be squeezed out: the direction select sizes to its words (no w-full), the input takes the rest with a 4.5rem floor', async () => {
+    renderGoal()
+    await userEvent.click(screen.getByTestId('goal-node-no-target-chip'))
+    const select = screen.getByTestId('goal-node-target-editor-direction')
+    const input = screen.getByTestId('goal-node-target-editor-input')
+    // Bound to the served defect (#2659 witness: 18px): w-full on the select beat w-auto and starved the input.
+    expect(select.className.split(/\s+/)).not.toContain('w-full')
+    expect(select).toHaveClass('w-auto', 'shrink-0')
+    expect(input).toHaveClass('min-w-[4.5rem]', 'flex-1')
+    expect(input.className.split(/\s+/)).not.toContain('min-w-0')
+  })
+
   it('3: Escape closes and returns focus to the chip; an outside press also dismisses', async () => {
     renderGoal()
     const chip = screen.getByTestId('goal-node-no-target-chip')

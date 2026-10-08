@@ -1,7 +1,7 @@
 /**
  * OutcomePanel + RiskPanel v6.2 — redesign-specific tests.
  *
- * Covers: drivers visible by default, EmptyDescriptionPrompt, goal contribution bar,
+ * Covers: drivers visible by default, hidden empty descriptions, goal contribution bar,
  * DriversList rendering without truncation or category badges.
  */
 
@@ -68,10 +68,12 @@ beforeEach(() => {
 })
 
 describe('OutcomePanel v6.2', () => {
-  it('shows the clearly-empty description state when description is empty (v3.1: no italic prompt)', () => {
+  it('hides the retired empty-description state while the outcome summary stays visible', () => {
     setOutcomeStore()
     render(<OutcomePanel {...outcomeProps} />)
-    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent('Likelihood and impact are not recorded. That does not imply low risk.')
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
+    expect(screen.queryByText('No description recorded.')).toBeNull()
     expect(screen.queryByText('What does this outcome represent in your decision?')).toBeNull()
   })
 
@@ -141,7 +143,7 @@ describe('RiskPanel v6.2', () => {
     expect(screen.getByText('Customer attrition')).toBeTruthy()
   })
 
-  it('shows EmptyDescriptionPrompt when description is empty', () => {
+  it('hides the retired empty-description state while the risk summary stays visible', () => {
     setRiskStore()
     const store = useCanvasStore.getState()
     const node = store.nodes.find(n => n.id === 'risk1')!
@@ -149,8 +151,10 @@ describe('RiskPanel v6.2', () => {
     useCanvasStore.setState({ nodes: [...store.nodes] })
 
     render(<RiskPanel {...riskProps} />)
-    // v3.1 (DESIGN-GAP-v31 row 32): an absence, not an italic prompt.
-    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    // EDIT-UX anatomy: the summary states the meaningful absence once.
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent('Likelihood and impact are not recorded. That does not imply low risk.')
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
+    expect(screen.queryByText('No description recorded.')).toBeNull()
     expect(screen.queryByText('What could go wrong and how would it affect the decision?')).toBeNull()
   })
 

@@ -4,7 +4,7 @@ import { EditNote } from '../../editNotes/EditNote'
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback, type ComponentType } from 'react'
+import { memo, useMemo, useCallback, useEffect, useRef, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
 import { isCanvasOnlyLink } from '../../utils/canvasOnlyLink'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
@@ -30,7 +30,9 @@ import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorCoaching } from './shared/InspectorCoaching'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
-import { ExamineAssumption } from './examine/ExamineAssumption'
+import { ExamineAssumption, requestExamineAssumption } from './examine/ExamineAssumption'
+import { buildExamineAssumptionView, EXAMINE_LIMIT } from './examine/examineAssumptionView'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { canReceiveAsk } from './askSemantic'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
@@ -39,6 +41,9 @@ import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
+import { canDeleteFromContextMenu } from '../../contextMenu/useMenuItems'
+import { useIsViewer } from '../../../lib/viewerMode'
+import { InspectorRemoveMenuItem, type InspectorRemoveTarget } from './shared/InspectorRemoveMenuItem'
 import type { EdgeData } from '../../domain/edges'
 import type { Edge } from '@xyflow/react'
 
@@ -149,6 +154,32 @@ export const InspectorRouter = memo(function InspectorRouter({
   const edges = useCanvasStore(s => s.edges)
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const { techMode, setTechMode } = useTechToggle()
+  const isViewer = useIsViewer()
+  const canRemove = canDeleteFromContextMenu(isViewer)
+  const removalWatch = useRef<(() => void) | null>(null)
+
+  // The action may refuse or only open a confirmation. Keep the inspector
+  // until this exact subject disappears. The store notification closes the
+  // host before selection clearing can unmount Router and skip a React effect.
+  const handleRemoveRequested = useCallback((target: InspectorRemoveTarget) => {
+    removalWatch.current?.()
+    removalWatch.current = useCanvasStore.subscribe(state => {
+      const exists = target.kind === 'node'
+        ? state.nodes.some(node => node.id === target.nodeId)
+        : state.edges.some(edge => edge.id === target.edgeId)
+      if (!exists) {
+        removalWatch.current?.()
+        removalWatch.current = null
+        onClose()
+      }
+    })
+  }, [onClose])
+
+  // A cancelled removal keeps watching only while this subject is inspected.
+  useEffect(() => () => {
+    removalWatch.current?.()
+    removalWatch.current = null
+  }, [nodeId, edgeId])
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),
@@ -276,16 +307,19 @@ export const InspectorRouter = memo(function InspectorRouter({
         onClose={onClose}
         dragHandlers={dragHandlers}
         variant="anatomy"
-        headerMenu={canAsk ? (
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="inspector-back-to-conversation"
-            onClick={handleBackToConversation}
-            className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
-          >
-            Back to the conversation
-          </button>
+        headerMenu={canAsk || canRemove ? (
+          <>
+            {canRemove && <InspectorRemoveMenuItem target={{ kind: 'edge', edgeId }} onRequested={handleRemoveRequested} />}
+            {canAsk && <button
+              type="button"
+              role="menuitem"
+              data-testid="inspector-back-to-conversation"
+              onClick={handleBackToConversation}
+              className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
+            >
+              Back to the conversation
+            </button>}
+          </>
         ) : undefined}
         more={<div className="mt-3"><EdgeLabelModeToggle /></div>}
         footerNote={
@@ -361,6 +395,7 @@ export const InspectorRouter = memo(function InspectorRouter({
     techMode,
     onClose,
     onNavigate: handleNavigate,
+    summaryContext: <InspectorAttentionContext reasons={attention.reasons} />,
   }
 
   /**
@@ -484,8 +519,15 @@ export const InspectorRouter = memo(function InspectorRouter({
 
   if (!PanelComponent) return null
 
+  // Reuse the former ExamineAssumption eligibility and sender unchanged.
+  const examineView = panelType.startsWith('factor-') ? buildExamineAssumptionView({
+    label, valueText: factorDisplayText(node.data), observed: node.data?.observedState,
+    reasons: attention.reasons,
+  }) : null
+
   return (
     <InspectorShell
+      variant="anatomy"
       nodeId={nodeId}
       label={label}
       typePill={typePill}
@@ -515,40 +557,48 @@ export const InspectorRouter = memo(function InspectorRouter({
          and would do neither — the rename would apply locally and vanish on
          reload, which is the exact defect UI #1025 reverted #1024 for. */
       onLabelChange={handleLabelChange}
-      quickActions={
+      headerMenu={canAsk || canRemove ? (
         <>
-          {/* Paul 23 Sep point 11: the reason first, then the route to the
-              conversation directly beneath it. */}
-          <InspectorAttentionContext reasons={attention.reasons} />
-          {/* ⭐ Slice 1 (52f8cd): examine a factor's figure, beneath the reasons the Run gave. Prefill-only (`requestAsk`). */}
-          {panelType.startsWith('factor-') && (
-            <ExamineAssumption
-              nodeId={nodeId}
-              label={label}
-              data={node.data as Record<string, unknown> | undefined}
-              reasons={attention.reasons}
-            />
-          )}
+          {canRemove && <InspectorRemoveMenuItem target={{ kind: 'node', nodeId }} onRequested={handleRemoveRequested} />}
+          {canAsk && <button
+            type="button"
+            role="menuitem"
+            data-testid="inspector-back-to-conversation"
+            onClick={handleBackToConversation}
+            className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
+          >
+            Back to the conversation
+          </button>}
+        </>
+      ) : undefined}
+      actions={
+        <>
+          {panelType === 'decision' && <InspectorCoaching elementId={nodeId} panelType="decision"
+            fallbackText="" labelContext={{ label }} />}
           <InspectorQuickActions
+            variant="anatomy"
             elementId={nodeId}
             elementLabel={label}
             panelType={panelType}
             askContext={attentionAskContext(attention.reasons)}
-            onBackToConversation={handleBackToConversation}
+            onAsk={examineView ? () => requestExamineAssumption(nodeId, examineView) : undefined}
+            askTitle={examineView ? EXAMINE_LIMIT : undefined}
             extra={panelType === 'decision' ? <DecisionAddOption decisionId={nodeId} /> : undefined}
           />
-          {panelType === 'decision' && <InspectorCoaching elementId={nodeId} panelType="decision"
-            fallbackText="" labelContext={{ label }} />}
-          {/* ⭐⭐ THE DECISION'S "+ Add option", OUTSIDE THE FENCE BY THE SAME
-              TEST THE RENAME PASSED. Its gesture captures a durable
-              `structural_add` for the new option (CEE `'mutating'`), so it may
-              sit beside the header rather than inside the `<fieldset disabled>`
-              below, which inerted it for every user while its own isolated spec
-              stayed green. ONLY this control moves — the decision panel stays in
-              the blanket wrap, so none of its other controls is released. See
-              `DecisionAddOption`, and the escape guard's `DELIBERATELY_OUTSIDE`
-              entry in `inspectorAuthorityBinding.spec.tsx`. v3.1: it is drawn
-              in the SAME button row as the conversation buttons (`extra`). */}
+        </>
+      }
+      more={
+        <>
+          {panelType.startsWith('factor-') && (
+            <ExamineAssumption nodeId={nodeId} label={label}
+              data={node.data as Record<string, unknown> | undefined}
+              reasons={attention.reasons} showAction={false} />
+          )}
+          {rawLabel !== label && (
+            <TechnicalDisclosure visible={techMode}>
+              <div>System: raw_label: {rawLabel}</div>
+            </TechnicalDisclosure>
+          )}
         </>
       }
       footerNote={
@@ -582,12 +632,6 @@ export const InspectorRouter = memo(function InspectorRouter({
         </InspectorAgencyNote>
       }
     >
-      {/* Full raw label in disclosure only when truncated */}
-      {rawLabel !== label && (
-        <TechnicalDisclosure visible={techMode}>
-          <div>System: raw_label: {rawLabel}</div>
-        </TechnicalDisclosure>
-      )}
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto
           node B and keeps the instance — so any state a panel seeds ONCE at
@@ -602,7 +646,6 @@ export const InspectorRouter = memo(function InspectorRouter({
           was typing. That is the same split #1343 made one level down, where an
           intervention row is keyed `${optionId}:${factorId}` and a focus-guarded
           effect covers same-option writes the key cannot see. */}
-      {!['factor-controllable', 'factor-observable', 'risk', 'option', 'goal'].includes(panelType) && <EditNote elementId={nodeId} />}
       {panelOwnsAuthority ? (
         <PanelComponent key={nodeId} {...panelProps} readOnly />
       ) : (
@@ -612,9 +655,10 @@ export const InspectorRouter = memo(function InspectorRouter({
           data-authority="disabled"
           className="contents"
         >
-          <PanelComponent key={nodeId} {...panelProps} />
+          <PanelComponent key={nodeId} {...panelProps} readOnly />
         </fieldset>
       )}
+      {!['factor-controllable', 'factor-observable', 'risk', 'option', 'goal'].includes(panelType) && <EditNote elementId={nodeId} />}
     </InspectorShell>
   )
 })

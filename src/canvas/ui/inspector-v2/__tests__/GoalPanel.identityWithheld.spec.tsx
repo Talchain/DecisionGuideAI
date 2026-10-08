@@ -110,10 +110,10 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
   it.each([
     ['PLoT #416 shape (no figures)', PRODUCER_SHAPE],
     ['figures beside the code (fail-closed)', FIGURES_BESIDE_CODE],
-  ])('%s → AIQ’s words in both arms, 0 goal percentages', (_case, r) => {
-    const { getByTestId, container } = renderWith(r)
+  ])('%s → AIQ’s words once beside the target, 0 goal percentages', (_case, r) => {
+    const { getByTestId, queryByTestId, container } = renderWith(r)
     expect(getByTestId('goal-probability-withheld-identity').textContent).toBe(AIQ_WORDS)
-    expect(getByTestId('goal-impact-withheld-identity').textContent).toBe(AIQ_WORDS)
+    expect(queryByTestId('goal-impact-withheld-identity')).toBeNull()
     const text = container.textContent ?? ''
     expect(text).not.toMatch(/chance of meeting your goal/)
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)

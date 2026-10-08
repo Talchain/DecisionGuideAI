@@ -17,6 +17,9 @@ import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
 import { openStrengthForCanvasOnlyLinkAddedSince } from '../utils/openEdgeStrengthEditor'
+import { openNodeInspector } from '../nodes/shared/openNodeInspector'
+import { requestNodeRename } from '../ui/inspector-v2/renameIntent'
+import { focusNodeById } from '../utils/focusHelpers'
 import { isQuestionCard } from '../domain/questionLink'
 import {
   assessNodeDeletion,
@@ -316,21 +319,32 @@ export async function addNodeAction(
   }
 
   const nodesBefore = store.nodes.length
+  const nodeIdsBefore = new Set(store.nodes.map(node => node.id))
   const ops: PatchOperation[] = [{
     op: 'add_node',
     target_id: `pending-${nodesBefore}`,
     data: { kind: type, label: `New ${type}` },
   }]
-  await commitValidatedMutation(
+  const result = await commitValidatedMutation(
     ops,
     () => store.addNode(flowPos, type),
     showToast,
   )
   // Select new node for immediate editing
   const afterStore = useCanvasStore.getState()
-  if (afterStore.nodes.length > nodesBefore) {
-    const newNode = afterStore.nodes[afterStore.nodes.length - 1]
+  const addedNodes = afterStore.nodes.filter(node => !nodeIdsBefore.has(node.id))
+  if (result.success && afterStore.nodes.length > nodesBefore && addedNodes.length === 1) {
+    const newNode = addedNodes[0]
     afterStore.selectNodeWithoutHistory(newNode.id)
+    openNodeInspector(newNode.id)
+    requestNodeRename(newNode.id)
+    // Defer navigation until the inspector has opened on the new selection.
+    requestAnimationFrame(() => {
+      const current = useCanvasStore.getState()
+      if (current.selection.nodeIds.has(newNode.id) && current.nodes.some(node => node.id === newNode.id)) {
+        focusNodeById(newNode.id)
+      }
+    })
   }
 }
 
@@ -955,7 +969,7 @@ export const genericChallengePrompt = (label: string) =>
   `Challenge the current setup of "${label}". What could be wrong or missing?`
 
 /** The menu tooltip those four kinds get, likewise unchanged. */
-const GENERIC_CHALLENGE_TOOLTIP = "Ask AI to argue against this element's current setup"
+const GENERIC_CHALLENGE_TOOLTIP = "Ask Olumi to argue against this element's current setup"
 
 /**
  * Per-kind challenge copy — the prompt AND the menu tooltip, together.
@@ -963,7 +977,7 @@ const GENERIC_CHALLENGE_TOOLTIP = "Ask AI to argue against this element's curren
  * ⭐ THEY ARE ONE ENTRY BECAUSE THEY ARE ONE PROMISE. The tooltip is the label
  * on the door and the prompt is what is behind it; if they can be edited apart
  * they will eventually describe different actions. The shipped tooltip is a
- * single fixed string — *"Ask AI to argue against this element's current
+ * single fixed string — *"Ask Olumi to argue against this element's current
  * setup"* — which reads fine for a factor and is simply not true of a Question:
  * a question has no "setup" to argue against, it has a FRAMING. That is what
  * makes the copy part of this change rather than a follow-up.
@@ -975,10 +989,8 @@ const GENERIC_CHALLENGE_TOOLTIP = "Ask AI to argue against this element's curren
  * the product already uses "challenge" as a verb for contesting an element.
  * That reservation is exactly what this copy spends.
  *
- * Register: these say "Ask AI", matching the submenu they sit in ("Ask AI",
- * tooltip "AI-powered analysis") rather than the "Ask Olumi" wording used on
- * the hover row. One submenu, one vocabulary; the estate's mixed usage is a
- * separate question and not this lane's to settle.
+ * Register: these say "Ask Olumi", matching the submenu, the inspector
+ * (#2656) and the hover row. One generic ask, one vocabulary.
  *
  * Kinds absent from this table fall back to the generic pair above. The table
  * is therefore additive: it cannot silently reword what already ships.
@@ -989,12 +1001,12 @@ const CHALLENGE_COPY: Partial<
   decision: {
     prompt: (label) =>
       `Challenge how this question is framed: "${label}". Is it the right thing to be working out, and what is it assuming?`,
-    tooltip: 'Ask AI to argue this is the wrong question to be asking',
+    tooltip: 'Ask Olumi to argue this is the wrong question to be asking',
   },
   option: {
     prompt: (label) =>
       `Challenge the option "${label}". What would make it a worse choice than it looks, and what alternative is missing?`,
-    tooltip: 'Ask AI to argue against this option',
+    tooltip: 'Ask Olumi to argue against this option',
   },
   // Constraint is included on the strength of its OWN schema, not by analogy:
   // `ConstraintNodeDataSchema` carries `constraintType`, `thresholdValue`,
@@ -1005,7 +1017,7 @@ const CHALLENGE_COPY: Partial<
   constraint: {
     prompt: (label) =>
       `Challenge the constraint "${label}". Is it real, is it set at the right level, and who could relax it?`,
-    tooltip: 'Ask AI to argue this constraint is wrong or negotiable',
+    tooltip: 'Ask Olumi to argue this constraint is wrong or negotiable',
   },
 }
 

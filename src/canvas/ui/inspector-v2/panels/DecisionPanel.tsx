@@ -19,12 +19,12 @@ import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
-  DECISION_STRINGS,
   EMPTY_STATES,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
@@ -59,8 +59,8 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
  * "Add connected …" gesture (`structuralAdd.connectedAddIsDurable.spec.ts`).
  * Nothing here says otherwise.
  *
- * ⛔ IT IS EXPORTED FOR THE ROUTER'S `quickActions` SLOT AND RENDERED NOWHERE
- * ELSE. That slot sits above the fenced body, beside the rename. Moving only
+ * ⛔ IT IS EXPORTED FOR THE ROUTER'S `actions` SLOT AND RENDERED NOWHERE
+ * ELSE. That slot follows the panel and stays outside its write fence. Moving only
  * this control is what keeps every other decision control fenced — adding
  * `'decision'` to `AUTHORITY_OWNING_PANELS` would have released the whole pane
  * to close one gap.
@@ -103,6 +103,8 @@ export const DecisionPanel = memo(function DecisionPanel({
   techMode,
   onClose: _onClose,
   onNavigate,
+  readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -118,7 +120,6 @@ export const DecisionPanel = memo(function DecisionPanel({
   const mutations = useNodeMutations(nodeId ?? '')
 
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
-  const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   // Connected options — stored with raw winProb for formatWinProbability().
   //
@@ -209,38 +210,29 @@ export const DecisionPanel = memo(function DecisionPanel({
 
   return (
     <div>
+      <InspectorSummary sentence={connectedOptions.length > 0
+        ? `This decision has ${connectedOptions.length} option${connectedOptions.length === 1 ? '' : 's'}.`
+        : 'This decision has no options yet.'} />
+      {summaryContext}
+      {readOnly && (
+        <p data-testid="decision-authority-route" className={`${typography.panelBody} text-text-body mt-2`}>
+          To change its structure, ask Olumi.
+        </p>
+      )}
+      {description.trim() && (
+        <p className={`${typography.panelBody} text-text-body mt-2 whitespace-pre-wrap break-words`}>{description}</p>
+      )}
       {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {description || isEditingDescription ? (
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              mutations.setDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder={DESCRIPTION_PLACEHOLDERS.decision}
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.decision}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
-        )}
-
-        {/* v3.1: the brief's framing as detail rows, not a box. */}
-        {briefData && (briefData.who || briefData.timeframe || briefData.constraint) && (
+      {briefData && (briefData.who || briefData.timeframe || briefData.constraint) && (
+        <PanelGroup kind="context" label={GROUP_LABELS.context}>
+          {/* v3.1: the brief's framing as detail rows, not a box. */}
           <div className="mt-2">
             {briefData.who && <div className={inspectorDetailRow}><span className="text-text-light">Who decides</span><span className="text-right text-text-body">{briefData.who}</span></div>}
             {briefData.timeframe && <div className={inspectorDetailRow}><span className="text-text-light">Timeframe</span><span className="text-right text-text-body">{briefData.timeframe}</span></div>}
             {briefData.constraint && <div className={inspectorDetailRow}><span className="text-text-light">Key constraint</span><span className="text-right text-text-body">{briefData.constraint}</span></div>}
           </div>
-        )}
-      </PanelGroup>
+        </PanelGroup>
+      )}
 
       {/* ── Alternatives (options list) ───────────────────────── */}
       {/* ⭐ v3.1 (DESIGN-GAP-v31 row 32): "the Question inspector must not list
@@ -252,7 +244,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         {/* ⚠ RENDERED ONLY WHEN THERE ARE OPTIONS TO LIST. The card used to end
             with the "+ Add option" row, which kept it non-empty on a decision
             with no options; that control now lives in the Router's
-            `quickActions` slot (see `DecisionAddOption`), where a user can
+            `actions` slot (see `DecisionAddOption`), where a user can
             reach it. An empty bordered card would be a box with nothing in it. */}
         {connectedOptions.length > 0 && (
         <PrimaryControlCard>
@@ -307,44 +299,59 @@ export const DecisionPanel = memo(function DecisionPanel({
       </PanelGroup>
 
       {/* ── Connections group (non-option edges) ──────────────── */}
-      <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
-        {otherConnections.map(conn => (
-          <ConnectionRow
-            key={conn.edgeId}
-            nodeKind={conn.nodeKind}
-            label={conn.label}
-            strength={conn.strength}
-            fullLabel
-            techMode={techMode}
-            onClick={() => onNavigate(conn.nodeId)}
-          />
-        ))}
-        {/* L-40 — `otherConnections` EXCLUDES option edges by design (options
-            live in the Input group above), so a decision whose only edges are
-            its options used to render a flat "No connections yet." while the
-            canvas drew every one of them. The empty state is now derived from
-            the SAME edge data the options list reads, and names where those
-            connections went instead of denying them. */}
-        {otherConnections.length === 0 && (
-          connectedOptions.length > 0 ? (
-            <p
-              data-testid="decision-connections-are-options"
-              className={`${typography.panelMeta} text-text-light`}
-            >
-              {DECISION_STRINGS.connectionsAreOptions
-                .replace('{count}', String(connectedOptions.length))
-                .replace('{s}', connectedOptions.length === 1 ? '' : 's')}
-            </p>
-          ) : (
+      {(otherConnections.length > 0 || connectedOptions.length === 0) && (
+        <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
+          {otherConnections.map(conn => (
+            <ConnectionRow
+              key={conn.edgeId}
+              nodeKind={conn.nodeKind}
+              label={conn.label}
+              strength={conn.strength}
+              fullLabel
+              techMode={techMode}
+              onClick={() => onNavigate(conn.nodeId)}
+            />
+          ))}
+          {otherConnections.length === 0 && connectedOptions.length === 0 && (
             <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
-          )
-        )}
-      </PanelGroup>
+          )}
+        </PanelGroup>
+      )}
 
       {/* ── Expert-only model detail ──────────────────────────── */}
-      <TechnicalDisclosure visible={techMode}>
-        <DecisionAdvancedEditor nodeId={nodeId} />
-      </TechnicalDisclosure>
+      <InspectorMoreItems>
+        {description.trim() && (
+          <fieldset
+            disabled={readOnly}
+            aria-describedby={readOnly ? 'inspector-authority-notice' : undefined}
+            data-authority={readOnly ? 'disabled' : undefined}
+            className="contents"
+          >
+            <PanelGroup kind="context" label="Description">
+              <textarea
+                aria-label="Description"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                onBlur={() => mutations.setDescription(description)}
+                placeholder={DESCRIPTION_PLACEHOLDERS.decision}
+                rows={2}
+                maxLength={500}
+                className={`${typography.panelBody} ${controls.editableTextarea}`}
+              />
+            </PanelGroup>
+          </fieldset>
+        )}
+        <TechnicalDisclosure visible={techMode}>
+          <fieldset
+            disabled={readOnly}
+            aria-describedby={readOnly ? 'inspector-authority-notice' : undefined}
+            data-authority={readOnly ? 'disabled' : undefined}
+            className="contents"
+          >
+            <DecisionAdvancedEditor nodeId={nodeId} />
+          </fieldset>
+        </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

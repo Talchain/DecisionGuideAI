@@ -281,14 +281,14 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).toContain(GOAL_STRINGS.impactUnavailable)
   })
 
-  it('positive control: a REAL probability_of_goal KEEPS the possessive wording on BOTH sites', () => {
+  it('positive control: a REAL probability_of_goal KEEPS the possessive wording once', () => {
     setStore(REAL_GOAL_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    // AIQ #72 5885116642: both sites say the register sentence/readout — counted, so dropping either REDs.
+    // Anatomy keeps one register sentence; dropping or duplicating it turns this count red.
     expect(text).toContain('About 55% chance of meeting your goal.')
-    expect(text.split('About 55% chance of meeting your goal').length - 1).toBe(2)
+    expect(text.split('About 55% chance of meeting your goal').length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // The joint line is a genuinely DIFFERENT quantity here, so it stays.
     // 29 Sep 2026 (AIQ 5882498938 → 5885033487): "All your limits hold in N% of model runs".
@@ -430,14 +430,12 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
   })
 
   // 29 Sep 2026 (AIQ 5882498938): the constrained fixture now carries its goal figure; without one, only the Constraints line survives.
-  it('positive control: a constrained option with its goal figure KEEPS both joint lines; without one, only the Constraints line', () => {
-    // COUNTED, NOT `toContain` — both sites must render on this basis, so the
-    // count is 2 and dropping either one REDs (the mutation lesson recorded in
-    // this file's previous revision).
+  it('positive control: a constrained option with its goal figure KEEPS one joint line beside its limits with or without a goal figure', () => {
+    // Count the surviving limits sentence once; removing it remains a failure.
     setStoreWithConstraints(CONSTRAINED_REPORT)
     const { container, unmount } = renderPanel()
     const text = container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(2)
+    expect(text.split(JOINT_LINE).length - 1).toBe(1)
     unmount()
     // No goal figure → the Impact block is withheld, so the joint figure is stated once, under its own label.
     setStoreWithConstraints(CONSTRAINED_NO_GOAL_REPORT)
@@ -454,13 +452,13 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
   })
   const caveats = (c: HTMLElement) => [...c.querySelectorAll('[data-testid="goal-joint-modelled-basis-caveat"]')]
 
-  it('a modelled-basis joint figure carries GOAL_FIT_BASIS_CAVEAT_COPY directly under EACH limits row', () => {
+  it('a modelled-basis joint figure carries GOAL_FIT_BASIS_CAVEAT_COPY directly under the surviving limits row', () => {
     setStoreWithConstraints(MODELLED_JOINT_WITH_GOAL)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(2)
+    expect(text.split(JOINT_LINE).length - 1).toBe(1)
     const cs = caveats(container)
-    expect(cs).toHaveLength(2)
+    expect(cs).toHaveLength(1)
     for (const c of cs) {
       expect(c.textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
       expect(c.previousElementSibling?.textContent ?? '').toContain(JOINT_LINE)
@@ -470,7 +468,7 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
   it('CONTRAST: the same joint figure with NO modelled basis carries no caveat', () => {
     setStoreWithConstraints(REAL_GOAL_REPORT)
     const { container } = renderPanel()
-    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(2)
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(1)
     expect(caveats(container)).toHaveLength(0)
     expect(container.textContent ?? '').not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
   })
@@ -482,12 +480,11 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     expect(caveats(container)).toHaveLength(1)
   })
 
-  it('DEDUP: both sites render the REGISTER string — neither re-types the literal', () => {
-    // DERIVED guard, not a mirror (trap 12): the expectation is the REGISTER
-    // VALUE. Re-type either site with different wording and the count drops to
-    // 1; change the register and both sites move together.
+  it('DEDUP: the surviving limits row renders the REGISTER string', () => {
+    // The expectation is the register value; removing or changing the surviving
+    // sentence still turns the exact count red.
     setStoreWithConstraints(REAL_GOAL_REPORT)
     const text = renderPanel().container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(2)
+    expect(text.split(JOINT_LINE).length - 1).toBe(1)
   })
 })

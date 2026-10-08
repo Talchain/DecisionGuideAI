@@ -51,6 +51,7 @@ import {
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { openNodeInspector } from '../nodes/shared/openNodeInspector'
+import { isViewerSession, useIsViewer } from '../../lib/viewerMode'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -293,6 +294,17 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
 }
 
 /**
+ * The context menu's existing Delete availability: its host withholds edit
+ * menus for viewers, and the per-carrier filter judges the Delete row.
+ * Node-kind refusals (including the last goal/decision) remain in deleteAction.
+ */
+export function canDeleteFromContextMenu(viewer = isViewerSession()): boolean {
+  return !viewer && menuIdIsAuthorised(
+    'delete', hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations),
+  )
+}
+
+/**
  * ⭐⭐ BOTH FIXES KEPT — #1538 decides WHAT is unauthorised, #1304 decides HOW to
  * show it. Rebased 13 Sep 2026; neither side taken wholesale.
  *
@@ -486,6 +498,7 @@ export function useMenuItems({
   interactionMode,
   onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
+  const isViewer = useIsViewer()
   return useMemo(() => {
     const wrap = (action: () => void | Promise<void>) => () => { void action(); onClose() }
 
@@ -506,7 +519,7 @@ export function useMenuItems({
       return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap))
     }
     return []
-  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter])
+  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter, isViewer])
 }
 
 // ---------------------------------------------------------------------------
@@ -591,9 +604,9 @@ function buildPaneMenu(
     },
     {
       id: 'ask-ai-pane',
-      label: 'Ask AI',
+      label: 'Ask Olumi',
       icon: Sparkles,
-      tooltip: 'Ask AI about the model',
+      tooltip: 'Ask Olumi about the model',
       enabled: true,
       hasSubmenu: true,
       submenuItems: [
@@ -727,9 +740,9 @@ function buildNodeMenu(
   }
   items.push({
     id: 'ask-ai',
-    label: 'Ask AI',
+    label: 'Ask Olumi',
     icon: Sparkles,
-    tooltip: 'AI-powered analysis',
+    tooltip: 'Ask Olumi about this',
     enabled: true,
     hasSubmenu: true,
     submenuItems: askAIItems,
@@ -946,7 +959,7 @@ function buildNodeMenu(
       icon: Trash2,
       shortcut: 'Del',
       tooltip: 'Delete this element',
-      enabled: true,
+      enabled: canDeleteFromContextMenu(),
       destructive: true,
       action: wrap(() => deleteAction(target, showToast)),
     },
@@ -984,16 +997,16 @@ function buildEdgeMenu(
       id: 'ask-ai-challenge',
       label: 'Challenge this',
       icon: HelpCircle,
-      tooltip: 'Ask AI to argue this link is wrong or overweighted',
+      tooltip: 'Ask Olumi to argue this link is wrong or overweighted',
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
   }
   items.push({
     id: 'ask-ai',
-    label: 'Ask AI',
+    label: 'Ask Olumi',
     icon: Sparkles,
-    tooltip: 'AI-powered analysis',
+    tooltip: 'Ask Olumi about this',
     enabled: true,
     hasSubmenu: true,
     submenuItems: askAIItems,
@@ -1071,7 +1084,7 @@ function buildEdgeMenu(
     icon: Trash2,
     shortcut: 'Del',
     tooltip: 'Delete this connector',
-    enabled: true,
+    enabled: canDeleteFromContextMenu(),
     destructive: true,
     action: wrap(() => deleteAction(target, showToast)),
   })
@@ -1091,9 +1104,9 @@ function buildMultiMenu(
   return [
     {
       id: 'ask-ai',
-      label: 'Ask AI',
+      label: 'Ask Olumi',
       icon: Sparkles,
-      tooltip: 'AI-powered analysis',
+      tooltip: 'Ask Olumi about this',
       enabled: true,
       hasSubmenu: true,
       submenuItems: [
@@ -1133,7 +1146,7 @@ function buildMultiMenu(
       icon: Trash2,
       shortcut: 'Del',
       tooltip: 'Delete selected elements',
-      enabled: true,
+      enabled: canDeleteFromContextMenu(),
       destructive: true,
       action: wrap(() => deleteAction(target, showToast)),
     },
