@@ -1342,16 +1342,18 @@ async function fetchReadiness(): Promise<void> {
   } catch {
     publishCheckFailure('Could not complete the readiness check', check)
   } finally {
-    if (!ownsReadiness(check)) return
-    fetchInFlight = false
-    // Drain exactly one deferred call. Re-entry is bounded, not a loop: the
-    // flag is cleared BEFORE the re-invoke, and the re-invoked fetch returns
-    // without a request whenever the payload already has a verdict.
-    if (fetchQueued) {
-      fetchQueued = false
-      fetchReadiness().catch(() => {
-        // Swallow — fetchReadiness handles its own errors internally.
-      })
+    // A retired operation must not release or drain a newer generation's guard.
+    if (ownsReadiness(check)) {
+      fetchInFlight = false
+      // Drain exactly one deferred call. Re-entry is bounded, not a loop: the
+      // flag is cleared BEFORE the re-invoke, and the re-invoked fetch returns
+      // without a request whenever the payload already has a verdict.
+      if (fetchQueued) {
+        fetchQueued = false
+        fetchReadiness().catch(() => {
+          // Swallow — fetchReadiness handles its own errors internally.
+        })
+      }
     }
   }
 }
