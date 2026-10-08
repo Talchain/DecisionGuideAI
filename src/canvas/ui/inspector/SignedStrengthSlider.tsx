@@ -107,28 +107,44 @@ export function SignedStrengthSlider({
 }: SignedStrengthSliderProps) {
   const [localValue, setLocalValue] = useState(value)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const pendingValueRef = useRef<number | null>(null)
+  const callbacksRef = useRef({ onChange, onBlur })
+  callbacksRef.current = { onChange, onBlur }
+
+  // Release must include the final tick even before its debounce has fired.
+  const flushChange = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = undefined
+    const pending = pendingValueRef.current
+    pendingValueRef.current = null
+    if (pending !== null) callbacksRef.current.onChange(pending)
+  }, [])
+  const handleRelease = useCallback(() => {
+    flushChange()
+    callbacksRef.current.onBlur?.()
+  }, [flushChange])
 
   // Sync local state when prop changes
   useEffect(() => {
     setLocalValue(value)
   }, [value])
 
-  // Cleanup timer on unmount
+  // Closing the inspector is also a release: never leave a preview unsent.
   useEffect(() => {
     return () => {
+      if (callbacksRef.current.onBlur) handleRelease()
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [])
+  }, [handleRelease])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value)
     setLocalValue(newValue)
+    pendingValueRef.current = newValue
 
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      onChange(newValue)
-    }, debounceMs)
-  }, [onChange, debounceMs])
+    timerRef.current = setTimeout(flushChange, debounceMs)
+  }, [flushChange, debounceMs])
 
   const isNegative = localValue < 0
   const absValue = Math.abs(localValue)
@@ -197,9 +213,10 @@ export function SignedStrengthSlider({
           step={0.01}
           value={localValue}
           onChange={handleChange}
-          onBlur={onBlur}
-          onMouseUp={onBlur}
-          onTouchEnd={onBlur}
+          onBlur={handleRelease}
+          onMouseUp={handleRelease}
+          onTouchEnd={handleRelease}
+          onKeyDown={e => { if (e.key === 'Enter') handleRelease() }}
           disabled={disabled}
           className="relative w-full h-6 appearance-none bg-transparent cursor-pointer z-10
             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4

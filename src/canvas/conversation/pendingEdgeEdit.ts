@@ -236,6 +236,68 @@ export function markEdgeEditInFlight(
   emit()
 }
 
+/** Captures held for local preview, before any strength send is dispatched. */
+const strengthPreviewCaptures = new WeakSet<PendingEdgeEdit['before']>()
+/** An answer releases the controls without confirming the optimistic canvas write. */
+const strengthAnsweredCaptures = new WeakSet<PendingEdgeEdit['before']>()
+
+/** The captured strength write, including the original data retained across preview ticks. */
+export function pendingStrengthEditOf(edgeId: string): PendingEdgeEdit | undefined {
+  return inFlight.get(entryKey(edgeId, 'strength'))
+}
+
+/** Record the answer against the send's own capture, even after a newer gesture replaced it. */
+export function markStrengthEditAnswered(capture: PendingEdgeEdit['before'] | undefined): void {
+  if (!capture || strengthAnsweredCaptures.has(capture)) return
+  strengthAnsweredCaptures.add(capture)
+  emit()
+}
+
+/** Complete editors also start from the current canvas after an unconfirmed answer. */
+export function isStrengthEditAnswered(edgeId: string): boolean {
+  const entry = pendingStrengthEditOf(edgeId)
+  return entry !== undefined && strengthAnsweredCaptures.has(entry.before)
+}
+
+/** An unanswered send disables another gesture; an unsent preview does not. */
+export function isStrengthEditSending(edgeId: string): boolean {
+  const entry = pendingStrengthEditOf(edgeId)
+  return entry !== undefined && !strengthPreviewCaptures.has(entry.before) && !strengthAnsweredCaptures.has(entry.before)
+}
+
+/** Capture a serialised gesture's original data once, before its local writes. */
+export function beginStrengthPreview(
+  edgeId: string,
+  sentMagnitude: number,
+  before: Readonly<Record<string, unknown>> | undefined,
+  identity: PendingEdgeEditIdentity,
+  currency: AnalysisCurrencySnapshot,
+): PendingEdgeEdit | undefined {
+  if (!edgeId || !Number.isFinite(sentMagnitude) || isStrengthEditSending(edgeId)) return undefined
+  const key = entryKey(edgeId, 'strength')
+  const captured = { ...(before ?? {}) }
+  strengthPreviewCaptures.add(captured)
+  producerRefusals.delete(key)
+  inFlight.set(key, { edgeId, sentMagnitude, before: captured, identity, currency })
+  emit()
+  return inFlight.get(key)
+}
+
+/** Hand the existing preview capture to the strength send without replacing it. */
+export function finishStrengthPreview(edgeId: string): void {
+  const entry = pendingStrengthEditOf(edgeId)
+  if (entry && strengthPreviewCaptures.delete(entry.before)) emit()
+}
+
+/** Restore an unsent or blocked strength preview through the existing refusal rollback. */
+export function revertStrengthPreview(edgeId: string, sentMagnitude: number): void {
+  const entry = pendingStrengthEditOf(edgeId)
+  if (!entry || entry.sentMagnitude !== sentMagnitude) return
+  strengthPreviewCaptures.delete(entry.before)
+  revertEdgeEdit(entry)
+  settleEdgeEdit(edgeId, sentMagnitude)
+}
+
 /**
  * End the pending state for `edgeId` — stands down if a newer edit superseded
  * this one. A direction edit and a strength edit at the same magnitude are

@@ -5,7 +5,7 @@
  * Single interception point for validate-patch migration.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../../store'
 import { useShowToastSafe } from '../../ToastContext'
 import { captureOptimisticPriorRangeEdit, revertOptimisticPriorRangeEdit } from '../../conversation/optimisticFactorEdit'
@@ -18,6 +18,9 @@ import {
   markEdgeEditInFlight,
   restoredEdgeStrengthStamps,
   resolveEdgeEditSettlement,
+  pendingStrengthEditOf, markStrengthEditAnswered, isStrengthEditAnswered,
+  beginStrengthPreview, finishStrengthPreview as finishPendingStrengthPreview, isStrengthEditSending,
+  revertStrengthPreview as revertPendingStrengthPreview,
 } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
@@ -1080,17 +1083,54 @@ export type EdgeStrengthConfirmOutcome =
   | 'not_encodable'
 
 // ─── Edge mutations ────────────────────────────────────────────────
-export function useEdgeMutations(edgeId: string) {
+function useEdgeWriter(edgeId: string) {
   const storeUpdateEdge = useCanvasStore(s => s.updateEdge)
   // ACCOUNTS viewer mode: the same single check for every edge write in this hook.
   const updateEdge = useCallback<typeof storeUpdateEdge>((id, updates) => {
     if (isViewerSession()) return
     storeUpdateEdge(id, updates)
   }, [storeUpdateEdge])
-  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
   }, [edgeId])
+  return { updateEdge, getEdge }
+}
+
+/** Local slider ticks share the existing optimistic write and refusal capture. */
+export function useEdgeStrengthPreview(edgeId: string) {
+  const { updateEdge, getEdge } = useEdgeWriter(edgeId)
+  const gestureBefore = useRef<Readonly<Record<string, unknown>> | null>(null)
+  const previewStrength = useCallback((mean: number) => {
+    if (isViewerSession() || !Number.isFinite(mean) || isStrengthEditSending(edgeId)) return
+    const edge = getEdge()
+    if (!edge?.data) return
+    const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
+    // Serialised gestures capture what was visible before their first preview write.
+    if (!gestureBefore.current) {
+      gestureBefore.current = beginStrengthPreview(edgeId, Math.abs(mean), edge.data as Record<string, unknown> | undefined, identity, captureAnalysisCurrency())?.before ?? null
+    } else {
+      markEdgeEditInFlight(edgeId, Math.abs(mean), edge.data as Record<string, unknown> | undefined, undefined, identity, captureAnalysisCurrency())
+    }
+    updateEdge(edgeId, { data: {
+      ...edge.data,
+      weight: Math.abs(mean),
+      weightSource: 'user',
+      direction: mean >= 0 ? 'positive' : 'negative',
+      directionSource: 'user',
+    } })
+  }, [edgeId, getEdge, updateEdge])
+  const revertStrengthPreview = useCallback((_mean: number) => {
+    const pending = pendingStrengthEditOf(edgeId)
+    if (pending && gestureBefore.current) revertPendingStrengthPreview(edgeId, pending.sentMagnitude)
+    gestureBefore.current = null
+  }, [edgeId])
+  const finishStrengthPreview = useCallback(() => { gestureBefore.current = null }, [])
+  return { previewStrength, revertStrengthPreview, finishStrengthPreview }
+}
+
+export function useEdgeMutations(edgeId: string) {
+  const { updateEdge, getEdge } = useEdgeWriter(edgeId)
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   /**
    * `mean` is a SIGNED strength: the magnitude is `|mean|` and, by default, the
@@ -1164,6 +1204,13 @@ export function useEdgeMutations(edgeId: string) {
       preserveDirection: opts?.preserveDirection,
     })
     const absWeight = Math.abs(mean)
+    const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
+    const pending = isStrengthEditAnswered(edgeId)
+      ? beginStrengthPreview(edgeId, absWeight, edge.data as Record<string, unknown> | undefined, identity, captureAnalysisCurrency()) : pendingStrengthEditOf(edgeId)
+    // Magnitude-only presets keep their existing write/send behaviour.
+    const previewCommit = !opts?.preserveDirection && !isStrengthEditSending(edgeId) && pending?.sentMagnitude === absWeight
+      && pending.identity?.scenarioId === identity.scenarioId && pending.identity.from === identity.from && pending.identity.to === identity.to
+      && edge.data?.weight === absWeight && edge.data?.direction === (mean >= 0 ? 'positive' : 'negative')
     // ⛔ AN UNCHANGED `set` IS NOT AN EDIT, so it is neither written nor stamped here (Acceptance #87 5986653143). CEE
     // refuses it by contract (`edgeStrengthEditChangesNothing`), and the optimistic `weightSource: 'user'` below,
     // confirmed only by "the model shows the sent magnitude" — which an unchanged value always does — kept "User
@@ -1185,7 +1232,6 @@ export function useEdgeMutations(edgeId: string) {
     // A restoration puts back the stamps the server's value had before the pending edit (its `before`), only while that
     // `before` still describes this link's current server state; otherwise it leaves the stamps as they stand.
     // Explicit `undefined` for an absent key: the store merges.
-    const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
     const stamps: Record<string, unknown> = !restoring
       ? { weightSource: 'user', ...(opts?.preserveDirection ? {} : { directionSource: 'user' }) }
       : restoredEdgeStrengthStamps(
@@ -1193,8 +1239,8 @@ export function useEdgeMutations(edgeId: string) {
         { ...identity, data: edge.data as Record<string, unknown> | undefined },
         { includeDirection: !opts?.preserveDirection },
       )
-    const currency = captureAnalysisCurrency()
-    updateEdge(edgeId, {
+    const currency = previewCommit ? pending.currency : captureAnalysisCurrency()
+    if (!previewCommit) updateEdge(edgeId, {
       data: {
         ...edge.data,
         weight: absWeight,
@@ -1213,7 +1259,7 @@ export function useEdgeMutations(edgeId: string) {
       },
     })
 
-    // ⭐ THE LOCAL WRITE ABOVE IS UNCONDITIONAL, AND THAT IS A DECISION, NOT AN
+    // ⭐ THE ORDINARY LOCAL WRITE ABOVE IS UNCONDITIONAL, AND THAT IS A DECISION, NOT AN
     // OVERSIGHT. `useModelEditAuthority.proposeFactorValue` fails CLOSED — an
     // unencodable factor value writes nothing at all — and the temptation is to
     // copy that here. It would be wrong: a factor value has a wire carrier for
@@ -1222,8 +1268,14 @@ export function useEdgeMutations(edgeId: string) {
     // closed would make the slider do NOTHING for a whole class of edges. That
     // trades a disclosed gap for a silently dead control, which is the worse of
     // the two. The outcome token below is how the gap is disclosed instead.
-    if (!event) return 'not_wire_encodable'
-    if (!sendSystemEvent) return 'local_only'
+    if (!event) {
+      if (previewCommit) revertPendingStrengthPreview(edgeId, absWeight)
+      return 'not_wire_encodable'
+    }
+    if (!sendSystemEvent) {
+      if (previewCommit) revertPendingStrengthPreview(edgeId, absWeight)
+      return 'local_only'
+    }
     /**
      * ⛔⛔ THE COMMENT THAT USED TO SIT HERE STATED THE MECHANISM CORRECTLY AND
      * DREW THE OPPOSITE CONCLUSION. It read: *"a server REFUSAL is not a
@@ -1278,12 +1330,18 @@ export function useEdgeMutations(edgeId: string) {
     // it — no whole-graph register follows, and none can drop the provenance
     // CEE just recorded. A proven no-write reverts; anything unconfirmed keeps
     // the number and stays held. `edge.data` is the PRE-write read above.
-    const before = (edge.data ?? {}) as Record<string, unknown>
+    const before = pending?.before ?? (edge.data ?? {}) as Record<string, unknown>
     markEdgeEditInFlight(edgeId, absWeight, before, undefined, identity, currency)
-    // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
-    // turn is not a moved model) is the envelope's fact, not the resolver's.
-    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
+    finishPendingStrengthPreview(edgeId)
+    const capture = pendingStrengthEditOf(edgeId)?.before
+    // Settlement detail describes the envelope's no-write, independently of the model confirmation.
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => {
+      markStrengthEditAnswered(capture)
+      const current = pendingStrengthEditOf(edgeId)
+      if (current && current.before !== capture) return
+      if (previewCommit && settlement === 'blocked') revertPendingStrengthPreview(edgeId, absWeight)
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail)
+    }
     settleSystemEventSend(
       sendSystemEvent(event, {
         optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before, baseGraphHash: useCanvasStore.getState().lastServerGraphHash },

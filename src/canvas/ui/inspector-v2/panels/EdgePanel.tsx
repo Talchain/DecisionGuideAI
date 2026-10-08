@@ -6,7 +6,7 @@
  */
 
 import { useRouteOnceHeld } from '../../../hooks/useRouteOnceHeld'
-import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { memo, useState, useMemo, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
 import { Activity } from 'lucide-react'
 import type { Edge } from '@xyflow/react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
@@ -25,7 +25,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
+import { useEdgeMutations, useEdgeStrengthPreview, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
 import { fenceRefusalCopyForCategory } from '../../../../v5/failureTypeRetryability'
 import {
@@ -71,7 +71,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { LINK_MARGIN_LABEL, linkMarginSentence } from '../../../../components/results/utils/fragileEdgeCopy'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
-import { takeEdgeEditRefusalText } from '../../../conversation/pendingEdgeEdit'
+import { takeEdgeEditRefusalText, isStrengthEditSending, pendingStrengthEditOf, subscribePendingEdgeEdits } from '../../../conversation/pendingEdgeEdit'
 import { isQuestionAssumptionEnabled } from '../../../../flags'
 import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
 import { InspectorMoreItems } from '../shared/InspectorMore'
@@ -461,11 +461,11 @@ export const EdgePanel = memo(function EdgePanel({
    * `strengthConfirm` above, and deliberately so: confirming and editing are
    * two acts with two carriers (CLAUDE.md trap 21), and pooling them under one
    * name is how the confirm path's fix failed to reach the edit path at all.
-   * `null` means no settlement has arrived yet — which is the honest state for
-   * the window between the press and the server's answer.
+   * `null` means there is no send to report; `pending` is the window between
+   * dispatch and the server's answer. Local preview ticks have no send state.
    */
   const [strengthEditSend, setStrengthEditSend] =
-    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent'; fenceCopy?: string | null } | null>(null)
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending'; fenceCopy?: string | null; capture?: Readonly<Record<string, unknown>> } | null>(null)
   /**
    * ⭐ HOW THE LAST DIRECTION CHANGE SETTLED — its own state, for the reason
    * `strengthEditSend` is apart from `strengthConfirm`: a different act with its
@@ -565,6 +565,13 @@ export const EdgePanel = memo(function EdgePanel({
   // Edit impact preview
   const { previewEdit, clearPreview } = useEditImpactPreview()
   const origStrengthRef = useRef(signedValue)
+  const pendingStrengthRef = useRef<number | null>(null)
+  const { previewStrength, revertStrengthPreview, finishStrengthPreview } = useEdgeStrengthPreview(edgeId ?? '')
+  const sendingStrengthCapture = useSyncExternalStore(
+    subscribePendingEdgeEdits,
+    useCallback(() => isStrengthEditSending(edgeId ?? '') ? pendingStrengthEditOf(edgeId ?? '')?.before ?? null : null, [edgeId]),
+  )
+  const strengthEditIsSending = sendingStrengthCapture !== null
 
   // Handlers
   /**
@@ -578,6 +585,7 @@ export const EdgePanel = memo(function EdgePanel({
       setStrengthEditSend({
         ts: Date.now(),
         settlement,
+        capture: edgeId ? pendingStrengthEditOf(edgeId)?.before : undefined,
         // ⭐ F1: a move CEE refused (proven by the reply, `pendingEdgeEdit.ts`) has already been reverted on the pill;
         // the line says CEE's own words ("This link holds your figure: …"), never only "Not recorded".
         fenceCopy: fenceCopyOf(settlement, detail)
@@ -605,6 +613,7 @@ export const EdgePanel = memo(function EdgePanel({
   const strengthSendSeqRef = useRef(0)
   const beginStrengthSend = useCallback(() => {
     const seq = ++strengthSendSeqRef.current
+    setStrengthEditSend({ ts: Date.now(), settlement: 'pending' })
     return (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) => {
       if (seq !== strengthSendSeqRef.current) return
       if ((settlement === 'refused' || settlement === 'unverified') && edgeId) {
@@ -639,20 +648,42 @@ export const EdgePanel = memo(function EdgePanel({
   }, [])
 
   const handleStrengthChange = useCallback((v: number) => {
-    // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
-    // debounces `onChange` by 120ms), so the settlement of the LATEST send is
-    // the one that describes where the value ended up. Clearing first means a
-    // stale "not recorded" can never survive over a later send that landed.
+    // Capture once, before the first local write. Every tick renders locally;
+    // only release dispatches the gesture's final strength.
+    if (pendingStrengthRef.current === null) {
+      const data = useCanvasStore.getState().edges.find(e => e.id === edgeId)?.data
+      origStrengthRef.current = data?.direction === 'negative' ? -(data.weight ?? 0) : (data?.weight ?? 0)
+      ++strengthSendSeqRef.current
+    }
+    pendingStrengthRef.current = v
     setStrengthEditSend(null)
-    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: beginStrengthSend() }))
+    previewStrength(v)
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit, beginStrengthSend])
+  }, [previewStrength, edgeId, previewEdit])
 
   const handleStrengthBlur = useCallback(() => {
+    const pending = pendingStrengthRef.current
+    // Clear before sending so mouseup, touchend, blur and unmount cannot repeat it.
+    pendingStrengthRef.current = null
     clearPreview()
-    origStrengthRef.current = signedValue
-    confirmEdit('strength')
-  }, [clearPreview, signedValue, confirmEdit])
+    if (pending === null) return
+    if (pending === origStrengthRef.current) {
+      revertStrengthPreview(pending)
+      return
+    }
+    const outcome = mutations.setStrength(pending, { onSendSettled: beginStrengthSend() })
+    finishStrengthPreview()
+    noteStrengthOutcome(outcome)
+    const stored = useCanvasStore.getState().edges.find(e => e.id === edgeId)?.data
+    origStrengthRef.current = stored?.direction === 'negative' ? -(stored.weight ?? 0) : (stored?.weight ?? 0)
+    if (outcome === 'dispatched') confirmEdit('strength')
+  }, [clearPreview, mutations, beginStrengthSend, noteStrengthOutcome, edgeId, revertStrengthPreview, finishStrengthPreview, confirmEdit])
+
+  // The Advanced numeric field is a complete edit, with no slider release.
+  const handleStrengthInputChange = useCallback((v: number) => {
+    handleStrengthChange(v)
+    handleStrengthBlur()
+  }, [handleStrengthChange, handleStrengthBlur])
 
   const handleStrengthPresetChange = useCallback((v: number) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
@@ -778,7 +809,8 @@ export const EdgePanel = memo(function EdgePanel({
    * and telling the person nothing was recorded would be a second false claim.
    * It gets its own wording and KEEPS the affordance.
    */
-  const strengthEditSettlement = strengthEditSend?.settlement
+  const strengthEditSettlement = strengthEditIsSending && strengthEditSend?.capture !== sendingStrengthCapture
+    ? 'pending' : strengthEditSend?.settlement
   /**
    * ⭐ THE PENDING WINDOW IS A THIRD STATE, NOT AN ABSENCE OF THE OTHER TWO.
    * Every edit passes through it — a settlement cannot arrive in the same tick
@@ -787,7 +819,7 @@ export const EdgePanel = memo(function EdgePanel({
    * `EditConfirmation`'s defaults here is what kept the "Updated ✓ in success
    * green" claim alive for the whole window this change was written to close.
    */
-  const strengthEditIsPending = strengthEditSettlement === undefined
+  const strengthEditIsPending = strengthEditSettlement === 'pending'
   const strengthEditNotSent = strengthEditSettlement === 'not_sent'
   const strengthEditIsQueued = strengthEditSettlement === 'queued'
   const strengthEditDidNotLand =
@@ -1132,7 +1164,7 @@ export const EdgePanel = memo(function EdgePanel({
                   its two call sites. This is the branch a user reaches by
                   selecting any connection they drew, so it is the one that was
                   lighting a band nobody chose. Same reader as the other site. */}
-              <div className="flex flex-wrap items-start gap-1.5">
+              <fieldset disabled={strengthEditIsSending} className="flex flex-wrap items-start gap-1.5">
                 <StrengthBandButtons
                   value={signedValue}
                   onChange={handleStrengthPresetChange}
@@ -1149,7 +1181,7 @@ export const EdgePanel = memo(function EdgePanel({
                     Keep Olumi's estimate
                   </button>
                 )}
-              </div>
+              </fieldset>
               {/* ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
                   Renders ONLY where both the magnitude and the spread are
                   stamped — `resolveStrengthSpread` returns `known: false`
@@ -1182,7 +1214,7 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
               )}
               {/* Edit feedback — SETTLEMENT-AWARE. See the two predicates above. */}
-              {lastConfirmed?.field === 'strength' && (
+              {(strengthEditIsSending || (lastConfirmed?.field === 'strength' && strengthEditSend !== null) || strengthEditNotSent) && (
                 <div
                   className="flex items-center gap-2 mt-1"
                   data-testid="edge-strength-edit-feedback"
@@ -1197,7 +1229,7 @@ export const EdgePanel = memo(function EdgePanel({
                       three of its outcomes this way, rather than inventing a fourth
                       spelling of one rule. */}
                   <EditConfirmation
-                    trigger={strengthEditSend?.ts ?? lastConfirmed.ts}
+                    trigger={strengthEditSend?.ts ?? lastConfirmed?.ts ?? (strengthEditIsSending ? 1 : 0)}
                     label={strengthEditIsPending
                       ? ACTION_LABELS.strengthEditSending
                       : strengthEditIsQueued
@@ -1290,7 +1322,7 @@ export const EdgePanel = memo(function EdgePanel({
                         documents. The row below stays UNCONDITIONAL; only the slider's
                         duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
                         REDs if either state stops reading exactly one. */}
-                    <SignedStrengthSlider value={signedValue} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
+                    <SignedStrengthSlider value={signedValue} disabled={strengthEditIsSending} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
                   </div>
                   {/* The panel's OWN endpoint scale — direction anchors for the track
                       above, never band words (`SignedStrengthSlider`'s header names them
@@ -1441,7 +1473,7 @@ export const EdgePanel = memo(function EdgePanel({
             )}
             {!strengthIsDefinitional && !awaitingStatedStrength && (
               <fieldset
-                disabled={!strengthReachesTheModel}
+                disabled={!strengthReachesTheModel || strengthEditIsSending}
                 data-testid="edge-strength-more-controls"
                 className="contents"
                 {...(strengthReachesTheModel ? {} : {
@@ -1453,7 +1485,7 @@ export const EdgePanel = memo(function EdgePanel({
                     union, exactly as #1677 gated `P(exists) =`, so techMode cannot
                     reveal a figure the pills above now refuse to light. */}
                 {strengthDisplay.show ? (
-                  <ExpertAnnotation techMode={techMode} editable value={strengthDisplay.value} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+                  <ExpertAnnotation techMode={techMode} editable value={strengthDisplay.value} onChange={handleStrengthInputChange} suffix="β =" step={0.01} min={-1} max={1} />
                 ) : techMode ? (
                   <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="edge-strength-unset">
                     {METRIC_UNSET.standalone}
@@ -1513,7 +1545,9 @@ export const EdgePanel = memo(function EdgePanel({
                   organisational NOR an intervention, so its strength IS read by
                   the analysis. Passed explicitly rather than defaulted: the
                   class is stated at every call site, never inferred. */}
-              <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
+              <fieldset disabled={strengthEditIsSending} className="contents">
+                <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" onSendSettled={handleStrengthSendSettled} />
+              </fieldset>
             </TechnicalDisclosure>
           </InspectorMoreItems>
 
