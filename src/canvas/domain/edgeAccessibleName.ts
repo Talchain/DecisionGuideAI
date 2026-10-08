@@ -164,7 +164,9 @@ export const EDGE_ARIA_ROLE = 'button'
  * uses. Exported so a test can prove the two channels agree rather than
  * assuming it.
  */
-export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode, ctx?: { routeOnceHeld?: boolean }): string {
+export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode, ctx?: { routeOnceHeld?: boolean; identityExact?: string | null }): string {
+  // IDENTITY-EXACT (DL 8 Oct): an operand link of an identity the current Run evaluated says its arithmetic, not "not set".
+  if (typeof ctx?.identityExact === 'string') return ctx.identityExact
   const d = (data ?? undefined) as Record<string, unknown> | undefined
   const strength = strengthForWords(d, resolveEdgeSignedStrengthDisplay(d))
   const likelihood = resolveEdgeValueDisplay(d, 'beliefExists', ctx)
@@ -202,6 +204,8 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
    */
   getNodeKind: (nodeId: string) => string | undefined = () => undefined,
   routeOnceHeldIds: ReadonlySet<string> = new Set(),
+  /** IDENTITY-EXACT: edge id → its ruled words (`selectIdentityExactLinks`). Optional; absent = none exact. */
+  identityExact: ReadonlyMap<string, string> = new Map(),
 ): E[] {
   return edges.map(edge => {
     const hasOwnAriaLabel = typeof edge.ariaLabel === 'string' && edge.ariaLabel.trim().length > 0
@@ -219,7 +223,7 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
           // strength word it does not carry.
           description: structural
             ? STRUCTURAL_EDGE_ACCESSIBLE_DESCRIPTION
-            : describeEdgeForSpeech(edge.data, mode, { routeOnceHeld: routeOnceHeldIds.has(edge.id) }),
+            : describeEdgeForSpeech(edge.data, mode, { routeOnceHeld: routeOnceHeldIds.has(edge.id), identityExact: identityExact.get(edge.id) ?? null }),
           // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
           // same sentence, but on an INNER element that exists only while the
           // edge's label renders — the exact asymmetry this module's header was

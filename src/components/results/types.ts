@@ -1645,6 +1645,8 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   leading_option_id?: string | null
   /** The Run's stored participation fact (`storedOptionParticipation.ts`); absent = not recorded, `[]` = none outside. */
   option_participation?: readonly import('../../canvas/state/storedOptionParticipation').OptionParticipationEntry[]
+  /** The identities this Run evaluated (`storedIdentityEvaluated.ts`): their operand links are exact. Absent = not attested. */
+  identity_evaluated_node_ids?: readonly string[]
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {

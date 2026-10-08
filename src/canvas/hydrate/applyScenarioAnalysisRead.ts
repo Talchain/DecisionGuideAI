@@ -94,6 +94,7 @@ import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 import { readGoalCertainty } from '../state/storedGoalCertainty'
 import { readOptionParticipation } from '../state/storedOptionParticipation'
+import { readIdentityEvaluated } from '../state/storedIdentityEvaluated'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -390,6 +391,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly goalCertainty?: unknown
   /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
   readonly optionParticipation?: unknown
+  /** The read's `analysis_identity_evaluated_node_ids`, raw; parsed by the SAME reader the turn leg uses. */
+  readonly identityEvaluated?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
   /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
@@ -538,6 +541,7 @@ export function applyScenarioAnalysisRead(
     const report = mapV5AnalysisToReport(block as AnalysisResultBlock, {
       goalCertainty: readGoalCertainty(input.goalCertainty),
       optionParticipation: readOptionParticipation(input.optionParticipation),
+      identityEvaluated: readIdentityEvaluated(input.identityEvaluated),
     })
     if (input.currentReadInputBasis !== undefined) report.current_read_input_basis = input.currentReadInputBasis
     const hash = report.model_card.response_hash

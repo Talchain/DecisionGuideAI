@@ -21,6 +21,8 @@ export interface EdgeInspectorSentenceInput {
   readonly strengthDisplay: EdgeValueDisplay
   /** The panel's existing link-kind classification; no second structural test. */
   readonly linkKind?: 'causal' | 'organisational' | 'intervention'
+  /** IDENTITY-EXACT (DL 8 Oct): the ruled words when the current Run evaluated this link's identity; else absent/null. */
+  readonly identityExact?: string | null
 }
 
 export interface EdgeInspectorSentence {
@@ -45,7 +47,11 @@ export function buildEdgeInspectorSentence(input: EdgeInspectorSentenceInput): E
   let sentence: string
   let chip: ProvenanceKind | null
 
-  if (isStrengthDefinitional(data)) {
+  if (typeof input.identityExact === 'string') {
+    // The identity fixes this link: its arithmetic, never a size ask (the link is not unsized) nor a band.
+    sentence = `${input.identityExact}.`
+    chip = null
+  } else if (isStrengthDefinitional(data)) {
     sentence = `${target} follows from ${source} by definition.`
     chip = null
   } else if (isStrengthPlaceholder(data) || !strengthDisplay.show) {

@@ -80,6 +80,12 @@ vi.mock('../../hooks/useFirstTimeHints', () => ({
 }))
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => false }))
 vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => false }))
+// IDENTITY-EXACT (DL 8 Oct): the store-derived exact words, per edge id; default none (every other row unchanged).
+const exactFor = vi.hoisted(() => new Map<string, string>())
+vi.mock('../../domain/identityExactLinks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../domain/identityExactLinks')>()),
+  useIdentityExactWords: (edgeId: string) => exactFor.get(edgeId) ?? null,
+}))
 
 type WireEdge = Record<string, unknown> & { from: string; to: string }
 const WIRE = (fixture as unknown as { draft: { edges: WireEdge[] } }).draft.edges
@@ -156,6 +162,29 @@ describe('P53x — the edge group names a placeholder strength by identity', () 
   })
   it('CONTRAST: the same number set by a person carries no mark', () => {
     expect(markOf({ ...PLACEHOLDER(), weightSource: 'user' })).toBeNull()
+  })
+})
+
+// IDENTITY-EXACT (DL 8 Oct): an operand link of an identity the current Run evaluated is exact — never marked or named
+// "strength not set", never the prior's band or source icon. Words = the DL ruling. Control: no exact words → unchanged.
+describe('IDENTITY-EXACT — an exact operand link is not a placeholder on the canvas', () => {
+  const WORDS = 'Exact: ‘MRR’ = ‘Pro plan price’ × ‘Pro subscribers’'
+  const groupOf = (c: HTMLElement) => c.querySelector('g[data-edge-group-id="e1"]')!
+  it('the placeholder Pro plan price → MRR, made exact: no mark, no not-set width/dots, named by the ruled words', () => {
+    exactFor.set('e1', WORDS)
+    try {
+      const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
+      expect(groupOf(container).getAttribute('data-strength-placeholder')).toBeNull()
+      expect(styleOf(container).strokeDasharray).not.toBe(STRENGTH_NOT_SET_DASH)
+      expect(container.querySelector('[data-edge-source-icon]')).toBeNull()
+      expect(container.innerHTML).toContain(WORDS)
+      expect(container.innerHTML).not.toMatch(/strength not set/i)
+    } finally { exactFor.clear() }
+  })
+  it('CONTROL: the same link with no exact words keeps the mark and the not-set dots', () => {
+    const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
+    expect(groupOf(container).getAttribute('data-strength-placeholder')).toBe('true')
+    expect(styleOf(container).strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
   })
 })
 

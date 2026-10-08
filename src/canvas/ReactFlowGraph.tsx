@@ -19,6 +19,7 @@ import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import { selectIdentityExactLinks } from './domain/identityExactLinks'
 import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
 import { useEdgeLabelMode } from './store/edgeLabelMode'
 import { parseRunHash } from './utils/shareLink'
@@ -1039,6 +1040,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * clause* on an already-correct name, never a wrong one — and the alternative
    * was a hook in a file where hooks crash.
    */
+  const identityExact = useCanvasStore(selectIdentityExactLinks)
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
     const unique = edges.filter((edge) => {
@@ -1067,8 +1069,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
       routeOnceHeldIds(nodes, edges),
+      identityExact,
     )
-  }, [edges, memoizedNodes, nodes])
+  }, [edges, memoizedNodes, nodes, identityExact])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

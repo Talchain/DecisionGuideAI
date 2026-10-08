@@ -922,6 +922,8 @@ export interface MapV5AnalysisOptions {
    * ordinary comparison and why. Carried on the report as-is so it is bound to THIS Run. Absent = not recorded.
    */
   optionParticipation?: readonly OptionParticipationEntry[] | null
+  /** The identities this Run evaluated (`readIdentityEvaluated`), carried as-is so the fact is bound to THIS Run. */
+  identityEvaluated?: readonly string[] | null
   /**
    * Seed used for the run. The V5 contract carries NO seed field, so when
    * the caller has no real value the report carries null and the Seed
@@ -1740,6 +1742,7 @@ export function mapV5AnalysisToReport(
     widened.leading_option_id = block.leading_option_id
   }
   if (options.optionParticipation != null) widened.option_participation = options.optionParticipation
+  if (options.identityEvaluated != null) widened.identity_evaluated_node_ids = options.identityEvaluated
   if (Object.keys(option_probabilities).length > 0) {
     // ReportV1 declares `option_probabilities` as Record<string, OptionProbability>
     // where OptionProbability.goal_probability is required. The V4 mapper widens

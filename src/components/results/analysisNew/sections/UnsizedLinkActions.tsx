@@ -27,6 +27,7 @@ import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengt
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
 import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceholder'
+import { selectIdentityExactLinks } from '../../../../canvas/domain/identityExactLinks'
 
 export const UNSIZED_LINK_COPY = {
   heading: (n: number) => (n === 1 ? '1 link not sized yet' : `${n} links not sized yet`),
@@ -46,7 +47,8 @@ export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized
   const s = useCanvasStore.getState()
   if (!selectRunAffirmedCurrent(s)) return 'not_current'
   const edge = s.edges.find((e) => e.id === edgeId)
-  if (!edge || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
+  // IDENTITY-EXACT: an operand link of an evaluated identity is exact, so there is nothing to size.
+  if (!edge || selectIdentityExactLinks(s).has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
   return null
 }
 

@@ -46,6 +46,7 @@ import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
+import { useIdentityExactWords } from '../../../domain/identityExactLinks'
 import { isStrengthAccepted } from '../../../domain/strengthAccepted'
 import { isStrengthStated } from '../../../domain/strengthStated'
 import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
@@ -246,7 +247,9 @@ export const EdgePanel = memo(function EdgePanel({
   // The mapper retains the magnitude author on naturalEffect and an explicit placeholder marker,
   // rather than raw provenance.magnitude. Unknown authorship stays ineligible.
   const magnitudeProvenance = edge?.data?.naturalEffect?.author
-  const storedPlaceholder = isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined)
+  // IDENTITY-EXACT (DL 8 Oct): an operand link of an identity the current Run evaluated is exact, never a placeholder.
+  const identityExactWords = useIdentityExactWords(edgeId ?? '')
+  const storedPlaceholder = identityExactWords === null && isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined)
   const storedOlumiEstimate = magnitudeProvenance === 'olumi_estimate'
     && edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight') === 'cee'
   const canQuestionAssumption = useMemo(() => (
@@ -311,8 +314,8 @@ export const EdgePanel = memo(function EdgePanel({
   // POM-8: CEE's PLACEHOLDER strength is not an estimate. One predicate, the
   // one the canvas line and hover read (`domain/strengthPlaceholder`).
   const strengthIsPlaceholder = useMemo(
-    () => isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined),
-    [edge?.data],
+    () => identityExactWords === null && isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined),
+    [edge?.data, identityExactWords],
   )
   // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate — not
   // "Olumi estimated", and nothing to confirm (`domain/strengthDefinitional`).
@@ -882,7 +885,7 @@ export const EdgePanel = memo(function EdgePanel({
   const linkKind = isOrganisational ? 'organisational' : isIntervention ? 'intervention' : 'causal'
   const summary = buildEdgeInspectorSentence({
     sourceLabel, targetLabel, data: edge.data as Record<string, unknown> | undefined,
-    strengthDisplay, linkKind,
+    strengthDisplay, linkKind, identityExact: identityExactWords,
   })
   const examineView = buildExamineLinkView({
     sourceLabel, targetLabel, data: edge.data as Record<string, unknown> | undefined,

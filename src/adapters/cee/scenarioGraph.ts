@@ -192,6 +192,8 @@ export type ScenarioGraphResult =
       goalCertainty?: unknown
       /** The Run's stored option-participation fact (`analysis_option_participation`, Runtime 5888341208), raw. */
       optionParticipation?: unknown
+      /** The identities this Run evaluated (`analysis_identity_evaluated_node_ids`), raw. */
+      identityEvaluated?: unknown
       /**
        * SC-24: the displayed Run's comparison with the Run before it (`run_delta`), raw — the SAME producer block the
        * turn that ran it carried, served on the cold read so a reload shows the same pair. Parsed downstream by the
@@ -476,6 +478,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    identityEvaluated: b.analysis_identity_evaluated_node_ids ?? null,
     switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     delivered: readCurrentReadDelivered(b.current_read),

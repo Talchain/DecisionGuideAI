@@ -14,6 +14,7 @@ import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
 import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
+import { selectIdentityExactLinks } from '../../domain/identityExactLinks'
 import { UnsizedLinkRow } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
 import { action } from '../../../components/results/analysisNew/panelSurfaces'
 import { focusEdgeById, focusNodeById } from '../../utils/focusHelpers'
@@ -67,7 +68,8 @@ function useStrengthenLink(row: GuidanceRow): { edgeId: string; fromLabel: strin
   const current = useCanvasStore(selectRunAffirmedCurrent)
   const ends = useRefOnCanvas(ref)
   const edge = useCanvasStore((s) => (ref ? s.edges.find((e) => e.source === ref.fromId && e.target === ref.toId) ?? null : null))
-  if (!ref || !ends || !edge || !current || !isStrengthPlaceholder(edge.data)) return null
+  const exact = useCanvasStore((s) => (edge ? selectIdentityExactLinks(s).has(edge.id) : false))
+  if (!ref || !ends || !edge || !current || exact || !isStrengthPlaceholder(edge.data)) return null
   return { edgeId: edge.id, fromLabel: nodeLabel(ref.fromId), toLabel: nodeLabel(ref.toId) }
 }
 
