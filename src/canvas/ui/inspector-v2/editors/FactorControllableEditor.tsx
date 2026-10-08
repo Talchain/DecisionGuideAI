@@ -17,7 +17,6 @@ import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 const FACTOR_TYPES = [
-  { value: '', label: '—' },
   { value: 'cost', label: 'Cost' },
   { value: 'revenue', label: 'Revenue' },
   { value: 'time', label: 'Time' },
@@ -28,21 +27,12 @@ const FACTOR_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-/**
- * ⚠ DERIVED FROM THE ONE VOCABULARY, not re-typed. These three words are now
- * also read by the Model tab's detail region; two copies of a product noun is
- * the hand-maintained mirror `domain/vocabulary.ts` exists to abolish, and it
- * has already cost this estate a nine-site rename.
- *
- * ⚠ THE `?? 'controllable'` DEFAULT BELOW IS UNCHANGED AND IS REPORTED, NOT
- * FIXED HERE. It shows an unclassified factor as *Controllable* — a
- * classification nobody made — and correcting it changes THIS surface's
- * behaviour, which is not this lane's to decide. The Model tab deliberately
- * does the opposite and says nothing when the producer said nothing.
- */
-const CATEGORY_OPTIONS = (
-  Object.keys(FACTOR_CATEGORY_LABEL) as (keyof typeof FACTOR_CATEGORY_LABEL)[]
-).map(value => ({ value, label: FACTOR_CATEGORY_LABEL[value] }))
+/** Read-only label for a stored category, from the one vocabulary; null when CEE never classified the factor. */
+function categoryLabelOf(value: unknown): string | null {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(FACTOR_CATEGORY_LABEL, value)
+    ? FACTOR_CATEGORY_LABEL[value as keyof typeof FACTOR_CATEGORY_LABEL]
+    : null
+}
 
 const EXTRACTION_OPTIONS = [
   { value: 'explicit', label: 'Explicit' },
@@ -62,6 +52,8 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
   const stateSpace = data?.state_space as Record<string, unknown> | undefined
   const ssRange = stateSpace?.range as Record<string, unknown> | undefined
   const drivers = (data?.uncertainty_drivers as string[]) ?? []
+  const categoryLabel = categoryLabelOf(data?.category)
+  const factorTypeLabel = FACTOR_TYPES.find(t => t.value === data?.factor_type)?.label ?? null
 
   // Defensive unwrap: observedState.value / raw_value / baseline / std should
   // be plain numbers, but legacy / future CEE shapes may wrap them as
@@ -150,13 +142,10 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
       </AdvancedFieldGroup>
 
       <AdvancedFieldGroup title="Classification">
-        <AdvancedField
-          label="Category"
-          value={(data?.category as string) ?? 'controllable'}
-          onChange={v => mutations.setCategory(v as 'controllable' | 'observable' | 'external')}
-          type="select"
-          options={CATEGORY_OPTIONS}
-        />
+        {/* Read-only, as on the observable and external editors. A select here changed the canvas but never the
+            model (nothing reaches CEE, and a signed-in session saves layout only), so a reload silently undid it
+            (DL ruling, 8 Oct). An unclassified factor shows nothing rather than an assumed "Controllable". */}
+        {categoryLabel && <AdvancedField label="Category" value={categoryLabel} type="readonly" />}
         <AdvancedField
           label="Extraction type"
           value={(data?.extractionType as string) ?? ''}
@@ -164,13 +153,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
           type="select"
           options={EXTRACTION_OPTIONS}
         />
-        <AdvancedField
-          label="Factor type"
-          value={(data?.factor_type as string) ?? ''}
-          onChange={v => mutations.setFactorType(v as string)}
-          type="select"
-          options={FACTOR_TYPES}
-        />
+        {factorTypeLabel && <AdvancedField label="Factor type" value={factorTypeLabel} type="readonly" />}
       </AdvancedFieldGroup>
 
       <AdvancedFieldGroup title="Normalisation range">
