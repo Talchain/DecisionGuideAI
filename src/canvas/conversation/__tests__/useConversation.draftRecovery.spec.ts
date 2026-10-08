@@ -872,7 +872,10 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
  * at once. Now the reload's read runs ONCE, ~5 s after the close, BEFORE any re-send.
  */
 describe('stream closes without a final turn: the saved model is read before any re-send', () => {
-  async function driveClosedAfterDrafting(end: 'close' | 'fail') {
+  async function driveClosedAfterDrafting(
+    end: 'close' | 'fail',
+    { withPreview = false, duringRead }: { withPreview?: boolean; duringRead?: () => Promise<void> } = {},
+  ) {
     const stream = controllableStream()
     mockOpenStream.mockResolvedValue(stream.response)
     mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'network error: Failed to fetch' })
@@ -881,8 +884,14 @@ describe('stream closes without a final turn: the saved model is read before any
     await act(async () => {
       sent = hook.result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
     })
-    await stream.push(F_DRAFTING)
+    await stream.push(F_DRAFTING + (withPreview ? F_GRAPH_READY : ''))
+    if (withPreview) {
+      expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+      expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+      expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0)
+    }
     await stream[end]()
+    await duringRead?.()
     await act(async () => {
       await sent
     })
@@ -899,6 +908,96 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(result.current.messages.map((m) => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
     expect(useDraftStore.getState().draftStreamPhase, 'never left on "Still drafting…"').toBe('idle')
   })
+
+  // ⭐ P44 draft-stall (DL forensics 8 Oct): deploy closed after GRAPH_READY, before COMPLETE.
+  it('RED (served 8 Oct, deploy mid-draft): the stream CLOSES over a preview → server values land with NO re-send', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveClosedAfterDrafting('close', { withPreview: true })
+
+    expect(mockCallV5Turn, 'no buffered re-send of the whole brief').toHaveBeenCalledTimes(0)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph.mock.calls[0][0]).toBe(SCENARIO)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0.5)
+    const contents = result.current.messages.map(m => m.content)
+    expect(contents).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(false)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    expect(runGate().allowed).toBe(true)
+  })
+
+  it('CONTRAST: preview + nothing saved → the buffered re-send runs once, the preview stays, nothing is claimed', async () => {
+    const resendsAtRead: number[] = []
+    mockFetchScenarioGraph.mockImplementation(async () => {
+      resendsAtRead.push(mockCallV5Turn.mock.calls.length)
+      return { status: 'absent', requestId: 'req-absent-preview-close' }
+    })
+    const result = await driveClosedAfterDrafting('close', { withPreview: true })
+
+    expect(resendsAtRead[0]).toBe(0)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+    expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0)
+    const contents = result.current.messages.map(m => m.content)
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
+  })
+
+  it('CONTRAST: preview + DROPPED socket keeps today\'s path — re-send first', async () => {
+    let resendsAtRead = -1
+    mockFetchScenarioGraph.mockImplementation(async () => {
+      resendsAtRead = mockCallV5Turn.mock.calls.length
+      return serverGraphResult()
+    })
+    const result = await driveClosedAfterDrafting('fail', { withPreview: true })
+
+    expect(resendsAtRead).toBe(1)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0.5)
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+  })
+
+  // ⛔ P44 draft-stall (DL forensics 8 Oct): a late read must still own this turn's settling preview.
+  it.each(['another-turn', 'same-turn-drafting', 'scenario-switched'] as const)(
+    'CONTRAST (ownership): preview + %s while reading → the read-back does not apply', async change => {
+      let finishRead!: (result: ScenarioGraphResult) => void
+      let resendsAtRead = -1
+      mockFetchScenarioGraph.mockImplementationOnce(() => {
+        resendsAtRead = mockCallV5Turn.mock.calls.length
+        return new Promise(resolve => { finishRead = resolve })
+      }).mockResolvedValue({ status: 'absent', requestId: 'req-absent-after-refused-read' })
+      const result = await driveClosedAfterDrafting('close', {
+        withPreview: true,
+        duringRead: async () => {
+          await waitFor(() => expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1))
+          await act(async () => {
+            const draft = useDraftStore.getState()
+            if (change === 'another-turn') draft.setDraftStreamPhase('settling', 'another-turn', SCENARIO)
+            else if (change === 'same-turn-drafting') draft.setDraftStreamPhase('drafting', draft.draftStreamTurnId, SCENARIO)
+            else useCanvasStore.setState({ currentScenarioId: 'b0b0b0b0-b1b1-4c2c-8d3d-e4e4e4e4e4e4' })
+            finishRead(serverGraphResult())
+          })
+        },
+      })
+
+      expect(resendsAtRead).toBe(0)
+      expect(mockFetchScenarioGraph.mock.calls[0][0]).toBe(SCENARIO)
+      expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+      expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+      expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0)
+      expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+      const contents = result.current.messages.map(m => m.content)
+      expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+      expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    },
+  )
 
   it('CONTRAST: a DROPPED socket (transport) keeps today\'s path — the buffered fallback runs first, then its recovery read', async () => {
     mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())

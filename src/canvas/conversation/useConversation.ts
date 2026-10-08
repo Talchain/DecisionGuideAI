@@ -635,7 +635,7 @@ async function runStreamedDraftTurn(args: {
   signal: AbortSignal
   onRequestStarted?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
-  readBackCommittedDraft?: () => Promise<boolean>
+  readBackCommittedDraft?: (options: { overPreview: boolean }) => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
   const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
@@ -674,11 +674,10 @@ async function runStreamedDraftTurn(args: {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
     }
 
-    // A stream that OPENED and then CLOSED, with nothing on the canvas: read the saved model first, the same
-    // read a reload does, once, after a short wait. Only when that finds nothing does the re-send run.
-    if (streamOpened && !previewOnCanvas && readBackCommittedDraft && readsBackBeforeResend(reason)) {
+    // ⭐ P44 draft-stall (DL forensics 8 Oct): read the saved model before re-sending, even over this turn's preview.
+    if (streamOpened && readBackCommittedDraft && readsBackBeforeResend(reason)) {
       await waitBeforeStreamCloseReadback(signal)
-      if (!signal.aborted && (await readBackCommittedDraft())) {
+      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas }))) {
         logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
         useDraftStore.getState().setDraftStreamPhase('idle', null, null)
         return {
@@ -5028,7 +5027,7 @@ export function useConversation(): UseConversationReturn {
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
             onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async () =>
+            readBackCommittedDraft: async ({ overPreview }) =>
               (await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
@@ -5042,7 +5041,10 @@ export function useConversation(): UseConversationReturn {
                     useCanvasStore.getState().currentScenarioId,
                     scenarioIdAtDispatch,
                   ) &&
-                  useCanvasStore.getState().nodes.length === 0,
+                  // ⛔ P44 draft-stall (DL forensics 8 Oct): only this turn's settling preview may be replaced.
+                  (overPreview
+                    ? streamedPreviewStandingFor(useDraftStore.getState(), turnClientId, scenarioIdAtDispatch)
+                    : useCanvasStore.getState().nodes.length === 0),
               })) === 'recovered',
           })
           recoveredBeforeResend = streamed.recoveredBeforeResend === true
