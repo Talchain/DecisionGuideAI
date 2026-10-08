@@ -16,6 +16,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { hasAnalyticalGraphChange } from '../domain/analyticalChange'
 import { appendEvent } from '../../services/scenarioService'
 import { resolveElementLabel } from './utils/resolveElementLabel'
+import { EDGE_EDIT_WRITTEN_KEYS, isStrengthEditPreview } from './pendingEdgeEdit'
 import type { WireSystemEvent } from './types'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -359,6 +360,26 @@ export function useGraphEditEvents(
       // `removeStructuralAddClaims`: without it, wiring that writer would put
       // two turns on the wire for one gesture.
       removeStructuralAddClaims(diff, curr.pendingStructuralAdds)
+      // The legacy host can mount with aiPanelV2=false. Slider ticks already
+      // belong to the captured strength gesture: only its release sends a turn.
+      // Subtract those unsent preview fields before the debounce accumulates
+      // them, while preserving unrelated edits (including on the same edge).
+      for (const id of diff.changedEdgeIds) {
+        if (diff.edgeOps.get(id) !== 'update' || !isStrengthEditPreview(id)) continue
+        const before = prev.edges.find(edge => edge.id === id)
+        const after = curr.edges.find(edge => edge.id === id)
+        if (!before || !after || before.source !== after.source || before.target !== after.target) continue
+        const fields = diff.fieldsChanged.get(id)
+        if (!fields?.size) continue
+        for (const key of EDGE_EDIT_WRITTEN_KEYS) fields.delete(key)
+        if (fields.size > 0) continue
+        diff.changedEdgeIds.delete(id)
+        diff.edgeOps.delete(id)
+        diff.fieldsChanged.delete(id)
+      }
+      diff.operations.clear()
+      for (const op of diff.nodeOps.values()) diff.operations.add(op)
+      for (const op of diff.edgeOps.values()) diff.operations.add(op)
       if (diff.changedNodeIds.size === 0 && diff.changedEdgeIds.size === 0) {
         // Every change in this diff is already on the wire as a durable
         // removal. Advance the snapshot and emit nothing — one gesture, one
