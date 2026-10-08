@@ -6,7 +6,7 @@ import { supabase, getProfile } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
-import { clearUserScopedState } from '../lib/auth/userScopedState';
+import { adoptIdentityEpochAtSignIn, clearUserScopedState } from '../lib/auth/userScopedState';
 
 // The last signed-in user in this tab. Module-level, not a hook: there is one auth provider, and a different
 // user arriving without an explicit sign-out must still clear the previous user's state.
@@ -387,7 +387,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set user immediately (synchronous side-effects only).
     // Profile fetch is deferred to the useEffect below.
     const u = session.user;
-    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState();
+    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState(u.id);
+    else adoptIdentityEpochAtSignIn(); // not a boundary here: take the browser's current era (CAN-F2g, #2516)
     lastSignedInUserId = u.id;
     setSentryUser(u.id, u.email ?? '');
     identifyUser(u.id, u.email ?? '', u.user_metadata?.full_name);
@@ -599,7 +600,9 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       const nextOwner = s?.user.id ?? null;
       // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
       // B before it left B's records owned by nobody (Codex #2484 final round).
-      if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState();
+      if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState(nextOwner);
+      // A first sign-in or same-owner refresh is not a boundary: take the browser's current era (CAN-F2g; Codex #2646 r1).
+      else if (s) adoptIdentityEpochAtSignIn();
       ownerRef.current = nextOwner;
       observeDecisionRecordOwner(nextOwner);
       if (!s) {

@@ -39,7 +39,8 @@ import type { AutosaveData } from '../../store/scenarios'
 // importOriginal for the hydrate round-trip.
 // ---------------------------------------------------------------------------
 
-const mockSaveAutosave = vi.fn()
+// saveAutosave reports whether it WROTE (#2516); a successful write is `true`.
+const mockSaveAutosave = vi.fn((..._args: unknown[]) => true)
 const mockLoadAutosave = vi.fn()
 
 vi.mock('../../store/scenarios', async (importOriginal) => {
@@ -124,6 +125,7 @@ const CASES: FieldCase[] = [
 beforeEach(() => {
   vi.useFakeTimers()
   mockSaveAutosave.mockReset()
+  mockSaveAutosave.mockReturnValue(true)
   mockLoadAutosave.mockReset()
   // No competing tab — the multi-tab guard must not block the write.
   mockLoadAutosave.mockReturnValue(null)
