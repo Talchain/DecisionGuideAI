@@ -22,6 +22,17 @@ import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from '.
 import { GraphLink } from '../../components/results/GraphLink'
 import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords } from '../../components/results/analysis-hero/goalChanceCopy'
 
+/**
+ * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
+ *   · `stateOf` / `listed`: each named link's sizing now, and every link the Run's warning lists (the checklist);
+ *   · `latestShares`: the first sized pair's latest side (`latestOnlyShares`), or null.
+ */
+export type SizingPath = {
+  readonly stateOf: LinkSizingStateOf
+  readonly listed: ReadonlyArray<{ from: string; to: string }>
+  readonly latestShares: readonly LatestShare[] | null
+}
+
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
 const NEAR_TIE_FIELDS = 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded'
@@ -82,8 +93,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
  */
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
-  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, linkSizingState, unsizedLinks = [],
-  latestShares = null,
+  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, sizingPath = null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -96,13 +106,11 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
-  /** Each named link's sizing on the canvas now (stored provenance, by its ids): turns the not-shown line into a checklist. */
-  linkSizingState?: LinkSizingStateOf
-  /** Every link the same Run's GOAL_FIGURES_PLACEHOLDER_PATH warning lists (`unsizedLinksOf`), named or only counted. */
-  unsizedLinks?: ReadonlyArray<{ from: string; to: string }>
-  /** The first sized pair (`prior_withheld`): the latest Run's own shares, bound to the analysis on screen (`latestOnlyShares`). */
-  latestShares?: readonly LatestShare[] | null
+  /** The way out of a withheld Run: the links to size, then the first sized pair's latest side (`SizingPath`). */
+  sizingPath?: SizingPath | null
 }): JSX.Element {
+  const linkSizingState = sizingPath?.stateOf
+  const latestShares = sizingPath?.latestShares ?? null
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
   const rows = view.inputs?.rows ?? []
@@ -131,9 +139,9 @@ export function ComparePairSections({
   // The run-share half: inline when it leads, behind Result details when goal chances lead.
   const shareResults = (
     <>
+      {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
       {resultsAllowed && view.movementsUnavailable && latestShares
-        ? <CompareLatestOnlyFigures shares={latestShares} designationsWithheld={designationsWithheld} optionLink={optionLink} />
-        : resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
+        ? <CompareLatestOnlyFigures shares={latestShares} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
       {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
       {showFigures && cohortChanged ? (
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}>{MOVEMENT_SCOPE_TEXT}</p>
@@ -204,7 +212,7 @@ export function ComparePairSections({
             <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
               {withheldSegments!.map((s) => s.text).join('')}
             </p>
-            <CompareSizingChecklist links={sizingLinks} listed={unsizedLinks} stateOf={linkSizingState} />
+            <CompareSizingChecklist links={sizingLinks} listed={sizingPath?.listed ?? []} stateOf={linkSizingState} />
           </>
         ) : !resultsAllowed ? (
           <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">

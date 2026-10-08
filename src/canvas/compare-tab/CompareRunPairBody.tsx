@@ -32,7 +32,7 @@ import { runDeltaSentence } from '../../components/results/analysisNew/commitmen
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
-import { ComparePairSections } from './ComparePairSections'
+import { ComparePairSections, type SizingPath } from './ComparePairSections'
 import { withheldReasonSegments } from './withheldReasonSegments'
 import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
@@ -126,6 +126,7 @@ export function CompareRunPairBody({
   // Self-binding as `nearTie` is: the report counts only while its hash is the one this tab was handed.
   const report = useCanvasStore(s => (s.results?.hash === responseHash ? s.results?.report : null))
   const latestShares = useMemo(() => view === null ? null : latestOnlyShares(view, report, (id) => labels.get(id) ?? null), [view, report, labels])
+  const sizingPath: SizingPath = useMemo(() => ({ stateOf: linkSizingState, listed: unsizedLinks, latestShares }), [linkSizingState, unsizedLinks, latestShares])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
@@ -180,12 +181,12 @@ export function CompareRunPairBody({
     const link = canvasLinkOfTarget({ kind: 'node', id: optionId })
     return link ? { focus: link.focus, on: () => light.on(link), off: light.off } : null
   }
+  const resultsAllowed = runIsCurrent && !winSharesWithheld
   return (
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
-        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink}
-        linkSizingState={linkSizingState} unsizedLinks={unsizedLinks} latestShares={latestShares} />
+        nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
+        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} sizingPath={sizingPath} />
     </div>
   )
 }

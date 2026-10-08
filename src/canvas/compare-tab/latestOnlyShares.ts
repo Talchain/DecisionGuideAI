@@ -11,7 +11,7 @@
  *   (`runDeltaDescribesDisplayedAnalysis`: same `response_hash`, same scenario), so these are the delta's latest Run.
  *   No new run identity is minted (CLAUDE.md trap 21).
  */
-import { optionComputationProducedResult, type OptionComputeStatus } from '../../components/results/utils/notAnalysedOptions'
+import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
 import type { RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 
 export type LatestShare = { readonly optionId: string; readonly label: string | null; readonly current: number }
@@ -24,7 +24,7 @@ export function latestOnlyShares(
   if (view.winProbabilitiesUnavailable !== 'prior_withheld' || view.frame === 'versions') return null
   const probs = (report as { option_probabilities?: unknown } | null | undefined)?.option_probabilities
   if (typeof probs !== 'object' || probs === null || Array.isArray(probs)) return null
-  const shares = Object.entries(probs as Record<string, { win_probability?: unknown; status?: OptionComputeStatus }>)
+  const shares = Object.entries(probs as Record<string, { win_probability?: unknown; status?: Parameters<typeof optionComputationProducedResult>[0] }>)
     .flatMap(([optionId, p]) => {
       const current = p?.win_probability
       if (!optionComputationProducedResult(p?.status)) return []

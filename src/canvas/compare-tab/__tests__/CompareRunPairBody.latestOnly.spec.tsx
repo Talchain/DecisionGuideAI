@@ -21,7 +21,7 @@ type Reason = 'prior_withheld' | 'no_matched_option'
 function seed({ reason = 'prior_withheld' as Reason, permitted = true, current = true, failed = null as string | null } = {}): string {
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared', leading_option_id: 'opt_49', win_probabilities: SHARES })
   report.producer_leader_permission = { permitted }
-  if (failed) (report.option_probabilities as Record<string, Record<string, unknown>>)[failed].status = 'failed'
+  if (failed) (report.option_probabilities as unknown as Record<string, Record<string, unknown>>)[failed].status = 'failed'
   const hash = report.model_card.response_hash
   useCanvasStore.setState({ currentScenarioId: 'scn-1',
     nodes: [...RUN_CHANGE_LABELS.keys()].map((id) => ({ id, type: id.startsWith('opt') ? 'option' : 'factor', position: { x: 0, y: 0 }, data: { label: RUN_CHANGE_LABELS.get(id) } })),
@@ -59,7 +59,8 @@ describe('Compare: the first sized pair draws the latest side only', () => {
     })
     expect(screen.getByTestId('compare-latest-only-note').textContent).toBe(COMPARE_LATEST_ONLY_TEXT)
     expect(screen.getByTestId('compare-latest-only-legend').textContent).toContain(COMPARE_EARLIER_NOT_SHOWN)
-    expect(screen.queryByText(WHATS_CHANGED_FIRST_COMPARISON)).toBeNull()
+    // RC's first-comparison sentence stays; the latest side is drawn under it.
+    expect(screen.getByText(WHATS_CHANGED_FIRST_COMPARISON)).toBeTruthy()
     cleanup()
     render(<CompareRunPairBody responseHash={seed({ reason: 'no_matched_option' })} />)
     expect(block()).toBeNull()
