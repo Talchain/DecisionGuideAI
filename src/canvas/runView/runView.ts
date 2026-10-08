@@ -18,6 +18,7 @@
 import { readGoalChanceLicence, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
+import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
 /** DL ruling 1 (8 Oct): the words for a Run that carries goal figures but no licence. */
 export const RUN_AGAIN_FOR_CHANCE = 'Run the analysis again to see the chance.'
@@ -41,6 +42,11 @@ export interface RunView {
   readonly unlicensedGoalFigures: boolean
   /** The chance for one option; `none` for an id the Run does not name. */
   readonly chanceOf: (optionId: string) => OptionChance
+  /**
+   * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
+   * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
+   */
+  readonly participationOf: (optionId: string) => OptionParticipationEntry | null
 }
 
 type Rec = Record<string, unknown>
@@ -58,7 +64,7 @@ function optionsWithGoalFigures(report: Rec): Set<string> {
 }
 
 const NONE: OptionChance = { kind: 'none' }
-const EMPTY: RunView = { goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE }
+const EMPTY: RunView = { goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, participationOf: () => null }
 const cache = new WeakMap<object, RunView>()
 
 /** Build the view for one report (or any object carrying the Run's `inference_warnings`). Pure. */
@@ -82,6 +88,7 @@ export function buildRunView(report: unknown): RunView {
     goalChanceRange: range,
     unlicensedGoalFigures: unlicensed.size > 0,
     chanceOf: (optionId) => chances.get(optionId) ?? NONE,
+    participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
   }
 }
 

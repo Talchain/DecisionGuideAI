@@ -87,7 +87,6 @@ import {
   runAnalysedAnyOption,
   takenOutReasonOf,
 } from './utils/notAnalysedOptions'
-import { optionParticipationOf } from '../../canvas/state/storedOptionParticipation'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
@@ -2423,8 +2422,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
                   ceeOptions: ceeAnalysisReady?.options,
                   nodeInterventions: (optionNodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
                 }),
-                (oid) => optionParticipationOf(report, oid)?.state === 'excluded_olumi_proposed',
-                (oid) => takenOutReasonOf(optionParticipationOf(report, oid)?.state),
+                // ⭐ RunView PR 1b: the participation fact through the Run's one view (same report, same reader).
+                (oid) => runViewOf(report).participationOf(oid)?.state === 'excluded_olumi_proposed',
+                (oid) => takenOutReasonOf(runViewOf(report).participationOf(oid)?.state),
               ),
             }
           : {}),
