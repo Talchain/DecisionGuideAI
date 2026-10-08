@@ -1,6 +1,6 @@
 /**
  * ⭐ EXAMINE THIS ASSUMPTION (slice 1, 52f8cd) — the view's bases, the sound-figure control, and the mounted section's
- * one action: it PREFILLS the composer and sends nothing (plan F1/F2/F7).
+ * merged Ask action: it sends the same bound request without prefilling the composer.
  *
  * The mounted rows go through the deployed chain (`InspectorModal` → `InspectorRouter`), not the component alone: a
  * green row on an unmounted component says nothing about what the inspector shows (#2380's lesson).
@@ -70,7 +70,7 @@ describe('the view: an explicit basis, or nothing', () => {
     seed(OLUMIS)
     const sent = captureWire()
     const dialog = open()
-    fireEvent.click(within(dialog).getByTestId('inspector-examine-prepare'))
+    fireEvent.click(within(dialog).getByTestId('inspector-quick-ask'))
     const payload = sent()[0]
     expect(payload.message).toBe('What is the figure for ‘Warm introductions’ based on, and what would make a different figure more defensible?')
     expect(payload.message).not.toMatch(/currently|30%|0\.\d|suggest|propose|\bmy assumption\b/i)
@@ -104,6 +104,11 @@ function open(): HTMLElement {
   return dialog as HTMLElement
 }
 
+function openMore(dialog: HTMLElement) {
+  fireEvent.click(within(dialog).getByTestId('inspector-more-toggle'))
+  expect(within(dialog).getByTestId('inspector-more')).not.toHaveAttribute('hidden')
+}
+
 function captureWire() {
   const payloads: Array<{ message: string; source?: string; selected_elements?: unknown }> = []
   useGuidanceStore.setState({ _isConversationBusy: () => false, _dispatchAction: opts => {
@@ -125,7 +130,10 @@ describe('the mounted section (InspectorModal → InspectorRouter)', () => {
 
   it('RED: Olumi’s figure shows the section with the card’s own reading of the figure and its origin', () => {
     seed(OLUMIS)
-    const s = within(open()).getByTestId('inspector-examine')
+    const dialog = open()
+    openMore(dialog)
+    const s = within(dialog).getByTestId('inspector-examine')
+    expect(within(dialog).getByTestId('inspector-more')).toContainElement(s)
     expect(s.getAttribute('data-basis')).toBe('olumi_estimate')
     const cardReading = factorDisplayText({ kind: 'factor', label: LABEL, observedState: OLUMIS })
     expect(cardReading, 'PRECONDITION: the card reads a figure').toBeTruthy()
@@ -135,8 +143,11 @@ describe('the mounted section (InspectorModal → InspectorRouter)', () => {
 
   it('RED: the action sends one bound chip with the label and no model figure', () => {
     seed(ACCEPTED)
-    const s = within(open()).getByTestId('inspector-examine')
-    fireEvent.click(within(s).getByTestId('inspector-examine-prepare'))
+    const dialog = open()
+    openMore(dialog)
+    const s = within(dialog).getByTestId('inspector-examine')
+    expect(within(dialog).getByTestId('inspector-more')).toContainElement(s)
+    fireEvent.click(within(dialog).getByTestId('inspector-quick-ask'))
     expect(prefill).not.toHaveBeenCalled()
     expect(String(dispatch.mock.calls[0]![0].message)).toBe('What is the figure for ‘Warm introductions’ based on, and what would make a different figure more defensible?')
     expect(dispatch.mock.calls[0][0].message).not.toContain('30%')

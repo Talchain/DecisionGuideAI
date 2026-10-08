@@ -176,8 +176,11 @@ describe('a committed value SENDS factor_value_edit through the shared carrier',
 })
 
 describe('every other writer on the panel stays fenced', () => {
-  it('fences the DESCRIPTION — it has no carrier', () => {
+  it('fences the DESCRIPTION — it has no carrier', async () => {
     const { container } = openFactor()
+    const more = screen.getByTestId('inspector-more-toggle')
+    await userEvent.click(more)
+    expect(more.getAttribute('aria-expanded')).toBe('true')
     const fence = container.querySelector('fieldset[data-writer-fence="description"]')
     expect(fence, 'the description writer must sit behind its own fence').not.toBeNull()
     const textarea = within(fence as HTMLElement).getByRole('textbox')
@@ -187,6 +190,9 @@ describe('every other writer on the panel stays fenced', () => {
   it('fences the ADVANCED EDITOR — its setters are bare store writes', async () => {
     const { container } = openFactor()
     const user = userEvent.setup()
+    const more = screen.getByTestId('inspector-more-toggle')
+    await user.click(more)
+    expect(more.getAttribute('aria-expanded')).toBe('true')
     await user.click(screen.getByRole('button', { name: 'Show technical detail' }))
     await user.click(screen.getByRole('button', { name: /Show model detail/i }))
     const fence = container.querySelector('fieldset[data-writer-fence="advanced-editor"]')

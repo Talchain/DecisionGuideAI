@@ -217,7 +217,7 @@ const EXISTENCE_BAND_TRACK: Record<EdgeValueBand, string | undefined> = {
 // authorised surface is `EdgePanel.tsx` and its specs; the shared strings
 // module has other writers and is out of scope here.
 const EDGE_DIRECTION_COPY = {
-  caption: (sourceLabel: string) => `As ${sourceLabel} increases:`,
+  caption: 'Direction',
   increases: (targetLabel: string) => `increases ${targetLabel}`,
   decreases: (targetLabel: string) => `decreases ${targetLabel}`,
 } as const
@@ -1056,7 +1056,7 @@ export const EdgePanel = memo(function EdgePanel({
               {directionMarker.show && (
                 <div className="mb-1.5" data-testid="edge-direction-control">
                   <p className={`${typography.panelMeta} text-text-light mb-1`}>
-                    {EDGE_DIRECTION_COPY.caption(sourceLabel)}
+                    {EDGE_DIRECTION_COPY.caption}
                   </p>
                   <div className="flex gap-1" role="group" aria-label="Effect direction">
                     <button

@@ -1,13 +1,11 @@
 import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorControllablePanel — Inspector for controllable factors (spec §7)
- * v6.2 Pattern B three-group layout: Context → Your input → Connections.
- * ImportanceBar + VoI fold into Context group (post-analysis), replacing
- * the separate Impact / Investigation value sections.
+ * Anatomy: summary → value → influence → connections; detail stays in More.
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Pencil } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
 import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/nodes'
@@ -21,7 +19,7 @@ import { controls } from '../../../../styles/controls'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
-import { getFactorOptionRows } from '../../../utils/factorOptionSetting'
+import { getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../../../utils/factorOptionSetting'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   GROUP_LABELS,
@@ -33,7 +31,6 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -77,11 +74,14 @@ import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { meaningfulUncertaintyDrivers } from '../../../utils/observedStateHelpers'
 import { factorValueAwaitsReceipt } from '../../../nodes/shared/valueSourceMark'
+import { InspectorMoreItems } from '../shared/InspectorMore'
+import { FactorAnatomySummary } from './FactorAnatomy'
+import anatomyStyles from './FactorAnatomy.module.css'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
   techMode,
-  onClose,
+  summaryContext,
   onNavigate,
   /**
    * ⛔ A DUTY, NOT A PERMISSION (see `InspectorPanelProps`). The Router no
@@ -568,11 +568,17 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     [commitValue, elicitation],
   )
 
-  // Full counterpart of the factor preview, including options without a setting.
-  const setByOptions = useMemo(
+  // Preserve every option row, but only setters belong in the primary list.
+  const allOptionRows = useMemo(
     () => getFactorOptionRows(nodeId ?? '', nodes, ceeOptions, obs),
     [nodeId, nodes, ceeOptions, obs],
   )
+  const setByOptions = useMemo(() => allOptionRows.filter(row => {
+    const option = nodes.find(n => n.id === row.id)
+    const ceeOption = ceeOptions?.find(o => o.id === row.id)
+    return resolveOptionInterventionsForDisplay(option, ceeOption)?.[nodeId ?? ''] != null
+  }), [allOptionRows, nodes, ceeOptions, nodeId])
+  const optionsWithoutSetting = allOptionRows.filter(row => !setByOptions.some(setter => setter.id === row.id))
 
   const influences = useMemo(() => {
     return edges
@@ -625,212 +631,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
   if (!nodeId || !node) return null
 
-  // Contextual guidance sentence based on sensitivity rank
-  /**
-   * ⭐ THE RANK IS THE PRODUCER'S. THE BANDS WERE OURS.
-   *
-   * This read `sensitivityRank <= 2` → "one of the most influential factors in
-   * your model. Changes here noticeably affect the result." Two thresholds
-   * chosen here, a superlative, and a PREDICTION about what changing it would
-   * do — none of it producer-backed. Founder's rule, 15 Sep: the UI renders the
-   * data; it does not decide what the data means.
-   *
-   * Stating the rank is shorter, strictly more informative (a reader gets #2
-   * rather than a band), and cannot be wrong. `null` when the producer did not
-   * rank it — absence is a state, not a "low influence" verdict.
-   */
-  const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
-    ? `Ranked #${displayMetadata.sensitivityRank} by sensitivity in this run.`
-    : null
+  const sourceLabel = factorValueSourceLabel(node.data, attributedTo)
+  const inputLabel = getInputGroupLabel(source, (rawValue ?? value) != null, isAcceptedOlumiFigure(node.data))
 
   return (
     <div>
-      {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {/* Description — Pattern B (EmptyDescriptionPrompt) */}
-        {/* `mutations.setDescription` writes to the local store ONLY — there is
-            no `description` carrier, so the next server rehydrate overwrites it.
-            Fenced HERE rather than at the Router so the value control beside it,
-            which DOES have one, can stay live.
+      <FactorAnatomySummary
+        label={resolveElementLabel(node.data)}
+        displayText={canonicalDisplayText}
+        hasStoredValue={value !== undefined || rawValue !== undefined}
+        sourceLabel={sourceLabel}
+        pending={isValueEditPending}
+        summaryContext={summaryContext}
+      />
+      {description.trim() && (
+        <p className={`${typography.panelBody} text-text-body mt-2`}>{description}</p>
+      )}
 
-            ⚠ THE FENCE WRAPS BOTH BRANCHES, INCLUDING THE EMPTY PROMPT. That
-            prompt performs no write itself — it opens the editor — so a fence
-            scoped to the textarea alone would still pass a self-fencing audit
-            while leaving a button whose whole purpose is to invite text that
-            cannot be saved. Inviting the input is the harm; the write is only
-            where it lands. */}
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
-        {description || isEditingDescription ? (
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              mutations.setDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
-        )}
-        </fieldset>
-
-        {/* Provenance pills: factor type identity + extraction source
-         *
-         * ⚠⚠ A4b — WHILE AN EDIT IS UNCONFIRMED, `source` LIES. `source` reads
-         * `observedState.source`, which this panel never stamps optimistically
-         * (ROADMAP 2.304: the authorship claim is receipt-gated, see the write
-         * path above). So the instant a user types a new value the field on
-         * screen has moved but this pill has not — it keeps crediting whatever
-         * the PRODUCER last claimed (measured: "Estimated by Olumi" over a
-         * hand-typed 0.7) until the receipt lands and re-stamps `source`. While
-         * the store still carries that unreceipted signature
-         * (`factorValueAwaitsReceipt`, see `isValueEditPending`) the number is
-         * real but the claim is not, so the pill says so instead of guessing. */}
-        <div className="mt-2 flex gap-1.5 flex-wrap">
-          {node.data?.factorType && (
-            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-              {String(node.data.factorType)}
-            </span>
-          )}
-          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-            {isValueEditPending
-              ? 'Your edit — not saved to the model yet'
-              : factorValueSourceLabel(node?.data, attributedTo)}
-          </span>
-        </div>
-
-        {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
-        {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
-          <StaleGuardBanner hasResults={isResultsMode}>
-            {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
-            Both bars in this stack put their label BELOW their own value,
-            and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE.
-
-            ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
-            with its label; the VoI block does the same". The first half is
-            true at the bytes; the second is FALSE - the VoI block ends with
-            a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
-            exactly what made the influence sentence's placement invisible to
-            the author: a group modelled as a PAIR has no room in it for the
-            third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
-            gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
-            scanning down met:
-
-            100%                  <- influence value
-            Influence on results  <- ITS label
-            Low                   <- the VoI value
-            Investigation value   <- ITS label
-
-            and paired "Influence on results" with the "Low" beneath it,
-            reading "influence: Low" directly under "100%".
-
-            ⚠ THE DATA WAS NEVER WRONG and this is NOT a data fix. Influence
-            and value-of-information are different quantities and both were
-            rendered correctly. But the misreading is reproducible and has
-            now caught THREE independent readers: a reviewer who nearly
-            filed it as a data-integrity defect, the author who documented
-            that near-miss at `inspectorStrings.ts:404`, and a lane that
-            re-filed it as a "100% vs Low contradiction" from a deployed
-            capture on 7 Sep 2026. A presentation that reliably produces a
-            false reading is a defect even when every number in it is right.
-
-            Adding the `Investigation value` label (the prior fix) told the
-            reader the second bar HAS a name; it could not tell them which
-            bar each name belongs to, because proximity still said
-            otherwise. 4px within a group vs 16px between them makes proximity say
-            the true thing - but ONLY once every sentence sits inside the
-            group it describes, which is the change below and is what the
-            first cut of this fix missed. */}
-            <div className="mt-2 space-y-4">
-            {/* ⚠ THE GUIDANCE SENTENCE IS PART OF THIS GROUP, AND MOVING IT HERE IS
-                THE WHOLE REPAIR. It was rendered as the container's next SIBLING at
-                `mt-2` = 8px, while the two groups inside sit `space-y-4` = 16px
-                apart — so a sentence about INFLUENCE ended up twice as close to the
-                value-of-information group as the two groups are to each other, and
-                proximity is comparative. `inspectorStrings.ts:403-419` names exactly
-                this juxtaposition: *"'influence: Low' directly above 'one of the most
-                influential'"*.
-
-                SAFE BY DERIVATION, not by inspection: `sensitivityGuidance` is
-                non-null only when `isResultsMode && sensitivityRank != null`, and the
-                container renders on `isResultsMode && (influence != null ||
-                sensitivityRank != null)`. The first implies the second, so nothing
-                can be lost by moving it inside. ⚠ THAT PROOF IS PANEL-SPECIFIC and
-                does NOT hold for `FactorExternalPanel`, whose guidance is
-                unconditional and is not always about influence — it is separated
-                there instead. The three panels look identical and are not; treating
-                them as one is what produced this defect.
-
-                Typography is deliberately UNCHANGED (`panelBody`/`text-text-body`).
-                This is a change of POSITION, not of type — sizing the sentence to
-                its neighbours is a separate question and is not smuggled in here. */}
-              <div>
-                {/* ⭐ The basis gate lives in `ImportanceBar`, the ONE renderer all
-                    four factor/goal panels share — see its docblock. Gating here
-                    instead withheld the RANK too, which is separately licensed. */}
-                <ImportanceBar
-                importanceScore={displayMetadata.influence}
-                sensitivityRank={displayMetadata.sensitivityRank}
-                influenceProvenance={displayMetadata.influenceProvenance}
-                />
-                {sensitivityGuidance && (
-                  <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
-                )}
-              </div>
-              {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
-                  is derived from this value, so a human reads the second as
-                  implying the first — but TypeScript does not narrow through a
-                  derived local, and `DataBar` takes `number`, not `number | null`.
-                  Dropping either one is a type error, which is the compiler
-                  making the same point. */}
-              {displayMetadata.valueOfInformation !== null && voiTier !== null && (
-                <div>
-                  <DataBar
-                    value={displayMetadata.valueOfInformation}
-                    label={INLINE_LABELS.investigationValue}
-                    colour="info"
-                    trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
-                  />
-                  {/* Its own label, in the same place ImportanceBar puts its own —
-                      without it, that bar's label reads as this bar's. */}
-                  <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {INLINE_LABELS.investigationValue}
-                  </div>
-                  <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {INVESTIGATION_VALUE_INVITATION.evidence}
-                  </p>
-                </div>
-              )}
-            </div>
-          </StaleGuardBanner>
-        )}
-        {/* DL #70 5849644637: the turning-point line the card no longer carries. */}
-        {nodeId && <FactorTurningPointInspectorLine nodeId={nodeId} />}
-
-      </PanelGroup>
-
-      {/* ── Your input group ──────────────────────────────────── */}
-      {/* The header is a CLAIM about who supplied this number, not a static
-          caption. "Your input" over an Olumi estimate is false attribution —
-          see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, (rawValue ?? value) != null, isAcceptedOlumiFigure(node?.data))}>
+      <PanelGroup kind="input" label={inputLabel === GROUP_LABELS.input ? 'What you believe' : inputLabel}>
         <PrimaryControlCard>
-          {canonicalDisplayText && (
-            <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
-              {canonicalDisplayText}
-            </div>
-          )}
           <div
             data-testid="factor-value-row"
-            className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}
+            className={`${anatomyStyles.valueRow} group flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}
             onMouseMove={onValueRowMouseMove}
             onKeyDownCapture={onValueRowKeyDown}
           >
@@ -846,11 +668,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               onBlur={() => { valueFieldFocusedRef.current = false; handleValueBlur() }}
               onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
               placeholder="Enter value"
-              className={`${typography.panelHeader} text-xl ${controls.editableField}`}
+              className={`${typography.panelHeader} text-xl min-w-0 ${controls.editableField}`}
             />
             {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
               <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
             )}
+            <Pencil size={12} aria-hidden="true" data-value-edit-cue className="shrink-0 text-text-light transition-opacity" />
             {/*
               ON THE VALUE ROW, beside the number rather than replacing it: the
               two are alternatives, and hiding the direct input behind a mode
@@ -909,19 +732,6 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               citation resolved; never gated on `source`, because the citation is
               a fact about the apply and not about the extraction kind. */}
           <CitedEvidenceNote resolution={citedEvidence} />
-          {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
-            <div className="flex gap-1.5 flex-wrap mt-1.5">
-              {uncertaintyDrivers.map((d, i) => (
-                <span
-                  key={i}
-                  className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                  style={{ border: '1px solid var(--warning)4D' }}
-                >
-                  {d}
-                </span>
-              ))}
-            </div>
-          )}
           {/* ⭐ THE NUMBER THE ENGINE CANNOT PLACE, SAID ON THE FACTOR ITSELF.
               A factor with no cap, no unit AND NO FRAME RECOVERABLE FROM ITS
               `{value, raw_value}` PAIR holds `value` AS the model scale, so a
@@ -1103,6 +913,16 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         />
       </PanelGroup>
 
+      {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
+        <StaleGuardBanner hasResults={isResultsMode}>
+          <ImportanceBar
+            importanceScore={displayMetadata.influence}
+            sensitivityRank={displayMetadata.sensitivityRank}
+            influenceProvenance={displayMetadata.influenceProvenance}
+          />
+        </StaleGuardBanner>
+      )}
+
       {/* ── Connections group ─────────────────────────────────── */}
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         {setByOptions.length > 0 && (
@@ -1157,6 +977,90 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         )}
       </PanelGroup>
 
+      <InspectorMoreItems>
+        <PanelGroup kind="context">
+          {canonicalDisplayText && (
+            <div className={`${typography.panelMeta} text-text-light`} data-testid="factor-display-text">
+              Stored as: {canonicalDisplayText}
+            </div>
+          )}
+          <div className="mt-2 flex gap-1.5 flex-wrap">
+            {node.data?.factorType && (
+              <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+                {String(node.data.factorType)}
+              </span>
+            )}
+            {(canonicalDisplayText || inputDisplayValue != null) && (
+              <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+                {isValueEditPending ? 'Your edit — not saved to the model yet' : sourceLabel}
+              </span>
+            )}
+          </div>
+          {/* The description writer has no carrier; moving it preserves its fence. */}
+          <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+            {description.trim() || isEditingDescription ? (
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                onBlur={() => {
+                  mutations.setDescription(description)
+                  if (!description.trim()) setIsEditingDescription(false)
+                }}
+                autoFocus={isEditingDescription && !description}
+                placeholder={DESCRIPTION_PLACEHOLDERS.factor}
+                rows={2}
+                maxLength={500}
+                className={`${typography.panelBody} ${controls.editableTextarea}`}
+              />
+            ) : !readOnly ? (
+              <button type="button" className={`${typography.panelMeta} text-text-light hover:text-info`} onClick={() => setIsEditingDescription(true)}>
+                Add a description
+              </button>
+            ) : null}
+          </fieldset>
+          {isResultsMode && displayMetadata.valueOfInformation !== null && voiTier !== null && (
+            <div className="mt-2">
+              <DataBar
+                value={displayMetadata.valueOfInformation}
+                label={INLINE_LABELS.investigationValue}
+                colour="info"
+                trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
+              />
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.investigationValue}</div>
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>{INVESTIGATION_VALUE_INVITATION.evidence}</p>
+            </div>
+          )}
+          <FactorTurningPointInspectorLine nodeId={nodeId} />
+          {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap mt-1.5">
+              {uncertaintyDrivers.map((d, i) => (
+                <span
+                  key={i}
+                  className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
+                  style={{ border: '1px solid var(--warning)4D' }}
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
+          )}
+        </PanelGroup>
+        {optionsWithoutSetting.length > 0 && (
+          <PanelGroup kind="connections" label="Options that don't set it">
+            {optionsWithoutSetting.map(option => (
+              <ConnectionRow
+                key={option.id}
+                nodeKind="option"
+                label={option.label}
+                badge={<span className={`${typography.panelMeta} text-text-light`}>{option.displayValue}</span>}
+                fullLabel
+                techMode={techMode}
+                onClick={() => onNavigate(option.id)}
+              />
+            ))}
+          </PanelGroup>
+        )}
+
       {/* ── Expert-only model detail ──────────────────────────── */}
       {/* ⚠⚠ WRITERS 2–15 OF 15, AND THE FOURTEEN A FILE-SCOPED SWEEP MISSES.
           `FactorControllableEditor` holds 14 `mutations.set*` call sites, every
@@ -1183,6 +1087,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           </div>
         )}
       </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

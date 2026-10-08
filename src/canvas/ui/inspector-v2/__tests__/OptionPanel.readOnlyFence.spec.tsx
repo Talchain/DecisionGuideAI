@@ -47,7 +47,7 @@ import { useCanvasStore } from '../../../store'
 // ⭐ DERIVED, never re-typed: the prompt asserted below is the one the panel
 // renders, so a reworded placeholder moves this with it instead of quietly
 // un-binding the assertion.
-import { DESCRIPTION_PLACEHOLDERS, INSPECTOR_DESCRIPTION_EMPTY } from '../inspectorStrings'
+import { DESCRIPTION_PLACEHOLDERS } from '../inspectorStrings'
 
 // importOriginal-spread, NOT a hand-listed factory: `vi.mock` REPLACES the
 // module, so a bare `{ useViewport }` factory silently removes every other
@@ -160,6 +160,7 @@ function showTechnicalDetail() {
   // until its "Show model detail" button is pressed. So the advanced editor —
   // and the two writers inside it — never mounted, and the fence sweep was
   // measuring a subtree that was not there. Caught in review.
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
   fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
   fireEvent.click(screen.getByRole('button', { name: 'Show model detail' }))
 }
@@ -300,6 +301,7 @@ describe('the connected target is editable and still says which scale it is on',
       screen.getByTestId(`intervention-readout-${FACTOR_ID}`),
       'the default view no longer prints the card\'s reading',
     ).toHaveTextContent('£49')
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
 
@@ -397,6 +399,7 @@ describe('the numeric fallback says which scale it is on', () => {
     expect(before).toHaveTextContent('£49')
     expect(before.textContent, 'the internal number leaked into the default view').not.toContain('0.49')
 
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
     // `observedState.unit` is '£' here and the target is still qualified.
@@ -436,15 +439,14 @@ describe('the permitted controls are exercised, not merely enabled', () => {
     expect([...useCanvasStore.getState().selection.nodeIds]).toContain(FACTOR_ID)
   })
 
-  it('shows the static empty-description branch when the record has no description', () => {
+  it('hides the empty description while retaining its writer fence', () => {
     useCanvasStore.setState({
       nodes: useCanvasStore.getState().nodes.map(n =>
         n.id === OPTION_ID ? { ...n, data: { ...n.data, description: '' } } : n,
       ),
     } as never)
     openOption()
-    // No description and no editor: the pane must still say something rather
-    // than rendering an empty region that reads as a loading state.
+    // Anatomy omits the empty description; the option's summary stays primary.
     expect(screen.queryByTestId('option-description-readonly')).toBeNull()
     // ⚠ SCOPED TO THE DESCRIPTION FENCE, and it had to be. This read
     // `queryByRole('textbox')` over the WHOLE pane, which was a true statement
@@ -461,9 +463,8 @@ describe('the permitted controls are exercised, not merely enabled', () => {
     // passed on a dead button — `EmptyDescriptionPrompt` with a no-op
     // `onStartEditing` still rendered `role="button"` and a tab stop, so the
     // pane offered an action that answers nothing and this test said fine.
-    // v3.1 (DESIGN-GAP-v31 row 32): the read-only empty state is stated as an
-    // ABSENCE, not an italic prompt question that reads as content.
-    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent(INSPECTOR_DESCRIPTION_EMPTY)
+    // Anatomy retires the empty-description sentence as well as its dead prompt.
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
     expect(screen.queryByText(DESCRIPTION_PLACEHOLDERS.option)).toBeNull()
     expect(screen.queryByRole('button', { name: DESCRIPTION_PLACEHOLDERS.option }), 'the empty prompt is still a tab stop').toBeNull()
   })

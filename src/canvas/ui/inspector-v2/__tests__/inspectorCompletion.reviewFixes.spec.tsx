@@ -27,7 +27,7 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { requestNodeRename, clearNodeRename } from '../renameIntent'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
-import { EMPTY_STATES, OPTION_STRINGS, DECISION_STRINGS } from '../inspectorStrings'
+import { EMPTY_STATES, OPTION_STRINGS } from '../inspectorStrings'
 
 vi.mock('@xyflow/react', () => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -408,9 +408,12 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
   it('does NOT claim "No connections yet." while two edges are on the canvas', () => {
     setInboundStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const connections = container.querySelector('[data-panel-group="connections"]')
-    expect(connections?.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
-    expect(screen.getByTestId('decision-connections-are-options').textContent).toContain('2')
+    const alternatives = container.querySelector('[data-panel-group="alternatives"]')
+    expect(alternatives).not.toBeNull()
+    expect(alternatives?.textContent).toContain('Option A')
+    expect(alternatives?.textContent).toContain('Option B')
+    expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
   })
 
   it('counts an option connected in BOTH directions exactly once', () => {
@@ -425,7 +428,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
       ],
     })
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('decision-connections-are-options').textContent).toContain('1')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 1 option.')
     expect(screen.getAllByText('Option A')).toHaveLength(1)
   })
 
@@ -442,8 +445,11 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 
-  it('exposes the count copy for both directions from ONE constant', () => {
-    expect(DECISION_STRINGS.connectionsAreOptions).toContain('{count}')
+  it('states the count for both directions in the single summary location', () => {
+    setInboundStore()
+    render(<DecisionPanel {...decisionProps} />)
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
+    expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 })
 
