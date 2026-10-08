@@ -40,6 +40,7 @@ import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelec
 import { selectRunOnRecordWithoutResult, selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
+import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 // ── The workspace-shell contract ────────────────────────────────────────────
 // This dock IS the shell. `shellContract.ts` states what it owns and what a
 // child surface may never set; read that file before changing width, tabs,
@@ -496,6 +497,17 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
 }
 
 /**
+ * The tab the dock can show for a requested one (workstream D, Paul 8 Oct "overcomplicated": no tab that opens onto
+ * nothing). Compare is offered only once there is a pair to compare — until then its body is "No comparison yet" — so
+ * a route that asks for it (the Reasoning receipt, a deep link, a restored session) lands on Reasoning instead.
+ * Pure, so the rule is testable without mounting the dock.
+ */
+export function resolvePresentedTab(tab: OutputTab, comparePairExists: boolean): OutputTab {
+  if (tab === 'compare' && !comparePairExists) return UNFLAGGED_FALLBACK_SURFACE
+  return tab
+}
+
+/**
  * Public OutputsDock entry point.
  *
  * **Critical singleton invariant:** exactly one `useConversation()` instance
@@ -874,7 +886,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // non-click paths (programmatic setActiveOutputTab, persisted state on
   // page load) we add a guard effect below so the duplicate-readable-
   // surface invariant ("never both at once") still holds.
-  const effectiveActiveTab = state.activeTab
+  // Workstream D: Compare is a tab only while it has a pair to show (the same reader its body uses).
+  const comparePairExists = useDisplayedRunDeltaView(results?.hash) !== null
+  const effectiveActiveTab = resolvePresentedTab(state.activeTab, comparePairExists)
 
   /**
    * ⭐⭐ ONE DERIVATION OF "THIS RUN START WILL FRONT THE ANALYSIS TAB", read by
@@ -2713,12 +2727,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
   const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
-    () => getOutputTabsForParity(),
+    () => getOutputTabsForParity().filter(tab => tab.id !== 'compare' || comparePairExists),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     // No `isJourneyTabEnabled()` here: `getOutputTabsForParity` no longer reads
     // it (journey is hidden by contract), so listing it would re-run this memo
     // on a value the computation cannot consume.
-    [aiPanelV2On, isCompareTabEnabled()],
+    [aiPanelV2On, isCompareTabEnabled(), comparePairExists],
   )
 
   // ── Shell width, published once, derived from the live element ────────────
@@ -3190,12 +3204,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             // omitting it here left a never-run model showing a freshness glyph
             // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
             hasCompletedFirstRun={hasCompletedFirstRun}
-            // The ⓘ "Inspect this analysis": front Reasoning like a tab click,
-            // then ask its About section to open (the consumer clears it).
-            onInspectAnalysis={() => {
-              handleTabClick('analysisNew')
-              useUIStore.getState().requestReasoningAbout(true)
-            }}
+            // No `onInspectAnalysis`: the ⓘ "Inspect this analysis" is off the golden journey (workstream D,
+            // 8 Oct). Reasoning's own "About this analysis" section stays one scroll away on that tab.
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
