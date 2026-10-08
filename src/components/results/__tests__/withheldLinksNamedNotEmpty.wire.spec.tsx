@@ -39,8 +39,8 @@ describe('RT-19 fx1: a withhold with no typed ask names its own links, never "No
   })
   it('the deployed panel names the first link and how many more, in the chat\'s words, instead of "No findings"', () => {
     render(<StrengthenContainer data={hydrate(structuredClone(fixture.envelope) as Rec)} />)
-    expect(screen.getByText('This comparison turns on the link from ‘Support capacity strain’ to ‘monthly recurring revenue’ and 1 more')).toBeTruthy()
-    expect(screen.getByText('Set them to see how much they matter.')).toBeTruthy()
+    expect(screen.getByText('How strongly does ‘Support capacity strain’ affect ‘monthly recurring revenue’?')).toBeTruthy()
+    expect(screen.getByText('Olumi drafted this link and 1 more; none is sized in the model yet.')).toBeTruthy()
     expect(screen.queryByText('No findings need attention right now.')).toBeNull()
   })
   it('CONTROL: the same Run with no withhold (leader permitted, no placeholder warning) shows no such row', () => {
@@ -48,6 +48,6 @@ describe('RT-19 fx1: a withhold with no typed ask names its own links, never "No
     env.blocks[0].enrichment.inference_warnings = (env.blocks[0].enrichment.inference_warnings as Rec[]).filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH')
     env.analysis_state.leader_claim = { permitted: true }
     render(<StrengthenContainer data={hydrate(env)} />)
-    expect(screen.queryByText(/^This comparison turns on the link from/)).toBeNull()
+    expect(screen.queryByText(/^How strongly does ‘Support capacity strain’ affect/)).toBeNull()
   })
 })
