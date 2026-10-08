@@ -48,6 +48,7 @@ import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionR
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
+import { TechnicalDisclosure } from '../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { ComparisonScopeNote } from '../ComparisonScopeNote'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
@@ -388,7 +389,20 @@ export function AnalysisHeroPanel({
             </span>
           )}
         </div>
-        {model.subline && (
+        {model.goalChanceLeadLines ? (
+          <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-subline">
+            {model.goalChanceLeadLines.map((line, index) => (
+              <div key={`${line.id ?? 'run'}-${line.kind ?? index}`} data-option-id={line.id} data-line-kind={line.kind}>
+                <p><span>{line.text}</span></p>
+                {line.why && (
+                  <TechnicalDisclosure visible label="Why?" openLabel="Hide why" compact>
+                    <span>{line.why}</span>
+                  </TechnicalDisclosure>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : model.subline && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-subline">
             {model.subline}
           </p>

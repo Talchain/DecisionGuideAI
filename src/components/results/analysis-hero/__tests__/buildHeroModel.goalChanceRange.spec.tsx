@@ -78,23 +78,29 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     expect(screen.getByTestId('goal-chance-range-horizon').textContent).toBe(HORIZON)
   })
 
-  it.each(['highest', 'highest_all_likely_to_miss'])('%s keeps unquoted chances and all drivers in model order without repeating quoted figures (RED on base)', (form) => {
+  it.each(['highest', 'highest_all_likely_to_miss'])('%s keeps every labelled own cell in model order', (form) => {
     const m = chart(data(form, { driver_by_option: {
       other: STRENGTH, leader: { ...STRENGTH, from: 'retention' }, next: STRENGTH,
     } }))
     const text = m.subline ?? ''
-    expect(text).toContain('‘Explore partnerships’: about 20% chance of meeting your goal, in this model. It rests most on how strongly ‘Capacity’ affects ‘Output’')
-    expect(text).toContain('‘Hire’: It rests most on how strongly ‘Retention’ affects ‘Output’')
-    expect(text).toContain('‘Train’: It rests most on how strongly ‘Capacity’ affects ‘Output’')
+    // C-LOST restored: drivers follow their own cells; quoted cells remain labelled.
+    expect(text).toContain('‘Explore partnerships’: about 20% chance of meeting your goal, in this model.')
+    expect(text).toContain('‘Hire’: about 62% chance of meeting your goal, in this model.')
+    expect(text).toContain('‘Train’: about 41% chance of meeting your goal, in this model.')
     expect(text).toContain('‘Wait’: about 5% chance of meeting your goal, in this model.')
-    expect(text).not.toContain('‘Hire’: about 62%')
-    expect(text).not.toContain('‘Train’: about 41%')
+    for (const [id, from] of [['other', 'Capacity'], ['leader', 'Retention'], ['next', 'Capacity']]) {
+      const index = m.goalChanceLeadLines!.findIndex(line => line.id === id && line.kind === 'driver')
+      expect(m.goalChanceLeadLines![index].text).toBe(`It rests most on how strongly ‘${from}’ affects ‘Output’: if that effect is weaker than this model assumes, the chance falls.`)
+      expect(m.goalChanceLeadLines![index - 1]).toMatchObject({ id, kind: 'cell' })
+      expect(m.goalChanceLeadLines![index - 1].text).not.toContain('It rests most on')
+    }
+    expect(m.goalChanceLeadLines!.filter(line => line.kind === 'cell').map(line => line.id)).toEqual(ORDER)
     expect(ORDER.map((id) => text.indexOf(`‘${LABELS[id]}’:`))).toEqual(
       [...ORDER.map((id) => text.indexOf(`‘${LABELS[id]}’:`))].sort((a, b) => a - b),
     )
   })
 
-  it('each is unchanged: every chance line with its own driver, in model order', () => {
+  it('each: every own chance cell followed by its separate own driver', () => {
     const m = chart(data('each', { driver_by_option: { leader: STRENGTH } }))
     expect(m.subline).toBe(
       '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. '
@@ -103,11 +109,14 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
       + '‘Wait’: about 5% chance of meeting your goal, in this model. '
       + '‘Train’: about 41% chance of meeting your goal, in this model.',
     )
+    // C-LOST restored: own driver is adjacent and separately identified.
+    expect(m.goalChanceLeadLines![1]).toMatchObject({ id: 'leader', kind: 'cell' })
+    expect(m.goalChanceLeadLines![2]).toMatchObject({ id: 'leader', kind: 'driver' })
   })
 
-  it('highest still carries the other options when the quoted options have no drivers (RED on base)', () => {
+  it('highest keeps all labelled own cells when no drivers are recorded', () => {
     expect(chart(data('highest')).subline).toBe(
-      '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. ‘Wait’: about 5% chance of meeting your goal, in this model.',
+      '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. ‘Hire’: about 62% chance of meeting your goal, in this model. ‘Wait’: about 5% chance of meeting your goal, in this model. ‘Train’: about 41% chance of meeting your goal, in this model.',
     )
   })
 

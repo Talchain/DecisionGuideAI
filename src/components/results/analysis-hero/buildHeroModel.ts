@@ -60,7 +60,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { selectGoalLeader } from '../utils/selectGoalLeader'
 import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
-import { licensedOptionChanceLines, runViewOptionChanceLines } from '../../../canvas/runView/runView'
+import { goalChanceDriverRunMessageIdentity, goalChanceRunMessages } from './goalChanceRunMessages'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -1010,7 +1010,7 @@ export function buildHeroModel(
   // admission's own sentence keeps the slot when it has one (a reason line already on the panel); otherwise the
   // producer's withheld-leader reason line from `winShareGate` (e.g. Paul's 4276f3f9: "An exploratory
   // comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option."). Permitted ⇒ unchanged.
-  const designationWithheldReason =
+  let designationWithheldReason =
     admissionWithheldReason ??
     (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
   let goalHorizonUntested = data.goalChanceRange?.horizonLine != null
@@ -1108,32 +1108,49 @@ export function buildHeroModel(
       }
     }
   }
-  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option. Its
-  // subline carries the options not quoted above and their drivers, in model order, plus the quoted options' drivers.
+  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option.
+  // Each option keeps its own labelled cell followed by its own driver, then separate Run-wide lines.
   let goalChanceHorizonLine: string | null = null
+  let goalChanceLeadLines: HeroChartModel['goalChanceLeadLines']
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
-    // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
-    // option's own line.
-    const highest = summaryLicence!.form === 'highest' || summaryLicence!.form === 'highest_all_likely_to_miss'
-    const quotedAbove = highest
-      ? [goalChanceLicence.leaderOptionId as string, goalChanceLicence.nextOptionId as string]
-      : summaryLicence!.form === 'similar' ? goalChanceLicence.similarOptionIds : []
-    const driverLines = goalChanceDriverLines(copyLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
-    const lines = summaryLicence!.form === 'each' || summaryLicence!.form === 'similar' || highest
-      ? data.runView
-        ? runViewOptionChanceLines(data.runView, goalChanceLabelOf, id => optionChanceCellFromResults(data, id), quotedAbove, driverLines, highest)
-        : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest, id => optionChanceCellFromResults(data, id))
-      : null
-    subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
+    // Keep staging's driver words and shared-question rules, using matching canonical drivers through mainDriverOf.
+    const driverLines = goalChanceDriverLines(copyLicence, data.goalChanceDriverNames)
+    const driverRunIdentities = new Set<string>()
+    const lines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = options.flatMap(option => {
+      const label = stripEncodingNotation(option.label).trim()
+      if (!label) return []
+      const cell = optionChanceCellFromResults(data, option.id)
+      const text = cell.text
+      if (text === null) return []
+      const prefix = `‘${label}’: `
+      const ownLines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = [{
+        id: option.id, kind: 'cell', text: text.startsWith(prefix) ? text : prefix + text,
+        ...('why' in cell && cell.why ? { why: cell.why } : {}),
+      }]
+      const driverText = driverLines[option.id]
+      if (driverText !== undefined) {
+        ownLines.push({ id: option.id, kind: 'driver', text: driverText })
+        const identity = goalChanceDriverRunMessageIdentity(copyLicence!.driverByOption?.[option.id],
+          goalChanceLicence.target, driverText, data.confidence?.inferenceWarnings)
+        if (identity !== null) driverRunIdentities.add(identity)
+      }
+      return ownLines
+    })
+    const runMessages = goalChanceRunMessages(data.confidence?.inferenceWarnings,
+      admissionWithheldReason === null ? { cause: data.winShareWithheldCause, text: designationWithheldReason } : undefined)
+    lines.push(...runMessages.lines.filter(line => !driverRunIdentities.has(line.identity)))
+    if (runMessages.ownsDesignation) designationWithheldReason = null
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
     // the part of these figures that is Olumi's assumption about the user's own links.
     const disclosure = goalChanceDisclosureLines(goalChanceLicence)
-    if (disclosure !== null) subline = `${subline} ${disclosure}`
+    if (disclosure !== null) lines.push({ text: disclosure })
     goalChanceHorizonLine = goalChanceLicence.horizonLine ?? null
     if (goalChanceHorizonLine !== null) {
-      subline = `${subline} ${goalChanceHorizonLine}`
+      lines.push({ text: goalChanceHorizonLine })
       goalHorizonUntested = null
     }
+    goalChanceLeadLines = lines
+    subline = lines.length ? lines.map(line => line.text).join(' ') : HERO_COPY.subline.compareTop
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
@@ -1452,6 +1469,7 @@ export function buildHeroModel(
     headline,
     subline,
     goalChanceHorizonLine,
+    goalChanceLeadLines,
     designationWithheldReason,
     goalHorizonUntested,
     lenses,

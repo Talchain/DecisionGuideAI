@@ -1362,6 +1362,8 @@ export interface ResultsSectionDataReturn {
   winSharesWithheld?: boolean
   /** The reason line each withheld surface shows instead (`winShareWithheldReason`), or `null` when permitted. */
   winShareWithheldReason?: string | null
+  /** Typed provenance for deduplicating another wording of the same warning. */
+  winShareWithheldCause?: string | null
   /**
    * ⭐ D3 step 2: the goal chance's OWN licence, as CEE decided it and stored it with the Run (`GOAL_CHANCE_LICENSED`,
    * read by identity in `utils/goalChanceLicence`). Separate from the win-share gate above. OPTIONAL like it: absent or
@@ -4890,6 +4892,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       sensitivityReviewTargets,
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
+      winShareWithheldCause: leaderPermission?.producer_cause,
       goalChanceLicence,
       goalChanceDriverNames,
       goalChanceInvite,

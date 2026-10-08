@@ -21,6 +21,7 @@ import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type 
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
 import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
+import { readGoalFigureWithholds, readGoalWithheldReasonFor } from '../../components/results/utils/goalIdentityWithheld'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
 /** DL ruling 1 (8 Oct): the words for a Run that carries goal figures but no licence. */
@@ -49,6 +50,7 @@ export interface OptionChanceCellContext {
   readonly goalCertaintyUnearned?: { readonly say: string | null } | null
   /** Graph-derived comparison eligibility; preserves Results' fallback-figure gate. */
   readonly notAnalysed?: boolean
+  readonly notAnalysedMessage?: string | null
   readonly labelOf: (optionId: string) => string | null
   readonly rangeLabelOf?: (nodeId: string) => string | null
 }
@@ -95,6 +97,7 @@ const EMPTY: RunView = {
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
 const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
+const scopedWithholdsByView = new WeakMap<RunView, { inference_warnings: unknown }>()
 
 /** Match the held report, never today's graph or its locally derived response hash. */
 function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView): boolean {
@@ -142,7 +145,9 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
       ...(cell.why === undefined ? {} : { why: cell.why }) }
     if (cell?.kind === 'none') return NO_CELL
   }
-  return licensedChanceCell(view, optionId, ctx)
+  const cell = licensedChanceCell(view, optionId, ctx)
+  return cell.kind === 'none' && ctx.notAnalysedMessage
+    ? { kind: 'withheld', text: ctx.notAnalysedMessage } : cell
 }
 
 /** Whole-Run sentences use the same resolved cells as option rows and the matrix. */
@@ -167,7 +172,14 @@ function licensedChanceCell(view: RunView, optionId: string, ctx: OptionChanceCe
     const index = line.indexOf(boundary)
     return { kind: 'range', text: index === -1 ? line : line.slice(0, index + boundary.length - 1) }
   }
-  const withheld = ctx.goalFiguresWithheldMessage ?? ctx.goalCertaintyUnearned?.say ?? null
+  const scopedSource = scopedWithholdsByView.get(view)
+  // On the licensed lead, placeholder messages have their own Run-wide line, not an option face.
+  const scoped = scopedSource && ctx.goalChanceHeroSays && view.goalChance !== null
+    ? { inference_warnings: (scopedSource.inference_warnings as unknown[]).filter(w => !isRec(w) || w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') }
+    : scopedSource
+  // An aggregate message about one option must never mask a different option's licensed cell.
+  const withheld = (scoped ? readGoalWithheldReasonFor(scoped, optionId) : ctx.goalFiguresWithheldMessage)
+    ?? ctx.goalCertaintyUnearned?.say ?? null
   if (withheld !== null) return { kind: 'withheld', text: withheld }
   const licence = ctx.goalChanceHeroSays ? view.goalChance : null
   const chanceLines = licence === null ? null : licensedOptionChanceLines(licence, ctx.labelOf)
@@ -214,6 +226,8 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
   }
+  const holder = { inference_warnings: warnings }
+  if (readGoalFigureWithholds(holder).some(withhold => withhold.optionIds !== null)) scopedWithholdsByView.set(view, holder)
   if (canonical && matchesCanonicalRun(report, canonical)) canonicalByView.set(view, canonical)
   return view
 }

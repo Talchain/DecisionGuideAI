@@ -1,12 +1,4 @@
-/**
- * G4/G5 phase 2, P3 — the driver sentence REACHES THE HERO, under its own option's chance line (DL rulings 6 Oct 2026).
- *
- * `goalChanceDriverWords.spec.ts` pins the words. This file pins the wiring on Paul's served Run 4276f3f9: CEE's
- * `driver_by_option` claim on the licence record, the canvas labels the results hook supplies, and the hero's subline.
- * Placement: after the option's own line under `each`; quoted options keep their drivers under `highest` (PR-S3).
- *
- * Lives in the hero's own directory: `inertness.spec.ts` forbids importing the hero from anywhere else.
- */
+/** C-LOST restored: every licensed own driver follows its own cell as a separate attributed line. */
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -52,27 +44,39 @@ function seed(licence: Record<string, unknown>) {
   } as never)
 }
 
-function subline(): string {
+function heroModel(): HeroChartModel {
   const data = renderHook(() => useResultsSectionData()).result.current
   const model = buildHeroModel(data)
   expect(model.kind, 'precondition: the Run builds a chart').toBe('chart')
-  return (model as HeroChartModel).subline ?? ''
+  return model as HeroChartModel
+}
+
+function subline(): string { return heroModel().subline ?? '' }
+function expectOwnDriver(id: string, words: string) {
+  const lines = heroModel().goalChanceLeadLines!
+  const index = lines.findIndex(line => line.id === id && line.kind === 'driver')
+  expect(index).toBeGreaterThan(0)
+  expect(lines[index]).toMatchObject({ id, kind: 'driver', text: words })
+  expect(lines[index - 1]).toMatchObject({ id, kind: 'cell' })
+  expect(lines[index - 1].text).not.toContain(words)
 }
 
 afterEach(() => resetPaulRun())
 
-describe('P3 — the hero says what an option’s chance rests on most, under that option’s own line', () => {
+describe('WS5 — hero lead lines keep their own cells when driver claims are present', () => {
   it('precondition: the fixture has a link whose two ends the canvas labels', () => {
     expect(nodeLabel(LINK.from)).toEqual(expect.any(String))
     expect(nodeLabel(LINK.to)).toEqual(expect.any(String))
   })
 
-  it('`each`: the sentence follows the option CEE made the claim for, and no other option', () => {
+  it('`each`: the own cell is not extended by the option driver', () => {
     seed(licenceRecord('each', { driver_by_option: { [ANGEL]: EXISTENCE_CLAIM } }))
     const text = subline()
 
-    expect(text).toContain(`‘${optionLabel(ANGEL)}’: about 41% chance of meeting your goal, in this model. ${SENTENCE}`)
-    expect(text.split('It rests most on')).toHaveLength(2) // once
+    expect(text).toContain(`‘${optionLabel(ANGEL)}’: about 41% chance of meeting your goal, in this model.`)
+    // C-LOST restored: the exact staging sentence follows its own cell, without extending that cell.
+    expectOwnDriver(ANGEL, SENTENCE)
+    expect(text.split('It rests most on')).toHaveLength(2)
     expect(text).toContain(`‘${optionLabel(OUTREACH)}’: about 20% chance of meeting your goal, in this model. ‘`)
   })
 
@@ -94,7 +98,7 @@ describe('P3 — the hero says what an option’s chance rests on most, under th
     expect(subline()).not.toContain('It rests most on')
   })
 
-  it('`similar`: an option quoted in the headline has no line, so the first option SHOWN asks about a link the user sized, not the first in the model', () => {
+  it('`similar`: each own driver follows its cell; shared question is asked once', () => {
     const sized = {
       quantity_id: `${LINK.from}->${LINK.to}`, kind: 'link_strength', from: LINK.from, to: LINK.to,
       side: 'low', strength: 'weaker', authored_by: 'user', user_stated_link: true,
@@ -102,20 +106,25 @@ describe('P3 — the hero says what an option’s chance rests on most, under th
     seed(licenceRecord('similar', { similar_option_ids: [OUTREACH, ANGEL], driver_by_option: { [OUTREACH]: sized, [CONVERTIBLE]: sized } }))
     const text = subline()
 
-    expect(text).toContain(`‘${optionLabel(CONVERTIBLE)}’: about 62% chance of meeting your goal, in this model. `
-      + `It rests most on how strongly ‘${nodeLabel(LINK.from)}’ affects ‘${nodeLabel(LINK.to)}’, at the size you set: `
-      + 'if that effect is weaker than that, the chance falls. How sure are you of that size?')
-    expect(text.split('It rests most on')).toHaveLength(2) // once: the quoted option has no line to carry one
+    // C-LOST restored: quoted options also retain their own driver lines.
+    for (const id of MODEL_ORDER) {
+      expect(text).toContain(`‘${optionLabel(id)}’: about ${PCT[id as keyof typeof PCT]}% chance of meeting your goal, in this model.`)
+    }
+    const words = `It rests most on how strongly ‘${nodeLabel(LINK.from)}’ affects ‘${nodeLabel(LINK.to)}’, at the size you set: `
+      + 'if that effect is weaker than that, the chance falls.'
+    expectOwnDriver(OUTREACH, `${words} How sure are you of that size?`)
+    expectOwnDriver(CONVERTIBLE, words)
     expect(text.split('How sure are you of that size?')).toHaveLength(2)
   })
 
-  it('under a `highest` form the other option keeps its chance line and the quoted options keep their drivers', () => {
+  it('under a `highest` form all options keep their labelled own cells', () => {
     seed(licenceRecord('highest', { leader_option_id: CONVERTIBLE, next_option_id: ANGEL, driver_by_option: { [ANGEL]: EXISTENCE_CLAIM, [CONVERTIBLE]: EXISTENCE_CLAIM } }))
     const text = subline()
     expect(text).toContain(`‘${optionLabel(OUTREACH)}’: about 20% chance of meeting your goal, in this model.`)
-    expect(text).toContain(`‘${optionLabel(ANGEL)}’: ${SENTENCE}`)
-    expect(text).toContain(`‘${optionLabel(CONVERTIBLE)}’: ${SENTENCE.replace(' Is that right?', '')}`)
-    expect(text).not.toContain(`‘${optionLabel(ANGEL)}’: about 41%`)
-    expect(text).not.toContain(`‘${optionLabel(CONVERTIBLE)}’: about 62%`)
+    // C-LOST restored: every own driver follows its labelled cell, including headline options.
+    expect(text).toContain(`‘${optionLabel(ANGEL)}’: about 41% chance of meeting your goal, in this model.`)
+    expect(text).toContain(`‘${optionLabel(CONVERTIBLE)}’: about 62% chance of meeting your goal, in this model.`)
+    expectOwnDriver(ANGEL, SENTENCE)
+    expectOwnDriver(CONVERTIBLE, SENTENCE.replace(' Is that right?', ''))
   })
 })

@@ -242,7 +242,7 @@ describe('WS5 real served chance cells', () => {
     expect(screen.getByTestId('analysis-hero-panel').textContent).toContain('71%')
     expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
   })
-  it.each(['available', 'none_licensed', 'not_recorded'] as const)('R6-2 canonical main_driver %s owns the clause', async kind => {
+  it.each(['available', 'none_licensed', 'not_recorded'] as const)('WS5 canonical main_driver %s stays separate from the own-cell lead', async kind => {
     const data = await from(figures)
     const canonical = structuredClone(figures.j.canonical_analysis_view)
     const entry = canonical.options.find(o => o.option_id === X)!
@@ -255,12 +255,24 @@ describe('WS5 real served chance cells', () => {
     const model = buildHeroModel(d)
     expect(model.kind).toBe('chart')
     if (model.kind !== 'chart') throw new Error('Expected chart')
-    const line = model.subline!.split('‘Keep pricing as is’')[0].split('‘Launch starter tier’:')[1]
+    // C-LOST restored: the matching canonical driver follows its own cell on a separate line.
+    const line = model.goalChanceLeadLines!.find(line => line.id === X)!
+    expect(line.text).toBe(`‘Launch starter tier’: ${entry.cell.display}`)
+    expect(line.text).not.toContain('It rests most')
+    expect(line.text).not.toContain('‘Starter-tier availability’')
+    const ownIndex = model.goalChanceLeadLines!.findIndex(line => line.id === X && line.kind === 'cell')
     if (kind === 'available') {
-      expect(line).toContain('‘Price increase’')
-      expect(line).toContain('stronger')
-    } else expect(line).not.toContain('It rests most')
-    expect(line).not.toContain('‘Starter-tier availability’')
+      expect(d.runView!.mainDriverOf(X)).toMatchObject({ from: driver.from, to: driver.to, strength: 'stronger' })
+      const driverLine = model.goalChanceLeadLines![ownIndex + 1]
+      expect(driverLine).toMatchObject({ id: X, kind: 'driver' })
+      expect(driverLine.text).toBe('It rests most on how strongly ‘Price increase’ affects ‘monthly recurring revenue’, at the size you set: if that effect is stronger than that, the chance falls.')
+      // Staging asks a shared-driver question once, on the first option carrying it.
+      expect(model.subline!.split('How sure are you of that size?')).toHaveLength(2)
+      expect(driverLine.text).not.toContain('‘Starter-tier availability’')
+    } else {
+      expect(d.runView!.mainDriverOf(X)).toBeNull()
+      expect(model.goalChanceLeadLines!.filter(line => line.id === X && line.kind === 'driver')).toEqual([])
+    }
   })
   it('R6-4 goal sentence readout wraps inside a bounded grid column', async () => {
     const model = heroParity(await from(figures))
