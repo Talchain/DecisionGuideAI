@@ -95,13 +95,18 @@ describe('B3c · the hook resolves the producer\'s acceptable links to canvas ed
     expect(byId.keep_49_price.unsizedLinks).toBeUndefined()
   })
 
-  it('the Reasoning tab shows "1 link not sized yet" with both actions on that option only', () => {
+  it('the Reasoning tab shows "Check the assumption Olumi made" with both actions on that option only', () => {
     seed()
     const data = renderHook(() => useResultsSectionData()).result.current
     render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="b3c" />)
     const T = `analysis-new-options-unsized-${HELD}`
-    expect(screen.getByTestId(`${T}-heading`)).toHaveTextContent('1 link not sized yet')
-    expect(screen.getByTestId(`${T}-e_price_mrr-accept`)).toHaveTextContent('Accept starting strength')
+    expect(screen.getByTestId(`${T}-heading`)).toHaveTextContent('Check the assumption Olumi made')
+    // One line at rest (8 Oct 2026); the list opens under the chevron.
+    expect(screen.queryByTestId(`${T}-e_price_mrr-accept`)).toBeNull()
+    fireEvent.click(screen.getByTestId(`${T}-toggle`))
+    expect(screen.getByTestId(`${T}-e_price_mrr`)).toHaveTextContent('‘Price’ affects ‘MRR’')
+    expect(screen.getByTestId(`${T}-e_price_mrr-accept`)).toHaveTextContent('Accept')
+    expect(screen.getByTestId(`${T}-e_price_mrr-accept`)).toHaveAccessibleName("Accept Olumi's starting strength for ‘Price’ affects ‘MRR’")
     expect(screen.getByTestId(`${T}-e_price_mrr-edit`)).toHaveTextContent('Edit')
     expect(screen.queryByTestId('analysis-new-options-unsized-keep_49_price')).toBeNull()
   })
@@ -205,6 +210,8 @@ describe('B3c · the actions reuse the canvas paths and claim no more than the s
     } as never)
     const { UnsizedLinkActions } = await import('../analysisNew/sections/UnsizedLinkActions')
     render(<UnsizedLinkActions links={[{ edgeId: 'e1', fromLabel: 'Price', toLabel: 'MRR' }]} testId="u" />)
+    // 8 Oct 2026: the list opens on demand; the acts behind it are unchanged.
+    fireEvent.click(screen.getByTestId('u-toggle'))
     return store
   }
 

@@ -199,7 +199,9 @@ src/types/constraints.ts:78
 #    line; 16 lines (`targetLinkAskOf` + its docblock, and the one-line reroute in `unsizedPathAskOf`) were added above it.
 # 7 Oct 2026 (P39 carrier, #2561 merged with staging: both `withheldLinkOf` and `targetLinkAskOf` above it): re-lined → 2802,
 #    the same `topFigurePercent === 100` line, derived with the scanner. Scanner added/gone = exactly this key.
-src/components/results/analysisNew/analysisNewCopy.ts:2802
+# 8 Oct 2026 (Reasoning panel, commitment short form): re-lined 2802 → 2828, the same `topFigurePercent === 100` line;
+#    26 lines (`unsizedAssumptionsOf` + its docblock, `changeValueShort`) were added above it.
+src/components/results/analysisNew/analysisNewCopy.ts:2828
 # 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`
