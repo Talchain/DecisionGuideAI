@@ -24,15 +24,19 @@
  *  · The confidence-coded border and the header confidence badge are gone:
  *    one border colour for every pane (the body keeps any stated figure).
  *
- * Header is the drag surface when dragHandlers are provided.
+ * The legacy layout above remains the default for direct callers. Live
+ * node and edge panels opt into anatomy. Opt-in
+ * anatomy panels put technical detail and the save truth inside More and may
+ * provide quiet header actions. Header remains the drag surface when provided.
  */
 
-import { memo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
-import { X, HelpCircle } from 'lucide-react'
+import { memo, useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
+import { X, HelpCircle, MoreHorizontal } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import type { InspectorShellProps } from './types'
 import { EditableLabel } from './shared/EditableLabel'
+import { InspectorMore, InspectorMoreProvider } from './shared/InspectorMore'
 import { NODE_LABEL_MAX_LENGTH } from './useInspectorMutations'
 import { useRenameIntentStore, clearNodeRename } from './renameIntent'
 import {
@@ -43,6 +47,7 @@ import {
 } from './inspectorStyle'
 
 export const InspectorShell = memo(function InspectorShell({
+  variant = 'legacy',
   nodeId,
   label,
   onLabelChange,
@@ -52,11 +57,47 @@ export const InspectorShell = memo(function InspectorShell({
   onClose,
   dragHandlers,
   quickActions,
+  actions,
+  headerMenu,
+  more,
   footerNote,
   children,
 }: InspectorShellProps) {
   const rationale = useCanvasStore((s) => nodeId ? s.nodeRationales?.[nodeId] : undefined)
   const [showRationale, setShowRationale] = useState(false)
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const hasHeaderMenu = Boolean(headerMenu)
+  const headerMenuRef = useRef<HTMLDivElement>(null)
+  const headerMenuButtonRef = useRef<HTMLButtonElement>(null)
+
+  const closeHeaderMenu = useCallback(() => {
+    setHeaderMenuOpen(false)
+    headerMenuButtonRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    setHeaderMenuOpen(false)
+  }, [nodeId, label, hasHeaderMenu])
+
+  useEffect(() => {
+    if (!headerMenuOpen || !hasHeaderMenu) return
+    headerMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!headerMenuRef.current?.contains(event.target as Node)) setHeaderMenuOpen(false)
+    }
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeHeaderMenu()
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [headerMenuOpen, hasHeaderMenu, closeHeaderMenu])
 
   // L-04 — a pending rename intent for THIS element opens the title in editing
   // state, then is consumed.
@@ -90,11 +131,36 @@ export const InspectorShell = memo(function InspectorShell({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault()
+      if (headerMenuOpen && hasHeaderMenu) {
+        e.stopPropagation()
+        closeHeaderMenu()
+        return
+      }
       onClose()
     }
-  }, [onClose])
+  }, [onClose, headerMenuOpen, hasHeaderMenu, closeHeaderMenu])
 
   const isDragging = dragHandlers?.isDragging ?? false
+  const technicalToggle = (
+    <div className="mt-3 flex justify-start">
+      <button
+        type="button"
+        data-testid="inspector-tech-toggle"
+        onClick={() => onTechToggleChange(!techMode)}
+        title={techMode ? 'Hide technical detail' : 'Show technical detail'}
+        aria-label={techMode ? 'Hide technical detail' : 'Show technical detail'}
+        // Paul 23 Sep contract feedback point 12: the toggle's state is
+        // announced, not carried by the glyph's colour alone.
+        aria-pressed={techMode}
+        className={`inline-flex items-center gap-1 text-[10px] leading-snug rounded px-1 -mx-1 py-0.5 transition-colors hover:text-info focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-info ${
+          techMode ? 'text-info' : 'text-text-light'
+        }`}
+      >
+        <span aria-hidden="true">{'</>'}</span>
+        <span aria-hidden="true">Technical detail</span>
+      </button>
+    </div>
+  )
 
   return (
     <div
@@ -105,7 +171,7 @@ export const InspectorShell = memo(function InspectorShell({
       aria-label="Inspector panel"
       onKeyDown={handleKeyDown}
     >
-      {/* Head — `.inspector-head`: kind, title, Close. The drag surface. */}
+      {/* Head — kind, title, optional quiet actions, Close. The drag surface. */}
       <div
         data-testid="inspector-header"
         className={`relative flex items-start gap-2 px-3.5 py-[13px] border-b ${INSPECTOR_RULE.head} bg-panel select-none shrink-0 ${
@@ -162,6 +228,40 @@ export const InspectorShell = memo(function InspectorShell({
             <p className={`${typography.panelMeta} text-text-light mt-1`}>{rationale}</p>
           )}
         </div>
+        {headerMenu && (
+          <div
+            ref={headerMenuRef}
+            className="relative shrink-0"
+            // The header is a drag surface; menu controls keep their pointer
+            // gestures without starting or ending a header drag.
+            onPointerDown={event => event.stopPropagation()}
+            onPointerUp={event => event.stopPropagation()}
+            onPointerCancel={event => event.stopPropagation()}
+          >
+            <button
+              ref={headerMenuButtonRef}
+              type="button"
+              data-testid="inspector-header-menu"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={headerMenuOpen}
+              onClick={() => setHeaderMenuOpen(open => !open)}
+              className={inspectorIconButton}
+            >
+              <MoreHorizontal size={15} aria-hidden="true" />
+            </button>
+            {headerMenuOpen && (
+              <div
+                role="menu"
+                aria-label="More actions"
+                onClick={() => setHeaderMenuOpen(false)}
+                className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-panel-border bg-panel p-1 shadow-lg"
+              >
+                {headerMenu}
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={onClose}
@@ -173,33 +273,30 @@ export const InspectorShell = memo(function InspectorShell({
         </button>
       </div>
 
-      {/* Body — `.inspector-body`, the one scrolling region.
+      {/* Body — `.inspector-body`, the one scrolling region. In legacy mode:
           R5 (Paul, 16 Aug): the conversation routes sit at the TOP of the body,
           above every group, so they are never buried behind a scroll. v3.1's
           quiet note closes the body; the technical-detail toggle sits just above
           it (see the header note for why it is kept). */}
       <div data-testid="inspector-body" className="px-3.5 pb-3.5 overflow-y-auto min-h-0 flex-1">
-        {quickActions}
-        {children}
-        <div className="mt-3 flex justify-start">
-          <button
-            type="button"
-            data-testid="inspector-tech-toggle"
-            onClick={() => onTechToggleChange(!techMode)}
-            title={techMode ? 'Hide technical detail' : 'Show technical detail'}
-            aria-label={techMode ? 'Hide technical detail' : 'Show technical detail'}
-            // Paul 23 Sep contract feedback point 12: the toggle's state is
-            // announced, not carried by the glyph's colour alone.
-            aria-pressed={techMode}
-            className={`inline-flex items-center gap-1 text-[10px] leading-snug rounded px-1 -mx-1 py-0.5 transition-colors hover:text-info focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-info ${
-              techMode ? 'text-info' : 'text-text-light'
-            }`}
-          >
-            <span aria-hidden="true">{'</>'}</span>
-            <span aria-hidden="true">Technical detail</span>
-          </button>
-        </div>
-        {footerNote}
+        {variant === 'anatomy' ? (
+          <InspectorMoreProvider>
+            {children}
+            {actions}
+            <InspectorMore>
+              {more}
+              {technicalToggle}
+              {footerNote}
+            </InspectorMore>
+          </InspectorMoreProvider>
+        ) : (
+          <>
+            {quickActions}
+            {children}
+            {technicalToggle}
+            {footerNote}
+          </>
+        )}
       </div>
     </div>
   )

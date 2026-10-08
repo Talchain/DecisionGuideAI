@@ -157,9 +157,10 @@ function expectNoClaimNoGrade(container: HTMLElement, contrast: { notRankedReaso
     expect(slot.textContent).not.toMatch(/\d\s*%/)
     expect(slot.getAttribute('class')?.split(/\s+/)).toContain('h-[1lh]')
     const marker = screen.getByTestId(`option-not-ranked-${NODE_ID}`)
-    expect(slot.contains(marker)).toBe(true)
-    expect(marker).toHaveTextContent(NOT_RANKED_MARKER)
-    expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${contrast.notRankedReason}`)
+    expect(marker.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
+    expect(marker).toHaveAttribute('aria-label', NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-description')).toBe(contrast.notRankedReason)
   }
   // The claim.
   expect(screen.queryByTestId(PILL)).toBeNull()

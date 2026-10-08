@@ -204,9 +204,9 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
     openInspector(SURVIVOR_ID)
 
     expect(descriptionEditor()).toBeNull()
-    // v3.1 (DESIGN-GAP-v31 row 32): as mounted (read-only) the empty description
-    // is stated as an absence — the note did not squat in it.
-    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    // Anatomy hides the empty description; the attributed drafting note remains
+    // on its own surface and does not squat in an editor.
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
   })
 
   it('⭐⭐ T7 PRODUCER FORM — a DESCRIBED option carries the note at the END', () => {
@@ -259,6 +259,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
     seedStore([optionNode(`${USER_PROSE}\n\n${NOTE}`)])
     openInspector(SURVIVOR_ID)
 
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
     fireEvent.click(screen.getByLabelText('Show technical detail'))
     fireEvent.click(screen.getByText('Show model detail'))
 

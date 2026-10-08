@@ -11,6 +11,7 @@ import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, Goa
 import { shortfallNoteLabel } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
+import { readGoalChanceByDate, type GoalChanceTarget } from '../utils/goalChanceTarget'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
 import type { RunDeltaGoalChanceSide } from '@talchain/schemas/boundary'
 
@@ -21,8 +22,22 @@ const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   below: 'below',
 }
 
+/** Date words use UTC so the producer's calendar day cannot shift with the viewer's timezone. */
+function shareByDateWords(target: GoalChanceTarget | undefined): { deliverable: string; date: string } | null {
+  if (target === undefined || !target.unit.startsWith('% of ') || target.unit.slice(5).trim() === ''
+    || readGoalChanceByDate(target.by_date) === undefined) return null
+  return {
+    deliverable: target.unit.slice(5),
+    date: new Date(`${target.by_date}T00:00:00Z`).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    }),
+  }
+}
+
 /** The target as the user stated it, in their unit: "at most 400 cancellations/month". */
 export function goalChanceTargetWords(licence: GoalChanceLicence): string | null {
+  const share = shareByDateWords(licence.target)
+  if (share !== null) return `${share.deliverable} done by ${share.date}`
   const figure = formatGoalTarget(licence.target.value, licence.target.unit, 'level')
   return figure === null ? null : `${COMPARATOR_WORDS[licence.target.comparator]} ${figure}`
 }
@@ -109,25 +124,83 @@ export function goalChanceOptionLines(
     }
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
+    const share = shareByDateWords(licence.target)
+    const chance = share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
     // card never says "see its downside", because a downside is not always beside this line.
     const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${GOAL_CHANCE_SPREAD_NOTE}` : ''
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.${spread}${shortfall}`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
 }
 
-/** CEE's range and link, with canvas labels; unresolved labels never expose ids. */
+/** CEE `deliverableIsALaunch` twin (#2762 r6, the closed whole-deliverable grammar, copied from CEE
+ * share-goal-chance-words.ts): "[the|our|a] (≤2 modifiers) launch [in|across <place>]" or "launching <the|our|a> ≤2 words";
+ * anything else says "finishing <deliverable> by". */
+const ARTICLES = new Set(['the', 'our', 'a'])
+const PREPOSITIONS_AND_CONJUNCTIONS = new Set([
+  'aboard', 'about', 'above', 'absent', 'across', 'after', 'against', 'albeit', 'along', 'alongside', 'although',
+  'amid', 'amidst', 'among', 'amongst', 'and', 'around', 'as', 'astride', 'at', 'atop', 'barring', 'because',
+  'before', 'behind', 'below', 'beneath', 'beside', 'besides', 'between', 'beyond', 'both', 'but', 'by', 'circa',
+  'concerning', 'considering', 'despite', 'down', 'during', 'either', 'except', 'excepting', 'excluding',
+  'following', 'for', 'from', 'given', 'if', 'in', 'including', 'inside', 'into', 'lest', 'like', 'minus', 'near',
+  'neither', 'nor', 'notwithstanding', 'of', 'off', 'on', 'once', 'onto', 'opposite', 'or', 'out', 'outside',
+  'over', 'past', 'pending', 'per', 'plus', 'provided', 'providing', 'regarding', 'respecting', 'round', 'save',
+  'since', 'so', 'supposing', 'than', 'that', 'though', 'through', 'throughout', 'till', 'to', 'touching',
+  'toward', 'towards', 'under', 'underneath', 'unless', 'unlike', 'until', 'unto', 'up', 'upon', 'versus', 'via',
+  'when', 'whenever', 'where', 'whereas', 'wherever', 'whether', 'while', 'with', 'within', 'without', 'yet',
+])
+const WORD = /^[\p{L}][\p{L}\p{N}]*(?:[-'’][\p{L}\p{N}]+)*$/u
+const isWord = (word: string): boolean => WORD.test(word) && !/^(?:pre|post)-/u.test(word)
+const isModifier = (word: string): boolean => isWord(word) && !PREPOSITIONS_AND_CONJUNCTIONS.has(word)
+
+/** A closed whole-deliverable grammar; an unrecognised phrase keeps the full finishing wording. */
+function deliverableIsALaunch(deliverable: string): boolean {
+  const words = deliverable.trim().toLowerCase().split(/\s+/u)
+  if (words[0] === 'launching') {
+    const object = words.slice(2)
+    return ARTICLES.has(words[1] ?? '') && object.length <= 2 && object.every(isModifier)
+  }
+  const launch = words.indexOf('launch')
+  if (launch < 0) return false
+  const modifiers = words.slice(ARTICLES.has(words[0] ?? '') ? 1 : 0, launch)
+  if (modifiers.length > 2 || !modifiers.every(isModifier)) return false
+  const place = words.slice(launch + 1)
+  return place.length === 0 || ((place[0] === 'in' || place[0] === 'across')
+    && place.length >= 2 && place.length <= 4 && place.slice(1).every(isWord))
+}
+
+/**
+ * The ruled share-by-date words (DL #2762 r3, CEE `shareGoalChanceWords` twin): a deliverable that names a launch reads
+ * "chance of launching by <date>"; any other reads "chance of finishing <deliverable> by <date>".
+ */
+function shareChanceWords(share: { readonly deliverable: string; readonly date: string }): string {
+  return deliverableIsALaunch(share.deliverable)
+    ? `chance of launching by ${share.date}`
+    : `chance of finishing ${share.deliverable} by ${share.date}`
+}
+
+/** CEE's range, with its stated estimate or canvas link labels; unresolved labels never expose ids. */
 export function goalChanceRangeLine(
   range: GoalChanceRangeEntry, option: string | null, labelOf: (id: string) => string | null,
+  target?: GoalChanceTarget,
 ): string | null {
+  if (option === null || option.trim() === '') return null
+  const share = shareByDateWords(target)
+  if (range.kind === 'stated_time') {
+    if (share === null) return null
+    const estimate = range.statedEstimate
+    const bounds = estimate.low === estimate.high ? `${estimate.low}` : `${estimate.low}–${estimate.high}`
+    const stated = range.quantity === 'months_to_finish' ? `${bounds} months` : `${bounds}% a month`
+    return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} ${shareChanceWords(share)}, in this model, from the slow end of your ${stated} to the fast end.`
+  }
   const from = labelOf(range.from)
   const to = labelOf(range.to)
-  if (option === null || option.trim() === '' || from === null || from.trim() === '' || to === null || to.trim() === '') return null
+  if (from === null || from.trim() === '' || to === null || to.trim() === '') return null
   const depends = range.among === 'unsized_links' ? 'Of the links not sized yet, it depends most on' : 'It depends most on'
   const link = range.kind === 'link_strength'
     ? `how strongly ‘${from}’ affects ‘${to}’, which isn’t sized in the model yet.`
@@ -135,7 +208,7 @@ export function goalChanceRangeLine(
   return `‘${option}’: between ${about(range.lowPct)} and ${about(range.highPct).replace(/^about /, '')} chance of meeting your goal, in this model. ${depends} ${link}`
 }
 
-export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<GoalChanceRangeEntry['kind'], string>> = {
+export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<Exclude<GoalChanceRangeEntry['kind'], 'stated_time'>, string>> = {
   link_strength: 'Size it to see where it lands',
   link_existence: 'Confirm or remove it to see where it lands',
 }

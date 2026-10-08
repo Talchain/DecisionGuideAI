@@ -7,30 +7,30 @@
  * apply lives in `consumeStreamedDraftTurn` and its caller.
  *
  * ── THE CONTRACT (CEE PR #751, live-measured 29 Jul) ──────────────────────
- * Five classes, `event: stage`, JSON `data` with `stage`, `seq` (monotonic
+ * Stage classes, `event: stage`, JSON `data` with `stage`, `seq` (monotonic
  * from 0) and `status`:
  *
  *   | stage           | seq | status      | payload                              |
  *   |-----------------|-----|-------------|--------------------------------------|
  *   | DRAFTING        |  0  | in_progress | —                                    |
  *   | BRIEF_READ      |  —  | in_progress | goal, options[], limits[] (C6-2)     |
- *   | PROGRESS        |  1  | in_progress | labels[], phase, elapsed_ms          |
- *   | GRAPH_READY     |  2  | in_progress | graph{nodes,edges}, schema_version   |
- *   | COACHING_READY  |  3  | in_progress | coaching_status                      |
- *   | COMPLETE        |  4  | complete    | status_code, payload = buffered body |
+ *   | PROGRESS        |  —  | in_progress | labels[], phase, elapsed_ms          |
+ *   | GRAPH_READY     |  —  | in_progress | graph{nodes,edges}, schema_version   |
+ *   | COACHING_READY  |  —  | in_progress | coaching_status                      |
+ *   | COMPLETE        |  —  | complete    | status_code, payload = buffered body |
  *
  * Live timings on deployed staging (`PHASE0-EVIDENCE-2026-07-28/
  * cee2-live-latency.md`, 3 runs, median): DRAFTING **271 ms**, GRAPH_READY
  * **35.8 s** (spread 33.7–39.9 s), COACHING_READY 59.2 s, COMPLETE 60.9 s.
  * `: heartbeat` comment lines arrive every 10 s with < 3 ms drift per beat.
  *
- * ── PROGRESS IS NOT OBSERVABLE, AND THAT IS RECORDED HERE DELIBERATELY ────
- * Zero PROGRESS frames were seen in any of the three live runs: the route
- * emits the class, nothing feeds it (it needs the Anthropic streaming
- * adapter — #745's inherited LOW, restated as #751's rowed item 5). The type
- * below models it because the wire may carry it tomorrow, but **no product
- * behaviour may depend on it** — which is exactly why the elapsed-time
- * narration table in `DraftLoadingAnimation` still has to exist.
+ * ⭐ P44 S2: REAL DISPATCH PHASES
+ * CEE PR #2805 feeds PROGRESS after GRAPH_READY on the agent lane:
+ * `first_analysis` when automatic first analysis is dispatched, then `writing`
+ * when the reply call is sent. The consumer forwards only these phases to the
+ * waiting display. Label PROGRESS remains unfed and inert (the streaming
+ * adapter gap recorded in #745/#751); nodes, edges and unknown phases do not
+ * drive product behaviour. The historical runs above saw no PROGRESS frames.
  *
  * ── ⚠ A LATENT LIMIT, RECORDED SO IT IS NOT A MYSTERY LATER (review F8) ──
  * `streamStageFrames` hands each chunk's COMPLETE LINES to the stateless
@@ -92,9 +92,9 @@ export interface StageGraph {
 export interface StageFrame {
   stage: StageName
   /**
-   * Monotonic from 0 — but NOT contiguous. See the header's note on PROGRESS:
-   * `seq 1` is never emitted on the live wire, so the normal sequence is
-   * 0, 2, 3, 4 and a strict "+1" check would reject every healthy stream.
+   * Monotonic from 0, but not necessarily contiguous. The historical stream
+   * skipped label PROGRESS (`seq 1`); real dispatch phases add frames without
+   * making a strict "+1" check part of the contract.
    */
   seq: number
   status: 'in_progress' | 'complete'
@@ -102,8 +102,9 @@ export interface StageFrame {
   graph?: StageGraph
   schema_version?: string
   elapsed_ms?: number
-  /** PROGRESS only — modelled, never observed on the wire. See the header. */
+  /** PROGRESS labels — label progress remains unfed. See the header. */
   labels?: unknown[]
+  /** PROGRESS phase — P44 S2 feeds first_analysis and writing after GRAPH_READY. */
   phase?: string
   /** COACHING_READY only. Enum, not prose. */
   coaching_status?: string
@@ -302,9 +303,9 @@ export async function* streamStageFrames(
           // stylistic. #745's consumer rules say "`seq` monotonic ⇒ a dropped
           // frame is detectable", and an earlier version of this comment
           // repeated that as if this check detected GAPS. It does not, and it
-          // must not: PROGRESS (`seq 1`) is never emitted on the live wire
-          // (zero observed across three runs), so 0 -> 2 is the ORDINARY
-          // sequence and a contiguity check would reject every healthy stream.
+          // must not: historical runs skipped label PROGRESS (`seq 1`), so
+          // 0 -> 2 was an ordinary sequence. P44 S2 adds real dispatch phases,
+          // but does not make contiguity part of the contract.
           // What a repeated or backwards `seq` does prove is a duplicated or
           // re-ordered frame, which is a real transport fault.
           if (frame.seq <= lastSeq) {

@@ -1,0 +1,24 @@
+/* Keep the existing editor and its commit scale; only its resting presentation changes. */
+.valueRow input:not(:focus),
+.valueRow > button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.valueRow > button:focus-visible {
+  border-color: var(--border-field);
+  background: var(--bg-panel-hover);
+}
+
+.valueRow [data-value-edit-cue],
+.valueRow [data-testid='observable-value-display-cue'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.valueRow:hover [data-value-edit-cue],
+.valueRow:focus-within [data-value-edit-cue],
+.valueRow:hover [data-testid='observable-value-display-cue'],
+.valueRow:focus-within [data-testid='observable-value-display-cue'] {
+  opacity: 1;
+}

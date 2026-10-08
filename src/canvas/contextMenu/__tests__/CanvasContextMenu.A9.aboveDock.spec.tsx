@@ -114,11 +114,11 @@ describe('a submenu paints above the dock too', () => {
     screenPos: { x: 100, y: 200 },
   }
 
-  it('the "Ask AI" submenu is portalled and above the dock', () => {
+  it('the "Ask Olumi" submenu is portalled and above the dock', () => {
     const { container } = render(
       <CanvasContextMenu target={nodeTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
     )
-    const askAi = screen.getByText('Ask AI').closest('button')!
+    const askAi = screen.getByText('Ask Olumi').closest('button')!
     fireEvent.click(askAi)
 
     const menus = screen.getAllByRole('menu')
@@ -133,7 +133,7 @@ describe('a submenu paints above the dock too', () => {
     render(
       <CanvasContextMenu target={nodeTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
     )
-    const askAi = screen.getByText('Ask AI').closest('button')!
+    const askAi = screen.getByText('Ask Olumi').closest('button')!
     fireEvent.click(askAi)
 
     const parentMenu = screen.getByRole('menu', { name: 'Canvas context menu' })

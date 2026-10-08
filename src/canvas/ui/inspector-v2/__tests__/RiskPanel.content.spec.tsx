@@ -68,9 +68,11 @@ describe('RiskPanel authored context and entered estimates', () => {
     setRiskData({ description: { text: 'Malformed' }, body: 42 })
     render(<RiskPanel {...panelProps} />)
     expect(screen.queryByTestId('risk-authored-context')).toBeNull()
-    // v3.1 (DESIGN-GAP-v31 row 32): malformed context falls to the stated
-    // absence, not the italic prompt question.
-    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    // EDIT-UX anatomy: malformed context stays absent; the single summary
+    // remains visible and does not print the malformed content.
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent('Likelihood and impact are not recorded. That does not imply low risk.')
+    expect(screen.getByTestId('inspector-summary-sentence')).not.toHaveTextContent('[object Object]')
   })
 
   it('labels the existing likelihood, impact and derived severity as an entered estimate', () => {

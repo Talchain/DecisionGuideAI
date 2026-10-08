@@ -807,6 +807,10 @@ async function runStreamedDraftTurn(args: {
   }
 
   const outcome = await consumeStreamedDraftTurn(streamStageFrames(res), {
+    // ⭐ P44 S2: real server dispatches drive the owning turn's waiting phase.
+    onServerPhase: (p) => {
+      useDraftStore.getState().markDraftStreamServerPhase(turnClientId, p)
+    },
     // F1 (honest staged progress): record the COACHING_READY frame so the
     // settling narration can stop claiming coaching is outstanding once the
     // pass has landed. Identity-guarded in the store — a stale stream's frame

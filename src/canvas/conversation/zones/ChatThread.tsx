@@ -349,6 +349,9 @@ export const ChatThread = memo(function ChatThread({
   const coachingLanded = useDraftStore((s) => s.draftStreamCoachingLanded)
   const settlingState: DraftSettlingState =
     draftStreamPhase !== 'settling' ? 'none' : coachingLanded ? 'after_coaching' : 'settling'
+  // ⭐ P44 S2: server narration belongs only to this scenario's settling turn.
+  const draftStreamServerPhase = useDraftStore((s) => s.draftStreamServerPhase)
+  const serverPhase = settlingState === 'none' ? null : draftStreamServerPhase
 
   return (
     <div
@@ -460,8 +463,8 @@ export const ChatThread = memo(function ChatThread({
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
         <ThinkingDots
-          label={explainingRun ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
-          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun })}
+          label={explainingRun || serverPhase === 'writing' ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
+          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun, serverPhase })}
         />
       )}
 

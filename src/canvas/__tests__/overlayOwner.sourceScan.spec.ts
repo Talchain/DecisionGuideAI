@@ -31,7 +31,6 @@ import { OVERLAY_PRIORITY, OVERLAY_BAND_PILL_GUTTER, type OverlayCell } from '..
 import { CANVAS_LOD_NOTICE_TESTID } from '../components/CanvasLodNotice'
 import { FIRST_MODEL_NOTICE_TESTID } from '../components/FirstModelNotice'
 import { RUN_CHANGES_SUMMARY_TESTID } from '../components/RunChangesSummary'
-import { CANVAS_PROVENANCE_KEY_TESTID } from '../components/CanvasProvenanceKey'
 
 const COMPONENTS = resolve(__dirname, '../components')
 
@@ -59,8 +58,6 @@ const MIGRATED = [
   'DegradedBanner.tsx',
   // M2 (PTL #85 5933452605, 1 Oct 2026): the rerun's compact summary, a bottom-centre claimant.
   'RunChangesSummary.tsx',
-  // The canvas key (DL #85 5939855664 / PTL 5941434564, 1 Oct 2026): a bottom-right claimant after degraded-banner.
-  'CanvasProvenanceKey.tsx',
 ] as const
 
 /**
@@ -96,7 +93,6 @@ const TOKEN_TO_ID: Record<string, string> = {
   CANVAS_LOD_NOTICE_TESTID,
   FIRST_MODEL_NOTICE_TESTID,
   RUN_CHANGES_SUMMARY_TESTID,
-  CANVAS_PROVENANCE_KEY_TESTID,
 }
 
 interface FoundClaim {

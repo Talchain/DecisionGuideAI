@@ -150,9 +150,8 @@ describe('L-40 · OptionPanel does not deny factor links it is simultaneously li
       // Only the organisational decision→option edge exists.
       edges: [{ id: 'e0', source: 'dec1', target: 'optA', data: {} }],
     })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const input = container.querySelector('[data-panel-group="input"]')
-    expect(input?.textContent).toContain(EMPTY_STATES.noInterventions)
+    render(<OptionPanel {...optionProps} />)
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent(EMPTY_STATES.noInterventions)
     expect(screen.queryByTestId('option-links-without-values')).toBeNull()
   })
 })
@@ -189,16 +188,19 @@ describe('L-40 · DecisionPanel does not claim "no connections" while its option
   it('does NOT render the flat "No connections yet." denial', () => {
     setDecisionStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const connections = container.querySelector('[data-panel-group="connections"]')
-    expect(connections).not.toBeNull()
-    expect(connections?.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
+    const alternatives = container.querySelector('[data-panel-group="alternatives"]')
+    expect(alternatives).not.toBeNull()
+    expect(alternatives?.textContent).toContain('Option A')
+    expect(alternatives?.textContent).toContain('Option B')
+    expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
   })
 
   it('names where those connections are, counting the option edges the canvas draws', () => {
     setDecisionStore()
     render(<DecisionPanel {...decisionProps} />)
-    const el = screen.getByTestId('decision-connections-are-options')
-    expect(el.textContent).toContain('2')
+    const el = screen.getByTestId('inspector-summary-sentence')
+    expect(el.textContent).toBe('This decision has 2 options.')
+    expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 
   it('still shows the plain empty state for a decision with genuinely no edges', () => {

@@ -34,7 +34,7 @@
  * pinned on the row.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -198,37 +198,38 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     // FIX_NEEDED on e0490565, which had re-pinned this as
     // 'No tech lead headcount in place → 1 · brief').
     // RE-PINNED 27 Sep (DIFF item 1): no `·` — the contract's `£49 → £59 brief`.
-    expect(visibleText(dd)).toBe('→ 1 brief')
+    expect(visibleText(dd)).toBe('→ 1')
     expect(visibleText(dd)).not.toContain('in place')
     expect(visibleText(dd)).not.toContain('·')
 
-    const cluster = dd.querySelector('[data-testid="option-change-row-mark-opt-hire-fac-lead"]')
+    const cluster = screen.getByTestId('option-bottom-marks-opt-hire')
     expect(cluster).not.toBeNull()
     // The cluster holds the mark and nothing else — no separator.
     const mark = cluster!.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
     expect(mark).not.toBeNull()
-    expect([...cluster!.children]).toEqual([mark])
+    expect(cluster!.contains(mark!)).toBe(true)
+    expect(dd.contains(mark!)).toBe(false)
     // What sets "brief" apart from "1": the mark's own `.prov` type (10px, muted),
     // never the value's 11px ink.
     expect(mark!.className).toContain(typography.nodeMark)
     expect(mark!.className).toContain('text-text-light')
     expect(mark!.className).not.toContain(typography.edgeLabel)
     expect(mark!.getAttribute('data-value-source')).toBe('brief')
-    expect(mark!.querySelector('[aria-hidden="true"]')!.textContent).toBe('brief')
+    expect(mark!.querySelector('.lucide-file-text')).not.toBeNull()
     expect(mark!.querySelector('.sr-only')!.textContent).toBe('From your brief')
   })
 
   it('an Olumi target keeps its served `est.` test id and token, and has an accessible name; nothing but the mark in its cluster', () => {
     const { container } = renderOption('opt-tools')
-    const cluster = row(container, 'opt-tools', 'fac-thru')
-      .querySelector('[data-testid="option-change-row-mark-opt-tools-fac-thru"]')
+    const cluster = screen.getByTestId('option-bottom-marks-opt-tools')
     expect(cluster).not.toBeNull()
     const est = cluster!.querySelector('[data-testid="option-change-row-estimate-opt-tools-fac-thru"]')
     expect(est).not.toBeNull()
     // RE-PINNED 27 Sep (DIFF item 1): was a decorative `·` first; the mark stands alone.
-    expect([...cluster!.children]).toEqual([est])
+    expect(cluster!.contains(est!)).toBe(true)
+    expect(row(container, 'opt-tools', 'fac-thru').contains(est!)).toBe(false)
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
-    expect(est!.querySelector('[aria-hidden="true"]')!.textContent).toBe('est.')
+    expect(est!.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
     // Contract v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is a focusable
     // button whose NAME is its hover/focus label (v3.1 `prov()` aria-label) —
@@ -246,11 +247,12 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(container.querySelector('[data-testid="option-primary-change-opt-hire"]')).toBeNull()
     const dd = row(container, 'opt-hire', 'fac-lead')
     // RE-PINNED 27 Sep (DIFF item 1): no `·` before the mark.
-    expect(visibleText(dd).endsWith('→ 1 brief')).toBe(true)
-    const mark = dd.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
+    expect(visibleText(dd).endsWith('→ 1')).toBe(true)
+    const mark = screen.getByTestId('option-change-row-source-opt-hire-fac-lead')
     expect(mark?.getAttribute('data-value-source')).toBe('brief')
     // Nothing sits between the glue and the mark, and the mark is in its own type.
-    expect(mark!.previousElementSibling).toBeNull()
+    expect(screen.getByTestId('option-bottom-marks-opt-hire').contains(mark!)).toBe(true)
+    expect(dd.contains(mark!)).toBe(false)
     expect(mark!.className).toContain(typography.nodeMark)
     expect(dd.getAttribute('title')).toContain('Target: from your brief.')
   })
@@ -261,9 +263,9 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     // Contract v3.1 `prov('user')` (#21): the person GLYPH, not the word "you".
     // RE-PINNED 27 Sep (DIFF item 1): no trailing `·` — the glyph has no text.
     expect(visibleText(dd)).toBe('£49 → £59')
-    expect(dd.querySelector('[data-source-glyph="person"]')).not.toBeNull()
-    expect(dd.querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
-    const mark = dd.querySelector('[data-testid="option-change-row-mark-opt-price-fac-price"] [data-testid="option-change-row-source-opt-price-fac-price"]')
+    expect(screen.getByTestId('option-bottom-marks-opt-price').querySelector('.lucide-user-check')).not.toBeNull()
+    expect(screen.getByTestId('option-bottom-marks-opt-price').querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
+    const mark = screen.getByTestId('option-change-row-source-opt-price-fac-price')
     expect(mark?.getAttribute('data-value-source')).toBe('you')
     expect(mark?.querySelector('.sr-only')?.textContent).toBe('Set by you')
   })
@@ -273,7 +275,7 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
   it('screenshot B: "0.3 scale → 0.85 scale est." now reads "0.3 → 0.85 est.", and the hover text says no "scale" either', () => {
     const { container } = renderOption('opt-tools')
     const dd = row(container, 'opt-tools', 'fac-thru')
-    expect(visibleText(dd)).toBe('0.3 → 0.85 est.') // no `·` since 27 Sep (DIFF item 1)
+    expect(visibleText(dd)).toBe('0.3 → 0.85') // no `·` since 27 Sep (DIFF item 1)
     expect(dd.textContent ?? '').not.toMatch(/scale/i)
     expect(dd.getAttribute('title') ?? '').not.toMatch(/scale/i)
     // The producer's own figures survive — nothing rounded, rescaled or banded.
@@ -282,12 +284,12 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
 
   it('CONTRAST — a real unit keeps its word ("42 days → 56 days")', () => {
     const { container } = renderOption('opt-tools')
-    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 → 56 days brief') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 → 56 days') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
   })
 
   it('CONTRAST — `ratio` is not a placeholder and keeps its word', () => {
     const { container } = renderOption('opt-price')
-    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 → 0.6 ratio est.')
+    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 → 0.6 ratio')
   })
 
   it('the row builder drops the placeholder word from BOTH the resting and the full change', () => {

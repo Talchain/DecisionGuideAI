@@ -161,10 +161,11 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
     vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as never)
   })
 
-  it('UNEARNED: both arms show the sentence; no "100%"', () => {
-    const { getByTestId, container } = renderWith(turnReport({ goal_certainty: [UNEARNED_59] }))
+  it('UNEARNED: the surviving primary line shows the sentence once; no "100%"', () => {
+    const { getByTestId, queryByTestId, container } = renderWith(turnReport({ goal_certainty: [UNEARNED_59] }))
     expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
-    expect(getByTestId('goal-impact-certainty-unearned').textContent).toBe(SAY)
+    expect(queryByTestId('goal-impact-certainty-unearned')).toBeNull()
+    expect((container.textContent ?? '').split(SAY).length - 1).toBe(1)
     expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('no sentence from the producer → the fallback, still no percentage', () => {

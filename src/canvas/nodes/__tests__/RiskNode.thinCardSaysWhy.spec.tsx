@@ -168,15 +168,17 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
  * now holds two carriers, so the reads below replace it.)
  */
 /**
- * ⚠ RE-POINTED FOR ED #63 5809278282 (24 Sep 2026, bounded anatomy: "title + one
- * primary line … Outcome/Risk = state"). The Standard line now carries TWO
- * texts: the short form a sighted reader sees (`aria-hidden`) and the whole
- * sentence announced with no interaction (`sr-only`, bound by testid) — and the
- * same sentence rides `title` and the popover. These read each carrier by
- * identity, so the claims below stay about the WHOLE line, never a fragment.
+ * Slice B carries the original state words on the band mark's aria-label and
+ * styled Tooltip. These reads bind by identity, so the claims below stay about
+ * the WHOLE line, never a fragment. No non-empty native title is allowed.
  */
-const shownOn = (el: Element | null) => el?.querySelector('[aria-hidden="true"]')?.textContent ?? null
-const announcedLine = () => screen.queryByTestId('risk-primary-line-full')?.textContent ?? null
+const shownOn = (el: Element | null) => {
+  expect(el).not.toBeNull()
+  const words = el!.getAttribute('aria-label')
+  expect(el!.textContent).not.toContain(words)
+  return words
+}
+const announcedLine = () => (unsetLine() ?? screen.queryByTestId('risk-exposure-line'))?.getAttribute('aria-description') ?? null
 
 describe('a thin risk card says the MODEL is thin', () => {
   beforeEach(() => {
@@ -187,16 +189,16 @@ describe('a thin risk card says the MODEL is thin', () => {
   })
 
   // ── 1. The target ────────────────────────────────────────────────────────
-  it('⭐ RED-FIRST: a risk with no likelihood and no impact says so, on the card', () => {
+  it('⭐ RED-FIRST: a risk with no likelihood and no impact says so on its mark, without a native title', () => {
     draw('risk-gdpr', UNSIZED)
     // Bound by identity to the exported constant, never a substring predicate:
     // a `toContain('not set')` would also pass against the bridge-strength row
     // two lines up, which says the same three words about a DIFFERENT fact.
-    // Contract v3.1 (DESIGN-GAP-v31 #34): on the card the sentence is announced
-    // in full AND shown in full (was ED 5809278282's short form); the element
-    // is the unset line.
+    // Contract v3.1 (DESIGN-GAP-v31 #34): the complete sentence names the
+    // unset band mark.
     expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
-    expect(unsetLine()?.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
+    expect(unsetLine()?.getAttribute('title') ?? '').toBe('')
+    expect(unsetLine()?.querySelectorAll('[data-filled="true"]')).toHaveLength(0)
     expect(shownOn(unsetLine())).toBe(RISK_EXPOSURE_UNSET_LINE)
   })
 
@@ -261,7 +263,7 @@ describe('a thin risk card says the MODEL is thin', () => {
     // beside a value the card holds.
     const row = screen.getByTestId('risk-recorded-value')
     expect(screen.getByTestId('risk-recorded-readout').textContent).toBe('12 months')
-    expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(row.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
     expect(row.getAttribute('title')).toBe(`12 months · ${RISK_EXPOSURE_UNSET_LINE}`)
     expect(unsetLine()).toBeNull()
