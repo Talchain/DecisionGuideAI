@@ -28,7 +28,7 @@ import { cardMark } from './shared/cardMarks'
  *
  * No ExpertOverlay. No MetricPills.
  */
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { goalPeriodHorizonLine } from '../domain/goalPeriodHorizon'
 import Tooltip from '../../components/Tooltip'
 import {
@@ -82,6 +82,9 @@ import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, heldTargetBound
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
+import { pressOffer } from '../conversation/actionBar/pressOffer'
+import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 
 /**
  * ⭐ Contract v3.1 `.node.wide .target-row{font-size:12px}` +
@@ -423,6 +426,19 @@ export function goalNoTargetChannels({
 
 export const GoalNode = memo((props: NodeProps) => {
   const [targetEditorAnchor, setTargetEditorAnchor] = useState<HTMLButtonElement | null>(null)
+  const [confirmReadingNotice, setConfirmReadingNotice] = useState<string | null>(null)
+  const bar = useScenarioActionBar()
+  // CEE owns the reading and its confirm door; the card only renders the open scenario's ENABLED offer (P45: the
+  // signal is the bar's enabled confirm_reading offer, never the graph: only CEE can dry-run the door). A disabled
+  // offer adds no words to the card; the bar itself still explains it.
+  const confirmReadingOffer = bar === null ? undefined : [...bar.priority, ...bar.standard, ...bar.more].find(
+    (offer) => offer.action_id === 'confirm_reading' && offer.enabled && (
+      offer.target === undefined || (offer.target.kind === 'goal' && offer.target.id === props.id)
+    ),
+  )
+  const confirmReadingWords = confirmReadingOffer?.why_now
+  const confirmReadingName = `${confirmReadingOffer?.label}: ${confirmReadingWords}`
+  useEffect(() => { setConfirmReadingNotice(null) }, [bar?.state_key])
   const metadata = NODE_REGISTRY.goal
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
@@ -1228,6 +1244,34 @@ export const GoalNode = memo((props: NodeProps) => {
             </Tooltip>
           ))}
         </div>
+
+        {confirmReadingOffer !== undefined && bar !== null && (
+          <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={confirmReadingName}>
+            <span className="inline-flex min-w-0 w-full">
+              <button
+                type="button"
+                data-testid="goal-node-confirm-reading"
+                aria-label={confirmReadingName}
+                aria-disabled={confirmReadingOffer.enabled ? undefined : 'true'}
+                className={`nodrag nopan ${typography.edgeLabel} min-h-[24px] min-w-0 w-full truncate text-left rounded-sm ${confirmReadingOffer.enabled ? 'text-text-body hover:underline' : 'text-text-light'} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!confirmReadingOffer.enabled) return
+                  const result = pressOffer(confirmReadingOffer, bar.revision)
+                  if (result === 'disabled') setConfirmReadingNotice(`${confirmReadingOffer.label}: ${confirmReadingOffer.disabled_reason ?? ''}`)
+                  else if (result === 'none') setConfirmReadingNotice(ACTION_BAR_COPY.noConversation)
+                  else setConfirmReadingNotice(null)
+                }}
+              >
+                {confirmReadingWords}
+              </button>
+            </span>
+          </Tooltip>
+        )}
+        {confirmReadingOffer !== undefined && confirmReadingNotice !== null && (
+          <p role="status" className={`${typography.edgeLabel} text-text-light m-0`}>{confirmReadingNotice}</p>
+        )}
 
         {/* ⭐ Today's level (cut-costs `09af9019`; AIQ 5902409861; Beat 1 4 Oct: level goals, "— from your brief"): "down 20% from today" now says
             what today is, from the typed reading or the user's stated level only (`goalTodayLevel`). */}
