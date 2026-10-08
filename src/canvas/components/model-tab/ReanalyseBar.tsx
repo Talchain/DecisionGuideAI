@@ -75,6 +75,10 @@ import { typography } from '../../../styles/typography'
 import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { reanalyseBarShows, useReanalyseBarInputs } from '../workspaceShell/rerunControl'
+import { useCanvasStore } from '../../store'
+import { selectRunOnRecord } from '../../state/analysisStateSelector'
+import { changedSinceRunForVerdict, useChangedSinceRunStore } from '../../changes/changedSinceRun'
+import { changedSinceRunWords } from '../../changes/changedSinceRunWords'
 
 /**
  * ⚠⚠ TWO GUARDS, TWO DIFFERENT CLASSES — AND NEITHER COVERS THE OTHER'S.
@@ -149,6 +153,17 @@ export function ReanalyseBar({
   // are unchanged (including `hasCompletedFirstRun ?? true`, the defensive default `composeAnalysisState` applies).
   const barInputs = useReanalyseBarInputs()
   const { semantic, importHold, hasCompletedFirstRun } = barInputs
+  const verdict = useCanvasStore((s) => s.analysisStateV1)
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const nodes = useCanvasStore((s) => s.nodes)
+  const heldChanges = useChangedSinceRunStore()
+  const changes = changedSinceRunForVerdict(heldChanges, verdict)
+  const changedWords =
+    semantic === 'changed' && scenarioId != null && heldChanges.scenarioId === scenarioId &&
+    changes !== null && changes.sinceRunId !== null &&
+    (changes.nodeIds.size > 0 || changes.linkKeys.size > 0 || changes.unattributedChanges > 0)
+      ? changedSinceRunWords(changes, nodes ?? [])
+      : null
 
   // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
   // changed" claim and the Model tab's ONLY re-analyse control — and conflating
@@ -173,18 +188,18 @@ export function ReanalyseBar({
    * AND still offer the button." A model with no completed run is the strongest
    * case of that — we are not unsure, we simply have nothing to be stale.
    *
-   * ⚠ A5: READ `hasCompletedFirstRun` DIRECTLY FROM THE STORE, NEVER
-   * `semantic === 'never_run'`. `classifyFreshnessForDisplay`
+   * ⚠ A5: READ THE RUN FACTS, NEVER `semantic === 'never_run'`. `classifyFreshnessForDisplay`
    * (`analysisFreshness.ts`) returns `'cannot_confirm'` for an import hold
    * BEFORE it ever reaches its own never-run branch, so under a hold `semantic`
    * cannot be `'never_run'` even when no run has ever completed — a freshly
    * registered, never-analysed model then reported "Can't confirm this
    * analysis matches the current model", asserting an analysis that never
-   * existed. `hasCompletedFirstRun` does not pass through that fork, so it is
-   * the one signal that lets the never-run state win over the
-   * import-registration hold, as it must.
+   * existed. `hasCompletedFirstRun` does not pass through that fork, so a truly
+   * never-run model still wins over the import-registration hold. A stale reload
+   * carries the server's Run-on-record verdict without a report or that local
+   * flag: honour that fact only in this bar's headline/control-label decision.
    */
-  const neverRun = !hasCompletedFirstRun
+  const neverRun = !hasCompletedFirstRun && !selectRunOnRecord(verdict)
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   if (!reanalyseBarShows(barInputs)) return null
 
@@ -259,7 +274,7 @@ export function ReanalyseBar({
           ? 'This model has not been analysed yet.'
           : heldUnsure
             ? "Can't confirm this analysis matches the current model."
-            : 'Model changed. Results may be out of date.'}
+            : changedWords ?? 'Model changed. Results may be out of date.'}
         {/* ⚠ TEXT, NOT ONLY A `title`. A tooltip is unreachable by touch and by
             keyboard, so a reason that exists only on hover is not a reason the
             user can reach. The `title` below is kept as well, for parity with

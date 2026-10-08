@@ -15,6 +15,7 @@
  */
 import { create } from 'zustand'
 import { z } from 'zod'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 export interface ChangedSinceRunLink {
   readonly from: string
@@ -82,12 +83,25 @@ interface ChangedSinceRunState {
 
 export const useChangedSinceRunStore = create<ChangedSinceRunState>(() => ({ scenarioId: null, value: null }))
 
+// Like analysisStaleReasonWords, words belong to the exact verdict the read actually adopted. A refused merge
+// leaves the previous verdict in place; its new set must not become readable against that previous verdict.
+let recorded: { readonly verdict: AnalysisStateV1; readonly value: ChangedSinceRun } | null = null
+
+export function changedSinceRunForVerdict(
+  state: ChangedSinceRunState,
+  verdict: AnalysisStateV1 | null | undefined,
+): ChangedSinceRun | null {
+  return recorded !== null && verdict === recorded.verdict && state.value === recorded.value ? recorded.value : null
+}
+
 /**
  * Hold CEE's answer for `scenarioId`. An absent or malformed block (`raw` → `null`) clears what was held for that
  * scenario rather than keeping marks the server no longer stands behind.
  */
-export function adoptChangedSinceRun(scenarioId: string, raw: unknown): void {
-  useChangedSinceRunStore.setState({ scenarioId, value: readChangedSinceRun(raw) })
+export function adoptChangedSinceRun(scenarioId: string, raw: unknown, verdict: AnalysisStateV1 | null = null): void {
+  const value = readChangedSinceRun(raw)
+  recorded = verdict !== null && value !== null ? { verdict, value } : null
+  useChangedSinceRunStore.setState({ scenarioId, value })
 }
 
 /** Selector for a card: is this node marked for the scenario on screen? */

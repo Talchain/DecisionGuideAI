@@ -360,7 +360,7 @@ async function readAndMergeServerGraph(
   // ⭐ P48 (audit #27): what changed since the last Run, as CEE says it, held for the "Since the last run" cue.
   // Only on the conversation read (the key's opt-in), and only for the scenario the payload came back for.
   if (opts.includeConversationTurns === true && result.scenarioId === scenarioId) {
-    adoptChangedSinceRun(scenarioId, result.changedSinceRun)
+    adoptChangedSinceRun(scenarioId, result.changedSinceRun, result.analysisState)
   }
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────
