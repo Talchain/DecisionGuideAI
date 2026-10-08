@@ -76,7 +76,7 @@
  * `rf__node-` / `rf__edge-` ids, painted only while lit, so no card or edge component carries a mark. Changes CEE
  * cannot place are said once, as a count, while lit. With no answer from CEE the sentence is the plain line it was.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   OVERLAY_BAND_BOTTOM,
   OVERLAY_BAND_HEIGHT,
@@ -207,6 +207,7 @@ export function AnalysisStateCue() {
     pinned: false, hovered: false, focused: false, dismissed: false,
   })
   const sentenceRef = useRef<HTMLParagraphElement>(null)
+  const actionHintId = useId()
   const lit = lightable && !dismissed && (pinned || hovered || focused)
   const toggleLighting = useCallback(() => setLighting((s) => ({ ...s, pinned: !s.pinned, dismissed: s.pinned })), [])
 
@@ -275,7 +276,7 @@ export function AnalysisStateCue() {
           <button
             type="button"
             data-testid={`${ANALYSIS_STATE_CUE_TESTID}-light`}
-            aria-label={ANALYSIS_STATE_CUE_LIGHT_WORDS.aria}
+            aria-describedby={actionHintId}
             aria-pressed={pinned}
             className={`${styles.light} ${lit ? styles.lit : ''}`}
             onClick={toggleLighting}
@@ -288,6 +289,9 @@ export function AnalysisStateCue() {
           ANALYSIS_STATE_CUE_COPY
         )}
       </p>
+      {lightable ? (
+        <span id={actionHintId} className={styles.srOnly}>{ANALYSIS_STATE_CUE_LIGHT_WORDS.aria}</span>
+      ) : null}
       {lit && changed && changed.unattributed > 0 ? (
         <p data-testid={`${ANALYSIS_STATE_CUE_TESTID}-unattributed`} className={styles.cue}>
           {CHANGED_SINCE_RUN_WORDS.unattributed(changed.unattributed)}

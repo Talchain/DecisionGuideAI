@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 
 const trust: { semantic: FreshnessDisplaySemantic | undefined } = { semantic: 'changed' }
@@ -15,6 +16,9 @@ vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: () => ({ sema
 import { AnalysisStateCue, ANALYSIS_STATE_CUE_COPY, ANALYSIS_STATE_CUE_TESTID } from '../AnalysisStateCue'
 import { useCanvasStore } from '../../store'
 import { adoptChangedSinceRun, useChangedSinceRunStore } from '../../changes/changedSinceRun'
+import { composeAnalysisState } from '../../state/analysisStateSelector'
+import { analysisSnapshotFromStore } from '../../store/autosaveProjection'
+import { restoreAnalysisFromAutosave } from '../../store/restoreAnalysisFromAutosave'
 
 const SID = 'scn-p48'
 const REPORT = { option_comparison: [{ option_id: 'a', outcome: { mean: 1, p10: 0, p50: 1, p90: 2 } }] }
@@ -36,6 +40,13 @@ function renderInFlow() {
     <div className="react-flow" data-testid="flow">
       <div className="react-flow__pane" data-testid="pane" />
       <div className="react-flow__node" data-testid="rf__node-g" />
+      <svg>
+        <g data-testid="rf__edge-e1">
+          <path className="react-flow__edge-path" style={{ stroke: 'var(--edge-stroke)', strokeWidth: 1.5 }} />
+        </g>
+        <g data-testid="rf__edge-e2"><path className="react-flow__edge-path" /></g>
+        <g data-testid="rf__edge-e3"><path className="react-flow__edge-path" /></g>
+      </svg>
       <AnalysisStateCue />
     </div>,
   )
@@ -106,6 +117,65 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     renderInFlow()
     act(() => screen.getByTestId(LIGHT).focus())
     expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  // ⛔ BLOCKED P1 (Codex review r2 on #2648): ResultsState carries no producer-confirmed Run id bound to the displayed
+  // report on the complete_stale reload path (run_delta is omitted there), so the cue cannot prove the held changes are
+  // relative to the Run on screen and stays a plain line. RED by design until the DL rules on the identity seam.
+  it.skip('restored real Run A + A-relative changes + complete_stale still lights; Run B clears it', () => {
+    useCanvasStore.getState().resultsLoadHistorical({
+      id: 'run_a', ts: Date.parse(RUN_AT), hash: 'hash_a', report: REPORT,
+    } as never, SID)
+    const verdict = AnalysisStateV1Schema.parse({
+      run_state: { kind: 'complete_stale', computed_at: RUN_AT, cause: 'graph_changed' },
+      readiness: { status: 'ready', blockers: [] },
+      leader_claim: { permitted: true },
+      robustness: {},
+      usable_for_prose: true, usable_for_chips: false, usable_for_followup: true,
+      requires_rerun: true, blocked_unusable: false, contradictions: [],
+    })
+    useCanvasStore.getState().setAnalysisStateV1(verdict)
+    trust.semantic = composeAnalysisState({
+      analysisState: verdict, freshness: null, dirty: false, source: undefined,
+      resultsStatus: 'complete', importHold: false, hasReport: true,
+    }).semantic
+    expect(trust.semantic).toBe('changed')
+    expect(useCanvasStore.getState().results.runId).toBe('run_a')
+    expect(useCanvasStore.getState().runDelta).toBeNull()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
+    const { rerender } = renderInFlow()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+    expect(lightingCss()).toContain('rf__edge-e1')
+    trust.semantic = 'current'
+    act(() => useCanvasStore.setState({ results: {
+      ...useCanvasStore.getState().results, runId: 'run_b', hash: 'hash_b', runEpoch: 2, reportEpoch: 2,
+    } }))
+    rerender(<div className="react-flow"><AnalysisStateCue /></div>)
+    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    expect(lightingCss()).toBeNull()
+  })
+
+  it('a V5 report B restored with inherited Run A identity cannot light A-relative changes', () => {
+    useCanvasStore.setState({ results: {
+      ...useCanvasStore.getState().results, runId: 'run_a', hash: 'hash_a',
+    } })
+    const reportB = { ...REPORT, meta: { response_id: 'hash_b' } }
+    useCanvasStore.getState().resultsComplete({ report: reportB, hash: 'hash_b', resultsSource: 'conversation' } as never)
+    const analysis = analysisSnapshotFromStore(useCanvasStore.getState())!
+    expect(analysis.report).toBe(reportB)
+    expect(analysis.runId).toBe('run_a')
+    expect(analysis.resultsSource).toBe('conversation')
+    restoreAnalysisFromAutosave({ scenarioId: SID, analysis }, useCanvasStore.getState().resultsLoadHistorical)
+    expect(useCanvasStore.getState().results.report).toBe(reportB)
+    expect(useCanvasStore.getState().results.runId).toBe('run_a')
+    expect(useCanvasStore.getState().results.resultsSource).toBeUndefined()
+    useCanvasStore.setState({ analysisStateV1: { run_state: {
+      kind: 'complete_stale', computed_at: RUN_AT, cause: 'graph_changed',
+    } } } as never)
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
   })
 
   it('V5 uses the hash/scenario-bound current endpoint run_b, even beside an inherited legacy run_a id', () => {
@@ -245,13 +315,38 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(lightingCss()).toBeNull()
   })
 
+  it('the toggle is named by the visible sentence; its action hint is a separate description', () => {
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    const light = screen.getByTestId(LIGHT)
+    expect(light).toHaveAccessibleName(ANALYSIS_STATE_CUE_COPY)
+    expect(light).toHaveAccessibleDescription('Show what changed since the last run')
+    expect(light).not.toHaveAttribute('aria-label')
+  })
+
   it('link e1 lighting wins over StyledEdge’s inline stroke and strokeWidth', () => {
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
     act(() => screen.getByTestId(LIGHT).focus())
-    expect(lightingCss()).toContain(
-      '[data-testid="rf__edge-e1"] .react-flow__edge-path{stroke:var(--info)!important;stroke-width:3px!important}',
-    )
+    const edge = screen.getByTestId('rf__edge-e1')
+    const path = edge.querySelector<SVGPathElement>('.react-flow__edge-path')!
+    expect(path.style.stroke).toBe('var(--edge-stroke)')
+    expect(path.style.strokeWidth).toBe('1.5')
+    const style = screen.getByTestId(LIGHTING) as HTMLStyleElement
+    const edgeRule = [...style.sheet!.cssRules].find((rule) =>
+      (rule as CSSStyleRule).selectorText.includes('[data-testid="rf__edge-e1"]'),
+    ) as CSSStyleRule
+    expect(edgeRule).toBeDefined()
+    for (const selector of edgeRule.selectorText.split(',')) {
+      expect(path.matches(selector)).toBe(true)
+      expect(screen.getByTestId('rf__node-g').matches(selector)).toBe(false)
+      expect(screen.getByTestId('rf__edge-e2').querySelector('path')!.matches(selector)).toBe(false)
+      expect(screen.getByTestId('rf__edge-e3').querySelector('path')!.matches(selector)).toBe(false)
+    }
+    expect(edgeRule.style.getPropertyValue('stroke')).toBe('var(--info)')
+    expect(edgeRule.style.getPropertyPriority('stroke')).toBe('important')
+    expect(edgeRule.style.getPropertyValue('stroke-width')).toBe('3px')
+    expect(edgeRule.style.getPropertyPriority('stroke-width')).toBe('important')
   })
 
   it('a press pins the lighting; a second press, or Esc, clears it', () => {
