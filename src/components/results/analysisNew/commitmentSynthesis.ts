@@ -143,8 +143,9 @@ export const COMMITMENT_COPY = {
   assumptions: {
     headline: (n: number): string =>
       n === 1 ? 'It rests on an assumption Olumi made.' : `It rests on ${n} assumptions Olumi made.`,
+    // "Assumed", not "estimated": a link nobody sized can hold a default placeholder, which is not a considered estimate.
     lead: (n: number): string =>
-      n === 1 ? 'Olumi estimated how strongly this works, and nobody has checked it yet:' : 'Olumi estimated how strongly these work, and nobody has checked them yet:',
+      n === 1 ? 'Olumi assumed how strongly this works, and nobody has checked it yet:' : 'Olumi assumed how strongly each of these works, and nobody has checked them yet:',
     item: (from: string, to: string): string => `‘${from}’ affects ‘${to}’`,
     more: (n: number): string => `and ${n} more`,
     close: (n: number): string =>

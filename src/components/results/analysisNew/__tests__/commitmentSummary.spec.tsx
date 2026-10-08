@@ -447,7 +447,7 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
   it('⭐ a bullet with more to say shows ONE short line at rest; the rest opens beneath it', () => {
     const withDetail: CommitmentSynthesis = {
       ...FULL,
-      open: { text: 'It rests on 2 assumptions Olumi made.', detail: 'Olumi estimated how strongly these work:', detailItems: ['‘A’ affects ‘B’', '‘C’ affects ‘B’'], source: 'leader_withheld_cause' },
+      open: { text: 'It rests on 2 assumptions Olumi made.', detail: 'Olumi assumed how strongly each of these works:', detailItems: ['‘A’ affects ‘B’', '‘C’ affects ‘B’'], source: 'leader_withheld_cause' },
     }
     renderZone({ synthesis: withDetail })
     expect(screen.getByTestId(`${TID}-open-text`).textContent).toBe('It rests on 2 assumptions Olumi made.')
@@ -457,7 +457,7 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     const detail = screen.getByTestId(`${TID}-open-detail`)
-    expect(detail).toHaveTextContent('Olumi estimated how strongly these work:')
+    expect(detail).toHaveTextContent('Olumi assumed how strongly each of these works:')
     expect(within(detail).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['‘A’ affects ‘B’', '‘C’ affects ‘B’'])
     // CONTRAST: a bullet with nothing more to say has no chevron.
     expect(screen.queryByTestId(`${TID}-founded-toggle`)).toBeNull()
