@@ -8,6 +8,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 import {
   LEADER_ID,
   LEADER_LABEL,
@@ -50,14 +52,15 @@ const REFUSED: AnalysisAdmissionV1 = { permitted_analysis_mode: 'none', reasons:
 function withStore(admission: AnalysisAdmissionV1, warnings: unknown[], viewMode: 'standard' | 'expert' = 'standard') {
   const state = {
     hoveredOptionId: null,
-    nodes: NODES,
+    nodes: NODES.map(n => ({ ...n, data: { ...n.data, kind: n.type } })),
+    hasCompletedFirstRun: true,
     edges: [],
     ceeAnalysisReady: { status: 'ready', options: [], goal_node_id: 'goal_1', analysis_admission: admission },
-    results: { status: 'complete', report: { ...(PERMITTED_REPORT as object), inference_warnings: warnings } },
+    results: { status: 'complete', report: withLicensedOptionChances({ ...(PERMITTED_REPORT as object), inference_warnings: warnings }, { [LEADER_ID]: 41, [RUNNER_UP_ID]: 20 }) },
     highlightedNodes: new Set(),
     dimmedNodeIds: new Set(),
     lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
-    goalThreshold: null,
+    goalThreshold: 100,
     goalConstraints: [],
     setHoveredOption: vi.fn(),
     viewMode,
@@ -74,7 +77,7 @@ const baseProps = {
 }
 function renderCard(id: string, label: string, winRate: number) {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue(metadata(winRate))
-  return render(<ReactFlowProvider><OptionNode {...(baseProps as any)} id={id} data={{ label, type: 'option' }} /></ReactFlowProvider>)
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode {...(baseProps as any)} id={id} data={{ label, type: 'option' }} /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 const line = (id: string) => screen.queryByTestId(`option-olumi-supplied-figures-${id}`)
 
@@ -84,7 +87,7 @@ describe('the leader\'s card says whose figures its finding rests on', () => {
   it.each(['standard', 'expert'] as const)('⭐ fa027-shape (a kept leader resting on an Olumi-supplied link), %s view: on the leader\'s card', (mode) => {
     withStore(PERMITTED, [SUPPLIED], mode)
     renderCard(LEADER_ID, LEADER_LABEL, WIN_LEADER)
-    expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`)).toBeTruthy() // PRECONDITION: the leader's share is on screen
+    expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`)).toBeTruthy() // PRECONDITION: the leader's licensed chance is on screen
     expect(line(LEADER_ID)?.textContent).toBe(WORDS)
   })
   it('CONTROL — the runner-up\'s card, same Run: absent (only the leader\'s finding rests on it)', () => {

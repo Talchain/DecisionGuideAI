@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { OptionNode } from '../../../../canvas/nodes/OptionNode'
+import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../../../canvas/store'
 import { buildRunView, OPTION_CHANCE_WITHHELD, RUN_AGAIN_FOR_CHANCE } from '../../../../canvas/runView/runView'
 import { chanceCellOf, withChanceReport } from './helpers/chanceCellOf'
@@ -14,6 +17,7 @@ import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import { fx, seedPaulRun, resetPaulRun, SERVED_STAMP } from '../../__tests__/helpers/paulRun4276f3f9'
 
 
+vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 const X = 'angel_bridge'
 const IDS = fx.draft.nodes.filter(n => n.kind === 'option').map(n => n.id)
 // Report side uses the captured Paul Run and the existing DecisionMatrix range/licence variants.
@@ -77,6 +81,12 @@ describe('WS5 hero chance truth', () => {
       const cardCell = chanceCellOf(data, row.id)
       expect(cardCell.text).toBe(RUN_AGAIN_FOR_CHANCE)
       expect(row.goal.readout).toBe(cardCell.text)
+      const node = useCanvasStore.getState().nodes.find(n => n.id === row.id)!
+      const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
+        selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
+      </OptionChanceCellProvider></ReactFlowProvider>)
+      expect(screen.getByTestId(`option-win-readout-${row.id}`).textContent).toBe(cardCell.text)
+      card.unmount()
     }
   })
   it('H4 no target preserves the goalNoTarget body', () => {

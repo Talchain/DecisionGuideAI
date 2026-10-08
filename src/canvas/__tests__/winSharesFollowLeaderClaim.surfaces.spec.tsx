@@ -1,13 +1,15 @@
+import { optionChanceFixture } from '../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐⭐ CURRENT-READ-v1 row 9 on the NON-CARD surfaces (AIQ #75 5912710392; the render-site survey at
  * 4000b22dc): the inspector's Decision, Outcome and Option panels, the risk editor's per-option rows, the
- * chat's comparison table and the far-zoom card line. Each shows NO per-option win share when the producer
+ * chat's comparison table. Each shows NO per-option win share when the producer
  * withheld the leader, and says why instead (`winShareGate.ts`).
  *
  * Replayed on Paul's served Run (`e2e/geometry/fixtures/securing-funding-4276f3f9.fixture.json`, debug export
  * 4276f3f9: leader withheld, `constraint_verdict_withheld`; Convertible bridge 80%, Angel bridge 13%,
  * Current outreach 7%). AIQ's three rows on each surface: withheld → 0 percentages + the reason; CONTROL
  * permitted → the shares; CONTROL another cause → hidden, in that cause's words.
+ * WS5-1 #2704 replaces the far-zoom card's share with the independent Results chance cell.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
@@ -20,7 +22,7 @@ import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { resolveLodMetricLineDetail } from '../nodes/shared/lodMetricLine'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
+import { EXPLORATORY_REASON_LINE, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 
 const fx = JSON.parse(
   readFileSync(resolve(process.cwd(), 'e2e/geometry/fixtures/securing-funding-4276f3f9.fixture.json'), 'utf8'),
@@ -113,19 +115,28 @@ describe('V5ComparisonBlock (chat) — row 9', () => {
 })
 
 describe('far-zoom card line — row 9', () => {
-  const line = (winSharesWithheld: boolean) =>
+  const chance = optionChanceFixture({ bridge: 41, angel: 29 })('bridge')
+  const line = (winSharesWithheld: boolean, optionChanceCell = chance) =>
     resolveLodMetricLineDetail({
       nodeType: 'option',
       data: { label: 'Convertible bridge', kind: 'option' },
       label: 'Convertible bridge',
       displayMetadata: { isResultsMode: true, winRate: 0.7966 } as never,
-      facts: { optionResultCaption: 'Current model', winSharesWithheld },
+      facts: { optionResultCaption: 'Current model', winSharesWithheld, optionChanceCell, optionInterventionCount: 2 },
     }).text
-  it('⭐ withheld → `Not ranked`, never the share', () => {
-    expect(line(true)).toBe(NOT_RANKED_MARKER)
+  it('⭐ share withheld → the independent Results chance cell, never the share', () => {
+    expect(line(true)).toBe(`Current model · ${chance.text}`)
+    expect(line(true)).toContain('41%')
+    expect(line(true)).not.toContain('of runs')
+    expect(line(true)).not.toContain('80%')
   })
-  it('CONTROL: permitted → the share', () => {
-    expect(line(false)).toMatch(/80%/)
+  it('CONTROL: share permitted → the same chance cell, still never the share', () => {
+    expect(line(false)).toBe(`Current model · ${chance.text}`)
+    expect(line(false)).not.toContain('of runs')
+    expect(line(false)).not.toContain('80%')
+  })
+  it('CONTROL: no Results chance cell → own settings, despite the run share', () => {
+    expect(line(false, optionChanceFixture({})('bridge'))).toBe('Changes 2 factors')
   })
 })
 

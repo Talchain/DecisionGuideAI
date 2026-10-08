@@ -6,6 +6,9 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { OptionNode } from '../../../../canvas/nodes/OptionNode'
+import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
@@ -21,6 +24,7 @@ import p02 from './fixtures/p02-B2-464abd0a-read-reloaded.json'
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
 import bodies from '../../../../canvas/runView/__tests__/fixtures/cee-canonical-view-bodies-283b8a98.json'
 
+vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 const X = 'launch_starter_tier'
 const STORE = '../../../../canvas/stores/canonicalAnalysisViewStore'
 const ctx = (data: ReturnType<typeof useResultsSectionData>) => ({
@@ -59,6 +63,14 @@ function heroParity(data: ReturnType<typeof useResultsSectionData>) {
     expect(entries.find(e => e.id === row.id)!.text).toBe(cell.text)
   }
   return model
+}
+function cardParity(data: ReturnType<typeof useResultsSectionData>, id: string) {
+  const node = useCanvasStore.getState().nodes.find(n => n.id === id)!
+  const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
+    selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
+  </OptionChanceCellProvider></ReactFlowProvider>)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(data.runView!.chanceCellOf(id, ctx(data)).text)
+  card.unmount()
 }
 // SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire).
 function variant(data: ReturnType<typeof useResultsSectionData>, cell: unknown, runId?: string) {
@@ -118,6 +130,7 @@ describe('WS5 real served chance cells', () => {
       const text = data.runView!.chanceCellOf(option.option_id, ctx(data)).text!
       expect(text).not.toBe(option.cell.display)
       for (const pct of option.cell.display.match(/\d+%/g)!) expect(text).toContain(pct)
+      cardParity(data, option.option_id)
     }
   })
   it('C1/R2-1 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): matched canonical range overrides today’s legacy range sentence', async () => {
@@ -136,6 +149,7 @@ describe('WS5 real served chance cells', () => {
     expect(current.kind).toBe('range')
     expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual({ kind: 'range', text: 'D-RANGE' })
     heroParity(d)
+    cardParity(d, X)
   })
   it('C2 real b_stale_after_edit with run withholds every cell, including options absent from the view', async () => {
     const data = await from(figures)
@@ -196,6 +210,7 @@ describe('WS5 real served chance cells', () => {
     expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual({ kind: 'figure', text: 'about 71%' })
     const model = heroParity(d)
     expect(model.rows.find(r => r.id === X)!.detail.goalFit).toBe(HERO_COPY.detail.goalFitJointBasis('about 71%'))
+    cardParity(d, X)
   })
   it.each(['figure', 'range'] as const)('R2-1 known copy gap SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): canonical %s without any licensed line renders display', async kind => {
     const data = await from(figures)

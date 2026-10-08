@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * SINGLE VERDICT — cross-surface agreement on "is there a leading option?"
  *
@@ -64,7 +66,7 @@
  * is not meant to: the panel owns the comparative claim. What survives on the
  * canvas side is the half that was always the harm — the canvas never asserts
  * a leader — now asserted on EVERY row of the matrix, each time with a
- * same-render contrast control (both cards and their "N% of runs" rows are on
+ * same-render contrast control (both cards and their Results chance cells are on
  * screen). The panel-side assertions (its denial probe and the checks footer
  * stating exactly one verdict) are unchanged.
  */
@@ -229,20 +231,23 @@ const LEADER_CLAIM_SELECTOR = '[data-testid^="leading-option-pill-"], [data-test
 /**
  * What the CANVAS says: does any option node claim to be the leading option?
  * Returns the claim AND the contrast control from the same render — both option
- * labels and both "N% of runs" result rows — so "no claim" can never be read
+ * labels and both Results chance cells — so "no claim" can never be read
  * off a canvas that failed to render.
  */
+const chanceCells = optionChanceFixture({ [WINNER_ID]: 41, [RUNNER_UP_ID]: 29 })
 function readCanvas(): { claims: boolean; rendered: boolean; text: string } {
   const { container } = render(
     <ReactFlowProvider>
+      <CanvasOptionChanceContext.Provider value={chanceCells}>
       {OPTION_NODES.map(n => <OptionNode key={n.id} {...nodeProps(n.id)} />)}
+      </CanvasOptionChanceContext.Provider>
     </ReactFlowProvider>,
   )
   const text = container.textContent ?? ''
   const rendered = OPTION_NODES.every(n =>
     text.includes(n.data.label) &&
-    /% of runs$/.test(container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent ?? ''),
-  )
+    container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent === chanceCells(n.id).text,
+  ) && !text.includes('of runs') && text.includes('41%') && text.includes('29%') // distinct from the run shares
   return {
     claims: LEADER_CLAIM_TEXT.test(text) || container.querySelector(LEADER_CLAIM_SELECTOR) !== null,
     rendered,

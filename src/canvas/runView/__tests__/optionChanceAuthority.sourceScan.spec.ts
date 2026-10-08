@@ -6,6 +6,12 @@ import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const SRC = join(process.cwd(), 'src')
 const RUN_VIEW = 'canvas/runView/runView.ts'
+const OPTION_CARD_FILES = [
+  'canvas/nodes/OptionNode.tsx',
+  'canvas/nodes/shared/lodMetricLine.ts',
+] as const
+const OUTCOME_PANEL = 'canvas/ui/inspector-v2/panels/OutcomePanel.tsx'
+const RESULTS_SECTION_DATA = 'components/results/useResultsSectionData.ts'
 const EXCLUDED_DIRS = new Set(['__tests__', '__fixtures__', '__mocks__', 'fixtures', 'tests', 'test', 'node_modules'])
 
 function productionSources(): Map<string, string> {
@@ -69,6 +75,11 @@ const ALLOWED_INTERNAL_READS: Readonly<Record<string, Readonly<Partial<Record<Au
 }
 
 const SOURCES = productionSources()
+const SHARE_CALL = /\bOPTION_RESULT_COPY\s*\.\s*share\s*\(/
+const SHARE_PART = /\b(?:sharePrefix|shareUnit)\b/
+const CARD_CHANCE_DERIVATION = /\b(?:selectGoalProbability|formatGoalProbability|option_probabilities)\b/
+const GOAL_PROBABILITY_CALL = /\bselectGoalProbability\s*\(/
+
 describe('the RunView is the option chance display authority', () => {
   it('CONTROL: scans production RunView and sees its actual licence read', () => {
     expect(SOURCES.has(RUN_VIEW)).toBe(true)
@@ -100,5 +111,36 @@ describe('the RunView is the option chance display authority', () => {
         .map(hit => `${file}:${hit.line} ${hit.rule}`)
     }).sort()
     expect(offenders, 'Surface readers must use RunView; parser/formatter exceptions each state their reason above.').toEqual([])
+  })
+})
+
+describe('option card headlines never use the supporting share of runs', () => {
+  it('CONTROL: sees the existing share call in OutcomePanel.tsx', () => {
+    expect(SOURCES.has(OUTCOME_PANEL)).toBe(true)
+    expect(SOURCES.get(OUTCOME_PANEL)).toMatch(SHARE_CALL)
+  })
+
+  it.each(OPTION_CARD_FILES)('%s has no share headline call or sharePrefix/shareUnit render', file => {
+    expect(SOURCES.has(file)).toBe(true)
+    const source = SOURCES.get(file)!
+    const patterns = [SHARE_CALL, SHARE_PART]
+    const offenders = patterns.flatMap(pattern => [...source.matchAll(new RegExp(pattern.source, 'g'))]
+      .map(match => `${file}:${source.slice(0, match.index).split('\n').length} ${match[0]}`))
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('option cards never derive a second chance figure', () => {
+  it('CONTROL: sees the existing selectGoalProbability call in useResultsSectionData.ts', () => {
+    expect(SOURCES.has(RESULTS_SECTION_DATA)).toBe(true)
+    expect(SOURCES.get(RESULTS_SECTION_DATA)).toMatch(GOAL_PROBABILITY_CALL)
+  })
+
+  it.each(OPTION_CARD_FILES)('%s has no client chance selector, formatter, or option_probabilities reference', file => {
+    expect(SOURCES.has(file)).toBe(true)
+    const source = SOURCES.get(file)!
+    const offenders = [...source.matchAll(new RegExp(CARD_CHANCE_DERIVATION.source, 'g'))]
+      .map(match => `${file}:${source.slice(0, match.index).split('\n').length} ${match[0]}`)
+    expect(offenders, 'Option cards must read the Results chance cell and caveats through the canvas provider.').toEqual([])
   })
 })

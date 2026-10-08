@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * THE CANVAS ASKS *WHETHER ANYONE LEADS* AND NEVER *WHETHER IT MAY SAY SO*.
  *
@@ -107,6 +109,7 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const BASELINE_ID = 'opt_status_quo'
+const chanceCells = optionChanceFixture({ [LEADER_ID]: 41, [RUNNER_UP_ID]: 29, [BASELINE_ID]: 12 })
 
 /**
  * The third option is `is_baseline` so its "Held back by:" reason ("no changes from
@@ -204,7 +207,9 @@ const baseProps = {
 function renderOption(id: string, label: string) {
   return render(
     <ReactFlowProvider>
+      <CanvasOptionChanceContext.Provider value={chanceCells}>
       <OptionNode {...(baseProps as any)} id={id} data={{ label, type: 'option' }} />
+      </CanvasOptionChanceContext.Provider>
     </ReactFlowProvider>,
   )
 }
@@ -230,11 +235,13 @@ const crownFor = (id: string) => screen.queryByTestId(`leading-option-pill-${id}
  * recommendation."): the crown is retired from the card in EVERY admission
  * arm. Asserted by identity (pill + the grade that rode beside it) and by the
  * text a user reads, after a same-render CONTRAST CONTROL — the card's label
- * and its own "N% of runs" result row — so a dead render cannot pass.
+ * and its own Results chance cell — so a dead render cannot pass.
  */
-function expectNoCrown(container: HTMLElement, id: string, label: string, share: string) {
+function expectNoCrown(container: HTMLElement, id: string, label: string) {
   expect(screen.getByText(label)).toBeDefined()
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} of runs`)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceCells(id).text)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toContain('41%')
+  expect(container.textContent ?? '').not.toContain('of runs')
   expect(crownFor(id)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
@@ -309,13 +316,13 @@ describe('OptionNode crown — retired (ED #63 5799353114 decision 1) in every Q
     // control inside `expectNoCrown`.
     withStore(undefined)
     const { container } = renderOption(LEADER_ID, LEADER_LABEL)
-    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL)
   })
 
   it('ARM B — permitted (the STRONGEST case): the leader card still names no leader', () => {
     withStore(ADMISSION_PERMITTED)
     const { container } = renderOption(LEADER_ID, LEADER_LABEL)
-    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL)
   })
 
   it('⭐ ARM C — refused (`none`): the leader is NOT crowned', () => {

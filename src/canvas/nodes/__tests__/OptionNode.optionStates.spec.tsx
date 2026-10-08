@@ -37,7 +37,9 @@ import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances, fixtureChanceText } from './__helpers__/optionChanceFixture'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -73,14 +75,17 @@ const OPTION_3 = opt('option-3', 'Run a conversion trial', {
 })
 
 const FRESH = { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-24T00:00:00.000Z' }
-const REPORT = {
+const REPORT = withLicensedOptionChances({
   option_probabilities: {
     'option-1': { status: 'computed', win_probability: 0.72 },
     'option-2': { status: 'computed', win_probability: 0.18 },
     'option-b': { status: 'computed', win_probability: 0.1 },
   },
   robustness: { near_tie: { is_tie: false, top_option_id: 'option-1' } },
-}
+}, { 'option-1': 41, 'option-2': 29, 'option-b': 18 })
+const CHANCE = fixtureChanceText(REPORT, 'option-1', {
+  'option-1': OPTION_1.data.label as string, 'option-2': OPTION_2.data.label as string, 'option-b': BASELINE.data.label as string,
+})!
 
 type Phase = 'pre' | 'current' | 'changed' | 'cannot_confirm'
 const seed = (
@@ -89,8 +94,8 @@ const seed = (
 ) => {
   const ran = phase !== 'pre'
   useCanvasStore.setState({
-    nodes: nodes ?? [F_PRICE, F_CONV, BASELINE, OPTION_1, OPTION_2, OPTION_3],
-    edges: [], ceeAnalysisReady: null, viewMode, lodRung: 'full', goalThreshold: null, goalConstraints: [],
+    nodes: (nodes ?? [F_PRICE, F_CONV, BASELINE, OPTION_1, OPTION_2, OPTION_3]).map((node: any) => ({ ...node, data: { ...node.data, kind: node.type } })),
+    edges: [], ceeAnalysisReady: null, viewMode, lodRung: 'full', goalThreshold: 100, goalConstraints: [],
     analysisStateV1: null, importPendingServerRegistration: false, currentScenarioId: 'option-states',
     analysisFreshness: ran
       ? (phase === 'cannot_confirm' ? { ...FRESH, freshness: 'unknown', freshnessReason: 'cee_unknown' } : FRESH)
@@ -104,13 +109,13 @@ const seed = (
 
 const renderOption = (node: { id: string; data: Record<string, unknown> }) =>
   render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode
         id={node.id} type="option" data={node.data as never} selected={false}
         isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
         dragging={false} zIndex={0} deletable selectable draggable
       />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 
 /** An element with this test id ON THE CARD (not inside the popover). */
@@ -259,13 +264,14 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     seed({ phase: 'changed' })
     renderOption(OPTION_1)
     expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-label')).toBe('Last run')
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
+    expect(onCard('option-win-readout-option-1')?.textContent).toBe(CHANCE)
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
     // ONE status mark (DL 8 Oct, workstream D): "Last run" wins and names the stale line in its tooltip.
     expect(onCard('option-stale-state-option-1')).toBeFalsy()
     expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe('Also: no new comparison yet')
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(shareName()).toMatch(/^Last run · supported by 72% of runs\. /)
+    // WS5-1: keep the last Run's licensed chance and its currency note; never the runs share.
+    expect(shareName()).toContain(`Last run · ${CHANCE}`)
+    expect(shareName()).not.toContain('of runs')
     expect(shareName()).toContain('No new comparison yet.')
   })
 
@@ -298,7 +304,7 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     renderOption(OPTION_1)
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true } as never))
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
+    expect(onCard('option-win-readout-option-1')?.textContent).toBe(CHANCE)
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
   })
 })

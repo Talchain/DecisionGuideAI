@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐ THE LOCKED NODE-CARD DESIGN — one spec per rule, RED at base `e10c4de3`.
  *
@@ -190,8 +192,9 @@ const props = (id: string): Record<string, unknown> => {
 const GoalCard = GoalNode as unknown as CardComponent
 const FactorCard = FactorNode as unknown as CardComponent
 
+const chanceCells = optionChanceFixture({ 'opt-raise': 41, 'opt-bundle': 29, 'opt-base': 12 })
 const renderCard = (Comp: CardComponent, id: string) =>
-  render(<ReactFlowProvider><Comp {...props(id)} /></ReactFlowProvider>)
+  render(<ReactFlowProvider><CanvasOptionChanceContext.Provider value={chanceCells}><Comp {...props(id)} /></CanvasOptionChanceContext.Provider></ReactFlowProvider>)
 
 /**
  * The card's own face: BaseNode's root, which excludes the sibling popover.
@@ -566,13 +569,15 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     setState({ phase: 'post' })
     setMeta({ 'opt-raise': { winRate: 0.55, isResultsMode: true } })
   }
-  it('current → "Current model" · "55% of runs"', () => {
+  it('current → "Current model" · the Results chance cell, never the runs share', () => {
     post()
     setCurrency('current')
     renderCard(OptionNode as never, 'opt-raise')
     const card = face('Raise the plan price')
     expect(within(card).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Current model')
-    expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe('55% of runs')
+    expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe(chanceCells('opt-raise').text)
+    expect(card.textContent).toContain('41%')
+    expect(card.textContent).not.toContain('of runs')
     expect(card.textContent).not.toMatch(/\bSupport\b/)
   })
   it('changed → "Last run"; cannot-confirm → "Model result", never "Last run"', () => {

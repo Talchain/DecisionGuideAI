@@ -37,6 +37,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { leaderWithholdCause } from '../../../components/results/analysisNew/analysisNewCopy'
 import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
@@ -46,7 +47,7 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-const candidate = { id: 'candidate', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Grandfather existing customers', type: 'option' } }
+const candidate = { id: 'candidate', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Grandfather existing customers', type: 'option', kind: 'option' } }
 
 const envelope = (leaderClaim: Record<string, unknown>) => ({
   run_state: { kind: 'complete_current', computed_at: '2026-09-23T21:40:00.000Z' },
@@ -59,7 +60,9 @@ const envelope = (leaderClaim: Record<string, unknown>) => ({
 
 const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) => {
   useCanvasStore.setState({
-    nodes: [candidate, { ...candidate, id: 'alternative', data: { label: 'Usage-based for all', type: 'option' } }],
+    nodes: [candidate, { ...candidate, id: 'alternative', data: { label: 'Usage-based for all', type: 'option', kind: 'option' } },
+      { id: 'goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } }],
+    goalThreshold: 100,
     edges: [], ceeAnalysisReady: null, viewMode: 'standard',
     analysisStateV1,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-23T21:40:00.000Z' },
@@ -72,16 +75,22 @@ const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) =>
         alternative: { status: 'computed', win_probability: 0.19 },
       },
       robustness: { near_tie: { is_tie: false, top_option_id: 'candidate' } },
+      // Licensed chance is independent of the support-share/leader-claim controls.
+      inference_warnings: permission?.permitted === false ? [] : [{
+        code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['candidate', 'alternative'],
+        pct_by_option: { candidate: 41, alternative: 12 },
+        target: { comparator: 'at_least', value: 100, unit: 'customers' },
+      }],
       ...(permission ? { producer_leader_permission: permission } : {}),
     } },
   } as never)
 }
 
-const renderCard = () => render(<ReactFlowProvider><OptionNode
+const renderCard = () => render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
   id={candidate.id} type="option" data={candidate.data as never} selected={false}
   isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
   dragging={false} zIndex={0} deletable selectable draggable
-/></ReactFlowProvider>)
+/></OptionChanceCellProvider></ReactFlowProvider>)
 
 const readout = () => screen.getByTestId('option-win-readout-candidate')
 const qualifier = () => screen.queryByTestId('option-share-goal-only-candidate')
@@ -170,16 +179,16 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
 
   // MOVED TO A PERMITTED RUN: the share's label-in-name and its focus tooltip still hold wherever a
   // share renders, which after CURRENT-READ row 9 is only a permitted run (no qualifier on it).
-  it('PERMITTED run — the share row still opens its name with the visible line, and its tooltip opens on focus', async () => {
+  it('PERMITTED run — the chance row still opens its name with the visible line, and its tooltip opens on focus', async () => {
     seed(envelope({ permitted: true, separation: 'separated' }), { permitted: true })
     renderCard()
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(label().startsWith('Current model · supported by 81% of runs.')).toBe(true)
+    expect(label().startsWith('Current model · ‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')).toBe(true)
     expect(shareRow().getAttribute('tabindex')).toBe('0')
     act(() => shareRow().focus())
     expect(document.activeElement).toBe(shareRow())
     const tip = await screen.findByRole('tooltip')
-    expect(tip).toHaveTextContent('Current model · supported by 81% of runs.')
+    expect(tip).toHaveTextContent('Current model · ‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS checked on the `Goal only` qualifier; now on the marker.
@@ -200,10 +209,10 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     }
   })
 
-  it('CONTRAST — leader permitted: same numbers, no qualifier', () => {
+  it('CONTRAST — leader permitted: licensed chance, no qualifier', () => {
     seed(envelope({ permitted: true, separation: 'separated' }))
     renderCard()
-    expect(readout().textContent).toBe('81% of runs')
+    expect(readout().textContent).toBe('‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')
     expect(qualifier()).toBeNull()
     expect(notRanked()).toBeNull()
     expect(label()).not.toContain('goal alone')
@@ -307,13 +316,13 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(provisional()).toBeNull()
     expect(qualifier()).toBeNull()
     expect(notRanked()).toBeNull()
-    expect(readout().textContent).toBe('81% of runs')
+    expect(readout().textContent).toBe('‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')
   })
 
   it('CONTRAST — no wire state at all: no qualifier (nothing is inferred)', () => {
     seed(null)
     renderCard()
-    expect(readout().textContent).toBe('81% of runs')
+    expect(readout().textContent).toBe('‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')
     expect(qualifier()).toBeNull()
   })
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the stamped cause still qualifies the share". The stamp on
@@ -330,6 +339,6 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(qualifier()).toBeNull()
     // Row 9 reads the same stamp: no stamp on the result, so the share stays and nothing is withheld.
     expect(notRanked()).toBeNull()
-    expect(readout().textContent).toBe('81% of runs')
+    expect(readout().textContent).toBe('‘Grandfather existing customers’: about 41% chance of meeting your goal, in this model.')
   })
 })

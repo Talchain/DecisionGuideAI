@@ -1,3 +1,4 @@
+import { OptionChanceCellProvider } from './nodes/shared/OptionChanceCellProvider'
 import { routeOnceHeldIds } from './domain/routeOnceHeld'
 import { CanvasEditNote } from './nodes/EditNoteAnchor'
 import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
@@ -3620,7 +3621,9 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
             {/* HighlightProvider wraps ReactFlowGraphInner so canvas hover handlers
                 inside the inner component are consumers, not creators, of the context. */}
             <HighlightProvider>
-              <ReactFlowGraphInner {...props} />
+              <OptionChanceCellProvider>
+                <ReactFlowGraphInner {...props} />
+              </OptionChanceCellProvider>
             </HighlightProvider>
           </ReactFlowProvider>
         </LayerProvider>

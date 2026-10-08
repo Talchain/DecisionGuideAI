@@ -13,7 +13,7 @@
  * names the three.
  *
  * So this derives the set from the source: any `useMemo` on the option card
- * whose body reads `option_probabilities` or the shared verdict's leader
+ * whose body reads `option_probabilities`, `optionWinShareOf`, or the shared verdict's leader
  * identity is a reader, and must reference the compute-status authority —
  * either the flag directly or `winRate`, the field the hook leaves `null` on
  * the same branch.
@@ -192,7 +192,7 @@ function memoSpans(source: string): Array<{ name: string; start: number; end: nu
 }
 
 /** Places this option relative to the others, or reads the share it is placed by. */
-const READS_COMPARATIVE = /option_probabilities|verdict\.(leaderId|hasLeadingOption)/
+const READS_COMPARATIVE = /option_probabilities|optionWinShareOf\s*\(|verdict\.(leaderId|hasLeadingOption)/
 /** The one authority on "was anything measured for this option". */
 const CARRIES_GATE = /winComputationFailed|displayMetadata\.winRate/
 
@@ -218,7 +218,7 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     expect(readers().length).toBeGreaterThanOrEqual(3)
   })
 
-  it('the four known readers are each still FOUND — a count cannot notice one vanishing', () => {
+  it('the retained comparison readers are each still FOUND — the second chance selector is retired', () => {
     // ⚠ A FLOOR CANNOT SEE A READER DISAPPEAR. Review demonstrated the route:
     // an array literal placed before a comparative read truncates its block at
     // the `}, [...])` regex, the read vanishes with the truncation, the manifest
@@ -230,8 +230,9 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     // `arrayContaining`, NOT equality — a new legitimate reader must not red
     // this, or it becomes the number-bumping ritual the floor above avoids.
     expect(readers().map(b => b.name)).toEqual(
-      expect.arrayContaining(['isRecommended', 'closeCallGapPp', 'goalDecision', 'behindReason']),
+      expect.arrayContaining(['isRecommended', 'closeCallGapPp', 'behindReason']),
     )
+    expect(stripComments(SRC)).not.toMatch(/\bconst goalDecision\b/)
   })
 
   it('⭐ EVERY reader carries the compute-status gate', () => {
@@ -245,7 +246,7 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     ).toEqual([])
   })
 
-  it('POSITIVE CONTROL: an ungated reader IS detected', () => {
+  it.each(['resultsReport?.option_probabilities', 'optionWinShareOf(resultsReport, id)'])('POSITIVE CONTROL: an ungated reader IS detected (%s)', expression => {
     // Without this, `readers()` silently returning `[]` — a regex that stopped
     // matching, a memo syntax the splitter does not recognise — would make the
     // assertion above pass while observing nothing at all.
@@ -261,7 +262,7 @@ describe('OptionNode — the comparative-position reader manifest', () => {
         .filter(b => READS_COMPARATIVE.test(b.body))
         .filter(b => !CARRIES_GATE.test(b.body))
         .map(b => b.name)
-    const injected = `${SRC}\n  const smugglethis = useMemo(() => {\n    return resultsReport?.option_probabilities\n  }, [resultsReport])\n`
+    const injected = `${SRC}\n  const smugglethis = useMemo(() => {\n    return ${expression}\n  }, [resultsReport])\n`
     expect(ungatedNames(SRC)).not.toContain('smugglethis')
     expect(ungatedNames(injected)).toContain('smugglethis')
   })

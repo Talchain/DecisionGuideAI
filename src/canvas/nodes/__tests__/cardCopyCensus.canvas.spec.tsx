@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐⭐ THE CENSUS — WHICH COPY IS BYTE-IDENTICAL ON EVERY SIBLING CARD.
  *
@@ -268,6 +270,7 @@ const CEE = {
 }
 
 const OPTION_IDS = ['option-1', 'option-2', 'option-3']
+const chanceCells = optionChanceFixture({ 'option-1': 41, 'option-2': 29, 'option-3': 12 })
 const FACTOR_IDS = ['factor-1', 'factor-2', 'factor-3']
 const RISK_IDS = ['risk-1', 'risk-2', 'risk-3']
 const OUTCOME_IDS = ['outcome-1', 'outcome-2', 'outcome-3']
@@ -425,11 +428,13 @@ function mountCard(
   const Card = COMPONENTS[kind]
   const { container } = render(
     <ReactFlowProvider>
+      <CanvasOptionChanceContext.Provider value={metaOverlay.winComputationFailed ? optionChanceFixture({}) : chanceCells}>
       <Card
         id={id} type={kind} data={node.data} position={{ x: 0, y: 0 }} selected={false}
         isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false}
         zIndex={0} deletable={false} selectable draggable
       />
+      </CanvasOptionChanceContext.Provider>
     </ReactFlowProvider>,
   )
   return container as HTMLElement
@@ -579,18 +584,16 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · post · standard': [
-    'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, beside `N% of runs`.
+    'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, before the Results chance cell (WS5-1 #2704).
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
     // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK. They left
     // with the bounded anatomy (ED #63 5809278282, rows in the popover); Paul's
-    // prototype ruling puts the rows on the face in both phases, the share line
+    // prototype ruling puts the rows on the face in both phases, the chance cell
     // below them. Same MARK and SEPARATOR as `option · pre · standard`.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
-    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
-    'supported by', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -603,8 +606,6 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
-    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
-    'supported by', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
@@ -846,19 +847,11 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // Locked Canvas design (23 Sep 2026): the caption reads `Current model` (was
   // `Ahead`, then `Support`; ED 11:52Z point 4). Same position, same testid.
   { what: 'option · the model-relative result caption', by: 'census', present: byTestId('-win-anchor-option-1') },
-  // ⚠ RE-CLASSIFIED (review round 2). This was marked `by: 'census'` and it
-  // renders `47% / 31% / 15%` — it varies, so it sits in NO census bucket, and
-  // that is byte-for-byte the status of the completeness line below, which was
-  // marked `by: 'hand'`. One position, two provenances, decided by which line I
-  // happened to be looking at. Either reading is defensible; the two had to get
-  // the SAME one, and `hand` is the honest one because the census cannot rule
-  // on a run that can never repeat.
+  // Retired share headline/bar/badge positions are replaced by the Results chance cell.
   {
-    what: 'option · the win percentage',
+    what: 'option · the Results chance cell',
     by: 'hand',
-    why: 'KEPT — it is the varying quantity itself, which is the whole thing '
-      + "Paul's ruling says to put on the card, now read `N% of runs`. Its CAPTION "
-      + '(`Current model`) is the census-decided half, one row up.',
+    why: 'KEPT — #87 Paul: the option card leads with its chance; the runs share is never the headline (WS5-1 #2704)',
     present: byTestId('-win-readout-option-1'),
   },
   // Locked Canvas design (23 Sep 2026): the `Influence` metric row

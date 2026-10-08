@@ -2,25 +2,30 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const attentionFixture = vi.hoisted(() => ({ active: false }))
 vi.mock('../shared/useNodeAttention', () => ({ useNodeAttention: () => ({ reasons: attentionFixture.active ? [{ kind: 'fragile_link', order: 1, label: 'The comparison depends on a link from here. How sure are you of it?' }] : [], marked: attentionFixture.active, markedCount: 1, candidateCount: 1, fromLastRun: null }) }))
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
-const node = { id: 'mark-option', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Try a pilot', type: 'option', provenance: 'ai_inferred' } }
+const node = { id: 'mark-option', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Try a pilot', type: 'option', kind: 'option', provenance: 'ai_inferred' } }
 function seed({ withheld = false, changed = false, leftOut = false, baseline = false, detailed = false, targets = false } = {}) {
   const data = { ...node.data, is_baseline: baseline, ...(targets ? { interventions: { factor: { value: 2, source: 'user_specified' } } } : {}) }
+  const report = { option_probabilities: { ...(!leftOut ? { [node.id]: { status: 'computed', win_probability: .72 } } : {}), other: { status: 'computed', win_probability: .28 } },
+    ...(withheld ? { producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } : {}) }
   useCanvasStore.setState({ nodes: [{ ...node, data }, { ...node, id: 'other' }, ...(targets ? [{ id: 'factor', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Capacity', type: 'factor', observed_state: { value: 1, source: 'user' } } }] : [])], edges: [], ceeAnalysisReady: null,
-    lodRung: 'full', viewMode: detailed ? 'expert' : 'standard', analysisStateV1: null,
+    lodRung: 'full', viewMode: detailed ? 'expert' : 'standard', analysisStateV1: null, goalThreshold: 100,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-10-07T12:00:00Z' },
     analysisFreshnessDirty: changed, importPendingServerRegistration: false, currentScenarioId: 'marks',
     v5AnalysisFact: { scenarioId: 'marks', analysisHash: 'run', hasRunAnalysisFact: true }, hasCompletedFirstRun: true,
-    results: { status: 'complete', hash: 'run', report: { option_probabilities: { ...(!leftOut ? { [node.id]: { status: 'computed', win_probability: .72 } } : {}), other: { status: 'computed', win_probability: .28 } },
-      ...(withheld ? { producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } : {}) } },
+    results: { status: 'complete', hash: 'run', report: !withheld && !leftOut
+      ? withLicensedOptionChances(report, { [node.id]: 41, other: 29 }) : report },
   } as never)
-  return render(<ReactFlowProvider><OptionNode id={node.id} type="option" data={data} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={data} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 function mark(testId: string, id: string, words: string) {
   const el = screen.getByTestId(testId)
@@ -39,16 +44,22 @@ it('share-withheld: exact words become a bottom glyph; permitted is the contrast
   expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
   cleanup(); seed()
   expect(screen.queryByTestId(`option-not-ranked-${node.id}`)).toBeNull()
-  expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
+  expect(screen.getByTestId(`option-win-readout-${node.id}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
 })
-it.each([false, true])('last-run status becomes a glyph and the percentage stays (detailed %s); current is the contrast', (detailed) => {
+it.each([false, true])('the visible Last run caption precedes the retained chance once (detailed %s); current is the contrast', (detailed) => {
   seed({ changed: true, detailed })
-  mark(`option-win-anchor-${node.id}`, 'last-run', 'Last run')
-  // ONE status mark (DL 8 Oct, workstream D): "Last run" wins; the stale line is named in its tooltip, not drawn twice.
+  const caption = screen.getByTestId(`option-win-anchor-${node.id}`)
+  const readout = screen.getByTestId(`option-win-readout-${node.id}`)
+  expect(caption).toHaveAttribute('aria-label', 'Last run')
+  expect(caption).toHaveTextContent('Last run')
+  expect(caption.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.getAllByTestId(`option-win-anchor-${node.id}`)).toHaveLength(1)
+  // WS5-1: the caption is visible in the chance slot, and continues to carry the single status description.
   expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
-  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveAttribute('aria-description', 'Also: no new comparison yet')
-  expect(screen.getByTestId(`option-bottom-marks-${node.id}`).querySelectorAll('[data-card-mark="last-run"],[data-card-mark="no-new-comparison"]')).toHaveLength(1)
-  expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
+  expect(caption).toHaveAttribute('aria-description', 'Also: no new comparison yet')
+  expect(screen.getByTestId(`option-bottom-marks-${node.id}`).querySelectorAll('[data-card-mark="last-run"],[data-card-mark="no-new-comparison"]')).toHaveLength(0)
+  expect(readout).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
+  expect(screen.getByTestId(`option-analysis-currency-${node.id}`).getAttribute('aria-label')).not.toContain('of runs')
   cleanup(); seed()
   expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveTextContent('Current model')
   expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
