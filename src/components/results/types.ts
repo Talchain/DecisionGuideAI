@@ -959,6 +959,8 @@ export interface DriversSectionData {
    * only. Optional: absent means none.
    */
   gatedDrivers?: GatedDriverItem[]
+  /** Factors without defined elasticity; words only, outside the ranking. */
+  unrankedDrivers?: GatedDriverItem[]
 }
 
 /** A covered-withheld factor row: identity only, never a figure or a rank. */

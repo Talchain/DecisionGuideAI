@@ -637,7 +637,7 @@ export const ANALYSIS_NEW_COPY = {
     /** Drivers, what is worth resolving, and the method receipts. */
     whatMovesTheOutcome: 'What moves the outcome',
     strengthen: 'Strengthen the reasoning',
-    drivers: 'Drivers and dynamics',
+    drivers: 'What changes the outcome most, in this model',
     /**
      * ⭐ THE ONLY SECTION A PERSON REACHES WITHOUT THE PRODUCER OFFERING IT.
      * Named here rather than inline in the component so the section censuses

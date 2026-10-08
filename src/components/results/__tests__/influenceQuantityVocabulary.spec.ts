@@ -140,24 +140,22 @@ describe('influence quantity vocabulary — the two quantities are named apart',
    */
   it('has an entry for every provenance the display policy can actually emit', () => {
     const emitted = new Set<DriverDisplayProvenance>()
-    // Complete producer coverage -> the producer basis.
+    // Complete producer coverage still uses the sensitivity basis.
     for (const entry of selectDriverDisplayModel([
       { key: 'a', influenceScore: 1, rawElasticity: 0.4 },
       { key: 'b', influenceScore: 0.5, rawElasticity: 0.2 },
     ]).values()) {
       emitted.add(entry.provenance)
     }
-    // One factor short of complete coverage -> the whole set falls back.
+    // Partial producer coverage uses the same sensitivity basis.
     for (const entry of selectDriverDisplayModel([
       { key: 'a', influenceScore: 1, rawElasticity: 0.4 },
       { key: 'b', influenceScore: null, rawElasticity: 0.2 },
     ]).values()) {
       emitted.add(entry.provenance)
     }
-    // The control: the drive above must have produced BOTH, or the totality
-    // assertion below is vacuous (an instrument that saw one basis cannot
-    // certify coverage of two).
-    expect(emitted.size).toBe(2)
+    // Both coverage shapes must resolve the one displayed basis.
+    expect(emitted).toEqual(new Set(['normalised_elasticity']))
     for (const provenance of emitted) {
       expect(
         INFLUENCE_QUANTITY_BY_BASIS[provenance],
@@ -197,15 +195,13 @@ describe('influence quantity vocabulary — the two quantities are named apart',
   })
 
   /**
-   * The fallback basis's disclosure has to say WHY the run is on it, because
-   * "these are sensitivity" without the reason reads as a choice the product
-   * made about these factors. It is not: it is the producer failing to supply a
-   * score for EVERY factor, which is a fact about the run.
+   * The display model chooses the sensitivity basis for the ranking. Its
+   * disclosure names that quantity without claiming missing producer scores.
    */
-  it("the fallback disclosure states the producer condition that caused it", () => {
+  it('the sensitivity disclosure names its quantity without inferring missing scores', () => {
     const fallback = INFLUENCE_QUANTITY_BY_BASIS.normalised_elasticity.runDisclosure.toLowerCase()
-    expect(fallback).toContain('every factor')
-    expect(fallback).toContain('not have')
+    expect(fallback).toContain('these show outcome sensitivity')
+    expect(fallback).not.toContain('not have')
   })
 
   /**

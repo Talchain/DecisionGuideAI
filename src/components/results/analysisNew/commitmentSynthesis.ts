@@ -135,6 +135,10 @@ export const COMMITMENT_COPY = {
     leaderNotConfirmed: 'Which option leads is not confirmed yet.',
   },
   /**
+   * ⚠ DL 58e392 RULING (8 Oct 2026; Science's word since: "relationship", never "link"): a placeholder link is not "an assumption Olumi made" in the sense a reader takes
+   * (a guessed value): Olumi drafted the link and gave it no size. Science's vocabulary (6 Oct): "isn't sized in the
+   * model yet"; never "nobody has set yet" (D-05).
+   *
    * ⭐ THE UNSIZED-PATH WITHHOLD AS BELIEFS, NOT LINK PARAMETERS (Paul, 8 Oct 2026: the old sentence listed every link
    * in graph words and claimed the comparison "turns on" them, a claim nothing measured — the list is the Run's order,
    * not an influence ranking). The headline counts Olumi's own estimates the comparison rests on; the detail names them
@@ -142,10 +146,9 @@ export const COMMITMENT_COPY = {
    */
   assumptions: {
     headline: (n: number): string =>
-      n === 1 ? 'It rests on an assumption Olumi made.' : `It rests on ${n} assumptions Olumi made.`,
-    // "Assumed", not "estimated": a link nobody sized can hold a default placeholder, which is not a considered estimate.
+      n === 1 ? "1 relationship Olumi drafted isn't sized in the model yet." : `${n} relationships Olumi drafted aren't sized in the model yet.`,
     lead: (n: number): string =>
-      n === 1 ? 'Olumi assumed how strongly this works, and nobody has checked it yet:' : 'Olumi assumed how strongly each of these works, and nobody has checked them yet:',
+      n === 1 ? 'Olumi drafted this relationship; it is not sized in the model yet:' : 'Olumi drafted these relationships; none is sized in the model yet:',
     item: (from: string, to: string): string => `‘${from}’ affects ‘${to}’`,
     more: (n: number): string => `and ${n} more`,
     close: (n: number): string =>

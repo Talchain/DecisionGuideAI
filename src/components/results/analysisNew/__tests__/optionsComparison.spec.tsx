@@ -47,7 +47,13 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
-import { NOT_ANALYSED_BADGE, notAnalysedReasonCopy } from '../../utils/notAnalysedCopy'
+import {
+  NOT_ANALYSED_BADGE,
+  notAnalysedReasonCopy,
+  OLUMI_PROPOSED_EXCLUDED_COPY,
+  OLUMI_PROPOSED_EXCLUDED_DETAIL,
+  OLUMI_PROPOSED_EXCLUDED_SHORT,
+} from '../../utils/notAnalysedCopy'
 import { formatProbabilityWithResolution } from '../../../../utils/formatPercent'
 import type { OptionResult } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -276,6 +282,30 @@ describe('ABSENCE IS NOT ZERO', () => {
     expect(notAnalysedReasonCopy('no_interventions')).not.toEqual(
       notAnalysedReasonCopy('not_returned'),
     )
+  })
+
+  // ⭐ 8 Oct 2026 (DL 58e392 GO): an Olumi suggestion the run left out says so in ONE short line; the rest of the
+  // sanctioned sentence opens under its chevron. The whole sentence is still the two halves, word for word.
+  it('an Olumi suggestion left out reads one short line, and the rest opens under its chevron', () => {
+    renderSection(
+      dataWith([
+        makeOption({ id: 'opt_a', label: 'Alpha', winProbability: 0.6, nValidSamples: 10000 }),
+        makeOption({ id: 'opt_o', label: 'Olumi idea', notAnalysed: true, notAnalysedReason: 'excluded_olumi_proposed' }),
+        makeOption({ id: 'opt_y', label: 'Yankee', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      ]),
+    )
+    open()
+    const reason = within(row('opt_o')).getByTestId(`${TESTID}-not-analysed-reason`)
+    expect(reason).toHaveTextContent(OLUMI_PROPOSED_EXCLUDED_SHORT)
+    expect(reason).not.toHaveTextContent(OLUMI_PROPOSED_EXCLUDED_DETAIL)
+    fireEvent.click(within(row('opt_o')).getByTestId(`${TESTID}-not-analysed-reason-toggle-opt_o`))
+    expect(within(row('opt_o')).getByTestId(`${TESTID}-not-analysed-reason-detail-opt_o`)).toHaveTextContent(
+      OLUMI_PROPOSED_EXCLUDED_DETAIL,
+    )
+    expect(OLUMI_PROPOSED_EXCLUDED_COPY.endsWith(OLUMI_PROPOSED_EXCLUDED_DETAIL)).toBe(true)
+    // CONTRAST: another reason keeps its one sentence and has no chevron.
+    expect(within(row('opt_y')).getByTestId(`${TESTID}-not-analysed-reason`)).toHaveTextContent(notAnalysedReasonCopy('not_returned'))
+    expect(within(row('opt_y')).queryByTestId(`${TESTID}-not-analysed-reason-toggle-opt_y`)).toBeNull()
   })
 
   it('an ANALYSED option whose producer sent no win probability shows no number and no bar', () => {

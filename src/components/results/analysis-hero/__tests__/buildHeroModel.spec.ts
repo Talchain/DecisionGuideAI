@@ -1187,7 +1187,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
   it('main reason names the Drivers section top driver; omitted when none', () => {
     const withDriver = chart(buildHeroModel(makeHeroData()))
     expect(withDriver.mainReason).toBe(
-      'Main driver: Developer capacity.',
+      'Moves the result most: Developer capacity.',
     )
     const without = chart(buildHeroModel(makeHeroData({ topDriverLabel: null })))
     expect(without.mainReason).toBeNull()
@@ -1340,7 +1340,7 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
   it('mainDriver is null when the top driver cannot focus (static main reason remains)', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.quickLinks.mainDriver).toBeNull()
-    expect(m.mainReason).toBe('Main driver: Developer capacity.')
+    expect(m.mainReason).toBe('Moves the result most: Developer capacity.')
   })
 
   /**

@@ -93,7 +93,7 @@ function runInputsOf(
   reviewBiasFindings: unknown,
   comparisonShown: boolean,
 ): NonNullable<Parameters<typeof deriveAttentionPlan>[0]['run']> {
-  const feed = selectDriverPolicyFeed(report as ResultsReport)
+  const feed = selectDriverPolicyFeed(report as ResultsReport, nodes)
   const ranks = new Map<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number; noValueInRun: boolean }>()
   for (const n of nodes) {
     if (resolveNodeTypeLiteral(n as never) !== 'factor') continue

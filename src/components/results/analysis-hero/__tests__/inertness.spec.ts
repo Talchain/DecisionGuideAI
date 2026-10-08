@@ -28,6 +28,11 @@ const AUTHORIZED_IMPORTERS = new Set([
   join(SRC, 'routes', 'HeroGallery.tsx'),
 ])
 
+// D7 integration witness exercises the authorised ResultsBody mount and its hero projection.
+const TEST_IMPORTERS = new Set([
+  join(SRC, 'components', 'results', '__tests__', 'driverOneList.paulGraph.spec.tsx'),
+])
+
 // Pure-copy readers (7 Oct, A1 decision matrix): they say the hero's goal-chance WORDS so the Run tells one
 // story (R4), and they mount nothing. Each may import ONLY goalChanceCopy; any other hero import still fails.
 const COPY_MODULE = join(MODULE_DIR, 'goalChanceCopy')
@@ -101,6 +106,7 @@ describe('Analysis hero inertness', () => {
     for (const file of walk(SRC)) {
       if (file === MODULE_DIR || file.startsWith(MODULE_DIR + sep)) continue
       if (AUTHORIZED_IMPORTERS.has(file)) continue
+      if (TEST_IMPORTERS.has(file)) continue
       const hits = heroImportOffenders(readFileSync(file, 'utf8'), file)
       if (hits.length) offenders.push(`${file.slice(SRC.length - 3)} -> ${hits.join(', ')}`)
     }
