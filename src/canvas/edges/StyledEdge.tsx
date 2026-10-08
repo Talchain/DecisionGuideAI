@@ -2436,6 +2436,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-goal-chance-driver={isGoalChanceDriverEdge && !isStructuralEdge ? 'true' : undefined}
+        // P53x (8 Oct): the placeholder mark BY IDENTITY (same predicate as the not-set width), so a witness reads the
+        // mark itself rather than inferring it from a dash or a width.
+        data-strength-placeholder={strengthIsPlaceholder && !isStructuralEdge ? 'true' : undefined}
         // Its own name: a `[data-edge-id]` query means the polarity glyph (tests + the e2e overlap measure).
         data-edge-group-id={edgeIdKey}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}

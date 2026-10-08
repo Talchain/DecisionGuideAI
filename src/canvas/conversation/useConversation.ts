@@ -57,6 +57,7 @@ import { routeV5Response } from '../../v5/responseRouter'
 import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
+import { readGuidedSizing } from '../../v5/readGuidedSizing'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -6287,6 +6288,7 @@ export function useConversation(): UseConversationReturn {
           }
           // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the
           // pending server echo to serverTurnId, so a late read cannot replace a live card's controls.
+          const guidedSizing = readGuidedSizing(target.response)
           const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))
           const pendingServerTurnId = readRecordedServerTurnId(target.response)
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
@@ -6294,6 +6296,7 @@ export function useConversation(): UseConversationReturn {
             role: 'assistant',
             content: target.response.assistant_text,
             proposalFields: readTurnProposalFields(target.response),
+            ...(guidedSizing ? { guidedSizing } : {}),
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),

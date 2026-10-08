@@ -11,6 +11,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../
 import type { AnswerShape } from './answerShape'
 import type { GroundedSelection } from './groundedSelection'
 import type { ModelBuildingNoticesView } from './modelBuildingNotices'
+import type { GuidedSizing } from '../../v5/readGuidedSizing'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -36,6 +37,8 @@ export interface ConversationMessage {
   deliveryScenarioId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
+  /** The fresh held record could not be associated with its issuing reply. */
+  heldProposalEarlier?: boolean
   /** Request correlation for the held card, separate from durable message deduplication. */
   heldTurnId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
@@ -89,6 +92,8 @@ export interface ConversationMessage {
   stoppedByUser?: boolean
   /** Ephemeral §15 held projection; reload reads fresh server authority. */
   proposalFields?: unknown
+  /** GOAL-REACH guided path (P02): CEE's ordered links to size on this reply; ephemeral, live turns only. */
+  guidedSizing?: GuidedSizing
   /**
    * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
    * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.

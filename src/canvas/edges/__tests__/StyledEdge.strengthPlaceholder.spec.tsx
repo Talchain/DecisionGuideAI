@@ -138,6 +138,27 @@ describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   })
 })
 
+// P53x (8 Oct): the witness reads the placeholder mark by identity on the edge group, never by counting dashes.
+describe('P53x — the edge group names a placeholder strength by identity', () => {
+  const markOf = (data: Record<string, unknown>) => {
+    const { container, unmount } = render(<StyledEdge {...(props as any)} data={data} />)
+    const group = container.querySelector('g[data-edge-group-id="e1"]')
+    expect(group).not.toBeNull()
+    const mark = group!.getAttribute('data-strength-placeholder')
+    unmount()
+    return mark
+  }
+  it('Pro plan price → MRR (0.5 placeholder) carries data-strength-placeholder="true"', () => {
+    expect(markOf(PLACEHOLDER())).toBe('true')
+  })
+  it('CONTRAST: the −0.4 estimate on the same board carries no mark', () => {
+    expect(markOf(ESTIMATE())).toBeNull()
+  })
+  it('CONTRAST: the same number set by a person carries no mark', () => {
+    expect(markOf({ ...PLACEHOLDER(), weightSource: 'user' })).toBeNull()
+  })
+})
+
 describe('a set causal link carries its strength source icon', () => {
   beforeEach(() => { lod.rung = 'full' })
 
