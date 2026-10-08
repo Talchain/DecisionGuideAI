@@ -810,7 +810,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
             key: `gauge:${unsizedAsk.fromId}->${unsizedAsk.throughId}->${unsizedAsk.toId}`,
             title: `How much does ‘${unsizedAsk.from}’ change ‘${unsizedAsk.to}’ through ‘${unsizedAsk.through}’?`,
             signal: 'Olumi drafted these relationships; they aren’t sized in the model yet.',
-            whyNow: 'A best guess and a range is fine.',
+            whyNow: 'A rough guess and a range is fine.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
           }
         : unsizedAsk.kind === 'withheld_link'
@@ -821,7 +821,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
               signal: unsizedAsk.more > 0
                 ? `Olumi drafted this relationship and ${unsizedAsk.more} more; none is sized in the model yet.`
                 : 'Olumi drafted this relationship; it isn’t sized in the model yet.',
-              whyNow: 'A best guess and a range is fine.',
+              whyNow: 'A rough guess and a range is fine.',
               targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
             }
           : unsizedAsk.kind === 'target_link'
@@ -830,14 +830,14 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
                 key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
                 title: `How strongly does ‘${unsizedAsk.from}’ affect ‘${unsizedAsk.to}’?`,
                 signal: 'Olumi can’t test your target until this relationship has a size in the target’s unit.',
-                whyNow: 'A best guess is fine.',
+                whyNow: 'A rough guess is fine.',
                 targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
               }
             : {
                 key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
                 title: `How strongly does ‘${unsizedAsk.from}’ affect ‘${unsizedAsk.to}’?`,
                 signal: 'Olumi drafted this relationship; it isn’t sized in the model yet.',
-                whyNow: 'A best guess and a range is fine.',
+                whyNow: 'A rough guess and a range is fine.',
                 targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
               }
     // Literal `id` and `label`-after-`kind`, so `everyActIsOneTheRouteCanPerform` reads every route this card can take.
