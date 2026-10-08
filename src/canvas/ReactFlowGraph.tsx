@@ -210,7 +210,6 @@ const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { RunChangesSummary } from './components/RunChangesSummary'
-import { CanvasProvenanceKey } from './components/CanvasProvenanceKey'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
@@ -3079,7 +3078,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
       <DegradedBanner />
-      <CanvasProvenanceKey />
+      {/* The bottom-right Key pill is gone (Paul 7 Oct): its entries are the bottom-left Key's own derived rows. */}
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
