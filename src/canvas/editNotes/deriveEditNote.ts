@@ -1,4 +1,5 @@
-import { readGoalChanceLicence, type GoalChanceDriver } from '../../components/results/utils/goalChanceLicence'
+import type { GoalChanceDriver } from '../../components/results/utils/goalChanceLicence'
+import { runViewOf } from '../runView/runView'
 import { formatFlipValue } from '../../components/results/utils/flipThresholdDisplay'
 import { resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { unwrapInterventionValue } from '../utils/labelUtils'
@@ -75,7 +76,7 @@ const profile = (node: EditNode, graph: EditGraph) => {
   // Unknown settings cannot prove two complete profiles are identical.
   return entries.length && entries.every(([, value]) => value !== null) ? JSON.stringify(entries) : null
 }
-const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? readGoalChanceLicence((run?.report as { inference_warnings?: unknown } | undefined)?.inference_warnings)?.driverByOption ?? {}
+const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? runViewOf(run?.report).goalChance?.driverByOption ?? {}
 const turningPointOf = (run: LastRunSnapshot, id: string): FactorTurningPoint | undefined => run.turningPoints?.get(id)
 
 /** Pure deterministic checks over the committed edit, in tier order. No store reads. */
