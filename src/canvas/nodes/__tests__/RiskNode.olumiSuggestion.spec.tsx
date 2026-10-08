@@ -38,7 +38,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 const FACE = "Olumi's suggestion · not in the chance"
-const WHY = "Olumi added this risk to challenge your draft. It isn't in the chance until you bring it in; remove it if it doesn't fit."
+const WHY = "Olumi added this risk to challenge your draft. It isn't in the chance; remove it if it doesn't fit."
 const markerId = (id: string) => `risk-olumi-suggestion-${id}`
 
 function draw(id: string, data: Record<string, unknown>) {

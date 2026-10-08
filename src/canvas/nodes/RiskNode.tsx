@@ -172,7 +172,7 @@ export const RISK_EXPOSURE_UNSET_SHORT = METRIC_UNSET.standalone
  */
 const RISK_ENTERED_QUALIFIER = 'Entered estimate'
 /** CEE #2854: a risk Olumi added to a thin first draft, out of the chance until the user brings it in. */
-const OLUMI_RISK_SUGGESTION_WHY = "Olumi added this risk to challenge your draft. It isn't in the chance until you bring it in; remove it if it doesn't fit."
+const OLUMI_RISK_SUGGESTION_WHY = "Olumi added this risk to challenge your draft. It isn't in the chance; remove it if it doesn't fit."
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
