@@ -5,10 +5,13 @@ import { useCanvasStore } from '../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { selectDriverPolicyFeed, useResultsSectionData } from '../useResultsSectionData'
 import { rankFactor } from '../../../canvas/nodes/shared/rankFactor'
+import { useNodeDisplayMetadata } from '../../../canvas/hooks/useNodeDisplayMetadata'
+import { deriveFactorInfluenceMap } from '../../../canvas/components/model-tab/utils'
 import { ResultsBody } from '../ResultsBody'
 import { useAnalysisHero } from '../analysis-hero/useAnalysisHero'
 import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 import { DriverInfluenceChart } from '../analysisNew/sections/DriverInfluenceChart'
+import { ANALYSIS_NEW_COPY } from '../analysisNew/analysisNewCopy'
 import { DecisionMatrix } from '../analysisNew/sections/DecisionMatrix'
 import type { ResultsReport } from '../types'
 import served from '../analysis-hero/__tests__/fixtures/served-7ad369b7-pricing-drivers-accordion.json'
@@ -20,11 +23,12 @@ vi.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: null, 
 const CHURN = 'monthly_churn'
 const SUBSCRIBERS = 'pro_paying_subscribers'
 const GATED = 'option_dependent_factor'
+const UNRANKED = 'undefined_elasticity_factor'
 const OPTION_IDS = served.draft_graph_nodes.filter(n => n.kind === 'option').map(n => n.id)
 const HEADING = 'What the result moves most with'
 const initialState = useCanvasStore.getState()
 
-function seedPaulGraph(withheldChance = false) {
+function seedPaulGraph(withheldChance = false, extraFactor?: { elasticity?: number; level?: number }) {
   const block = structuredClone(served.analysis_result)
   // Producer influence order is subscribers 100%, churn 63%. Elasticity disagrees.
   block.enrichment.factor_sensitivity = [
@@ -34,6 +38,7 @@ function seedPaulGraph(withheldChance = false) {
     { factor_id: GATED, factor_label: 'Option-dependent factor', elasticity: 10, influence_score: null, influence_gated_by: [OPTION_IDS[0]] },
   ] as never
   const report = mapV5AnalysisToReport(block as never) as unknown as ResultsReport
+  if (extraFactor) report.factor_sensitivity!.push({ factor_id: UNRANKED, label: 'Undefined elasticity factor', elasticity: extraFactor.elasticity, influence_score: 1 } as never)
   const licence = {
     code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each', option_ids: OPTION_IDS,
     pct_by_option: Object.fromEntries(OPTION_IDS.filter(id => !withheldChance || id !== OPTION_IDS[0]).map((id, i) => [id, 40 + i * 10])),
@@ -50,6 +55,7 @@ function seedPaulGraph(withheldChance = false) {
         { id: CHURN, label: 'Monthly churn', value: 0.03 },
         { id: SUBSCRIBERS, label: 'Pro paying subscribers', value: 250 },
         { id: GATED, label: 'Option-dependent factor', value: 1 },
+        ...(extraFactor ? [{ id: UNRANKED, label: 'Undefined elasticity factor', value: extraFactor.level }] : []),
       ].map(n => ({ id: n.id, type: 'factor', position: { x: 0, y: 0 }, data: { label: n.label, kind: 'factor', observed_state: { value: n.value, source: 'user' } } })),
     ],
     edges: [],
@@ -67,7 +73,7 @@ describe('Paul graph — one outcome-sensitivity list, separate gated chance dri
   it('binds hero, first Analysis row/100%, and first Reasoning bar to Monthly churn', () => {
     const data = seedPaulGraph()
     const report = useCanvasStore.getState().results.report as unknown as ResultsReport
-    const feed = selectDriverPolicyFeed(report)
+    const feed = selectDriverPolicyFeed(report, useCanvasStore.getState().nodes)
     // Establish the disagreement and the common authority by factor identity.
     expect(feed.policyRows.find(r => r.key === SUBSCRIBERS)?.influenceScore).toBe(1)
     expect(feed.policyRows.find(r => r.key === CHURN)?.influenceScore).toBe(0.63)
@@ -107,6 +113,94 @@ describe('Paul graph — one outcome-sensitivity list, separate gated chance dri
     expect(bars[1].closest('li')).toHaveAttribute('data-node-id', SUBSCRIBERS)
     expect(bars[1]).toHaveAttribute('data-fraction', '63')
     expect(vm.drivers.influenceRows.map(r => r.id)).toEqual([CHURN, SUBSCRIBERS])
+  })
+
+  it.each([
+    ['zero level', { elasticity: 10, level: 0 }],
+    ['NaN level', { elasticity: 10, level: Number.NaN }],
+    ['infinite level', { elasticity: 10, level: Number.POSITIVE_INFINITY }],
+    ['missing elasticity', { level: 1 }],
+    ['non-finite elasticity', { elasticity: Number.POSITIVE_INFINITY, level: 1 }],
+  ] as const)('%s never enters any outcome-sensitivity ranking; the next factor leads', (_, extraFactor) => {
+    const data = seedPaulGraph(false, extraFactor)
+    const { nodes, results } = useCanvasStore.getState()
+    const report = results.report as unknown as ResultsReport
+    const feed = selectDriverPolicyFeed(report, nodes)
+    expect(feed.displayModel.has(UNRANKED)).toBe(false)
+    expect(feed.displayModel.get(CHURN)?.value).toBe(1)
+    expect(rankFactor(feed.policyRows, feed.displayModel, UNRANKED)).toMatchObject({ sensitivityRank: null, relativeSensitivity: null })
+    expect(rankFactor(feed.policyRows, feed.displayModel, CHURN).sensitivityRank).toBe(1)
+    expect(renderHook(() => useNodeDisplayMetadata(UNRANKED, 'factor')).result.current).toMatchObject({ sensitivityRank: null, influence: null, influenceProvenance: null })
+    expect(renderHook(() => useNodeDisplayMetadata(CHURN, 'factor')).result.current.sensitivityRank).toBe(1)
+    expect(deriveFactorInfluenceMap(report, nodes)?.has(UNRANKED)).toBe(false)
+    expect(deriveFactorInfluenceMap(report, nodes)?.get(CHURN)).toBe(1)
+    expect(data.drivers.drivers.map(r => r.factorKey)).toEqual([CHURN, SUBSCRIBERS])
+    expect(data.drivers.unrankedDrivers?.map(r => r.factorKey)).toEqual([UNRANKED])
+    render(<ResultsBody resultsSectionData={data} tornadoData={{ rows: [], expectedOutcome: null }} driversExpanded />)
+    expect(screen.getByTestId('hero-quicklink-driver')).toHaveTextContent('Moves the result most: Monthly churn')
+    expect(screen.queryByTestId(`driver-influence-pill-${UNRANKED}`)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /See all factors/ }))
+    const unrankedRow = screen.getByTestId(`driver-unranked-row-${UNRANKED}`)
+    expect(unrankedRow).toHaveTextContent('Not ranked in this run')
+    expect(within(unrankedRow).queryByRole('progressbar')).toBeNull()
+    const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
+    expect(vm.drivers.influenceRows.map(r => r.id)).toEqual([CHURN, SUBSCRIBERS])
+    render(<DriverInfluenceChart rows={vm.drivers.influenceRows} onCommitOutcome={() => {}} testId="paul-unranked-chart" />)
+    const bars = screen.getAllByTestId('paul-unranked-chart-bar')
+    expect(bars[0].closest('li')).toHaveAttribute('data-node-id', CHURN)
+    expect(bars[0]).toHaveAttribute('data-fraction', '100')
+  })
+
+  it('both tabs list the SAME ids in the SAME order; only the heading words differ (Science §(n), DL)', () => {
+    const data = seedPaulGraph()
+    render(<ResultsBody resultsSectionData={data} tornadoData={{ rows: [], expectedOutcome: null }} driversExpanded />)
+    const ranking = within(screen.getByTestId('accordion-drivers'))
+    expect(ranking.getByText('What the result moves most with', { exact: true })).toBeInTheDocument()
+    fireEvent.click(ranking.getByTestId('influence-details-toggle'))
+    const analysisIds = Array.from(ranking.getByTestId('drivers-list').querySelectorAll('[data-testid^="driver-influence-pill-"]'))
+      .map(p => (p.getAttribute('data-testid') ?? '').replace('driver-influence-pill-', ''))
+    const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
+    render(<DriverInfluenceChart rows={vm.drivers.influenceRows} onCommitOutcome={() => {}} testId="paul-order-chart" />)
+    const reasoningIds = screen.getAllByTestId('paul-order-chart-bar').map(b => b.closest('li')?.getAttribute('data-node-id'))
+    expect(analysisIds.length).toBeGreaterThan(1)
+    expect(reasoningIds).toEqual(analysisIds)
+    expect(ANALYSIS_NEW_COPY.sections.drivers).toBe('What changes the outcome most, in this model')
+  })
+
+  it('recomputes eligibility when graph levels change with the same report', () => {
+    seedPaulGraph(false, { elasticity: 10, level: 1 })
+    const { nodes, results } = useCanvasStore.getState()
+    const report = results.report as unknown as ResultsReport
+    expect(selectDriverPolicyFeed(report, nodes).displayModel.get(UNRANKED)?.value).toBe(1)
+    const changedNodes = nodes.map(node => node.id === UNRANKED ? { ...node, data: { ...node.data, observed_state: { value: 0 } } } : node)
+    const changedFeed = selectDriverPolicyFeed(report, changedNodes)
+    expect(changedFeed.displayModel.has(UNRANKED)).toBe(false)
+    expect(rankFactor(changedFeed.policyRows, changedFeed.displayModel, CHURN).sensitivityRank).toBe(1)
+    expect(selectDriverPolicyFeed(report, nodes).displayModel.get(UNRANKED)?.value).toBe(1)
+  })
+
+  it('an invalid duplicate row cannot borrow the valid row’s display entry to take rank 1', () => {
+    seedPaulGraph()
+    const state = useCanvasStore.getState()
+    const original = state.results.report as unknown as ResultsReport
+    const report = { ...original, factor_sensitivity: [...original.factor_sensitivity!, {
+      factor_id: SUBSCRIBERS, label: 'Pro paying subscribers', elasticity: 100, baseline: 0, influence_score: 1,
+    }] } as unknown as ResultsReport
+    useCanvasStore.setState({ results: { ...state.results, report } } as never)
+    const data = renderHook(() => useResultsSectionData()).result.current
+    const feed = selectDriverPolicyFeed(report, useCanvasStore.getState().nodes)
+    expect(feed.displayModel.get(SUBSCRIBERS)?.value).toBe(0.625)
+    expect(rankFactor(feed.policyRows, feed.displayModel, CHURN).sensitivityRank).toBe(1)
+    expect(data.drivers.driverLeader?.key).toBe(CHURN)
+    expect(data.drivers.drivers.map(row => row.factorKey)).toEqual([CHURN, SUBSCRIBERS])
+    expect(data.drivers.unrankedDrivers).toBeUndefined()
+    const degenerate = { ...original, drivers: [], drivers_payload: undefined, sensitivity: undefined, factors: [], factor_sensitivity: [
+      { factor_id: SUBSCRIBERS, elasticity: 0 },
+      { factor_id: CHURN, elasticity: 0 },
+      { factor_id: SUBSCRIBERS, elasticity: 100, baseline: 0 },
+    ] } as unknown as ResultsReport
+    useCanvasStore.setState({ results: { ...state.results, report: degenerate } } as never)
+    expect(renderHook(() => useNodeDisplayMetadata(SUBSCRIBERS, 'factor')).result.current).toMatchObject({ sensitivityRank: null, influence: null })
   })
 
   it.each([false, true])('is silent in the chance-driver cell when CEE withholds that driver (chance withheld: %s)', withheldChance => {

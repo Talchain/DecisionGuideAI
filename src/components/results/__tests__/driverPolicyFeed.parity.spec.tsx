@@ -26,6 +26,7 @@ import { act, renderHook } from '@testing-library/react'
 import { render, screen } from '@testing-library/react'
 import { useResultsSectionData, selectDriverPolicyFeed } from '../useResultsSectionData'
 import { useNodeDisplayMetadata } from '../../../canvas/hooks/useNodeDisplayMetadata'
+import { rankFactor } from '../../../canvas/nodes/shared/rankFactor'
 import { useCanvasStore } from '../../../canvas/store'
 import { DriversSection } from '../DriversSection'
 import type { ResultsReport } from '../types'
@@ -275,7 +276,7 @@ describe('selectDriverPolicyFeed — feed contract', () => {
     expect(first.policyRows).toHaveLength(1)
   })
 
-  it('keeps metric-less rows (the coverage-verdict input the old private feed dropped)', () => {
+  it('keeps metric-less raw/policy rows while leaving their display and rank absent', () => {
     const report = baseReport({
       factor_sensitivity: [
         { factor_id: 'A', influence_score: 0.6, elasticity: 0.5 },
@@ -283,10 +284,13 @@ describe('selectDriverPolicyFeed — feed contract', () => {
       ],
     }) as ResultsReport
     const feed = selectDriverPolicyFeed(report)
+    expect(feed.rawFactors).toHaveLength(2)
     expect(feed.policyRows.map(r => r.key)).toEqual(['A', 'B'])
+    expect(feed.policyRows.find(r => r.key === 'B')!.rawElasticity).toBeNaN()
     expect(feed.displayModel.get('A')?.provenance).toBe('normalised_elasticity')
     expect(feed.displayModel.get('A')?.value).toBe(1)
-    expect(feed.displayModel.get('B')?.value).toBe(0)
+    expect(feed.displayModel.has('B')).toBe(false)
+    expect(rankFactor(feed.policyRows, feed.displayModel, 'B').sensitivityRank).toBeNull()
   })
 
   it('returns an empty feed for a missing report', () => {

@@ -371,10 +371,12 @@ export function computeNormalisedInfluences(
  */
 export function extractPolicyRow(
   raw: unknown,
+  observedLevel?: number,
 ): {
   key: string
   influenceScore: number | null
   rawElasticity: number
+  level?: number
   importanceBasis: string | null
   influenceGated?: true
 } | null {
@@ -396,7 +398,9 @@ export function extractPolicyRow(
   return {
     key,
     influenceScore: producer,
-    rawElasticity: magnitude === null || !Number.isFinite(magnitude) ? 0 : Math.abs(magnitude),
+    rawElasticity: magnitude === null ? Number.NaN : Math.abs(magnitude),
+    ...((readDriverLevel(raw) ?? observedLevel) !== undefined
+      ? { level: readDriverLevel(raw) ?? observedLevel } : {}),
     // Additive passthrough of the producer's basis stamp — never derived.
     importanceBasis: readImportanceBasis(raw),
     // Covered-withheld (ISL #213): present only when true, so rows that are
@@ -405,11 +409,34 @@ export function extractPolicyRow(
   }
 }
 
+/** Preserve explicit zero/non-finite levels; absence alone permits the graph fallback. */
+export function readDriverLevel(raw: unknown): number | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined
+  const f = raw as Record<string, unknown>
+  const observed = (f.observed_state ?? f.observedState) as { value?: unknown } | undefined
+  for (const value of [f.level, f.baseline, f.baseline_value, f.observed_value, f.observedValue, observed?.value, f.value]) {
+    if (typeof value === 'number') return value
+  }
+  return undefined
+}
+
+export interface DriverLevelNode { id: string; data?: unknown }
+
+/** The shared eligibility gate for display, ranking and list projection. */
+export function isRankedDriverRow<T extends { rawElasticity?: number; level?: number; influenceGated?: boolean }>(
+  row: T,
+): row is T & { rawElasticity: number } {
+  return row.influenceGated !== true && typeof row.rawElasticity === 'number' && Number.isFinite(row.rawElasticity)
+    && (row.level === undefined || (Number.isFinite(row.level) && row.level !== 0))
+}
+
 export function selectDriverDisplayModel(
   factors: ReadonlyArray<{
     key: string
     influenceScore?: number | null
-    rawElasticity: number
+    rawElasticity?: number
+    /** A known zero/non-finite factor level cannot define elasticity. */
+    level?: number
     /** Producer `importance_basis` stamp, verbatim. Optional: legacy feeders
      *  and fixtures do not supply it, and its absence must not be read as a
      *  basis claim. */
@@ -423,7 +450,7 @@ export function selectDriverDisplayModel(
   // is left out of the normalisation base, and it
   // gets NO entry: it has no figure on either basis, so no surface can print,
   // bar or rank one. The other rows share the normalised-elasticity basis.
-  const ranked = factors.filter((f) => f.influenceGated !== true)
+  const ranked = factors.filter(isRankedDriverRow)
 
   const normalisedMap = computeNormalisedInfluences(
     ranked.map((f) => ({ key: f.key, rawElasticity: f.rawElasticity })),

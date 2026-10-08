@@ -22,7 +22,7 @@ import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { useAnchorRailFloorStore, selectAtOrAboveIconLegibleZoom } from './shared/anchorRailFloor'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow, readDriverLevel, isRankedDriverRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS, REPEATED_CARD_W, rowAmountMaxCharsFor } from '../utils/nodeLayoutConstants'
@@ -313,6 +313,18 @@ interface BehindReasonContext {
   winnerInterventions: Record<string, unknown>
   /** cee identity the context was built against — revalidated on read */
   ceeRef: unknown
+  /** Graph levels participate in eligibility, so a changed graph invalidates the leader. */
+  nodesRef: unknown
+}
+
+function extractOptionPolicyRow(
+  raw: unknown,
+  nodes: readonly { id: string; data?: any }[],
+): ReturnType<typeof extractPolicyRow> {
+  const row = extractPolicyRow(raw)
+  if (!row) return null
+  const data = nodes.find((node) => node.id === row.key)?.data
+  return extractPolicyRow(raw, readDriverLevel(data))
 }
 
 /**
@@ -333,7 +345,7 @@ function getBehindReasonContext(
   nodes: readonly { id: string; type?: string; data?: any }[],
 ): BehindReasonContext {
   const cached = behindContextCache.get(report)
-  if (cached && cached.ceeRef === ceeAnalysisReady) return cached
+  if (cached && cached.ceeRef === ceeAnalysisReady && cached.nodesRef === nodes) return cached
 
   const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
   // P0-2 (external review 2026-07-14): certified factor_sensitivity FIRST
@@ -352,11 +364,12 @@ function getBehindReasonContext(
     // `sensitivity` (the V5 magnitude key) and preferring importance — so it
     // could crown a different driver than the panel under partial coverage.
     const rows = (sensitivity as unknown[])
-      .map((f: unknown) => extractPolicyRow(f))
+      .map((f: unknown) => extractOptionPolicyRow(f, nodes))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
     const model = selectDriverDisplayModel(rows)
     const ranked = rows
-      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)?.value ?? 0 }))
+      .filter((r) => model.has(r.key) && isRankedDriverRow(r))
+      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)!.value }))
       .sort(compareByDisplayModel)
     topFactorId = ranked[0] && ranked[0].value > 0 ? ranked[0].key : undefined
     if (topFactorId) {
@@ -380,6 +393,7 @@ function getBehindReasonContext(
     strippedLabel,
     winnerInterventions: winnerCee?.interventions ?? {},
     ceeRef: ceeAnalysisReady,
+    nodesRef: nodes,
   }
   if (report && typeof report === 'object') behindContextCache.set(report, context)
   return context
@@ -1355,15 +1369,16 @@ export const OptionNode = memo((props: NodeProps) => {
     // Intervening on a globally influential factor does not establish its
     // signed contribution to this option's result, so no causal claim follows.
     const rows = sensitivity
-      .map((f: unknown) => extractPolicyRow(f))
+      .map((f: unknown) => extractOptionPolicyRow(f, nodes))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
     if (rows.length === 0) return null
 
     const displayModel = selectDriverDisplayModel(rows)
     const ranked = rows
+      .filter((r) => displayModel.has(r.key) && isRankedDriverRow(r))
       .map((r) => ({
         id: r.key,
-        value: displayModel.get(r.key)?.value ?? 0,
+        value: displayModel.get(r.key)!.value,
         elasticity: r.rawElasticity,
         key: r.key,
       }))
