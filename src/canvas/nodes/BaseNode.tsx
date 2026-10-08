@@ -22,7 +22,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { BottomCardMark, BottomMarksBand, BottomMarksProvider } from './shared/CardMark'
+import { BottomCardMark, BottomMarksBand, BottomMarksProvider, useBottomBandHasMarks } from './shared/CardMark'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
@@ -339,7 +339,7 @@ const CARD_MUTED_TOKEN_STYLE = {
   '--text-light': 'rgb(102 103 98)',
 } as CSSProperties
 
-/** The anchor's bottom padding (contract `.node.wide{padding:11px 13px 9px}`). */
+/** The anchor's bottom padding when its band holds no mark (contract `.node.wide{padding:11px 13px 9px}`). */
 const ANCHOR_PAD_BOTTOM_PX = 9
 
 /**
@@ -1537,6 +1537,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * of the two boxes whatever rung it runs at. `showQuickActions` at Normal is
    * exactly the lens condition: the body is never hidden at `full`.
    */
+  const anchorBandHasMarks = useBottomBandHasMarks()
   const cardPaddingAt = (normal: boolean): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
@@ -1544,10 +1545,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
     const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
+    const band = padAdj === 0
+      ? NODE_QUICK_ACTION_BAND_CSS
+      : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
     if (bandReservedAtRung) {
-      const band = padAdj === 0
-        ? NODE_QUICK_ACTION_BAND_CSS
-        : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
       return { paddingTop: side, paddingRight: side, paddingBottom: band, paddingLeft: side }
     }
     // ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): the legacy 24px band that
@@ -1556,16 +1557,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     // cost ~12 units on every factor and option row at the landing floor. ED's
     // "fixed fit-safe box" resolves the rowed question below ("drop the
     // reservation below the floor, or keep one uniform card box").
-    // ⭐ S5 (24 Sep): an anchor keeps its `11 / 9` vertical rhythm at EVERY rung,
-    // rail beside or not. It used to fall back to 12 / 12 wherever the rail was
-    // not beside it — below the legibility floor, where the layout reserves the
-    // landing height — so the Question and Goal drew TALLER below the floor than
-    // anywhere above it (Canvas Browser Gate `heightVsZoom`, build-vs-buy
-    // 1280×800: decision 126 → 132, goal 131 → 134).
-    // Contract `.node.wide{padding:11px 13px 9px}` — 13px sides on the Question
-    // and Goal (they were 12, so every anchor row sat 1px left of the design).
+    // #2649 r3 band overlap (DL 8 Oct): an anchor reserves the marks band row ONLY when its band holds a mark, at
+    // every rung (one box above and below the legibility floor, so `heightVsZoom` gains no rung-dependent height).
+    // Without marks it keeps the contract's `.node.wide{padding:11px 13px 9px}`.
     if (isAnchorCard) {
-      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: '9px', paddingLeft: px(13) }
+      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: anchorBandHasMarks ? band : `${ANCHOR_PAD_BOTTOM_PX}px`, paddingLeft: px(13) }
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }

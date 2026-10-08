@@ -40,6 +40,7 @@ import {
   CANVAS_QUICK_ACTION_BOX_PX,
   CANVAS_QUICK_ACTION_SLOP_PX,
   MIN_TARGET_RENDERED_PX,
+  NODE_QUICK_ACTION_BAND_CSS,
   cornerMarksHeaderReserveCss,
 } from '../shared/canvasGlyphScale'
 import {
@@ -313,7 +314,8 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(root).toContainElement(screen.getByTestId('goal-bottom-marks-g1'))
     expect(screen.getByTestId('goal-bottom-marks-g1')).toContainElement(screen.getByTestId('attention-marker-g1'))
-    expect(root.style.paddingBottom).toBe('9px')
+    // #2649 r3 band overlap: the anchor body clears its bottom marks band.
+    expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 
   it('the contract figure itself: one mark at 100% beside 12px of card padding reserves exactly 21px (`.node h3{padding-right:21px}`)', () => {
