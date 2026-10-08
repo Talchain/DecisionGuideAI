@@ -7,12 +7,12 @@
  * Licence record: served T1b f440be4a (fixture below) + a `reading_label` per P45's contract (Paul graph 632b92b9 shape).
  */
 import { describe, it, expect } from 'vitest'
-import served from '../../analysis-hero/__tests__/fixtures/served-t1b-f440be4a-goal-chance-records.json'
+import served from './fixtures/served-t1b-f440be4a-goal-chance-records.json'
 import {
   GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalFigureWithholds, readGoalIdentityWithheld, withheldClaimsFor,
-} from '../goalIdentityWithheld'
-import { readGoalChanceLicence } from '../goalChanceLicence'
-import { goalChanceOptionLines } from '../../analysis-hero/goalChanceCopy'
+} from '../../utils/goalIdentityWithheld'
+import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
+import { goalChanceOptionLines } from '../goalChanceCopy'
 
 type W = Record<string, unknown>
 const LICENSED = (served as { inference_warnings: W[] }).inference_warnings.find((w) => w.code === 'GOAL_CHANCE_LICENSED')!
