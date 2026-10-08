@@ -64,11 +64,24 @@ afterEach(() => { HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
 describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
   it('opens matching proposal client-side with 0 turn POSTs', () => {
     const { send } = mount(); open(); expect(panel()).toBeTruthy(); expect(send).not.toHaveBeenCalled(); expect(fetchSpy).not.toHaveBeenCalled()
-    expect(within(row()).getByRole('button', { name: /^Strong/ }).getAttribute('aria-pressed')).toBe('true')
-    expect(within(row()).getByText("Olumi's placeholder")).toBeTruthy()
-    fireEvent.click(within(row()).getByRole('button', { name: 'Enter my own' }))
-    expect(within(row()).queryByText("Olumi's placeholder")).toBeNull()
+    // Science 393023 LICENCE ruling 3: a placeholder (the wire still carries current.band 'strong') shows NO size.
     expect(within(row()).getAllByRole('button').filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
+    expect(within(row()).getByText('Not sized yet')).toBeTruthy()
+    expect(row().textContent).not.toMatch(/Olumi's (placeholder|estimate)/)
+    fireEvent.click(within(row()).getByRole('button', { name: 'Enter my own' }))
+    expect(within(row()).queryByText('Not sized yet')).toBeNull()
+    expect(within(row()).getAllByRole('button').filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
+  })
+  it('CONTROL: an estimate field (same band on the wire) lights its band and names whose it is', () => {
+    const w = structuredClone(wire()); w.proposals[0].fields[0] = { ...w.proposals[0].fields[0], current: { band: 'strong', source: 'estimate' } }
+    mount(w); open()
+    expect(within(row()).getByRole('button', { name: /^Strong/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(row()).getByText("Olumi's estimate")).toBeTruthy()
+    expect(within(row()).queryByText('Not sized yet')).toBeNull()
+  })
+  it('a placeholder picked by the user lights the picked band, sent as an edit', () => {
+    mount(); open(); choose()
+    expect(within(row()).getByRole('button', { name: /^Very strong/ }).getAttribute('aria-pressed')).toBe('true')
   })
   it.each([undefined, { version: 1, proposals: [] }, { ...wire(), proposals: [{ ...wire().proposals[0], digest: 'bad' }] }])('no valid entry retains the exact amend sentence (%j)', (fields) => {
     const send = vi.fn().mockResolvedValue(undefined)

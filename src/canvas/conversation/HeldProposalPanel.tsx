@@ -38,7 +38,9 @@ export function useHeldProposalFields(raw: unknown, replyId: string | undefined,
   return useMemo(() => readProposalFields(candidate), [candidate])
 }
 
-const sourceWords = { placeholder: "Olumi's placeholder", estimate: "Olumi's estimate", yours: 'Yours', from_brief: 'From your brief' } as const
+// Science 393023 LICENCE ruling 3: a placeholder is a link nobody has sized. Its default band is never shown as a size —
+// no button is lit and no band label is printed; the words say so. The wire's `current.band` stays (review semantics).
+const sourceWords = { placeholder: 'Not sized yet', estimate: "Olumi's estimate", yours: 'Yours', from_brief: 'From your brief' } as const
 function preset(band: Band) {
   return CANVAS_STRENGTH_BANDS.find(b => b.id === (band === 'very_strong' ? 'veryStrong' : band))!
 }
@@ -108,13 +110,13 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
             <p className={typography.chatBody}>{field.from_label} → {field.to_label}</p>
             {selected === undefined && <p className={`${typography.chatMeta} text-text-light`}>{sourceWords[field.current.source]}</p>}
             {field.editable ? <fieldset disabled={disabled}>
-              <StrengthBandButtons value={preset(band).midpoint * (field.direction === 'negative' ? -1 : 1)} unset={selected === null}
+              <StrengthBandButtons value={preset(band).midpoint * (field.direction === 'negative' ? -1 : 1)} unset={selected === null || (selected === undefined && field.current.source === 'placeholder')}
                 technicalDetails={false} size="chat" onChange={value => {
                   const id = getCanvasStrengthBand(Math.abs(value)).id
                   setSelections(s => ({ ...s, [field.field_id]: id === 'veryStrong' ? 'very_strong' : id }))
                 }} />
               <button type="button" className={CHIP_CLASS} onClick={() => setSelections(s => ({ ...s, [field.field_id]: null }))}>Enter my own</button>
-            </fieldset> : <p className={typography.chatBody}>{preset(field.current.band).label}</p>}
+            </fieldset> : field.current.source === 'placeholder' ? null : <p className={typography.chatBody}>{preset(field.current.band).label}</p>}
           </div>
         )
       })}

@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import type { Edge, Node } from '@xyflow/react'
 
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { requestAsk } from '../askSemantic'
 import { EXAMINE_LINK_LIMIT, EXAMINE_LINK_WHY } from '../examine/examineLinkView'
 import { useCanvasStore } from '../../../store'
@@ -64,7 +65,7 @@ function seed(edge = mappedEdge(), withGoal = false, nodes = NODES) {
 }
 
 function openEdge() {
-  render(<InspectorRouter nodeId={null} edgeId="link-1" onClose={onClose} />)
+  render(<InspectorRouter nodeId={null} edgeId="link-1" onClose={onClose} />, { wrapper: ToastProvider })
   return screen.getByRole('region', { name: 'Inspector panel' })
 }
 
@@ -352,7 +353,7 @@ describe('Relationship inspector anatomy', () => {
 
   it('also routes controllable factors into the shared anatomy, retaining Ask and save truth', () => {
     seed()
-    render(<InspectorRouter nodeId="factor-a" edgeId={null} onClose={onClose} />)
+    render(<InspectorRouter nodeId="factor-a" edgeId={null} onClose={onClose} />, { wrapper: ToastProvider })
     expect(screen.getByRole('button', { name: 'Ask Olumi about A' })).toBeVisible()
     expect(screen.getByTestId('inspector-more-toggle')).toBeVisible()
     expect(screen.getByTestId('inspector-more')).toContainElement(screen.getByTestId('inspector-authority-notice'))

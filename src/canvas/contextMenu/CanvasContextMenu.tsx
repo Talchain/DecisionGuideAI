@@ -37,6 +37,7 @@ export function CanvasContextMenu({
   onSetInteractionMode,
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const submenuTriggerRefs = useRef(new Map<string, HTMLButtonElement>())
   const showToast = useShowToast()
   const [position, setPosition] = useState(target.screenPos)
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -83,6 +84,16 @@ export function CanvasContextMenu({
   })
 
   const actionableItems = items.filter(isMenuItem)
+
+  const openSubmenu = useCallback((itemId: string, trigger: HTMLElement | undefined) => {
+    if (!trigger || !menuRef.current) return
+    const parentRect = menuRef.current.getBoundingClientRect()
+    const itemRect = trigger.getBoundingClientRect()
+    // Use the whole panel for left/right bounds, and the chosen row for top
+    // alignment. Click, keyboard and hover must all measure the same anchor.
+    setSubmenuAnchorRect(new DOMRect(parentRect.left, itemRect.top, parentRect.width, itemRect.height))
+    setOpenSubmenuId(itemId)
+  }, [])
 
   // Adjust position if menu would overflow viewport
   useEffect(() => {
@@ -131,7 +142,7 @@ export function CanvasContextMenu({
           const item = actionableItems[focusedIndex]
           if (!item?.enabled) break
           if (item.hasSubmenu) {
-            setOpenSubmenuId(item.id)
+            openSubmenu(item.id, submenuTriggerRefs.current.get(item.id))
           } else {
             item.action()
           }
@@ -141,7 +152,7 @@ export function CanvasContextMenu({
           e.preventDefault()
           const item = actionableItems[focusedIndex]
           if (item?.hasSubmenu && item.enabled) {
-            setOpenSubmenuId(item.id)
+            openSubmenu(item.id, submenuTriggerRefs.current.get(item.id))
           }
           break
         }
@@ -155,7 +166,7 @@ export function CanvasContextMenu({
           break
       }
     },
-    [actionableItems, focusedIndex, onClose, openSubmenuId],
+    [actionableItems, focusedIndex, onClose, openSubmenuId, openSubmenu],
   )
 
   useEffect(() => {
@@ -183,8 +194,7 @@ export function CanvasContextMenu({
     if (submenuTimerRef.current) clearTimeout(submenuTimerRef.current)
     submenuTimerRef.current = setTimeout(() => {
       hideTooltip() // Cancel tooltip before submenu opens (prevents overlap)
-      setOpenSubmenuId(itemId)
-      setSubmenuAnchorRect(el.getBoundingClientRect())
+      openSubmenu(itemId, el)
     }, 150)
   }
 
@@ -270,6 +280,10 @@ export function CanvasContextMenu({
           return (
             <button
               key={item.id}
+              ref={element => {
+                if (element) submenuTriggerRefs.current.set(item.id, element)
+                else submenuTriggerRefs.current.delete(item.id)
+              }}
               role="menuitem"
               aria-disabled={!item.enabled || undefined}
               aria-haspopup={item.hasSubmenu ? 'menu' : undefined}
@@ -278,10 +292,11 @@ export function CanvasContextMenu({
                 activeTooltip?.itemId === item.id ? `tooltip-${item.id}` : undefined
               }
               tabIndex={isFocused ? 0 : -1}
-              onClick={() => {
+              onClick={(event) => {
                 if (!item.enabled) return
                 if (item.hasSubmenu) {
-                  setOpenSubmenuId(isSubmenuOpen ? null : item.id)
+                  if (isSubmenuOpen) setOpenSubmenuId(null)
+                  else openSubmenu(item.id, event.currentTarget)
                   return
                 }
                 item.action()

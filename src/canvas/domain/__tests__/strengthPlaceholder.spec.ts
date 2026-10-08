@@ -25,6 +25,7 @@ import {
   strengthPlaceholderPatch,
 } from '../strengthPlaceholder'
 import { EdgeDataSchema } from '../edges'
+import { describeEdgeForSpeech } from '../edgeAccessibleName'
 
 type WireEdge = Record<string, unknown> & { from: string; to: string }
 const WIRE = (fixture as unknown as { draft: { edges: WireEdge[] } }).draft.edges
@@ -187,5 +188,27 @@ describe('it survives a save and a reload', () => {
     delete older.data.strengthPlaceholder
     const after = overlayEdge(older, { ...PRICE_TO_MRR }, { acquireServerStrengthOnNoop: true })
     expect(after.data.strengthPlaceholder).toBe(0.5)
+  })
+})
+
+describe('the words agree with the thin grey line (Science 393023 LICENCE ruling 3)', () => {
+  const drafted = () => mapDraftEdgeToCanvas({ ...PRICE_TO_MRR }, 0).data as Record<string, unknown>
+
+  it('a placeholder link is NAMED "strength not set", never a band nobody chose', () => {
+    expect(isStrengthPlaceholder(drafted())).toBe(true)
+    const words = describeEdgeForSpeech(drafted(), 'human')
+    expect(words).toMatch(/strength not set/)
+    expect(words).not.toMatch(/^(Slight|Moderate|Strong|Very strong) (boost|drag)/)
+  })
+
+  it('CONTROL: the same link once a person sets it is named by its band', () => {
+    const words = describeEdgeForSpeech({ ...drafted(), weight: 0.5, weightSource: 'user' }, 'human')
+    expect(words).not.toMatch(/strength not set/)
+    expect(words).toMatch(/(boost|drag)/)
+  })
+
+  it("CONTROL: an olumi_estimate link keeps its band (Olumi's estimate is a size)", () => {
+    const words = describeEdgeForSpeech(mapDraftEdgeToCanvas({ ...PRICE_TO_NEW_SUBS }, 0).data, 'human')
+    expect(words).not.toMatch(/strength not set/)
   })
 })

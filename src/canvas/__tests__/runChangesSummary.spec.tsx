@@ -22,7 +22,7 @@ import { RunChangesSummary, RUN_CHANGES_SUMMARY_TESTID } from '../components/Run
 import { RUN_CHANGES_SUMMARY_COPY, runChangesSummaryLines } from '../graphChanges/runChangesSummaryLines'
 import { displayedRunDeltaView, nodeLabelMap } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { noiseQualifier, WHATS_CHANGED_NO_PAIRS, INPUTS_UNCHANGED_TEXT, INPUTS_PARTIAL_TEXT, INPUTS_NOT_RECORDED_TEXT } from '../../components/results/analysisNew/sections/WhatsChanged'
-import { winShareWithheldReason } from '../state/winShareGate'
+import { winShareWithheldReason, WITHHELD_REASON_FALLBACK } from '../state/winShareGate'
 import { focusNodeById } from '../utils/focusHelpers'
 
 vi.mock('../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
@@ -115,21 +115,114 @@ describe('M2-1b · no input rows: Compare\'s sentence for the coverage, never a 
       expect(lines.changed).toEqual([])
       expect(lines.changedNote).toBe(text)
       render(<RunChangesSummary />)
-      // No rows → the label says what the note is about ("Inputs"), never "Changed" over "Both runs used the same input
-      // values." (served 2 Oct, guest 4b218a76: every unchanged rerun read "Changed Both runs used the same input values.").
-      expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.inputs} ${text} · ${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+      // No rows → both notes are standalone clauses, without an input-change or movement label.
+      expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${text} · ${noiseQualifier('within_noise')}`)
       expect(screen.getByTestId(`${T}-line`).textContent).not.toContain(RUN_CHANGES_SUMMARY_COPY.changed)
       cleanup()
     })
   }
-  it('no input comparison at all (a pre-SC-24 delta) → no "Changed" claim; Moved still said', () => {
+  it('no input comparison at all (a pre-SC-24 delta) → only the movement note, without a label', () => {
     const d = delta() as unknown as Record<string, unknown>
     delete d.input_coverage
     delete d.input_changes
     seed(d as never)
     expect(readerView().inputs).toBeNull()
     render(<RunChangesSummary />)
-    expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+    expect(screen.getByTestId(`${T}-line`).textContent).toBe(noiseQualifier('within_noise'))
+  })
+})
+
+describe('Q10 · labels belong to rows; notes are standalone clauses', () => {
+  beforeEach(() => {
+    // Force the existing truncation path so the same row/note rule is checked in the detail too.
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(200)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100)
+  })
+
+  const cases = [
+    {
+      name: "Paul's two added links + withheld option",
+      over: { input_changes: [
+        { entity_kind: 'link', entity_id: 'price_slips', field: 'presence', link: { from: 'pro_price', to: 'release_slips' }, before: null, after: { raw: true }, change: 'added' },
+        { entity_kind: 'link', entity_id: 'slips_mrr', field: 'presence', link: { from: 'release_slips', to: 'mrr' }, before: null, after: { raw: true }, change: 'added' },
+      ] },
+      withheld: true,
+      changed: [
+        'Link from Pro plan price to Feature release slips added to the model',
+        'Link from Feature release slips to MRR added to the model',
+      ],
+      moved: [],
+      note: WITHHELD_REASON_FALLBACK,
+      text: "Changed: Link from Pro plan price to Feature release slips added to the model · +1 more · Olumi isn't naming an option on this run.",
+    },
+    {
+      name: 'a real moved row',
+      over: {},
+      withheld: false,
+      changed: ['Monthly churn: 7% → 12%'],
+      moved: ['Keep pricing: 41% → 55%'],
+      note: null,
+      text: 'Changed: Monthly churn: 7% → 12% · Moved: Keep pricing: 41% → 55%',
+    },
+    {
+      name: 'only a note, no input comparison',
+      over: { input_changes: undefined, input_coverage: undefined },
+      withheld: true,
+      changed: [],
+      moved: [],
+      note: WITHHELD_REASON_FALLBACK,
+      text: "Olumi isn't naming an option on this run.",
+    },
+  ]
+
+  for (const row of cases) {
+    it(row.name, () => {
+      seed(delta({
+        win_probabilities: [{ option_id: 'opt_a', prior: 0.41, current: 0.55, noise_verdict: 'signal' }],
+        ...row.over,
+      }), { report: row.withheld ? { producer_leader_permission: { permitted: false } } : {} })
+      useCanvasStore.setState({ nodes: [
+        ...NODES,
+        { id: 'pro_price', type: 'factor', data: { label: 'Pro plan price' } },
+        { id: 'release_slips', type: 'risk', data: { label: 'Feature release slips' } },
+        { id: 'mrr', type: 'goal', data: { label: 'MRR' } },
+      ] } as never)
+      const lines = runChangesSummaryLines(readerView(), row.withheld, row.withheld ? winShareWithheldReason({ permitted: false }) : null)
+      expect(lines.changed.map((c) => c.text)).toEqual(row.changed)
+      expect(lines.moved).toEqual(row.moved)
+      expect(lines.movedNote).toBe(row.note)
+      if (row.changed.length === 0) expect(lines.changedNote).toBeNull()
+
+      render(<RunChangesSummary />)
+      expect(screen.getByRole('status').textContent).toBe(`Since the last run · ${row.text} Why?`)
+      const pill = screen.getByTestId(`${T}-line`)
+      expect(pill.textContent).toBe(row.text)
+      expect(pill.getAttribute('title')).toBe(row.text)
+      if (row.note !== null) expect(screen.getByTestId(T).textContent).not.toContain('Moved')
+      fireEvent.click(screen.getByTestId(`${T}-why-toggle`))
+      const moved = screen.getByTestId(`${T}-moved`)
+      expect(moved.textContent).toBe(row.note ?? `Moved: ${row.moved[0]}`)
+      expect(moved.querySelector('dt')?.textContent ?? null).toBe(row.note === null ? 'Moved: ' : null)
+      if (row.note !== null) expect(screen.getByTestId(T).textContent).not.toContain('Moved')
+      if (row.changed.length > 0) expect(screen.getByTestId(`${T}-changed`).querySelector('dt')?.textContent).toBe('Changed: ')
+      else expect(screen.queryByTestId(`${T}-changed`)).toBeNull()
+    })
+  }
+
+  it('an input note also has no row label in the pill, tooltip, or detail', () => {
+    seed(delta({ input_changes: [] }))
+    const lines = runChangesSummaryLines(readerView(), false, null)
+    expect(lines.changed).toEqual([])
+    expect(lines.changedNote).toBe(INPUTS_UNCHANGED_TEXT)
+    render(<RunChangesSummary />)
+    const text = `${INPUTS_UNCHANGED_TEXT} · ${noiseQualifier('within_noise')}`
+    expect(screen.getByTestId(`${T}-line`).textContent).toBe(text)
+    expect(screen.getByTestId(`${T}-line`).getAttribute('title')).toBe(text)
+    fireEvent.click(screen.getByTestId(`${T}-why-toggle`))
+    expect(screen.getByTestId(`${T}-changed`).textContent).toBe(INPUTS_UNCHANGED_TEXT)
+    expect(screen.getByTestId(`${T}-changed`).querySelector('dt')).toBeNull()
+    expect(screen.getByTestId(`${T}-moved`).textContent).toBe(noiseQualifier('within_noise'))
+    expect(screen.getByTestId(`${T}-moved`).querySelector('dt')).toBeNull()
   })
 })
 
@@ -211,7 +304,7 @@ describe('M2-5 · only for the analysis on screen; closes; focuses', () => {
     render(<RunChangesSummary />)
     expect(screen.getByTestId(T).getAttribute('data-response-hash')).toBe('hash-A')
     const line = screen.getByTestId(`${T}-line`).textContent
-    expect(line).toBe(`${RUN_CHANGES_SUMMARY_COPY.changed} Monthly churn: 7% → 12% · ${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+    expect(line).toBe(`${RUN_CHANGES_SUMMARY_COPY.changed}: Monthly churn: 7% → 12% · ${noiseQualifier('within_noise')}`)
   })
   const absent: Array<[string, () => void]> = [
     ['no delta', () => seed(null)],

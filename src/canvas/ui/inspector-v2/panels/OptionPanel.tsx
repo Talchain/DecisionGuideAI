@@ -604,7 +604,13 @@ export const OptionPanel = memo(function OptionPanel({
       ? 'olumi'
       : firstTargetProvenance?.userOwned ? 'user' : null
   const summarySentence = firstTarget
-    ? `Sets ${firstTarget.factorLabel} to ${firstReading?.reading ?? firstTarget.displayValue ?? ''}${interventions.length > 1 ? ` + ${interventions.length - 1} more` : ''}`
+    // EDIT-UX: name WHAT it changes; each target's value is the row directly below.
+    // Restating the reading here repeated the factor's name ("Sets X to X active").
+    ? interventions.length === 1
+      ? `Changes ${firstTarget.factorLabel}.`
+      : interventions.length === 2
+        ? `Changes 2 factors: ${firstTarget.factorLabel} and ${interventions[1].factorLabel}.`
+        : `Changes ${interventions.length} factors: ${firstTarget.factorLabel}, ${interventions[1].factorLabel} and ${interventions.length - 2} more.`
     : outboundConnections.length > 0
       ? OPTION_STRINGS.linksWithoutValues
         .replace('{count}', String(outboundConnections.length))
