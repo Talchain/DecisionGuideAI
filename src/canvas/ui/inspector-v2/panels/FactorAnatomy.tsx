@@ -36,7 +36,7 @@ export function FactorAnatomySummary({
         sentence={displayText
           ? `${label} is ${displayText}.`
           : hasStoredValue
-            ? `${label} has a value, but no scale is recorded for it.`
+            ? `${label} has a value, but no unit is recorded for it.`
             : `${label} has no value yet.`}
         chip={displayText && !pending ? factorSummaryChip(sourceLabel) : null}
       />

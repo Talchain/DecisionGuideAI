@@ -134,7 +134,7 @@ describe('factor primary and More content', () => {
       seed(nodes.map(n => n.id === id ? { ...n, data } : n))
       open(id)
       const sentence = screen.getByTestId('inspector-summary-sentence')
-      expect(sentence.textContent).toBe('Price has a value, but no scale is recorded for it.')
+      expect(sentence.textContent).toBe('Price has a value, but no unit is recorded for it.')
       expect(sentence).toBeVisible()
       expect(screen.queryByTestId('inspector-provenance-chip')).toBeNull()
       if (id === 'controllable' && value === 70) {
