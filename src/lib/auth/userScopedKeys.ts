@@ -68,6 +68,23 @@ export const USER_SCOPED_SESSION_KEYS = [
   'defineSuccess.measure.v1', 'strengthen.lifecycle.v1',
 ] as const
 
+/** Removes this tab's user-scoped reload state without touching another tab's shared work. Never throws. */
+export function sweepUserScopedSessionStorage(): void {
+  const remove = (key: string): void => {
+    try { sessionStorage.removeItem(key) } catch { /* the sweep goes on */ }
+  }
+  for (const key of USER_SCOPED_SESSION_KEYS) remove(key)
+  // Include registered per-scenario prefixes in sessionStorage too: older tab-local copies belong to the same user.
+  const prefixed: string[] = []
+  try {
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i)
+      if (key && USER_SCOPED_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix))) prefixed.push(key)
+    }
+  } catch { /* browser storage can be unavailable */ }
+  for (const key of prefixed) remove(key)
+}
+
 /** Removes every user-scoped key, prefixed key and session key. Synchronous; never throws. */
 export function sweepUserScopedStorage(): void {
   // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
@@ -84,5 +101,5 @@ export function sweepUserScopedStorage(): void {
     }
   } catch { /* browser storage can be unavailable */ }
   for (const key of prefixed) remove(() => localStorage, key)
-  for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
+  sweepUserScopedSessionStorage()
 }

@@ -15,6 +15,7 @@ import { loadTranscript, saveTranscript, __resetTranscriptTombstonesForTests } f
 import type { ConversationMessage } from '../../canvas/conversation/types'
 import { __resetThinClientForTests } from '../../canvas/thinClient/thinClient'
 import { __resetPersistenceSessionForTests } from '../../lib/persistenceSession'
+import { crossIdentityBoundaryInThisTab } from '../../canvas/store/scenarios'
 
 const getSession = vi.fn()
 const onAuthStateChange = vi.fn()
@@ -45,13 +46,17 @@ const message = (content: string): ConversationMessage =>
 async function renderProvider(): Promise<{ fire: (event: string, s: unknown) => Promise<void>; signOut: () => Promise<unknown> }> {
   const { AuthProvider, useAuth } = await import('../AuthContext')
   let signOut: (() => Promise<unknown>) | undefined
+  let owner: string | undefined
   function Probe() {
-    signOut = useAuth().signOut
+    const auth = useAuth()
+    signOut = auth.signOut
+    owner = auth.user?.id
     return null
   }
   await act(async () => {
     render(<MemoryRouter><AuthProvider><Probe /></AuthProvider></MemoryRouter>)
   })
+  expect(owner, 'each case must actually adopt A before testing its session boundary').toBe('account-a')
   const callback = onAuthStateChange.mock.calls[0][0] as (event: string, s: unknown) => void
   return {
     fire: async (event, s) => { await act(async () => { callback(event, s) }) },
@@ -64,6 +69,9 @@ describe('LAPSE-BOUNDARY × provider: a sign-in adopted after a boundary on this
     vi.clearAllMocks()
     localStorage.clear()
     sessionStorage.clear()
+    // This file keeps one module registry: clearing disk alone leaves the preceding case's held epoch in memory,
+    // which correctly rejects A's next bootstrap as unmatched. Establish the new case's own current page era first.
+    crossIdentityBoundaryInThisTab('lapse-record-test-page', null)
     __resetLapseBoundaryForTests()
     __resetThinClientForTests()
     __resetPersistenceSessionForTests()

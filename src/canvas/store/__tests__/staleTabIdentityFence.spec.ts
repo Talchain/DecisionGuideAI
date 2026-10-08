@@ -31,8 +31,9 @@ async function bootTab() {
   const crash = await import('../../persist/crashFlush')
   const auth = await import('../../../lib/auth/userScopedState')
   const authUtils = await import('../../../lib/auth/authUtils')
+  const lock = await import('../../../lib/auth/staleTabLock')
   const { useCanvasStore: store } = await import('../../store')
-  return { scenarios, persist, crash, auth, authUtils, store }
+  return { scenarios, persist, crash, auth, authUtils, lock, store }
 }
 /** Another tab's identity boundary, as it reaches THIS tab: shared storage changes, this tab's memory does not. */
 function anotherTabRotatesEpoch(next: string) {
@@ -191,15 +192,33 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
   })
 
   it('S-G2 buddy-r1: a first sign-in after another tab rotates an unmatched era stays LOCKED', async () => {
-    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
     const tab1 = await bootTab()
-    tab1.auth.clearUserScopedState(null) // tab 1 signs A out
-    const tab3 = await bootTab() // a new tab opens signed out: real-auth sweeps on its null session (AuthContext:377)
-    tab3.auth.clearUserScopedState(null)
+    const tab2 = await bootTab()
+    // A first sign-in keeps the held guest era's owner tag. A's genuine sign-out must still rotate it.
+    expect(tab2.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    tab2.auth.clearUserScopedState(null)
+    expect(localStorage.getItem(EPOCH_KEY)).not.toBe('guest-era|owner:none')
 
-    tab1.auth.adoptIdentityEpochAtSignIn('user-A') // A signs back in in tab 1: not a boundary there (AuthContext:388)
+    expect(tab1.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+    expect(tab1.lock.checkStaleTabLock()).toBe(true)
     expect(tab1.scenarios.getIdentityWriteBlockReason()).toBe('stale')
     expect(tab1.scenarios.saveAutosave(graph(A_ID, 'A again')), 'an unmatched first sign-in must stay locked').toBe(false)
+  })
+
+  it('S-G2 round 2 null boot: a second never-signed-in page sweeps without rotating or joining the era', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+    const tab1 = await bootTab()
+    const tab2 = await bootTab()
+    // The real provider uses this posture for getSession(null) and INITIAL_SESSION(null) when its own
+    // lastSignedInUserId is null. The mounted real-provider regression also drives both transport callbacks.
+    tab2.authUtils.clearAuthStates({ rotateEpoch: false })
+    tab2.authUtils.clearAuthStates({ rotateEpoch: false })
+
+    expect(localStorage.getItem(EPOCH_KEY)).toBe('guest-era|owner:none')
+    expect(tab1.lock.checkStaleTabLock()).toBe(false)
+    expect(tab1.scenarios.saveAutosave(graph(A_ID, 'still signed out'))).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('guest-era|owner:none')
   })
 
   it.each(['optional-auth', 'real-auth'])('S-G2 delayed SIGNED_OUT %s joins without deleting fresh guest autosave or shared work', async caller => {
@@ -289,6 +308,27 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
     expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
     expect(current.scenarios.saveAutosave(graph(A_ID, 'current'))).toBe(true)
+  })
+
+  it('S-G2 round 2 P1: rejected sign-in after both boot reads fail requires the reload lock', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+    const realGet = Storage.prototype.getItem
+    const refusedRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY) throw new DOMException('Both boot reads refused', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    const tab = await bootTab()
+    const lock = await import('../../../lib/auth/staleTabLock')
+    const unsubscribe = lock.subscribeStaleTabLock(() => {})
+    try {
+      expect(lock.isStaleTabLocked(), 'unreadable storage alone is not a lock').toBe(false)
+      refusedRead.mockRestore()
+      expect(tab.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+      expect(lock.isStaleTabLocked(), 'rejected adoption with no boot witness silently stranded the session').toBe(true)
+      expect(tab.scenarios.saveAutosave(graph(A_ID, 'unverified A'))).toBe(false)
+      expect(localStorage.getItem(SLOT)).toBeNull()
+      expect(localStorage.getItem(EPOCH_KEY)).toBe('guest-era|owner:none')
+    } finally { unsubscribe() }
   })
 
   it.each(['same-owner', 'already-held'])('S-G2 current first sign-in control: %s epoch adoption is permitted', async mode => {
@@ -517,11 +557,13 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
       return realGet.call(this, key)
     })
     const tab = await bootTab()
+    const lock = await import('../../../lib/auth/staleTabLock')
     const messages: string[] = []
     const listener = (event: Event) => { messages.push((event as CustomEvent).detail.message) }
     window.addEventListener('topbar:show-toast', listener)
     try {
       expect.soft(tab.scenarios.getIdentityWriteBlockReason()).toBeNull()
+      expect.soft(lock.checkStaleTabLock()).toBe(false)
       expect.soft(tab.scenarios.saveAutosave(graph(A_ID, 'own work'))).toBe(true)
       expect.soft(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('unchanged-boot-era')
       expect.soft(messages, 'recovered storage must not claim an identity boundary').toEqual([])

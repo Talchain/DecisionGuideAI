@@ -375,7 +375,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleAuthStateChange = useCallback((session: Session | null) => {
     if (!session) {
-      clearAuthStates();
+      // A null boot/INITIAL_SESSION in a page that never held a signed-in user is not a session ending. Keep the
+      // existing cleanup, but do not rotate or join the epoch. First sign-in does not retag an era, so this decision
+      // must use this page's history, never the shared era's owner. Genuine session endings still cross as before.
+      clearAuthStates({ rotateEpoch: lastSignedInUserId !== null });
       clearSentryUser();
       resetPostHog();
       setState({ user: null, profile: null, loading: false, authenticated: false });

@@ -136,6 +136,48 @@ describe('S-G2 sticky tab lock', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
+  it('S-G2 round 2 P1: A sign-in rejected after both boot reads fail shows Reload when storage recovers', async () => {
+    vi.resetModules()
+    localStorage.setItem(EPOCH, 'guest-era|owner:none')
+    const get = Storage.prototype.getItem
+    const refused = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key) {
+      if (key === EPOCH) throw new Error('Both boot reads refused')
+      return get.call(this, key)
+    })
+    scenarios = await import('../../../canvas/store/scenarios')
+    Lock = (await import('../StaleTabLock')).default
+    mount()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    refused.mockRestore()
+
+    act(() => { expect(scenarios.adoptIdentityEpochAtSignIn('A')).toBe(false) })
+
+    expect(screen.getByRole('alertdialog', { name: WORDS })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reload' })).toHaveFocus()
+    expect(localStorage.getItem(EPOCH)).toBe('guest-era|owner:none')
+  })
+
+  it('CONTROL P2: a witnessed unreadable boot recovers unchanged without auth, stays unlocked and saves', async () => {
+    vi.resetModules()
+    localStorage.setItem(EPOCH, 'unchanged-guest-era|owner:none')
+    const get = Storage.prototype.getItem
+    let refused = false
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key) {
+      if (key === EPOCH && !refused) {
+        refused = true
+        throw new Error('First boot read refused')
+      }
+      return get.call(this, key)
+    })
+    scenarios = await import('../../../canvas/store/scenarios')
+    Lock = (await import('../StaleTabLock')).default
+    mount()
+    fireEvent(window, new Event('focus'))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(scenarios.saveAutosave({ timestamp: 1, nodes: [], edges: [] })).toBe(true)
+    expect(JSON.parse(localStorage.getItem('olumi-canvas-autosave') ?? 'null')?.identityEpoch).toBe('unchanged-guest-era|owner:none')
+  })
+
   it.each(['fresh boot', 'own sign-out then work', 'matching owner sign-in', 'held-era first sign-in', 'current refresh', 'unrelated key', 'unreadable'] as const)('CONTROL: %s never locks', async control => {
     if (control === 'fresh boot') {
       localStorage.clear()

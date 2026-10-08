@@ -14,17 +14,20 @@ import { useServerConversationTurnsStore } from '../../canvas/stores/serverConve
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
 import { noteIdentityBoundary } from './lapseBoundary'
-import { freshIdentityEpoch, sweepUserScopedStorage } from './userScopedKeys'
+import { freshIdentityEpoch, sweepUserScopedSessionStorage, sweepUserScopedStorage } from './userScopedKeys'
 
 // The key lists and the storage sweep live in a leaf with no imports, so the lapse boundary can sweep without this chunk
 // (`userScopedKeys.ts`). Re-exported here for the boundary's existing readers.
 export { USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES, USER_SCOPED_SESSION_KEYS } from './userScopedKeys'
 
 /** One identity boundary for sign-out and A→B auth transitions. */
-/** `nextOwner`: the identity this boundary leads to (a user id; `null` = signed out); omitted = not known (the epoch always rotates). */
-export function clearUserScopedState(nextOwner?: string | null): 'joined' | 'fresh' {
+/** `nextOwner`: the next identity (a user id; `null` = signed out); omitted = unknown (never joins when rotating). */
+export function clearUserScopedState(
+  nextOwner?: string | null,
+  { rotateEpoch = true }: { rotateEpoch?: boolean } = {},
+): 'joined' | 'fresh' {
   // Each step on its own: one that throws never stops the memory resets after it; a fresh boundary also completes
-  // its shared storage sweep. Joined boundaries reset only this tab's memory.
+  // its shared storage sweep. Joined boundaries reset this tab's memory and sessionStorage.
   const step = (fn: () => void): void => {
     try { fn() } catch { /* the boundary goes on */ }
   }
@@ -33,7 +36,11 @@ export function clearUserScopedState(nextOwner?: string | null): 'joined' | 'fre
   // CAN-F2g: THIS tab crosses the boundary and owns the resulting epoch (joining one another tab already rotated for
   // the same boundary); every tab that has not crossed it is stale and cannot write.
   let boundary: 'joined' | 'fresh' = 'fresh'
-  try { boundary = crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner) } catch { /* cleanup still runs */ }
+  // A null-session tab that never held a signed-in user still performs its existing local cleanup, without claiming
+  // an identity boundary. The provider supplies this tab-local knowledge; the shared era's owner is insufficient.
+  if (rotateEpoch) {
+    try { boundary = crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner) } catch { /* cleanup still runs */ }
+  }
   const preserveStorage = boundary === 'joined'
   step(() => useCanvasStore.getState().resetCanvas({ preserveStorage }))
   // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
@@ -68,7 +75,9 @@ export function clearUserScopedState(nextOwner?: string | null): 'joined' | 'fre
   // Panel participants' names and their cited evidence, fetched with the previous owner's token (in memory, 5-min TTL).
   step(clearRoundRosterCache)
   step(clearCitedEvidenceCache)
-  if (!preserveStorage) step(sweepUserScopedStorage)
+  // Another tab cannot remove this tab's sessionStorage. Joining preserves its shared work, but must discard our
+  // previous account's reloadable measure, Strengthen history, guidance and analysis-ready mirrors.
+  step(preserveStorage ? sweepUserScopedSessionStorage : sweepUserScopedStorage)
   // This tab crossed the boundary; a fresh sweep removed `SIGNED_IN_HERE_KEY`, while a join preserves shared records.
   step(noteIdentityBoundary)
   return boundary

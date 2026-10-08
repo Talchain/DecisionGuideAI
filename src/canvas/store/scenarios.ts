@@ -755,6 +755,9 @@ let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
 // era; the first readable permission read may adopt it only while it still matches. If both boot reads refused, a
 // later non-null epoch has no known baseline and remains unreadable rather than being guessed current or stale.
 let pendingIdentityEpochWitness = tabIdentityEpoch === undefined ? readIdentityEpoch() : undefined
+// A rejected auth adoption without a boot witness cannot be resolved on this page. Preserve the write fence and
+// require a reload even though an unknown boot epoch, on its own, is not evidence that another tab changed identity.
+let rejectedUnknownIdentityAdoption = false
 /**
  * An epoch names the identity whose ERA it opens: `<random>|owner:<user id | none | ?>`, in the one value, so the tag
  * can never tear from the epoch. Readers compare whole strings, so they are unaffected. `?` = the boundary did not say
@@ -810,6 +813,7 @@ export function adoptIdentityEpochAtSignIn(userId: string): boolean {
     notifyIdentityEpochChanged()
     return true
   }
+  if (tabIdentityEpoch === undefined) rejectedUnknownIdentityAdoption = true
   notifyIdentityEpochChanged() // the mounted lock latches synchronously, before any further auth side effects
   return false
 }
@@ -852,8 +856,9 @@ export function getIdentityWriteBlockReason(): IdentityWriteBlockReason | null {
   return 'reason' in permission ? permission.reason : null
 }
 
-/** The page lock also covers a readable key removal; unresolved boot storage is never guessed stale. */
+/** The page lock also covers a readable key removal and a rejected auth adoption with no known boot witness. */
 export function isIdentityEpochStaleForThisTab(): boolean {
+  if (rejectedUnknownIdentityAdoption) return true
   const permission = identityWritePermission()
   if ('reason' in permission) return permission.reason === 'stale'
   return permission.epoch !== tabIdentityEpoch

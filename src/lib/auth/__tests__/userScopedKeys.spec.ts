@@ -50,4 +50,15 @@ describe('LAPSE-FC — a leaf the main bundle can carry', () => {
     expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).toBe('epoch')
     localStorage.clear()
   })
+
+  it('the session sweep also removes registered user-scoped prefixes while preserving device preferences', () => {
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) sessionStorage.setItem(key, 'A private state')
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) sessionStorage.setItem(`${prefix}scenario-a`, 'A private state')
+    sessionStorage.setItem('canvas.viewMode', 'device-preference')
+    leaf.sweepUserScopedStorage()
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) expect(sessionStorage.getItem(key)).toBeNull()
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) expect.soft(sessionStorage.getItem(`${prefix}scenario-a`), prefix).toBeNull()
+    expect(sessionStorage.getItem('canvas.viewMode')).toBe('device-preference')
+    sessionStorage.clear()
+  })
 })
