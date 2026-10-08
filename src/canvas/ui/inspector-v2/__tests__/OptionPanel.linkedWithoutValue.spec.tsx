@@ -246,6 +246,10 @@ describe('OptionPanel — linked factor without a target', () => {
       n.id === EMPTY ? { ...n, data: { ...n.data, observedState: { unit } } } : n,
     ) })
     mount()
+    // A model-scale entry lives under technical detail (labelled), as for a set row — never in the default view.
+    expect(within(rowFor(EMPTY)).queryByRole('textbox')).toBeNull()
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+    fireEvent.click(screen.getByTestId('inspector-tech-toggle'))
     await enter(EMPTY, '£500')
     expect(screen.getByTestId(`intervention-entry-refusal-${EMPTY}`)).toHaveTextContent('model scale')
     expect(proposeOptionIntervention).not.toHaveBeenCalled()
@@ -257,5 +261,30 @@ describe('OptionPanel — linked factor without a target', () => {
   it('source scan: OptionPanel never calls the forbidden local intervention writer', () => {
     const source = readFileSync('src/canvas/ui/inspector-v2/panels/OptionPanel.tsx', 'utf8')
     expect(source).not.toMatch(/\bsetIntervention\s*\(/)
+  })
+})
+
+describe('OptionPanel — an empty model-scale target keeps the set rows\' guard (Codex head review P1)', () => {
+  // A £ factor with no cap and no frame: its entry is on the model's internal 0–1 scale, so "0.5" meant as £0.50
+  // would record 0.5 (shown as £50). Set rows keep such a box under labelled technical detail; an empty row must too.
+  function seedModelScale() {
+    seed()
+    useCanvasStore.setState(state => ({
+      nodes: state.nodes.map(n => n.id === EMPTY
+        ? { ...n, data: { ...(n.data as object), observedState: { value: 0.2, raw_value: 20 } } }
+        : n),
+    }) as never)
+  }
+
+  it('model-scale empty target: no box in the default view, and the route note is shown', () => {
+    seedModelScale()
+    mount()
+    expect(within(rowFor(EMPTY)).queryByRole('textbox')).toBeNull()
+    expect(screen.getByTestId('option-target-edit-route')).toBeInTheDocument()
+  })
+
+  it('CONTRAST: the same factor in its own units (£ with a cap) shows the empty box in the default view', () => {
+    mount()
+    expect(inputFor(EMPTY)).toBeEnabled()
   })
 })

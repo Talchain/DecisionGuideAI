@@ -125,10 +125,11 @@ describe('L-40 · OptionPanel does not deny factor links it is simultaneously li
     for (const [id, label] of [['fac1', 'Team productivity'], ['fac2', 'Hiring spend'], ['fac3', 'Onboarding load']]) {
       const row = within(input as HTMLElement).getByTestId(`inspector-intervention-${id}`)
       expect(row).toHaveTextContent(label)
-      const box = within(row).getByRole('textbox')
-      expect(box).toBeEnabled()
-      expect(box).toHaveValue('')
+      // These factors carry no unit, so their entry is on the model's 0–1 scale: like a set row, the box sits under
+      // technical detail (Codex head review P1), and the route note says where it is.
+      expect(within(row).queryByRole('textbox')).toBeNull()
     }
+    expect(within(input as HTMLElement).getByTestId('option-target-edit-route')).toBeInTheDocument()
     expect(input?.textContent).not.toContain(EMPTY_STATES.noInterventions)
     expect(container.querySelector('[data-panel-group="connections"]')).toBeNull()
   })

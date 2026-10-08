@@ -400,6 +400,18 @@ export const OptionPanel = memo(function OptionPanel({
     (iv): iv is typeof iv & { value: number } => iv.value !== undefined,
   ), [interventionRows])
   const linkedWithoutValueCount = interventionRows.length - interventions.length
+  /**
+   * EDIT-UX 3b-i (Codex head review P1): an EMPTY linked target takes the SAME guard as a set one. Its box is shown in the
+   * default view only when the entry frame is the factor's own units; a model-scale (0–1) entry stays under technical
+   * detail, labelled, with the route note — otherwise "0.5" meant as £0.50 would be recorded as the model value 0.5.
+   */
+  const emptyTargetTakesUserUnits = (iv: { unit?: string; cap?: number; baseline?: number; rawBaseline?: number }) =>
+    resolveOptionTargetEntryFrame({
+      unit: iv.unit,
+      cap: iv.cap,
+      observedValue: iv.baseline,
+      observedRawValue: iv.rawBaseline,
+    }).kind === 'user_units'
 
   // Set of already-intervened factor IDs for the dropdown and connection filter
   const interventionIds = useMemo(() => {
@@ -702,7 +714,9 @@ export const OptionPanel = memo(function OptionPanel({
       {/* ── Input group (what this option changes) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.whatThisChanges}>
         <PrimaryControlCard>
-          {!techMode && interventions.some(iv => targetReadings.get(iv.factorId)?.inputMatchesReading === false) && (
+          {!techMode && interventionRows.some(iv => (iv.value === undefined
+            ? !emptyTargetTakesUserUnits(iv)
+            : targetReadings.get(iv.factorId)?.inputMatchesReading === false)) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-0 mb-1.5`}
               data-testid="option-target-edit-route"
@@ -765,7 +779,9 @@ export const OptionPanel = memo(function OptionPanel({
                   ? `${iv.factorLabel} to …`
                   : targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
                 readingIsTarget={targetReadings.get(iv.factorId)?.readingIsTarget ?? true}
-                inputMatchesReading={iv.value === undefined || (targetReadings.get(iv.factorId)?.inputMatchesReading ?? false)}
+                inputMatchesReading={iv.value === undefined
+                  ? emptyTargetTakesUserUnits(iv)
+                  : (targetReadings.get(iv.factorId)?.inputMatchesReading ?? false)}
                 optionLabel={optionAccessibleLabel}
                 /* ⭐ A value that did not land stays on ITS row, marked, until
                    dismissed — bound by factor identity, never by position. */
