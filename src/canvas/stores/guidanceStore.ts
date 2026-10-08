@@ -4,6 +4,7 @@
  * Holds the latest guidance_items from the OrchestratorResponseEnvelopeV2
  * and tracks the currently focused item across the strip, inspector, and canvas.
  */
+import '../../lib/auth/userScopedKeys'
 import { create } from 'zustand'
 import {
   AlertCircle,

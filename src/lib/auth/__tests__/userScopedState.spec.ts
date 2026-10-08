@@ -26,13 +26,14 @@ async function bootTab(session: Storage) {
   const strengthen = await import('../../../canvas/stores/strengthenStore')
   const guidance = await import('../../../canvas/stores/guidanceStore')
   const { useCanvasStore: canvas } = await import('../../../canvas/store')
-  return { auth, scenarios, success, strengthen, guidance, canvas }
+  const lock = await import('../staleTabLock')
+  return { auth, scenarios, success, strengthen, guidance, canvas, lock }
 }
 
 describe('user-scoped state identity boundary', () => {
   afterEach(() => { localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals() })
 
-  it.each(['shared-scenario', '__unscoped__'])('S-G2 joined A→B clears tab-local reasoning before reload (%s)', async scenarioKey => {
+  it.each(['shared-scenario', '__unscoped__'])('S-G2 v2 P0(2): reload BEFORE relay drops A tab-local reasoning for B (%s)', async scenarioKey => {
     localStorage.setItem('olumi-canvas-identity-epoch', 'era-A|owner:user-A')
     const sessionA = tabSession()
     const tabA = await bootTab(sessionA)
@@ -68,17 +69,13 @@ describe('user-scoped state identity boundary', () => {
       timeframe: 'B own timeframe', baseline: 'B own baseline', savedAt: 456,
     })
     localStorage.setItem('olumi-canvas-autosave', 'B own shared work')
-    const sharedBeforeJoin = Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
+    const sharedBeforeLock = Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
     vi.stubGlobal('sessionStorage', sessionA)
 
-    expect(tabA.auth.clearUserScopedState('user-B')).toBe('joined')
+    // Reload happens after the epoch storage event and BEFORE any SDK relay or provider cleanup.
+    expect(tabA.lock.checkStaleTabLock()).toBe(true)
     expect(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])),
-      'joining must preserve the current account\'s shared work').toEqual(sharedBeforeJoin)
-    expect(tabA.success.useSuccessMeasureStore.getState().byScenario).toEqual({})
-    expect(tabA.strengthen.useStrengthenStore.getState().records).toEqual({})
-    expect(tabA.guidance.useGuidanceStore.getState().guidanceItems).toEqual([])
-    expect(tabA.canvas.getState().ceeAnalysisReady).toBeNull()
-    expect(tabA.canvas.getState().ceeAnalysisReadyNodeIds).toBeNull()
+      'the observer lock must preserve the current account\'s shared work').toEqual(sharedBeforeLock)
     expect(sessionA.getItem('canvas.viewMode')).toBe('device-preference')
 
     const reloadB = await bootTab(sessionA) // same-tab Reload keeps A's old sessionStorage if cleanup missed it
@@ -93,8 +90,44 @@ describe('user-scoped state identity boundary', () => {
     }), 'B restored A\'s guidance blob').toBe(0)
     for (const key of ['defineSuccess.measure.v1', 'strengthen.lifecycle.v1', 'guidance.items.v1',
       'olumi-cee-analysis-ready', 'olumi-cee-analysis-ready-node-ids']) expect.soft(sessionA.getItem(key), key).toBeNull()
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe(localStorage.getItem('olumi-canvas-identity-epoch'))
     expect(other.success.selectSuccessMeasure(other.success.useSuccessMeasureStore.getState(), 'B-own-scenario')?.metric).toBe('B own measure')
     expect(sessionOther.getItem('defineSuccess.measure.v1')).toContain('B own measure')
+  })
+
+
+  it.each(['missing', 'mismatched'])('S-G2 v2 P3: %s sidecar clears every session key and prefix before stores rehydrate', async mode => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'B-current|owner:user-B')
+    const sessionA = tabSession()
+    const leaf = await import('../userScopedKeys')
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) sessionA.setItem(key, 'A private state')
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) sessionA.setItem(`${prefix}scenario-a`, 'A private state')
+    sessionA.setItem('defineSuccess.measure.v1', JSON.stringify({ version: 1, byScenario: { __unscoped__: {
+      metric: 'A private metric', timeframe: 'A private timeframe', baseline: 'A private baseline',
+    } } }))
+    if (mode === 'mismatched') sessionA.setItem('olumi.session.identity-epoch', 'A-old|owner:user-A')
+    sessionA.setItem('canvas.viewMode', 'device preference')
+    const bootB = await bootTab(sessionA)
+    expect(bootB.success.selectSuccessMeasure(bootB.success.useSuccessMeasureStore.getState(), '__unscoped__')).toBeNull()
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) expect.soft(sessionA.getItem(key), key).toBeNull()
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) expect.soft(sessionA.getItem(`${prefix}scenario-a`), prefix).toBeNull()
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe('B-current|owner:user-B')
+    expect(sessionA.getItem('canvas.viewMode')).toBe('device preference')
+    expect(bootB.lock.checkStaleTabLock()).toBe(false)
+  })
+
+  it('S-G2 v2 P3 CONTROL: same-epoch reload preserves the current tab session data', async () => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'A-current|owner:user-A')
+    const sessionA = tabSession()
+    const tabA = await bootTab(sessionA)
+    tabA.success.useSuccessMeasureStore.getState().saveMeasure('__unscoped__', {
+      metric: 'A own measure', direction: 'reach_at_least', threshold: 27, unit: '%',
+      timeframe: 'A own timeframe', baseline: 'A own baseline', savedAt: 123,
+    })
+    const reload = await bootTab(sessionA)
+    expect(reload.success.selectSuccessMeasure(reload.success.useSuccessMeasureStore.getState(), '__unscoped__')?.metric).toBe('A own measure')
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe('A-current|owner:user-A')
+    expect(reload.lock.checkStaleTabLock()).toBe(false)
   })
 
   it('clears every registered persisted key and prefix while leaving device flags alone', () => {

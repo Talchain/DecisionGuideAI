@@ -17,12 +17,14 @@ import { loadTranscript, saveTranscript, __resetTranscriptTombstonesForTests } f
 import type { ConversationMessage } from '../../canvas/conversation/types'
 import { __resetThinClientForTests } from '../../canvas/thinClient/thinClient'
 import { __resetPersistenceSessionForTests } from '../../lib/persistenceSession'
+import { crossIdentityBoundaryInThisTab } from '../../canvas/store/scenarios'
 
 const getSession = vi.fn()
 const onAuthStateChange = vi.fn()
+const signInWithPassword = vi.fn()
 
 vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession, onAuthStateChange, signOut: vi.fn(async () => ({ error: null })), signInWithOtp: vi.fn(), signInWithOAuth: vi.fn() } },
+  supabase: { auth: { getSession, onAuthStateChange, signInWithPassword, signOut: vi.fn(async () => ({ error: null })), signInWithOtp: vi.fn(), signInWithOAuth: vi.fn() } },
   getProfile: vi.fn(async () => ({ data: null, error: null })),
   getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })),
 }))
@@ -55,10 +57,13 @@ const keysNamingA = (): string[] => [localStorage, sessionStorage].flatMap((stor
 /** What each render of the app saw: whether auth had resolved (the guest UI waits on it) and which keys named A. */
 let renders: Array<{ loading: boolean; namingA: string[] }> = []
 
-async function renderProvider(): Promise<{ fire: (event: string, s: unknown) => Promise<void> }> {
+async function renderProvider(): Promise<{ fire: (event: string, s: unknown) => Promise<void>; signIn: (id: string) => Promise<void> }> {
   const { AuthProvider, useAuth } = await import('../AuthContext')
+  let localSignIn: ((email: string, password: string) => Promise<unknown>) | undefined
   function Probe() {
-    renders.push({ loading: useAuth().loading, namingA: keysNamingA() })
+    const auth = useAuth()
+    localSignIn = auth.signInWithPassword
+    renders.push({ loading: auth.loading, namingA: keysNamingA() })
     return null
   }
   await act(async () => {
@@ -66,7 +71,16 @@ async function renderProvider(): Promise<{ fire: (event: string, s: unknown) => 
   })
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
   const callback = onAuthStateChange.mock.calls[0]?.[0] as ((event: string, s: unknown) => void) | undefined
-  return { fire: async (event, s) => { await act(async () => { callback?.(event, s) }) } }
+  return {
+    fire: async (event, s) => { await act(async () => { callback?.(event, s) }) },
+    signIn: async id => {
+      signInWithPassword.mockImplementationOnce(async () => {
+        callback?.('SIGNED_IN', session(id))
+        return { data: { session: session(id) }, error: null }
+      })
+      await act(async () => { await localSignIn!(`${id}@example.com`, 'fixture-password') })
+    },
+  }
 }
 
 /** A's earlier page: signed in, wrote A's transcript; the browser closes with A's (now expired) session stored. */
@@ -85,6 +99,7 @@ describe('LAPSE-BOUNDARY in place — the restore ends with the session gone', (
     vi.clearAllMocks()
     localStorage.clear()
     sessionStorage.clear()
+    crossIdentityBoundaryInThisTab('lapse-inplace-case', null)
     __resetLapseBoundaryForTests()
     __resetThinClientForTests()
     __resetPersistenceSessionForTests()
@@ -130,9 +145,9 @@ describe('LAPSE-BOUNDARY in place — the restore ends with the session gone', (
   it('and a sign-in later on this page (B) is recorded, so B\'s own lapse is caught', async () => {
     aLeftThisBrowserSignedIn()
     restoreFailsAndDropsTheSession()
-    const { fire } = await renderProvider()
+    const { signIn } = await renderProvider()
     expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
-    await fire('SIGNED_IN', session('account-b'))
+    await signIn('account-b')
     expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBe('1')
   })
 
@@ -149,13 +164,15 @@ describe('LAPSE-BOUNDARY in place — the restore ends with the session gone', (
     expect(renders.some((r) => !r.loading)).toBe(true) // PRECONDITION: the restore timeout fired and released the UI
   })
 
-  it('CONTRAST — the restore answers null but the token is still stored (a transient failure): nothing runs, A\'s work stays', async () => {
+  it('V2 P1: a definitive failed restore is a lapse even when the SDK retained its token; A\'s private work is cleared', async () => {
     aLeftThisBrowserSignedIn()
     getSession.mockResolvedValue({ data: { session: null }, error: { message: 'network' } })
     await renderProvider()
     expect(localStorage.getItem(TOKEN_KEY)).toBe(storedSession('account-a'))
-    expect(loadTranscript(A_SCENARIO)?.messages).toHaveLength(1)
-    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBe('1')
+    expect(loadTranscript(A_SCENARIO)).toBeNull()
+    expect(keysNamingA()).toEqual([])
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
+    expect(localStorage.getItem('olumi-canvas-identity-epoch')).toMatch(/\|owner:none$/)
   })
 
   it('CONTRAST — the restore succeeds (the same person): nothing runs, A\'s work stays', async () => {

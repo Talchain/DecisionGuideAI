@@ -27,7 +27,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { Check, KeyRound, Link2Off, Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../contexts/AuthContext'
+import { runOriginatingSignIn, useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import AuthShell from './AuthShell'
 import AuthField from './AuthField'
@@ -80,7 +80,7 @@ export default function AuthConfirmPage() {
         return
       }
       try {
-        const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+        const { data, error } = await runOriginatingSignIn(() => supabase.auth.verifyOtp({ token_hash: tokenHash, type }))
         // SECURE EMAIL CHANGE (live setting): the FIRST of the two links is accepted with no session and no error
         // (Supabase answers "now confirm the other link"). That is a success, not an expired link.
         if (type === 'email_change' && !error && !data.session) {

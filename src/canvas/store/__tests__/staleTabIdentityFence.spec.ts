@@ -129,17 +129,20 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(reload.scenarios.loadAutosave()?.scenarioId).toBe(A_ID)
   })
 
-  it('⭐ TWIN (Review Desk): BOTH tabs run the sign-out sweep, and tab 1 still saves its new account\'s work', async () => {
-    // gotrue relays SIGNED_OUT across tabs, so the second tab runs its own sweep for the SAME boundary.
+  it.each(['storage-first', 'SDK-relay-first'])('S-G2 v2 CORE: sign-out LOCKS A observer in %s order; the originator stays usable', async order => {
+    // Shared storage and SDK relays have independent delivery; neither order lets an observer adopt the epoch.
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     const tab2 = await bootTab() // both tabs loaded while A was signed in
     const tab1 = await bootTab()
     tab1.auth.clearUserScopedState(null) // tab 1 signs out (every sign-out path passes null: clearAuthStates, adopt(null))
     const afterTab1 = localStorage.getItem(EPOCH_KEY)
     expect(afterTab1, 'precondition: tab 1 rotated the epoch').not.toBe('epoch-A')
-    tab2.auth.clearUserScopedState(null) // tab 2 hears SIGNED_OUT and sweeps too (AuthContext adopt(null))
+    if (order === 'storage-first') expect(tab2.lock.checkStaleTabLock()).toBe(true)
+    expect(tab2.auth.clearUserScopedState(null), 'an observer must never join or rotate').toBe('blocked')
+    expect(tab2.lock.checkStaleTabLock(), 'the SDK-first path must lock before it can adopt').toBe(true)
+    expect(tab2.scenarios.getIdentityWriteBlockReason(), 'observer keeps its old witness').toBe('stale')
 
-    expect(localStorage.getItem(EPOCH_KEY), 'the second sweep minted another epoch, stranding tab 1').toBe(afterTab1)
+    expect(localStorage.getItem(EPOCH_KEY), 'the observer minted another epoch, stranding tab 1').toBe(afterTab1)
     // tab 1 signs in as B (not a boundary there: its owner is already null) and works
     expect(tab1.scenarios.saveAutosave(graph(B_ID, 'B own')), 'tab 1 is locked out of saving B\'s work').toBe(true)
     const raw = JSON.parse(localStorage.getItem(SLOT) ?? 'null') as { scenarioId?: string; identityEpoch?: string } | null
@@ -168,7 +171,7 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(localStorage.getItem(SLOT)).toBeNull()
   })
 
-  it('⭐ a tab that missed A→B and then crosses A→C does NOT join B\'s era: B\'s surviving records are never C\'s', async () => {
+  it('S-G2 v2: a tab that missed A→B cannot cross A→C; it LOCKS and preserves B work', async () => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     const stale = await bootTab() // still on A; it misses the next transition
     const other = await bootTab()
@@ -176,19 +179,20 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     const eraB = localStorage.getItem(EPOCH_KEY)
     expect(other.scenarios.saveAutosave(graph(B_ID, 'B work')), 'precondition: B works in its era').toBe(true)
 
-    // this tab now crosses A→C itself, and the sweep's removal of B's slot is REFUSED (the supported degradation)
+    // A stale tab cannot originate a new account transition or touch the current B work.
     const realRemove = Storage.prototype.removeItem
     const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
       if (k === SLOT) return undefined
       return realRemove.call(this, k)
     })
-    stale.auth.clearUserScopedState('user-C')
+    expect(stale.auth.clearUserScopedState('user-C')).toBe('blocked')
     spy.mockRestore()
 
     expect(localStorage.getItem(SLOT), 'precondition: B\'s slot survived the refused removal').not.toBeNull()
-    expect(localStorage.getItem(EPOCH_KEY), 'this tab joined B\'s era for C').not.toBe(eraB)
-    const tabC = await bootTab()
-    expect(tabC.scenarios.loadAutosave()?.scenarioId ?? null, 'C restores B\'s model').toBeNull()
+    expect(localStorage.getItem(EPOCH_KEY), 'the stale observer rotated B\'s era for C').toBe(eraB)
+    expect(stale.lock.checkStaleTabLock()).toBe(true)
+    expect(stale.scenarios.saveAutosave(graph(A_ID, 'C attempted')), 'C cannot publish under B\'s era').toBe(false)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.scenarioId, 'B surviving records stay B\'s').toBe(B_ID)
   })
 
   it('S-G2 buddy-r1: a first sign-in after another tab rotates an unmatched era stays LOCKED', async () => {
@@ -206,22 +210,25 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(tab1.scenarios.saveAutosave(graph(A_ID, 'A again')), 'an unmatched first sign-in must stay locked').toBe(false)
   })
 
-  it('S-G2 round 2 null boot: a second never-signed-in page sweeps without rotating or joining the era', async () => {
+  it('S-G2 v2 null boot: a second never-signed-in page is a no-op and preserves shared guest work', async () => {
     localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
     const tab1 = await bootTab()
     const tab2 = await bootTab()
+    localStorage.setItem('olumi-canvas-transcript', 'first guest reasoning')
+    const sharedBeforeNull = Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
     // The real provider uses this posture for getSession(null) and INITIAL_SESSION(null) when its own
     // lastSignedInUserId is null. The mounted real-provider regression also drives both transport callbacks.
     tab2.authUtils.clearAuthStates({ rotateEpoch: false })
     tab2.authUtils.clearAuthStates({ rotateEpoch: false })
 
     expect(localStorage.getItem(EPOCH_KEY)).toBe('guest-era|owner:none')
+    expect(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))).toEqual(sharedBeforeNull)
     expect(tab1.lock.checkStaleTabLock()).toBe(false)
     expect(tab1.scenarios.saveAutosave(graph(A_ID, 'still signed out'))).toBe(true)
     expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('guest-era|owner:none')
   })
 
-  it.each(['optional-auth', 'real-auth'])('S-G2 delayed SIGNED_OUT %s joins without deleting fresh guest autosave or shared work', async caller => {
+  it.each(['optional-auth', 'real-auth'])('S-G2 v2 delayed SIGNED_OUT %s LOCKS without deleting fresh guest autosave or shared work', async caller => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
     const suspended = await bootTab()
     suspended.store.setState({ nodes: graph(A_ID, 'old A').nodes, edges: [], currentScenarioId: A_ID })
@@ -238,10 +245,12 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
 
     if (caller === 'real-auth') suspended.authUtils.clearAuthStates()
-    else suspended.auth.clearUserScopedState(null)
+    else expect(suspended.auth.clearUserScopedState(null)).toBe('blocked')
+    expect(suspended.lock.checkStaleTabLock()).toBe(true)
+    expect(guest.lock.checkStaleTabLock(), 'the completed sign-out guest must stay usable').toBe(false)
 
     expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])),
-      'the delayed join must not perform ANY shared localStorage deletion or rewrite').toEqual(before)
+      'the delayed observer must not perform ANY shared localStorage deletion or rewrite').toEqual(before)
     expect(suspended.store.getState().nodes).toEqual([])
     expect(suspended.store.getState().currentScenarioId).toBeNull()
     const reload = await bootTab()
@@ -310,8 +319,8 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(current.scenarios.saveAutosave(graph(A_ID, 'current'))).toBe(true)
   })
 
-  it('S-G2 round 2 P1: rejected sign-in after both boot reads fail requires the reload lock', async () => {
-    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+  it.each(['guest-era|owner:none', null])('S-G2 round 2 P1: rejected sign-in after both boot reads fail requires the reload lock (shared %s)', async bootEpoch => {
+    if (bootEpoch !== null) localStorage.setItem(EPOCH_KEY, bootEpoch)
     const realGet = Storage.prototype.getItem
     const refusedRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
       if (key === EPOCH_KEY) throw new DOMException('Both boot reads refused', 'SecurityError')
@@ -323,21 +332,55 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     try {
       expect(lock.isStaleTabLocked(), 'unreadable storage alone is not a lock').toBe(false)
       refusedRead.mockRestore()
+      // Write permission may recover shared null, but this must not invent an auth/restore boot witness.
+      if (bootEpoch === null) expect(tab.scenarios.getIdentityWriteBlockReason()).toBeNull()
+      expect(tab.scenarios.identityEpochStillHeldByThisTab()).toBe(false)
       expect(tab.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
       expect(lock.isStaleTabLocked(), 'rejected adoption with no boot witness silently stranded the session').toBe(true)
       expect(tab.scenarios.saveAutosave(graph(A_ID, 'unverified A'))).toBe(false)
       expect(localStorage.getItem(SLOT)).toBeNull()
-      expect(localStorage.getItem(EPOCH_KEY)).toBe('guest-era|owner:none')
+      expect(localStorage.getItem(EPOCH_KEY)).toBe(bootEpoch)
     } finally { unsubscribe() }
   })
 
-  it.each(['same-owner', 'already-held'])('S-G2 current first sign-in control: %s epoch adoption is permitted', async mode => {
+  it('S-G2 v2 same owner tag cannot authorise a changed era: the observer LOCKS and keeps its witness', async () => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
     const current = await bootTab()
-    if (mode === 'same-owner') localStorage.setItem(EPOCH_KEY, 'new-era-A|owner:user-A')
-    current.auth.adoptIdentityEpochAtSignIn('user-A')
+    localStorage.setItem(EPOCH_KEY, 'new-era-A|owner:user-A')
+    expect(current.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+    expect(current.lock.checkStaleTabLock()).toBe(true)
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'own'))).toBe(false)
+  })
+
+  it('S-G2 v2 CONTROL: first sign-in holding the same epoch does not rotate or lock', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const current = await bootTab()
+    expect(current.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    expect(localStorage.getItem(EPOCH_KEY)).toBe('epoch-A|owner:user-A')
+    expect(current.lock.checkStaleTabLock()).toBe(false)
     expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
     expect(current.scenarios.saveAutosave(graph(A_ID, 'own'))).toBe(true)
+  })
+
+  it('S-G2 v2 P0(6): clearing your own storage is shared null, never stale, and the next write is unstamped', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+    const current = await bootTab()
+    localStorage.clear()
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(current.lock.checkStaleTabLock(), 'lock predicate must equal write predicate').toBe(false)
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'guest after clear'))).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBeUndefined()
+  })
+
+  it('S-G2 v2 CONTROL: reload after the shared boundary captures its epoch and stays usable', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const old = await bootTab()
+    anotherTabRotatesEpoch('epoch-B|owner:user-B')
+    expect(old.lock.checkStaleTabLock()).toBe(true)
+    const reload = await bootTab()
+    expect(reload.lock.checkStaleTabLock()).toBe(false)
+    expect(reload.scenarios.saveAutosave(graph(B_ID, 'B after reload'))).toBe(true)
   })
 
   // ── S-G port onto current staging (7 Oct): the thin latch (#2511) already removes the model copy for a page that was

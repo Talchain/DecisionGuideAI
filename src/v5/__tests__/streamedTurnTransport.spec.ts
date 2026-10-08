@@ -18,6 +18,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { getV5StreamEndpoint, openV5TurnStream, __streamInternals } from '../streamedTurnTransport'
 
+const mockRecordRequest = vi.fn()
+const mockRecordResponse = vi.fn()
+vi.mock('../../lib/payload-trace-store', () => ({
+  recordRequestPayload: (...args: unknown[]) => mockRecordRequest(...args),
+  recordResponsePayload: (...args: unknown[]) => mockRecordResponse(...args),
+}))
+
 const PAYLOAD = {
   kind: 'message',
   turn_id: '11111111-1111-4111-8111-111111111111',
@@ -34,6 +41,53 @@ function sseResponse(): Response {
     headers: { 'content-type': 'text/event-stream' },
   })
 }
+
+describe('S-G2 v2 P5 — identity lock gates streamed turn transport', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    vi.resetModules()
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  it.each(['stale', 'latched'] as const)('%s tab refuses before ledger, trace, callback or network and surfaces no turn error', async state => {
+    const scenarios = await import('../../canvas/store/scenarios')
+    const lock = await import('../../lib/auth/staleTabLock')
+    const { GUEST_WORK_PREFIX } = await import('../../lib/guestWork')
+    const { openV5TurnStream: send } = await import('../streamedTurnTransport')
+    const ledgerKey = GUEST_WORK_PREFIX + '22222222-2222-4222-8222-222222222222'
+    const ledgerBefore = JSON.stringify({ lastActiveAt: 1, label: 'guest work before boundary' })
+    localStorage.setItem(ledgerKey, ledgerBefore)
+    localStorage.setItem(scenarios.IDENTITY_EPOCH_KEY, 'other-tab|owner:none')
+    if (state === 'latched') {
+      expect(lock.checkStaleTabLock()).toBe(true)
+      localStorage.removeItem(scenarios.IDENTITY_EPOCH_KEY)
+      expect(scenarios.getIdentityWriteBlockReason()).toBeNull()
+    } else {
+      expect(lock.isStaleTabLocked()).toBe(false)
+      expect(scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    }
+    const fetchImpl = vi.fn().mockResolvedValue(sseResponse())
+    const onRequestStarted = vi.fn()
+    const outcome = await send(PAYLOAD, { fetchImpl, onRequestStarted }).then(
+      value => ({ value }),
+      error => ({ error }),
+    )
+    expect.soft(outcome).toMatchObject({ error: { name: 'AbortError' } })
+    expect.soft(localStorage.getItem(ledgerKey)).toBe(ledgerBefore)
+    expect.soft(mockRecordRequest).not.toHaveBeenCalled()
+    expect.soft(mockRecordResponse).not.toHaveBeenCalled()
+    expect.soft(onRequestStarted).not.toHaveBeenCalled()
+    expect.soft(fetchImpl).not.toHaveBeenCalled()
+    expect.soft(lock.isStaleTabLocked()).toBe(true)
+  })
+})
 
 describe('getV5StreamEndpoint — derived, not mirrored', () => {
   const original = { ...import.meta.env }

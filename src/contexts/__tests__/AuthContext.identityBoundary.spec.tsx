@@ -9,9 +9,10 @@ import { MemoryRouter } from 'react-router-dom'
 const getSession = vi.fn()
 const onAuthStateChange = vi.fn()
 const supabaseSignOut = vi.fn()
+const supabaseSignInWithPassword = vi.fn()
 
 vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession, onAuthStateChange, signOut: supabaseSignOut } },
+  supabase: { auth: { getSession, onAuthStateChange, signOut: supabaseSignOut, signInWithPassword: supabaseSignInWithPassword } },
   getProfile: vi.fn(async () => ({ data: null, error: null })),
   getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })),
 }))
@@ -36,20 +37,29 @@ const graph = {
   edges: [], timestamp: 1234,
 } as import('../../canvas/store/scenarios').AutosaveData
 
-async function bootTab(initialSession: ReturnType<typeof session> | null = null) {
+async function bootTab(initialSession: ReturnType<typeof session> | null = null, failedStoredRestore = false, retainStoredToken = false) {
   vi.resetModules()
-  getSession.mockResolvedValue({ data: { session: initialSession } })
+  if (failedStoredRestore) {
+    localStorage.setItem('sb-fixture-auth-token', JSON.stringify({ access_token: 'stored-A', refresh_token: 'stored-A-refresh' }))
+    localStorage.setItem('olumi-signed-in-here.v1', '1')
+    getSession.mockImplementation(async () => {
+      if (!retainStoredToken) localStorage.removeItem('sb-fixture-auth-token')
+      return { data: { session: null }, error: new Error('restore failed') }
+    })
+  } else getSession.mockResolvedValue({ data: { session: initialSession } })
   const callbackIndex = onAuthStateChange.mock.calls.length
   const scenarios = await import('../../canvas/store/scenarios')
   const lock = await import('../../lib/auth/staleTabLock')
   const { AuthProvider, useAuth } = await import('../AuthContext')
   const { isGuestAuth } = await import('../../lib/poc')
-  expect(isGuestAuth, 'this must exercise the real require-login provider').toBe(false)
+  expect(isGuestAuth).toBe(localStorage.getItem('feature.requireLogin') !== '1')
   let signOut: (() => Promise<unknown>) | undefined
+  let signIn: ((email: string, password: string) => Promise<unknown>) | undefined
   let owner: string | null = null
   function Probe() {
     const auth = useAuth()
     signOut = auth.signOut
+    signIn = auth.signInWithPassword
     owner = auth.user?.id ?? null
     return null
   }
@@ -61,6 +71,13 @@ async function bootTab(initialSession: ReturnType<typeof session> | null = null)
     owner: () => owner,
     fire: async (event: string, s: unknown) => { await act(async () => { callback(event, s) }) },
     signOut: async () => { await act(async () => { await signOut!() }) },
+    signIn: async (id: string) => {
+      supabaseSignInWithPassword.mockImplementationOnce(async () => {
+        callback('SIGNED_IN', session(id))
+        return { data: { session: session(id) }, error: null }
+      })
+      await act(async () => { await signIn!(`${id}@example.com`, 'fixture-password') })
+    },
   }
 }
 
@@ -94,46 +111,122 @@ describe('S-G2 × real AuthProvider identity boundaries', () => {
     expect(JSON.parse(localStorage.getItem(MAIN) ?? 'null')?.scenarioId).toBe(graph.scenarioId)
   }, 20_000)
 
-  it('R2 CONTROL: null boot keeps the existing local sweep, while leaving its epoch untouched', async () => {
+  it('V2 P1 CONTROL: a never-signed-in null boot leaves guest work and epoch untouched', async () => {
     localStorage.setItem(MAIN, JSON.stringify(graph))
     await bootTab()
-    expect(localStorage.getItem(MAIN), 'the pre-existing null-session local sweep remains in scope').toBeNull()
+    expect(localStorage.getItem(MAIN), 'a null boot that never held a user is a no-op').toBe(JSON.stringify(graph))
     expect(localStorage.getItem(EPOCH)).toBe(GUEST_EPOCH)
   }, 20_000)
 
-  it('R2 CONTROL: first sign-in does not retag the guest era; A signing out still locks A in the other tab', async () => {
-    const first = await bootTab()
-    const second = await bootTab()
-    const beforeSignIn = localStorage.getItem(EPOCH)
-    await first.fire('SIGNED_IN', session('account-a'))
-    await second.fire('SIGNED_IN', session('account-a'))
-    expect(first.owner()).toBe('account-a')
-    expect(second.owner()).toBe('account-a')
-    expect(localStorage.getItem(EPOCH)).toBe(beforeSignIn)
-    expect(localStorage.getItem(EPOCH)).toMatch(/\|owner:none$/)
+  for (const posture of ['real', 'optional'] as const) {
+    for (const order of ['storage-first', 'SDK-relay-first'] as const) {
+      it(`V2 Core ${posture} ${order}: own sign-out stays usable, observer locks without changing epoch or witness`, async () => {
+        if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+        const acting = await bootTab(session('account-a'))
+        const observer = await bootTab(session('account-a'))
+        const before = localStorage.getItem(EPOCH)
+        await acting.signOut()
+        const after = localStorage.getItem(EPOCH)
+        expect(after).not.toBe(before)
+        expect(after).toMatch(/\|owner:none$/)
+        expect(acting.lock.checkStaleTabLock()).toBe(false)
+        if (order === 'storage-first') expect(observer.lock.checkStaleTabLock()).toBe(true)
+        const shared = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+        await observer.fire('SIGNED_OUT', null)
+        expect(observer.lock.isStaleTabLocked(), 'SIGNED_OUT before the storage check must latch the observer lock').toBe(true)
+        expect(observer.scenarios.getIdentityWriteBlockReason(), 'observer never joins the sign-out era').toBe('stale')
+        expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])), 'observer never rotates or sweeps').toEqual(shared)
+        expect(acting.lock.checkStaleTabLock()).toBe(false)
+        expect(acting.scenarios.saveAutosave(graph)).toBe(true)
+      }, 20_000)
+    }
 
-    await first.signOut()
-    const afterSignOut = localStorage.getItem(EPOCH)
-    expect(afterSignOut).not.toBe(beforeSignIn)
-    expect(first.lock.checkStaleTabLock()).toBe(false)
-    expect(second.lock.checkStaleTabLock(), 'A signed out after first sign-in in a guest era; the other A tab must lock').toBe(true)
+    it(`V2 P2 ${posture}: SIGNED_OUT before any epoch storage locks without rotating or sweeping`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const observer = await bootTab(session('account-a'))
+      localStorage.setItem(MAIN, JSON.stringify(graph))
+      const before = localStorage.getItem(EPOCH)
+      await observer.fire('SIGNED_OUT', null)
+      expect(observer.lock.isStaleTabLocked()).toBe(true)
+      expect(localStorage.getItem(EPOCH)).toBe(before)
+      expect(localStorage.getItem(MAIN)).toBe(JSON.stringify(graph))
+    }, 20_000)
 
-    await second.fire('SIGNED_OUT', null)
-    expect(localStorage.getItem(EPOCH), 'SIGNED_OUT relay must still cross by joining the genuine sign-out era').toBe(afterSignOut)
-    expect(second.lock.checkStaleTabLock(), 'joining after the lock latched cannot silently release it').toBe(true)
-  }, 20_000)
+    it(`V2 P1 ${posture}: first stored-session restore lapse rotates owner:none and locks old A tabs`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const oldA = await bootTab(session('account-a'))
+      const before = localStorage.getItem(EPOCH)
+      const detector = await bootTab(null, true)
+      expect(localStorage.getItem(EPOCH)).not.toBe(before)
+      expect(localStorage.getItem(EPOCH)).toMatch(/\|owner:none$/)
+      expect(detector.lock.checkStaleTabLock()).toBe(false)
+      expect(oldA.lock.checkStaleTabLock()).toBe(true)
+    }, 20_000)
 
-  it('R2 CONTROL: a null auth relay after A was signed in on this page rotates and locks A in another tab', async () => {
-    const first = await bootTab(session('account-a'))
-    const second = await bootTab(session('account-a'))
-    const before = localStorage.getItem(EPOCH)
-    await first.fire('SIGNED_OUT', null)
-    expect(localStorage.getItem(EPOCH)).not.toBe(before)
-    expect(first.lock.checkStaleTabLock()).toBe(false)
-    expect(second.lock.checkStaleTabLock()).toBe(true)
-  }, 20_000)
+    it(`V2 P1 ${posture}: definitive failed restore rotates even if the SDK retained its stored token`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const oldA = await bootTab(session('account-a'))
+      const before = localStorage.getItem(EPOCH)
+      const detector = await bootTab(null, true, true)
+      expect(localStorage.getItem('sb-fixture-auth-token')).not.toBeNull()
+      expect(localStorage.getItem(EPOCH)).not.toBe(before)
+      expect(localStorage.getItem(EPOCH)).toMatch(/\|owner:none$/)
+      expect(detector.lock.checkStaleTabLock()).toBe(false)
+      expect(oldA.lock.checkStaleTabLock()).toBe(true)
+    }, 20_000)
 
-  it('R2 CONTROL: the loaded bootstrap lapse still rotates its epoch and locks an old tab', async () => {
+    it(`V2 P1/P2 ${posture}: delayed SIGNED_OUT after a lapse leaves the current guest unlocked and its work untouched`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const oldA = await bootTab(session('account-a'))
+      const detector = await bootTab(null, true)
+      expect(detector.scenarios.saveAutosave(graph)).toBe(true)
+      const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+      await oldA.fire('SIGNED_OUT', null)
+      expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))).toEqual(before)
+      expect(oldA.lock.isStaleTabLocked()).toBe(true)
+      expect(detector.lock.checkStaleTabLock()).toBe(false)
+      expect(detector.scenarios.saveAutosave(graph)).toBe(true)
+    }, 20_000)
+
+    it(`V2 ${posture} CONTROL: local first sign-in preserves guest work; another guest's relay locks`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const acting = await bootTab()
+      const guestObserver = await bootTab()
+      expect(acting.lock.checkStaleTabLock(), 'a second guest tab must not lock the first guest').toBe(false)
+      expect(guestObserver.lock.checkStaleTabLock(), 'the second guest tab boots usable').toBe(false)
+      localStorage.setItem(MAIN, JSON.stringify(graph))
+      const epoch = localStorage.getItem(EPOCH)
+      await acting.signIn('account-a')
+      expect(acting.owner()).toBe('account-a')
+      expect(acting.lock.checkStaleTabLock()).toBe(false)
+      expect(localStorage.getItem(EPOCH)).toBe(epoch)
+      expect(localStorage.getItem(MAIN)).toBe(JSON.stringify(graph))
+      await guestObserver.fire('SIGNED_IN', session('account-a'))
+      expect(guestObserver.lock.isStaleTabLocked()).toBe(true)
+      expect(localStorage.getItem(EPOCH)).toBe(epoch)
+      expect(localStorage.getItem(MAIN)).toBe(JSON.stringify(graph))
+    }, 20_000)
+
+    it(`V2 ${posture} CONTROL: fresh boot, refresh, own sign-out and reload stay usable`, async () => {
+      if (posture === 'optional') localStorage.removeItem('feature.requireLogin')
+      const acting = await bootTab(session('account-a'))
+      const epoch = localStorage.getItem(EPOCH)
+      expect(acting.lock.checkStaleTabLock()).toBe(false)
+      await acting.fire('TOKEN_REFRESHED', session('account-a'))
+      expect(localStorage.getItem(EPOCH)).toBe(epoch)
+      expect(acting.lock.checkStaleTabLock()).toBe(false)
+      await acting.signOut()
+      const signedOutEpoch = localStorage.getItem(EPOCH)
+      await acting.fire('SIGNED_OUT', null)
+      expect(localStorage.getItem(EPOCH)).toBe(signedOutEpoch)
+      expect(acting.lock.checkStaleTabLock()).toBe(false)
+      const reloaded = await bootTab()
+      expect(reloaded.lock.checkStaleTabLock()).toBe(false)
+      expect(reloaded.scenarios.saveAutosave(graph)).toBe(true)
+    }, 20_000)
+  }
+
+  it('V2 P1: the loaded bootstrap lapse rotates owner:none and locks an old tab', async () => {
     const old = await bootTab(session('account-a'))
     vi.resetModules()
     const { SIGNED_IN_HERE_KEY, runLapseBoundaryIfNeeded } = await import('../../lib/auth/lapseBoundary')
@@ -142,6 +235,7 @@ describe('S-G2 × real AuthProvider identity boundaries', () => {
     const before = localStorage.getItem(EPOCH)
     expect(await runLapseBoundaryIfNeeded(async () => boundary)).toBe(true)
     expect(localStorage.getItem(EPOCH)).not.toBe(before)
+    expect(localStorage.getItem(EPOCH)).toMatch(/\|owner:none$/)
     expect(old.lock.checkStaleTabLock()).toBe(true)
   }, 20_000)
 })

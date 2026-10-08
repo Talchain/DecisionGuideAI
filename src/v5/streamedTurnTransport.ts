@@ -38,6 +38,7 @@ import type { OlumiResponseWithExtensions } from './responseParser'
 import type { V5CallResult } from './v5Adapter'
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary'
 import { noteGuestTurn } from '../lib/guestWork'
+import { checkStaleTabLock } from '../lib/auth/staleTabLock'
 
 function streamEndpointFor(bufferedEndpoint: string): string {
   return `${bufferedEndpoint.replace(/\/+$/, '')}/stream`
@@ -97,6 +98,7 @@ export async function openV5TurnStream(
   payload: OrchestratorTurnPayload,
   opts: OpenStreamOptions = {},
 ): Promise<Response> {
+  if (checkStaleTabLock()) throw new DOMException('', 'AbortError')
   const url = getV5StreamEndpoint()
   const fetchFn = opts.fetchImpl ?? fetch
   // S-G: a guest turn is the work sign-in must carry into the account (`lib/guestWork.ts`). No-op when signed in.

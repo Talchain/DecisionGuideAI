@@ -72,9 +72,8 @@ export function validateAuthInputs(email: string, password: string): string | nu
 // Clear all auth-related states
 export function clearAuthStates(options?: { rotateEpoch?: boolean }): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
-  // A delayed SIGNED_OUT joins an era another tab already swept; this tab's memory and sessionStorage are reset.
-  // A never-signed-in null boot keeps the existing sweep while declining to claim an identity boundary.
-  if (clearUserScopedState(null, options) === 'joined') return;
+  // Only an originating sign-out reaches this sweep. A stale caller cannot rotate, sweep, or adopt the new identity.
+  if (options?.rotateEpoch === false || clearUserScopedState(null, options) === 'blocked') return;
   clearDecisionRecords();
   observeDecisionRecordOwner(null); // restore this current tab's guest context after the fresh clear
   // Clear early access validation state

@@ -103,11 +103,60 @@ describe('S-G2 sticky tab lock', () => {
     expect(localStorage.getItem(EPOCH)).toBe('era-B|owner:B')
   })
 
-  it('readable removal of a held epoch locks', () => {
+  it('P4 / P0-6: clearing own storage is not stale and never locks', () => {
     mount()
-    localStorage.removeItem(EPOCH)
+    localStorage.clear()
     epochEvent()
+    fireEvent(window, new Event('focus'))
+    expect(scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(scenarios.saveAutosave({ timestamp: 1, nodes: [], edges: [] })).toBe(true)
+    expect(JSON.parse(localStorage.getItem('olumi-canvas-autosave') ?? 'null')).not.toHaveProperty('identityEpoch')
+  })
+
+  it('P2: an owner-matched changed era is an observer lock, never adoption', () => {
+    mount()
+    localStorage.setItem(EPOCH, 'owned-A|owner:A')
+    act(() => { expect(scenarios.adoptIdentityEpochAtSignIn('A')).toBe(false) })
     expect(screen.getByRole('alertdialog', { name: WORDS })).toBeInTheDocument()
+    expect(scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(localStorage.getItem(EPOCH)).toBe('owned-A|owner:A')
+  })
+
+  it('P5 / P0-1: the latch precedes overlay focus and blocks blur/focusout commits', async () => {
+    const guest = await import('../../../lib/guestWork')
+    const lock = await import('../../../lib/auth/staleTabLock')
+    const scenario = '33333333-3333-4333-8333-333333333333'
+    const key = `olumi.guestWork.v1:${scenario}`
+    const commit = vi.fn(() => {
+      expect(lock.isStaleTabLocked()).toBe(true)
+      guest.noteGuestTurn({ kind: 'message', source: 'composer', scenario_id: scenario, message: 'A private edit' }, 2)
+    })
+    render(<><input aria-label="Factor edit" onBlur={commit} /><Lock /></>)
+    const input = screen.getByRole('textbox', { name: 'Factor edit' })
+    input.focus()
+    localStorage.setItem(key, 'B ledger bytes')
+    rotate()
+    epochEvent()
+    fireEvent.blur(input)
+    fireEvent.focusOut(input)
+    expect(screen.getByRole('button', { name: 'Reload' })).toHaveFocus()
+    expect(commit).not.toHaveBeenCalled()
+    expect(localStorage.getItem(key)).toBe('B ledger bytes')
+  })
+
+  it('CONTROL: a reload witnesses the new era and boots unlocked', async () => {
+    mount()
+    rotate()
+    epochEvent()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    cleanup()
+    vi.resetModules()
+    scenarios = await import('../../../canvas/store/scenarios')
+    Lock = (await import('../StaleTabLock')).default
+    mount()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(scenarios.getIdentityWriteBlockReason()).toBeNull()
   })
 
   it('a hidden visibility transition waits until visible', () => {
@@ -178,7 +227,7 @@ describe('S-G2 sticky tab lock', () => {
     expect(JSON.parse(localStorage.getItem('olumi-canvas-autosave') ?? 'null')?.identityEpoch).toBe('unchanged-guest-era|owner:none')
   })
 
-  it.each(['fresh boot', 'own sign-out then work', 'matching owner sign-in', 'held-era first sign-in', 'current refresh', 'unrelated key', 'unreadable'] as const)('CONTROL: %s never locks', async control => {
+  it.each(['fresh boot', 'own sign-out then work', 'held-era first sign-in', 'current refresh', 'unrelated key', 'unreadable'] as const)('CONTROL: %s never locks', async control => {
     if (control === 'fresh boot') {
       localStorage.clear()
       vi.resetModules()
@@ -190,10 +239,6 @@ describe('S-G2 sticky tab lock', () => {
       if (control === 'own sign-out then work') {
         scenarios.crossIdentityBoundaryInThisTab('own-signout', null)
         expect(scenarios.saveAutosave({ timestamp: 1, nodes: [], edges: [] })).toBe(true)
-      }
-      if (control === 'matching owner sign-in') {
-        localStorage.setItem(EPOCH, 'owned-A|owner:A')
-        scenarios.adoptIdentityEpochAtSignIn('A')
       }
       if (control === 'held-era first sign-in' || control === 'current refresh') scenarios.adoptIdentityEpochAtSignIn('A')
       if (control === 'unrelated key') {

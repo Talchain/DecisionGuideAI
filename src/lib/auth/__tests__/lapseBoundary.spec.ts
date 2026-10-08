@@ -234,6 +234,7 @@ describe('LAPSE-FC — the boundary without its chunk (DL row after #2530)', () 
       for (const prefix of USER_SCOPED_STORAGE_PREFIXES) localStorage.setItem(`${prefix}scenario-a`, 'user-a')
       for (const key of USER_SCOPED_SESSION_KEYS) sessionStorage.setItem(key, 'user-a')
       localStorage.setItem(IDENTITY_EPOCH_KEY, 'epoch-of-a')
+      __resetLapseBoundaryForTests() // this simulated boot captures A's epoch before its lapse
       expect(sessionLapsedHere()).toBe(true) // PRECONDITION: the record is among the keys, and no session is stored
       expect(await runLapseBoundaryIfNeeded(loadBoundary, 40)).toBe(true)
       for (const key of USER_SCOPED_STORAGE_KEYS) expect(localStorage.getItem(key)).toBeNull()
@@ -296,6 +297,68 @@ describe('LAPSE-FC — the boundary without its chunk (DL row after #2530)', () 
     expect(loadTranscript(A)).toBeNull()
     expect(loadRuns()).toEqual([])
     expect(keysNamingA()).toEqual([])
+  })
+})
+
+
+describe('S-G2 v2 bootstrap lapse originator and observer protocol', () => {
+  async function bootLapseTab() {
+    vi.resetModules()
+    const lapse = await import('../lapseBoundary')
+    const auth = await import('../userScopedState')
+    const scenarios = await import('../../../canvas/store/scenarios')
+    const lock = await import('../staleTabLock')
+    return { lapse, auth, scenarios, lock }
+  }
+
+  it.each(['loaded', 'fallback'])('S-G2 v2 P1: the first bootstrap lapse detector rotates once to owner:none (%s)', async path => {
+    localStorage.setItem(IDENTITY_EPOCH_KEY, 'A-old|owner:user-A')
+    localStorage.setItem(SIGNED_IN_HERE_KEY, '1')
+    localStorage.setItem('olumi-canvas-run-history', 'A private runs')
+    const first = await bootLapseTab()
+    const oldA = await bootLapseTab()
+    expect(await first.lapse.runLapseBoundaryIfNeeded(path === 'fallback'
+      ? () => Promise.reject(new Error('chunk failed')) : () => Promise.resolve(first.auth))).toBe(true)
+    const epoch = localStorage.getItem(IDENTITY_EPOCH_KEY)
+    expect(epoch, 'a lapse opens the signed-out era, never unknown owner').toMatch(/\|owner:none$/)
+    expect(localStorage.getItem('olumi-canvas-run-history')).toBeNull()
+    expect(first.lock.checkStaleTabLock(), 'the first detector adopted its own rotation').toBe(false)
+    expect(oldA.lock.checkStaleTabLock(), 'old A tabs must lock after the lapse').toBe(true)
+  })
+
+  it.each(['loaded', 'fallback'])('S-G2 v2 P1: a later bootstrap detector cannot rotate or sweep an already crossed era (%s)', async path => {
+    localStorage.setItem(IDENTITY_EPOCH_KEY, 'A-old|owner:user-A')
+    localStorage.setItem(SIGNED_IN_HERE_KEY, '1')
+    const observer = await bootLapseTab()
+    const result = await observer.lapse.runLapseBoundaryIfNeeded(async () => {
+      localStorage.setItem(IDENTITY_EPOCH_KEY, 'guest-current|owner:none')
+      localStorage.setItem('olumi-canvas-autosave', 'current guest work')
+      if (path === 'fallback') throw new Error('chunk failed')
+      return observer.auth
+    })
+    expect(result, 'another tab crossed: this detector is now an observer').toBe(false)
+    expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).toBe('guest-current|owner:none')
+    expect(localStorage.getItem('olumi-canvas-autosave'), 'the observer must never sweep new guest work').toBe('current guest work')
+    expect(observer.lock.checkStaleTabLock()).toBe(true)
+    expect(observer.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+  })
+
+  it('S-G2 v2 P0(5): delayed SIGNED_OUT after a lapse locks old A, leaves the new guest and every work byte untouched', async () => {
+    localStorage.setItem(IDENTITY_EPOCH_KEY, 'A-old|owner:user-A')
+    localStorage.setItem(SIGNED_IN_HERE_KEY, '1')
+    const oldA = await bootLapseTab()
+    const guest = await bootLapseTab()
+    expect(await guest.lapse.runLapseBoundaryIfNeeded(() => Promise.resolve(guest.auth))).toBe(true)
+    const guestEpoch = localStorage.getItem(IDENTITY_EPOCH_KEY)
+    localStorage.setItem('olumi-canvas-autosave', 'fresh guest work')
+    localStorage.setItem('olumi-canvas-transcript', 'fresh guest reasoning')
+    localStorage.setItem('olumi.guestWork.v1:fresh', 'fresh guest ledger')
+    const before = snapshot()
+    expect(oldA.auth.clearUserScopedState(null)).toBe('blocked')
+    expect(oldA.lock.checkStaleTabLock()).toBe(true)
+    expect(guest.lock.checkStaleTabLock()).toBe(false)
+    expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).toBe(guestEpoch)
+    expect(snapshot()).toEqual(before)
   })
 })
 

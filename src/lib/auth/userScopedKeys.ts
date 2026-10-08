@@ -103,3 +103,92 @@ export function sweepUserScopedStorage(): void {
   for (const key of prefixed) remove(() => localStorage, key)
   sweepUserScopedSessionStorage()
 }
+
+/** P3: reloadable tab-local work belongs to the witness held when it was written. */
+export const SESSION_IDENTITY_EPOCH_KEY = 'olumi.session.identity-epoch'
+
+/** A refused read is unknown, never evidence that another tab changed identity. */
+export function readSharedIdentityEpoch(): string | null | undefined {
+  try {
+    const epoch = localStorage.getItem(IDENTITY_EPOCH_STORAGE_KEY)
+    return epoch && epoch.length > 0 ? epoch : null
+  } catch { return undefined }
+}
+
+let tabIdentityEpoch: string | null | undefined = readSharedIdentityEpoch()
+// Keep the established synchronous retry: it witnesses boot only, never a later era.
+let pendingIdentityEpochWitness = tabIdentityEpoch === undefined ? readSharedIdentityEpoch() : undefined
+let unknownBootIdentityWitness = tabIdentityEpoch === undefined && pendingIdentityEpochWitness === undefined
+
+export type IdentityEpochPermission =
+  | { epoch: string | null }
+  | { reason: 'unreadable' }
+  | { reason: 'stale'; epoch: string }
+
+export function identityEpochWritePermission(): IdentityEpochPermission {
+  const shared = readSharedIdentityEpoch()
+  if (shared === undefined) return { reason: 'unreadable' }
+  if (tabIdentityEpoch === undefined) {
+    if (pendingIdentityEpochWitness === undefined && shared !== null) return { reason: 'unreadable' }
+    tabIdentityEpoch = pendingIdentityEpochWitness === undefined ? null : pendingIdentityEpochWitness
+    pendingIdentityEpochWitness = undefined
+    writeSessionIdentityEpoch()
+  }
+  if (shared !== null && shared !== tabIdentityEpoch) return { reason: 'stale', epoch: shared }
+  return { epoch: shared }
+}
+
+export function getTabIdentityEpoch(): string | null | undefined { return tabIdentityEpoch }
+export function hasUnknownBootIdentityWitness(): boolean { return unknownBootIdentityWitness }
+
+/** Restore detectors rotate only while the shared value still equals their boot witness. */
+export function identityEpochStillHeldByThisTab(): boolean {
+  if (unknownBootIdentityWitness) return false
+  identityEpochWritePermission() // resolve only the synchronous boot witness, if available
+  const shared = readSharedIdentityEpoch()
+  return shared !== undefined && shared === tabIdentityEpoch
+}
+
+function writeSessionIdentityEpoch(): void {
+  if (tabIdentityEpoch === undefined) return
+  try { sessionStorage.setItem(SESSION_IDENTITY_EPOCH_KEY, tabIdentityEpoch ?? '') } catch { /* storage refused */ }
+}
+
+/** Runs as the leaf loads, before any user-scoped store is allowed to rehydrate. */
+function initialiseSessionIdentityEpoch(): void {
+  const shared = tabIdentityEpoch === undefined ? pendingIdentityEpochWitness : tabIdentityEpoch
+  if (shared === undefined) return
+  try {
+    const raw = sessionStorage.getItem(SESSION_IDENTITY_EPOCH_KEY)
+    const sidecar = raw === '' ? null : raw
+    let hasWork = USER_SCOPED_SESSION_KEYS.some(key => sessionStorage.getItem(key) !== null)
+    if (!hasWork) {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key && USER_SCOPED_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix))) { hasWork = true; break }
+      }
+    }
+    if ((raw === null && hasWork) || (raw !== null && sidecar !== shared)) sweepUserScopedSessionStorage()
+    sessionStorage.setItem(SESSION_IDENTITY_EPOCH_KEY, shared ?? '')
+  } catch { /* unreadable storage does not invent an identity boundary */ }
+}
+
+/** Originators alone rotate and adopt. The diagnostic owner suffix never grants permission. */
+export function crossIdentityEpochInThisTab(freshEpoch: string, nextOwner: string | null = null): 'fresh' | 'blocked' {
+  const permission = identityEpochWritePermission()
+  if ('reason' in permission && permission.reason === 'stale') return 'blocked'
+  try { localStorage.setItem(IDENTITY_EPOCH_STORAGE_KEY, `${freshEpoch}|owner:${nextOwner ?? 'none'}`) } catch { /* adopt only what is held */ }
+  tabIdentityEpoch = readSharedIdentityEpoch()
+  pendingIdentityEpochWitness = undefined
+  unknownBootIdentityWitness = tabIdentityEpoch === undefined
+  writeSessionIdentityEpoch()
+  return 'fresh'
+}
+
+export function __resetTabIdentityEpochForTests(): void {
+  tabIdentityEpoch = readSharedIdentityEpoch()
+  pendingIdentityEpochWitness = tabIdentityEpoch === undefined ? readSharedIdentityEpoch() : undefined
+  unknownBootIdentityWitness = tabIdentityEpoch === undefined && pendingIdentityEpochWitness === undefined
+}
+
+initialiseSessionIdentityEpoch()

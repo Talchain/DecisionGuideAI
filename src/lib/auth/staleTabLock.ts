@@ -1,22 +1,28 @@
 import { IDENTITY_EPOCH_KEY, isIdentityEpochStaleForThisTab } from '../../canvas/store/scenarios'
 
-// Document-lifetime latch. Auth can adopt an era later; this page still requires a reload.
+// Document-lifetime latch. An observer stays locked until this document reloads.
 let locked = false
 const listeners = new Set<() => void>()
 const INPUT_EVENTS = [
   'pointerdown', 'pointerup', 'pointermove', 'mousedown', 'mouseup', 'mousemove',
   'click', 'dblclick', 'contextmenu', 'touchstart', 'touchmove', 'touchend', 'wheel',
   'keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'change', 'submit',
-  'dragstart', 'dragover', 'drop', 'paste', 'cut', 'compositionstart', 'compositionend', 'focusin',
+  'dragstart', 'dragover', 'drop', 'paste', 'cut', 'compositionstart', 'compositionend', 'focusin', 'blur', 'focusout',
 ] as const
 
 export function isStaleTabLocked(): boolean { return locked }
 
-export function checkStaleTabLock(): boolean {
-  if (!locked && isIdentityEpochStaleForThisTab()) {
-    locked = true
+/** Auth identity relays lock even when they arrive before the shared epoch changes. */
+export function lockStaleTab(): boolean {
+  if (!locked) {
+    locked = true // before listeners mount/focus the overlay and blur a pending editor
     listeners.forEach(listener => listener())
   }
+  return locked
+}
+
+export function checkStaleTabLock(): boolean {
+  if (!locked && isIdentityEpochStaleForThisTab()) lockStaleTab()
   return locked
 }
 
