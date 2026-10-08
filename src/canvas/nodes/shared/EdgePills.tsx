@@ -41,6 +41,7 @@ import { computeSignedMean } from '../../domain/edges'
 import { isEdgeValueSet } from '../../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
 import { BY_DEFINITION, isStrengthDefinitional } from '../../domain/strengthDefinitional'
+import { edgeProvenance } from '../../domain/edgeProvenance'
 import { LINK_STRENGTH_COPY } from './metricVocabulary'
 import type { NodeType } from '../../domain/nodes'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
@@ -81,7 +82,9 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // drew this connection) and say so, rather than reporting a default as
         // a measurement or silently hiding the relationship.
         const edgeData = e.data as Record<string, unknown> | undefined
-        if (!isEdgeValueSet(edgeData, 'weight')) {
+        // Data layer Phase 1 (+ placeholder licence): a link nobody sized is said as NOT SET, never its default prior as a
+        // number ("50%"). Same unset pill as a strength never set (`edgeProvenance.ts` kind 'placeholder').
+        if (!isEdgeValueSet(edgeData, 'weight') || edgeProvenance(edgeData)?.kind === 'placeholder') {
           return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false, accepted: false, stated: false, exampleFigure: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).

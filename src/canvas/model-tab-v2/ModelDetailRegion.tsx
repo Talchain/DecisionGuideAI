@@ -868,7 +868,7 @@ export function ModelDetailRegion({
       <section data-testid="model-detail-v2-provenance">
         <h4 className={`${typography.panelHeader} text-text-header`}>Where it came from</h4>
         {row.provenanceSource !== undefined && (
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} accepted={row.provenanceAccepted === true} />
+          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} kind={row.provenanceKind} accepted={row.provenanceAccepted === true} />
         )}
         {detail.basis !== null && (
           <p
