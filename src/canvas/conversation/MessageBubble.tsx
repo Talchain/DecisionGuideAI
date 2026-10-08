@@ -669,7 +669,7 @@ export const MessageBubble = memo(function MessageBubble({
         affordance still cannot appear where nothing can send it.
       */}
       {/* P48 (audit #23): Undo for the change Olumi made in this reply — only while it is the next ⌘Z. */}
-      {!isUser && !message.synthetic && <AiChangeUndoButton turnId={message.clientTurnId} />}
+      {!isUser && !message.synthetic && <AiChangeUndoButton turnId={message.undoTurnId} />}
       {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}

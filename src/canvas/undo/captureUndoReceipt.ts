@@ -95,7 +95,8 @@ export function captureTurnForUndo(input: {
   // barrier first (buddy r2 P1). The step is keyed by the CHAT TURN, so the reply's "Undo this change" binds to it
   // (buddy r2 P1). Async; fail-closed.
   const neverUndoable = event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)
-  if (!neverUndoable && receipt === null && readAgentTurnReceipts(input.response).length > 0) {
+  const agentReceipts = readAgentTurnReceipts(input.response)
+  if (!neverUndoable && receipt === null && (agentReceipts === null || agentReceipts.length > 0)) {
     void captureAgentTurnForUndo({
       scenarioId: input.scenarioId,
       turnId: input.turnId,

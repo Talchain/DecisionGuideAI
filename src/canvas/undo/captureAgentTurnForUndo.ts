@@ -12,8 +12,8 @@
  *
  * Fail-closed, and says nothing it cannot stand behind:
  *  - a guest has no versions (owned-only): nothing is recorded;
- *  - the list cannot be read, a receipt is not on it, its hash is malformed, the receipts repeat a mutation or a
- *    version, they are not one chain, or the head is no longer the turn's last version (someone wrote since): the
+ *  - a receipt is malformed, the list cannot be read, a receipt is not on it, its hash is malformed, the receipts repeat
+ *    a mutation or a version, they are not one chain, or the head is no longer the turn's last version (someone wrote since): the
  *    journal is CLEARED as a foreign write — nothing before an unknown write is safe to undo;
  *  - the journal moved while the list was on the wire (a newer write settled with its own receipt): NOTHING is written
  *    (compare-and-set) — the newer write's step stands;
@@ -36,17 +36,17 @@ export interface AgentTurnReceipt {
 
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-/** `_agent.receipts` from the parser's non-enumerable additive sidecar, oldest version first. Malformed rows are dropped. */
-export function readAgentTurnReceipts(response: unknown): readonly AgentTurnReceipt[] {
+/** `_agent.receipts` from the parser's non-enumerable additive sidecar, oldest first; `null` means a malformed set. */
+export function readAgentTurnReceipts(response: unknown): readonly AgentTurnReceipt[] | null {
   if (!record(response)) return []
   const sidecar = (response as Record<string, unknown>)[ADDITIVE_EXTENSIONS_KEY]
   if (!record(sidecar) || !record(sidecar._agent) || !Array.isArray(sidecar._agent.receipts)) return []
   const out: AgentTurnReceipt[] = []
   for (const r of sidecar._agent.receipts) {
-    if (!record(r)) continue
-    if (typeof r.version !== 'number' || !Number.isFinite(r.version)) continue
-    if (typeof r.version_id !== 'string' || r.version_id.length === 0) continue
-    if (typeof r.mutation_id !== 'string' || r.mutation_id.length === 0) continue
+    if (!record(r)) return null
+    if (typeof r.version !== 'number' || !Number.isFinite(r.version)) return null
+    if (typeof r.version_id !== 'string' || r.version_id.length === 0) return null
+    if (typeof r.mutation_id !== 'string' || r.mutation_id.length === 0) return null
     out.push({ version: r.version, versionId: r.version_id, mutationId: r.mutation_id })
   }
   return out.sort((a, b) => a.version - b.version)
@@ -99,8 +99,9 @@ async function captureOne(
   deps: CaptureAgentTurnDeps,
 ): Promise<AgentUndoCapture> {
   const receipts = readAgentTurnReceipts(input.response)
-  if (receipts.length === 0) return 'none'
   const journalAtStart: UndoJournalState = useUndoJournalStore.getState().journal
+  if (receipts === null) return clear(journalAtStart, input.scenarioId)
+  if (receipts.length === 0) return 'none'
 
   // Loaded at call time: `captureUndoReceipt.ts` imports this module, and the session client throws at import where no
   // Supabase env exists (every spec that imports the journal), so a static import would break them all.
