@@ -117,8 +117,12 @@ export const ANALYSIS_STATE_CUE_MIN_WIDTH_PX = 200
 
 export const ANALYSIS_STATE_CUE_LIGHT_WORDS = { aria: 'Show what changed since the last run' } as const
 
-/** An attribute-selector string literal: only `\\`, `"` and line breaks can end or corrupt it. */
-const attr = (v: string): string => `"${v.replace(/[\\"]/g, '\\$&').replace(/[\n\r\f]/g, ' ')}"`
+/**
+ * An attribute-selector string literal: only `\\`, `"` and line breaks can end or corrupt it. A line break is written as
+ * its CSS hex escape, never folded into a space (`e\n1` and `e 1` are two different edges).
+ */
+const attr = (v: string): string =>
+  `"${v.replace(/[\\"]/g, '\\$&').replace(/[\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`
 
 /** The rule that lights the changed set — on xyflow's own ids, so no card or edge component carries a mark. */
 export function changedSetLightingCss(nodeIds: readonly string[], edgeIds: readonly string[]): string {

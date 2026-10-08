@@ -13,7 +13,7 @@ import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 const trust: { semantic: FreshnessDisplaySemantic | undefined } = { semantic: 'changed' }
 vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: () => ({ semantic: trust.semantic }) }))
 
-import { AnalysisStateCue, ANALYSIS_STATE_CUE_COPY, ANALYSIS_STATE_CUE_TESTID } from '../AnalysisStateCue'
+import { AnalysisStateCue, ANALYSIS_STATE_CUE_COPY, ANALYSIS_STATE_CUE_TESTID, changedSetLightingCss } from '../AnalysisStateCue'
 import { useCanvasStore } from '../../store'
 import { adoptChangedSinceRun, useChangedSinceRunStore } from '../../changes/changedSinceRun'
 import { composeAnalysisState } from '../../state/analysisStateSelector'
@@ -520,5 +520,24 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(screen.queryByTestId('rf__node-g')).toBe(node)
     expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
     expect(lightingCss()).toBeNull()
+  })
+})
+
+describe('P48: the lighting rule keeps an id exact', () => {
+  it('a line break in an edge id is escaped, never folded into a space that names another edge', () => {
+    const host = document.createElement('div')
+    host.className = 'react-flow'
+    host.innerHTML = '<svg><g class="changed"><path class="react-flow__edge-path"/></g><g class="other"><path class="react-flow__edge-path"/></g></svg>'
+    document.body.appendChild(host)
+    host.querySelector('.changed')!.setAttribute('data-testid', 'rf__edge-e\n1')
+    host.querySelector('.other')!.setAttribute('data-testid', 'rf__edge-e 1')
+    const sheet = document.createElement('style')
+    sheet.textContent = changedSetLightingCss([], ['e\n1'])
+    document.head.appendChild(sheet)
+    const rule = (sheet.sheet!.cssRules[0] as CSSStyleRule).selectorText
+    expect(host.querySelector('.changed path')!.matches(rule)).toBe(true)
+    expect(host.querySelector('.other path')!.matches(rule)).toBe(false)
+    sheet.remove()
+    host.remove()
   })
 })
