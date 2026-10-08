@@ -31,6 +31,8 @@ const AUTHORIZED_IMPORTERS = new Set([
 // D7 integration witness exercises the authorised ResultsBody mount and its hero projection.
 const TEST_IMPORTERS = new Set([
   join(SRC, 'components', 'results', '__tests__', 'driverOneList.paulGraph.spec.tsx'),
+  // WS5 card DL gate row (#2713): builds the constrained fixture from hero.fixtures (test data only); mounts no hero.
+  join(SRC, 'canvas', 'nodes', '__tests__', 'OptionNode.constrainedChanceCell.ws5.spec.tsx'),
 ])
 
 // Pure-copy readers (7 Oct, A1 decision matrix): they say the hero's goal-chance WORDS so the Run tells one
