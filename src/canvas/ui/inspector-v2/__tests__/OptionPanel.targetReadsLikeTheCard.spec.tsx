@@ -150,6 +150,7 @@ function inputs(dialog: HTMLElement, factorId: string): HTMLInputElement[] {
 }
 
 function toggleTechnicalDetail(dialog: HTMLElement) {
+  fireEvent.click(within(dialog).getByRole('button', { name: 'More' }))
   fireEvent.click(within(dialog).getByRole('button', { name: 'Show technical detail' }))
 }
 
@@ -205,7 +206,7 @@ function cardTarget(card: HTMLElement, factorId: string): string {
 }
 
 function cardMarkKind(card: HTMLElement, factorId: string): string | null {
-  return card
+  return card.closest('[role="group"]')!
     .querySelector(`[data-testid="option-change-row-source-${OPTION_ID}-${factorId}"]`)
     ?.getAttribute('data-value-source') ?? null
 }

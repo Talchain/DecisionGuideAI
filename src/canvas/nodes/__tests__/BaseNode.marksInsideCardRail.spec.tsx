@@ -35,12 +35,12 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 import type { AttentionReason } from '../shared/nodeAttention'
 import {
-  CANVAS_CORNER_STACK_CLASSES,
   CANVAS_GLYPH_SIZE_CLASSES,
   CANVAS_HIT_SLOP_CLASSES,
   CANVAS_QUICK_ACTION_BOX_PX,
   CANVAS_QUICK_ACTION_SLOP_PX,
   MIN_TARGET_RENDERED_PX,
+  NODE_QUICK_ACTION_BAND_CSS,
   cornerMarksHeaderReserveCss,
 } from '../shared/canvasGlyphScale'
 import {
@@ -58,24 +58,23 @@ import {
   restingCardWidthForKind,
 } from '../../utils/nodeLayoutConstants'
 import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
-import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { NodeRailIcon, NodeSignalRailIcons } from '../shared/NodeRailIcons'
 import { NodeCoachingIcon } from '../shared/NodeCoachingIcon'
 import { NodeQuickActions } from '../shared/NodeQuickActions'
 
 // ── contract §02 values (restated here on purpose — see the header) ──────────
 const CONTRACT_FRAME_PX = 1
-const CONTRACT_MARK_RIGHT_PX = 7
-const CONTRACT_MARK_TOP_PX = 5
+
+
 const CONTRACT_MARK_BOX_PX = 25
-const CONTRACT_MARK_CLEARANCE_PX = 1 // 12 + 21 = 7 + 25 + 1
+ // 12 + 21 = 7 + 25 + 1
 const CONTRACT_ICON_GLYPH_PX = 15
 const CONTRACT_ICON_REST_HEX = '#777B77'
 const CONTRACT_BEHAVIOUR_HEX = '#736DA0'
 /** `.node h3{line-height:1.25}` (the served title's `leading-tight`). */
-const CONTRACT_TITLE_LEADING = 1.25
+
 /** The corner stack's scaled gap between two marks (served, unchanged here). */
-const STACK_GAP_PX = 4
+
 
 // ── the attention cue is stubbed per test; the rest of the card is real ──────
 const REASON: AttentionReason = {
@@ -180,10 +179,7 @@ function px(css: string, scales: Scales, box: { pct?: number; lh?: number } = {}
 }
 
 /** Where the corner mark's LEFT edge sits, from the padding-box left, at `scale`. */
-const markLeftAt = (cardW: number, marks: number, scale: number) => {
-  const run = marks * CONTRACT_MARK_BOX_PX + (marks - 1) * STACK_GAP_PX
-  return cardW - 2 * CONTRACT_FRAME_PX - CONTRACT_MARK_RIGHT_PX - run * scale
-}
+
 
 /**
  * The title box's width at glyph scale `g` (27 Sep 2026). The repeated card is now
@@ -193,14 +189,7 @@ const markLeftAt = (cardW: number, marks: number, scale: number) => {
  * measure. With no reserve (or a card at the floor) this is the minimum measure,
  * which is what the old 260 card always was.
  */
-function titleBoxWidthAt(root: HTMLElement, wrapperMin: number, g: number): number {
-  const padL = parseFloat(root.style.paddingLeft)
-  const padR = parseFloat(root.style.paddingRight)
-  const inner = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - padL - padR
-  const reserveCss = screen.getByTestId('node-header-row').style.paddingRight
-  const reserve = reserveCss === '' ? 0 : px(reserveCss, scalesAt(g))
-  return Math.max(wrapperMin, inner - reserve)
-}
+
 
 const INITIAL_LENS = useCanvasStore.getState().lens
 
@@ -221,115 +210,56 @@ afterEach(() => cleanup())
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe('GAP 11 — the corner marks sit INSIDE the card at the contract offsets', () => {
-  it('the stack is anchored inside the top-right corner (top 5, right 7), never above the border', () => {
+  it('the marks sit in the bottom-left band inside the frame, never above the border', () => {
     attentionMarked = true
-    renderCard('outcome', 'o1', 'Customer retention after a price rise')
-    const stack = screen.getByTestId('node-corner-stack-o1')
-    const t = tokens(stack)
-    expect(t).toContain('absolute')
-    expect(t).toContain(`top-[${CONTRACT_MARK_TOP_PX}px]`)
-    expect(t).toContain(`right-[${CONTRACT_MARK_RIGHT_PX}px]`)
-    // The float-above anchor and its margin into the row gap are gone.
-    expect(t).not.toContain('bottom-full')
-    expect(t.some((c) => c.startsWith('mb-'))).toBe(false)
-    expect(stack.className).toBe(CANVAS_CORNER_STACK_CLASSES)
-    // The mark itself is the stack's child and carries no offset of its own.
-    const mark = screen.getByTestId('attention-marker-o1')
-    expect(stack).toContainElement(mark)
-    expect(tokens(mark)).not.toContain('absolute')
-  })
+    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
 
-  it('a repeated card: the title stops 1px before the mark on line 1 at 100%, and at the bound — where the widest word no longer fits beside ONE mark — yields line 1', () => {
-    attentionMarked = true
-    // ⚠ 30 Sep 2026 (wider cards): an unlaid-out repeated card now RESTS at its
-    // tier cap, REPEATED_CARD_MAX_W (400), where the widest word fits beside a
-    // mark at every scale and the yield branch below is unreachable. A crowded
-    // row still draws at the REPEATED_CARD_W floor (248), so the card is drawn
-    // there EXPLICITLY — the narrowest repeated card, the case this row is about.
-    expect(restingCardWidthForKind('outcome'), 'precondition: the resting width moved to the cap').toBe(REPEATED_CARD_MAX_W)
-    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise', { maxWidth: REPEATED_CARD_W })
-    const cardW = parseFloat(root.style.width)
-    const padL = parseFloat(root.style.paddingLeft)
-    // RE-PINNED 27 Sep 2026 (landing text ceiling): the repeated card is the ED
-    // target, 248, wider than the layout floor, so its title shares its line.
-    expect(cardW).toBe(REPEATED_CARD_W)
-    expect(cardW).toBe(248)
-    const title = screen.getByTestId('node-title')
-    const spacer = within(title).getByTestId('node-title-corner-spacer')
-    // The title box on a 260 card is its minimum measure (it has the line to
-    // itself), read from the wrapper the card renders — not recomputed here.
-    const wrapperMin = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    const at = (s: number) => ({ pct: wrapperMin, lh: CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * s })
-    // First line only at 100%: a float one title line tall, so lines 2+ keep the
-    // full measure the widest-word bound was derived for.
-    expect(spacer.style.float).toBe('right')
-    expect(px(spacer.style.height, 1, at(1))).toBeCloseTo(at(1).lh, 6)
-    expect(spacer).toHaveAttribute('aria-hidden', 'true')
-    expect(spacer.textContent).toBe('')
-    {
-      const box = titleBoxWidthAt(root, wrapperMin, 1)
-      const line1Right = padL + box - px(spacer.style.width, scalesAt(1), { pct: box, lh: at(scalesAt(1).text).lh })
-      expect(line1Right, 'glyph scale 1').toBeCloseTo(markLeftAt(cardW, 1, 1) - CONTRACT_MARK_CLEARANCE_PX, 6)
-    }
-    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231). At the 1.36 ceiling the
-    // widest word (at the TEXT bound) and ONE mark (at the GLYPH bound) SHARED line 1
-    // here. At 1.64 the widest word needs 108 × 1.64 = 177.12 and line 1 beside the
-    // mark holds 188 − 13 (padding) = 175, so the title YIELDS line 1 at the bound — the same
-    // regime a shared 2x forced before 27 Sep, and the one the GAP 11 rule allows
-    // ("line 1 holds the widest word, or it yields"; never a mid-word break).
-    const boxAtBound = titleBoxWidthAt(root, wrapperMin, MAX_GLYPH_COUNTER_SCALE)
-    const sc = scalesAt(MAX_GLYPH_COUNTER_SCALE)
-    const lhAtBound = at(sc.text).lh
-    const spacerAtBound = px(spacer.style.width, sc, { pct: boxAtBound, lh: lhAtBound })
-    const besideAtBound = markLeftAt(cardW, 1, MAX_GLYPH_COUNTER_SCALE) - CONTRACT_MARK_CLEARANCE_PX - padL
-    // 29 Sep: the contract's 12px padding on every card (was 13 on this kind) → 176.
-    expect(besideAtBound).toBeCloseTo(176, 6)
-    expect(besideAtBound).toBeLessThan(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
-    // Yielded: the spacer takes the whole of line 1…
-    expect(boxAtBound - spacerAtBound).toBeCloseTo(0, 6)
-    // …and reaches past the mark box, so no line of text runs under it.
-    expect(px(spacer.style.height, sc, { pct: boxAtBound, lh: lhAtBound })).toBeGreaterThanOrEqual(
-      CONTRACT_MARK_TOP_PX + CONTRACT_MARK_BOX_PX * MAX_GLYPH_COUNTER_SCALE + CONTRACT_MARK_CLEARANCE_PX - parseFloat(root.style.paddingTop) - 1e-6,
-    )
-    // ⭐ RE-PINNED 27 Sep 2026 (served e8ba18e6): NO all-lines reserve on a
-    // repeated card. With it, the mark a Run adds narrowed EVERY title line, and
-    // "Enterprise Revenue Cannibalization Risk" re-wrapped 2 → 4 lines after the
-    // Run (+46 world px, the rows below moved). Lines 2+ keep the card's full
-    // measure, so a mark costs at most line 1.
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
-    expect(boxAtBound).toBeCloseTo(
-      cardW - 2 * CONTRACT_FRAME_PX - padL - parseFloat(root.style.paddingRight),
-      6,
-    )
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of Array.from({ length: 101 }, (_, i) => 1 + i * (MAX_GLYPH_COUNTER_SCALE - 1) / 100)) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+    expect(screen.getByTestId('node-corner-stack-o1').children).toHaveLength(0)
+    expect(tokens(screen.getByTestId('attention-marker-o1'))).not.toContain('absolute')
   })
 
-  it('TWO marks (attention + coaching): both in the stack, and the spacer covers the whole run', () => {
+  it('a repeated card: the full title measure is available at 100% and the bound, with its mark in the band', () => {
+    attentionMarked = true
+    expect(restingCardWidthForKind('outcome')).toBe(REPEATED_CARD_MAX_W)
+    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width)).toBe(248)
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+  })
+
+  it('TWO marks (attention + coaching): both in the band, in order, with no title spacer', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
     const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
-    const stack = screen.getByTestId('node-corner-stack-o1')
-    expect(Array.from(stack.children).map((c) => c.getAttribute('data-testid'))).toEqual([
-      'attention-marker-o1',
-      'node-coaching-marker-o1',
-    ])
-    const cardW = parseFloat(root.style.width)
-    const padL = parseFloat(root.style.paddingLeft)
-    const title = screen.getByTestId('node-title')
-    const wrapperMin = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    const spacer = within(title).getByTestId('node-title-corner-spacer')
-    // At 100% (and at every scale where the widest word still fits beside the
-    // run — the block below pins where that stops).
-    // 1.4 → 1.2 (27 Sep 2026): with the title word at the 1.36 text ceiling and
-    // two marks at glyph 1.4, line 1 is within a few px of the widest word — the
-    // yield boundary, pinned by the block below — so the "beside" probe sits
-    // clearly inside the beside regime.
-    for (const g of [1, 1.2]) {
-      const box = titleBoxWidthAt(root, wrapperMin, g)
-      expect(padL + box - px(spacer.style.width, scalesAt(g), { pct: box }), `glyph scale ${g}`).toBeCloseTo(
-        markLeftAt(cardW, 2, g) - CONTRACT_MARK_CLEARANCE_PX,
-        6,
-      )
-    }
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+    expect(band).toContainElement(screen.getByTestId('node-coaching-marker-o1'))
+    expect(Array.from(band.querySelectorAll('[data-testid="attention-marker-o1"], [data-testid="node-coaching-marker-o1"]')).map(el => el.getAttribute('data-testid'))).toEqual(['attention-marker-o1', 'node-coaching-marker-o1'])
   })
 
   it('CONTRAST — no mark: no spacer, no header reserve, an empty stack, and the title keeps its measure', () => {
@@ -376,23 +306,16 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(within(screen.getByTestId('node-title')).queryByTestId('node-title-corner-spacer')).toBeNull()
   })
 
-  it('a wide anchor: the header row (title AND its header glyphs) ends 1px before the mark; no line-1 spacer is needed', () => {
+  it('a wide anchor: the header keeps its full measure and the mark stays inside its last-row frame', () => {
     attentionMarked = true
-    // Quiet rung: the anchor's rail is not beside the row there, so the card's
-    // right padding is its plain side padding and the reserve is exact.
     useCanvasStore.setState({ lodRung: 'quiet' } as never)
     const root = renderCard('goal', 'g1', 'Grow recurring revenue')
-    const cardW = parseFloat(root.style.width)
-    const padR = root.style.paddingRight
-    const header = screen.getByTestId('node-header-row')
-    for (const s of [1, 2]) {
-      const headerRight = cardW - 2 * CONTRACT_FRAME_PX - px(padR, s) - px(header.style.paddingRight, s)
-      expect(headerRight, `scale ${s}`).toBeCloseTo(markLeftAt(cardW, 1, s) - CONTRACT_MARK_CLEARANCE_PX, 6)
-    }
-    const title = screen.getByTestId('node-title')
-    const spacer = within(title).queryByTestId('node-title-corner-spacer')
-    const pct = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    if (spacer) for (const s of [1, 2]) expect(px(spacer.style.width, s, { pct }), `scale ${s}`).toBe(0)
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(root).toContainElement(screen.getByTestId('goal-bottom-marks-g1'))
+    expect(screen.getByTestId('goal-bottom-marks-g1')).toContainElement(screen.getByTestId('attention-marker-g1'))
+    // #2649 r3 band overlap: the anchor body clears its bottom marks band.
+    expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 
   it('the contract figure itself: one mark at 100% beside 12px of card padding reserves exactly 21px (`.node h3{padding-right:21px}`)', () => {
@@ -432,169 +355,136 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
  * Evaluated from the DECLARED spacer on the card's own title (jsdom has no
  * layout); the browser half of the claim is the verifier's Chromium harness.
  */
-describe('GAP 11 — line 1 holds the widest word or yields to the marks (never a mid-word break)', () => {
+describe('GAP 11: the full-width title holds the widest word while marks occupy the bottom band', () => {
   // The GLYPH scale across the band (1.00 … 2.00, the bound); the TEXT scale is
   // `scalesAt(g).text` — it follows g up to the text ceiling (1.64 since the 27 Sep
   // 2026 landing text cap; it was 1.36).
-  const SCALES = Array.from({ length: 101 }, (_, i) => 1 + i / 100)
-  const EPS = 1e-6
-  const lineHeightAt = (t: number) => CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * t
 
-  type Box = { left: number; width: number }
-  type Card = { width: number; paddingTop: number }
 
-  function assertLineOne(spacer: HTMLElement, boxAt: (g: number) => Box, card: Card, marks: number, label: string) {
-    const run = marks * CONTRACT_MARK_BOX_PX + (marks - 1) * STACK_GAP_PX
-    let yieldedSomewhere = false
-    let besideSomewhere = false
-    for (const g of SCALES) {
-      const sc = scalesAt(g)
-      const box = boxAt(g)
-      const rightGap = card.width - 2 * CONTRACT_FRAME_PX - box.left - box.width
-      const lh = lineHeightAt(sc.text)
-      const w = px(spacer.style.width, sc, { pct: box.width, lh })
-      const h = px(spacer.style.height, sc, { pct: box.width, lh })
-      const line1 = box.width - w
-      const at = `${label}, ${marks} mark(s), glyph ${g.toFixed(2)} / text ${sc.text.toFixed(2)}`
-      const clearance = CONTRACT_MARK_RIGHT_PX + CONTRACT_MARK_CLEARANCE_PX + run * g
-      const bothFit = box.width - Math.max(0, clearance - rightGap) >= NODE_TITLE_WIDEST_WORD_PX * sc.text
-      if (line1 > EPS) {
-        besideSomewhere = true
-        expect(line1, `${at}: line 1 cannot hold the widest word — a mid-word break`).toBeGreaterThanOrEqual(
-          NODE_TITLE_WIDEST_WORD_PX * sc.text - EPS,
-        )
-        expect(box.left + line1, `${at}: line 1 runs under the mark`).toBeLessThanOrEqual(
-          markLeftAt(card.width, marks, g) - CONTRACT_MARK_CLEARANCE_PX + EPS,
-        )
-        expect(h, `${at}: a spacer beside line 1 is exactly one line tall`).toBeCloseTo(lh, 6)
-      } else {
-        yieldedSomewhere = true
-        expect(bothFit, `${at}: the title yielded line 1 although the widest word fits beside the marks`).toBe(false)
-        expect(h, `${at}: the yielded title's first line runs under the mark box`).toBeGreaterThanOrEqual(
-          CONTRACT_MARK_TOP_PX + CONTRACT_MARK_BOX_PX * g + CONTRACT_MARK_CLEARANCE_PX - card.paddingTop - EPS,
-        )
-      }
-    }
-    return { yieldedSomewhere, besideSomewhere }
-  }
 
-  const cardOf = (root: HTMLElement): Card => ({
-    width: parseFloat(root.style.width),
-    paddingTop: parseFloat(root.style.paddingTop),
-  })
 
-  it('a 248 repeated card, ONE mark: beside the title at every scale (the verifier\'s "Concentratio|n" no longer yields)', () => {
+
+
+
+
+
+
+
+  it('a 248 repeated card, ONE mark: the full title holds the widest word at every scale', () => {
     attentionMarked = true
-    // 30 Sep 2026: drawn at the REPEATED_CARD_W floor explicitly — an unlaid-out
-    // card rests at the 400 cap now, where the yield control below cannot fire.
+
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
-    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
-    const title = screen.getByTestId('node-title')
-    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
-    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 248')
-    // ⚠ 27 Sep 2026: at the 1.36 text ceiling the widest word (146.88) fit beside
-    // ONE mark at the glyph bound on a 248 card, so only the beside regime was
-    // reached here.
-    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): at 1.64 the widest word
-    // (177.12) no longer fits beside ONE mark near the bound (line 1 holds 175 at
-    // glyph 2), so BOTH regimes are reached: beside at 100%, yielded at the bound.
-    // `assertLineOne` has checked the yield is only taken where both cannot fit.
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    expect(parseFloat(root.style.width)).toBe(REPEATED_CARD_W)
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+
   })
 
-  it('a 260 repeated card, TWO marks (attention + coaching): the same rule over the wider run', () => {
+  it('a 260 repeated card, TWO marks (attention + coaching): the full title stays clear of the band', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
-    // 30 Sep 2026: the floor width, explicitly (see the case above).
-    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier', { maxWidth: REPEATED_CARD_W })
-    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
-    const title = screen.getByTestId('node-title')
-    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 2, 'outcome 248')
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier', { maxWidth: 260 })
+    expect(parseFloat(root.style.width)).toBe(260)
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+    expect(band).toContainElement(screen.getByTestId('node-coaching-marker-o1'))
   })
 
-  it('an intermediate width (270, the header-reserve path): the title box still sits at its minimum measure, so the same rule holds', () => {
+  it('an intermediate width (270): no header reserve or spacer narrows the title', () => {
     attentionMarked = true
+
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: 270 })
     expect(parseFloat(root.style.width)).toBe(270)
-    const title = screen.getByTestId('node-title')
-    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
-    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 270')
-    // 27 Sep 2026: as on the 248 card, ONE mark never forces the yield here.
-    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+
   })
 
   it('the CAUSAL LENS title (a full-width block; netlify.toml ships the lens ON) keeps clear of the mark by the same rule', () => {
     attentionMarked = true
     graphLensOn = true
     useCanvasStore.setState({ lens: { ...INITIAL_LENS, active: 'causal' } } as never)
-    // 30 Sep 2026: the floor width, explicitly (see the first case of this block).
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
-    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
-    // Positive control: this IS the causal-lens title — the header row is not drawn.
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.queryByTestId('node-header-row')).toBeNull()
-    const spacer = within(root).getByTestId('node-title-corner-spacer')
-    const causalTitle = spacer.parentElement as HTMLElement
-    expect(causalTitle.textContent).toBe('Concentration risk in the top accounts')
-    const card = cardOf(root)
-    const box = {
-      left: parseFloat(root.style.paddingLeft),
-      width: card.width - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight),
-    }
-    const r = assertLineOne(spacer, () => box, card, 1, 'causal lens 248')
-    // 27 Sep 2026: at 1.36 ONE mark never forced the yield on the full-width lens title.
-    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): at 1.64 it does, near the
-    // bound — the same arithmetic as the 248 header title (the lens title's box is
-    // the card's full inner width, as the header title's is at the bound); both
-    // regimes reached, never a mid-word break.
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+    expect(root.textContent).toContain('Concentration risk in the top accounts')
   })
 
-  it('CONTRAST — at 100% the title sits beside ONE or TWO marks (the contract layout is untouched), and no mark means no spacer', () => {
+  it('CONTRAST: two marks and no marks both leave the title full width, with no spacer', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
-    renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
-    const spacer = within(screen.getByTestId('node-title')).getByTestId('node-title-corner-spacer')
-    const box = parseFloat((screen.getByTestId('node-title').parentElement as HTMLElement).style.minWidth)
-    expect(px(spacer.style.width, 1, { pct: box, lh: lineHeightAt(1) })).toBeLessThan(box / 2)
-    expect(px(spacer.style.height, 1, { pct: box, lh: lineHeightAt(1) })).toBeCloseTo(lineHeightAt(1), 6)
+    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
+
+    const band = screen.getByTestId('outcome-bottom-marks-o1')
+    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
+    expect(root).toContainElement(band)
+    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
+
+    expect(band).toContainElement(screen.getByTestId('node-coaching-marker-o1'))
     cleanup()
     attentionMarked = false
     useGuidanceStore.getState().clearGuidanceItems()
     renderCard('outcome', 'o2', 'Concentration risk in the top accounts')
     expect(within(screen.getByTestId('node-title')).queryByTestId('node-title-corner-spacer')).toBeNull()
+    expect(screen.queryByTestId('attention-marker-o2')).toBeNull()
+    expect(screen.queryByTestId('node-coaching-marker-o2')).toBeNull()
   })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe('GAP 11 — worded state pills leave the corner for an in-flow row on the card', () => {
-  it('"Needs input" renders in the card\'s own state row, not in the corner stack', () => {
-    renderCard('goal', 'g1', 'Grow recurring revenue')
+  it('"Needs input" renders in the card\'s bottom band, not in the corner stack', () => {
+    const root = renderCard('goal', 'g1', 'Grow recurring revenue')
     const pill = screen.getByTestId('needs-input-pill')
-    const stack = screen.getByTestId('node-corner-stack-g1')
-    const row = screen.getByTestId('node-state-row-g1')
-    expect(stack).not.toContainElement(pill)
-    expect(row).toContainElement(pill)
-    // In flow: no positioning of its own, a child of the card itself.
-    expect(tokens(row).some((c) => c === 'absolute' || c === 'fixed')).toBe(false)
-    expect(row.parentElement?.getAttribute('role')).toBe('group')
-    // A long state word wraps inside the card rather than running past it.
-    expect(tokens(row)).toContain('[&>*]:whitespace-normal')
-    expect(tokens(row)).toContain('[&>*]:max-w-full')
+    expect(screen.getByTestId('goal-bottom-marks-g1')).toContainElement(pill)
+    expect(screen.getByTestId('node-corner-stack-g1')).not.toContainElement(pill)
+    expect(root).toContainElement(pill)
+    expect(tokens(pill)).not.toContain('absolute')
   })
 
-  it('CONTRAST — the attention mark on the same card stays in the corner, and the pill does not join it', () => {
+  it('CONTRAST: the attention mark and pill share the band and leave the corner empty', () => {
     attentionMarked = true
     renderCard('goal', 'g1', 'Grow recurring revenue')
-    const stack = screen.getByTestId('node-corner-stack-g1')
-    expect(Array.from(stack.children).map((c) => c.getAttribute('data-testid'))).toEqual(['attention-marker-g1'])
-    expect(screen.getByTestId('node-state-row-g1')).toContainElement(screen.getByTestId('needs-input-pill'))
+    const band = screen.getByTestId('goal-bottom-marks-g1')
+    expect(band).toContainElement(screen.getByTestId('attention-marker-g1'))
+    expect(band).toContainElement(screen.getByTestId('needs-input-pill'))
+    expect(screen.getByTestId('node-corner-stack-g1').children).toHaveLength(0)
   })
 
   it('CONTRAST — a card with no state word renders no state row (no empty band)', () => {

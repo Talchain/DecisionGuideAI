@@ -41,7 +41,6 @@
  * geometry, so `useNodeAttention` is stubbed to a marked / unmarked answer.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { CANVAS_CORNER_STACK_CLASSES } from '../shared/canvasGlyphScale'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
@@ -173,7 +172,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
 
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     const marker = screen.getByTestId('attention-marker-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
 
@@ -204,7 +203,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(marker.getAttribute('title') ?? '').toBe('')
 
     // Deterministic order: the marker FIRST (the rank's old position), coaching beside it.
-    const kids = Array.from(stack.children)
+    const kids = Array.from(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]'))
     expect(kids[0]).toBe(marker)
     expect(kids[1]).toBe(coaching)
 
@@ -222,8 +221,8 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     // stack owns the corner; its children carry no positioning) while letting
     // the anchor move in one place.
     expect(stack.className).toContain('absolute')
-    expect(stack.className).toBe(CANVAS_CORNER_STACK_CLASSES)
-    expect(stack.className).toContain('z-10')
+    expect(stack).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
+    expect(stack).toHaveClass('gap-1')
     expect(stack.className).toContain('flex')
     expect(marker.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('absolute')
@@ -249,7 +248,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
 
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     // Locked Canvas design (23 Sep 2026): the marker holds the retired rank badge's slot.
     const marker = screen.getByTestId('attention-marker-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
@@ -263,7 +262,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
 
     // Deterministic order: marker first, coaching beside it — unchanged by
     // the dot's removal since it always sat BETWEEN them.
-    const kids = Array.from(stack.children)
+    const kids = Array.from(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]'))
     expect(kids).toHaveLength(2)
     expect(kids[0]).toBe(marker)
     expect(kids[1]).toBe(coaching)
@@ -279,12 +278,12 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
   it('EDITED alone (store opts the node in): the corner stays EMPTY — the dot no longer reads that flag', () => {
     editedNodeIds.add('node-a')
     renderNode()
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     expect(screen.queryByTestId('edited-since-run-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('attention-marker-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
-    expect(stack.children).toHaveLength(0)
+    expect(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]')).toHaveLength(0)
   })
 
   /**
@@ -310,11 +309,11 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
   it('RANK alone: the retired rank badge does NOT render — the corner stays empty', () => {
     sensitivityRank = 2
     renderNode()
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
     expect(stack.textContent).not.toContain(sensitivityRankBadgeLabel(2))
     expect(stack.textContent).not.toContain('#2')
-    expect(stack.children).toHaveLength(0)
+    expect(stack.querySelectorAll('[data-testid="attention-marker-node-a"], [data-testid="node-coaching-marker-node-a"]')).toHaveLength(0)
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
   })
 
@@ -322,10 +321,11 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
   it('ATTENTION alone: the "Worth reviewing" marker renders in the stack, no coaching marker', () => {
     attentionMarked = true
     renderNode()
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     const marker = screen.getByTestId('attention-marker-node-a')
     expect(stack).toContainElement(marker)
-    expect(Array.from(stack.children)).toEqual([marker])
+    expect(stack.querySelectorAll('[data-testid="attention-marker-node-a"]')).toHaveLength(1)
+    expect(stack).toContainElement(marker)
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
   })
 
@@ -333,7 +333,7 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     sensitivityRank = null
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
-    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const stack = screen.getByTestId('decision-bottom-marks-node-a')
     expect(stack).toContainElement(screen.getByTestId('node-coaching-marker-node-a'))
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('attention-marker-node-a')).not.toBeInTheDocument()

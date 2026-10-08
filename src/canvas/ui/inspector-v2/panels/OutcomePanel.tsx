@@ -16,14 +16,13 @@ import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
 import { typography } from '../../../../styles/typography'
 import {
   SECTION_TITLES,
-  GROUP_LABELS,
   INLINE_LABELS,
   EMPTY_STATES,
-  DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { PanelGroup } from '../shared/PanelGroup'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
 import { DriversList, type DriverItem } from '../shared/DriversList'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -213,6 +212,7 @@ export const OutcomePanel = memo(function OutcomePanel({
   onClose,
   onNavigate,
   readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -257,13 +257,16 @@ export const OutcomePanel = memo(function OutcomePanel({
 
   return (
     <div>
-      {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {description
-          ? <p className={`${typography.panelBody} text-text-body`}>{description}</p>
-          : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.outcome} />
-        }
-      </PanelGroup>
+      <InspectorSummary sentence="Likelihood and impact are not recorded. That does not imply low risk." />
+      {summaryContext}
+      {readOnly && (
+        <p data-testid="outcome-authority-route" className={`${typography.panelBody} text-text-body mt-2`}>
+          To record likelihood or impact, ask Olumi.
+        </p>
+      )}
+      {description.trim() && (
+        <p className={`${typography.panelBody} text-text-body mt-2 whitespace-pre-wrap break-words`}>{description}</p>
+      )}
 
       {/* ── Predicted range group ─────────────────────────────── */}
       {(!isResultsMode || (!isOptionComparisonFailed(resultsReport) && hasOptionComparisonData(resultsReport))) && (
@@ -307,11 +310,13 @@ export const OutcomePanel = memo(function OutcomePanel({
       {/* ⚠ `OutcomeAdvancedEditor`'s Description field commits
           `setDescription`, a bare store write with no carrier — fenced here
           exactly as the factor pane fences its editor (review 2038). */}
-      <TechnicalDisclosure visible={techMode}>
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
-          <OutcomeAdvancedEditor nodeId={nodeId} />
-        </fieldset>
-      </TechnicalDisclosure>
+      <InspectorMoreItems>
+        <TechnicalDisclosure visible={techMode}>
+          <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+            <OutcomeAdvancedEditor nodeId={nodeId} />
+          </fieldset>
+        </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

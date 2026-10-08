@@ -88,6 +88,17 @@ describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
     render(<Chips chips={CHIPS} proposalFields={fields} replyId="none" onChipClick={send} />)
     open(); expect(send).toHaveBeenCalledWith(CHIPS[1]); expect(screen.queryByRole('region')).toBeNull()
   })
+  // Served 8 Oct (UI 42652ba4, CEE 78cad18): a held card with nothing the panel can show (e.g. the deadline question, whose
+  // option ops are card-only) opened an EMPTY "What this change assumes" (title + three buttons). Design §9: with nothing to
+  // show, today's amend sentence stays, so Olumi asks what to change.
+  it.each([
+    ['no fields and no missing data', { ...wire(), proposals: [{ ...wire().proposals[0], fields: [], missing: [] }] }],
+    ['only field kinds the panel does not draw', { ...wire(), proposals: [{ ...wire().proposals[0], fields: [{ field_id: 'option_level:o1', kind: 'option_level' }], missing: [] }] }],
+  ])('an entry with %s keeps the exact amend sentence and opens no empty panel', (_name, fields) => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    render(<Chips chips={CHIPS} proposalFields={fields} replyId="empty" onChipClick={send} />)
+    open(); expect(send).toHaveBeenCalledWith(CHIPS[1]); expect(screen.queryByRole('region', { name: 'What this change assumes' })).toBeNull()
+  })
   it('Submit body is §15 JSON, with ONLY the changed row and rendered digest', () => {
     const { send } = mount(); open(); choose(); fireEvent.click(within(panel()).getByRole('button', { name: 'Submit' }))
     expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id }, proposal_edits: expectedEdits() })

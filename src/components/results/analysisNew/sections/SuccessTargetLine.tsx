@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowUp, Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -235,6 +235,8 @@ export interface SuccessTargetLineProps {
    * `sendWordsToOlumi` and `deferTarget`, so the write path cannot fork.
    */
   variant?: 'inspector' | 'reasoning'
+  /** A resolving canvas control opens the numeric form immediately, through the same seeding path as a press. */
+  openOnMount?: boolean
 }
 
 /** V2 prototype's success row, verbatim, for a goal with no target. */
@@ -247,6 +249,7 @@ export function SuccessTargetLine({
   testId,
   divider = true,
   variant = 'inspector',
+  openOnMount = false,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -345,6 +348,14 @@ export function SuccessTargetLine({
    * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
    */
   const attemptSeqRef = useRef(0)
+  const openedOnMountRef = useRef(false)
+
+  // Keep hooks above the null-goal return. The one-shot route uses the normal open's scenario/direction guards.
+  useEffect(() => {
+    if (!openOnMount || goalNodeId === null || openedOnMountRef.current) return
+    openedOnMountRef.current = true
+    if (!changeGoal) openEditor('number')
+  })
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -806,7 +817,9 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                // min-w: beside the shrink-0 direction select and the w-24 unit box, `min-w-0 flex-1` collapsed the number box to
+                // nothing in the canvas target popover (#2659 served witness, 8 Oct). The figure field must always be visible.
+                className={`${typography.panelMeta} min-w-[4.5rem] flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
@@ -1104,7 +1117,15 @@ function ReasoningSuccessRow({
 }
 
 /** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
-const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_BOX = `${typography.panelBody} rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_CLASS = `${FIELD_BOX} w-full min-w-0`
+/**
+ * The direction select sizes to its words and the figure box takes the rest, never below 4.5rem. `w-full` and
+ * `w-auto` on one element let `w-full` win in the generated CSS, so the select filled the row and the number box
+ * drew 18px wide in the canvas target popover (#2659 served witness, 8 Oct).
+ */
+const DIRECTION_SELECT_CLASS = `${FIELD_BOX} w-auto shrink-0`
+const NUMBER_INPUT_CLASS = `${FIELD_BOX} min-w-[4.5rem] flex-1`
 
 /**
  * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
@@ -1261,7 +1282,7 @@ function ReasoningSuccessForm({
                   onChange={(e) => onDirection(e.target.value as ConstraintType)}
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.directionLabel}
-                  className={`${FIELD_CLASS} w-auto shrink-0`}
+                  className={DIRECTION_SELECT_CLASS}
                   data-testid={`${testId}-direction`}
                 >
                   <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
@@ -1275,7 +1296,7 @@ function ReasoningSuccessForm({
                   value={draft}
                   onChange={(e) => onDraft(e.target.value)}
                   onKeyDown={onEditorKeyDown}
-                  className={FIELD_CLASS}
+                  className={NUMBER_INPUT_CLASS}
                   data-testid={`${testId}-input`}
                 />
               </span>

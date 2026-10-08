@@ -50,6 +50,7 @@ import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { adoptChangedSinceRun } from '../changes/changedSinceRun'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -354,6 +355,12 @@ async function readAndMergeServerGraph(
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
       },
     })
+  }
+
+  // ⭐ P48 (audit #27): what changed since the last Run, as CEE says it, held for the "Since the last run" cue.
+  // Only on the conversation read (the key's opt-in), and only for the scenario the payload came back for.
+  if (opts.includeConversationTurns === true && result.scenarioId === scenarioId) {
+    adoptChangedSinceRun(scenarioId, result.changedSinceRun)
   }
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────

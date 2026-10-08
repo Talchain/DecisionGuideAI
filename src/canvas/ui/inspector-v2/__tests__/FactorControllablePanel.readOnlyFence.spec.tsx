@@ -250,8 +250,11 @@ describe('the writer that saves is live, and the writer that does not is fenced'
     ).toBe(false)
   })
 
-  it('fences the DESCRIPTION specifically — it writes to the local store only', () => {
+  it('fences the DESCRIPTION specifically — it writes to the local store only', async () => {
     const { container } = openFactor()
+    const more = screen.getByTestId('inspector-more-toggle')
+    await userEvent.click(more)
+    expect(more.getAttribute('aria-expanded')).toBe('true')
     const desc = container.querySelector('fieldset[data-writer-fence="description"]')
     expect(desc, 'the description writer must sit behind its own fence').not.toBeNull()
     expect(desc!.hasAttribute('disabled')).toBe(true)

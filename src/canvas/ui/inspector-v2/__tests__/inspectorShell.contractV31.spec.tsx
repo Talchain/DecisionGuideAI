@@ -99,13 +99,16 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(screen.queryByTestId('inspector-back-to-results')).toBeNull()
       expect(within(header).getByRole('button', { name: 'Close inspector' })).toBeTruthy()
 
-      // Technical detail stays reachable, at the foot of the body.
+      // Every live pane uses the anatomy's More destination.
+      fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+      // Technical detail stays reachable, at the foot of its content.
       const tech = screen.getByTestId('inspector-tech-toggle')
       expect(tech.getAttribute('aria-label')).toBe('Show technical detail')
       expect(header.contains(tech)).toBe(false)
 
       // The two contract buttons, and not the old chips.
-      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
+      fireEvent.click(screen.getByTestId('inspector-header-menu'))
       expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
       expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
       expect(screen.queryByTestId('inspector-quick-analysis')).toBeNull()
@@ -120,7 +123,7 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(notes).toHaveLength(1)
       const note = notes[0]
       expect(note.className).toContain('text-[10px]')
-      const body = screen.getByTestId('inspector-body')
+      const body = screen.getByTestId('inspector-more')
       const lastBlock = body.lastElementChild
       expect(lastBlock === note || lastBlock?.contains(note)).toBe(true)
     })
@@ -142,6 +145,7 @@ describe('v3.1 inspector shell — every pane', () => {
     const onClose = vi.fn()
     useCanvasStore.setState({ selection: { nodeIds: new Set(['fc']), edgeIds: new Set(), anchorPosition: null } } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />)
+    fireEvent.click(screen.getByTestId('inspector-header-menu'))
     fireEvent.click(screen.getByTestId('inspector-back-to-conversation'))
     expect(reveal).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalledTimes(1)

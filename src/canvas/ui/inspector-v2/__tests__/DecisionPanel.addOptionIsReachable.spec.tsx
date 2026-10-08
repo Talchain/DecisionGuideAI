@@ -14,8 +14,8 @@
  * and dead for every user (EDITABILITY-MATRIX-20260924, Decision row 2).
  *
  * ── THE FIX, AND WHY IT IS THIS SHAPE ────────────────────────────────────────
- * The control moves to the Inspector's `quickActions` slot — the same escape
- * hatch the rename already uses, above the fenced body — and NOTHING ELSE on the
+ * The control moves to the Inspector's `actions` slot, after the fenced body
+ * and outside its boundary — and NOTHING ELSE on the
  * decision panel is unfenced. The panel stays wrapped. Adding `'decision'` to
  * `AUTHORITY_OWNING_PANELS` would have released every other control on the pane
  * too, which is a wider change than the one gap being closed.
@@ -173,12 +173,15 @@ describe('the decision\'s "+ Add option" is reachable through the mounted Inspec
     expect(addEvents[0].payload.base_graph_hash).toBe(SERVER_HASH)
   })
 
-  it('CONTRAST — the rest of the decision panel stays fenced: its description writer is inert', () => {
+  it('CONTRAST — the rest of the decision panel stays fenced: its description writer is inert', async () => {
     const { container } = render(<InspectorRouter nodeId={DECISION_ID} edgeId={null} onClose={vi.fn()} />)
     const boundary = container.querySelector('fieldset[data-authority="disabled"]')
     expect(boundary).not.toBeNull()
-    const textarea = boundary!.querySelector('textarea')
-    expect(textarea, 'PRECONDITION: the description writer is rendered inside the boundary').not.toBeNull()
+    await userEvent.click(screen.getByTestId('inspector-more-toggle'))
+    const textarea = screen.getByRole('textbox', { name: 'Description' })
+    const descriptionBoundary = textarea.closest('fieldset[data-authority="disabled"]')
+    expect(descriptionBoundary, 'PRECONDITION: the relocated description writer is rendered inside the same authority boundary').not.toBeNull()
+    expect(descriptionBoundary).toHaveAttribute('aria-describedby', boundary!.getAttribute('aria-describedby'))
     expect(isInert(textarea), 'the description writer was unfenced along with the add-option control').toBe(true)
   })
 

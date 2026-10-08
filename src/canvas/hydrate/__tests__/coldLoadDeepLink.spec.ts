@@ -1166,6 +1166,128 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
   })
 })
 
+describe('§13 TAB FENCE: the first canvas mount can follow an identity boundary missed on another route', () => {
+  const EPOCH = scenarios.IDENTITY_EPOCH_KEY
+  /** A page load with its own epoch capture; no canvas mount has happened in it yet. */
+  async function bootTab() {
+    vi.resetModules()
+    const registry = await import('../../store/scenarios')
+    const auth = await import('../../../lib/auth/userScopedState')
+    const { useCanvasStore: store } = await import('../../store')
+    const deepLink = await import('../coldLoadDeepLink')
+    return { scenarios: registry, auth, store, deepLink }
+  }
+  const slot = (epoch: string, timestamp: number) => JSON.stringify({
+    identityEpoch: epoch, timestamp, scenarioId: Z, nodes: GRAPH[Z], edges: [],
+  })
+  function collectNotices(): { notices: string[]; stop: () => void } {
+    const notices: string[] = []
+    const onToast = (event: Event) => notices.push((event as CustomEvent<{ message: string }>).detail.message)
+    window.addEventListener('topbar:show-toast', onToast)
+    return { notices, stop: () => window.removeEventListener('topbar:show-toast', onToast) }
+  }
+
+  it('⭐ stale first canvas mount: current guest X keeps its keyed slot, pointer and main autosave when stale guest opens Y', async () => {
+    const staleGuest = await bootTab() // guest boots on Profile; no Canvas has mounted
+    const other = await bootTab()
+    other.auth.clearUserScopedState() // another registry crosses the identity boundary
+    const currentGuest = await bootTab()
+    currentGuest.store.setState({ currentScenarioId: Z, nodes: GRAPH[Z], edges: [] })
+    currentGuest.scenarios.setCurrentScenarioId(Z)
+    expect(currentGuest.scenarios.saveAutosave({ scenarioId: Z, nodes: GRAPH[Z], edges: [], timestamp: 100 }), 'precondition: X saved in the current guest').toBe(true)
+    const currentAutosave = localStorage.getItem(MAIN_AUTOSAVE_SLOT)
+    const keyedBefore = localStorage.getItem(keyedAutosaveSlot(Z))
+    expect(keyedBefore, 'precondition: the current guest has no preserved copy of X').toBeNull()
+    expect(staleGuest.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(staleGuest.deepLink.planColdLoadDeepLink(Y), 'the stale page has not mounted Canvas before').toEqual({ kind: 'supersede', route: Y })
+    const { notices, stop } = collectNotices()
+    try {
+      expect.soft(staleGuest.deepLink.claimColdLoadDeepLink(Y)).toBe('declined')
+      expect.soft(localStorage.getItem(keyedAutosaveSlot(Z)), 'stale first mount must not create keyed X').toBe(keyedBefore)
+      expect.soft(localStorage.getItem(POINTER), 'the pointer must still name the current guest\'s X').toBe(Z)
+      expect.soft(localStorage.getItem(MAIN_AUTOSAVE_SLOT), 'the current guest\'s main autosave X must survive').toBe(currentAutosave)
+      expect.soft(notices).toEqual([staleGuest.scenarios.identityWriteBlockedMessage('stale')])
+    } finally {
+      stop()
+      staleGuest.deepLink.__resetColdLoadDeepLinkForTests()
+    }
+  })
+
+  it.each(['retire', 'refresh'] as const)('⭐ stale %s: a preserved copy of the current era cannot be removed or replaced', async (operation) => {
+    localStorage.setItem(EPOCH, 'previous-era')
+    const staleGuest = await bootTab()
+    localStorage.setItem(EPOCH, 'current-era')
+    const copy = slot('current-era', 100)
+    const main = operation === 'retire' ? copy : slot('current-era', 200)
+    localStorage.setItem(keyedAutosaveSlot(Z), copy)
+    localStorage.setItem(MAIN_AUTOSAVE_SLOT, main)
+    const { notices, stop } = collectNotices()
+    try {
+      const result = operation === 'retire'
+        ? staleGuest.deepLink.settleKeyedAutosaveCopy(Z)
+        : staleGuest.deepLink.refreshExistingCopy(Z)
+      expect.soft(result).toBe(false)
+      expect.soft(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(copy)
+      expect.soft(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(main)
+      expect.soft(notices).toEqual([staleGuest.scenarios.identityWriteBlockedMessage('stale')])
+    } finally { stop() }
+  })
+
+  it('⭐ unreadable first canvas mount: declines without mutations and shows the unreadable notice', async () => {
+    const guest = await bootTab()
+    guest.scenarios.setCurrentScenarioId(Z)
+    expect(guest.scenarios.saveAutosave({ scenarioId: Z, nodes: GRAPH[Z], edges: [], timestamp: 100 })).toBe(true)
+    const before = storageSnapshot()
+    const realGet = Storage.prototype.getItem
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH) throw new DOMException('denied', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    const { notices, stop } = collectNotices()
+    try {
+      expect.soft(guest.deepLink.claimColdLoadDeepLink(Y)).toBe('declined')
+      expect.soft(notices).toEqual([guest.scenarios.identityWriteBlockedMessage('unreadable')])
+      vi.restoreAllMocks()
+      expect.soft(storageSnapshot()).toEqual(before)
+    } finally {
+      stop()
+      guest.deepLink.__resetColdLoadDeepLinkForTests()
+    }
+  })
+
+  it('⭐ boundary during claim: rollback cannot restore old bytes over the new owner\'s pointer, autosave or keyed copy', async () => {
+    const guest = await bootTab()
+    guest.scenarios.setCurrentScenarioId(Z)
+    expect(guest.scenarios.saveAutosave({ scenarioId: Z, nodes: GRAPH[Z], edges: [], timestamp: 100 })).toBe(true)
+    const other = await bootTab()
+    const realSet = Storage.prototype.setItem
+    let crossed = false
+    let ownerMain: string | null = null
+    let ownerCopy: string | null = null
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      realSet.call(this, key, value)
+      if (key !== POINTER || value !== Y || crossed) return
+      crossed = true // the preserve already took; the route pointer's read-back will now fail
+      other.auth.clearUserScopedState()
+      other.scenarios.setCurrentScenarioId(W)
+      expect(other.scenarios.saveAutosave({ scenarioId: W, nodes: GRAPH[Y], edges: [], timestamp: 200 })).toBe(true)
+      ownerMain = localStorage.getItem(MAIN_AUTOSAVE_SLOT)
+      ownerCopy = slot(localStorage.getItem(EPOCH)!, 300)
+      realSet.call(localStorage, keyedAutosaveSlot(Z), ownerCopy)
+    })
+    try {
+      expect.soft(guest.deepLink.claimColdLoadDeepLink(Y)).toBe('declined')
+      expect.soft(crossed, 'precondition: another registry crossed between preserve and rollback').toBe(true)
+      expect.soft(localStorage.getItem(POINTER), 'rollback must not restore the old pointer over the new owner').toBe(W)
+      expect.soft(localStorage.getItem(MAIN_AUTOSAVE_SLOT), 'rollback must not restore the old main bytes over the new owner').toBe(ownerMain)
+      expect.soft(localStorage.getItem(keyedAutosaveSlot(Z)), 'rollback must not remove the new owner\'s keyed copy').toBe(ownerCopy)
+    } finally {
+      vi.restoreAllMocks()
+      guest.deepLink.__resetColdLoadDeepLinkForTests()
+    }
+  })
+})
+
 describe('§6 the steps the drive cannot execute (SOURCE scans, and only these)', () => {
   const src = (p: string) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
 

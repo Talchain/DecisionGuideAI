@@ -119,7 +119,7 @@ function mockStore(over: Record<string, unknown>) {
 /** The corner stack OF THE NODE UNDER TEST — since gap 11 it holds only marks, never a pill. */
 const stackOf = (id: string) => screen.getByTestId(`node-corner-stack-${id}`)
 /** The state row OF THE NODE UNDER TEST — the identity every badge PRESENCE assertion binds through (gap 11). */
-const stateRowOf = (id: string) => screen.getByTestId(`node-state-row-${id}`)
+const stateRowOf = (id: string) => screen.getByTestId(`${id === GOAL_ID ? "goal" : id === DECISION_ID ? "decision" : "option"}-bottom-marks-${id}`)
 /** The card OF THE NODE UNDER TEST — the stack's own parent — for ABSENCE assertions that must cover the whole card. */
 const cardOf = (id: string) => stackOf(id).parentElement as HTMLElement
 

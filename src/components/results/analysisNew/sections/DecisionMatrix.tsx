@@ -69,7 +69,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const licensed = licence !== null && chanceLines !== null && licence.optionIds.includes(id)
     const withheld = rec.goalFiguresWithheldMessage ?? null
     const rangeEntry = range?.rangeByOption[id]
-    const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf)
+    const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf, range?.target)
     const rangeClauses = splitRangeLine(rangeLine)
     const readout = rangeEntry !== undefined ? null : licensed
       ? licence.withheldOptionIds.includes(id) ? null : goalProbabilityWords(`${licence.pctByOption[id]}%`)

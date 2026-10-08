@@ -95,7 +95,7 @@ describe('the option marker follows the panel\'s "was it compared?"', () => {
       producer_leader_permission: WITHHELD,
     })
     expect(marker()).not.toBeNull()
-    expect(marker()!.textContent).toBe(NOT_RANKED_MARKER)
+    expect(marker()!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
     expect(screen.queryByTestId(`option-win-readout-${NODE_ID}`)).toBeNull()
   })
 

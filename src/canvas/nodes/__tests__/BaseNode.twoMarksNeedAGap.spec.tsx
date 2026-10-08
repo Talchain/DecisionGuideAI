@@ -185,7 +185,8 @@ describe('⭐ the two provenance marks do not touch', () => {
     renderFactor('fac_two', TWO_MARK_DATA)
     // Bound to the group by its own testid, never by walking up from a mark:
     // with two marks present, position is not identity (trap 19).
-    expect(group().className).toBe(CANVAS_HEADER_GLYPH_GROUP_CLASSES)
+    expect(group()).toHaveClass('inline-flex', 'items-center', 'gap-1', 'shrink-0')
+    expect(group().closest('[data-card-bottom-band]')).not.toBeNull()
     // ⭐ THE PROPERTY, NOT THE STRING. A rename or a reshuffle of the constant
     // is fine; losing the gap is not, and this is the line that REDs if the gap
     // is removed from the shared string.
@@ -211,7 +212,8 @@ describe('⭐ the two provenance marks do not touch', () => {
     expect(marks()).toHaveLength(0)
     // The group is unconditional, so the gap class stays available for
     // whatever DOES mount inside it (structural-only today).
-    expect(group().className).toBe(CANVAS_HEADER_GLYPH_GROUP_CLASSES)
+    expect(group()).toHaveClass('inline-flex', 'items-center', 'gap-1', 'shrink-0')
+    expect(group().closest('[data-card-bottom-band]')).not.toBeNull()
   })
 })
 

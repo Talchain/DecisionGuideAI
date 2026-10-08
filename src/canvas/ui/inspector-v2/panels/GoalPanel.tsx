@@ -30,10 +30,10 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
-import { StaleGuardBanner } from '../shared/StaleGuardBanner'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
 import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
@@ -57,8 +57,8 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // store scalar — and #1844 wrote a whole new module (`displayableGoalTarget.ts`)
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
-import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
-import { constraintRestatesGoalTarget, heldTargetBoundWords } from '../../../domain/goalOwnTargetRow'
+import { canCaptureGoalTarget, resolveGoalTarget, goalTargetFrameIsUnread, type GoalTargetSource } from '../../../domain/goalTarget'
+import { constraintRestatesGoalTarget, heldTargetBoundWords, resolveGoalTargetWithOwnRow, goalTargetBound, goalTargetComparator } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
   SuccessTargetLine,
@@ -159,6 +159,7 @@ export const GoalPanel = memo(function GoalPanel({
    * the store-only `GoalThresholdEditor`.
    */
   readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -400,7 +401,8 @@ export const GoalPanel = memo(function GoalPanel({
   const canCaptureTarget = canCaptureGoalTarget(node?.data as GoalTargetSource)
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
-  const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  const descriptionBody = String(node?.data?.description ?? '')
+  const [description, setDescription] = useState(descriptionBody)
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   /** The last target commit's outcome — rendered as the Model tab's own sentence. */
@@ -623,40 +625,61 @@ export const GoalPanel = memo(function GoalPanel({
     </p>
   ) : null
 
+  // The mounted target control also reads the goal's own limit row when
+  // the node holds no target. The summary uses that same owner.
+  const summaryTarget = resolveGoalTargetWithOwnRow(
+    node.data as GoalTargetSource,
+    goalConstraints,
+    nodeId,
+  )
+  const summaryUnreadFrame = goalTargetFrameIsUnread((node.data as GoalTargetSource).goal_threshold_frame)
+  const summaryStoreTarget = goalThreshold != null && goalThresholdRepresentation === 'raw' && !summaryUnreadFrame
+    ? goalThreshold
+    : null
+  const summaryNodeTargetDisplay = summaryTarget === null ? null : (() => {
+    const raw = typeof summaryTarget.raw === 'number' ? summaryTarget.raw : Number(summaryTarget.raw)
+    return Number.isNaN(raw)
+      ? String(summaryTarget.raw)
+      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame) ?? String(summaryTarget.raw)
+  })()
+  const summaryTargetDisplay = summaryNodeTargetDisplay
+    ?? (summaryStoreTarget != null ? String(summaryStoreTarget) : null)
+  const summaryUnexpressible = summaryTargetDisplay === null
+    && ((goalThreshold != null && goalThresholdRepresentation !== 'raw') || summaryUnreadFrame)
+  const summaryBound = goalTargetBound(summaryTarget)
+  const summaryChangeBound = summaryTarget?.frame != null
+    ? formatGoalChangeBound(
+      Number(summaryTarget.raw),
+      summaryTarget.unit,
+      summaryTarget.frame,
+      goalTargetComparator(node.data as GoalTargetSource, goalConstraints, nodeId),
+    )
+    : null
+  const summarySentence = summaryTargetDisplay === null
+    ? summaryUnexpressible
+      ? ANALYSIS_NEW_COPY.successTarget.unexpressible
+      : 'No target set yet.'
+    : summaryTarget?.frame != null
+      ? summaryChangeBound !== null
+        ? `Success means going ${summaryChangeBound}.`
+        : 'Success is a change from today — its bound was not captured'
+      : `Success means ${summaryBound !== null ? `${summaryBound} ` : ''}${summaryTargetDisplay}.`
+  const summaryChip = summaryTarget?.source === 'brief'
+    ? 'brief'
+    : summaryTarget?.source === 'user' ? 'user' : null
+
   return (
     <div>
-      {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
-        {/* `mutations.setDescription` is a local store write with no carrier.
-            Fenced here so the target control, which has one, can stay live.
-            The fence wraps both branches, as `FactorControllablePanel`'s does. */}
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
-        {description || isEditingDescription ? (
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              mutations.setDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder="Describe what achieving this goal looks like..."
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.goal}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
-        )}
-        </fieldset>
-
-        {/* Post-analysis: ImportanceBar. Pre-analysis: GoalProgressChecklist. */}
-        {isResultsMode ? (
-          (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
+      <InspectorSummary sentence={summarySentence} chip={summaryChip} />
+      {summaryContext}
+      {(descriptionBody || (isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null))) && (
+        <PanelGroup kind="context" label={GROUP_LABELS.context}>
+          {descriptionBody && (
+            <p className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`} data-testid="goal-description-readonly">
+              {descriptionBody}
+            </p>
+          )}
+          {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
             <div className="mt-2">
               <ImportanceBar
                 importanceScore={displayMetadata.influence}
@@ -664,13 +687,40 @@ export const GoalPanel = memo(function GoalPanel({
                 influenceProvenance={displayMetadata.influenceProvenance}
               />
             </div>
-          )
-        ) : (
-          <div className="mt-2">
+          )}
+        </PanelGroup>
+      )}
+      <InspectorMoreItems>
+        {/* The local description writer remains fenced in its new home. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+          {description || isEditingDescription ? (
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onBlur={() => {
+                mutations.setDescription(description)
+                if (!description.trim()) setIsEditingDescription(false)
+              }}
+              autoFocus={isEditingDescription && !description}
+              placeholder="Describe what achieving this goal looks like..."
+              rows={2}
+              maxLength={500}
+              className={`${typography.panelBody} ${controls.editableTextarea}`}
+            />
+          ) : !readOnly ? (
+            <EmptyDescriptionPrompt
+              placeholder={DESCRIPTION_PLACEHOLDERS.goal}
+              onStartEditing={() => setIsEditingDescription(true)}
+            />
+          ) : null}
+        </fieldset>
+        {!isResultsMode && (
+          <section data-testid="goal-model-completeness" className="mt-2">
+            <InlineSectionLabel>Model completeness</InlineSectionLabel>
             <GoalProgressChecklist nodeId={nodeId} />
-          </div>
+          </section>
         )}
-      </PanelGroup>
+      </InspectorMoreItems>
 
       {/* ── Your input group ──────────────────────────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
@@ -747,7 +797,7 @@ export const GoalPanel = memo(function GoalPanel({
                   </p>
                 )
               )}
-              {showsTargetReadout ? targetProbabilityLine : targetUnlocksLine}
+              {!showsTargetReadout && targetUnlocksLine}
             </div>
           ) : showsTargetReadout ? (
             <div>
@@ -763,8 +813,6 @@ export const GoalPanel = memo(function GoalPanel({
                     ? <>Success means {heldTargetBoundWords(node?.data as GoalTargetSource | undefined)} {targetDisplay}</>
                     : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
-              {/* Contextual probability when analysis exists */}
-              {targetProbabilityLine}
             </div>
           ) : (
             <div>
@@ -839,6 +887,8 @@ export const GoalPanel = memo(function GoalPanel({
               {targetUnlocksLine}
             </div>
           )}
+
+          {(isResultsMode || showsTargetReadout) && targetProbabilityLine}
 
           {/* §4.3 Constraints */}
           {goalConstraints && hasConstraints && (
@@ -1198,85 +1248,51 @@ export const GoalPanel = memo(function GoalPanel({
         />
       </PanelGroup>
 
-      {/* ── Impact group (post-analysis only) ── */}
-      {isResultsMode && (
-        <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-          {typeof probGoal === 'number' ? (
-            <StaleGuardBanner hasResults={isResultsMode}>
-              <div className="flex items-center gap-4 py-2">
-                <ProbabilityArc value={probGoal} color="var(--success)" />
-                <div>
-                  {/* ROADMAP 2.282 — "chance of success" is a goal-attainment
-                      claim; over a substituted joint figure it takes the
-                      register's compact readout instead. */}
-                  <div className={`${typography.panelHeader}`}>
-                    {GOAL_ANCHOR_COPY.readout(formatGoalProbability(probGoal), goalFitSubstituted)}
-                  </div>
-                  {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
-                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-impact">
-                      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
-                    </div>
-                  )}
-                  {scenarioCount != null && (
-                    <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                      Based on {scenarioCount.toLocaleString('en-GB')} simulations
-                    </div>
-                  )}
-                  <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-                  {/* ROADMAP 2.282: suppressed under substitution because the
-                      readout above IS this number \u2014 the selector returns
-                      `goalProbability === jointGoalProbability` on that basis
-                      \u2014 and now says so in these exact words. Rendering it
-                      again would restate one value as two findings. On every
-                      other basis the two are genuinely different quantities
-                      and this line stays. */}
-                  {typeof probJoint === 'number' && !goalFitSubstituted && (
-                    <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                      {/* ROADMAP 2.283: was a hand-typed duplicate of the string
-                          the register already renders in the Constraints section
-                          above. Two copies of one sentence in ONE file is how the
-                          two halves end up different — the defect COMPARATIVE_COPY
-                          .clause and .leadNoMagnitude were both added to prevent.
-                          The register owns the wording; call sites never re-type
-                          it. */}
-                      {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
-                    </div>
-                  )}
-                  {/* AIQ 5883088747: the modelled-basis caveat moves WITH the joint number, beside it. */}
-                  {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
-                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
-                      {GOAL_FIT_BASIS_CAVEAT_COPY}
-                    </div>
-                  )}
-                  {techMode && (
-                    <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                      {/* The diagnostic named the field `probability_of_goal`
-                          for a value that, under substitution, is NOT that
-                          field \u2014 the most literally false line in the block,
-                          and the one a tech-mode reader would trust most. */}
-                      {goalFitSubstituted ? (
-                        <>System: probability_of_joint_goal (substituted for absent probability_of_goal): {probGoal.toFixed(2)}</>
-                      ) : (
-                        <>
-                          System: probability_of_goal: {probGoal.toFixed(2)}
-                          {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+      {/* The goal chance and its caveat are stated once beside the target.
+          Run details stay available without repeating the same figure. */}
+      {isResultsMode && (typeof probGoal === 'number' || (identityWithheld === null && certaintyUnearned === null && !perOptionOnly)) && (
+        <InspectorMoreItems>
+          <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
+            {typeof probGoal === 'number' ? (
+            <>
+            {scenarioCount != null && (
+              <div className={`${typography.panelMeta} text-text-light`}>
+                Based on {scenarioCount.toLocaleString('en-GB')} simulations
               </div>
-            </StaleGuardBanner>
-          ) : identityWithheld !== null ? (
-            identityWithheldLine('goal-impact-withheld-identity')
-          ) : certaintyUnearned !== null ? (
-            certaintyUnearnedLine('goal-impact-certainty-unearned')
-          ) : perOptionOnly ? (
-            perOptionOnlyLine('goal-impact-per-option')
-          ) : (
-            <p className={`${typography.panelMeta} text-text-light`}>{GOAL_STRINGS.impactUnavailable}</p>
-          )}
-        </PanelGroup>
+            )}
+            <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
+            {/* The constraints block already states this when it is mounted.
+                A joint result without that block still needs its own words. */}
+            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && (
+              <div className={`${typography.panelBody} text-text-body mt-1.5`}>
+                {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
+              </div>
+            )}
+            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
+              <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
+                {GOAL_FIT_BASIS_CAVEAT_COPY}
+              </div>
+            )}
+            {techMode && (
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                {goalFitSubstituted ? (
+                  <>System: probability_of_joint_goal (substituted for absent probability_of_goal): {probGoal.toFixed(2)}</>
+                ) : (
+                  <>
+                    System: probability_of_goal: {probGoal.toFixed(2)}
+                    {typeof probJoint === 'number' && ` · probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                  </>
+                )}
+              </div>
+            )}
+            </>
+            ) : (
+              <p className={`${typography.panelMeta} text-text-light`} data-testid="goal-impact-unavailable">
+                {GOAL_STRINGS.impactUnavailable}
+              </p>
+            )}
+          </PanelGroup>
+        </InspectorMoreItems>
       )}
 
       {/* ── What drives this group ────────────────────────────── */}
@@ -1298,6 +1314,7 @@ export const GoalPanel = memo(function GoalPanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      <InspectorMoreItems>
       <TechnicalDisclosure visible={techMode}>
         {/* ⚠ `setThreshold` / `setGoalCap` here are bare `updateNode` writes —
             NOT routed to `proposeGoalTarget`: the raw-threshold and unit fields
@@ -1306,6 +1323,7 @@ export const GoalPanel = memo(function GoalPanel({
           <GoalAdvancedEditor nodeId={nodeId} />
         </fieldset>
       </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

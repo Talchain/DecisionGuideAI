@@ -1,7 +1,7 @@
 import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorExternalPanel — Inspector for external factors (spec §9)
- * v6.2 three-group layout: Context → Your input → Influences
+ * Anatomy: summary → primary control → influence → connections; detail stays in More.
  * QuickSetButtons ABOVE range display as primary input affordance.
  */
 
@@ -18,14 +18,12 @@ import {
   GROUP_LABELS,
   getInputGroupLabel,
   INLINE_LABELS,
-  DESCRIPTION_PLACEHOLDERS,
   factorValueSourceLabel,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { FactorTurningPointInspectorLine } from '../shared/FactorTurningPointInspectorLine'
@@ -40,16 +38,19 @@ import {
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { InspectorMoreItems } from '../shared/InspectorMore'
+import { FactorAnatomySummary } from './FactorAnatomy'
+import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 import {
   userValueReplacesPrior,
   USER_VALUE_REPLACES_THIS_RANGE,
 } from '../../../nodes/shared/factorPriorRange'
-import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -71,7 +72,7 @@ function storedOrTypedEnd(stored: number | undefined, typed: string): number | n
 export const FactorExternalPanel = memo(function FactorExternalPanel({
   nodeId,
   techMode,
-  onClose,
+  summaryContext,
   onNavigate,
   /**
    * ⛔ A DUTY, NOT A PERMISSION — the same contract `FactorControllablePanel`
@@ -124,6 +125,8 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   // Source for extraction label (from observedState if present)
   const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+  const hasStoredValue = unwrapInterventionValue(obs?.value).value !== null
+    || unwrapInterventionValue(obs?.raw_value).value !== null
   const source = obs?.source as string | undefined
   /**
    * D1 — resolve a `panel_elicited` value's AUTHOR to a name, at render.
@@ -288,191 +291,24 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
     ? 'This factor contributes significant uncertainty to your results.'
     : 'This factor is outside your control, so its level is uncertain.'
 
+  const sourceLabel = factorValueSourceLabel(node.data, attributedTo)
+  const inputLabel = getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null, isAcceptedOlumiFigure(node.data))
+
   return (
     <div>
-      {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty.
+      <FactorAnatomySummary
+        label={resolveElementLabel(node.data)}
+        displayText={canonicalDisplayText}
+        hasStoredValue={hasStoredValue}
+        sourceLabel={sourceLabel}
+        summaryContext={summaryContext}
+      />
+      {description.trim() && (
+        <p className={`${typography.panelBody} text-text-body mt-2`}>{description}</p>
+      )}
 
-            `mutations.setDescription` writes to the local store ONLY — there is no
-            `description` carrier, so the next server rehydrate overwrites it. Fenced
-            HERE rather than at the Router so the prior-range editor below, which DOES
-            have one, can stay live.
-
-            ⚠ THE FENCE WRAPS BOTH BRANCHES, INCLUDING THE EMPTY PROMPT — the same
-            reasoning `FactorControllablePanel` records. The prompt performs no write
-            itself, it opens the editor, so a fence scoped to the textarea alone would
-            pass a self-fencing audit while leaving a button whose whole purpose is to
-            invite text that cannot be saved. Inviting the input is the harm; the write
-            is only where it lands. */}
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
-        {description || isEditingDescription ? (
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              mutations.setDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder="Describe this external factor..."
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
-        )}
-        </fieldset>
-
-        {/* Provenance pills: category identity + data source */}
-        <div className="mt-2 flex gap-1.5 flex-wrap">
-          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-            Outside your control
-          </span>
-          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-            {factorValueSourceLabel(node?.data, attributedTo)}
-          </span>
-        </div>
-
-        {/* What the owner cited when they applied it. Renders only when a
-            citation resolved; never gated on `source`, because the citation is a
-            fact about the apply and not about the extraction kind. */}
-        <CitedEvidenceNote resolution={citedEvidence} />
-
-        {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
-        <StaleGuardBanner hasResults={isResultsMode}>
-          {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
-          Both bars in this stack put their label BELOW their own value.
-
-          ⚠ AND THE SENTENCE THAT USED TO FOLLOW HERE WAS FALSE OF THIS PANEL.
-          It read "and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE",
-          copied verbatim from the two panels where it IS true. In THIS file the
-          value-of-information group ends with its guidance and the INFLUENCE
-          group does not have one: `externalGuidance` is a sibling BELOW this
-          container (see the note at its render), because it is unconditional and
-          is not always about influence. Copying a true sentence into a file it is
-          not true of is precisely the byte-identical-across-three-panels defect
-          this fix was written to repair, committed inside the repair.
-
-          ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
-          with its label; the VoI block does the same". The first half is
-          true at the bytes; the second is FALSE - the VoI block ends with
-          a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
-          exactly what made the influence sentence's placement invisible to
-          the author: a group modelled as a PAIR has no room in it for the
-          third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
-          gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
-          scanning down met:
-
-          100%                  <- influence value
-          Influence on results  <- ITS label
-          Low                   <- the VoI value
-          Investigation value   <- ITS label
-
-          and paired "Influence on results" with the "Low" beneath it,
-          reading "influence: Low" directly under "100%".
-
-          ⚠ THE DATA WAS NEVER WRONG and this is NOT a data fix. Influence
-          and value-of-information are different quantities and both were
-          rendered correctly. But the misreading is reproducible and has
-          now caught THREE independent readers: a reviewer who nearly
-          filed it as a data-integrity defect, the author who documented
-          that near-miss at `inspectorStrings.ts:404`, and a lane that
-          re-filed it as a "100% vs Low contradiction" from a deployed
-          capture on 7 Sep 2026. A presentation that reliably produces a
-          false reading is a defect even when every number in it is right.
-
-          Adding the `Investigation value` label (the prior fix) told the
-          reader the second bar HAS a name; it could not tell them which
-          bar each name belongs to, because proximity still said
-          otherwise. 4px within a group vs 16px between them makes proximity say
-          the true thing about the two BARS. ⚠ The other two panels finish the job
-          by moving their guidance sentence inside the group it describes; THIS
-          panel cannot, for the reasons at `externalGuidance`'s render, and
-          separates it instead. Do not read the sibling files' change into this
-          one. */}
-          <div className="mt-2 space-y-4">
-            <ImportanceBar
-              importanceScore={displayMetadata.influence}
-              sensitivityRank={displayMetadata.sensitivityRank}
-              influenceProvenance={displayMetadata.influenceProvenance}
-            />
-            {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
-                is derived from this value, so a human reads the second as
-                implying the first — but TypeScript does not narrow through a
-                derived local, and `DataBar` takes `number`, not `number | null`.
-                Dropping either one is a type error, which is the compiler
-                making the same point. */}
-            {displayMetadata.valueOfInformation !== null && voiTier !== null && (
-              <div>
-                <DataBar
-                  value={displayMetadata.valueOfInformation}
-                  label={INLINE_LABELS.investigationValue}
-                  colour="info"
-                  trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
-                />
-                {/* Its own label, in the same place ImportanceBar puts its own —
-                    without it, that bar's label reads as this bar's. */}
-                <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {INLINE_LABELS.investigationValue}
-                </div>
-                <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {INVESTIGATION_VALUE_INVITATION.evidence}
-                </p>
-              </div>
-            )}
-          </div>
-        </StaleGuardBanner>
-        {/* DL #70 5849644637: the turning-point line the card no longer carries. */}
-        {nodeId && <FactorTurningPointInspectorLine nodeId={nodeId} />}
-
-        {/* ⚠ SEPARATED, NOT GROUPED — AND THE ASYMMETRY WITH THE OTHER TWO PANELS
-            IS THE POINT. In `FactorControllablePanel` and `FactorObservablePanel`
-            this sentence moves INSIDE the metrics container, because there it is
-            always about influence and is non-null only when that container renders.
-            NEITHER holds here:
-
-              · `externalGuidance` is UNCONDITIONAL — its last branch is a plain
-                string ("This factor is outside your control..."), so it renders
-                whether or not the metrics container above exists. Moving it inside
-                would silently delete it in every state where that container is absent.
-              · It is not always a statement about influence. One branch is about a
-                FLIP ("If X is high, the result changes to Y"), one about uncertainty,
-                one about controllability.
-
-            So it stays a sibling — but it may not sit CLOSER to the group above than
-            that group's own members sit to each other. At `mt-2` = 8px against the
-            container's `space-y-4` = 16px it read as the tail of the
-            value-of-information block, which is the misreading
-            `inspectorStrings.ts:403-419` records. `mt-6` = 24px puts it clearly
-            outside: 1.5x the group separator, so proximity reads it as its own
-            panel-level remark rather than as a third line of somebody else's bar.
-
-            The three panels look identical and are not. Applying one byte-identical
-            change to all three is what produced the defect this repairs. */}
-        <p
-          className={`${typography.panelBody} text-text-body mt-6`}
-          data-testid="factor-external-guidance"
-        >
-          {externalGuidance}
-        </p>
-      </PanelGroup>
-
-      {/* ── Your input group ──────────────────────────────────── */}
-      {/* The header is a CLAIM about who supplied this number, not a static
-          caption. "Your input" over an Olumi estimate is false attribution —
-          see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null, isAcceptedOlumiFigure(node?.data))}>
+      <PanelGroup kind="input" label={inputLabel === GROUP_LABELS.input ? 'What you believe' : inputLabel}>
         <PrimaryControlCard>
-          {canonicalDisplayText && (
-            <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
-              {canonicalDisplayText}
-            </div>
-          )}
           <div className={`${typography.panelBody} mb-2`}>How would you describe the level?</div>
           <p className={`${typography.panelMeta} text-text-light mb-2`}>
             Equally likely anywhere between the minimum and maximum.
@@ -655,6 +491,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               ? USER_VALUE_REPLACES_THIS_RANGE
               : <>This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You can set it here.</>}
           </p>
+          <CitedEvidenceNote resolution={citedEvidence} />
         </PrimaryControlCard>
 
         {/* Coaching — within Your input group, below the card */}
@@ -679,6 +516,16 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         />
       </PanelGroup>
 
+      {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
+        <StaleGuardBanner hasResults={isResultsMode}>
+          <ImportanceBar
+            importanceScore={displayMetadata.influence}
+            sensitivityRank={displayMetadata.sensitivityRank}
+            influenceProvenance={displayMetadata.influenceProvenance}
+          />
+        </StaleGuardBanner>
+      )}
+
       {/* ── Influences group ──────────────────────────────────── */}
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         <InlineSectionLabel>{INLINE_LABELS.influences}</InlineSectionLabel>
@@ -698,10 +545,71 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         )}
       </PanelGroup>
 
+      <InspectorMoreItems>
+        <PanelGroup kind="context">
+          {canonicalDisplayText && (
+            <div className={`${typography.panelMeta} text-text-light`} data-testid="factor-display-text">
+              Stored as: {canonicalDisplayText}
+            </div>
+          )}
+          <div className="mt-2 flex gap-1.5 flex-wrap">
+            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+              Outside your control
+            </span>
+            {Boolean(node.data?.factorType) && (
+              <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+                {String(node.data.factorType)}
+              </span>
+            )}
+            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+              {sourceLabel}
+            </span>
+          </div>
+          {/* This writer stays behind the same fence after moving into More. */}
+          <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+            {description.trim() || isEditingDescription ? (
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                onBlur={() => {
+                  mutations.setDescription(description)
+                  if (!description.trim()) setIsEditingDescription(false)
+                }}
+                autoFocus={isEditingDescription && !description}
+                placeholder="Describe this external factor..."
+                rows={2}
+                maxLength={500}
+                className={`${typography.panelBody} ${controls.editableTextarea}`}
+              />
+            ) : !readOnly ? (
+              <button type="button" className={`${typography.panelMeta} text-text-light hover:text-info`} onClick={() => setIsEditingDescription(true)}>
+                Add a description
+              </button>
+            ) : null}
+          </fieldset>
+          {isResultsMode && displayMetadata.valueOfInformation !== null && voiTier !== null && (
+            <div className="mt-2">
+              <DataBar
+                value={displayMetadata.valueOfInformation}
+                label={INLINE_LABELS.investigationValue}
+                colour="info"
+                trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
+              />
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.investigationValue}</div>
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>{INVESTIGATION_VALUE_INVITATION.evidence}</p>
+            </div>
+          )}
+          <FactorTurningPointInspectorLine nodeId={nodeId} />
+          <p className={`${typography.panelBody} text-text-body mt-3`} data-testid="factor-external-guidance">
+            {externalGuidance}
+          </p>
+        </PanelGroup>
+
       {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
         <FactorExternalEditor nodeId={nodeId} />
       </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

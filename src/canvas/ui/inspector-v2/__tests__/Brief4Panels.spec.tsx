@@ -304,7 +304,7 @@ describe('OptionPanel — intervention with display_value does not expose raw nu
 // ─── Test 8: FactorControllablePanel ImportanceBar post-analysis ───
 
 describe('FactorControllablePanel — ImportanceBar present post-analysis (Brief 4 Task 4)', () => {
-  it('renders ImportanceBar in the context group when isResultsMode=true with influence/sensitivityRank', () => {
+  it('renders the primary ImportanceBar after the value group when isResultsMode=true with influence/sensitivityRank', () => {
     setFactorControllableStore({ results: { status: 'complete', report: {} } })
     mockDisplayMetadata.mockReturnValue({
       ...baseMetadata,
@@ -313,7 +313,10 @@ describe('FactorControllablePanel — ImportanceBar present post-analysis (Brief
       inSensitivityAnalysis: true,
     })
     const { container } = render(<FactorControllablePanel {...factorProps} />)
-    const contextGroup = container.querySelector('[data-panel-group="context"]')
-    expect(contextGroup?.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+    const inputGroup = container.querySelector('[data-panel-group="input"]')
+    const importance = screen.getByTestId('importance-bar')
+    expect(importance).toBeVisible()
+    expect(inputGroup).toContainElement(screen.getByTestId('factor-value-row'))
+    expect(inputGroup?.nextElementSibling).toContainElement(importance)
   })
 })

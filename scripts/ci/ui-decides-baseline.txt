@@ -4,7 +4,7 @@
 #
 # -- ADJUDICATED. Each argued for individually; see
 #    src/canvas/__tests__/theUiRendersItDoesNotDecide.spec.ts.
-src/canvas/components/DraftLoadingAnimation.tsx:383
+src/canvas/components/DraftLoadingAnimation.tsx:379
 src/canvas/components/InsightsPanel.tsx:126
 src/canvas/components/ModelQualityScore.tsx:264
 #
@@ -38,13 +38,13 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1139
+src/canvas/contextMenu/actions.ts:1137
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8191
+src/canvas/store.ts:8201
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -210,3 +210,7 @@ src/components/results/analysisNew/analysisNewCopy.ts:2802
 #   import and the two-line viewer guard in `updateNodeLabel` (both above this site). Line text identical.
 #   Then 8137 → 8141: the two-line viewer change filters at the top of `onNodesChange` / `onEdgesChange` (above). Same line.
 # 2 Oct 2026 (ACCOUNTS-UI, merge of staging 69ec63d3 into #2449): store.ts 8143 (staging) + this PR's +7 (viewer guards above) → 8150. Same line text.
+#
+# 8 Oct 2026 (Canvas, 'Ask AI' -> 'Ask Olumi' copy): `contextMenu/actions.ts:1139` -> `1137` is a pure
+#    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
+#    re-derived with the scanner, not hand-picked.

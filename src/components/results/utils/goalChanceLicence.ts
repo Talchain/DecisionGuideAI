@@ -19,11 +19,12 @@
 
 import { formatGoalTarget } from './formatGoalTarget'
 import { readGoalChanceHorizonLine } from './goalChanceRange'
+import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
+export type { GoalChanceComparator } from './goalChanceTarget'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
 export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
-export type GoalChanceComparator = 'at_least' | 'above' | 'at_most' | 'below'
 
 /** Whose assumption a driver varies, as CEE read it off the Run's own model. */
 export type GoalChanceDriverAuthor = 'user' | 'olumi' | 'unattributed'
@@ -83,7 +84,7 @@ export interface GoalChanceLicence {
   readonly similarOptionIds: readonly string[]
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
-  readonly target: { readonly comparator: GoalChanceComparator; readonly value: number; readonly unit: string }
+  readonly target: GoalChanceTarget
   /**
    * ⭐ D3 cut 5 (DL 0df0e1; Science d5 #87 6008252938): CEE's `user_link_existence` — the chances also count Olumi's
    * own existence prior on links the USER stated. `oneIn` is N ("a 1-in-N chance each") when every such link shares one
@@ -156,7 +157,6 @@ function shortfallNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly 
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
-const COMPARATORS: ReadonlySet<string> = new Set(['at_least', 'above', 'at_most', 'below'])
 const isRec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /** The two forms that name a highest chance — and so the only ones that license an order by goal chance. */
@@ -172,7 +172,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const r = records[0] as Record<string, unknown>
   const ids = r.option_ids
   const pct = r.pct_by_option
-  const target = r.target
+  const target = readGoalChanceTarget(r.target)
   if (typeof r.form !== 'string' || !FORMS.has(r.form)) return null
   if (!Array.isArray(ids) || ids.length < 2 || !ids.every((id) => typeof id === 'string')) return null
   const withheldRaw = r.withheld_option_ids ?? []
@@ -184,8 +184,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     && (pct[id] as number) >= 0 && (pct[id] as number) <= 100
   if (!isRec(pct) || !(ids as string[]).every((id) => (withheld.has(id) ? !(id in pct) : quoted(id))) || withheld.size === ids.length) return null
   if (Object.keys(pct).some((id) => !(ids as string[]).includes(id))) return null
-  if (!isRec(target) || typeof target.comparator !== 'string' || !COMPARATORS.has(target.comparator)
-    || typeof target.value !== 'number' || !Number.isFinite(target.value) || typeof target.unit !== 'string') return null
+  if (target === null) return null
   const named = (v: unknown): string | null => (typeof v === 'string' && (ids as string[]).includes(v) ? v : null)
   const leaderOptionId = named(r.leader_option_id)
   const nextOptionId = named(r.next_option_id)
@@ -211,7 +210,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     similarOptionIds: sameRaw as string[],
     leaderOptionId,
     nextOptionId,
-    target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },
+    target,
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),

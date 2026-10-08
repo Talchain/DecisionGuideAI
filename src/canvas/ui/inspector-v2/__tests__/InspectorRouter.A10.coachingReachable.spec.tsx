@@ -28,7 +28,7 @@
  * must never take). Only both together describe the boundary.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { InspectorRouter } from '../InspectorRouter'
@@ -113,6 +113,7 @@ describe('the risk panel — writers stay fenced, everything else does not', () 
 
   it('says why, so the reason is visible rather than assumed', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     // No writer, so no writer fence to name…
     expect(document.querySelector('fieldset[data-writer-fence="probability-impact"]')).toBeNull()
     // …and the pane's own truth still says what does not save.
@@ -175,6 +176,7 @@ describe('review 2038 — the advanced editor\'s Description writer stays fenced
       setStoreState(pane.fixture)
       const user = userEvent.setup()
       const { container } = render(<InspectorRouter nodeId={pane.nodeId} edgeId={null} onClose={vi.fn()} />)
+      await user.click(screen.getByTestId('inspector-more-toggle'))
       await user.click(screen.getByRole('button', { name: 'Show technical detail' }))
       await user.click(screen.getByRole('button', { name: /Show model detail/i }))
 
@@ -216,8 +218,12 @@ describe('CONTRAST — a panel that took on no duty keeps the Router wrap', () =
       },
     ])
     render(<InspectorRouter nodeId="g1" edgeId={null} onClose={vi.fn()} />)
-    const fieldset = document.querySelector('fieldset[data-authority="disabled"]')
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+    const fieldset = screen.getByTestId('inspector-summary-sentence').closest('fieldset[data-authority="disabled"]')
     expect(fieldset, 'a non-opted-in panel lost the Router wrap').not.toBeNull()
     expect(fieldset).toBeDisabled()
+    const description = screen.getByRole('textbox', { name: 'Description' })
+    expect(description).toBeDisabled()
+    expect(description.closest('fieldset[data-authority="disabled"]')).toHaveAttribute('aria-describedby', 'inspector-authority-notice')
   })
 })
