@@ -28,7 +28,7 @@ export function GoalTargetPopover({ goalNodeId, anchor, onClose }: GoalTargetPop
       const rect = anchor.getBoundingClientRect()
       const height = popoverRef.current?.getBoundingClientRect().height ?? 0
       setPosition({
-        left: Math.max(8, Math.min(rect.left, window.innerWidth - 328)),
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 408)),
         top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - height - 8)),
       })
     }
@@ -72,7 +72,7 @@ export function GoalTargetPopover({ goalNodeId, anchor, onClose }: GoalTargetPop
         ref={popoverRef}
         role="dialog"
         aria-label="Set a target"
-        className={`nodrag nopan nowheel fixed ${CANVAS_LAYER_CLASS.setValuePopover} w-[320px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto rounded-md border border-panel-border bg-panel p-3 shadow-2`}
+        className={`nodrag nopan nowheel fixed ${CANVAS_LAYER_CLASS.setValuePopover} w-[400px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto rounded-md border border-panel-border bg-panel p-3 shadow-2`}
         style={position}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
