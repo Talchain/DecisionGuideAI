@@ -1456,5 +1456,8 @@ export function readWireEdgeStrengthAuthor(
   if (!wireEdge) return undefined
   const provenance = wireEdge.provenance as Record<string, unknown> | undefined | null
   if (!provenance || typeof provenance !== 'object') return undefined
+  // Science 393023 LICENCE ruling 1 (7 Oct 20:48Z): a projected mean is CEE's number even on a link the user drew
+  // (`user_specified` + `mean_projected` = drawn, no number given), so the strength is never credited to the user.
+  if (provenance.mean_projected === true) return undefined
   return provenance.source === 'user_specified' ? 'user' : undefined
 }
