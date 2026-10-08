@@ -126,6 +126,7 @@ import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisPa
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
+import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 import { runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 import type { GoalChanceRange } from './utils/goalChanceRange'
@@ -1398,7 +1399,8 @@ export function optionSetReadings(
   return out
 }
 
-export function useResultsSectionData(): ResultsSectionDataReturn {
+/** Results owns row registration; canvas readers reuse its projection without those effects. */
+export function useResultsSectionData({ registerCanvasRows = true }: { registerCanvasRows?: boolean } = {}): ResultsSectionDataReturn {
   // ⛔ AIQ pre-share hold (R3 B0 S3): a Run that is not current is never re-described against today's option list.
   const runIsCurrent = useAnalysisResultsAreCurrent()
   const {
@@ -1512,7 +1514,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
   // ⭐ RunView PR 1: the Run's ONE view, built once per report (`runViewOf`); the licence and range are read there only.
-  const runView = useMemo(() => runViewOf(report), [report])
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const runView = useMemo(() => runViewOf(report, canonical), [report, canonical])
   const goalChanceLicence = runView.goalChance
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
@@ -4804,10 +4808,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const optionIds = recommendation.allOptions.map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
   useEffect(() => {
-    if (optionIds.length === 0) return
+    if (!registerCanvasRows || optionIds.length === 0) return
     useCanvasStore.getState().registerOptionNumbering(optionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
-  }, [optionIdsKey])
+  }, [registerCanvasRows, optionIdsKey])
 
   // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
   //
@@ -4856,10 +4860,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   )
   const determinedFactorOrderKey = JSON.stringify(determinedFactorOrder)
   useEffect(() => {
-    if (determinedFactorOrder.length < 2) return
+    if (!registerCanvasRows || determinedFactorOrder.length < 2) return
     useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
-  }, [determinedFactorOrderKey])
+  }, [registerCanvasRows, determinedFactorOrderKey])
 
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return

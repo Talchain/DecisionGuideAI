@@ -26,7 +26,11 @@ import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { OptionCards } from '../../OptionCards'
 import type { HeroChartModel } from '../heroTypes'
-import { makeHeroData, makeOption } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 import type { OptionResult } from '../../types'
 
 // Denormalised user-unit values: producer normalised outcome × cap 25.
@@ -107,8 +111,8 @@ function stagingData() {
   })
 }
 
-function stagingModel(): HeroChartModel {
-  const model = buildHeroModel(stagingData())
+function stagingModel(data = stagingData()): HeroChartModel {
+  const model = buildHeroModel(data)
   expect(model.kind).toBe('chart')
   return model as HeroChartModel
 }
@@ -126,7 +130,8 @@ describe('staging scenario — model truth', () => {
   })
 
   it('states the goal truth: no option on track, outcome leader named in the subline', () => {
-    const m = stagingModel()
+    const data = stagingData()
+    const m = stagingModel(data)
     expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
     expect(m.subline).toBe('In this model, Use Virtual Assistant Service has the highest expected outcome: 0.4%.')
     // No goal-fit leader ring; the outcome highlight stays factual.
@@ -136,21 +141,8 @@ describe('staging scenario — model truth', () => {
     // story.
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
-    // ⭐ AMENDED (ROADMAP 2.334). Was `'< 1%'`. This run carries
-    // `nValidSamples: 4000` on every option and `goalProbability: 0`, so the
-    // goal register now states the bound the sampler actually supports:
-    // 1/4000 = 0.025 percentage points, rendered "<0.03%".
-    //
-    // This is the row's point getting SHARPER, not changing. "< 1%" was true
-    // but nearly two orders of magnitude looser than the evidence: it could
-    // not distinguish "we did not measure this finely" from "this is a real
-    // 0.9% chance". "<0.03%" says what 0 hits in 4000 runs licenses and
-    // nothing more.
-    //
-    // Derived by EXECUTING `formatGoalProbability(0, 4000)` at this tip, not
-    // hand-computed — the threshold ladder picks the smallest precision that
-    // renders distinctly non-zero, which is not obvious by inspection.
-    expect(m.rows.every((r) => r.goal.readout === '<0.03%')).toBe(true)
+    // C-CELL: licensed cells own the readouts; raw 0/4000 sample bounds do not.
+    for (const row of m.rows) expect(row.goal.readout).toBe(chanceCellOf(data, row.id).text)
   })
 
   it('outcome readouts equal the denormalised values — never ×100 — and share the dot source field', () => {
@@ -179,10 +171,10 @@ describe('staging scenario — model truth', () => {
 })
 
 describe('staging scenario — rendered surfaces (numeric parity, check A)', () => {
-  function renderHero() {
+  function renderHero(data = stagingData()) {
     return render(
       <AnalysisHeroPanel
-        model={stagingModel()}
+        model={stagingModel(data)}
         rerunDisabled={false}
         focusPanelMounted={false}
       />,
@@ -201,15 +193,16 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
   })
 
-  it('Goal fit still communicates the target shortfall (every option "<0.03%", no-on-track headline)', () => {
-    renderHero() // Goal fit is the default lens for this run.
+  it('Goal fit still communicates the licensed target shortfall with the no-on-track headline', () => {
+    const data = stagingData()
+    renderHero(data) // Goal fit is the default lens for this run.
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
       'No option is currently on track to meet every target this run scored.',
     )
-    // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000. See the model
-    // -truth test above for why the tighter bound is the same claim, stated
-    // to the resolution the run actually has.
-    expect(screen.getAllByText('<0.03%').length).toBe(4)
+    // C-CELL: read the licensed text from the same report used for the model.
+    for (const row of stagingModel(data).rows) {
+      expect(within(screen.getByTestId(`hero-option-row-${row.index}`)).getByText(chanceCellOf(data, row.id).text!)).toBeInTheDocument()
+    }
     // The headline gate is UNCHANGED and that is deliberate: it keys off
     // `SUB_ONE_PERCENT_FLOOR` applied to the raw values, which is a semantic
     // threshold ("is any option meaningfully on track"), not a display rule.

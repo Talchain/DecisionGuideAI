@@ -10,7 +10,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
-import { makeHeroData, makeOption } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 
 // Wave F-B: the hero rerun routes through the canonical runner (its old
 // private useV2Run instance retired); running state derives from the store.

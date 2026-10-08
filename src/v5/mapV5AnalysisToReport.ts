@@ -938,6 +938,8 @@ export interface MapV5AnalysisOptions {
    * probabilities) still produce a distinct hash and re-hydrate.
    */
   responseHash?: string
+  /** Producer run_state timestamp, carried verbatim for hash+time RunView matching. */
+  computedAt?: string | null
 }
 
 /**
@@ -952,7 +954,7 @@ export interface MapV5AnalysisOptions {
 export function mapV5AnalysisToReport(
   block: AnalysisResultBlock,
   options: MapV5AnalysisOptions = {},
-): ReportV1 {
+): ReportV1 & { meta: ReportV1['meta'] & { computed_at?: string } } {
   // Receipts fail closed: no real seed → null (Seed row hides), never 0.
   // NOTE: meta.seed does NOT feed the deriveBlockHash `v5:` digest — that
   // hashes summary/leading_option_id/win_probabilities/enrichment only —
@@ -1612,6 +1614,7 @@ export function mapV5AnalysisToReport(
       seed,
       response_id: responseHash,
       elapsed_ms: 0,
+      ...(options.computedAt ? { computed_at: options.computedAt } : {}),
     },
     model_card: {
       response_hash: responseHash,
@@ -1647,6 +1650,11 @@ export function mapV5AnalysisToReport(
   // the widened ResultsReport / InspectorReport index signatures. These are
   // NOT on ReportV1 but are written onto the same record by the V4 mapper.
   const widened = report as ReportV1 & Record<string, unknown>
+  // Preserve the producer's Run identity for the READ view. V5 blocks currently use the graph-hash fallback.
+  const identity = block as unknown as Record<string, unknown>
+  for (const key of ['run_id', 'computed_against_hash'] as const) {
+    if (typeof identity[key] === 'string' && identity[key].length > 0) widened[key] = identity[key]
+  }
   if (factors.length > 0) {
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,

@@ -106,7 +106,7 @@ describe('share-by-date chance: the same words as CEE chat', () => {
 
   it('hero coverage recognises the stated-time figure without treating its endpoints as links', () => {
     const model = { lenses: ['goal'], rows: ['a', 'b'].map(id => ({ id, label: labels(id), goal: { value: null } })) } as unknown as HeroChartModel
-    const data = { goalChanceRange: range(), goalChanceDriverNames: { labelOf: labels }, recommendation: {} } as unknown as ResultsSectionDataReturn
+    const data = { goalChanceRange: range(), goalChanceDriverNames: { labelOf: labels }, recommendation: { goalThreshold: 100, allOptions: ['a', 'b'].map(id => ({ id, label: labels(id) })) } } as unknown as ResultsSectionDataReturn
     expect(withGoalOptionCoverage(model, data).goalOptionCoverage).toEqual({
       hasFigures: true, withheldLines: [{ id: 'b', line: '‘Team B’: not shown yet in this model.' }],
     })

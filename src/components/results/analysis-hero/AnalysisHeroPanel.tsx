@@ -296,9 +296,8 @@ export function AnalysisHeroPanel({
   const lens: HeroLens = lensState ?? model.defaultLens
   const lensAvailable = model.lenses.includes(lens)
 
-  // Constraint presence picks the goal-lens copy variant once (the caption
-  // key structure in HERO_COPY).
-  const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
+  // RunView cells serve goal-only figures; constraints do not make them joint.
+  const goalKey = 'goalOnly' as const
   // Axis labels per lens: the goal lens draws NO tracks (prototype v6
   // readout-only table), so no axis is drawn for it; Stability rows carry
   // the producer's own readout labels; What changed compares the same

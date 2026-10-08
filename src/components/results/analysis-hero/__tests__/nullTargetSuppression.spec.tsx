@@ -17,7 +17,11 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel } from '../heroTypes'
-import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 
 function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   expect(model.kind).toBe('chart')
@@ -114,14 +118,15 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
 
   it('with a REAL threshold the existing goal-fit behaviour is fully preserved', () => {
     // Default fixture: goalThreshold 62 with real goal values.
-    const m = chart(buildHeroModel(makeHeroData()))
+    const data = makeHeroData()
+    const m = chart(buildHeroModel(data))
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
     expect(m.headline).toBe('In this model, Upskill the team meets every target this run scored in the most model runs (49%).')
     expect(m.leaders.goal).toBe('opt_b')
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
-    expect(m.rows[0].goal.readout).toBe('34%')
-    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal.')
+    expect(m.rows[0].goal.readout).toBe(chanceCellOf(data, OPTION_A.id).text)
+    expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, OPTION_A.id).text)
     expect(m.showGoalHint).toBe(false)
   })
 
@@ -175,11 +180,12 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     // Prototype v6: the goal lens is a readout-only table (no tracks, no
     // axis) — the preserved behaviour is the honest fit percentages plus
     // the value-based caption.
-    renderPanel(chart(buildHeroModel(makeHeroData())))
+    const data = makeHeroData()
+    renderPanel(chart(buildHeroModel(data)))
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
       'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
     )
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
       'Each value is the chance that option meets every target this run scored.',
     )

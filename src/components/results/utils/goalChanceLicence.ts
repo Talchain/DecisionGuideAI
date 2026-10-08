@@ -229,7 +229,7 @@ const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length 
 const wholePct = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100
 
 /** One CEE driver claim, shape-checked; anything else is not read (no sentence for that option). */
-function driverOf(v: unknown): GoalChanceDriver | null {
+export function goalChanceDriverOf(v: unknown): GoalChanceDriver | null {
   if (!isRec(v) || typeof v.authored_by !== 'string' || !AUTHORS.has(v.authored_by)) return null
   const authoredBy = v.authored_by as GoalChanceDriverAuthor
   if (v.kind === 'factor_value') {
@@ -260,7 +260,7 @@ function driversOf(v: unknown, quotedIds: readonly string[]): Record<string, Goa
   const drivers: Record<string, GoalChanceDriver> = {}
   if (!isRec(v)) return drivers
   for (const id of quotedIds) {
-    const driver = driverOf(v[id])
+    const driver = goalChanceDriverOf(v[id])
     if (driver !== null) drivers[id] = driver
   }
   return drivers

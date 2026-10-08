@@ -70,8 +70,8 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { runViewOf } from '../../canvas/runView/runView'
-import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
+import { licensedOptionChanceLines, runViewOf } from '../../canvas/runView/runView'
+import { goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -467,7 +467,7 @@ function V5AnalysisResultBlockImpl({
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
   const pointGoalChanceLines = goalChanceLicence === null
     ? null
-    : goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
+    : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf)
   const goalChanceLines = pointGoalChanceLines === null || goalChanceLicence === null
     ? null
     : goalChanceLicence.optionIds.map((id, index) => {

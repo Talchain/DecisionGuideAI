@@ -6,7 +6,8 @@
  * bands, deltas or thresholds — and every lens/state gate must fail closed.
  */
 import { describe, expect, it } from 'vitest'
-import { buildHeroModel } from '../buildHeroModel'
+import { buildHeroModel as buildModel } from '../buildHeroModel'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import { HERO_COPY } from '../heroCopy'
 import { COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
@@ -14,11 +15,26 @@ import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
   makeDriver,
-  makeHeroData,
+  makeHeroData as numericHeroData,
   makeOption,
   OPTION_A,
   OPTION_B,
 } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
+const dataOf = new WeakMap<HeroChartModel, ResultsSectionDataReturn>()
+function buildHeroModel(...args: Parameters<typeof buildModel>) {
+  const model = buildModel(...args)
+  if (model.kind === 'chart') dataOf.set(model, args[0])
+  return model
+}
+function cellTextOf(model: HeroChartModel, id: string): string {
+  const text = chanceCellOf(dataOf.get(model)!, id).text
+  expect(text).not.toBeNull()
+  return text!
+}
 import type { ResultCompleteness } from '../../useResultCompleteness'
 import type { DecisionResultData } from '../../types'
 
@@ -100,10 +116,13 @@ function winReadoutOf(
   // placeholder glyph inside the sentence.
   return row.comparativeReadout ?? null
 }
-function goalReadoutOf(m: { rows: Array<{ label: string; goal: { readout: string } }> }, label: string): string {
-  const row = m.rows.find((r) => r.label === label)
+function goalReadoutOf(m: HeroChartModel, label: string): string {
+  const row = m.rows.find(r => r.label === label)
   if (!row) throw new Error(`no row for ${label}`)
-  return row.goal.readout
+  // The headline owns its existing template; its magnitude comes from this fixture's cell.
+  const magnitude = cellTextOf(m, row.id).match(/\d+(?:\.\d+)?%/)?.[0]
+  expect(magnitude).toBeTruthy()
+  return magnitude!
 }
 function outcomeReadoutOf(m: { rows: Array<{ label: string; outcome: { readout: string } }> }, label: string): string {
   const row = m.rows.find((r) => r.label === label)
@@ -116,8 +135,8 @@ describe('buildHeroModel — boundary values', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
     expect(m.rows[1].goal.value).toBe(OPTION_B.goalProbability)
-    expect(m.rows[0].goal.readout).toBe('34%')
-    expect(m.rows[1].goal.readout).toBe('49%')
+    expect(m.rows[0].goal.readout).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows[1].goal.readout).toBe(cellTextOf(m, OPTION_B.id))
   })
 
   it('outcome values equal the adapted outcome fields exactly', () => {
@@ -184,13 +203,15 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 
-  it('constraint presence switches the headline to goal-and-limits wording', () => {
+  it('constraint presence never gives a goal-only headline joint wording', () => {
     // Constraints are request-level, so every option carries its analysis.
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
-    expect(m.headline).toBe(HERO_COPY.headline.goalWithLimits('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
+    // C-FALSE: goal-only figures beside joint words removed (DL ruling 8 Oct).
+    expect(m.headline).not.toMatch(/and limits|limits together/i)
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
     // The tension subline stays the single outcome-leader sentence.
     expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
   })
@@ -281,15 +302,15 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
   })
 
-  it('no-option-on-track headline is constraint-aware (goal and limits wording)', () => {
-    // Under constraints the floored figure is the JOINT probability and the
-    // axis/caption say "goal and limits" — the headline must describe the
-    // same quantity, not claim "your goal" alone.
+  it('no-option-on-track headline never adds joint words to goal-only figures', () => {
+    // C-FALSE: constraint presence does not change a goal-only figure's identity.
     const a = makeOption({ ...OPTION_A, goalProbability: 0, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, goalProbability: 0.004, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
-    expect(m.headline).toBe('No option is currently on track to meet your goal and limits.')
+    // C-FALSE: the goal-only number does not license the old joint claim.
+    expect(m.headline).not.toMatch(/and limits|limits together/i)
+    expect(m.headline).toBe(HERO_COPY.headline.noneOnTrack)
   })
 
   it('never headlines an outcome claim when the outcome lens is hidden (no recommended option)', () => {
@@ -336,7 +357,7 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.leaders.goal).toBeNull()
     // Goal lens stays available AND default — the "< 1%" rows ARE the story.
     expect(m.defaultLens).toBe('goal')
-    expect(m.rows.every((r) => r.goal.readout === '< 1%')).toBe(true)
+    for (const row of m.rows) expect(row.goal.readout).toBe(cellTextOf(m, row.id))
   })
 
   it('omits the subline when the outcome lens is hidden (centres without ranges)', () => {
@@ -854,31 +875,26 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     // OPTION_A: p10 54, p90 82, count unit; goal 0.34 without constraints.
     expect(m.rows[0].detail.range).toBe('Realistic range: 54 to 82.')
-    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal.')
+    expect(m.rows[0].detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
   })
 
-  it('uses the goal-and-limits wording when every goal-bearing option is constrained', () => {
+  it('keeps the cell identity when every goal-bearing option is constrained', () => {
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal and limits, in this model.')
+    // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct).
+    expect(m.rows[0].detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows[0].detail.goalFit).not.toMatch(/and limits|limits together/i)
   })
 
   it('goal-fit detail wording is PER ROW under mixed constraint coverage', () => {
-    // The selector collapses goalProbability per option (joint only for
-    // options carrying their own constraint analysis), so in a mixed set the
-    // constrained row's joint figure must say "goal and limits" while the
-    // unconstrained row stays goal-alone — even though the SHARED
-    // axis/caption fall back to goal-alone (hasConstraints false).
+    // C-FALSE: both rows carry goal-only cells; constraints never add joint words.
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
-    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(
-      'About 34% chance of meeting your goal.',
-    )
-    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(
-      'About 49% chance of meeting your goal and limits, in this model.',
-    )
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(cellTextOf(m, OPTION_B.id))
+    expect(m.rows.find(r => r.id === OPTION_B.id)!.detail.goalFit).not.toMatch(/and limits|limits together/i)
   })
 
   it('omits the range and goal-fit lines when the sourcing fields are absent', () => {
@@ -1162,7 +1178,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     const a = makeOption({ ...OPTION_A, goalProbability: 0.004 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
     expect(m.rows[0].goal.value).toBe(0.004)
-    expect(m.rows[0].goal.readout).toBe('< 1%')
+    expect(m.rows[0].goal.readout).toBe(cellTextOf(m, OPTION_A.id))
   })
 
   it('omits Could-change-if when no flip thresholds resolve', () => {

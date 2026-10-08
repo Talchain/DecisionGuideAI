@@ -1,8 +1,7 @@
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalIdentityWithheld, readGoalWithheldReasonFor } from '../utils/goalIdentityWithheld'
-import { goalChanceHeroSays } from '../utils/goalChanceLicence'
-import { goalChanceHeadline, goalChanceRangeLine } from './goalChanceCopy'
+import { optionChanceCellFromResults } from '../optionChanceCellFromResults'
 import type { HeroChartModel, HeroLens } from './heroTypes'
 
 export interface GoalOptionCoverage {
@@ -12,24 +11,10 @@ export interface GoalOptionCoverage {
 
 /** Same range admission as the range renderer; point admission is the hero's existing goal row. */
 export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSectionDataReturn): HeroChartModel {
-  const labelOf = data.goalChanceDriverNames?.labelOf ?? (() => null)
-  const range = data.goalChanceRange ?? null
-  const figureIds = new Set(model.rows.filter((row) =>
-    model.lenses.includes('goal') && row.goal.value != null && Number.isFinite(row.goal.value),
-  ).map((row) => row.id))
-  const licence = data.goalChanceLicence ?? null
-  const rowLabelOf = (id: string) => model.rows.find((row) => row.id === id)?.label ?? null
-  if (licence && licence.form !== 'all_likely_to_miss'
-    && goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, licence)
-    && goalChanceHeadline(licence, rowLabelOf) !== null) {
-    for (const id of licence.optionIds) {
-      if (!licence.withheldOptionIds.includes(id)) figureIds.add(id)
-    }
-  }
-  for (const id of range?.optionIds ?? []) {
-    const entry = range?.rangeByOption[id]
-    if (model.rows.some((row) => row.id === id) && entry && goalChanceRangeLine(entry, labelOf(id), labelOf, range?.target) !== null) figureIds.add(id)
-  }
+  const figureIds = new Set(model.rows.filter(row => {
+    const cell = optionChanceCellFromResults(data, row.id)
+    return cell.kind === 'figure' || cell.kind === 'range'
+  }).map(row => row.id))
   if (figureIds.size === 0) return model
 
   // The recommendation already uses this reader on the Run's report, just as the decision matrix does.

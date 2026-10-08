@@ -35,6 +35,7 @@ import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
 import type { OptionResult } from '../../types'
 import {
   CANONICAL_IDS,
@@ -58,10 +59,9 @@ import {
 
 function heroModel(
   verdict: typeof WITHHELD_VERDICT,
-  overrides: { options?: OptionResult[]; recommendation?: Record<string, unknown> } = {},
+  overrides: { options?: OptionResult[]; recommendation?: Record<string, unknown>; goalCells?: boolean } = {},
 ): HeroChartModel {
-  return buildHeroModel(
-    makeHeroData({
+  const data = makeHeroData({
       options: overrides.options ?? options(),
       recommendation: {
         verdict,
@@ -82,8 +82,8 @@ function heroModel(
         storyHeadlines: {},
         ...overrides.recommendation,
       } as never,
-    }),
-  ) as HeroChartModel
+    })
+  return buildHeroModel(overrides.goalCells ? withGoalChanceReport(data) : data) as HeroChartModel
 }
 
 function renderHero(verdict: typeof WITHHELD_VERDICT) {
@@ -322,7 +322,8 @@ describe('analysis hero — WITHHELD: the prose may not designate either', () =>
 
 describe('analysis hero — PERMITTED prose (over-suppression controls)', () => {
   it('goal-fit crown: headline and subline unchanged, byte-for-byte', () => {
-    const model = heroModel(PERMITTED_VERDICT)
+    // C-AVAIL: the numeric goal control supplies the report that licenses its displayed cells.
+    const model = heroModel(PERMITTED_VERDICT, { goalCells: true })
     expect(model.designationsWithheld).toBe(false)
     expect(model.headline).toBe(
       'In this model, Hire two developers meets every target this run scored in the most model runs (80%).',
@@ -331,7 +332,8 @@ describe('analysis hero — PERMITTED prose (over-suppression controls)', () => 
   })
 
   it('no option on track: headline and subline unchanged, byte-for-byte', () => {
-    const model = heroModel(PERMITTED_VERDICT, { options: flooredGoalFixtureOptions() })
+    // C-AVAIL: the sub-1% control is scored through the same report/cell path.
+    const model = heroModel(PERMITTED_VERDICT, { options: flooredGoalFixtureOptions(), goalCells: true })
     expect(model.designationsWithheld).toBe(false)
     expect(model.headline).toBe(
       'No option is currently on track to meet every target this run scored.',

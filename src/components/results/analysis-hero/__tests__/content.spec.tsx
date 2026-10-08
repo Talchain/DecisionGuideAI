@@ -8,7 +8,11 @@ import { render, screen, fireEvent, within, createEvent } from '@testing-library
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
-import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
@@ -30,7 +34,8 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, props: Partial<Par
 
 describe('AnalysisHeroPanel — content', () => {
   it('renders the headline, tension subline, and goal readouts from response values', () => {
-    renderPanel(chartModel())
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
       'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
     )
@@ -39,8 +44,8 @@ describe('AnalysisHeroPanel — content', () => {
     )
     // Goal-fit is the default lens: rendered joint probabilities equal the
     // response values (0.34 → 34%, 0.49 → 49%).
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-2')).getByText(chanceCellOf(data, OPTION_B.id).text!)).toBeInTheDocument()
   })
 
   it('switching to Likely outcome shows outcome centres in the readouts', () => {
@@ -114,12 +119,13 @@ describe('AnalysisHeroPanel — content', () => {
   })
 
   it('opened detail recovers the full label and shows the grounded range and goal-fit lines', () => {
-    renderPanel(chartModel())
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
     expect(screen.getByTestId('hero-detail-range')).toHaveTextContent('Realistic range: 54 to 82.')
     expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(
-      'About 34% chance of meeting your goal.',
+      chanceCellOf(data, OPTION_A.id).text!,
     )
   })
 
@@ -420,9 +426,10 @@ describe('AnalysisHeroPanel — content', () => {
   it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {
     // Goal fit owns target attainment: each bar is the chance of hitting the
     // goal, so the readouts ARE the target-shortfall communication.
-    renderPanel(chartModel())
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-2')).getByText(chanceCellOf(data, OPTION_B.id).text!)).toBeInTheDocument()
     // No target marker on Goal fit either — the bars themselves carry it.
     expect(screen.queryByTestId('hero-target-marker')).toBeNull()
   })
@@ -911,11 +918,12 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
 })
 describe('Prototype v6 parity: goal lens, define success, auto-switch, next step', () => {
   it('the goal lens draws NO tracks — badges, labels and probability readouts only', () => {
-    renderPanel(chartModel())
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
     // Default lens is goal (target + fits exist): no range bar, no dot track.
     expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)
     // Values still read out.
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
     // Switching to Likely outcome brings the tracks back.
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     expect(screen.getAllByTestId('hero-range-bar').length).toBeGreaterThan(0)
