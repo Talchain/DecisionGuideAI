@@ -9,6 +9,7 @@
  * lesson the M15/M16 survivors taught in round 1.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
+import type { Edge, Node } from '@xyflow/react'
 
 import {
   useDraftStore,
@@ -16,6 +17,7 @@ import {
   draftValuesAreUnsettled,
   shouldPersistGraphForScenario,
   streamedPreviewStandingFor,
+  canvasDraftPreviewFingerprint,
   type DraftStreamPhase,
 } from '../draftStore'
 
@@ -25,6 +27,49 @@ const ALL_PHASES: readonly DraftStreamPhase[] = ['idle', 'drafting', 'settling',
 
 beforeEach(() => {
   useDraftStore.getState().resetDraft()
+})
+
+describe('canvasDraftPreviewFingerprint — all model content, stable JSON', () => {
+  const node: Node = {
+    id: 'factor', type: 'factor', position: { x: 0, y: 0 },
+    data: { label: 'Budget', observedState: { value: 0.2, unit: 'GBP' }, value: 0.2, evidence: { source: 'brief', detail: { a: 1, b: 2 } } },
+  }
+  const edge: Edge = { id: 'link', source: 'factor', target: 'goal', type: 'styled', data: { weight: 0.5, notes: { a: 1, b: 2 } } }
+
+  it('ignores recursive object-key and graph-row order, while retaining data-array order', () => {
+    const other = { ...node, id: 'goal', type: 'goal' }
+    const reordered = { ...node, data: { evidence: { detail: { b: 2, a: 1 }, source: 'brief' }, value: 0.2, observedState: { unit: 'GBP', value: 0.2 }, label: 'Budget' } }
+    expect(canvasDraftPreviewFingerprint([node, other], [edge]))
+      .toBe(canvasDraftPreviewFingerprint([other, reordered], [{ ...edge, data: { notes: { b: 2, a: 1 }, weight: 0.5 } }]))
+    expect(canvasDraftPreviewFingerprint([{ ...node, data: { claims: ['a', 'b'] } }], []))
+      .not.toBe(canvasDraftPreviewFingerprint([{ ...node, data: { claims: ['b', 'a'] } }], []))
+  })
+
+  it.each([
+    { value: 0.73 },
+    { observedState: { value: 0.73, unit: 'GBP' } },
+    { evidence: { source: 'brief', detail: { a: 1, b: 3 } } },
+    { futureModelField: { nested: { claim: 'New meaning' } } },
+  ])('detects figures and arbitrary nested model fields: %j', patch => {
+    expect(canvasDraftPreviewFingerprint([node], [edge]))
+      .not.toBe(canvasDraftPreviewFingerprint([{ ...node, data: { ...node.data, ...patch } }], [edge]))
+  })
+
+  it('detects node/edge type and arbitrary edge data changes', () => {
+    const original = canvasDraftPreviewFingerprint([node], [edge])
+    expect(original).not.toBe(canvasDraftPreviewFingerprint([{ ...node, type: 'goal' }], [edge]))
+    expect(original).not.toBe(canvasDraftPreviewFingerprint([node], [{ ...edge, type: 'other' }]))
+    expect(original).not.toBe(canvasDraftPreviewFingerprint([node], [{ ...edge, data: { ...edge.data, notes: { a: 1, b: 3 } } }]))
+  })
+
+  it('matches an untouched preview after React Flow geometry and interaction updates', () => {
+    expect(canvasDraftPreviewFingerprint([node], [edge]))
+      .toBe(canvasDraftPreviewFingerprint([{
+        ...node, position: { x: 300, y: 200 }, positionAbsolute: { x: 300, y: 200 },
+        width: 200, height: 100, measured: { width: 200, height: 100 },
+        selected: true, dragging: true, zIndex: 10,
+      } as Node], [{ ...edge, id: 'regenerated-render-id', selected: true, zIndex: 10 }]))
+  })
 })
 
 describe('draftValuesAreUnsettled — exhaustive over the union', () => {

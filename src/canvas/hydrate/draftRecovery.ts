@@ -76,6 +76,8 @@ export async function recoverDraftFromServer(
     accessToken: args.accessToken,
     signal: args.signal,
     canApply: args.canApply,
+    // A recovery read installs only THIS scenario's answer (P44 draft-stall, Codex r3 P1).
+    requireServedScenario: true,
   })
   logger.debug('draft_recovery.outcome', {
     scenarioId: args.scenarioId,

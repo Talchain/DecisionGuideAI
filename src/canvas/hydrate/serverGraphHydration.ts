@@ -99,6 +99,12 @@ export interface HydrateFromServerOptions {
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
   /**
+   * ⛔ P44 draft-stall (DL/Codex r3 P1): a RECOVERY read applies only an answer whose own `scenario_id` is the one asked
+   * for. Without it, a response for scenario B sharing node ids merged over A's untouched preview and reported recovery.
+   * Opt-in (recovery reads only): boot hydration keeps its existing foreign-answer handling unchanged.
+   */
+  requireServedScenario?: boolean
+  /**
    * The token the CALLER got from `beginBootGraphRead` for this read. The boot
    * hook marks the read synchronously, before its identity await, so the
    * re-arm evaluated in the same commit waits (`bootGraphRead.ts`); it passes
@@ -247,6 +253,10 @@ async function readAndMergeServerGraph(
   // A response body can finish after fetch was aborted. Check at the write
   // boundary too, including caller-specific turn/canvas ownership.
   if (opts.signal?.aborted || opts.canApply?.() === false) return 'skipped'
+  if (opts.requireServedScenario === true && result.status === 'graph' && result.scenarioId !== scenarioId) {
+    logger.warn('server_graph_hydration.foreign_scenario_refused', { requestedScenarioId: scenarioId, servedScenarioId: result.scenarioId ?? null })
+    return 'skipped'
+  }
 
   // ── A SUPERSEDED READ CHANGES NOTHING ────────────────────────────────────
   // The token this read began under must still be the scenario's CURRENT one

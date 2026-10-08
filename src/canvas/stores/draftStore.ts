@@ -18,6 +18,8 @@
  * import useCanvasStore (circular-dep hard fail rule).
  */
 import { create } from 'zustand'
+import type { Edge, Node } from '@xyflow/react'
+import { canonicalJson } from '../../lib/canonical-hash'
 
 export interface DraftErrorState {
   message: string
@@ -482,6 +484,31 @@ export function streamedPreviewStandingFor(
 ): boolean {
   if (state.draftStreamTurnId !== turnClientId) return false
   return draftStreamPhaseFor(state, currentScenarioId) === 'settling'
+}
+
+/**
+ * Identify the canvas content a GRAPH_READY preview actually rendered. Turn and
+ * scenario ownership alone cannot distinguish that preview from a later edit or
+ * a replacement model that reuses its ids. Recursively sorted JSON includes ALL
+ * node/edge data, including figures, evidence and future model fields. Graph row
+ * order is immaterial; order inside a data array still carries meaning.
+ *
+ * Excluded by the { id, type, data } / { source, target, type, data } projections:
+ * position, positionAbsolute, width, height, measured (render/layout geometry),
+ * selected, dragging, zIndex (React Flow interaction/stacking state), and the
+ * edge render id (connections are identified by endpoints, type and data).
+ * No string-keyed data fields are excluded: the canvas node types keep expand,
+ * rename and hover in local React state, and highlights/dimming in store sets.
+ * Even categoryInferredByUi, interventionKeys and display/provenance fields
+ * retain model meaning. A conservative mismatch safely uses today's fallback.
+ */
+export function canvasDraftPreviewFingerprint(
+  nodes: ReadonlyArray<Node>,
+  edges: ReadonlyArray<Edge>,
+): string {
+  const nodeRows = nodes.map(({ id, type, data }) => canonicalJson({ id, type, data })).sort()
+  const edgeRows = edges.map(({ source, target, type, data }) => canonicalJson({ source, target, type, data })).sort()
+  return JSON.stringify([nodeRows, edgeRows])
 }
 
 /**

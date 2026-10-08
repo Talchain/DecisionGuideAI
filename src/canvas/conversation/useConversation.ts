@@ -25,7 +25,7 @@ import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
-import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
+import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
@@ -535,6 +535,8 @@ function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] 
 }
 
 export interface StreamedDraftTurnResult {
+  /** Accepted GRAPH_READY content, carried to every later read-back fence; null when no preview rendered. */
+  previewFingerprint: string | null
   /**
    * The turn ended with NO graph anywhere: none on the canvas (no preview
    * survived) and none in the buffered fallback's body. The caller must read
@@ -636,10 +638,12 @@ async function runStreamedDraftTurn(args: {
   signal: AbortSignal
   onRequestStarted?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
-  readBackCommittedDraft?: () => Promise<boolean>
+  readBackCommittedDraft?: (options: { overPreview: boolean; previewFingerprint: string | null }) => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
   const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
+  // Captured from this turn's accepted canvas render, before any later edit.
+  let previewFingerprint: string | null = null
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
   //
@@ -675,15 +679,15 @@ async function runStreamedDraftTurn(args: {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
     }
 
-    // A stream that OPENED and then CLOSED, with nothing on the canvas: read the saved model first, the same
-    // read a reload does, once, after a short wait. Only when that finds nothing does the re-send run.
-    if (streamOpened && !previewOnCanvas && readBackCommittedDraft && readsBackBeforeResend(reason)) {
+    // ⭐ P44 draft-stall (DL forensics 8 Oct): read the saved model before re-sending, even over this turn's preview.
+    if (streamOpened && readBackCommittedDraft && readsBackBeforeResend(reason)) {
       await waitBeforeStreamCloseReadback(signal)
-      if (!signal.aborted && (await readBackCommittedDraft())) {
+      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas, previewFingerprint }))) {
         logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
         useDraftStore.getState().setDraftStreamPhase('idle', null, null)
         return {
           result: { kind: 'parse_error', reason: `recovered by read-back after ${reason}` },
+          previewFingerprint,
           previewOwnsCanvas: false,
           recoveredBeforeResend: true,
         }
@@ -740,7 +744,7 @@ async function runStreamedDraftTurn(args: {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
       useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-      return { result, previewOwnsCanvas: previewOnCanvas }
+      return { result, previewFingerprint, previewOwnsCanvas: previewOnCanvas }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
@@ -749,7 +753,7 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
+      return { result, previewFingerprint, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
     }
     // No browser preview does not prove no server commit: frames can be lost
     // before the original draft finishes. The caller must read the canonical
@@ -780,6 +784,7 @@ async function runStreamedDraftTurn(args: {
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
     return {
       result,
+      previewFingerprint,
       previewOwnsCanvas: false,
       missingGraphAfterFallback: result.kind === 'response' || streamOpened,
     }
@@ -863,6 +868,8 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('settling', turnClientId, scenarioIdAtDispatch)
+      const previewCanvas = useCanvasStore.getState()
+      previewFingerprint = canvasDraftPreviewFingerprint(previewCanvas.nodes, previewCanvas.edges)
     },
   })
 
@@ -1048,6 +1055,7 @@ async function runStreamedDraftTurn(args: {
     useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
     return {
       result,
+      previewFingerprint,
       previewOwnsCanvas: false,
       // The cause decides the notice: a kept model behind a terminal error is
       // a different fact from a 200 that lost its graph, and one sentence
@@ -1057,7 +1065,7 @@ async function runStreamedDraftTurn(args: {
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-  return { result, previewOwnsCanvas }
+  return { result, previewFingerprint, previewOwnsCanvas }
 }
 
 
@@ -4838,6 +4846,7 @@ export function useConversation(): UseConversationReturn {
       // session, and which failure produced that — its PRESENCE is the
       // unsettled answer (there is no separate boolean that can disagree).
       let streamedPreviewOwnsCanvas = false
+      let streamedPreviewFingerprint: string | null = null
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
       let deliveryRequestId: string | undefined
       let requestNotStarted = true
@@ -5019,6 +5028,27 @@ export function useConversation(): UseConversationReturn {
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
         let recoveredBeforeResend = false
+        // ONE fence for both read-backs over a streamed preview. Recovery can
+        // replace only the owning turn's untouched content, under its live
+        // controller and scenario. The phase advances to unsettled after a
+        // graphless fallback; that does not grant authority over a user edit.
+        const canApplyDraftReadBack = (
+          overPreview: boolean,
+          previewFingerprint: string | null,
+          phase: 'settling' | 'unsettled',
+        ) => {
+          const canvas = useCanvasStore.getState()
+          const draft = useDraftStore.getState()
+          return !controller.signal.aborted &&
+            abortRef.current === controller &&
+            responseBelongsToDispatchingScenario(canvas.currentScenarioId, scenarioIdAtDispatch) &&
+            (overPreview
+              ? previewFingerprint !== null &&
+                draft.draftStreamTurnId === turnClientId &&
+                draftStreamPhaseFor(draft, scenarioIdAtDispatch) === phase &&
+                canvasDraftPreviewFingerprint(canvas.nodes, canvas.edges) === previewFingerprint
+              : canvas.nodes.length === 0)
+        }
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -5029,26 +5059,20 @@ export function useConversation(): UseConversationReturn {
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
             onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async () =>
+            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) =>
               (await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
                 accessToken: v5Identity.accessToken,
                 turnClientId,
                 signal: controller.signal,
-                canApply: () =>
-                  !controller.signal.aborted &&
-                  abortRef.current === controller &&
-                  responseBelongsToDispatchingScenario(
-                    useCanvasStore.getState().currentScenarioId,
-                    scenarioIdAtDispatch,
-                  ) &&
-                  useCanvasStore.getState().nodes.length === 0,
+                canApply: () => canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
               })) === 'recovered',
           })
           recoveredBeforeResend = streamed.recoveredBeforeResend === true
           v5Result = streamed.result
           streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
+          streamedPreviewFingerprint = streamed.previewFingerprint
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
@@ -6524,6 +6548,8 @@ export function useConversation(): UseConversationReturn {
             // attributed to a different session than the turn it recovers.
             accessToken: v5Identity.accessToken,
             turnClientId,
+            signal: controller.signal,
+            canApply: () => canApplyDraftReadBack(true, streamedPreviewFingerprint, 'unsettled'),
           })
           if (recovery === 'recovered') {
             // The merge applied the server's committed values and released
