@@ -27,6 +27,7 @@ import { useScenarioActionBar } from '../actionBar/useScenarioActionBar'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import { readProposalFields } from '../proposalFields'
+import { guidedSizingForModel } from '../../../v5/readGuidedSizing'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 import { useCanvasStore } from '../../store'
@@ -343,6 +344,7 @@ export const ChatThread = memo(function ChatThread({
   // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
   // a stale stream from another scenario cannot narrate over this one.
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, currentScenarioId))
   // Read as a CONJUNCT of the settling phase, never bare (same rule as
   // AIInputBar): coachingLanded is not scenario-scoped on its own.
@@ -445,6 +447,7 @@ export const ChatThread = memo(function ChatThread({
               <SuggestedChips
                 chips={replyChips}
                 proposalFields={msg.proposalFields}
+                guidedSizing={isLastAssistant ? guidedSizingForModel(msg.guidedSizing ?? null, lastServerGraphHash) : null}
                 heldProposalEarlier={msg.heldProposalEarlier}
                 replyId={msg.id}
                 openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
