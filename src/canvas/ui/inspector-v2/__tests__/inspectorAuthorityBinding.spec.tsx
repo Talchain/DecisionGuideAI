@@ -96,7 +96,7 @@
  * scope the queries to the rendered region instead of to `document`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON } from '../useInspectorMutations'
@@ -187,6 +187,30 @@ const EDGE_FIXTURE_NODES = [
 ]
 const EDGE_FIXTURE_EDGES = [
   { id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+]
+
+const OPTION_SAVING_FIXTURE = [
+  {
+    id: 'saving-option',
+    type: 'option',
+    position: { x: 0, y: 0 },
+    data: {
+      kind: 'option', label: 'Expand the team', description: 'Expansion within our budget.',
+      interventions: { 'set-factor': { value: 0.4, source: 'user_specified' } },
+    },
+  },
+  ...['set-factor', 'unset-factor'].map(id => ({
+    id, type: 'factor', position: { x: 0, y: 0 },
+    data: {
+      kind: 'factor', category: 'controllable',
+      label: id === 'set-factor' ? 'Existing budget' : 'New budget',
+      observedState: { value: 0.2, raw_value: 20, unit: '£', cap: 100 },
+    },
+  })),
+]
+const OPTION_SAVING_FIXTURE_EDGES = [
+  { id: 'option-set-factor', source: 'saving-option', target: 'set-factor', data: {} },
+  { id: 'option-unset-factor', source: 'saving-option', target: 'unset-factor', data: {} },
 ]
 
 /**
@@ -733,5 +757,62 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
 
     loose.remove()
     guarded.remove()
+  })
+})
+
+/**
+ * Option target boxes have the existing `option_intervention_edit` carrier,
+ * including a linked factor whose target is not set yet. They belong outside
+ * disabled fieldsets; the option's other writer fences remain its own duty.
+ * Keep this separate from the generic escape helpers, whose precondition is a
+ * Router blanket boundary that an authority-owning option panel does not have.
+ */
+describe('Inspector authority binding — option saving controls', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    cleanup()
+    setStoreState(OPTION_SAVING_FIXTURE, OPTION_SAVING_FIXTURE_EDGES)
+    useCanvasStore.setState({ ceeAnalysisReady: null } as never)
+  })
+
+  it('leaves both the existing target and the linked empty target outside disabled fieldsets', () => {
+    render(<InspectorRouter nodeId="saving-option" edgeId={null} onClose={vi.fn()} />)
+    const existing = within(screen.getByTestId('inspector-intervention-set-factor'))
+      .getByRole('textbox', { name: 'Target for Existing budget under Expand the team' })
+    const empty = within(screen.getByTestId('inspector-intervention-unset-factor'))
+      .getByRole('textbox', { name: 'Target for New budget under Expand the team' })
+
+    expect(existing).toHaveValue('40')
+    expect(empty).toHaveValue('')
+    for (const input of [existing, empty]) {
+      expect(input).not.toBeDisabled()
+      expect(input.closest('fieldset[disabled]')).toBeNull()
+    }
+  })
+
+  it('keeps description, factor inventory and advanced editor fences disabled', () => {
+    const { container } = render(
+      <InspectorRouter nodeId="saving-option" edgeId={null} onClose={vi.fn()} />,
+    )
+    openMore()
+    fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show model detail' }))
+
+    const explore = screen.getByTestId('option-explore-factors')
+    expect(explore).not.toBeDisabled()
+    fireEvent.click(explore)
+
+    const fences = [...container.querySelectorAll<HTMLFieldSetElement>('fieldset[data-writer-fence]')]
+    expect(fences.map(fence => fence.getAttribute('data-writer-fence')).sort())
+      .toEqual(['add-factor', 'advanced-editor', 'description'])
+    for (const fence of fences) expect(fence).toBeDisabled()
+
+    const inventory = container.querySelector<HTMLFieldSetElement>('fieldset[data-writer-fence="add-factor"]')!
+    const inventoryButtons = within(inventory).getAllByRole('button')
+    expect(inventoryButtons).toHaveLength(2)
+    for (const button of inventoryButtons) expect(button).toBeDisabled()
+
+    const advanced = container.querySelector<HTMLFieldSetElement>('fieldset[data-writer-fence="advanced-editor"]')!
+    expect(within(advanced).getByDisplayValue('Expansion within our budget.')).toBeDisabled()
   })
 })
