@@ -35,6 +35,11 @@
  *     values, so no re-derived look-alike object can satisfy it.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// The timer harness supplies the new request-time session dependency.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import { render, screen } from '@testing-library/react'
 import { useReadinessStore, __test__ } from '../readinessStore'
 import { useCanvasStore } from '../../store'

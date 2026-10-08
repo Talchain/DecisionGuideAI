@@ -1,3 +1,4 @@
+import { useReadinessStore } from '../../canvas/stores/readinessStore'
 import { useCanvasStore } from '../../canvas/store'
 import { clearAllScenarioStorage, crossIdentityBoundaryInThisTab } from '../../canvas/store/scenarios'
 // The non-boundary half of the identity-epoch contract, for the auth layer (CAN-F2g, #2516).
@@ -33,6 +34,7 @@ export function clearUserScopedState(nextOwner?: string | null): void {
   // CAN-F2g: THIS tab crosses the boundary and owns the resulting epoch (joining one another tab already rotated for
   // the same boundary); every tab that has not crossed it is stale and cannot write.
   step(() => crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner))
+  step(() => useReadinessStore.getState().resetForAuth())
   step(() => useCanvasStore.getState().resetCanvas())
   // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
   // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,
