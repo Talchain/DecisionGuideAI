@@ -18,6 +18,7 @@
  * import useCanvasStore (circular-dep hard fail rule).
  */
 import { create } from 'zustand'
+import type { Edge, Node } from '@xyflow/react'
 
 export interface DraftErrorState {
   message: string
@@ -482,6 +483,44 @@ export function streamedPreviewStandingFor(
 ): boolean {
   if (state.draftStreamTurnId !== turnClientId) return false
   return draftStreamPhaseFor(state, currentScenarioId) === 'settling'
+}
+
+/**
+ * Identify the canvas content a GRAPH_READY preview actually rendered. Turn and
+ * scenario ownership alone cannot distinguish that preview from a later edit or
+ * a replacement model that reuses its ids. Geometry and selection are omitted;
+ * node identity, labels and kind slots, connections and stored strength values
+ * are compared verbatim. Sorted JSON rows avoid array-order and delimiter
+ * ambiguity without inventing defaults or converting canvas values to wire ones.
+ */
+export function canvasDraftPreviewFingerprint(
+  nodes: ReadonlyArray<Node>,
+  edges: ReadonlyArray<Edge>,
+): string {
+  const nodeRows = nodes.map(node => JSON.stringify([
+    node.id,
+    (node as Node & { label?: unknown }).label,
+    node.data?.label,
+    node.type,
+    node.data?.kind,
+    node.data?.type,
+  ])).sort()
+  const edgeRows = edges.map(edge => {
+    const data = edge.data
+    const serverStrength = data?.serverStrength as { mean?: unknown; effect_direction?: unknown } | undefined
+    return JSON.stringify([
+      edge.source,
+      edge.target,
+      data?.weight,
+      data?.direction,
+      data?.strength_mean,
+      data?.strengthStd,
+      data?.beliefStrength,
+      serverStrength?.mean,
+      serverStrength?.effect_direction,
+    ])
+  }).sort()
+  return JSON.stringify([nodeRows, edgeRows])
 }
 
 /**

@@ -25,7 +25,7 @@ import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
-import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
+import { useDraftStore, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
@@ -635,10 +635,12 @@ async function runStreamedDraftTurn(args: {
   signal: AbortSignal
   onRequestStarted?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
-  readBackCommittedDraft?: (options: { overPreview: boolean }) => Promise<boolean>
+  readBackCommittedDraft?: (options: { overPreview: boolean; previewFingerprint: string | null }) => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
   const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
+  // Captured from this turn's accepted canvas render, before any later edit.
+  let previewFingerprint: string | null = null
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
   //
@@ -677,7 +679,7 @@ async function runStreamedDraftTurn(args: {
     // ⭐ P44 draft-stall (DL forensics 8 Oct): read the saved model before re-sending, even over this turn's preview.
     if (streamOpened && readBackCommittedDraft && readsBackBeforeResend(reason)) {
       await waitBeforeStreamCloseReadback(signal)
-      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas }))) {
+      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas, previewFingerprint }))) {
         logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
         useDraftStore.getState().setDraftStreamPhase('idle', null, null)
         return {
@@ -861,6 +863,8 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('settling', turnClientId, scenarioIdAtDispatch)
+      const previewCanvas = useCanvasStore.getState()
+      previewFingerprint = canvasDraftPreviewFingerprint(previewCanvas.nodes, previewCanvas.edges)
     },
   })
 
@@ -5027,7 +5031,7 @@ export function useConversation(): UseConversationReturn {
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
             onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async ({ overPreview }) =>
+            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) =>
               (await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
@@ -5041,9 +5045,10 @@ export function useConversation(): UseConversationReturn {
                     useCanvasStore.getState().currentScenarioId,
                     scenarioIdAtDispatch,
                   ) &&
-                  // ⛔ P44 draft-stall (DL forensics 8 Oct): only this turn's settling preview may be replaced.
+                  // Only this turn's untouched settling preview may be replaced.
                   (overPreview
-                    ? streamedPreviewStandingFor(useDraftStore.getState(), turnClientId, scenarioIdAtDispatch)
+                    ? streamedPreviewStandingFor(useDraftStore.getState(), turnClientId, scenarioIdAtDispatch) &&
+                      canvasDraftPreviewFingerprint(useCanvasStore.getState().nodes, useCanvasStore.getState().edges) === previewFingerprint
                     : useCanvasStore.getState().nodes.length === 0),
               })) === 'recovered',
           })

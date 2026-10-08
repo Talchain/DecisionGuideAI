@@ -32,6 +32,7 @@ import { ActionChipRow } from '../ActionChipRow'
 import { LOAD_SAVED_MODEL_CHIP_ID, isChipRenderable } from '../chipDispatch'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { useCanvasStore } from '../../store'
+import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { useDraftStore, draftStreamPhaseFor } from '../../stores/draftStore'
 import { canRunAnalysis, DRAFT_VALUES_UNSETTLED_REFUSAL } from '../../utils/canRunAnalysis'
 import {
@@ -874,7 +875,11 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
 describe('stream closes without a final turn: the saved model is read before any re-send', () => {
   async function driveClosedAfterDrafting(
     end: 'close' | 'fail',
-    { withPreview = false, duringRead }: { withPreview?: boolean; duringRead?: () => Promise<void> } = {},
+    { withPreview = false, beforeClose, duringRead }: {
+      withPreview?: boolean
+      beforeClose?: () => Promise<void>
+      duringRead?: () => Promise<void>
+    } = {},
   ) {
     const stream = controllableStream()
     mockOpenStream.mockResolvedValue(stream.response)
@@ -890,6 +895,7 @@ describe('stream closes without a final turn: the saved model is read before any
       expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
       expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0)
     }
+    await beforeClose?.()
     await stream[end]()
     await duringRead?.()
     await act(async () => {
@@ -925,6 +931,72 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(false)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
     expect(runGate().allowed).toBe(true)
+  })
+
+  it('RED P1a: a user renames the settling preview before close → the label survives and the buffered re-send runs once', async () => {
+    mockFetchScenarioGraph.mockResolvedValueOnce(serverGraphResult())
+      .mockResolvedValue({ status: 'absent', requestId: 'req-absent-after-edited-preview' })
+    const result = await driveClosedAfterDrafting('close', {
+      withPreview: true,
+      beforeClose: async () => {
+        await act(async () => {
+          useCanvasStore.getState().updateNodeLabel('opt_a', 'My revised build option')
+        })
+        expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+        expect(useCanvasStore.getState().nodes.find(n => n.id === 'opt_a')?.data.label)
+          .toBe('My revised build option')
+      },
+    })
+
+    expect(useCanvasStore.getState().nodes.find(n => n.id === 'opt_a')?.data.label)
+      .toBe('My revised build option')
+    expect(mockCallV5Turn, 'today\'s buffered re-send still runs once').toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+    const contents = result.current.messages.map(m => m.content)
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
+  })
+
+  it('RED P1b: a different same-scenario model shares a preview node id before close → the read-back does not apply', async () => {
+    mockFetchScenarioGraph.mockResolvedValueOnce(serverGraphResult())
+      .mockResolvedValue({ status: 'absent', requestId: 'req-absent-after-replaced-preview' })
+    const result = await driveClosedAfterDrafting('close', {
+      withPreview: true,
+      beforeClose: async () => {
+        await act(async () => {
+          useCanvasStore.setState({
+            nodes: [
+              { id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Another model\'s option', kind: 'option' } },
+              { id: 'other_goal', type: 'goal', position: { x: 200, y: 0 }, data: { label: 'Another model\'s goal', kind: 'goal' } },
+            ],
+            edges: [{ id: 'other_edge', source: 'opt_a', target: 'other_goal', data: { ...DEFAULT_EDGE_DATA, weight: 0.75 } }],
+          })
+        })
+        expect(useCanvasStore.getState().currentScenarioId).toBe(SCENARIO)
+        expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+      },
+    })
+
+    expect(useCanvasStore.getState().nodes.map(n => [n.id, n.data.label])).toEqual([
+      ['opt_a', 'Another model\'s option'],
+      ['other_goal', 'Another model\'s goal'],
+    ])
+    expect(useCanvasStore.getState().edges.map(e => [e.source, e.target, e.data?.weight]))
+      .toEqual([['opt_a', 'other_goal', 0.75]])
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+    const contents = result.current.messages.map(m => m.content)
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
   })
 
   it('CONTRAST: preview + nothing saved → the buffered re-send runs once, the preview stays, nothing is claimed', async () => {
