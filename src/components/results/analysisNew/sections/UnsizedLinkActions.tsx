@@ -20,18 +20,29 @@
  *   click. A refused click sends nothing.
  */
 import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { action } from '../panelSurfaces'
+import { PanelIconButton } from '../PanelIconButton'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
 import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceholder'
 
+/**
+ * ⭐ 8 Oct 2026 (Paul: the zone was a wall of "X to Y · Accept starting strength · Edit", repeated under every option;
+ * "very punchy … additional helpful context under progressive disclosure"). One line per option at rest, the list one
+ * click away, each link said as a plain relationship. The acts and their writes are unchanged.
+ */
 export const UNSIZED_LINK_COPY = {
-  heading: (n: number) => (n === 1 ? '1 link not sized yet' : `${n} links not sized yet`),
-  accept: 'Accept starting strength',
+  heading: (n: number) => (n === 1 ? 'Check the assumption Olumi made' : `Check ${n} assumptions Olumi made`),
+  relationship: (from: string, to: string) => `‘${from}’ affects ‘${to}’`,
+  accept: 'Accept',
+  acceptLabel: (from: string, to: string) => `Accept Olumi's starting strength for ‘${from}’ affects ‘${to}’`,
   edit: 'Edit',
+  editLabel: (from: string, to: string) => `Edit how strongly ‘${from}’ affects ‘${to}’`,
+  toggle: { show: 'Show the assumptions', hide: 'Hide the assumptions' },
   sending: 'Sending…',
   sent: "Sent. Re-run to see this option's figures.",
   notRecorded: 'Not recorded. Use Edit to set it.',
@@ -67,13 +78,15 @@ export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromL
                   : null
   return (
     <li className="flex flex-col" style={{ gap: 4 }} data-testid={`${testId}-${link.edgeId}`}>
-      <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
-        <span className={`${typography.panelMeta} text-text-header min-w-0`}>
-          {link.fromLabel} to {link.toLabel}
+      <div className="flex items-baseline justify-between" style={{ gap: 8 }}>
+        <span className={`${typography.panelBody} text-text-body min-w-0`}>
+          {UNSIZED_LINK_COPY.relationship(link.fromLabel, link.toLabel)}
         </span>
+        <span className="flex shrink-0 items-baseline" style={{ gap: 8 }}>
         <button
           type="button"
-          className={`${typography.panelMeta} ${action('secondary')} disabled:opacity-50`}
+          aria-label={UNSIZED_LINK_COPY.acceptLabel(link.fromLabel, link.toLabel)}
+          className={`${typography.panelBody} ${action('text')} disabled:opacity-50`}
           data-testid={`${testId}-${link.edgeId}-accept`}
           disabled={state === 'sending' || state === 'sent' || state === 'not_current' || state === 'already_sized'}
           onClick={() => {
@@ -99,15 +112,17 @@ export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromL
         </button>
         <button
           type="button"
-          className={`${typography.panelMeta} ${action('quiet')} hover:text-text-header`}
+          aria-label={UNSIZED_LINK_COPY.editLabel(link.fromLabel, link.toLabel)}
+          className={`${typography.panelBody} ${action('quiet')} hover:text-text-header`}
           data-testid={`${testId}-${link.edgeId}-edit`}
           onClick={() => { openEdgeStrengthEditor(link.edgeId) }}
         >
           {UNSIZED_LINK_COPY.edit}
         </button>
+        </span>
       </div>
       {note && (
-        <p className={`${typography.panelMeta} text-text-light`} role="status" data-testid={`${testId}-${link.edgeId}-note`}>
+        <p className={`${typography.panelBody} text-text-light`} role="status" data-testid={`${testId}-${link.edgeId}-note`}>
           {note}
         </p>
       )}
@@ -123,15 +138,29 @@ export function UnsizedLinkActions({
   testId: string
 }) {
   const current = useCanvasStore(selectRunAffirmedCurrent)
+  const [open, setOpen] = useState(false)
   if (links.length === 0 || !current) return null
   return (
-    <div className="mt-2" data-testid={testId}>
-      <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-heading`}>
-        {UNSIZED_LINK_COPY.heading(links.length)}
-      </p>
-      <ul className="flex flex-col mt-1" style={{ gap: 8 }}>
-        {links.map((l) => <UnsizedLinkRow key={l.edgeId} link={l} testId={testId} />)}
-      </ul>
+    <div className="mt-1" data-testid={testId}>
+      <div className="flex items-center justify-between" style={{ gap: 8 }}>
+        <p className={`${typography.panelBody} text-text-light m-0`} data-testid={`${testId}-heading`}>
+          {UNSIZED_LINK_COPY.heading(links.length)}
+        </p>
+        <span className="shrink-0 -my-1">
+          <PanelIconButton
+            Icon={open ? ChevronDown : ChevronRight}
+            label={open ? UNSIZED_LINK_COPY.toggle.hide : UNSIZED_LINK_COPY.toggle.show}
+            expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            testId={`${testId}-toggle`}
+          />
+        </span>
+      </div>
+      {open ? (
+        <ul className="flex flex-col mt-1 list-none p-0 m-0" style={{ gap: 8 }}>
+          {links.map((l) => <UnsizedLinkRow key={l.edgeId} link={l} testId={testId} />)}
+        </ul>
+      ) : null}
     </div>
   )
 }

@@ -1181,7 +1181,10 @@ export function ModelStrip({
             // second copy of the subject inside the region would put the same
             // sentence on screen twice, which is exactly what the
             // first-viewport census exists to stop. Only the clamp is gone.
-            className={`${typography.panelHeader} text-text-header block m-0 break-words${
+            // ⭐ 8 Oct 2026 (Paul: "too dominating and loud"): the subject is the model's own words, not a section
+            // title. Same 14px as the section titles (`panelQuestion`), one weight lighter and in body ink, so a
+            // three-line goal no longer outweighs "Challenge the thinking" beneath it.
+            className={`${typography.panelQuestion} text-text-body block m-0 break-words${
               open && subjectSubLabel === null ? ' pr-5' : ''
             }`}
             data-testid={`${testId}-lead`}
@@ -1609,7 +1612,9 @@ export function ModelStrip({
           data-testid={`${testId}-detail`}
           data-node-id={active.id}
         >
-          <div className="flex items-center justify-between gap-1 min-w-0">
+          {/* ⭐ 8 Oct 2026 (Paul: "icons on the left and some on the right … very confusing"): ONE row of acts, on
+              the right of the name, in the panel's fixed order — ✎ propose, ⌖ show on canvas, ✦ ask, then ✕. */}
+          <div className="flex items-start justify-between gap-2 min-w-0">
             <h4
               className={`${typography.panelHeader} text-text-header m-0 min-w-0 break-words`}
               data-testid={`${testId}-detail-title`}
@@ -1619,12 +1624,53 @@ export function ModelStrip({
                   substitution the mark's own accessible name makes. */}
               {active.label || COPY.modelStrip.kindNoun[active.kind]}
             </h4>
-            <PanelIconButton
-              Icon={X}
-              label={CLOSE_DETAIL_LABEL}
-              onClick={() => setActiveNodeId(null)}
-              testId={`${testId}-detail-close`}
-            />
+            <span className="flex shrink-0 items-center gap-px -my-1" data-node-id={active.id} data-testid={`${testId}-detail-acts`}>
+              <PanelIconButton
+                Icon={Pencil}
+                label={PROPOSE_CHANGE_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: proposeChangeDraft(label),
+                    label: PROPOSE_CHANGE_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-propose`}
+              />
+              {/* The detail's own canvas route: activating the mark already
+                  focused the canvas, and on touch that tap is what opened this,
+                  so this is the only way to ask again without closing it. */}
+              <PanelIconButton
+                Icon={Crosshair}
+                label={COPY.modelStrip.showOnCanvas}
+                onClick={() => focusOrSay(active.id)}
+                testId={`${testId}-detail-focus`}
+              />
+              <PanelIconButton
+                ai
+                label={ASK_ABOUT_ITEM_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: askAboutItemDraft(label),
+                    label: ASK_ABOUT_ITEM_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-ask`}
+              />
+              <PanelIconButton
+                Icon={X}
+                label={CLOSE_DETAIL_LABEL}
+                onClick={() => setActiveNodeId(null)}
+                testId={`${testId}-detail-close`}
+              />
+            </span>
           </div>
 
             {/* ⭐ THE PROTOTYPE'S ONE BULLET (`tiny-list`), FILLED ONLY BY THE
@@ -1729,9 +1775,13 @@ export function ModelStrip({
                 something false about a node that has no observed value to
                 carry. */}
             {active.kind === 'factor' ? (
-              <div className="space-y-1 min-w-0" data-testid={`${testId}-detail-value`}>
+              <div className="mt-1 space-y-1 min-w-0" data-testid={`${testId}-detail-value`}>
+                {/* ⭐ 8 Oct 2026 (Paul: "Change this value … looks shoehorned in … maybe it goes on the right"; "all
+                    the text … a similar size"): one line at body size — label, value, whose it is — with the edit
+                    act on the right of the same line. */}
+                <div className="flex items-baseline justify-between gap-2 min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
-                  <span className={`${typography.panelMeta} text-text-light`}>
+                  <span className={`${typography.panelBody} text-text-light`}>
                     {COPY.modelStrip.valueLabel}
                   </span>
                   <span
@@ -1751,12 +1801,45 @@ export function ModelStrip({
                   </span>
                   {activeValueProvenance !== null ? (
                     <span
-                      className={`${typography.panelMeta} text-text-light`}
+                      className={`${typography.panelBody} text-text-light`}
                       data-testid={`${testId}-detail-value-source`}
                     >
                       {activeValueProvenance}
                     </span>
                   ) : null}
+                </div>
+                {isEditingActive ? null : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      /* ⚠ NEVER PRE-FILLED FROM `valueText`. That string is a
+                         DISPLAY rendering — it can carry a currency symbol, a
+                         percent sign, thousands separators or a qualitative tier
+                         word — and seeding a numeric input with it would either be
+                         silently dropped or parse to a different number.
+
+                         ⭐ SEEDED FROM THE CANONICAL FIELD INSTEAD, by the SAME
+                         `resolveValueInputSeed` that `buildFactorValueEditEvent`
+                         uses to read a typed number as user units or model scale
+                         — so what the field shows and how the commit reads it
+                         cannot disagree (the 24 Sep 08:09Z P0 was that
+                         disagreement). Served witness `11ed8874`: the field opened
+                         EMPTY over "5,000 customers". No number → still empty. */
+                      const nodeData = (useCanvasStore.getState().nodes ?? []).find(
+                        (n) => (n as { id?: string }).id === active.id,
+                      )?.data
+                      const { seed } = resolveValueInputSeed(nodeData)
+                      setDraft(seed != null ? String(seed) : '')
+                      setEditingFor(active.id)
+                    }}
+                    aria-label={COPY.modelStrip.changeValue}
+                    className={`${typography.panelBody} ${action('text')} shrink-0`}
+                    data-testid={`${testId}-detail-value-edit`}
+                    data-node-id={active.id}
+                  >
+                    {COPY.modelStrip.changeValueShort}
+                  </button>
+                )}
                 </div>
 
                 {isEditingActive ? (
@@ -1805,86 +1888,13 @@ export function ModelStrip({
                       {COPY.modelStrip.cancelValue}
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      /* ⚠ NEVER PRE-FILLED FROM `valueText`. That string is a
-                         DISPLAY rendering — it can carry a currency symbol, a
-                         percent sign, thousands separators or a qualitative tier
-                         word — and seeding a numeric input with it would either be
-                         silently dropped or parse to a different number.
-
-                         ⭐ SEEDED FROM THE CANONICAL FIELD INSTEAD, by the SAME
-                         `resolveValueInputSeed` that `buildFactorValueEditEvent`
-                         uses to read a typed number as user units or model scale
-                         — so what the field shows and how the commit reads it
-                         cannot disagree (the 24 Sep 08:09Z P0 was that
-                         disagreement). Served witness `11ed8874`: the field opened
-                         EMPTY over "5,000 customers". No number → still empty. */
-                      const nodeData = (useCanvasStore.getState().nodes ?? []).find(
-                        (n) => (n as { id?: string }).id === active.id,
-                      )?.data
-                      const { seed } = resolveValueInputSeed(nodeData)
-                      setDraft(seed != null ? String(seed) : '')
-                      setEditingFor(active.id)
-                    }}
-                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-                    data-testid={`${testId}-detail-value-edit`}
-                    data-node-id={active.id}
-                  >
-                    <Pencil className={`${icon('inline')}`} aria-hidden={true} />
-                    {COPY.modelStrip.changeValue}
-                  </button>
-                )}
+                ) : null}
               </div>
             ) : null}
 
-            {/* ⭐⭐ E10: EVERY KIND, NOT ONLY FACTORS — the prototype's ✎ ⌖ ✦, in its
-                order, ICON-ONLY. Both asks open the shared composer; neither
-                writes the model. The value editor above is a SEPARATE act — a
-                direct numeric write — so a factor legitimately carries both. */}
-            <div className="flex flex-wrap items-center gap-1 mt-1" data-node-id={active.id}>
-              <PanelIconButton
-                Icon={Pencil}
-                label={PROPOSE_CHANGE_LABEL}
-                onClick={() => {
-                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                  openAskOlumi({
-                    context: label,
-                    draft: proposeChangeDraft(label),
-                    label: PROPOSE_CHANGE_LABEL,
-                    targetId: active.id,
-                    source: 'chip',
-                  })
-                }}
-                testId={`${testId}-detail-propose`}
-              />
-              {/* The detail's own canvas route: activating the mark already
-                  focused the canvas, and on touch that tap is what opened this,
-                  so this is the only way to ask again without closing it. */}
-              <PanelIconButton
-                Icon={Crosshair}
-                label={COPY.modelStrip.showOnCanvas}
-                onClick={() => focusOrSay(active.id)}
-                testId={`${testId}-detail-focus`}
-              />
-              <PanelIconButton
-                ai
-                label={ASK_ABOUT_ITEM_LABEL}
-                onClick={() => {
-                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                  openAskOlumi({
-                    context: label,
-                    draft: askAboutItemDraft(label),
-                    label: ASK_ABOUT_ITEM_LABEL,
-                    targetId: active.id,
-                    source: 'chip',
-                  })
-                }}
-                testId={`${testId}-detail-ask`}
-              />
-            </div>
+            {/* ⭐⭐ E10's ✎ ⌖ ✦ now sit in the title row, on the right (8 Oct 2026). Both asks open the shared
+                composer; neither writes the model. The value's "Change" above is a SEPARATE act — a direct numeric
+                write — so a factor legitimately carries both. */}
         </div>
       ) : null}
       {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
