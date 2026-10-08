@@ -269,3 +269,43 @@ describe('buildEdgeInspectorSentence — the relationship summary contract', () 
     expect(buildEdgeInspectorSentence(value).sentence).not.toMatch(/\b(best|winner|recommend|ahead|leader)\b/i)
   })
 })
+
+// ⭐ ONE LICENCE ACROSS SURFACES (RC4; Science 393023 LICENCE ruling 3; #2623). The inspector's sentence reads the
+// SAME CEE-shared parity fixture the canvas chip does: a wire edge the licence calls a placeholder never gets a band
+// word here, and a sized one does. If this sentence ever grows its own "is it sized?" rule, this fails on the wire rows.
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { mapDraftEdgeToCanvas } from '../../../utils/applyDraftResult'
+import { strengthForWords } from '../../../domain/strengthPlaceholder'
+
+describe('buildEdgeInspectorSentence — the shared placeholder licence fixture', () => {
+  const parityRows = JSON.parse(readFileSync(
+    resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/placeholder-licence-parity.json'), 'utf8',
+  )) as Array<{ name: string; edge: Record<string, unknown> & { from: string; to: string }; placeholder: boolean }>
+  const BAND = /\b(slight|moderate|strong|very strong)\b/i
+
+  it('reads a fixture with both populations (positive control)', () => {
+    expect(parityRows.filter(r => r.placeholder).length).toBeGreaterThan(0)
+    expect(parityRows.filter(r => !r.placeholder).length).toBeGreaterThan(0)
+  })
+
+  for (const [i, row] of parityRows.entries()) {
+    it(`agrees with strengthForWords: ${row.name}`, () => {
+      const data = mapDraftEdgeToCanvas(row.edge, i).data as Record<string, unknown>
+      const strengthDisplay = resolveEdgeSignedStrengthDisplay(data)
+      const words = strengthForWords(data, strengthDisplay)
+      const { sentence, chip } = buildEdgeInspectorSentence(input(data, { strengthDisplay }))
+      const asserted = sentence.replace('How strong do you think it is?', '')
+      if (row.placeholder) {
+        expect(words.show).toBe(false)
+        expect(asserted).not.toMatch(BAND)
+        expect(chip).toBe('unsized')
+      } else if (words.show) {
+        expect(asserted).toMatch(BAND)
+        expect(chip).not.toBe('unsized')
+      } else {
+        expect(asserted).not.toMatch(BAND)
+      }
+    })
+  }
+})
