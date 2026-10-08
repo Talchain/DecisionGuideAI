@@ -366,7 +366,7 @@ export const INSPECTOR_READ_ONLY_REASON =
 // ⚠ It states the ACTION, never an outcome: a target edit can still be refused
 // by the server, and that refusal is the row's to disclose.
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also change this option's factor targets below. Other fields here are read-only for now.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also choose factors this option changes and set factor targets below. Description and advanced editor fields here are read-only for now.`
 
 /**
  * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
@@ -409,7 +409,7 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
   // (4) Paul 23 Sep contract feedback point 11: the "links, details and
   // coaching still work" tail is dropped (repeated boilerplate on five arms);
   // every save / not-sent fact above is kept.
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. The value saves to the shared model. Other edits here are not sent yet.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. The value saves to the shared model. Description and technical fields here are read-only for now.`
 
 /**
  * ⭐ THE EXTERNAL-FACTOR PANE, AND IT EXISTS SO THE THIRD PANEL CANNOT INHERIT
@@ -592,9 +592,9 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * as THE exception would be false the moment another fence is added.
  */
 // ⚠ Paul 23 Sep contract feedback point 11: boilerplate tail dropped; the
-// three truths (conditional rename, the range's role, other edits unsent) kept.
+// Conditional rename and the range's role stay; the remaining fenced fields are named.
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other edits here are not sent yet.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other technical fields and the description are read-only for now.`
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.

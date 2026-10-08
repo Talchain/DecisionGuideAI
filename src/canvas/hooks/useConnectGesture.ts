@@ -64,6 +64,8 @@ export const CONNECTION_REFUSAL_COPY = {
   duplicate: 'This relationship already exists. Click it to adjust its strength.',
   edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
   question: `The ${DECISION_NODE_LABEL} links only to its options. To show what an option changes, draw the link from the option.`,
+  /** A picked pair that stopped being valid between being offered and being chosen (the model moved). */
+  no_longer_valid: 'That link can no longer be added: the model changed since the list was shown. Choose again.',
 } as const
 
 /** Does this pair put the Question at one end of a link CEE forbids? Read against the live store. */
@@ -92,6 +94,31 @@ export function openNewCausalLinkStrengthEditor(
   return openEdgeStrengthEditor(edge.id, { centre: false }) ? edge.id : null
 }
 
+/** Create one user link through the canvas gesture's existing writer and capture. */
+export function createUserEdge(
+  connection: Pick<Connection, 'source' | 'target'> & Partial<Connection>,
+  showToast: ShowToast,
+) {
+  // Task 6a: user-specific defaults for manually created edges.
+  const edgeIdsBefore = new Set(useCanvasStore.getState().edges.map(e => e.id))
+  const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
+  if (!result.created) {
+    const msg = result.reason
+      ? (CONNECTION_REFUSAL_COPY as Record<string, string | undefined>)[result.reason]
+      : undefined
+    if (msg) showToast(msg, 'warning')
+    return
+  }
+  const landed = useCanvasStore.getState()
+  const edge = landed.edges.find(e => e.source === connection.source && e.target === connection.target)
+  if (edge) reportManualEdit({ edit: { kind: 'structural_add_edge', elementId: edge.id, accepted: true },
+    before: { nodes: landed.nodes, edges: landed.edges.filter(e => e.id !== edge.id) }, after: landed })
+  openNewCausalLinkStrengthEditor(edgeIdsBefore, connection.source, connection.target)
+  // Item 3 (Paul 7 Oct): the link has no strength yet, so Olumi proposes one (direction, band, one reason) as a card
+  // the user accepts, changes or declines. The editor above still opens: the user's own figure always wins.
+  if (edge) proposeForDrawnLink(edge.id)
+}
+
 interface ConnectStartParams {
   nodeId: string | null
   handleType?: 'source' | 'target' | null
@@ -108,34 +135,6 @@ export function useConnectGesture({
   const connectSucceededRef = useRef(false)
   const connectStartRef = useRef<{ nodeId: string; handleType: 'source' | 'target' } | null>(null)
 
-  /**
-   * Create one user link, and say why when the store refuses. ONE writer for
-   * both the handle drop and the card-body drop, so the two cannot drift.
-   */
-  const createUserEdge = useCallback(
-    (connection: Pick<Connection, 'source' | 'target'> & Partial<Connection>) => {
-      // Task 6a: user-specific defaults for manually created edges.
-      const edgeIdsBefore = new Set(useCanvasStore.getState().edges.map(e => e.id))
-      const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
-      if (!result.created) {
-        const msg = result.reason
-          ? (CONNECTION_REFUSAL_COPY as Record<string, string | undefined>)[result.reason]
-          : undefined
-        if (msg) showToast(msg, 'warning')
-        return
-      }
-      const landed = useCanvasStore.getState()
-      const edge = landed.edges.find(e => e.source === connection.source && e.target === connection.target)
-      if (edge) reportManualEdit({ edit: { kind: 'structural_add_edge', elementId: edge.id, accepted: true },
-        before: { nodes: landed.nodes, edges: landed.edges.filter(e => e.id !== edge.id) }, after: landed })
-      openNewCausalLinkStrengthEditor(edgeIdsBefore, connection.source, connection.target)
-      // Item 3 (Paul 7 Oct): the link has no strength yet, so Olumi proposes one (direction, band, one reason) as a card
-      // the user accepts, changes or declines. The editor above still opens: the user's own figure always wins.
-      if (edge) proposeForDrawnLink(edge.id)
-    },
-    [showToast],
-  )
-
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!enabled) {
@@ -149,9 +148,9 @@ export function useConnectGesture({
         showToast(CONNECTION_REFUSAL_COPY.question, 'warning')
         return
       }
-      createUserEdge(connection)
+      createUserEdge(connection, showToast)
     },
-    [enabled, showToast, createUserEdge],
+    [enabled, showToast],
   )
 
   // Graph Editing Experience Task 2c: validate connections during drag.
@@ -212,10 +211,10 @@ export function useConnectGesture({
       } else {
         // ⭐ Every check passed: the connection IS allowed. Make it
         // (edit-structure/F5), rather than stating a false reason.
-        createUserEdge({ source, target, sourceHandle: null, targetHandle: null })
+        createUserEdge({ source, target, sourceHandle: null, targetHandle: null }, showToast)
       }
     },
-    [enabled, showToast, createUserEdge],
+    [enabled, showToast],
   )
 
   return { onConnect, isValidConnection, onConnectStart, onConnectEnd }

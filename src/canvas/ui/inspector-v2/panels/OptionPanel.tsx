@@ -38,6 +38,7 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InterventionRow } from '../shared/InterventionRow'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { InspectorSummary } from '../shared/InspectorSummary'
 import { InspectorMoreItems } from '../shared/InspectorMore'
 import { classifyInterventionProvenance } from '../../../domain/valueProvenance'
@@ -62,23 +63,6 @@ import {
 } from '../../../nodes/shared/optionTargetDisplay'
 
 /**
- * ⭐ ONE SENTENCE, ONCE, AT THE TOP OF THE LIST — never repeated per row.
- *
- * A refusal printed against every factor turns a useful inventory into a wall
- * of the same message, and the inventory is the part worth keeping: a reader who
- * cannot edit still learns which factors this option could act on and which are
- * already spoken for.
- *
- * ⚠ IT NAMES A ROUTE THAT WORKS. `INSPECTOR_READ_ONLY_REASON` already points at
- * the Model tab for supported factor values; this is its short form for the one
- * place a reader is looking at a list of factors and wondering why none of them
- * responds. Copy that promises an affordance is honest only while the affordance
- * answers — the lesson from the goal chip's withdrawn "add one".
- */
-export const OPTION_EDIT_ROUTE_NOTE =
-  'Read-only here. Use the Model tab to change a factor value, or ask Olumi.'
-
-/**
  * ⭐ THE ROUTE TO A TARGET WHOSE BOX IS NOT IN THE DEFAULT VIEW (DEFECT 5 (b)).
  *
  * A target that reads "£60k" or "59 GBP/month" keeps its box under technical
@@ -88,7 +72,7 @@ export const OPTION_EDIT_ROUTE_NOTE =
  * this sentence is what makes that true — it names the control that opens the
  * box, by the accessible name `InspectorShell` gives it.
  *
- * ⚠ ONCE, ABOVE THE LIST, never per row — `OPTION_EDIT_ROUTE_NOTE`'s ruling on
+ * ⚠ ONCE, ABOVE THE LIST, never per row — the factor inventory's ruling on
  * this same panel: a sentence repeated against every factor turns the
  * inventory into a wall of the same message.
  *
@@ -298,21 +282,8 @@ export const OptionPanel = memo(function OptionPanel({
     [mutations, draftingNotes],
   )
 
-  // Dropdown state for "Add a change"
-  const [showDropdown, setShowDropdown] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showDropdown) return
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [showDropdown])
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [focusTarget, setFocusTarget] = useState<string | null>(null)
 
   // Interventions
   // Map values may be plain numbers (legacy/analysis_ready) or
@@ -405,15 +376,29 @@ export const OptionPanel = memo(function OptionPanel({
    * default view only when the entry frame is the factor's own units; a model-scale (0–1) entry stays under technical
    * detail, labelled, with the route note — otherwise "0.5" meant as £0.50 would be recorded as the model value 0.5.
    */
-  const emptyTargetTakesUserUnits = (iv: { unit?: string; cap?: number; baseline?: number; rawBaseline?: number }) =>
+  const emptyTargetTakesUserUnits = useCallback((iv: { unit?: string; cap?: number; baseline?: number; rawBaseline?: number }) =>
     resolveOptionTargetEntryFrame({
       unit: iv.unit,
       cap: iv.cap,
       observedValue: iv.baseline,
       observedRawValue: iv.rawBaseline,
-    }).kind === 'user_units'
+    }).kind === 'user_units', [])
 
-  // Set of already-intervened factor IDs for the dropdown and connection filter
+  // After linking, focus only a target entered in the factor's own units.
+  // Model-scale targets keep their technical-detail route note and receive no focus.
+  useEffect(() => {
+    if (focusTarget === null) return
+    const target = interventionRows.find(iv => iv.factorId === focusTarget)
+    if (!target) return
+    if (emptyTargetTakesUserUnits(target)) {
+      const row = [...(panelRef.current?.querySelectorAll<HTMLElement>('[data-testid]') ?? [])]
+        .find(element => element.dataset.testid === `inspector-intervention-${focusTarget}`)
+      row?.querySelector<HTMLInputElement>('input')?.focus()
+    }
+    setFocusTarget(null)
+  }, [focusTarget, interventionRows, emptyTargetTakesUserUnits])
+
+  // Set of already-intervened factor IDs for the picker and connection filter
   const interventionIds = useMemo(() => {
     const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     return new Set(raw ? Object.keys(raw) : [])
@@ -480,7 +465,9 @@ export const OptionPanel = memo(function OptionPanel({
   // Controllable factors available to add
   const controllableFactors = useMemo(() => {
     return nodes
-      .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
+      .filter(n => resolveNodeTypeLiteral(n) === 'factor'
+        && n.data?.category === 'controllable' && n.id !== nodeId
+        && !interventionIds.has(n.id) && !interventionRows.some(iv => iv.factorId === n.id))
       .map(n => {
         // The card's own reader (`factorDisplayText`), so the add list says what the
         // factor card says: "£0", "$10,000 / year". It read the deprecated
@@ -492,7 +479,12 @@ export const OptionPanel = memo(function OptionPanel({
           valueDisplay,
         }
       })
-  }, [nodes, nodeId])
+  }, [nodes, nodeId, interventionIds, interventionRows])
+  const candidateFactorIds = useMemo(() => controllableFactors.map(f => f.id), [controllableFactors])
+  const candidateValueDisplays = useMemo(
+    () => new Map(controllableFactors.map(f => [f.id, f.valueDisplay])),
+    [controllableFactors],
+  )
 
   // All option results for comparison bars
   const allOptions = useMemo(() => {
@@ -637,7 +629,7 @@ export const OptionPanel = memo(function OptionPanel({
   if (!nodeId || !node) return null
 
   return (
-    <div>
+    <div ref={panelRef}>
       <div data-testid={!firstTarget && linkedWithoutValueCount > 0 ? 'option-links-without-values' : undefined}>
         <InspectorSummary sentence={summarySentence} chip={summaryChip} />
       </div>
@@ -816,10 +808,9 @@ export const OptionPanel = memo(function OptionPanel({
                  * prop, and so the diff that ever restores `readOnly` has to
                  * delete this paragraph to do it.
                  *
-                 * ⛔ THE OTHER THREE FENCES STAY. `description`, `add-factor`
-                 * and `advanced-editor` remain. Description writes locally;
-                 * the factor inventory has no add writer, and the editor's
-                 * own intervention rows already route
+                 * ⛔ THE LOCAL-ONLY FENCES STAY. `description` and
+                 * `advanced-editor` remain. The factor picker uses the canvas
+                 * gesture's structural carrier; the editor's own rows route
                  * through this same owner while its remaining fields do not.
                  * Unfencing per PANEL rather than per WRITER is what the
                  * Router's blanket did, and this panel exists to be finer than
@@ -858,76 +849,13 @@ export const OptionPanel = memo(function OptionPanel({
             </p>
           )}
 
-          {/* Add a change — inside PrimaryControlCard as the list footer */}
-          <div className="relative mt-1" ref={dropdownRef}>
-            {/* ⭐ NOT FENCED, AND RENAMED. This toggle mutates a `useState` and
-                nothing else, so the fence has no business reaching it — and
-                under the blanket wrap it was inert, which meant the list could
-                not even be OPENED. The affordance was dead twice over: you
-                could not click an item, and you could not see what the items
-                were.
-
-                "Add a change" promised an action this route cannot perform.
-                "Explore other factors" names what it does do — and what it
-                still buys a reader who cannot edit: which factors this option
-                could act on, and which are already spoken for. That is content
-                worth keeping, which is why the list opens rather than hides. */}
-            <button
-              type="button"
-              onClick={() => setShowDropdown(v => !v)}
-              className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 border-t border-dashed border-panel-border text-info hover:bg-panel-hover transition-colors`}
-              data-testid="option-explore-factors"
-            >
-              Explore other factors
-            </button>
-
-            {showDropdown && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
-                {/* ⚠ ONE explanation of the edit route, at the top of the
-                    list — never an error repeated on every row. A message per
-                    item would turn a useful inventory into a wall of the same
-                    refusal, which is the density Paul has twice asked us to
-                    stop spending. */}
-                {readOnly && controllableFactors.length > 0 && (
-                  <p
-                    className={`${typography.panelMeta} text-text-light px-3 py-2 border-b border-panel-border m-0`}
-                    data-testid="option-explore-factors-route"
-                  >
-                    {OPTION_EDIT_ROUTE_NOTE}
-                  </p>
-                )}
-                {/* Factor inventory only; the dormant local add writer is removed. */}
-                <fieldset disabled={readOnly} className="contents" data-writer-fence="add-factor">
-                {controllableFactors.length === 0 ? (
-                  <div className={`${typography.panelMeta} text-text-light px-3 py-2`}>
-                    No controllable factors in this model
-                  </div>
-                ) : (
-                  controllableFactors.map(f => {
-                    const alreadySet = interventionIds.has(f.id)
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        disabled={alreadySet}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
-                          alreadySet
-                            ? 'opacity-40 cursor-not-allowed'
-                            : 'hover:bg-panel-hover cursor-pointer'
-                        }`}
-                      >
-                        <span className={`${typography.panelBody} text-text-body truncate`}>{f.label}</span>
-                        <span className={`${typography.panelMeta} text-text-light ml-2 shrink-0`}>
-                          {alreadySet ? 'Already set' : (f.valueDisplay ?? '—')}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
-                </fieldset>
-              </div>
-            )}
-          </div>
+          <InspectorConnectPicker
+            nodeId={nodeId}
+            label="Choose a factor it changes"
+            candidateIds={candidateFactorIds}
+            candidateValueDisplays={candidateValueDisplays}
+            onConnected={setFocusTarget}
+          />
         </PrimaryControlCard>
 
         <InlineRerunPrompt visible={false} elementId={nodeId} />

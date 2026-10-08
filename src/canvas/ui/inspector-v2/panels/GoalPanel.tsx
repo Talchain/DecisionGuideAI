@@ -34,6 +34,7 @@ import { InspectorSummary } from '../shared/InspectorSummary'
 import { InspectorMoreItems } from '../shared/InspectorMore'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
 import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
@@ -85,7 +86,7 @@ import { wholePercentBelowCertain } from '@/utils/formatPercent'
  * an open complement for everything else, which stays fenced.
  */
 export const INSPECTOR_GOAL_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also set this goal's target below, which asks Olumi to record it. Other fields here are read-only for now.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also set this goal's target below, which asks Olumi to record it. Description and technical fields here are read-only for now.`
 
 /** Every outcome `SuccessTargetLine` can report, taken from its own signature. */
 type GoalTargetCommitOutcome = Parameters<SuccessTargetLineProps['onCommitOutcome']>[0]
@@ -1311,6 +1312,7 @@ export const GoalPanel = memo(function GoalPanel({
         {inboundConnections.length === 0 && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}

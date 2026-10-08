@@ -25,6 +25,7 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { FactorTurningPointInspectorLine } from '../shared/FactorTurningPointInspectorLine'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -543,6 +544,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         {influences.length === 0 && (
           <p className={`${typography.panelMeta} text-text-light`}>No outbound influences</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
       </PanelGroup>
 
       <InspectorMoreItems>

@@ -27,6 +27,7 @@ import { InlineNumberEditor } from '../shared/InlineNumberEditor'
 import { InspectorSummary } from '../shared/InspectorSummary'
 import { InspectorMoreItems } from '../shared/InspectorMore'
 import { DriversList, type DriverItem } from '../shared/DriversList'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -69,7 +70,7 @@ const IMPACT_LABEL = Object.fromEntries(IMPACT_OPTIONS.map(o => [o.value, o.labe
  * as the whole of what is unsaved.
  */
 export const INSPECTOR_RISK_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them in the chat instead.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood and impact fields here are read-only — ask Olumi to record changes in the chat instead.`
 
 /**
  * ⭐ v3.1 (DESIGN-GAP-v31 row 33): the absence copy for a risk with nothing
@@ -295,6 +296,7 @@ export const RiskPanel = memo(function RiskPanel({
         {inboundFactors.length === 0 && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
         <InspectorCoaching
           elementId={nodeId}
           panelType="risk"
