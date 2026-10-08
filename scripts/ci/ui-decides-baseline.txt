@@ -4,7 +4,7 @@
 #
 # -- ADJUDICATED. Each argued for individually; see
 #    src/canvas/__tests__/theUiRendersItDoesNotDecide.spec.ts.
-src/canvas/components/DraftLoadingAnimation.tsx:383
+src/canvas/components/DraftLoadingAnimation.tsx:379
 src/canvas/components/InsightsPanel.tsx:126
 src/canvas/components/ModelQualityScore.tsx:264
 #
