@@ -25,6 +25,7 @@ import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
+import { isThinClientSession } from '../thinClient/thinClient'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
@@ -2972,6 +2973,8 @@ export function useConversation(): UseConversationReturn {
   // restored 19-node model. Verified live on staging 25 Jul 2026.
   const didMountRestoreRef = useRef(false)
   useEffect(() => {
+    // CEE owns signed-in history; a leftover browser transcript has no authority.
+    if (isThinClientSession()) return
     if (didMountRestoreRef.current) return
     if (!scenarioId) return
     didMountRestoreRef.current = true
@@ -2994,9 +2997,9 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId, buildRestoredMessages])
 
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
-  // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
-  // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
-  // transcript; retained uncertain requests admit exact missing replies too.
+  // stored turns and held authority (`serverConversationTurnsStore`). Guest local history keeps its words; its restored
+  // held controls are reconciled ONLY with the current server sidecar. For thin sessions, server text fills an empty
+  // panel regardless of leftover local storage; live messages still reconcile exact missing replies and controls.
   // The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
@@ -3018,10 +3021,12 @@ export function useConversation(): UseConversationReturn {
       setMessages(next)
       return
     }
-    try {
-      if (loadTranscript(scenarioId) !== null) return
-    } catch {
-      return
+    if (!isThinClientSession()) {
+      try {
+        if (loadTranscript(scenarioId) !== null) return
+      } catch {
+        return
+      }
     }
     const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers, serverTurnsOffer.proposalFields)
     if (next.length === 0) return
@@ -3041,6 +3046,7 @@ export function useConversation(): UseConversationReturn {
   // words these are, and on the switch render those are two different
   // decisions.
   useEffect(() => {
+    if (isThinClientSession()) return
     const owner = messagesOwnerRef.current
     if (!owner) return
     if (messages.length === 0) return
@@ -3092,7 +3098,7 @@ export function useConversation(): UseConversationReturn {
         if (messagesRef.current.length === 0) {
           didMountRestoreRef.current = true
           try {
-            const restored = loadTranscript(scenarioId)
+            const restored = isThinClientSession() ? null : loadTranscript(scenarioId)
             if (restored && restored.fromPreviousSession) {
               const next = buildRestoredMessages(restored, true)
               messagesRef.current = next
@@ -3208,7 +3214,7 @@ export function useConversation(): UseConversationReturn {
       // storage: the user's own work, present, and withheld. What the flag still
       // decides is whether a SESSION boundary is drawn — see `markBoundary`.
       let restoredForSwitch: ConversationMessage[] | null = null
-      if (scenarioId) {
+      if (scenarioId && !isThinClientSession()) {
         try {
           const restored = loadTranscript(scenarioId)
           if (restored) {
