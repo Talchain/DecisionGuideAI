@@ -77,7 +77,7 @@ afterEach(async () => {
   store?.useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
 })
 describe('WS5 real served chance cells', () => {
-  it('WIRE actual hydration adopts the parsed narrow adapter field and scenario changes drop it', async () => {
+  it('WIRE actual hydration adopts the parsed narrow adapter field, and the READER ignores it once the scenario changes', async () => {
     await from(figures)
     const { useCanonicalAnalysisViewStore: store } = await import(STORE)
     store.setState({ scenarioId: null, view: null })
@@ -85,9 +85,18 @@ describe('WS5 real served chance cells', () => {
     await hydrateCanvasFromServer(figures.j.scenario_id, { retryDelayMs: 0 })
     expect(store.getState().view).toEqual(figures.j.canonical_analysis_view)
     expect(store.getState().scenarioId).toBe(figures.j.scenario_id)
+    // Scoping is at READ time (no store subscription, #2709 r3). Bind by identity: plant a server figure that
+    // disagrees with the licence, so a matched view shows the server fragment (R2-1) and an unmatched one cannot.
+    const planted = structuredClone(figures.j.canonical_analysis_view)
+    planted.options.find((o: { option_id: string }) => o.option_id === X)!.cell = { kind: 'figure', display: 'about 99%' }
+    store.setState({ view: planted })
+    useCanvasStore.setState({ currentScenarioId: figures.j.scenario_id })
+    const matched = renderHook(() => useResultsSectionData()).result.current
+    expect(matched.runView!.chanceCellOf(X, ctx(matched)).text).toBe('about 99%')
     useCanvasStore.setState({ currentScenarioId: 'different-scenario' })
-    expect(store.getState().view).toBeNull()
-    expect(store.getState().scenarioId).toBeNull()
+    const other = renderHook(() => useResultsSectionData()).result.current
+    expect(other.runView!.chanceCellOf(X, ctx(other)).text).not.toBe('about 99%')
+    expect(store.getState().scenarioId).toBe(figures.j.scenario_id)
   })
   it('MATRIX-REAL before/after: P02 read has three cells when the existing disclosure is opened', async () => {
     const data = await from(p02)

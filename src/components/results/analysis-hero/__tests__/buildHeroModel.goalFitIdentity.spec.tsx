@@ -23,7 +23,10 @@ import { buildRunView } from '../../../../canvas/runView/runView'
 import { buildHeroModel } from '../buildHeroModel'
 import { HERO_COPY } from '../heroCopy'
 import type { HeroChartModel } from '../heroTypes'
-import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 
 function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   expect(model.kind).toBe('chart')

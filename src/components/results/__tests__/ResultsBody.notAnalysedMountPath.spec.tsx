@@ -49,6 +49,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
+import { withGoalChanceReport } from './helpers/goalChanceReport'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import type {
@@ -129,7 +130,7 @@ function makeData(options: OptionResult[]): ResultsSectionDataReturn {
     evidenceGaps: [], topEvidenceGaps: [], nextActions: [], topNextActions: [],
   } as unknown as ConfidenceSectionData
   const improvements: ImprovementsSectionData = { improvements: [], count: 0, hasHighPriority: false }
-  return {
+  return withGoalChanceReport({
     recommendation,
     drivers,
     confidence,
@@ -139,7 +140,7 @@ function makeData(options: OptionResult[]): ResultsSectionDataReturn {
     goalLabel: 'Cut support cost per ticket',
     completeness: { status: 'full', missing: [], reasons: [] },
     autoNoiseProvenance: null,
-  } as unknown as ResultsSectionDataReturn
+  } as unknown as ResultsSectionDataReturn)
 }
 
 function renderBody(options: OptionResult[]) {

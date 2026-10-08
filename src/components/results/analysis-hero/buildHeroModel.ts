@@ -446,7 +446,9 @@ export function buildHeroModel(
           )
         : undefined
     // Per-option goal text comes verbatim from the same RunView cell as the card and matrix.
-    const goalFit = hasUserTarget
+    // C-LOST: an empty cell supplies no detail. Preserve win-only rows' existing
+    // persistent comparative text instead of opening a disclosure for a gap glyph.
+    const goalFit = hasUserTarget && cell.kind !== 'none'
       ? o.goalFitIsSubstitutedJoint === true && !optionHasConstraints(o)
         ? HERO_COPY.detail.goalFitJointBasis(cell.kind === 'figure'
           ? cell.text.match(/(?:about|less than|more than) \d+(?:\.\d+)?%/)?.[0] ?? HERO_COPY.readout.missing
@@ -787,16 +789,10 @@ export function buildHeroModel(
   } else if (goalChanceHeadlineText !== null) {
     headline = goalChanceHeadlineText
   } else if (allGoalBelowFloor) {
-    // Constraint-aware like every goal claim: under constraints the floored
-    // figure is the JOINT probability and the axis/caption say "goal and
-    // limits" — the headline must describe the same quantity.
-    headline = hasConstraints
-      ? HERO_COPY.headline.noneOnTrackWithLimits
-      : HERO_COPY.headline.noneOnTrack
+    // C-FALSE (DL ruling 8 Oct): goal-only figures never license joint words.
+    headline = HERO_COPY.headline.noneOnTrack
   } else if (goalLeaderRow) {
-    headline = hasConstraints
-      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
-      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
+    headline = HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer

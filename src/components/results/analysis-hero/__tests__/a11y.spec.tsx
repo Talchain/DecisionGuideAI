@@ -9,7 +9,10 @@ import { axe } from 'vitest-axe'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
-import { FULL_COMPLETENESS, makeHeroData } from '../__fixtures__/hero.fixtures'
+import { FULL_COMPLETENESS, makeHeroData as numericHeroData } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
 function chartModel(): HeroChartModel {
