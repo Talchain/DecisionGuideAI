@@ -227,18 +227,18 @@ describe('keyboard and the host’s own controls', () => {
 
   it('the host’s controls are listed last, under their own label, and are the host’s to run', () => {
     const onSelect = vi.fn()
-    render(<ActionBar bar={bar()} surface="reasoning" hostMenu={{ label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect }] }} />)
+    render(<ActionBar bar={bar()} surface="reasoning" hostMenu={[{ id: 'workflow', label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect }] }]} />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     const rows = screen.getAllByRole('menuitem')
     expect(rows[rows.length - 1]).toHaveAttribute('data-testid', 'action-bar-menu-host-edit_brief')
-    expect(within(screen.getByTestId('action-bar-menu-group-host')).getByText('Model and workflow')).toBeInTheDocument()
+    expect(within(screen.getByTestId('action-bar-menu-group-host-workflow')).getByText('Model and workflow')).toBeInTheDocument()
     fireEvent.click(rows[rows.length - 1]!)
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(dispatch).not.toHaveBeenCalled()
   })
 
   it('a bar with no menu rows of its own still opens the host’s controls', () => {
-    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, priority: [], more: [] })} surface="reasoning" compact={false} hostMenu={{ label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect: () => {} }] }} />)
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, priority: [], more: [] })} surface="reasoning" compact={false} hostMenu={[{ id: 'workflow', label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect: () => {} }] }]} />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     expect(screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))).toEqual(['action-bar-menu-host-edit_brief'])
   })
@@ -299,5 +299,21 @@ describe('the bars CEE captured, drawn and pressed', () => {
     expect(screen.getByTestId('action-bar-notice')).toHaveTextContent('Review: Needs a current analysis.')
     fireEvent.click(screen.getByTestId('action-bar-icon-pre_mortem'))
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'agent-next-pre-mortem', parameters: { offer_key: b.standard[3]!.offer_key, revision: b.revision } }))
+  })
+})
+
+describe('several host groups', () => {
+  it('each group keeps its own label, in the host’s order, after CEE’s rows; an empty group is not drawn', () => {
+    const noop = () => {}
+    render(<ActionBar bar={bar()} surface="reasoning" compact={false} hostMenu={[
+      { id: 'methods', label: 'Reasoning methods', items: [{ id: 'reframe_problem', label: 'Reframe the problem', Icon: Pencil, onSelect: noop }] },
+      { id: 'empty', label: 'Nothing here', items: [] },
+      { id: 'workflow', label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect: noop }] },
+    ]} />)
+    fireEvent.click(screen.getByTestId('action-bar-more'))
+    const rows = screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))
+    expect(rows.slice(-2)).toEqual(['action-bar-menu-host-reframe_problem', 'action-bar-menu-host-edit_brief'])
+    expect(within(screen.getByTestId('action-bar-menu-group-host-methods')).getByText('Reasoning methods')).toBeInTheDocument()
+    expect(screen.queryByTestId('action-bar-menu-group-host-empty')).toBeNull()
   })
 })

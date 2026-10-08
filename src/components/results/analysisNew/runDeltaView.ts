@@ -331,8 +331,10 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   C1_attributable: null,
   // ⭐ PROVEN, NOT UNKNOWN. `hash_equal` is true by the case's own preconditions,
   // so this is the one arm entitled to say a model change is NOT the explanation.
+  // ⛔ ONLY THE CONSEQUENCE (COPY-SHAPE, 7 Oct): part A already says nothing the analysis uses differed. The rider said it
+  // again ("did not change … so"), so the C0 note read "nothing changed" twice. Same proven scope, said once.
   C0_identical:
-    'The parts of the model the analysis uses did not change between these two, so nothing below can be explained by an edit to them.',
+    'So no difference below comes from an edit to anything the analysis uses.',
   // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
   // is never consulted, so a change to the model may well be the cause and this
   // pair simply cannot show it.

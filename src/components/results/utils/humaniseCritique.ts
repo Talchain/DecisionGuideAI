@@ -560,7 +560,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'Change margin analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
+      'Link margin analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -571,7 +571,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'The confidence bands around the tipping points didn\'t run. The analysis hit its time limit. Your results stand; re-run to add them.',
     description:
-      'Flip-stability bands ride on the Change margin sweep, which the request budget could not fund. Nothing else shown is affected.',
+      'Flip-stability bands ride on the Link margin sweep, which the request budget could not fund. Nothing else shown is affected.',
   }),
 
   // Reasons: request_budget_exhausted | factor_flip_budget_exceeded.
@@ -826,7 +826,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'Some links have no figure for how much it would take to overturn them, because reversing them would give the same answer. Your results stand.',
     description:
-      'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the evidence list rather than empty. Every other part of this analysis stands.',
+      'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the Link margin list rather than empty. Every other part of this analysis stands.',
   }),
 
   /**
