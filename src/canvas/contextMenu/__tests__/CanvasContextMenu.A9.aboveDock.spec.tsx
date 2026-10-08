@@ -22,6 +22,7 @@ import type { PaneTarget, NodeTarget } from '../types'
 
 vi.mock('../../ToastContext', () => ({
   useShowToast: () => vi.fn(),
+  useShowToastSafe: () => vi.fn(),
 }))
 
 vi.mock('../../store', () => {
