@@ -244,6 +244,8 @@ export type ScenarioGraphResult =
       actionBar?: unknown
       /** §15 projection, present only on the conversation opt-in. */
       proposalFields?: unknown
+      /** P48: CEE `changed_since_run`, raw (conversation opt-in only); the ONE reader is `canvas/changes/changedSinceRun.ts`. */
+      changedSinceRun?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -487,6 +489,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // Carried raw; the ONE reader is `parseActionBar` (canvas/conversation/actionBar/actionBarContract.ts).
     actionBar: b.action_bar,
     proposalFields: b.proposal_fields,
+    changedSinceRun: b.changed_since_run,
     requestId,
   }
 }
