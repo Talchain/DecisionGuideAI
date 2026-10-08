@@ -46,7 +46,8 @@ beforeEach(() => {
     return index === null ? 0 : Number(index) * 24
   })
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-    if (this.getAttribute('data-card-mark') === 'more') return moreWidth
+    // The +N width now comes from BottomMarksBand's hidden probe (same typography as +N, #185 fix).
+    if (this.getAttribute('data-card-mark') === 'more' || this.hasAttribute('data-band-more-measure')) return moreWidth
     return this.hasAttribute('data-band-test-index') ? 20 : 0
   })
   useCanvasStore.setState({ nodes: [], edges: [], lodRung: 'full', viewMode: 'standard',
