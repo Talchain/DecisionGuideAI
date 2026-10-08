@@ -45,6 +45,7 @@ import {
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
+import { runViewOf } from '../../../canvas/runView/runView'
 
 function makeData(): ResultsSectionDataReturn {
   const winner = {
@@ -116,7 +117,18 @@ function makeData(): ResultsSectionDataReturn {
     count: 0,
     hasHighPriority: false,
   } as ImprovementsSectionData
+  // WS5 (#2709): the hero's goal figures come from RunView cells. Feed the same 70% / 30% through a GOAL_CHANCE licence
+  // (C-CELL); a numeric goal with no licence is not a served shape and now (correctly) prints no figure.
+  const runView = runViewOf({
+    option_probabilities: { opt_a: { goal_probability: 0.7 }, opt_b: { goal_probability: 0.3 } },
+    inference_warnings: [{
+      code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+      option_ids: ['opt_a', 'opt_b'], pct_by_option: { opt_a: 70, opt_b: 30 },
+      target: { comparator: 'at_least', value: 0.6, unit: 'count' },
+    }],
+  })
   return {
+    runView,
     recommendation,
     drivers,
     confidence,
