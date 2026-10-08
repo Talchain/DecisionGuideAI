@@ -21,6 +21,8 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { readEventRisk } from '../domain/eventRisk'
+import { isRetainedExcludedFromAnalysis } from './shared/analysisParticipation'
+import { OLUMI_SUGGESTION_TAG, OLUMI_RISK_NOT_IN_CHANCE_SUFFIX } from '../../components/results/utils/notAnalysedCopy'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -169,6 +171,8 @@ export const RISK_EXPOSURE_UNSET_SHORT = METRIC_UNSET.standalone
  * be one landing line (~19 characters), and the figures must lead.
  */
 const RISK_ENTERED_QUALIFIER = 'Entered estimate'
+/** CEE #2854: a risk Olumi added to a thin first draft, out of the chance until the user brings it in. */
+const OLUMI_RISK_SUGGESTION_WHY = "Olumi added this risk to challenge your draft. It isn't in the chance until you bring it in; remove it if it doesn't fit."
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -461,6 +465,13 @@ export const RiskNode = memo((props: NodeProps) => {
 
   // Preserve each view's existing words while the pair moves to the bottom band.
   const riskMatrix = <CardMark id="risk-unset" testId={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'} words={isDetailed ? exposureFull : exposureReadout || RISK_EXPOSURE_UNSET_LINE} description={exposureFull} cell={typeof probability === 'number' && impact ? (probability >= .5 ? 2 : 0) + (impact === 'low' ? 0 : 1) : null} />
+  // ⭐ OLUMI'S RISK IS NAMED AS OLUMI'S (CEE #2854; DL 8 Oct): the same tag the option card uses, its own line, both views.
+  const olumiSuggestionLine = props.data?.proposed_by === 'olumi' && isRetainedExcludedFromAnalysis(props.data) ? (
+    <div className={`${typography.edgeLabel} text-text-light whitespace-nowrap`} title={OLUMI_RISK_SUGGESTION_WHY} data-testid={`risk-olumi-suggestion-${props.id}`}>
+      <span aria-hidden="true">{OLUMI_SUGGESTION_TAG} · {OLUMI_RISK_NOT_IN_CHANCE_SUFFIX}</span>
+      <span className={typography.screenReaderOnly}>{OLUMI_RISK_SUGGESTION_WHY}</span>
+    </div>
+  ) : null
   const riskExposureLineDetailed = <div className={`${typography.edgeLabel} h-[1lh]`}>{riskMatrix}{exposureReadout && <CardMark id="source-you" words=" · entered" testId="risk-exposure-provenance" />}</div>
 
   // event_risk.v1 slice 4 (#2626): a risk that may happen states its likelihood and horizon. A line only this card has, so it
@@ -702,6 +713,7 @@ export const RiskNode = memo((props: NodeProps) => {
             it is not a resting claim. */}
         {showSeverityBadge && detailedMetrics}
         {isDetailed && (!eventRisk || exposureReadout) && riskExposureLineDetailed}
+        {olumiSuggestionLine}
 
         {/* ⭐ Authored context comes AFTER the card's own state, one step
             smaller — contract v3.1 (OR-08): the title is followed directly by
