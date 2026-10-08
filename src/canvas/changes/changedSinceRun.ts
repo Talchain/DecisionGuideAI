@@ -14,6 +14,7 @@
  * not present the marks as the whole set of changes while it is above 0.
  */
 import { create } from 'zustand'
+import { z } from 'zod'
 
 export interface ChangedSinceRunLink {
   readonly from: string
@@ -22,6 +23,8 @@ export interface ChangedSinceRunLink {
 
 export interface ChangedSinceRun {
   readonly sinceRunId: string | null
+  /** The named Run's result.computed_at, preserved exactly for complete_stale reads that carry no Run id. */
+  readonly sinceRunComputedAt?: string
   readonly nodeIds: ReadonlySet<string>
   /** Keyed `${from}\u0000${to}`: CEE links carry no id, so a mark binds by its two ends. */
   readonly linkKeys: ReadonlySet<string>
@@ -32,6 +35,7 @@ export interface ChangedSinceRun {
 const MAX_IDS = 400
 const linkKey = (from: string, to: string): string => `${from}\u0000${to}`
 const isId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 200
+const computedAtSchema = z.string().max(64).datetime({ offset: true })
 
 /** Strict parse of the wire block. `null` = CEE did not answer (absent or malformed) — never "nothing changed". */
 export function readChangedSinceRun(raw: unknown): ChangedSinceRun | null {
@@ -39,6 +43,15 @@ export function readChangedSinceRun(raw: unknown): ChangedSinceRun | null {
   const b = raw as Record<string, unknown>
   if (b.version !== 1) return null
   if (b.since_run_id !== null && !isId(b.since_run_id)) return null
+  let sinceRunComputedAt: string | undefined
+  if ('since_run_computed_at' in b) {
+    const stamp = b.since_run_computed_at
+    if (
+      b.since_run_id === null || typeof stamp !== 'string' ||
+      !computedAtSchema.safeParse(stamp).success || !Number.isFinite(Date.parse(stamp))
+    ) return null
+    sinceRunComputedAt = stamp
+  }
   if (!Array.isArray(b.node_ids) || b.node_ids.length > MAX_IDS || !b.node_ids.every(isId)) return null
   if (!Array.isArray(b.links) || b.links.length > MAX_IDS) return null
   const linkKeys = new Set<string>()
@@ -53,6 +66,7 @@ export function readChangedSinceRun(raw: unknown): ChangedSinceRun | null {
   if (typeof b.complete !== 'boolean') return null
   return {
     sinceRunId: b.since_run_id as string | null,
+    sinceRunComputedAt,
     nodeIds: new Set(b.node_ids as string[]),
     linkKeys,
     unattributedChanges: unattributed,

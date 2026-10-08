@@ -149,6 +149,7 @@ function useChangedSet() {
     const legacyId = r.status === 'complete' && r.resultsSource !== 'conversation' && (sameEpoch || restoredHere) &&
       r.runId && !isSyntheticRestoreId(r.runId) ? r.runId : null
     if (st.analysisStateV1 == null) return legacyId
+    if (st.analysisStateV1.run_state?.kind !== 'complete_current') return null
     // V5 records the real Run id on the delta's current endpoint. Hash alone cannot identify a repeated Run.
     if (!runDeltaDescribesDisplayedAnalysis(st.runDelta, r.hash, st.currentScenarioId)) return null
     const current = st.runDelta?.delta.endpoints?.current
@@ -159,16 +160,25 @@ function useChangedSet() {
     const id = current.run_id
     return id && !isSyntheticRestoreId(id) && (legacyId == null || legacyId === id) ? id : null
   })
+  const staleRunComputedAt = useCanvasStore((st) => {
+    const rs = st.analysisStateV1?.run_state
+    return rs?.kind === 'complete_stale' && typeof rs.computed_at === 'string' && rs.computed_at.length > 0
+      ? rs.computed_at : null
+  })
   const held = useChangedSinceRunStore()
   return useMemo(() => {
     if (scenarioId == null || held.scenarioId !== scenarioId || held.value == null) return null
-    if (displayedRunId == null || held.value.sinceRunId !== displayedRunId) return null
+    if (held.value.sinceRunId == null) return null
+    // A complete_stale read omits run_delta. CEE names that Run by result.computed_at instead; compare its exact text.
+    if (staleRunComputedAt !== null) {
+      if (held.value.sinceRunComputedAt !== staleRunComputedAt) return null
+    } else if (displayedRunId == null || held.value.sinceRunId !== displayedRunId) return null
     const nodeIds = [...held.value.nodeIds]
     const edgeIds = edges.filter((e) => isLinkChangedSinceRun(held, scenarioId, e.source, e.target)).map((e) => e.id)
     const unattributed = held.value.unattributedChanges
     if (nodeIds.length === 0 && edgeIds.length === 0 && unattributed === 0) return null
-    return { scenarioId, runId: displayedRunId, nodeIds, edgeIds, unattributed }
-  }, [scenarioId, displayedRunId, edges, held])
+    return { scenarioId, runId: held.value.sinceRunId, computedAt: staleRunComputedAt, nodeIds, edgeIds, unattributed }
+  }, [scenarioId, displayedRunId, staleRunComputedAt, edges, held])
 }
 
 /**
@@ -257,7 +267,7 @@ export function AnalysisStateCue() {
   // No interaction outlives its Run or availability; removal need not dispatch the button's blur.
   useLayoutEffect(() => {
     setLighting({ pinned: false, hovered: false, focused: false, dismissed: false })
-  }, [lightable, changed?.scenarioId, changed?.runId])
+  }, [lightable, changed?.scenarioId, changed?.runId, changed?.computedAt])
 
   if (!modelChangedSinceRun || !granted) return null
   if (cellWidth !== undefined && cellWidth < ANALYSIS_STATE_CUE_MIN_WIDTH_PX) return null

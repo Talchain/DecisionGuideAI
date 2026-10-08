@@ -9,6 +9,7 @@ import {
 
 const S = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const OTHER = '9e8d7c6b-5a49-4382-b716-0c5d4e3f2a1b'
+const RUN_AT = '2026-10-08T09:30:00.000Z'
 const wire = (over: Record<string, unknown> = {}) => ({
   version: 1, since_run_id: 'run_b', node_ids: ['fac_price'], links: [{ from: 'fac_price', to: 'out_rev' }],
   unattributed_changes: 0, complete: true, ...over,
@@ -22,6 +23,35 @@ describe('readChangedSinceRun: strict, never "nothing changed" on a bad block', 
     expect(v?.sinceRunId).toBe('run_b')
     expect([...(v?.nodeIds ?? [])]).toEqual(['fac_price'])
     expect(v?.unattributedChanges).toBe(0)
+  })
+  it.each([
+    ['UTC', RUN_AT],
+    ['an ISO timezone offset', '2026-10-08T10:30:00.000+01:00'],
+    ['the 64-character limit', `2026-10-08T09:30:00.${'0'.repeat(43)}Z`],
+  ])('reads since_run_computed_at exactly with %s', (_name, stamp) => {
+    expect(readChangedSinceRun(wire({ since_run_computed_at: stamp }))?.sinceRunComputedAt).toBe(stamp)
+  })
+  it('keeps an absent since_run_computed_at undefined', () => {
+    const v = readChangedSinceRun(wire())
+    expect(v).not.toBeNull()
+    expect(v?.sinceRunComputedAt).toBeUndefined()
+  })
+  it.each([
+    ['a non-string', 123],
+    ['null', null],
+    ['explicit undefined', undefined],
+    ['an empty string', ''],
+    ['non-ISO text', '8 October 2026 09:30 UTC'],
+    ['a date without time', '2026-10-08'],
+    ['a timezone-less datetime', '2026-10-08T09:30:00.000'],
+    ['an impossible calendar date', '2026-02-30T09:30:00.000Z'],
+    ['an invalid timezone offset', '2026-10-08T09:30:00.000+99:00'],
+    ['more than 64 characters', `2026-10-08T09:30:00.${'0'.repeat(44)}Z`],
+  ])('present-invalid since_run_computed_at (%s) makes the whole block null', (_name, stamp) => {
+    expect(readChangedSinceRun(wire({ since_run_computed_at: stamp }))).toBeNull()
+  })
+  it('rejects since_run_computed_at without a since_run_id', () => {
+    expect(readChangedSinceRun(wire({ since_run_id: null, since_run_computed_at: RUN_AT }))).toBeNull()
   })
   it.each([
     ['absent', undefined],

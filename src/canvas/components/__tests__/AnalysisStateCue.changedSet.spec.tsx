@@ -34,6 +34,26 @@ const LIGHT = `${ANALYSIS_STATE_CUE_TESTID}-light`
 const LIGHTING = `${ANALYSIS_STATE_CUE_TESTID}-lighting`
 const lightingCss = () => screen.queryByTestId(LIGHTING)?.textContent ?? null
 
+/** A stale read restores findings but serves no run_delta or producer-confirmed Run id. */
+function restoreStaleRun() {
+  useCanvasStore.getState().resultsLoadHistorical({
+    id: 'run_a', ts: Date.parse(RUN_AT), hash: 'hash_a', report: REPORT,
+  } as never, SID)
+  const verdict = AnalysisStateV1Schema.parse({
+    run_state: { kind: 'complete_stale', computed_at: RUN_AT, cause: 'graph_changed' },
+    readiness: { status: 'ready', blockers: [] },
+    leader_claim: { permitted: true },
+    robustness: {},
+    usable_for_prose: true, usable_for_chips: false, usable_for_followup: true,
+    requires_rerun: true, blocked_unusable: false, contradictions: [],
+  })
+  useCanvasStore.getState().setAnalysisStateV1(verdict)
+  trust.semantic = composeAnalysisState({
+    analysisState: verdict, freshness: null, dirty: false, source: undefined,
+    resultsStatus: 'complete', importHold: false, hasReport: true,
+  }).semantic
+}
+
 /** The cue inside a `.react-flow` root with a pane, as ReactFlowGraph mounts it. */
 function renderInFlow() {
   return render(
@@ -119,30 +139,12 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(lightingCss()).toContain('rf__node-f')
   })
 
-  // ⛔ BLOCKED P1 (Codex review r2 on #2648): ResultsState carries no producer-confirmed Run id bound to the displayed
-  // report on the complete_stale reload path (run_delta is omitted there), so the cue cannot prove the held changes are
-  // relative to the Run on screen and stays a plain line. RED by design until the DL rules on the identity seam.
-  it.skip('restored real Run A + A-relative changes + complete_stale still lights; Run B clears it', () => {
-    useCanvasStore.getState().resultsLoadHistorical({
-      id: 'run_a', ts: Date.parse(RUN_AT), hash: 'hash_a', report: REPORT,
-    } as never, SID)
-    const verdict = AnalysisStateV1Schema.parse({
-      run_state: { kind: 'complete_stale', computed_at: RUN_AT, cause: 'graph_changed' },
-      readiness: { status: 'ready', blockers: [] },
-      leader_claim: { permitted: true },
-      robustness: {},
-      usable_for_prose: true, usable_for_chips: false, usable_for_followup: true,
-      requires_rerun: true, blocked_unusable: false, contradictions: [],
-    })
-    useCanvasStore.getState().setAnalysisStateV1(verdict)
-    trust.semantic = composeAnalysisState({
-      analysisState: verdict, freshness: null, dirty: false, source: undefined,
-      resultsStatus: 'complete', importHold: false, hasReport: true,
-    }).semantic
+  it('restored real Run A + A-relative changes + matching complete_stale stamp still lights; Run B clears it', () => {
+    restoreStaleRun()
     expect(trust.semantic).toBe('changed')
     expect(useCanvasStore.getState().results.runId).toBe('run_a')
     expect(useCanvasStore.getState().runDelta).toBeNull()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
     const { rerender } = renderInFlow()
     act(() => screen.getByTestId(LIGHT).focus())
     expect(lightingCss()).toContain('rf__node-f')
@@ -154,6 +156,100 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     rerender(<div className="react-flow"><AnalysisStateCue /></div>)
     expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
     expect(lightingCss()).toBeNull()
+  })
+
+  it('complete_current still binds by since_run_id, regardless of the stamp, after a stale reload', () => {
+    restoreStaleRun()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
+    renderInFlow()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, runId: 'run_b', hash: 'hash_b', runEpoch: 2, reportEpoch: 2 },
+        runDelta: delta(), analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } },
+      } as never)
+      adoptChangedSinceRun(SID, wire({ since_run_computed_at: '2026-10-08T00:00:00.001Z' }))
+    })
+    // A new binding clears lighting even if the DOM button retains focus; refocus to light this Run.
+    act(() => screen.getByTestId(LIGHT).blur())
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+    act(() => adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT })))
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    expect(lightingCss()).toBeNull()
+    act(() => adoptChangedSinceRun(SID, wire()))
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  it.each([
+    ['a stamp one character different', wire({ since_run_id: 'run_a', since_run_computed_at: '2026-10-08T00:00:00.001Z' })],
+    ['an absent stamp', wire({ since_run_id: 'run_a' })],
+    ['a null since_run_id', wire({ since_run_id: null })],
+  ])('a stale reload returns to the plain line on %s, clearing its lighting', (_label, changedSinceRun) => {
+    restoreStaleRun()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
+    renderInFlow()
+    const light = screen.getByTestId(LIGHT)
+    act(() => light.focus())
+    fireEvent.click(light)
+    expect(light).toHaveAttribute('aria-pressed', 'true')
+    expect(lightingCss()).toContain('rf__node-f')
+    act(() => adoptChangedSinceRun(SID, changedSinceRun))
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    expect(lightingCss()).toBeNull()
+    act(() => adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT })))
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+  })
+
+  it.each(['never_run', 'running', 'blocked', 'refused', 'unknown_degraded'])('%s cannot use the stale timestamp binding', (kind) => {
+    restoreStaleRun()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
+    renderInFlow()
+    fireEvent.click(screen.getByTestId(LIGHT))
+    expect(lightingCss()).toContain('rf__node-f')
+    act(() => useCanvasStore.setState({ analysisStateV1: { run_state: { kind } } } as never))
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    expect(lightingCss()).toBeNull()
+  })
+
+  it('matching stale changes cannot claim findings are shown after the report is removed', () => {
+    restoreStaleRun()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
+    renderInFlow()
+    fireEvent.click(screen.getByTestId(LIGHT))
+    expect(lightingCss()).toContain('rf__node-f')
+    act(() => useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, report: null } }))
+    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    expect(lightingCss()).toBeNull()
+  })
+
+  it('a new matching stale stamp invalidates the previous focus and pin even with the same since_run_id', () => {
+    restoreStaleRun()
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
+    renderInFlow()
+    const light = screen.getByTestId(LIGHT)
+    act(() => light.focus())
+    fireEvent.click(light)
+    expect(lightingCss()).toContain('rf__node-f')
+    const computedAt = '2026-10-08T00:00:00.001Z'
+    act(() => {
+      useCanvasStore.setState({ analysisStateV1: { run_state: {
+        kind: 'complete_stale', computed_at: computedAt, cause: 'graph_changed',
+      } } } as never)
+      adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: computedAt }))
+    })
+    expect(screen.getByTestId(LIGHT)).toBe(light)
+    expect(light).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+    act(() => light.blur())
+    act(() => light.focus())
+    expect(lightingCss()).toContain('rf__node-f')
   })
 
   it('a V5 report B restored with inherited Run A identity cannot light A-relative changes', () => {
@@ -181,7 +277,7 @@ describe('P48: the analysis-state cue lights the changed set', () => {
   it('V5 uses the hash/scenario-bound current endpoint run_b, even beside an inherited legacy run_a id', () => {
     useCanvasStore.setState({
       results: { ...useCanvasStore.getState().results, resultsSource: 'conversation', runId: 'run_a' },
-      runDelta: delta(), analysisStateV1: { run_state: { computed_at: RUN_AT } },
+      runDelta: delta(), analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } },
     } as never)
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
@@ -192,7 +288,7 @@ describe('P48: the analysis-state cue lights the changed set', () => {
   it('conflicting direct run_b findings and a canonical run_a delta cannot borrow either id', () => {
     useCanvasStore.setState({
       runDelta: delta({ delta: { endpoints: { current: { run_id: 'run_a', computed_at: RUN_AT } } } }),
-      analysisStateV1: { run_state: { computed_at: RUN_AT } },
+      analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } },
     } as never)
     adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
     renderInFlow()
@@ -205,13 +301,13 @@ describe('P48: the analysis-state cue lights the changed set', () => {
   })
 
   it('a newer canonical Run without a delta cannot borrow an inherited direct run_b id', () => {
-    useCanvasStore.setState({ analysisStateV1: { run_state: { computed_at: RUN_AT } } } as never)
+    useCanvasStore.setState({ analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } } } as never)
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
     expect(screen.queryByTestId(LIGHT)).toBeNull()
   })
 
-  it.each([null, { run_state: {} }, { run_state: { computed_at: '' } }])(
+  it.each([null, { run_state: {} }, { run_state: { kind: 'complete_current', computed_at: '' } }])(
     'V5 cannot identify displayed run_b from a delta when canonical Run time is absent (%j)', (analysisStateV1) => {
       useCanvasStore.setState({
         results: { ...useCanvasStore.getState().results, resultsSource: 'conversation' },
@@ -232,7 +328,7 @@ describe('P48: the analysis-state cue lights the changed set', () => {
   ])('V5 refuses a Run id bound to %s', (_label, runDelta) => {
     useCanvasStore.setState({
       results: { ...useCanvasStore.getState().results, resultsSource: 'conversation' },
-      runDelta, analysisStateV1: { run_state: { computed_at: RUN_AT } },
+      runDelta, analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } },
     } as never)
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
