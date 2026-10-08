@@ -104,9 +104,9 @@ describe('Rule R read-time display mirror', () => {
     }
   })
 
-  it('scaling: 1000 -> 4000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 1.6)', () => {
+  it('scaling: 1000 -> 8000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 2)', () => {
     const small = chain(1000)
-    const large = chain(4000)
+    const large = chain(8000)
     type Graph = ReturnType<typeof chain>
     // The walk itself (uncached), so the row measures its growth, not the memo's retention of 30 results.
     const walk = (graph: Graph) => computeRouteOnceHeld(graph.nodes, graph.edges)
@@ -127,16 +127,17 @@ describe('Rule R read-time display mirror', () => {
     const calibrate = (f: (graph: Graph) => unknown) => {
       const samples = Array.from({ length: 3 }, () => time(f, large, 1)).sort((a, b) => a - b)
       const oneCallLargeMs = samples[1]
-      return Math.max(1, Math.ceil(60 / oneCallLargeMs))
+      return Math.max(1, Math.ceil(160 / oneCallLargeMs))
     }
-    // Calibrate each function independently to ~60 ms at LARGE, then use its same call count at both sizes.
+    // Calibrate each function independently to ~160 ms at LARGE (so the 8× smaller sample is ~20 ms, not a noisy few ms), then use its same call count at both sizes.
     const walkCalls = calibrate(walk)
     const referenceCalls = calibrate(reference)
     // ⛔ Gate on the NORMALISED ratio (walk growth ÷ a plain Map/Set walk's growth); both ratios stay in the message.
-    // Calibrated 1000 → 4000, measured 7 Oct 23:5xZ (20 real / 5 quadratic-mutant runs, one file, load < 25):
-    //   real: raw 4.98–5.58×, normalised 0.97–1.13×; quadratic (one O(n) target scan per edge): raw 11.36–12.23×, normalised 2.22–2.48×.
-    // Raw < 8 was not taken: the mutant's raw dipped to 10.7× in calibration runs (P51's switch rule needs ≥ 12).
-    // The bar 1.6 is the geometric midpoint of real max 1.13 and mutant min 2.22: ~1.4× margin on each side (2 left the RED side 1.1×).
+    // Sizes 1000 → 8000 (8×), so a quadratic regression (~64×) sits far from linear (8×). At 1000 → 4000 the gap was thin:
+    // local real 0.97–1.13 vs mutant 2.22–2.48, and CI read the real walk at 1.46 (#2631 shard 2, 8 Oct 00:0xZ).
+    // Measured at 1000 → 8000, 8 Oct 00:1xZ (one file, load < 25): real normalised 0.73–0.94 (raw 11.9–13.1, 8 runs);
+    // quadratic mutant (one O(n) target scan per edge) normalised 3.99–4.48 (raw 57–60, 3 runs). Bar 2 ≈ their geometric
+    // midpoint (1.94): ~2× margin each side, with room for CI reading the real walk ~1.5× higher than the Mac.
     const min = { walkSmall: Infinity, walkLarge: Infinity, refSmall: Infinity, refLarge: Infinity }
     for (let round = 0; round < 7; round++) {
       min.walkSmall = Math.min(min.walkSmall, time(walk, small, walkCalls))
@@ -149,7 +150,7 @@ describe('Rule R read-time display mirror', () => {
     const normalisedRatio = walkRatio / referenceRatio
     const message = `scaling: walkSmall=${min.walkSmall.toFixed(3)}ms walkLarge=${min.walkLarge.toFixed(3)}ms refSmall=${min.refSmall.toFixed(3)}ms refLarge=${min.refLarge.toFixed(3)}ms walkCalls=${walkCalls} refCalls=${referenceCalls} raw=${walkRatio.toFixed(6)}× normalised=${normalisedRatio.toFixed(6)}× reference=${referenceRatio.toFixed(6)}× (interleaved min-of-7)`
     console.log(message)
-    expect(normalisedRatio, message).toBeLessThan(1.6)
+    expect(normalisedRatio, message).toBeLessThan(2)
   })
 
   it('hook: changing an earlier link flips the boolean with the held edge object unchanged', () => {
