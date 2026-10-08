@@ -192,7 +192,8 @@ function memoSpans(source: string): Array<{ name: string; start: number; end: nu
 }
 
 /** Places this option relative to the others, or reads the share it is placed by. */
-const READS_COMPARATIVE = /option_probabilities|verdict\.(leaderId|hasLeadingOption)/
+// GR2 (#2668): `selectGoalProbabilityForReport(report, id)` reads `option_probabilities` behind the reading gate, so it is a reader.
+const READS_COMPARATIVE = /option_probabilities|selectGoalProbabilityForReport\(|verdict\.(leaderId|hasLeadingOption)/
 /** The one authority on "was anything measured for this option". */
 const CARRIES_GATE = /winComputationFailed|displayMetadata\.winRate/
 
