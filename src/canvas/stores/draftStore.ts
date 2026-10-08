@@ -105,6 +105,8 @@ export interface DraftState {
    * `idle`) or a new turn starts (phase `drafting`).
    */
   draftStreamCoachingLanded: boolean
+  /** ⭐ P44 S2: the owning stream's real analysis/reply phase; reset with ownership. */
+  draftStreamServerPhase: 'first_analysis' | 'writing' | null
   /**
    * ⭐ C6-2: the user's own goal and options, read out of the first brief by CEE's `BRIEF_READ` frame a few seconds
    * into the wait. Held ONLY while the owning turn is still `drafting`: every phase change clears it, so the model
@@ -195,6 +197,8 @@ export interface DraftActions {
    * preempted turn) must not move a newer turn's narration.
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
+  /** ⛔ P44 S2: stale turns cannot move narration; writing cannot regress. */
+  markDraftStreamServerPhase: (turnId: string, phase: 'first_analysis' | 'writing') => void
   /** Record the owning turn's brief reading. Ignored unless `turnId` owns the phase AND the phase is `drafting`. */
   markDraftStreamBriefRead: (turnId: string, reading: { goal: string | null; options: string[]; limits: string[] }) => void
   /** Record that this client's fence dropped a response carrying a graph, for the decision on screen. */
@@ -236,6 +240,7 @@ const initialDraftState: DraftState = {
   draftStreamTurnId: null,
   draftStreamScenarioId: null,
   draftStreamCoachingLanded: false,
+  draftStreamServerPhase: null,
   draftStreamBriefReading: null,
   draftStreamGraphDeliveredScenarioId: null,
   draftStreamGraphDiscardedByFenceScenarioId: null,
@@ -309,6 +314,9 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
       // a stale flag onto the next draft's narration (trap 12).
       draftStreamCoachingLanded:
         phase === 'idle' || phase === 'drafting' ? false : state.draftStreamCoachingLanded,
+      // ⭐ P44 S2: the server phase has the same lifetime as the coaching flag.
+      draftStreamServerPhase:
+        phase === 'idle' || phase === 'drafting' ? null : state.draftStreamServerPhase,
       // C6-2: the reading lives only inside ONE turn's drafting phase; any move supersedes it.
       draftStreamBriefReading: null,
     }))
@@ -325,6 +333,15 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
   markDraftStreamCoachingLanded: (turnId) => {
     set((state) =>
       state.draftStreamTurnId === turnId ? { draftStreamCoachingLanded: true } : {},
+    )
+  },
+
+  markDraftStreamServerPhase: (turnId, phase) => {
+    set((state) =>
+      state.draftStreamTurnId === turnId &&
+      !(state.draftStreamServerPhase === 'writing' && phase === 'first_analysis')
+        ? { draftStreamServerPhase: phase }
+        : {},
     )
   },
 

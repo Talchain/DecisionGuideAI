@@ -82,7 +82,7 @@ it.each(([ [undefined, undefined, null], [.2, 'low', 0], [.8, 'high', 3], [.2, '
   if (cell !== null) { expect(matrix.querySelector(`[data-risk-cell="${cell}"]`)).toHaveAttribute('data-filled', 'true'); exact('risk-exposure-provenance', ' · entered') }
   else expect(screen.queryByTestId('risk-exposure-provenance')).toBeNull()
 })
-it('goal keeps the same button route and exact absence words', () => {
+it('goal keeps its band button and exact absence words, opening the shared target editor', () => {
   seed('goal')
   const button = screen.getByTestId('goal-node-no-target-chip')
   expect(button.tagName).toBe('BUTTON')
@@ -90,8 +90,10 @@ it('goal keeps the same button route and exact absence words', () => {
   exact('goal-target-status-marks-goal', 'Target not captured')
   expect(button.textContent).not.toContain('Target not captured')
   expect(button.querySelector('.lucide-target')).not.toBeNull()
+  const before = new Set(useCanvasStore.getState().selection.nodeIds)
   fireEvent.click(button)
-  expect(useCanvasStore.getState().selection.nodeIds.has('marks-goal')).toBe(true)
+  expect(screen.getByTestId('goal-node-target-editor-editor')).toBeInTheDocument()
+  expect(useCanvasStore.getState().selection.nodeIds).toEqual(before)
   cleanup(); seed('goal', { goal_threshold_raw: 10, goal_threshold_unit: 'GBP' })
   expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
 })

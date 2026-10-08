@@ -17,11 +17,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
+import { WAITING_LINES, waitingPhaseOf } from '../zones/ThinkingDots'
 import {
   SETTLING_STAGES,
   SETTLING_AFTER_COACHING_STAGES,
 } from '../../components/DraftLoadingAnimation'
 import type { ConversationMessage } from '../types'
+
+// ⭐ P44 S2: these display checks do not need a configured auth client.
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {},
+  isSupabaseAvailable: () => false,
+}))
 
 const canvasState = { currentScenarioId: 'sc_1', nodes: [{ id: 'n1' }] }
 vi.mock('../../store', () => ({
@@ -35,6 +42,7 @@ const draftState = {
   draftStreamPhase: 'idle' as string,
   draftStreamScenarioId: 'sc_1' as string | null,
   draftStreamCoachingLanded: false,
+  draftStreamServerPhase: null as 'first_analysis' | 'writing' | null,
 }
 vi.mock('../../stores/draftStore', () => ({
   useDraftStore: Object.assign(
@@ -53,10 +61,10 @@ const messages: ConversationMessage[] = [
   { id: 'm1', role: 'assistant', content: 'Here is your model.', isStreaming: false } as ConversationMessage,
 ]
 
-function renderThread() {
+function renderThread(threadMessages = messages) {
   return render(
     <ChatThread
-      messages={messages}
+      messages={threadMessages}
       isThinking
       longRunningHint="Building your decision model... 45s"
       nodeCount={12}
@@ -77,6 +85,65 @@ beforeEach(() => {
   draftState.draftStreamPhase = 'idle'
   draftState.draftStreamScenarioId = 'sc_1'
   draftState.draftStreamCoachingLanded = false
+  draftState.draftStreamServerPhase = null
+})
+
+// ⭐ P44 S2: settling follows real server events, with the existing fallback.
+describe('P44 S2 — server waiting phases', () => {
+  it.each([
+    [null, 'structuring'],
+    ['first_analysis', 'running_analysis'],
+    ['writing', 'preparing_explanation'],
+  ] as const)('settling with %s maps to %s', (serverPhase, expected) => {
+    expect(waitingPhaseOf({ settling: true, analysisRunning: false, nodeCount: 4, serverPhase })).toBe(expected)
+  })
+
+  // ⛔ P44 S2: server phases cannot narrate outside the owning settling window.
+  it.each(['first_analysis', 'writing'] as const)('ignores %s when not settling', (serverPhase) => {
+    expect(waitingPhaseOf({ settling: false, analysisRunning: true, nodeCount: 4, serverPhase })).toBe('running_analysis')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: false, nodeCount: 4, explaining: true, serverPhase })).toBe('preparing_explanation')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: false, nodeCount: 0, serverPhase })).toBe('reading_brief')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: false, nodeCount: 4, serverPhase })).toBeNull()
+  })
+
+  it.each([
+    ['first_analysis', 'running_analysis'],
+    ['writing', 'preparing_explanation'],
+  ] as const)('renders the coach phase for %s on the first brief after the graph lands', (serverPhase, expected) => {
+    draftState.draftStreamPhase = 'settling'
+    draftState.draftStreamServerPhase = serverPhase
+    renderThread([{ id: 'brief', role: 'user', content: 'Our strategic brief.' } as ConversationMessage])
+    const line = screen.getByTestId('thinking-coaching-line')
+    expect(line).toHaveAttribute('data-phase', expected)
+    expect(line).toHaveTextContent(WAITING_LINES[expected][0])
+    if (serverPhase === 'writing') {
+      expect(screen.getByTestId('thinking-label')).toHaveTextContent('Preparing explanation…')
+    }
+  })
+
+  it('keeps the structuring phase and settling label with no server phase', () => {
+    draftState.draftStreamPhase = 'settling'
+    renderThread()
+    expect(screen.getByTestId('thinking-coaching-line')).toHaveAttribute('data-phase', 'structuring')
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent(SETTLING_STAGES[0].message)
+  })
+
+  it.each(['idle', 'drafting'])('keeps the ordinary hint when writing belongs to a %s stream', (phase) => {
+    draftState.draftStreamPhase = phase
+    draftState.draftStreamServerPhase = 'writing'
+    renderThread()
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('Building your decision model... 45s')
+    expect(screen.queryByTestId('thinking-coaching-line')).not.toBeInTheDocument()
+  })
+
+  it('ignores writing from another scenario', () => {
+    draftState.draftStreamPhase = 'settling'
+    draftState.draftStreamScenarioId = 'sc_OTHER'
+    draftState.draftStreamServerPhase = 'writing'
+    renderThread()
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('Building your decision model... 45s')
+    expect(screen.queryByTestId('thinking-coaching-line')).not.toBeInTheDocument()
+  })
 })
 
 describe('ChatThread — the settling window is explained, not narrated stale', () => {
