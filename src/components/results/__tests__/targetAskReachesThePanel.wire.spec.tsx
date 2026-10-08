@@ -56,7 +56,7 @@ describe('near tie: the target warning\'s typed ask reaches the deployed panel',
     const data = hydrate(false)
     expect(unsizedPathAskOf(cause(), data.confidence.inferenceWarnings, (id) => labels().get(id))).toBeUndefined()
     render(<StrengthenContainer data={data} />)
-    expect(screen.queryByText(/^Give the link from/)).toBeNull()
+    expect(screen.queryByText(/^How strongly does ‘Support capacity strain’ affect/)).toBeNull()
   })
   it('with the CEE half\'s first_ask: the panel leads with that link, the one the chat asks for', () => {
     const data = hydrate(true)
@@ -64,7 +64,7 @@ describe('near tie: the target warning\'s typed ask reaches the deployed panel',
       kind: 'target_link', fromId: STRAIN, toId: MRR, from: 'Support capacity strain', to: 'monthly recurring revenue',
     })
     render(<StrengthenContainer data={data} />)
-    expect(screen.getByText('Give the link from ‘Support capacity strain’ to ‘monthly recurring revenue’ a size')).toBeTruthy()
-    expect(screen.getByText('Olumi can’t test your target until this link has a size in the target’s unit.')).toBeTruthy()
+    expect(screen.getByText('How strongly does ‘Support capacity strain’ affect ‘monthly recurring revenue’?')).toBeTruthy()
+    expect(screen.getByText('Olumi can’t test your target until this relationship has a size in the target’s unit.')).toBeTruthy()
   })
 })

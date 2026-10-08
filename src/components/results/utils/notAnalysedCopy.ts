@@ -93,8 +93,15 @@ export const NOT_ANALYSED_NO_RESULT_COPY = 'This run has no result for this opti
 export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
 /** `kept_olumi_provisional`'s tag suffix. Not "provisional": that word already means "rests on Olumi's assumptions" (AIQ 5888943993). */
 export const OLUMI_KEPT_TAG_SUFFIX = 'compared for now'
-export const OLUMI_PROPOSED_EXCLUDED_COPY =
-  "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+/**
+ * The Reasoning row's short form (DL 58e392 GO, 8 Oct 2026; Paul: "very punchy … additional helpful context under
+ * progressive disclosure"): the fact at rest, the rest under the row's chevron. `OLUMI_PROPOSED_EXCLUDED_COPY` is the two
+ * joined, so every surface that says it whole says exactly these words.
+ */
+export const OLUMI_PROPOSED_EXCLUDED_SHORT = "Olumi's suggestion, so this run left it out."
+export const OLUMI_PROPOSED_EXCLUDED_DETAIL =
+  "It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+export const OLUMI_PROPOSED_EXCLUDED_COPY = `Olumi suggested this option. ${OLUMI_PROPOSED_EXCLUDED_DETAIL}`
 /**
  * `kept_olumi_provisional`: the comparison kept Olumi's option. WITH ids, because the gate excluded the user's own
  * option(s) — they are named. WITHOUT ids, because the user named fewer than two options: nothing failed, so nothing is
