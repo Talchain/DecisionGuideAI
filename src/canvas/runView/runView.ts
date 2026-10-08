@@ -38,7 +38,7 @@ export type OptionChance =
 
 /** The chance cell shared by Results and both canvas option-card zoom levels. No-source cells have no copy. */
 export type OptionChanceCell =
-  | { readonly kind: 'figure' | 'range' | 'withheld'; readonly text: string }
+  | { readonly kind: 'figure' | 'range' | 'withheld'; readonly text: string; readonly why?: string }
   | { readonly kind: 'none'; readonly text: null }
 
 /** Only the Results context that cannot be read from the held report. */
@@ -131,20 +131,15 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
   const canonical = canonicalByView.get(view)
   if (canonical && canonical.staleness.stale !== null) {
     if (canonical.staleness.stale === true && canonical.run !== null) {
-      return { kind: 'withheld', text: RUN_AGAIN_FOR_CHANCE }
+      return { kind: 'withheld', text: canonical.face_when_stale ?? RUN_AGAIN_FOR_CHANCE }
     }
     const cell = canonical.options.find(option => option.option_id === optionId)?.cell
     if (cell?.kind === 'figure' || cell?.kind === 'range') {
-      const licensed = licensedChanceCell(view, optionId, ctx)
-      // Retain existing sentences ONLY when they carry the canonical figure verbatim.
-      // Bounds (<1%, less than 1%) and ranges are quantities, not interchangeable digits.
-      const chance = view.chanceOf(optionId)
-      const agrees = licensed.kind === cell.kind && (cell.kind === 'figure'
-        ? chance.kind === 'figure' && chance.words === cell.display && licensed.text.includes(cell.display)
-        : licensed.text === cell.display)
-      return { kind: cell.kind, text: agrees ? licensed.text : cell.display }
+      // No face means no licensed sentence: retain only the server's display fragment.
+      return { kind: cell.kind, text: cell.face ?? cell.display }
     }
-    if (cell?.kind === 'withheld') return { kind: 'withheld', text: cell.reasons[0]?.message ?? OPTION_CHANCE_WITHHELD }
+    if (cell?.kind === 'withheld') return { kind: 'withheld', text: cell.face ?? OPTION_CHANCE_WITHHELD,
+      ...(cell.why === undefined ? {} : { why: cell.why }) }
     if (cell?.kind === 'none') return NO_CELL
   }
   return licensedChanceCell(view, optionId, ctx)
@@ -159,7 +154,7 @@ export function runViewOptionChanceLines(
     driverLines, includeQuotedDrivers, cellOf)
 }
 
-/** Existing resolution, also used to retain licensed sentences under a canonical kind. */
+/** Existing resolution for paths without a matching canonical view. */
 function licensedChanceCell(view: RunView, optionId: string, ctx: OptionChanceCellContext): OptionChanceCell {
   const range = view.goalChanceRange
   const rangeEntry = range?.rangeByOption[optionId]

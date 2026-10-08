@@ -130,6 +130,8 @@ export interface HeroRowVM {
     value: number | null
     /** Formatted readout, '—' when absent. */
     readout: string
+    /** Server withholding explanation, disclosed separately from the face. */
+    why?: string
   }
   /** Likely-outcome lens values. */
   outcome: {

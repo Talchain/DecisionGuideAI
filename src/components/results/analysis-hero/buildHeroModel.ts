@@ -475,6 +475,7 @@ export function buildHeroModel(
       goal: {
         value: goalValue,
         readout: hasUserTarget ? cell.text ?? HERO_COPY.readout.missing : HERO_COPY.readout.missing,
+        why: hasUserTarget && cell.kind !== 'none' ? cell.why : undefined,
       },
       outcome: {
         p10,
