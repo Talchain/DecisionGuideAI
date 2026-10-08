@@ -21,7 +21,7 @@ const graph = (scenarioId: string, label: string) =>
     nodes: [{ id: `${label}-n`, type: 'decision', position: { x: 1, y: 1 }, data: { label } }],
     edges: [],
     timestamp: Date.now(),
-  }) as never
+  }) as import('../scenarios').AutosaveData
 
 /** A page load: a fresh module registry, so the tab's captured state is its own. */
 async function bootTab() {
@@ -244,7 +244,7 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect.soft(bootAutosave?.scenarioId, 'the CURRENT owner\'s autosave must still boot').toBe(B_ID)
   })
 
-  it('⭐ THIN Save unchanged: the real store Save remains available under another tab\'s rotated epoch', async () => {
+  it('THIN CURRENT: a signed-in thin page holding the current epoch saves metadata and pointer', async () => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     localStorage.setItem('sb-testproject-auth-token', '{"access_token":"t","user":{"id":"u"}}')
     const thinTab = await bootTab()
@@ -254,20 +254,47 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
       edges: [],
       isDirty: true,
     })
-    anotherTabRotatesEpoch('epoch-B')
-
-    expect(thinTab.store.getState().saveCurrentScenario('A thin'), 'the guest fence blocked the signed-in Save').toBe(A_ID)
+    expect(thinTab.store.getState().saveCurrentScenario('A thin'), 'the fence blocked a current signed-in Save').toBe(A_ID)
     expect(thinTab.store.getState().isDirty).toBe(false)
+    expect(thinTab.scenarios.getCurrentScenarioId()).toBe(A_ID)
     const records = JSON.parse(localStorage.getItem('olumi-canvas-scenarios') ?? '[]')
     expect(records.find((record: { id: string }) => record.id === A_ID)?.graph.nodes, 'thin Save persisted model nodes').toEqual([])
     expect(localStorage.getItem(SLOT), 'thin Save persisted an autosave model').toBeNull()
   })
 
-  it.each(['saveScenarios', 'setCurrentScenarioId', 'clearAutosave', 'clearCurrentScenarioId', 'deleteScenario'] as const)(
-    'shared writer %s: a stale guest cannot replace or remove the CURRENT owner\'s persisted records',
-    async (writer) => {
+  it('THIN STALE: a guest latches thin from another tab\'s token, then stale Save preserves the current owner', async () => {
+    const staleGuest = await bootTab()
+    staleGuest.store.setState({ currentScenarioId: A_ID, nodes: graph(A_ID, 'A private').nodes, edges: [], isDirty: true })
+    const thin = await import('../../thinClient/thinClient')
+    localStorage.setItem('sb-testproject-auth-token', '{"access_token":"t","user":{"id":"u"}}')
+    expect(thin.isThinClientSession(), 'the guest observes the other tab\'s stored session').toBe(true)
+    thin.__latchThinClientForTests() // the production latch is disabled under MODE=test
+    const other = await bootTab()
+    other.auth.clearUserScopedState(null)
+    localStorage.removeItem('sb-testproject-auth-token')
+    expect(thin.isThinClientSession(), 'the stale guest remains thin after sign-out').toBe(true)
+    const currentGuest = await bootTab()
+    currentGuest.scenarios.createScenario({ id: B_ID, name: 'CURRENT owner', nodes: graph(B_ID, 'b').nodes, edges: [] })
+    expect(currentGuest.scenarios.saveAutosave(graph(B_ID, 'b'))).toBe(true)
+    const currentList = localStorage.getItem('olumi-canvas-scenarios')
+    const currentAutosave = localStorage.getItem(SLOT)
+
+    expect.soft(staleGuest.store.getState().saveCurrentScenario('A private')).toBeNull()
+    expect.soft(staleGuest.store.getState().isDirty).toBe(true)
+    expect.soft(localStorage.getItem('olumi-canvas-scenarios'), 'stale thin Save wrote the list').toBe(currentList)
+    expect.soft(staleGuest.scenarios.getCurrentScenarioId(), 'stale thin Save moved the pointer').toBe(B_ID)
+    expect.soft(localStorage.getItem(SLOT), 'stale thin Save cleared the owner\'s autosave').toBe(currentAutosave)
+  })
+
+  const localWriters = ['saveScenarios', 'setCurrentScenarioId', 'clearAutosave', 'clearCurrentScenarioId', 'deleteScenario'] as const
+  it.each(localWriters.flatMap((writer) => [
+    { writer, mode: 'guest' }, { writer, mode: 'thin' },
+  ]))(
+    'shared writer $writer: a stale $mode cannot replace or remove the CURRENT owner\'s persisted records',
+    async ({ writer, mode }) => {
       localStorage.setItem(EPOCH_KEY, 'epoch-A')
       const staleGuest = await bootTab()
+      if (mode === 'thin') (await import('../../thinClient/thinClient')).__latchThinClientForTests()
       anotherTabRotatesEpoch('epoch-B')
       const currentGuest = await bootTab()
       const currentRecord = currentGuest.scenarios.createScenario({
@@ -364,6 +391,68 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
       spy.mockRestore()
       window.removeEventListener('topbar:show-toast', listener)
     }
+  })
+
+  it('BOOT RECOVERY: a transient unreadable boot adopts the unchanged epoch and saves without a stale notice', async () => {
+    localStorage.setItem(EPOCH_KEY, 'unchanged-boot-era')
+    const realGet = Storage.prototype.getItem
+    let refused = false
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY && !refused) {
+        refused = true
+        throw new DOMException('Transient boot refusal', 'SecurityError')
+      }
+      return realGet.call(this, key)
+    })
+    const tab = await bootTab()
+    const messages: string[] = []
+    const listener = (event: Event) => { messages.push((event as CustomEvent).detail.message) }
+    window.addEventListener('topbar:show-toast', listener)
+    try {
+      expect.soft(tab.scenarios.getIdentityWriteBlockReason()).toBeNull()
+      expect.soft(tab.scenarios.saveAutosave(graph(A_ID, 'own work'))).toBe(true)
+      expect.soft(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('unchanged-boot-era')
+      expect.soft(messages, 'recovered storage must not claim an identity boundary').toEqual([])
+    } finally {
+      window.removeEventListener('topbar:show-toast', listener)
+    }
+  })
+
+  it('BOOT UNKNOWN: recovery without any readable boot epoch remains unreadable, never stale', async () => {
+    localStorage.setItem(EPOCH_KEY, 'unknown-boot-era')
+    const realGet = Storage.prototype.getItem
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY) throw new DOMException('Boot reads refused', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    const tab = await bootTab()
+    spy.mockRestore()
+    expect(tab.scenarios.getIdentityWriteBlockReason()).toBe('unreadable')
+    expect(tab.scenarios.saveAutosave(graph(A_ID, 'unverified work'))).toBe(false)
+    expect(localStorage.getItem(SLOT)).toBeNull()
+  })
+
+  it('BOOT CHANGED control: a recovered boot witness cannot adopt a later identity epoch', async () => {
+    localStorage.setItem(EPOCH_KEY, 'boot-era-A')
+    const realGet = Storage.prototype.getItem
+    let refused = false
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY && !refused) {
+        refused = true
+        throw new DOMException('Transient boot refusal', 'SecurityError')
+      }
+      return realGet.call(this, key)
+    })
+    vi.resetModules()
+    const pending = await import('../scenarios')
+    anotherTabRotatesEpoch('current-era-B')
+    const current = await bootTab()
+    expect(current.scenarios.saveAutosave(graph(B_ID, 'current work'))).toBe(true)
+    const currentAutosave = localStorage.getItem(SLOT)
+
+    expect(pending.getIdentityWriteBlockReason()).toBe('stale')
+    expect(pending.saveAutosave(graph(A_ID, 'old work'))).toBe(false)
+    expect(localStorage.getItem(SLOT)).toBe(currentAutosave)
   })
 
   it('⭐ THIN UNCHANGED: a signed-in (thin) page under a rotated epoch still writes its layout and reports it, never the model', async () => {

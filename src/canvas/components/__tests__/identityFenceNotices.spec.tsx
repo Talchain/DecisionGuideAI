@@ -159,6 +159,34 @@ describe('identity fences answer the real Save entry points', () => {
 })
 
 describe('autosave discloses a fence once per tab per fenced era', () => {
+  it('STALE ERA: stale, unreadable, stale ticks in one shared epoch show exactly one stale notice', async () => {
+    const guest = await bootGuestUi()
+    await signInThenOutInAnotherTab()
+    const shared = localStorage.getItem(EPOCH_KEY)
+    vi.useFakeTimers()
+    const events: string[] = []
+    const onToast = (event: Event) => { events.push((event as CustomEvent).detail.message) }
+    window.addEventListener('topbar:show-toast', onToast)
+    try {
+      mountHost(guest, 'autosave')
+      advanceAutosaveCycle()
+      const getItem = Storage.prototype.getItem
+      const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+        if (key === EPOCH_KEY) throw new DOMException('Intermittent refusal', 'SecurityError')
+        return getItem.call(this, key)
+      })
+      advanceAutosaveCycle()
+      spy.mockRestore()
+      expect(localStorage.getItem(EPOCH_KEY)).toBe(shared)
+      advanceAutosaveCycle()
+      expect(events).toEqual([STALE, UNREADABLE])
+      expect(events.filter((message) => message === STALE)).toHaveLength(1)
+      expect(localStorage.getItem(SLOT)).toBeNull()
+    } finally {
+      window.removeEventListener('topbar:show-toast', onToast)
+    }
+  })
+
   it('a refused permission read is one unreadable era even when an extra notice read would succeed once', async () => {
     localStorage.setItem(EPOCH_KEY, 'unchanged-guest-era')
     const guest = await bootGuestUi()

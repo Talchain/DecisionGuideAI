@@ -751,6 +751,10 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
  * model: its writes are skipped, never stamped. A reload re-captures, and that tab then boots as the new identity.
  */
 let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
+// A refused capture is pending, not evidence of an old identity. One synchronous recovery read can witness the boot
+// era; the first readable permission read may adopt it only while it still matches. If both boot reads refused, a
+// later non-null epoch has no known baseline and remains unreadable rather than being guessed current or stale.
+let pendingIdentityEpochWitness = tabIdentityEpoch === undefined ? readIdentityEpoch() : undefined
 /**
  * An epoch names the identity whose ERA it opens: `<random>|owner:<user id | none | ?>`, in the one value, so the tag
  * can never tear from the epoch. Readers compare whole strings, so they are unaffected. `?` = the boundary did not say
@@ -789,6 +793,7 @@ export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: s
     /* adopt whatever is held */
   }
   tabIdentityEpoch = readIdentityEpoch()
+  pendingIdentityEpochWitness = undefined
 }
 /**
  * A sign-in that is NOT an identity boundary in this tab (the same account again, or this tab's first). That tab
@@ -798,6 +803,7 @@ export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: s
  */
 export function adoptIdentityEpochAtSignIn(): void {
   tabIdentityEpoch = readIdentityEpoch()
+  pendingIdentityEpochWitness = undefined
 }
 /**
  * Whether this tab may write identity-stamped state now, and under which epoch. `null` = skip: the shared epoch is
@@ -812,6 +818,13 @@ export type IdentityWriteBlockReason = 'unreadable' | 'stale'
 function identityWritePermission(): { epoch: string | null } | { reason: 'unreadable' } | { reason: 'stale'; epoch: string } {
   const shared = readIdentityEpoch()
   if (shared === undefined) return { reason: 'unreadable' }
+  if (tabIdentityEpoch === undefined) {
+    if (pendingIdentityEpochWitness === undefined && shared !== null) return { reason: 'unreadable' }
+    // A shared null proves no boundary under the monotonic-key invariant above. Otherwise use only the era observed
+    // at boot: a changed shared epoch will then take the ordinary stale branch instead of being adopted.
+    tabIdentityEpoch = pendingIdentityEpochWitness === undefined ? null : pendingIdentityEpochWitness
+    pendingIdentityEpochWitness = undefined
+  }
   if (shared !== null && shared !== tabIdentityEpoch) return { reason: 'stale', epoch: shared }
   return { epoch: shared }
 }
@@ -821,9 +834,8 @@ export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
   return 'reason' in permission ? null : permission
 }
 
-/** One fence for local scenario writers and their UI actions. Thin pages keep their existing metadata/layout path. */
+/** One fence for local scenario writers and their UI actions, including thin metadata and cleanup. */
 export function getIdentityWriteBlockReason(): IdentityWriteBlockReason | null {
-  if (isThinClientSession()) return null
   const permission = identityWritePermission()
   return 'reason' in permission ? permission.reason : null
 }
@@ -842,13 +854,18 @@ export function showIdentityWriteBlockedToast(reason: IdentityWriteBlockReason):
   }))
 }
 
-let autosaveNotifiedFenceEra: string | null = null
+const autosaveNotifiedStaleEpochs = new Set<string>()
+let autosaveNotifiedUnreadable = false
 function showAutosaveFenceToast(reason: IdentityWriteBlockReason, epoch?: string): void {
   // Use the permission decision's epoch. A second read could give an intermittent refusal a new notice key even
-  // though no boundary happened. Unreadable stays one fenced era until a permitted autosave resets the key.
-  const era = JSON.stringify([reason, epoch])
-  if (autosaveNotifiedFenceEra === era) return
-  autosaveNotifiedFenceEra = era
+  // though no boundary happened. Unreadable ticks must not erase a stale era's tab-lifetime notification history.
+  if (reason === 'stale' && epoch !== undefined) {
+    if (autosaveNotifiedStaleEpochs.has(epoch)) return
+    autosaveNotifiedStaleEpochs.add(epoch)
+  } else {
+    if (autosaveNotifiedUnreadable) return
+    autosaveNotifiedUnreadable = true
+  }
   showIdentityWriteBlockedToast(reason)
 }
 
@@ -877,7 +894,7 @@ export function saveAutosave(data: AutosaveData): boolean {
     showAutosaveFenceToast(may.reason, may.reason === 'stale' ? may.epoch : undefined)
     return false
   }
-  autosaveNotifiedFenceEra = null
+  autosaveNotifiedUnreadable = false
   const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
