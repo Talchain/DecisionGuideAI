@@ -93,6 +93,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
@@ -109,6 +110,8 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -126,14 +129,14 @@ const producerLeaderClaim = (winArgmaxOptionId: string) => ({
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: {
     status: 'complete',
-    report: {
+    report: withLicensedOptionChances({
       option_probabilities: {
         [NODE_ID]: { win_probability: 0.72 },
         [SIBLING_ID]: { win_probability: 0.28 },
@@ -152,8 +155,9 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
         { node_id: 'fac-b', elasticity: 0.4 },
         { node_id: 'fac-c', elasticity: 0.1 },
       ],
-    },
+    }, { [NODE_ID]: 41, [SIBLING_ID]: 29 }),
   },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   // The ordinal under test: `Option 3` on this card.
@@ -162,7 +166,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -206,9 +210,9 @@ function renderOption(overrides: Record<string, unknown> = {}) {
     (selector as (s: unknown) => unknown)(makeStoreState(overrides)),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -224,7 +228,7 @@ beforeEach(() => {
  */
 function expectNoLeaderPill(container: HTMLElement) {
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
   expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()

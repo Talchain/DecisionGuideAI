@@ -53,6 +53,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { RETIRED_METRIC_NOUNS, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 import {
   LEADER_ID,
@@ -86,24 +87,29 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances, fixtureChanceText } from './__helpers__/optionChanceFixture'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const NODES = [
   { id: 'decision-1', type: 'decision', data: { type: 'decision' } },
-  { id: LEADER_ID, type: 'option', data: { type: 'option', label: LEADER_LABEL } },
-  { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', label: RUNNER_UP_LABEL } },
+  { id: LEADER_ID, type: 'option', data: { type: 'option', kind: 'option', label: LEADER_LABEL } },
+  { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', kind: 'option', label: RUNNER_UP_LABEL } },
 ]
+
+const CHANCE_REPORT = withLicensedOptionChances(PERMITTED_REPORT, { [LEADER_ID]: 41, [RUNNER_UP_ID]: 29 })
+const CHANCE = fixtureChanceText(CHANCE_REPORT, LEADER_ID, { [LEADER_ID]: LEADER_LABEL, [RUNNER_UP_ID]: RUNNER_UP_LABEL })!
 
 const storeState = {
   nodes: NODES,
   edges: [],
   hoveredOptionId: null,
   ceeAnalysisReady: null,
-  results: { status: 'complete', report: PERMITTED_REPORT },
+  results: { status: 'complete', report: CHANCE_REPORT },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set(),
   dimmedNodeIds: new Set(),
   lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   setHoveredOption: vi.fn(),
   viewMode: 'expert',
@@ -138,7 +144,7 @@ function renderBoard() {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...METADATA } as any)
   vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(storeState as any))
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <DecisionNode
         {...(baseProps as any)}
         id="decision-1"
@@ -151,7 +157,7 @@ function renderBoard() {
         type="option"
         data={{ label: LEADER_LABEL, type: 'option' }}
       />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -209,26 +215,14 @@ describe('one noun per idea — the option card speaks the register', () => {
       expect(spoken, `the option card spoke the retired noun "${retired}"`)
         .not.toMatch(new RegExp(`\\b${retired}\\b`, 'i'))
     }
-    // …and it DOES speak the register's own word, so the arm cannot pass on a
-    // card that says nothing at all.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — "Do not use
-    // `Support` as the result label. It reads as endorsement. Any result shown at
-    // rest must be explicitly model-relative, e.g. `Current model · 55% of runs`."
-    // The register's words for this quantity are now `OPTION_RESULT_COPY`: a
-    // currency caption + "N% of runs". Positive half bound to the row's own
-    // anchor/readout by test id. "Support" as the result LABEL is asserted ABSENT
-    // below; the verb "supported" is the ruled run-share verb (DL #87 6004906342,
-    // which supersedes the broader reading of ED 11:52Z).
+    // WS5-1: the currency caption survives, then the licensed chance speaks Results' exact words.
     const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
     expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). The prefix is its own
-    // leaf before the readout (figure + unit); the row's name speaks them as the register's one `share()` string.
-    const prefix = screen.getByTestId(`option-win-prefix-${LEADER_ID}`).textContent ?? ''
-    expect(prefix).toBe(OPTION_RESULT_COPY.sharePrefix)
     const readout = screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent ?? ''
-    expect(readout).toBe(`${Math.round(WIN_LEADER * 100)}% ${OPTION_RESULT_COPY.shareUnit}`)
-    expect(`${prefix} ${readout}`).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
-    expect(spoken).toContain(`${anchor} · ${prefix} ${readout}`)
+    expect(readout).toBe(CHANCE)
+    expect(screen.queryByTestId(`option-win-prefix-${LEADER_ID}`)).toBeNull()
+    expect(spoken).toContain(`${anchor} · ${readout}`)
+    expect(spoken).not.toContain('of runs')
     // ED 11:52Z point 4 retired "Support" as the result LABEL. The caption is never it, and no "Support N%" /
     // "Support:" label form is spoken. Discriminating pair first, so the narrowed pattern cannot pass vacuously.
     const SUPPORT_LABEL = /\bSupport(?![a-z])/
@@ -257,13 +251,11 @@ describe('one noun per idea — the option card speaks the register', () => {
     // `getByRole` THROWS on more than one match, so this is the "exactly once"
     // assertion — and binding the result to the row by identity is what makes
     // it about THIS surface rather than whichever element matched first.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — the comparative
-    // claim is now the model-relative `OPTION_RESULT_COPY.sentence` ("In this
-    // model, N% of runs supported this option."; DL #87 6004906342),
-    // never "supported in …". Same carrier (`role="img"` + aria-label), same
-    // exactly-once property; the retired wording is asserted gone.
-    const claim = OPTION_RESULT_COPY.sentence(`${Math.round(WIN_LEADER * 100)}%`)
-    expect(screen.getByRole('img', { name: (name) => name.includes(claim) })).toBe(optionRow)
+    // WS5-1: the chance remains on exactly one accessible carrier, matching its visible text.
+    const carriers = [...document.querySelectorAll('[aria-label]')].filter(element =>
+      element.getAttribute('aria-label')?.includes(CHANCE),
+    )
+    expect(carriers).toEqual([optionRow])
     expect(screen.queryByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBeNull()
   })
 

@@ -52,6 +52,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { runViewOf } from '../../runView/runView'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 vi.mock('@xyflow/react', async () => {
@@ -148,6 +149,21 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
+// Layout tests consume a real licensed cell independently of the mocked runs share.
+vi.mock('../shared/useOptionChanceCell', () => ({
+  useOptionChanceCell: (id: string) => {
+    const results = useCanvasStore(state => state.results)
+    const nodes = useCanvasStore(state => state.nodes)
+    return runViewOf(results.report).chanceCellOf(id, {
+      goalChanceHeroSays: true,
+      labelOf: (nodeId) => {
+        const label = nodes.find(node => node.id === nodeId)?.data.label
+        return typeof label === 'string' ? label : null
+      },
+    })
+  },
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -180,7 +196,11 @@ const baseProps = {
   draggable: true,
 }
 
-const COMPLETE = { status: 'complete', report: {} }
+const COMPLETE = { status: 'complete', report: { inference_warnings: [{
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['option-1', 'option-2', 'option-b'],
+  pct_by_option: { 'option-1': 41, 'option-2': 32, 'option-b': 12 },
+  target: { comparator: 'at_least', value: 100, unit: 'customers' },
+}] } }
 
 type StoreNode = { id: string; type: string; data: Record<string, unknown> }
 
@@ -415,12 +435,12 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
   })
 
   describe('post-run: the rows STAY and the run adds below them', () => {
-    it('the card carries the rows AND the share line, rows first', () => {
+    it('the card carries the rows AND the chance line, rows first', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const rows = onCard('option-change-rows-option-1')
       const share = onCard('option-analysis-currency-option-1')
-      expect(share, 'precondition: the share line renders').not.toBeNull()
+      expect(share, 'precondition: the chance line renders').not.toBeNull()
       expect(rows, 'the rows survive the run').not.toBeNull()
       expect(follows(rows!, share!)).toBe(true)
       expect(countAll('option-change-rows-option-1')).toBe(1)
@@ -461,7 +481,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(document.body.textContent ?? '').not.toContain('Reference for the other alternatives.')
     })
 
-    it('post-run the baseline keeps both lines on the card, above the share line', () => {
+    it('post-run the baseline keeps both lines on the card, above the chance line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', store: { results: COMPLETE } })
       const meta = onCard('option-baseline-meta-option-b')

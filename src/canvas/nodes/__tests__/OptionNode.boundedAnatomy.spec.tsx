@@ -13,7 +13,7 @@
  *   · the card's rows follow the ONE shared change order, value never cut, the
  *     factor label the only part allowed to ellipsize (CSS, with its title);
  *   · the rows and `+N more` are ON THE CARD in both phases, never repeated in
- *     the popover; post-run the share line is ADDED below them;
+ *     the popover; post-run the chance line is ADDED below them;
  *   · the computed differentiator's full sentence stays in the popover;
  *   · the card body is byte-identical at the Normal and landing rungs (height
  *     safety: no rung-triggered re-layout — ED's rule, which the prototype does
@@ -36,6 +36,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { runViewOf } from '../../runView/runView'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -128,6 +129,21 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
+// Layout tests consume a real licensed cell independently of the mocked runs share.
+vi.mock('../shared/useOptionChanceCell', () => ({
+  useOptionChanceCell: (id: string) => {
+    const results = useCanvasStore(state => state.results)
+    const nodes = useCanvasStore(state => state.nodes)
+    return runViewOf(results.report).chanceCellOf(id, {
+      goalChanceHeroSays: true,
+      labelOf: (nodeId) => {
+        const label = nodes.find(node => node.id === nodeId)?.data.label
+        return typeof label === 'string' ? label : null
+      },
+    })
+  },
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -161,7 +177,11 @@ const baseProps = {
   draggable: true,
 }
 
-const COMPLETE = { status: 'complete', report: {} }
+const COMPLETE = { status: 'complete', report: { inference_warnings: [{
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['option-1', 'option-2', 'option-b'],
+  pct_by_option: { 'option-1': 41, 'option-2': 32, 'option-b': 12 },
+  target: { comparator: 'at_least', value: 100, unit: 'customers' },
+}] } }
 
 const renderCard = (
   { id = 'option-1', data = {}, store = {} }: { id?: string; data?: Record<string, unknown>; store?: Record<string, unknown> } = {},
@@ -365,13 +385,13 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     })
   })
 
-  describe('post-run: the share line is ADDED below the rows', () => {
-    it('the card carries the rows AND the share line, rows first', () => {
+  describe('post-run: the chance line is ADDED below the rows', () => {
+    it('the card carries the rows AND the chance line, rows first', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const share = onCard('option-analysis-currency-option-1')
       const rows = onCard('option-change-rows-option-1')
-      expect(share, 'precondition: the share line renders').not.toBeNull()
+      expect(share, 'precondition: the chance line renders').not.toBeNull()
       expect(rows, 'the rows survive the run').not.toBeNull()
       expect(rows!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
@@ -385,18 +405,18 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
 
   describe('the baseline', () => {
     // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): the reference line is dropped; the meta is followed by the slot.
-    it('pre-run it reads its meta, then the share line\'s reserved slot (no reference line)', () => {
+    it('pre-run it reads its meta, then the chance line\'s reserved slot (no reference line)', () => {
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
       expect(meta?.getAttribute('aria-label')).toBe('Baseline option')
-      // …then the share line's slot, reserved (empty) before the run so a run never grows the card.
+      // …then the chance line's slot, reserved (empty) before the run so a run never grows the card.
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
       const reserved = onCard('option-baseline-slot-option-b')!
       expect(bodyLines(reserved)).toEqual([reserved, onCard('option-share-slot-option-b')])
       expect(screen.getByTestId('option-bottom-marks-option-b').contains(meta!)).toBe(true)
     })
 
-    it('post-run the baseline meta STAYS on the card, above the share line', () => {
+    it('post-run the baseline meta STAYS on the card, above the chance line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', store: { results: COMPLETE } })
       const share = onCard('option-analysis-currency-option-b')

@@ -792,15 +792,10 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    // ⚠ PRODUCER RE-DERIVED (locked node-card design, 23 Sep 2026; ED 11:52Z
-    // point 4: "Do not use `Support` as the result label"). The option card
-    // still renders this quantity — the share of simulated runs — as its
-    // model-relative readout "N% of runs" (`OPTION_RESULT_COPY.share`), and the
-    // register row's gloss now names that caption.
-    // ⚠ NOUN RE-DERIVED (ED #63 5799353114 decision 2): the row's HEADING is
-    // now `CURRENT_MODEL_NOUN` ("Current model"), the caption the card prints;
-    // `METRIC_NOUN.support` stays the panel-owned surfaces' anchor.
-    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
+    // WS5-1 #2704: Current model survives as the caption preceding the Results chance cell.
+    // Bind to the caption RENDERED as a JSX child (`>{resultCaption}<`). A prop pass
+    // (`resultCaption={resultCaption}`) is not a render; it kept this row green with the caption deleted (#2704 r3 mutant).
+    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: />\s*\{resultCaption\}\s*</ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls

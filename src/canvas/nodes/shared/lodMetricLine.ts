@@ -131,17 +131,17 @@
  * on any widening whatever, including one that printed an empty line, while the
  * pair discriminates on the datum itself.
  */
-import { NOT_RANKED_MARKER } from '../../state/winShareGate'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
-import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
+import { isSuppressedUnit } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRangeOnCard } from './factorPriorRange'
 import { readoutIsBareModelScale } from './FactorValueFigure'
 import { factorValueSourceMark } from './valueSourceMark'
-import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
+import type { OptionChanceCell } from '../../runView/runView'
 import { restingUnvaluedDriverCaption } from './driverCaptionFit'
 
 /**
@@ -205,6 +205,8 @@ export interface LodMetricFacts {
    * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
    */
   optionResultCaption?: string | null
+  /** The same RunView cell the full-zoom option owner consumed. */
+  optionChanceCell?: OptionChanceCell
   /**
    * CURRENT-READ row 9 (AIQ 5912710392): the producer withheld the leader, so no per-option win share is
    * shown at any zoom. The reduced line says `Not ranked` (`winShareGate.ts`), as the full-zoom card does.
@@ -415,40 +417,11 @@ function resolveText({
     }
 
     case 'option': {
-      // The win share, through the shared formatter that owns the sub-1% floor.
-      // ⚠ The FIGURE, not the sentence: the option card's full-zoom readout is a
-      // comparative phrase that truncates to nothing at this size. Paul's
-      // ruling on card density (31 Aug) is the same shape one zoom level up —
-      // "show the bar with the percentage next to it", the sentence on hover.
       if (typeof facts?.optionTakenOutLine === 'string') return facts.optionTakenOutLine
-      if (displayMetadata.isResultsMode && facts?.winSharesWithheld === true) return NOT_RANKED_MARKER
-      if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
-        // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
-        // `Ahead ${…}` while its sibling arm, the `achievementProbability`
-        // return in this same function (withdrawn by contract v3.1), already
-        // read the register's `chance` noun.
-        // So a rename in the register changed the zoomed-IN card and left this
-        // zoomed-OUT one saying the old word.
-        //
-        // ⚠ CITED BY SYMBOL, NOT BY LINE. An earlier version of this comment
-        // said "`:305`, two hundred lines below"; both numbers were wrong (314,
-        // and 56 lines) and a neighbouring edit would have falsified any
-        // correct pair anyway. The sibling is findable by name for as long as
-        // it exists, which a line number is not.
-        // The estate adjudicated this exact case in this exact file for the
-        // sibling noun (`Achievement` -> `Chance`) and took it here rather
-        // than deferring, precisely so the board could not say two words for
-        // one number at two zoom levels. Nothing REDded because the canvas
-        // noun guard filters sources to `*Node.tsx` and this file is not one.
-        // ⭐ MODEL-RELATIVE, NEVER `Support` (ED 11:52Z: "Do not use `Support`
-        // as the result label … Any result shown at rest must be explicitly
-        // model-relative, e.g. `Current model · 55% of runs`"). The caption is
-        // resolved by BaseNode from the run's currency; absent, the line
-        // falls through to the option's own change count.
-        const caption = facts?.optionResultCaption
-        if (caption) {
-          return `${caption} · ${OPTION_RESULT_COPY.share(formatWinProbability(displayMetadata.winRate))}`
-        }
+      const chanceText = facts?.optionChanceCell?.text
+      const caption = facts?.optionResultCaption
+      if (displayMetadata.isResultsMode && chanceText != null && caption) {
+        return `${caption} · ${chanceText}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and
