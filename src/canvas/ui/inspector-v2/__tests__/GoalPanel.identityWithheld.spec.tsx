@@ -9,7 +9,7 @@
  * The option rows are the served f5d503b0 block (trimmed), replayed through the REAL mapper.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, act } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
@@ -124,5 +124,21 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
     const { queryByTestId, container } = renderWith(EVALUATED)
     expect(queryByTestId('goal-probability-withheld-identity')).toBeNull()
     expect(container.textContent ?? '').toContain('About 99% chance of meeting your goal')
+  })
+})
+
+
+describe('P02 r2 B: GoalPanel never prints the reading report’s joint figure', () => {
+  beforeEach(() => {
+    vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1' } } as unknown as ReturnType<typeof useAuth>)
+  })
+  it.each([
+    [{ code: 'GOAL_CHANCE_LICENSED', reading_label: null }],
+    [{ code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['other'], withheld_claims: ['joint_probability'] }],
+  ].map(warnings => [warnings]))('with constraints displayed, both joint rendering paths are withheld: %j', (inference_warnings) => {
+    const r = { ...EVALUATED, inference_warnings }
+    const view = renderWith(r)
+    act(() => useCanvasStore.setState({ goalConstraints: [{ node_id: 'goal1', label: 'MRR limit', operator: '>=', threshold: 0.8 }] } as any))
+    expect(view.container.textContent).not.toContain(GOAL_CONSTRAINT_COPY.jointProbabilityLead)
   })
 })

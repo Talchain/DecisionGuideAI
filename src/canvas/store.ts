@@ -83,8 +83,7 @@ export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import {
-  selectGoalProbability,
-  type GoalProbabilityInput,
+  selectGoalProbabilityForReport,
 } from '../components/results/utils/selectGoalProbability'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
@@ -5734,7 +5733,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
             // that disagrees with the panel it snapshotted is the same defect
             // one run later. Read the owner's choice.
             goalProbability:
-              selectGoalProbability(prob as GoalProbabilityInput).goalProbability ?? undefined,
+              selectGoalProbabilityForReport(currentReport, optId).goalProbability ?? undefined,
           }
         }
       }

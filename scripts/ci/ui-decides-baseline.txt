@@ -37,14 +37,14 @@ src/canvas/components/ModelQualityScore.tsx:264
 #      - adapters/plot/v2/responseMapper "shows the strongest expected
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
-src/adapters/plot/v2/responseMapper.ts:1576
+src/adapters/plot/v2/responseMapper.ts:1583
 src/canvas/contextMenu/actions.ts:1151
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8201
+src/canvas/store.ts:8200
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -214,3 +214,4 @@ src/components/results/analysisNew/analysisNewCopy.ts:2802
 # 8 Oct 2026 (Canvas, 'Ask AI' -> 'Ask Olumi' copy): `contextMenu/actions.ts:1139` -> `1137` is a pure
 #    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
 #    re-derived with the scanner, not hand-picked.
+# 8 Oct 2026 (P02 GR2 #2668, after merging staging): re-lined src/adapters/plot/v2/responseMapper.ts:1576 → 1583, src/canvas/store.ts:8201 → 8200, pure line shifts from this PR's hunks (same line text; scanner-derived).

@@ -1166,11 +1166,13 @@ export function buildHeroModel(
     // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
     // option's own line.
     const highest = goalChanceLicence.form === 'highest' || goalChanceLicence.form === 'highest_all_likely_to_miss'
-    const quotedAbove = highest
+    // GR2: the labelled headline contains no figures, so every option keeps its own reading-qualified sentence.
+    const hasReading = goalChanceLicence.readingLabel !== undefined
+    const quotedAbove = hasReading ? [] : highest
       ? [goalChanceLicence.leaderOptionId as string, goalChanceLicence.nextOptionId as string]
       : goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
     const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
-    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar' || highest
+    const lines = hasReading || goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar' || highest
       ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest)
       : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop

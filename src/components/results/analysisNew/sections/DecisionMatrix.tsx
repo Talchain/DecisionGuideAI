@@ -8,6 +8,7 @@ import { MODEL_SCORE_COPY } from '../modelScore'
 import { goalChanceDriverLines, goalChanceOptionLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
 import { goalProbabilityWords } from '../../utils/goalAnchorCopy'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
+import { readGoalFigureWithholds, withheldClaimsFor } from '../../utils/goalIdentityWithheld'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -51,6 +52,11 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     return option ? stripEncodingNotation(option.label) : null
   }
   const chanceLines = licence === null ? null : goalChanceOptionLines(licence, labelOf)
+  // GR2: the reading withhold bars independent figures, while a valid licence carries its reading in the figure's
+  // own sentence. Other typed withholds still apply to that option; the label cannot override a separate failure.
+  const otherFigureWithholds = licence?.readingLabel === undefined ? [] : readGoalFigureWithholds({
+    inference_warnings: data.confidence?.inferenceWarnings,
+  }).filter((warning) => warning.code !== 'GOAL_FIGURES_READING_UNCONFIRMED')
   const driverLines: Readonly<Record<string, string>> = licence?.form === 'all_likely_to_miss' ? {} : goalChanceDriverLines(
     licence, data.goalChanceDriverNames, licence?.form === 'similar' ? licence.similarOptionIds : [],
   )
@@ -67,6 +73,8 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const existingRow = comparison.rows.find((r) => r.id === id)
     const chanceIndex = licence?.optionIds.indexOf(id) ?? -1
     const licensed = licence !== null && chanceLines !== null && licence.optionIds.includes(id)
+    const labelledChance = licensed && licence.readingLabel !== undefined
+      && !withheldClaimsFor(otherFigureWithholds, id).has('goal_probability') ? chanceLines[chanceIndex] : null
     const withheld = rec.goalFiguresWithheldMessage ?? null
     const rangeEntry = range?.rangeByOption[id]
     const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf, range?.target)
@@ -80,7 +88,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     // withheld SENTENCE also fires on the range's own causes (PLACEHOLDER_PATH, TARGET_NOT_TESTABLE), so keying on it
     // would hide every real range (Science, 7 Oct). Then the Run-level withhold, then the option's point or line.
     // Unresolved range labels never fall back to a raw point estimate.
-    const chance = (rangeEntry !== undefined ? rangeClauses.chance : withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : readout)) ?? 'Not shown.'
+    const chance = (rangeEntry !== undefined ? rangeClauses.chance : labelledChance ?? withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : readout)) ?? 'Not shown.'
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.

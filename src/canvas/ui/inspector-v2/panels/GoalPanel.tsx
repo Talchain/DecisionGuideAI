@@ -1,3 +1,4 @@
+import { goalFiguresUnderReading } from '../../../../components/results/utils/goalIdentityWithheld'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 /**
  * GoalPanel — Inspector panel for goal nodes (spec §4)
@@ -223,7 +224,8 @@ export const GoalPanel = memo(function GoalPanel({
   // The owner's decision, forwarded (see the identity comment above): the
   // number, the joint figure, and which quantity the number IS.
   const probGoal = displayMetadata.achievementProbability
-  const probJoint = displayMetadata.jointGoalProbability ?? null
+  const figuresUnderReading = useCanvasStore(s => goalFiguresUnderReading(s.results?.report))
+  const probJoint = figuresUnderReading ? null : displayMetadata.jointGoalProbability ?? null
   // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
   // chooser; it was still being a NARRATOR — rendering the owner's number in
   // possessive wording the owner had explicitly forbidden

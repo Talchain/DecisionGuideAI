@@ -38,7 +38,7 @@ import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { selectStatedLimits } from '../../components/results/decision-overview/statedLimits'
 import { buildLimitVerdictView } from '../../components/results/analysisNew/limitVerdictView'
-import { selectGoalProbability, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
+import { selectGoalProbabilityForReport, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
@@ -420,7 +420,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     }
 
     for (const opt of optionNodes) {
-      const selection = selectGoalProbability(widened.option_probabilities?.[opt.id])
+      const selection = selectGoalProbabilityForReport(widened, opt.id)
       const p = selection.goalProbability
       if (p != null && Number.isFinite(p)) {
         chances.push({

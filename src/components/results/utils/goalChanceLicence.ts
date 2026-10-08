@@ -24,6 +24,18 @@ export type { GoalChanceComparator } from './goalChanceTarget'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
+/** GR2: CEE's stored, unconfirmed reading, carried beside every licensed figure in the same sentence. */
+export interface GoalChanceReadingLabel {
+  readonly v: 1
+  readonly source: 'olumi_reading'
+  readonly goal: { readonly id: string; readonly label: string }
+  readonly factors: readonly [
+    { readonly id: string; readonly label: string },
+    { readonly id: string; readonly label: string },
+  ]
+  readonly addends: ReadonlyArray<{ readonly id: string; readonly label: string; readonly sign: 'less' | 'plus' }>
+}
+
 export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
 
 /** Whose assumption a driver varies, as CEE read it off the Run's own model. */
@@ -85,6 +97,8 @@ export interface GoalChanceLicence {
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
   readonly target: GoalChanceTarget
+  /** Absent for a plain/confirmed goal; a malformed reading rejects the whole licence. */
+  readonly readingLabel?: GoalChanceReadingLabel
   /**
    * ⭐ D3 cut 5 (DL 0df0e1; Science d5 #87 6008252938): CEE's `user_link_existence` — the chances also count Olumi's
    * own existence prior on links the USER stated. `oneIn` is N ("a 1-in-N chance each") when every such link shares one
@@ -159,6 +173,30 @@ function shortfallNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
 const isRec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 
+/** No coercion or partial reading: all names, both ordered factors and every signed addend must be sayable. */
+function readingLabelOf(v: unknown): GoalChanceReadingLabel | null {
+  const text = (s: unknown): s is string => typeof s === 'string' && s.trim() !== ''
+  const named = (n: unknown): n is { id: string; label: string } => isRec(n) && text(n.id) && text(n.label)
+  if (!isRec(v) || v.v !== 1 || v.source !== 'olumi_reading' || !named(v.goal)
+    || !Array.isArray(v.factors) || v.factors.length !== 2 || !named(v.factors[0]) || !named(v.factors[1])
+    || !Array.isArray(v.addends)) return null
+  const addends: Array<{ id: string; label: string; sign: 'less' | 'plus' }> = []
+  for (const a of v.addends) {
+    if (!isRec(a)) return null
+    const sign = a.sign
+    if (!named(a) || (sign !== 'less' && sign !== 'plus')) return null
+    addends.push({ id: a.id, label: a.label, sign })
+  }
+  return {
+    v: 1, source: 'olumi_reading', goal: { id: v.goal.id, label: v.goal.label },
+    factors: [
+      { id: v.factors[0].id, label: v.factors[0].label },
+      { id: v.factors[1].id, label: v.factors[1].label },
+    ],
+    addends,
+  }
+}
+
 /** The two forms that name a highest chance — and so the only ones that license an order by goal chance. */
 export function goalChanceLicensesOrder(licence: GoalChanceLicence | null): boolean {
   return licence !== null && (licence.form === 'highest' || licence.form === 'highest_all_likely_to_miss')
@@ -170,6 +208,10 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const records = inferenceWarnings.filter((w) => isRec(w) && w.code === GOAL_CHANCE_LICENSED)
   if (records.length !== 1) return null
   const r = records[0] as Record<string, unknown>
+  const hasReading = Object.prototype.hasOwnProperty.call(r, 'reading_label')
+  const readingLabel = hasReading ? readingLabelOf(r.reading_label) : null
+  // A present label that cannot be read never falls back to the plain, unlabelled figure path.
+  if (hasReading && readingLabel === null) return null
   const ids = r.option_ids
   const pct = r.pct_by_option
   const target = readGoalChanceTarget(r.target)
@@ -211,6 +253,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     leaderOptionId,
     nextOptionId,
     target,
+    ...(readingLabel === null ? {} : { readingLabel }),
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),

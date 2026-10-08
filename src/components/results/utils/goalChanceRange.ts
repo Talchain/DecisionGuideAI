@@ -1,4 +1,4 @@
-import { GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE, GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_NOT_EVALUATED_CODE } from './goalIdentityWithheld'
+import { GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE, GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_NOT_EVALUATED_CODE, goalFiguresUnderReading } from './goalIdentityWithheld'
 import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
 
 /**
@@ -89,7 +89,7 @@ function rangeBarred(warnings: readonly unknown[], optionId: string): boolean {
 
 /** Exactly one record; invalid or barred option entries are dropped, without rejecting valid siblings. */
 export function readGoalChanceRange(inferenceWarnings: unknown): GoalChanceRange | null {
-  if (!Array.isArray(inferenceWarnings)) return null
+  if (!Array.isArray(inferenceWarnings) || goalFiguresUnderReading({ inference_warnings: inferenceWarnings })) return null
   const records = inferenceWarnings.filter((w) => isRec(w) && w.code === 'GOAL_CHANCE_RANGE')
   if (records.length !== 1) return null
   const r = records[0] as Record<string, unknown>

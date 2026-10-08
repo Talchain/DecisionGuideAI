@@ -144,7 +144,7 @@ export function optionTargetsChannels({
 }
 
 import {
-  selectGoalProbability,
+  selectGoalProbabilityForReport,
   basisWithholdsPossessive,
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
@@ -1453,8 +1453,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // stops the UI repeating a fabrication; it does not stop the fabrication.
     if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
-    const optionProbs = report?.option_probabilities?.[props.id]
-    return selectGoalProbability(optionProbs)
+    return selectGoalProbabilityForReport(report, props.id)
   }, [isPostAnalysis, resultsReport, props.id, displayMetadata.winComputationFailed])
   const goalProbability = goalDecision?.goalProbability ?? null
 

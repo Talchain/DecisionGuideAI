@@ -106,6 +106,7 @@
  */
 
 import { PLOT_JOINT_HEADLINE_SUSPECT } from '../../../adapters/plot/constraintTrust'
+import { goalFiguresUnderReading } from './goalIdentityWithheld'
 
 /**
  * CLAIM-OWNERSHIP REGISTRATION.
@@ -200,6 +201,8 @@ export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>
 export type GoalFitBaseCaveat = 'olumi_estimate' | 'from_inputs'
 
 export interface GoalProbabilitySelection {
+  /** Report-level refusal, independent of whether a mapper stamped its option entries. */
+  withheldBy?: 'reading_unconfirmed'
   /** The number to display, or null when no source is admissible. */
   goalProbability: number | null
   /**
@@ -420,5 +423,28 @@ export function selectGoalProbability(
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',
     goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
+  }
+}
+
+
+/** Every goal-figure reader with a report uses this gate, including unstamped or hydrated reports. */
+export function selectGoalProbabilityForReport(report: unknown, optionId: string): GoalProbabilitySelection {
+  const holder = report != null && typeof report === 'object' && !Array.isArray(report)
+    ? report as { option_probabilities?: Record<string, GoalProbabilityInput> }
+    : undefined
+  const selected = selectGoalProbability(holder?.option_probabilities?.[optionId])
+  if (!goalFiguresUnderReading(report)) return selected
+  return {
+    ...selected,
+    goalProbability: null,
+    jointGoalProbability: null,
+    withheldBy: 'reading_unconfirmed',
+    basis: 'none',
+    goalProbabilityIsJoint: false,
+    goalFitIsModelledBasis: false,
+    jointGoalIsModelledBasis: false,
+    goalFitBaseCaveat: null,
+    mayUsePossessiveGoalFraming: false,
+    jointSubstitutionWithheld: false,
   }
 }

@@ -1,7 +1,7 @@
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
-import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import { selectGoalProbabilityForReport } from '../../components/results/utils/selectGoalProbability'
 import { selectRunWithholdsFigures } from '../ui/inspector-v2/useAnalysisResults'
 import { bindAskTarget, clearAskTargetBinding } from '../ui/inspector-v2/askTargetBinding'
 import { revealOlumiSurface } from './revealOlumi'
@@ -55,8 +55,9 @@ export function askAiStage(state = useCanvasStore.getState()): AskStage {
   if (resultLeaderWithholdCause(state.results?.report?.producer_leader_permission) === 'unrequested_analysis_withheld') return 'drafted'
   if (!selectRunAffirmedCurrent(state)) return 'stale'
   if (selectRunWithholdsFigures(state)) return 'withheld'
-  const probabilities = (state.results?.report as { option_probabilities?: Record<string, Parameters<typeof selectGoalProbability>[0]> } | undefined)?.option_probabilities
-  if (probabilities && Object.values(probabilities).some(p => selectGoalProbability(p).goalProbability === null)) return 'withheld'
+  const report = state.results?.report
+  const probabilities = report?.option_probabilities
+  if (probabilities && Object.keys(probabilities).some(id => selectGoalProbabilityForReport(report, id).goalProbability === null)) return 'withheld'
   return 'ran-current'
 }
 const labelOf = (node: { data?: unknown } | undefined): string | undefined => {

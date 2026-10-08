@@ -31,6 +31,7 @@
  */
 
 import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2CritiqueSeverity, V2EdgeSensitivity, V2FactorSensitivity } from './types'
+import { goalReadingSignalIn } from '../../../components/results/utils/goalIdentityWithheld'
 import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
@@ -488,6 +489,12 @@ export function mapV2ResponseToReportV1(
 
   return {
     schema: 'report.v1',
+    // GR2: carry ONLY the reading gate across legacy hydration, as a flag. Promoting the warning array changed which
+    // warnings readers saw (root [] masked robustness's), so the arrays are left exactly as before (Codex r2 P1).
+    ...(goalReadingSignalIn(
+      (v2Response as unknown as { inference_warnings?: unknown }).inference_warnings,
+      (v2Response.robustness as { inference_warnings?: unknown } | undefined)?.inference_warnings,
+    ) ? { goal_reading_unconfirmed: true as const } : {}),
     meta: {
       seed: meta.seed,
       response_id: v2Response.response_hash,

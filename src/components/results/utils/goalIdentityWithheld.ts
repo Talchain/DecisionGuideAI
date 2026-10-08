@@ -38,6 +38,9 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
   // product-not-read (CEE #2340). Both messages open "Not shown." and are shown verbatim by the one reader.
   'GOAL_FIGURES_PLACEHOLDER_PATH',
   'GOAL_FIGURES_PRODUCT_NOT_READ',
+  // GR2 (Science §(e) item 5): the goal rests on Olumi's unconfirmed reading; independent figure sites withhold it,
+  // while the licence path says the reading in the same sentence as its figure.
+  'GOAL_FIGURES_READING_UNCONFIRMED',
   // CEE #2371 (MG SUCCESSOR #75 5915202903): an `exploratory` run withholds every option's goal figures because the
   // target can't be tested yet; "Not shown. " + the decision-representation sentence, which may end in its one question.
   'GOAL_FIGURES_TARGET_NOT_TESTABLE',
@@ -65,13 +68,51 @@ export interface GoalIdentityWithheld {
 /** snake_case ids or structural characters mean the text is not display-safe. */
 const NOT_DISPLAY_SAFE = /\b[a-z0-9]+_[a-z0-9_]+\b|[{}[\]<>]/
 
+/** Presence, not parseability or producer scope: the whole report is under an unconfirmed reading. */
+/** Whether any of these warning arrays carries the unconfirmed-reading signal (a label, or CEE's typed code). */
+export function goalReadingSignalIn(...arrays: unknown[]): boolean {
+  return arrays.some((a) => Array.isArray(a) && a.some((w) => isPlainObject(w) && (
+    w.code === 'GOAL_FIGURES_READING_UNCONFIRMED'
+    || (w.code === 'GOAL_CHANCE_LICENSED' && Object.prototype.hasOwnProperty.call(w, 'reading_label'))
+  )))
+}
+
+export function goalFiguresUnderReading(holder: unknown): boolean {
+  if (!isPlainObject(holder)) return false
+  // Legacy hydration carries the gate as a flag (responseMapper), never by moving warnings.
+  return holder.goal_reading_unconfirmed === true || goalReadingSignalIn(holder.inference_warnings)
+}
+
+/** One warning list for the figure scope and both reason readers, including GR2's fail-closed fallback. */
+function goalFigureWarnings(holder: Record<string, unknown>): Record<string, unknown>[] {
+  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
+  const matched = warnings.filter((w): w is Record<string, unknown> =>
+    isPlainObject(w) && typeof w.code === 'string' && GOAL_FIGURES_WITHHELD_CODES.includes(w.code))
+  // Presence, not parseability: even null/undefined or a malformed label must never expose a bare goal figure.
+  const hasReading = warnings.some((w) => isPlainObject(w) && w.code === 'GOAL_CHANCE_LICENSED'
+    && Object.prototype.hasOwnProperty.call(w, 'reading_label'))
+  // A producer's scoped warning may add words, but can never narrow this full-scope withhold.
+  if (hasReading) {
+    matched.push({
+      code: 'GOAL_FIGURES_READING_UNCONFIRMED',
+      withheld_claims: ['goal_probability', 'joint_probability'],
+      message: GOAL_IDENTITY_WITHHELD_FALLBACK,
+      synthesizedReading: true,
+    })
+  }
+  return matched
+}
+
+/** Scope stays full; use the producer's words where its reading warning covers this reader. */
+function readingReasons(warnings: Record<string, unknown>[]): Record<string, unknown>[] {
+  return warnings.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED' && w.synthesizedReading !== true)
+    ? warnings.filter((w) => w.synthesizedReading !== true)
+    : warnings
+}
+
 export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld | null {
   if (!isPlainObject(holder)) return null
-  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
-  const matched = warnings.filter(
-    (w): w is Record<string, unknown> =>
-      isPlainObject(w) && typeof w.code === 'string' && GOAL_FIGURES_WITHHELD_CODES.includes(w.code),
-  )
+  const matched = goalFigureWarnings(holder)
   if (matched.length === 0) return null
   const nodeIds = [...new Set(matched.flatMap((w) => (Array.isArray(w.node_ids)
     ? w.node_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -79,23 +120,27 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   // Item-3: the target warning states the complete sizing requirement; the placeholder names only a subset.
   // Select words independently of the node/claim scopes, which still retain every matched warning.
   const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
-  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const reasons = readingReasons(hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched)
   const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
   // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
   const allSafe = words.every((raw) => raw.startsWith('Not shown.') && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
-  return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
+  const fallbackReading = reasons.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED' && w.message === GOAL_IDENTITY_WITHHELD_FALLBACK)
+  return { nodeIds, message: allSafe && !fallbackReading
+    ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
 }
 
 /** Producer reasons for ONE option, using B3's fail-closed option scope. null means no safe reason. */
 export function readGoalWithheldReasonFor(holder: unknown, optionId: string): string | null {
   if (!isPlainObject(holder)) return null
-  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
-  const matched = warnings.filter((w): w is Record<string, unknown> => {
-    if (!isPlainObject(w) || typeof w.code !== 'string' || !GOAL_FIGURES_WITHHELD_CODES.includes(w.code)) return false
+  const matched = readingReasons(goalFigureWarnings(holder).filter((w) => {
     const optionIds = nonEmptyStrings(w.option_ids)
     return optionIds === null || optionIds.includes(optionId)
-  })
+  }))
+  // The synthesized cause-neutral reason stands alone, just as it does in the run-level reader.
+  if (matched.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED' && w.message === GOAL_IDENTITY_WITHHELD_FALLBACK)) {
+    return GOAL_IDENTITY_WITHHELD_FALLBACK.slice('Not shown.'.length).trim()
+  }
   const ownMessage = matched.flatMap((w) => {
     if (w.code !== 'GOAL_FIGURES_TARGET_NOT_TESTABLE' || !isPlainObject(w.per_option)
       || !Object.prototype.hasOwnProperty.call(w.per_option, optionId)) return []
@@ -105,7 +150,7 @@ export function readGoalWithheldReasonFor(holder: unknown, optionId: string): st
   })[0]
   // Item-3 applies only among warnings covering this option; another option's target cannot replace its placeholder.
   const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
-  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const reasons = readingReasons(hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched)
   const words = ownMessage !== undefined ? [ownMessage.trim()]
     : reasons.map((w) => typeof w.message === 'string' ? w.message.trim() : '')
   if (words.length === 0 || words.some((raw) => !raw || raw.length > 400 || NOT_DISPLAY_SAFE.test(raw))) return null
@@ -141,10 +186,7 @@ const nonEmptyStrings = (v: unknown): string[] | null =>
 
 export function readGoalFigureWithholds(holder: unknown): GoalFigureWithhold[] {
   if (!isPlainObject(holder)) return []
-  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
-  return warnings
-    .filter((w): w is Record<string, unknown> =>
-      isPlainObject(w) && typeof w.code === 'string' && GOAL_FIGURES_WITHHELD_CODES.includes(w.code))
+  return goalFigureWarnings(holder)
     .map((w) => {
       const listed = nonEmptyStrings(w.withheld_claims)
       const known = listed !== null && listed.every((c) => (GOAL_FIGURE_CLAIMS as readonly string[]).includes(c))

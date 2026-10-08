@@ -15,6 +15,8 @@ export interface OptionProbability {
 
 export interface ReportV1 {
   schema: 'report.v1'
+  /** GR2: legacy hydration's unconfirmed-goal-reading gate (`goalFiguresUnderReading`); absent otherwise. */
+  goal_reading_unconfirmed?: true
   meta: {
     /**
      * Seed the engine actually used, or null when no real value exists
