@@ -46,7 +46,7 @@ it.each([false, true])('last-run status becomes a glyph and the percentage stays
   mark(`option-win-anchor-${node.id}`, 'last-run', 'Last run')
   // ONE status mark (DL 8 Oct, workstream D): "Last run" wins; the stale line is named in its tooltip, not drawn twice.
   expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
-  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveAttribute('aria-description', 'Also: Last run · no new comparison yet')
+  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveAttribute('aria-description', 'Also: no new comparison yet')
   expect(screen.getByTestId(`option-bottom-marks-${node.id}`).querySelectorAll('[data-card-mark="last-run"],[data-card-mark="no-new-comparison"]')).toHaveLength(1)
   expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
   cleanup(); seed()

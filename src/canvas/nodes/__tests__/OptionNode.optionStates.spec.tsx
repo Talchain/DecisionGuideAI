@@ -263,7 +263,7 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
     // ONE status mark (DL 8 Oct, workstream D): "Last run" wins and names the stale line in its tooltip.
     expect(onCard('option-stale-state-option-1')).toBeFalsy()
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe(`Also: ${STALE_STATE}`)
+    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe('Also: no new comparison yet')
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     expect(shareName()).toMatch(/^Last run · supported by 72% of runs\. /)
     expect(shareName()).toContain('No new comparison yet.')
@@ -274,7 +274,7 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     renderOption(OPTION_1)
     // ONE status mark (DL 8 Oct, workstream D): "Last run" wins and names the stale line in its tooltip.
     expect(onCard('option-stale-state-option-1')).toBeFalsy()
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe(`Also: ${STALE_STATE}`)
+    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe('Also: no new comparison yet')
   })
 
   it('CONTRAST — current: no stale line anywhere, and the share is "Current model"', () => {

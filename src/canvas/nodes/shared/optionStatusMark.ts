@@ -40,6 +40,17 @@ export interface PickedOptionStatusMark {
 
 export const OPTION_STATUS_ALSO_PREFIX = 'Also:'
 
+/**
+ * "Also:" never repeats the winning mark's words (DL 8 Oct): a demoted mark that
+ * only extends the winner ("Last run" → "Last run · no new comparison yet") is
+ * named by its extension alone; one that says nothing more is dropped.
+ */
+export function demotedWords(winnerWords: string, words: string): string | null {
+  if (words === winnerWords) return null
+  const prefix = `${winnerWords} · `
+  return words.startsWith(prefix) ? words.slice(prefix.length) : words
+}
+
 /** `null` when no candidate is active. Candidates may arrive in any order. */
 export function pickOptionStatusMark(candidates: readonly (OptionStatusMarkCandidate | null | false)[]): PickedOptionStatusMark | null {
   const active = candidates.filter((c): c is OptionStatusMarkCandidate => !!c)
@@ -47,7 +58,8 @@ export function pickOptionStatusMark(candidates: readonly (OptionStatusMarkCandi
   const sorted = [...active].sort((a, b) => OPTION_STATUS_MARK_PRIORITY.indexOf(a.id) - OPTION_STATUS_MARK_PRIORITY.indexOf(b.id))
   const [winner, ...rest] = sorted
   const demoted = rest.map(c => c.id).filter((id, i, all) => id !== winner.id && all.indexOf(id) === i)
-  const also = demoted.length > 0 ? `${OPTION_STATUS_ALSO_PREFIX} ${demoted.map(id => cardMark(id).words).join(' · ')}` : null
+  const alsoWords = demoted.map(id => demotedWords(cardMark(winner.id).words, cardMark(id).words)).filter((w): w is string => w !== null)
+  const also = alsoWords.length > 0 ? `${OPTION_STATUS_ALSO_PREFIX} ${alsoWords.join(' · ')}` : null
   const description = [winner.description || null, also].filter((s): s is string => s !== null).join(' · ') || undefined
   return { id: winner.id, testId: winner.testId, description, demoted }
 }

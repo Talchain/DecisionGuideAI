@@ -330,7 +330,7 @@ describe('DIFF item 5 — the option the run left out keeps saying so, in the re
     // ONE status mark (DL 8 Oct, workstream D): stale outranks not-analysed; "Not analysed" is named in its tooltip
     // (and the line's screen-reader sentence still says it), never a second glyph.
     expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toBeNull()
-    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)!.getAttribute('aria-description')).toBe('Also: Last run · no new comparison yet · Not analysed')
+    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)!.getAttribute('aria-description')).toBe('Also: no new comparison yet · Not analysed')
     expect(line()!.textContent).not.toContain('Last run · Not analysed')
     // One line: it never wraps; the reason is the part that gives way, whole.
     expect([...tokens(line())]).toEqual(expect.arrayContaining(['flex-nowrap', 'whitespace-nowrap']))

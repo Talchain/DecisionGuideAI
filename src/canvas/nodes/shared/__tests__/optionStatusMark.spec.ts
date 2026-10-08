@@ -8,6 +8,7 @@ import { cardMark } from '../cardMarks'
 import {
   OPTION_STATUS_ALSO_PREFIX,
   OPTION_STATUS_MARK_PRIORITY,
+  demotedWords,
   pickOptionStatusMark,
   type OptionStatusMarkCandidate,
   type OptionStatusMarkId,
@@ -37,7 +38,8 @@ describe('pickOptionStatusMark', () => {
       expect(picked?.id).toBe(hi)
       expect(picked?.testId).toBe(`t-${hi}`)
       expect(picked?.demoted).toEqual([lo])
-      expect(picked?.description).toBe(`${OPTION_STATUS_ALSO_PREFIX} ${cardMark(lo).words}`)
+      expect(picked?.description).toBe(`${OPTION_STATUS_ALSO_PREFIX} ${demotedWords(cardMark(hi).words, cardMark(lo).words)}`)
+      expect(picked?.description).not.toContain(`${OPTION_STATUS_ALSO_PREFIX} ${cardMark(hi).words}`)
     }
   })
 
@@ -54,6 +56,16 @@ describe('pickOptionStatusMark', () => {
     expect(picked?.description).toBe(
       `Olumi withheld the shares · ${OPTION_STATUS_ALSO_PREFIX} ${cardMark('no-new-comparison').words} · ${cardMark('not-analysed').words} · ${cardMark('provisional').words}`,
     )
+  })
+
+  it('"Also:" never repeats the winner\'s words: Last run + its stale line → "Also: no new comparison yet"', () => {
+    expect(cardMark('no-new-comparison').words.startsWith(`${cardMark('last-run').words} · `)).toBe(true)
+    const picked = pickOptionStatusMark([cand('no-new-comparison'), cand('last-run')])
+    expect(picked?.id).toBe('last-run')
+    expect(picked?.description).toBe(`${OPTION_STATUS_ALSO_PREFIX} no new comparison yet`)
+    expect(`${cardMark('last-run').words} · ${picked?.description}`.match(/Last run/g)).toHaveLength(1)
+    expect(demotedWords('Last run', 'Last run')).toBeNull()
+    expect(demotedWords('Last run', 'Not analysed')).toBe('Not analysed')
   })
 
   it('the same mark offered twice (two stale paths) is shown once and not listed as demoted', () => {
