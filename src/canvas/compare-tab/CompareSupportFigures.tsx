@@ -24,6 +24,7 @@ import { FIGURE_MARKER_W, FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE,
 import { movementVerdictText, WHATS_CHANGED_TESTID } from '../../components/results/analysisNew/sections/WhatsChanged'
 import type { RunDeltaMovement } from '../../components/results/analysisNew/runDeltaView'
 import { sortOptionsForDisplay } from '../../components/results/utils/optionDisplayOrder'
+import type { LatestShare } from './latestOnlyShares'
 
 /** Options shown before "Show N more" — enough for most decisions, short enough to keep the changes in view. */
 export const OPTIONS_SHOWN_FIRST = 3
@@ -178,6 +179,70 @@ export function CompareSupportFigures({ movements, designationsWithheld, optionL
           {all
             ? 'Show less'
             : `Show ${hidden.length} more ${hidden.length === 1 ? 'option' : 'options'}${hiddenSignals > 0 ? ` (${hiddenSignals} moved beyond ordinary run-to-run variation)` : ''}`}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The first sized pair (`prior_withheld`, DL 58e392 ruling 2): the earlier Run held its shares back, so each option
+ * gets its LATEST marker only, on the same track, from the latest Run's own shares (`latestOnlyShares`). Science
+ * github-93's words (8 Oct): no cause for the earlier side, because `prior_withheld` covers any recorded withhold.
+ * No movement, no verdict, no connector: there is nothing to compare a position with.
+ */
+export const COMPARE_LATEST_ONLY_TEXT = 'The earlier run held these figures back, so only the latest run’s are drawn.'
+export const COMPARE_EARLIER_NOT_SHOWN = 'Earlier: not shown'
+export const COMPARE_LATEST_ONLY_TESTID = 'compare-latest-only'
+
+export function CompareLatestOnlyFigures({ shares, designationsWithheld, optionLink }: {
+  shares: readonly LatestShare[]
+  designationsWithheld: boolean
+  optionLink: OptionCanvasLink
+}): JSX.Element | null {
+  const [all, setAll] = useState(false)
+  const [help, setHelp] = useState(false)
+  if (shares.length === 0) return null
+  const ordered = sortOptionsForDisplay(shares.map((m) => ({ m, winProbability: m.current, expected: null, notAnalysed: false })), { designationsWithheld }).map((r) => r.m)
+  const shown = all ? ordered : ordered.slice(0, OPTIONS_SHOWN_FIRST)
+  const hidden = ordered.length - shown.length
+  return (
+    <div className="mt-3" data-testid={COMPARE_LATEST_ONLY_TESTID} data-wire-fields="run_delta.win_probabilities_unavailable option_probabilities[].win_probability">
+      <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${COMPARE_LATEST_ONLY_TESTID}-note`}>{COMPARE_LATEST_ONLY_TEXT}</p>
+      <div className="flex items-center gap-1 mt-2">
+        <p className={`${typography.panelMeta} text-text-light m-0`}>Support across simulated runs</p>
+        <PanelIconButton Icon={Info} inline label="How to read this comparison" expanded={help} onClick={() => setHelp((v) => !v)} testId={`${COMPARE_LATEST_ONLY_TESTID}-help-toggle`} />
+      </div>
+      {help ? <p className={`${typography.panelMeta} text-text-body mt-1 mb-0`}>{COMPARE_SUPPORT_HELP}</p> : null}
+      <div className={`${typography.panelMeta} flex items-center gap-3 mt-1`} data-testid={`${COMPARE_LATEST_ONLY_TESTID}-legend`}>
+        <span className="inline-flex items-center gap-1 text-text-light">
+          <span className="inline-block w-[9px] h-[9px] rounded-full border-2 border-dashed border-text-light" aria-hidden="true" />{COMPARE_EARLIER_NOT_SHOWN}
+        </span>
+        <span className="inline-flex items-center gap-1 text-text-header">
+          <span className="inline-block w-[9px] h-[9px] rounded-full bg-info" aria-hidden="true" />Latest
+        </span>
+      </div>
+      <ul className="list-none p-0 mt-1 mb-0">
+        {shown.map((m) => {
+          const name = m.label ?? 'An option this run does not name'
+          return (
+            <li key={m.optionId} className="py-1.5" data-testid={`${COMPARE_LATEST_ONLY_TESTID}-option`} data-option-id={m.optionId}>
+              <OptionNameLink name={name} link={optionLink(m.optionId)} />
+              <div className="relative h-[15px] mt-1.5" aria-hidden="true" data-testid={`${COMPARE_LATEST_ONLY_TESTID}-figure`}>
+                <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FIGURE_TRACK_TONE}`} />
+                <span className={`${MARKER} bg-info border-2 border-panel ring-1 ring-info/50`} style={{ left: markerLeft(m.current) }} data-marker="latest" data-current={m.current} />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <div className={`${typography.panelMeta} text-text-light flex justify-between mt-0.5`} aria-hidden="true">
+        <span>{COMPARE_SUPPORT_AXIS[0]}</span><span>{COMPARE_SUPPORT_AXIS[1]}</span>
+      </div>
+      {hidden > 0 || all ? (
+        <button type="button" className={`${typography.panelMeta} ${action('inline')} mt-1 text-left justify-start`} aria-expanded={all} onClick={() => setAll((v) => !v)}
+          data-testid={`${COMPARE_LATEST_ONLY_TESTID}-more`}>
+          {all ? 'Show less' : `Show ${hidden} more ${hidden === 1 ? 'option' : 'options'}`}
         </button>
       ) : null}
     </div>
