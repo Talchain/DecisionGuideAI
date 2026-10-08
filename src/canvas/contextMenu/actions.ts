@@ -17,6 +17,9 @@ import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
 import { openStrengthForCanvasOnlyLinkAddedSince } from '../utils/openEdgeStrengthEditor'
+import { openNodeInspector } from '../nodes/shared/openNodeInspector'
+import { requestNodeRename } from '../ui/inspector-v2/renameIntent'
+import { focusNodeById } from '../utils/focusHelpers'
 import { isQuestionCard } from '../domain/questionLink'
 import {
   assessNodeDeletion,
@@ -316,21 +319,32 @@ export async function addNodeAction(
   }
 
   const nodesBefore = store.nodes.length
+  const nodeIdsBefore = new Set(store.nodes.map(node => node.id))
   const ops: PatchOperation[] = [{
     op: 'add_node',
     target_id: `pending-${nodesBefore}`,
     data: { kind: type, label: `New ${type}` },
   }]
-  await commitValidatedMutation(
+  const result = await commitValidatedMutation(
     ops,
     () => store.addNode(flowPos, type),
     showToast,
   )
   // Select new node for immediate editing
   const afterStore = useCanvasStore.getState()
-  if (afterStore.nodes.length > nodesBefore) {
-    const newNode = afterStore.nodes[afterStore.nodes.length - 1]
+  const addedNodes = afterStore.nodes.filter(node => !nodeIdsBefore.has(node.id))
+  if (result.success && afterStore.nodes.length > nodesBefore && addedNodes.length === 1) {
+    const newNode = addedNodes[0]
     afterStore.selectNodeWithoutHistory(newNode.id)
+    openNodeInspector(newNode.id)
+    requestNodeRename(newNode.id)
+    // Defer navigation until the inspector has opened on the new selection.
+    requestAnimationFrame(() => {
+      const current = useCanvasStore.getState()
+      if (current.selection.nodeIds.has(newNode.id) && current.nodes.some(node => node.id === newNode.id)) {
+        focusNodeById(newNode.id)
+      }
+    })
   }
 }
 

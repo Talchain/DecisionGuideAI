@@ -452,6 +452,12 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     // entry-must-match guard. Every live panel now uses the same anatomy route.
   },
   {
+    selector: '[data-testid="inspector-header-menu"]',
+    why: 'header actions menu toggle (EDIT-UX slice 3a) — opening it writes nothing. Its "Remove" item calls the SAME `deleteAction` as the canvas context menu (confirm dialog + durable structural delete), so, like the rename, it is outside because it CAN be saved through an existing carrier, not because it is exempt. "Back to the conversation" in the same menu is navigation.',
+    // ALL panels: Remove exists for every node kind and for links, so the entry
+    // must match everywhere — losing the menu on any panel still REDs.
+  },
+  {
     selector: '[data-testid="edge-label-mode-toggle"]',
     why: 'presentation toggle — sets whether the BOARD draws connection labels as phrases or numbers; writes no model value, so it is the same class as "Show technical detail" above',
     // EDGE ONLY, and deliberately: the control is mounted in the Router's edge

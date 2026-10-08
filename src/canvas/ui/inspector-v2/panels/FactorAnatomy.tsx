@@ -34,7 +34,10 @@ export function FactorAnatomySummary({
     <>
       <InspectorSummary
         sentence={displayText
-          ? `${label} is ${displayText}.`
+          // A figure reads as a sentence ("Pro plan price is £49 …"); a word value
+          // ("Not in use", a binary state) would read as "X is Not in use", so it
+          // is stated as a label/value pair instead.
+          ? (/^[\d£$€+\-−.~<>≈]/.test(displayText) ? `${label} is ${displayText}.` : `${label}: ${displayText}.`)
           : hasStoredValue
             ? `${label} has a value, but no unit is recorded for it.`
             : `${label} has no value yet.`}

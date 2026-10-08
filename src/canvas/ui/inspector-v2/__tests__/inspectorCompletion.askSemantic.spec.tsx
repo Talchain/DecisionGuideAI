@@ -2,6 +2,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { DiscussWithAiButton } from '../../../components/pre-analysis/DiscussWithAiButton'
 import { InspectorQuickActions } from '../shared/InspectorQuickActions'
 import { requestAsk, ASK_SEMANTIC } from '../askSemantic'
@@ -111,7 +112,7 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     // generic Analysis tab) is retired with the rest of the pre-contract chips.
     useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
     setNodeStore()
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />, { wrapper: ToastProvider })
     expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
     fireEvent.click(screen.getByTestId('inspector-header-menu'))
     expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
@@ -165,7 +166,7 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     // Positive control: the SAME probe sees both once a surface is registered,
     // so the absence above is a real absence rather than a blind query.
     useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />, { wrapper: ToastProvider })
     expect(screen.getByTestId('inspector-quick-ask')).toBeTruthy()
     fireEvent.click(screen.getByTestId('inspector-header-menu'))
     expect(screen.getByTestId('inspector-back-to-conversation')).toBeTruthy()

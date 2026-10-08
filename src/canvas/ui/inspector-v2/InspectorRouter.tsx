@@ -4,7 +4,7 @@ import { EditNote } from '../../editNotes/EditNote'
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback, type ComponentType } from 'react'
+import { memo, useMemo, useCallback, useEffect, useRef, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
 import { isCanvasOnlyLink } from '../../utils/canvasOnlyLink'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
@@ -41,6 +41,9 @@ import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
+import { canDeleteFromContextMenu } from '../../contextMenu/useMenuItems'
+import { useIsViewer } from '../../../lib/viewerMode'
+import { InspectorRemoveMenuItem, type InspectorRemoveTarget } from './shared/InspectorRemoveMenuItem'
 import type { EdgeData } from '../../domain/edges'
 import type { Edge } from '@xyflow/react'
 
@@ -151,6 +154,32 @@ export const InspectorRouter = memo(function InspectorRouter({
   const edges = useCanvasStore(s => s.edges)
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const { techMode, setTechMode } = useTechToggle()
+  const isViewer = useIsViewer()
+  const canRemove = canDeleteFromContextMenu(isViewer)
+  const removalWatch = useRef<(() => void) | null>(null)
+
+  // The action may refuse or only open a confirmation. Keep the inspector
+  // until this exact subject disappears. The store notification closes the
+  // host before selection clearing can unmount Router and skip a React effect.
+  const handleRemoveRequested = useCallback((target: InspectorRemoveTarget) => {
+    removalWatch.current?.()
+    removalWatch.current = useCanvasStore.subscribe(state => {
+      const exists = target.kind === 'node'
+        ? state.nodes.some(node => node.id === target.nodeId)
+        : state.edges.some(edge => edge.id === target.edgeId)
+      if (!exists) {
+        removalWatch.current?.()
+        removalWatch.current = null
+        onClose()
+      }
+    })
+  }, [onClose])
+
+  // A cancelled removal keeps watching only while this subject is inspected.
+  useEffect(() => () => {
+    removalWatch.current?.()
+    removalWatch.current = null
+  }, [nodeId, edgeId])
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),
@@ -278,16 +307,19 @@ export const InspectorRouter = memo(function InspectorRouter({
         onClose={onClose}
         dragHandlers={dragHandlers}
         variant="anatomy"
-        headerMenu={canAsk ? (
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="inspector-back-to-conversation"
-            onClick={handleBackToConversation}
-            className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
-          >
-            Back to the conversation
-          </button>
+        headerMenu={canAsk || canRemove ? (
+          <>
+            {canRemove && <InspectorRemoveMenuItem target={{ kind: 'edge', edgeId }} onRequested={handleRemoveRequested} />}
+            {canAsk && <button
+              type="button"
+              role="menuitem"
+              data-testid="inspector-back-to-conversation"
+              onClick={handleBackToConversation}
+              className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
+            >
+              Back to the conversation
+            </button>}
+          </>
         ) : undefined}
         more={<div className="mt-3"><EdgeLabelModeToggle /></div>}
         footerNote={
@@ -525,16 +557,19 @@ export const InspectorRouter = memo(function InspectorRouter({
          and would do neither — the rename would apply locally and vanish on
          reload, which is the exact defect UI #1025 reverted #1024 for. */
       onLabelChange={handleLabelChange}
-      headerMenu={canAsk ? (
-        <button
-          type="button"
-          role="menuitem"
-          data-testid="inspector-back-to-conversation"
-          onClick={handleBackToConversation}
-          className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
-        >
-          Back to the conversation
-        </button>
+      headerMenu={canAsk || canRemove ? (
+        <>
+          {canRemove && <InspectorRemoveMenuItem target={{ kind: 'node', nodeId }} onRequested={handleRemoveRequested} />}
+          {canAsk && <button
+            type="button"
+            role="menuitem"
+            data-testid="inspector-back-to-conversation"
+            onClick={handleBackToConversation}
+            className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
+          >
+            Back to the conversation
+          </button>}
+        </>
       ) : undefined}
       actions={
         <>
