@@ -197,8 +197,8 @@ interface InterventionRowProps {
    * make the row honest about not knowing.
    */
   recordedBaseline?: number
-  /** Current intervention value */
-  currentValue: number
+  /** Current intervention value; absent on a linked factor with no target yet. */
+  currentValue?: number
   /** CEE-authored display_value for the intervention — rendered verbatim when
    * present, replacing the "Currently: X → editable" numeric formatter. */
   displayValue?: string
@@ -319,7 +319,7 @@ export function InterventionRow({
   const adornment = optionTargetEntryAdornment(frame)
   /** What the field shows: the reader's unapplied value while one stands, else the record. */
   const shownValue = unapplied ? unapplied.value : currentValue
-  const seedText = optionTargetEntrySeed(shownValue, frame, anchor)
+  const seedText = shownValue === undefined ? '' : optionTargetEntrySeed(shownValue, frame, anchor)
   const [draft, setDraft] = useState(seedText)
   /** Why the typed text was not sent — rendered, never swallowed. */
   const [entryRefusal, setEntryRefusal] = useState<string | null>(null)
@@ -386,7 +386,7 @@ export function InterventionRow({
       return
     }
     setEntryRefusal(null)
-    if (Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
+    if (currentValue !== undefined && Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
       // The saved value, typed again: nothing to send, and nothing unapplied.
       if (unapplied) onDismissUnapplied?.()
       else setDraft(seedText)
@@ -518,13 +518,14 @@ export function InterventionRow({
    * spec REDs on that surface by name.
    */
   const targetDisplay = (() => {
+    if (currentValue === undefined) return ''
     const housed = formatNumber(currentValue)
     return Number(housed) === 0 && currentValue !== 0
       ? formatNumber(currentValue, 2)
       : housed
   })()
 
-  const provenance = classifyInterventionProvenance(provenanceSource)
+  const provenance = currentValue === undefined ? null : classifyInterventionProvenance(provenanceSource)
 
   /**
    * ⭐ THE BOX'S ACCESSIBLE NAME (DEFECT 5 (b)). Served `a4434670` rendered the
@@ -546,7 +547,7 @@ export function InterventionRow({
    */
   const discard = useCallback(() => {
     blurIntentRef.current = null
-    setDraft(optionTargetEntrySeed(currentValue, frame, anchor))
+    setDraft(currentValue === undefined ? '' : optionTargetEntrySeed(currentValue, frame, anchor))
     setEntryRefusal(null)
     if (unapplied) onDismissUnapplied?.()
   }, [currentValue, frame, anchor, unapplied, onDismissUnapplied])
@@ -579,6 +580,7 @@ export function InterventionRow({
         ref={inputRef}
         type="text"
         value={draft}
+        placeholder={currentValue === undefined ? 'Enter a value' : undefined}
         aria-label={inputAccessibleName}
         aria-invalid={fieldIsInvalid ? true : undefined}
         aria-describedby={underFieldMessage !== null ? messageId : undefined}
