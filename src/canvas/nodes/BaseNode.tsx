@@ -386,6 +386,8 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
 
 const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
+  // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
+  const anchorBandHasMarks = useBottomBandHasMarks()
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
    * actually carry constraints are not the one this started on.
@@ -1537,7 +1539,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * of the two boxes whatever rung it runs at. `showQuickActions` at Normal is
    * exactly the lens condition: the body is never hidden at `full`.
    */
-  const anchorBandHasMarks = useBottomBandHasMarks()
   const cardPaddingAt = (normal: boolean): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
