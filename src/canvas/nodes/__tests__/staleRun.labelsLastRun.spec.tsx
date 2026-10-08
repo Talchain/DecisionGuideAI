@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐⭐ A STALE RUN'S INFLUENCE FIGURE AND RANK ARE LABELLED "LAST RUN", NEVER
  * WITHHELD — ON EVERY MOUNTED SURFACE THAT SHOWS ONE.
@@ -359,13 +361,13 @@ describe('wording parity with the option card', () => {
    * option card's `Last run · Most supported` pill — the string this prefix was
    * first lifted from — is retired. The card still carries `Last run` on a
    * changed run, on its result row, and that row's accessible name is
-   * `Last run · N% of runs. …`. Parity is therefore pinned against the row:
+   * `Last run · <Results chance cell> …`. Parity is therefore pinned against the row:
    * one wording for one state across the factor and option cards.
    */
   it('the shared prefix is the exact string the option card\'s result row renders on a changed run — and no pill carries it', () => {
     const option = { label: 'Try a smaller pilot', type: 'option' }
-    // The option card reads its win share off the display model (mocked in
-    // this file); the leader itself comes from the real report verdict.
+    // The Results chance context is supplied separately from the mocked win share;
+    // the leader itself still comes from the real report verdict.
     displayMetadata = { ...metadata(null, null, 0), sensitivityRank: null, influence: null, influenceProvenance: null, winRate: 0.72 }
     seedCompletedRun(UNVALUED, {
       nodes: [
@@ -373,19 +375,24 @@ describe('wording parity with the option card', () => {
         { id: 'opt_b', type: 'option', position: { x: 0, y: 0 }, data: option },
       ],
     })
-    const { container } = render(<ReactFlowProvider><OptionNode
+    const chanceCells = optionChanceFixture({ opt_a: 41, opt_b: 29 })
+    const { container } = render(<ReactFlowProvider><CanvasOptionChanceContext.Provider value={chanceCells}><OptionNode
       id="opt_a" type="option" data={option as never} selected={false}
       isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
       dragging={false} zIndex={0} deletable selectable draggable
-    /></ReactFlowProvider>)
+    /></CanvasOptionChanceContext.Provider></ReactFlowProvider>)
     editTheModel()
     expect(LAST_RUN_PREFIX).toBe('Last run · ')
     // The row's visible caption is the prefix's word, and its accessible name
     // opens with the prefix byte for byte — the same string the factor card uses.
     expect(`${screen.getByTestId('option-win-anchor-opt_a').getAttribute('aria-label')} · `).toBe(LAST_RUN_PREFIX)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
+    // WS5-1 #2704: prefix parity is unchanged; the chance replaces the share.
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
-      .toMatch(new RegExp(`^${LAST_RUN_PREFIX}supported by 72% of runs\\. `))
+      .toMatch(new RegExp(`^${LAST_RUN_PREFIX}`))
+    expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
+      .toContain(chanceCells('opt_a').text)
+    expect(screen.getByTestId('option-win-readout-opt_a').textContent).toContain('41%')
+    expect(container.textContent).not.toContain('of runs')
     // …and the retired pill does not come back carrying it (this card IS the
     // producer's named leader — the strongest case). Contrast: the row above.
     expect(screen.queryByTestId('leading-option-pill-opt_a')).toBeNull()
