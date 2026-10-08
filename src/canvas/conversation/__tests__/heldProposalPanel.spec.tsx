@@ -90,10 +90,10 @@ describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
     const { send } = mount(); open(); choose(); fireEvent.click(within(panel()).getByRole('button', { name: 'Submit' }))
     expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id }, proposal_edits: expectedEdits() })
   })
-  it.each(['Use Olumi\'s suggestions', 'Submit'])('%s without edits has NO proposal_edits key', (label) => {
+  it.each(['Use Olumi\'s suggestions', 'Submit'])('%s without edits binds the rendered proposal with fields: []', (label) => {
     const { send } = mount(); open(); if (label !== 'Submit') choose()
     fireEvent.click(within(panel()).getByRole('button', { name: label }))
-    expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id } })
+    expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id }, proposal_edits: { ...expectedEdits(), fields: [] } })
   })
   it('Not now sends the exact decline payload', () => {
     const { send } = mount(); open(); fireEvent.click(within(panel()).getByRole('button', { name: 'Not now' }))

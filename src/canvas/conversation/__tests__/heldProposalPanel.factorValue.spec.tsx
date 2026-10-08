@@ -141,14 +141,14 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     expect(send.mock.calls[0][0].proposalEdits).toEqual(request.proposal_edits)
   })
 
-  it("R4 Use Olumi's suggestions approves with no edits even after entering a figure", () => {
+  it("R4 Use Olumi's suggestions binds the rendered proposal with fields: [] even after entering a figure", () => {
     const turn = a1(); const proposal = rawProposal(turn, A1_PID)
     const { send } = mount(turn); open(turn); editHours('12')
     fireEvent.click(within(panel()).getByRole('button', { name: "Use Olumi's suggestions" }))
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].id).toBe(proposal.approve_action.id)
     expect(send.mock.calls[0][0].message).toBe(proposal.approve_action.message)
-    expect(send.mock.calls[0][0].proposalEdits).toBeUndefined()
+    expect(send.mock.calls[0][0].proposalEdits).toEqual({ proposal_id: A1_PID, revision: proposal.revision, digest: proposal.digest, graph_hash: turn._proposal_fields.graph_hash, fields: [] })
   })
 
   it('R5 Not now sends the exact decline identity and sentence', () => {
@@ -258,7 +258,7 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     expect(within(hours).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
   })
 
-  it.each([false, true])('Submit has no edits when figures stay unchanged (revealed=%s)', revealed => {
+  it.each([false, true])('Submit binds the rendered proposal with fields: [] when figures stay unchanged (revealed=%s)', revealed => {
     const turn = a1(); const proposal = rawProposal(turn, A1_PID)
     const { send } = mount(turn); open(turn)
     if (revealed) editHours('10')
@@ -266,7 +266,7 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].id).toBe(proposal.approve_action.id)
     expect(send.mock.calls[0][0].message).toBe(proposal.approve_action.message)
-    expect(send.mock.calls[0][0].proposalEdits).toBeUndefined()
+    expect(send.mock.calls[0][0].proposalEdits).toEqual({ proposal_id: A1_PID, revision: proposal.revision, digest: proposal.digest, graph_hash: turn._proposal_fields.graph_hash, fields: [] })
   })
 
   it('a non-editable captured factor is a read-only figure with no edit control', () => {

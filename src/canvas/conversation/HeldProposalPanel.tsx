@@ -67,8 +67,8 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
     ? figures[f.field_id] !== undefined && enteredFactorValue(f, figures[f.field_id]) === null
     : selections[f.field_id] === null))
   const approve = (edits: boolean) => onAction({ ...buildSuggestedActionChips([], [proposal.approve_action])[0],
-    ...(edits && changed.length > 0 ? { proposalEdits: { proposal_id: proposal.proposal_id, revision: proposal.revision,
-      digest: proposal.digest, graph_hash: graphHash, fields: changed } } : {}),
+    proposalEdits: { proposal_id: proposal.proposal_id, revision: proposal.revision,
+      digest: proposal.digest, graph_hash: graphHash, fields: edits ? changed : [] },
   })
   return (
     <section role="region" aria-label="What this change assumes" className="rounded-lg border border-panel-border bg-panel p-3 space-y-3">

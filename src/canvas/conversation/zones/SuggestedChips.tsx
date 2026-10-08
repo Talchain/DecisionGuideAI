@@ -183,6 +183,7 @@ interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ProposalPanelAction) => Promise<void>
   proposalFields?: unknown
+  heldProposalEarlier?: boolean
   replyId?: string
   openedProposalId?: string | null
   onOpenProposal?: (id: string) => void
@@ -221,6 +222,7 @@ export function SuggestedChips({
   isHistorical = false,
   runGate,
   proposalFields,
+  heldProposalEarlier = false,
   replyId,
   openedProposalId: controlledProposalId,
   onOpenProposal,
@@ -521,13 +523,24 @@ export function SuggestedChips({
       gatedRun()
       return
     }
-    onChipClick(chip).catch(() => {
+    // Every approval carries the record displayed under this reply, even when no values changed.
+    const held = fields?.proposals.find(p => p.approve_action.id === chip.id)
+    const action = held && fields && !chip.proposalEdits ? { ...chip, proposalEdits: {
+      proposal_id: held.proposal_id, revision: held.revision, digest: held.digest,
+      graph_hash: fields.graph_hash, fields: [],
+    } } : chip
+    onChipClick(action).catch(() => {
       setChipError("That didn't work. Try typing your request instead.")
     })
   }
 
   return (
     <div className="flex flex-col self-start gap-1 mb-4">
+      {heldProposalEarlier && (
+        <p className={typography.chatMeta} data-testid="held-proposal-earlier-label">
+          An earlier suggestion, still waiting for your answer:
+        </p>
+      )}
       {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
           row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
       {visible.map((chip, i) => {

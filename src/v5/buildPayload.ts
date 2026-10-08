@@ -91,7 +91,7 @@ export interface BuildV5PayloadInput {
   message?: string
   /** sendTurn source string. Maps to TurnSource. */
   source?: string | undefined
-  /** §15 held-proposal edits; sent only beside that proposal's own approve chip. */
+  /** Held-proposal binding and optional edits; sent only beside that proposal's own approve chip. */
   proposalEdits?: ProposalEdits
   /** Chip metadata forwarded by chip click handlers. */
   chipMeta?:
@@ -225,8 +225,8 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     }
   }
 
-  if (source === 'chip' && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
-    && input.proposalEdits && input.proposalEdits.fields.length > 0) {
+  if ((source === 'chip' || source === 'chip_click') && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
+    && input.proposalEdits) {
     base.proposal_edits = input.proposalEdits
   }
 

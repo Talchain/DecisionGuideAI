@@ -122,26 +122,54 @@ export function buildRestoredThread(
  * ⭐ S-D (§15): a held Agent-lane change (`gmh_…`) comes back on a reload ONLY through the read's `proposal_fields`,
  * which CEE documents as "the proposals still held, with what each assumes and its exact card". `held_proposal_offers`
  * never carries one: CEE builds it from the conventional pending store alone (witnessed on CEE 4f9f9e5, sd-wire-4).
- * As live, where CEE re-offers the oldest hold beside every later reply, the oldest entry arms the LATEST reply.
- * A later user message, or a held card that reply already carries, takes priority. No valid entry → unchanged.
+ * Each proposal belongs to its issuing reply. Older reads without an issuing turn, or entries whose turn was not
+ * restored, may arm the latest reply only when it has no held card; that fallback is explicitly labelled earlier.
+ * A later user message, or another held card that reply already carries, takes priority. No valid entry → unchanged.
  */
 export function reconcileRestoredProposalFields(
   messages: readonly ConversationMessage[],
   rawProposalFields: unknown,
 ): ConversationMessage[] {
-  const held = readProposalFields(rawProposalFields)?.proposals[0]
+  const proposals = readProposalFields(rawProposalFields)?.proposals ?? []
+  const out = [...messages]
+  const unmatched: typeof proposals = []
+  const isReply = (message: ConversationMessage) => message.role === 'assistant' && !message.synthetic
+    && typeof message.sessionDivider !== 'string'
+  const approveIds = (message: ConversationMessage) => (message.actionChips ?? [])
+    .filter(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:')).map(c => c.id)
+  const attach = (index: number, held: typeof proposals[number], earlier: boolean) => {
+    const reply = out[index]
+    const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
+    const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
+    out[index] = { ...reply, heldProposalId: held.proposal_id, heldProposalEarlier: earlier,
+      actionChips: [...card, ...others], proposalFields: rawProposalFields }
+  }
+
+  // Issuing replies take priority over an unmatched entry's fallback, regardless of the read's proposal order.
+  for (const held of proposals) {
+    const matches = held.issued_turn_id == null ? [] : out.flatMap((message, index) =>
+      isReply(message) && (message.id === `restored-assistant-${held.issued_turn_id}`
+        || message.clientTurnId === held.issued_turn_id || message.serverTurnId === held.issued_turn_id) ? [index] : [])
+    if (matches.length !== 1) { unmatched.push(held); continue }
+    const index = matches[0]
+    // The same restored card is enriched with its binding; a different card retains its own reply.
+    if (approveIds(out[index]).some(id => id !== held.approve_action.id)) continue
+    attach(index, held, false)
+  }
+
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
-  let last = messages.length - 1
-  while (last >= 0 && typeof messages[last].sessionDivider === 'string') last--
-  const reply = messages[last]
-  if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.synthetic
-    || (reply.actionChips ?? []).some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) return [...messages]
-  const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
-  const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
-  return [...messages.slice(0, last),
-    { ...reply, heldProposalId: held.proposal_id, actionChips: [...card, ...others], proposalFields: rawProposalFields },
-    ...messages.slice(last + 1)]
+  let last = out.length - 1
+  while (last >= 0 && typeof out[last].sessionDivider === 'string') last--
+  const reply = out[last]
+  if (unmatched.length > 0 && reply !== undefined && isReply(reply) && approveIds(reply).length === 0) {
+    attach(last, unmatched[0], true)
+  } else if (proposals.length > 0 && reply !== undefined && isReply(reply) && out[last].proposalFields === undefined) {
+    // The latest reply carries the read's CURRENT held set, as a live reply carries `_proposal_fields`: ChatThread
+    // shows an earlier reply's card only while this set still lists it.
+    out[last] = { ...out[last], proposalFields: rawProposalFields }
+  }
+  return out
 }
 
 

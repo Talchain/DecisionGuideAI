@@ -26,6 +26,7 @@ import { pressIdsOnBar } from '../actionBar/actionBarContract'
 import { useScenarioActionBar } from '../actionBar/useScenarioActionBar'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
+import { readProposalFields } from '../proposalFields'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 import { useCanvasStore } from '../../store'
@@ -313,7 +314,7 @@ export const ChatThread = memo(function ChatThread({
   // re-documented — a dead guard that reads as a live one is how ROADMAP
   // 2.668's second defect came to be diagnosed against this file at all.
   // Dividers are assistant-role transcript markers, never the owner of a reply's controls.
-  // The latest real reply still supersedes every earlier reply's chips.
+  // Ordinary actions belong to the latest reply; restored held cards retain their issuing replies.
   // ⭐ S-B slice 1: CEE's action bar sits under the latest reply (the Reasoning tab shows the same bar). A suggested
   // action whose id is a press on the bar is already there, so it is not drawn twice; approval, amend and answer
   // controls are never bar offers and stay chips.
@@ -324,6 +325,17 @@ export const ChatThread = memo(function ChatThread({
     const chips = lastReplyChips ?? []
     return onBar.size === 0 ? chips : chips.filter((chip) => !onBar.has(chip.id))
   }, [actionBar, lastReplyChips])
+  // Re-offers share an approve id. Only its newest reply owns that card, while distinct restored holds stay visible.
+  // ⛔ STALE-LIVE: an earlier reply's card shows only while CEE's CURRENT held set (the latest reply's proposal_fields,
+  // which projects only live proposals) still lists it; approving or declining it on a later turn retires the card.
+  const currentHeldIds = new Set((readProposalFields(lastReplyMsg?.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
+  const heldChipOwners = new Map<string, ConversationMessage>()
+  for (const message of messages) {
+    if (message.role !== 'assistant' || message.synthetic || message.sessionDivider) continue
+    for (const chip of message.actionChips ?? []) {
+      if (typeof chip.id === 'string' && chip.id.startsWith('agent-approve-proposal:')) heldChipOwners.set(chip.id, message)
+    }
+  }
 
   // PX-B: the settling phase, read the SAME way AIInputBar reads it —
   // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
@@ -404,7 +416,15 @@ export const ChatThread = memo(function ChatThread({
         if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        const chipGroup = isLastAssistant && suggestedChips.length > 0
+        const heldId = msg.heldProposalId
+        const heldApproveId = heldId ? `agent-approve-proposal:${heldId}` : undefined
+        const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
+          && currentHeldIds.has(heldId)
+          && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)
+        const replyChips = isLastAssistant ? suggestedChips : ownsHeldCard
+          ? (msg.actionChips ?? []).filter(chip => chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
+            || chip.id === `agent-decline-proposal:${heldId}`) : []
+        const chipGroup = replyChips.length > 0
         return (
           <div
             key={msg.id}
@@ -416,8 +436,9 @@ export const ChatThread = memo(function ChatThread({
             {msg.actionScience && <DskClaimBadge claim={msg.actionScience} testId="chat-action-science" />}
             {chipGroup && (
               <SuggestedChips
-                chips={suggestedChips}
+                chips={replyChips}
                 proposalFields={msg.proposalFields}
+                heldProposalEarlier={msg.heldProposalEarlier}
                 replyId={msg.id}
                 openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
                 onOpenProposal={id => setOpenedProposal({ scenarioId, id })}
