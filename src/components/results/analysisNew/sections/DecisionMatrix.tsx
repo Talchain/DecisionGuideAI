@@ -6,7 +6,7 @@ import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { MODEL_SCORE_COPY } from '../modelScore'
 import { goalChanceDriverLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
-import { optionChanceCell, runViewOf } from '../../../../canvas/runView/runView'
+import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -58,7 +58,6 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
   const range = data.goalChanceRange ?? null // readGoalChanceRange, already read from this Run by the hook
   const rangeLabelOf = data.goalChanceDriverNames?.labelOf ?? labelOf
   // Legacy projections can carry the already-read licence/range without a view. Preserve their old empty fallback.
-  const view = data.runView ?? { ...runViewOf(null), goalChance: runLicence, goalChanceRange: range }
   // Both clauses were read verbatim by readGoalChanceHorizonLine; the licence has the hero's precedence.
   const horizonLine = licence?.horizonLine ?? range?.horizonLine ?? null
   const rows = options.map((option) => {
@@ -72,14 +71,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const viewChance = data.runView?.chanceOf(id)
     const readout = rangeEntry !== undefined || option.notAnalysed === true ? null
       : viewChance?.kind === 'figure' ? viewChance.words : null
-    const chance = optionChanceCell(view, id, {
-      goalChanceHeroSays: heroSays,
-      goalFiguresWithheldMessage: withheld,
-      goalCertaintyUnearned: option.goalCertaintyUnearned,
-      notAnalysed: option.notAnalysed,
-      labelOf,
-      rangeLabelOf,
-    }).text ?? 'Not shown.'
+    const chance = optionChanceCellFromResults(data, id).text ?? 'Not shown.'
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.

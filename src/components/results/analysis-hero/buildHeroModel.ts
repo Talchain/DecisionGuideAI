@@ -42,6 +42,7 @@
  * track honesty carry the shortfall truth.
  */
 
+import { optionChanceCellFromResults } from '../optionChanceCellFromResults'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -57,7 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // values — "is any option meaningfully on track" — not a display rule, so it
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
-import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
+import { selectGoalLeader } from '../utils/selectGoalLeader'
 import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
 import { licensedOptionChanceLines } from '../../../canvas/runView/runView'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
@@ -189,26 +190,8 @@ const OUTCOME_CLOSE_RATIO = 0.15
  * when EVERY goal readout would render "< 1%", claiming any option "best
  * fits your goal" would be false.
  */
-/**
- * ⭐ ROADMAP 2.333/2.334 — this was a THIRD hand-copy of the goal register's
- * floor (`value < SUB_ONE_PERCENT_FLOOR ? subOnePercent : formatPercent`),
- * sitting beside the option card's and the V7 lens's copies of the same rule.
- * It now calls the register's own formatter.
- *
- * The delegation is byte-identical to the previous behaviour whenever no
- * sample count is supplied: `SUB_ONE_PERCENT_READOUT` and
- * `HERO_COPY.readout.subOnePercent` are the same string ("< 1%"), and above
- * the floor both paths are `formatPercent(v, { fromDecimal: true })`. The
- * `missing` arm is the hero's own and stays here — it is a copy decision
- * about an ABSENT value, not a formatting rule about a present one.
- *
- * With a count, the readout resolves exactly as the card and the goal lens
- * now do. That matters most on this surface: the hero states its figure ABOVE
- * the rows, so a hero saying "< 1%" over rows saying "0.1%" would be the same
- * one-number-two-answers contradiction this slice exists to remove, moved one
- * element up.
- */
-function goalReadout(value: number | null, nSamples?: number | null): string {
+/** Existing numeric headline wording only; per-option goal text is supplied by RunView cells. */
+function leaderGoalReadout(value: number | null, nSamples?: number | null): string {
   if (value == null) return HERO_COPY.readout.missing
   return formatGoalProbability(value, nSamples)
 }
@@ -430,7 +413,6 @@ export function buildHeroModel(
     (ft) => ft.flip_value != null,
   )
 
-  const rangeOptionIds = new Set(data.goalChanceRange?.optionIds ?? [])
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     // UI-SEM-071: without a USER target the goal slot is suppressed at
@@ -439,7 +421,8 @@ export function buildHeroModel(
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
     // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
-    const goalValue = hasUserTarget && !rangeOptionIds.has(o.id) ? (o.goalProbability ?? null) : null
+    const cell = optionChanceCellFromResults(data, o.id)
+    const goalValue = hasUserTarget && !data.goalChanceRange?.optionIds.includes(o.id) && cell.kind !== 'range' && cell.kind !== 'withheld' ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
@@ -462,49 +445,24 @@ export function buildHeroModel(
             formatThreshold(p90, outcomeUnit, outcomeUnitSymbol, isNormalised),
           )
         : undefined
-    // Per-ROW constraint wording (unlike the shared axis/caption, which use
-    // the every-quantifier `hasConstraints`): the selector collapses THIS
-    // option's goalProbability to the joint figure exactly when the option
-    // carries its own constraint analysis, so the row's detail line can name
-    // the quantity precisely — a constrained option's joint figure is never
-    // mislabelled goal-alone in a mixed set.
-    // Goal-probability IDENTITY: when the row's number is the joint figure
-    // STANDING IN for an absent goal probability (`goalFitIsSubstitutedJoint`,
-    // set by the shared selector — never re-derived here), the possessive
-    // "your goal" wording names a question the number does not answer, so the
-    // line states the quantity it actually is. The number itself is unchanged
-    // and still shown: this is a copy switch, never a value transform.
-    // ⚠ CORRECTED BY L65 (2026-08-04) — the claim that used to sit here was
-    // true when written and is now false. It read: "On the live V5 wire this
-    // is the ONLY branch that runs: the selector's basis is
-    // `joint_goal_substituted` on every run". That basis no longer exists:
-    // L62 renamed it `'joint_goal_withheld'` and it returns NO number, so
-    // `goalFitIsSubstitutedJoint` is always false today and the
-    // `goalFitJointBasis` arm below is DEAD pending its rowed retirement
-    // (ROADMAP 2.399(b) — do not delete it here). A live row that has a
-    // number takes the plain `goalFit` arm (or `goalFitWithLimits` when the
-    // option carries its own constraint analysis). The one-voice rule the
-    // old paragraph stated still binds whenever the substituted arm renders:
-    // this line, the headline and the caption must state ONE claim in one
-    // voice — they are read together, in a single render, about a single
-    // number.
-    const goalFit =
-      goalValue != null
-        ? optionHasConstraints(o)
-          ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue, o.nValidSamples))
-          : o.goalFitIsSubstitutedJoint === true
-            ? HERO_COPY.detail.goalFitJointBasis(goalReadout(goalValue, o.nValidSamples))
-            : HERO_COPY.detail.goalFit(goalReadout(goalValue, o.nValidSamples))
-        : undefined
-    // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the caveat
-    // renders ONLY when the goalFit number just above it is actually shown
-    // (goalValue != null) AND the row's own goalFitIsModelledBasis flag is
+    // Per-option goal text comes verbatim from the same RunView cell as the card and matrix.
+    const goalFit = hasUserTarget
+      ? o.goalFitIsSubstitutedJoint === true && !optionHasConstraints(o)
+        ? HERO_COPY.detail.goalFitJointBasis(cell.kind === 'figure'
+          ? cell.text.match(/(?:about|less than|more than) \d+(?:\.\d+)?%/)?.[0] ?? HERO_COPY.readout.missing
+          : HERO_COPY.readout.missing)
+        : cell.text ?? HERO_COPY.readout.missing
+      : undefined
+    const goalFitIdentity = hasUserTarget && optionHasConstraints(o) ? HERO_COPY.caption.goalWithLimits : undefined
+    // Retain the row's own modelled-basis caveat beside its cell or honest gap.
+    // The canonical figure also licenses that caveat when no separate numeric point is present.
+    // The row's own goalFitIsModelledBasis flag is
     // set — computed by useResultsSectionData.ts using the exact same
     // hasConstraints/jointGoalProb branches OptionCards' caveat gates on
     // (o.goalFitIsModelledBasis), never re-derived here. Shared wording
     // (GOAL_FIT_BASIS_CAVEAT_COPY) — never invented, never a separate claim.
     const goalFitCaveat =
-      goalValue != null && o.goalFitIsModelledBasis === true
+      hasUserTarget && (goalValue != null || cell.kind === 'figure') && o.goalFitIsModelledBasis === true
         ? GOAL_FIT_BASIS_CAVEAT_COPY
         : undefined
     return {
@@ -521,7 +479,7 @@ export function buildHeroModel(
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
-        readout: goalReadout(goalValue, o.nValidSamples),
+        readout: hasUserTarget ? cell.text ?? HERO_COPY.readout.missing : HERO_COPY.readout.missing,
       },
       outcome: {
         p10,
@@ -533,29 +491,13 @@ export function buildHeroModel(
             : HERO_COPY.readout.missing,
       },
       comparativeReadout: winReadout ?? null,
-      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
+      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitIdentity, goalFitCaveat },
     }
   })
 
-  // Lens availability — hidden entirely when the sourcing fields are absent.
-  // The goal lens is additionally gated on the USER target (UI-SEM-071):
-  // the row-level suppression above already nulls every goal value when no
-  // target exists, but the explicit `hasUserTarget` term keeps the gate
-  // visible and future-proof (value presence alone must never re-enable
-  // the lens for synthesized values).
-  //
-  // ⭐ ROADMAP 2.233 — AVAILABILITY, kept as `.some`, now NAMED.
-  //
-  // This is `hasUserTarget && rows.some(...)` exactly as before; only the
-  // predicate's home and name changed. A revision of 2.233 briefly tightened it
-  // to `.every` to "match" the V7 lens, and that was a mistake worth recording:
-  // it conflated what we may DISPLAY with what we may CLAIM. The crown was
-  // ALREADY withheld on partial coverage by `selectGoalLeader`'s complete-field
-  // gate, so tightening this bought no claim-safety — it only hid goal values
-  // the producer HAD measured, on a surface that renders the missing ones as
-  // `'—'` (`goalReadout`). Data is not a claim; an honest gap marker is not a
-  // reason to blank the row beside it.
-  const goalAvailable = hasAnyGoalValue(rows, (r) => r.goal.value, { hasUserTarget })
+  // A target keeps the existing no-target hint. Every licensed cell, including a withheld cell,
+  // has something honest to show; numeric point presence does not govern this lens.
+  const goalAvailable = hasUserTarget && options.some(o => optionChanceCellFromResults(data, o.id).kind !== 'none')
   const outcomeAvailable = rows.some(
     (r) => r.outcome.p10 != null && r.outcome.p90 != null,
   )
@@ -854,8 +796,8 @@ export function buildHeroModel(
       : HERO_COPY.headline.noneOnTrack
   } else if (goalLeaderRow) {
     headline = hasConstraints
-      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
-      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
+      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
+      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
