@@ -37,3 +37,17 @@ describe('readGoalChanceLicence refuses self-contradicting records', () => {
     expect(readGoalChanceLicence(rec({ pct_by_option: { a: 62, b: -41, c: 20 } }))).toBeNull()
   })
 })
+
+describe('share-by-date target reader', () => {
+  const share = { comparator: 'at_least', value: 100, unit: '% of the feature launch' }
+  it('carries a real YYYY-MM-DD date verbatim, including leap day', () => {
+    for (const by_date of ['2027-04-07', '2028-02-29']) {
+      expect(readGoalChanceLicence(rec({ target: { ...share, by_date } }))?.target).toEqual({ ...share, by_date })
+    }
+  })
+  it.each(['2027-4-7', '07 April 2027', '2027-02-29', '2027-02-30', '2027-13-01', '', null, 20270407])(
+    'rejects malformed by_date %j without losing the existing licence', (by_date) => {
+      expect(readGoalChanceLicence(rec({ target: { ...share, by_date } }))?.target).toEqual(share)
+    },
+  )
+})

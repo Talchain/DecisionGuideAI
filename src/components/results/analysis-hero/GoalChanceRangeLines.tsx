@@ -15,14 +15,14 @@ export function GoalChanceRangeLines({ range, labelOf, heroHorizonShown = false 
   const horizonLine = heroHorizonShown ? null : range.horizonLine
   const lines = range.optionIds.flatMap((id) => {
     const entry = range.rangeByOption[id]
-    const line = goalChanceRangeLine(entry, labelOf(id), labelOf)
+    const line = goalChanceRangeLine(entry, labelOf(id), labelOf, range.target)
     if (line === null) return []
     return [
       <p key={id} data-testid="goal-chance-range-line" data-option-id={id}>
-        {line}{' '}
+        {line}
         {/* ONE click opens THIS link's inspector (Canvas D1 `openLinkInspector`, exact endpoints; an absent or stale
             link opens nothing and falls back to GraphLink's focus). DL #87: focus alone left the user at a dead end. */}
-        <GraphLink edgeRef={{ fromId: entry.from, toId: entry.to }} label={GOAL_CHANCE_RANGE_ACTION[entry.kind]} opensInspector />
+        {entry.kind !== 'stated_time' && <>{' '}<GraphLink edgeRef={{ fromId: entry.from, toId: entry.to }} label={GOAL_CHANCE_RANGE_ACTION[entry.kind]} opensInspector /></>}
       </p>,
     ]
   })

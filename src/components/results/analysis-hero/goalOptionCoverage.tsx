@@ -28,7 +28,7 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
   }
   for (const id of range?.optionIds ?? []) {
     const entry = range?.rangeByOption[id]
-    if (model.rows.some((row) => row.id === id) && entry && goalChanceRangeLine(entry, labelOf(id), labelOf) !== null) figureIds.add(id)
+    if (model.rows.some((row) => row.id === id) && entry && goalChanceRangeLine(entry, labelOf(id), labelOf, range?.target) !== null) figureIds.add(id)
   }
   if (figureIds.size === 0) return model
 
