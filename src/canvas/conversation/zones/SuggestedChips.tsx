@@ -39,6 +39,7 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX, WIDEN_ADD_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
+import type { GuidedSizing } from '../../../v5/readGuidedSizing'
 import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -177,6 +178,7 @@ interface HeldChipRow {
   visible: ActionChip[]
   runGateClosed: boolean
   runGateReason: string | undefined
+  guidedProgressLine: string | undefined
 }
 
 interface SuggestedChipsProps {
@@ -209,6 +211,12 @@ interface SuggestedChipsProps {
    * (headless mounts) ⇒ unchanged.
    */
   rerunOwnedByHost?: boolean
+  /**
+   * ⭐ GOAL-REACH guided path (P02): CEE's ordered list of links to size, already checked against the current model
+   * (`guidedSizingForModel`). Its presses ARE this reply's chips (same id), so nothing is built here: those chips
+   * render first, in CEE's `order`, outside the 3-chip cap, under CEE's own progress line. Absent ⇒ unchanged.
+   */
+  guidedSizing?: GuidedSizing | null
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +235,7 @@ export function SuggestedChips({
   openedProposalId: controlledProposalId,
   onOpenProposal,
   rerunOwnedByHost = false,
+  guidedSizing = null,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -450,7 +459,18 @@ export function SuggestedChips({
   // While the host shows (or defers to) a rerun control, a run chip is never a second one. Applied before the cap, so
   // it never costs another chip its slot.
   const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
-  const visibleNow = renderable.some((c) => isPlanPickChip(c) || isWidenAddChip(c)) ? renderable : renderable.slice(0, 3)
+  // GOAL-REACH guided path: the presses are matched by IDENTITY (press id === chip id), never by label, and keep CEE's
+  // order. They are the method's own list (like a plan pick), so the cap applies only to the chips beside them.
+  // The click carries CEE's own press parameters with the chip id (the wire action has no `parameters` slot).
+  const guidedPress = new Map((guidedSizing?.links ?? []).map((l) => [l.press.id, l]))
+  const isGuided = (c: ActionChip) => typeof c.id === 'string' && guidedPress.has(c.id)
+  const guided = renderable.filter(isGuided)
+    .sort((a, b) => (guidedPress.get(a.id)?.order ?? 0) - (guidedPress.get(b.id)?.order ?? 0))
+    .map((c) => ({ ...c, parameters: { ...guidedPress.get(c.id)?.press.parameters } }))
+  const others = renderable.filter((c) => !isGuided(c))
+  const othersShown = others.some((c) => isPlanPickChip(c) || isWidenAddChip(c)) ? others : others.slice(0, 3)
+  const visibleNow = [...guided, ...othersShown]
+  const guidedProgressLineNow = guided.length > 0 ? guidedSizing?.progressLine : undefined
 
   // The host's gate, read verbatim. Closed ⇒ every Run chip in the row is
   // disabled. The sentence is the host's own (`runBlockedReason`); a blank or
@@ -477,11 +497,12 @@ export function SuggestedChips({
     visible: visibleNow,
     runGateClosed: runGateClosedNow,
     runGateReason: runGateReasonNow,
+    guidedProgressLine: guidedProgressLineNow,
   }
   if (!isThinking || heldRowRef.current === null || heldRowRef.current.chips !== chips) {
     heldRowRef.current = liveRow
   }
-  const { visible, runGateClosed, runGateReason } = heldRowRef.current
+  const { visible, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
@@ -550,6 +571,9 @@ export function SuggestedChips({
         <p className={typography.chatMeta} data-testid="held-proposal-earlier-label">
           An earlier suggestion, still waiting for your answer:
         </p>
+      )}
+      {guidedProgressLine !== undefined && (
+        <p className={typography.chatMeta} data-testid="guided-sizing-progress">{guidedProgressLine}</p>
       )}
       {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
           row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
