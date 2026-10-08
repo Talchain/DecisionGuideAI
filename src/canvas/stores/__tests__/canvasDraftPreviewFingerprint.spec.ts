@@ -33,11 +33,13 @@ describe('canvasDraftPreviewFingerprint', () => {
     expect(canvasDraftPreviewFingerprint(nodes, edges)).not.toBe(before)
   })
 
-  it('changes when a top-level label changes', () => {
+  it('uses the canvas data label, ignoring an unused top-level label outside the projection', () => {
     const { nodes, edges } = graph()
     const before = canvasDraftPreviewFingerprint(nodes, edges)
     nodes[0] = { ...nodes[0], label: 'Imported rename' } as Node
-    expect(canvasDraftPreviewFingerprint(nodes, edges)).not.toBe(before)
+    // Canvas nodes render data.label; wire/import labels are mapped there on
+    // ingestion. An unsupported top-level field is outside { id, type, data }.
+    expect(canvasDraftPreviewFingerprint(nodes, edges)).toBe(before)
   })
 
   it.each([

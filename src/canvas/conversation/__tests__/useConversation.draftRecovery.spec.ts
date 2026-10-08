@@ -934,8 +934,9 @@ describe('stream closes without a final turn: the saved model is read before any
   })
 
   it('RED P1a: a user renames the settling preview before close → the label survives and the buffered re-send runs once', async () => {
-    mockFetchScenarioGraph.mockResolvedValueOnce(serverGraphResult())
-      .mockResolvedValue({ status: 'absent', requestId: 'req-absent-after-edited-preview' })
+    // BOTH reads hold the saved graph: refusing the first must not let the
+    // later unsettled recovery overwrite the same user edit.
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
     const result = await driveClosedAfterDrafting('close', {
       withPreview: true,
       beforeClose: async () => {
@@ -958,13 +959,13 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
     expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
     expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(true)
     expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
     expect(runGate().allowed).toBe(false)
   })
 
   it('RED P1b: a different same-scenario model shares a preview node id before close → the read-back does not apply', async () => {
-    mockFetchScenarioGraph.mockResolvedValueOnce(serverGraphResult())
-      .mockResolvedValue({ status: 'absent', requestId: 'req-absent-after-replaced-preview' })
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
     const result = await driveClosedAfterDrafting('close', {
       withPreview: true,
       beforeClose: async () => {
@@ -995,9 +996,54 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
     expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
     expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(true)
     expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
     expect(runGate().allowed).toBe(false)
   })
+
+  it.each(['observedState', 'value'] as const)(
+    'RED P1 figures: a user edits a settling factor\'s %s figure → neither saved-graph read applies', async field => {
+      const saved = serverGraphResult()
+      if (saved.status !== 'graph') throw new Error('saved graph fixture required')
+      mockFetchScenarioGraph.mockResolvedValue({
+        ...saved,
+        graph: {
+          ...TERMINAL_GRAPH,
+          nodes: TERMINAL_GRAPH.nodes.map(n => n.id === 'fac_year_budget'
+            ? { ...n, ...(field === 'observedState' ? { observed_state: { value: 0.2 } } : { value: 0.2 }) }
+            : n),
+        },
+      })
+      const result = await driveClosedAfterDrafting('close', {
+        withPreview: true,
+        beforeClose: async () => {
+          await act(async () => {
+            // The real edit action used by analysisFreshnessDirty.spec.ts:
+            // updateNode merges data and records/invalidates the analytical edit.
+            useCanvasStore.getState().updateNode('fac_year_budget', {
+              data: field === 'observedState' ? { observedState: { value: 0.73 } } : { value: 0.73 },
+            })
+          })
+          expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+        },
+      })
+
+      const factor = useCanvasStore.getState().nodes.find(n => n.id === 'fac_year_budget')!
+      expect(field === 'observedState' ? (factor.data.observedState as { value: number }).value : factor.data.value)
+        .toBe(0.73)
+      expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+      expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+      expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+      expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+      const contents = result.current.messages.map(m => m.content)
+      expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+      expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+      expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+      expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(true)
+      expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+      expect(runGate().allowed).toBe(false)
+    },
+  )
 
   it('CONTRAST: preview + nothing saved → the buffered re-send runs once, the preview stays, nothing is claimed', async () => {
     const resendsAtRead: number[] = []
