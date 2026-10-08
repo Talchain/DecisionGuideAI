@@ -17,10 +17,11 @@ import {
   edgeShowsServerStatedStrength,
   markEdgeEditInFlight,
   restoredEdgeStrengthStamps,
-  resolveEdgeEditSettlement,
+  resolveBoundEdgeEditSettlement,
   pendingStrengthEditOf, markStrengthEditAnswered, isStrengthEditAnswered,
   beginStrengthPreview, finishStrengthPreview as finishPendingStrengthPreview, isStrengthEditSending,
   revertStrengthPreview as revertPendingStrengthPreview,
+  edgeEditCaptureMatchesCurrent, dropStrengthPreview, isStrengthEditPreview,
 } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
@@ -1104,6 +1105,11 @@ export function useEdgeStrengthPreview(edgeId: string) {
     if (isViewerSession() || !Number.isFinite(mean) || isStrengthEditSending(edgeId)) return
     const edge = getEdge()
     if (!edge?.data) return
+    const captured = pendingStrengthEditOf(edgeId)
+    if (gestureBefore.current && (!captured || captured.before !== gestureBefore.current || !edgeEditCaptureMatchesCurrent(captured))) {
+      dropStrengthPreview(edgeId, gestureBefore.current)
+      return
+    }
     const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
     // Serialised gestures capture what was visible before their first preview write.
     if (!gestureBefore.current) {
@@ -1131,6 +1137,7 @@ export function useEdgeStrengthPreview(edgeId: string) {
 export function useEdgeMutations(edgeId: string) {
   const { updateEdge, getEdge } = useEdgeWriter(edgeId)
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  const showToast = useShowToastSafe()
 
   /**
    * `mean` is a SIGNED strength: the magnitude is `|mean|` and, by default, the
@@ -1193,7 +1200,12 @@ export function useEdgeMutations(edgeId: string) {
     },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
-    if (!edge) return 'not_encodable'
+    const gesture = pendingStrengthEditOf(edgeId)
+    if (!edge || (gesture && isStrengthEditPreview(edgeId) && !edgeEditCaptureMatchesCurrent(gesture))) {
+      dropStrengthPreview(edgeId)
+      showToast('Not saved: this link changed while you were editing it.', 'error')
+      return 'not_encodable'
+    }
     if (!Number.isFinite(mean)) return 'not_encodable'
     // Built from the edge as it was BEFORE the local write — `expected` is an
     // assertion about the PAST, and the same read feeds both halves so the wire
@@ -1340,7 +1352,7 @@ export function useEdgeMutations(edgeId: string) {
       const current = pendingStrengthEditOf(edgeId)
       if (current && current.before !== capture) return
       if (previewCommit && settlement === 'blocked') revertPendingStrengthPreview(edgeId, absWeight)
-      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail)
+      opts?.onSendSettled?.(resolveBoundEdgeEditSettlement(edgeId, absWeight, settlement), detail)
     }
     settleSystemEventSend(
       sendSystemEvent(event, {
@@ -1355,7 +1367,7 @@ export function useEdgeMutations(edgeId: string) {
       settle,
     )
     return 'dispatched'
-  }, [edgeId, updateEdge, getEdge, sendSystemEvent])
+  }, [edgeId, updateEdge, getEdge, sendSystemEvent, showToast])
 
   const setStd = useCallback((std: number) => {
     const edge = getEdge()
@@ -1496,7 +1508,7 @@ export function useEdgeMutations(edgeId: string) {
       scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target,
     }, currency)
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
-      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
+      opts?.onSendSettled?.(resolveBoundEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(
       sendSystemEvent(event, {
         optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction, baseGraphHash: useCanvasStore.getState().lastServerGraphHash },

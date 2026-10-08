@@ -12,6 +12,8 @@ import type { Edge } from '@xyflow/react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
+import { subscribeBeforeScenarioReplacement } from '../../../store/scenarioReplacement'
+import { useShowToastSafe } from '../../../ToastContext'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { findPathsToGoal } from '../../../utils/pathFinding'
 import { isCanvasOnlyLink } from '../../../utils/canvasOnlyLink'
@@ -71,7 +73,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { LINK_MARGIN_LABEL, linkMarginSentence } from '../../../../components/results/utils/fragileEdgeCopy'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
-import { takeEdgeEditRefusalText, isStrengthEditSending, pendingStrengthEditOf, subscribePendingEdgeEdits } from '../../../conversation/pendingEdgeEdit'
+import { takeEdgeEditRefusalText, isStrengthEditSending, pendingStrengthEditOf, subscribePendingEdgeEdits, dropStrengthPreview, edgeEditCaptureMatchesCurrent } from '../../../conversation/pendingEdgeEdit'
 import { isQuestionAssumptionEnabled } from '../../../../flags'
 import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
 import { InspectorMoreItems } from '../shared/InspectorMore'
@@ -230,6 +232,8 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const [showFlipRiskDetails, setShowFlipRiskDetails] = useState(false)
   const edges = useCanvasStore(s => s.edges)
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const showToast = useShowToastSafe()
   const nodes = useCanvasStore(s => s.nodes)
   const goalNodeId = useCanvasStore(s => s.ceeAnalysisReady?.goal_node_id ?? s.nodes.find(
     n => n.type === 'goal' || n.data?.kind === 'goal' || n.data?.type === 'goal',
@@ -566,6 +570,9 @@ export const EdgePanel = memo(function EdgePanel({
   const { previewEdit, clearPreview } = useEditImpactPreview()
   const origStrengthRef = useRef(signedValue)
   const pendingStrengthRef = useRef<number | null>(null)
+  const rawStrengthGestureRef = useRef(false)
+  const strengthGestureEpochRef = useRef(0)
+  const [strengthGestureEpoch, setStrengthGestureEpoch] = useState(0)
   const { previewStrength, revertStrengthPreview, finishStrengthPreview } = useEdgeStrengthPreview(edgeId ?? '')
   const sendingStrengthCapture = useSyncExternalStore(
     subscribePendingEdgeEdits,
@@ -647,7 +654,17 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend({ ts: Date.now(), settlement: 'not_sent' })
   }, [])
 
+  const handleStrengthGestureStart = useCallback((_v: number) => {
+    if (strengthGestureEpoch !== strengthGestureEpochRef.current) return
+    rawStrengthGestureRef.current = true
+  }, [strengthGestureEpoch])
+
   const handleStrengthChange = useCallback((v: number) => {
+    // A delayed slider tick/cleanup closure must still describe the graph it rendered against.
+    const state = useCanvasStore.getState()
+    const current = state.edges.find(e => e.id === edgeId)
+    if (strengthGestureEpoch !== strengthGestureEpochRef.current || currentScenarioId !== state.currentScenarioId
+      || edge?.source !== current?.source || edge?.target !== current?.target) return
     // Capture once, before the first local write. Every tick renders locally;
     // only release dispatches the gesture's final strength.
     if (pendingStrengthRef.current === null) {
@@ -659,12 +676,14 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend(null)
     previewStrength(v)
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [previewStrength, edgeId, previewEdit])
+  }, [previewStrength, edgeId, previewEdit, currentScenarioId, edge?.source, edge?.target, strengthGestureEpoch])
 
   const handleStrengthBlur = useCallback(() => {
+    if (strengthGestureEpoch !== strengthGestureEpochRef.current) return
     const pending = pendingStrengthRef.current
     // Clear before sending so mouseup, touchend, blur and unmount cannot repeat it.
     pendingStrengthRef.current = null
+    rawStrengthGestureRef.current = false
     clearPreview()
     if (pending === null) return
     if (pending === origStrengthRef.current) {
@@ -677,7 +696,36 @@ export const EdgePanel = memo(function EdgePanel({
     const stored = useCanvasStore.getState().edges.find(e => e.id === edgeId)?.data
     origStrengthRef.current = stored?.direction === 'negative' ? -(stored.weight ?? 0) : (stored?.weight ?? 0)
     if (outcome === 'dispatched') confirmEdit('strength')
-  }, [clearPreview, mutations, beginStrengthSend, noteStrengthOutcome, edgeId, revertStrengthPreview, finishStrengthPreview, confirmEdit])
+  }, [clearPreview, mutations, beginStrengthSend, noteStrengthOutcome, edgeId, revertStrengthPreview, finishStrengthPreview, confirmEdit, strengthGestureEpoch])
+
+  useEffect(() => {
+    const discard = () => {
+      // This store seam runs before a loader installs its replacement graph.
+      // No correct-scenario send can be admitted during a replacement: disclose and drop it.
+      const hadGesture = pendingStrengthRef.current !== null || rawStrengthGestureRef.current
+      ++strengthGestureEpochRef.current
+      setStrengthGestureEpoch(strengthGestureEpochRef.current)
+      pendingStrengthRef.current = null
+      rawStrengthGestureRef.current = false
+      ++strengthSendSeqRef.current
+      dropStrengthPreview(edgeId ?? '')
+      finishStrengthPreview()
+      clearPreview()
+      if (!hadGesture) return
+      setStrengthEditSend({ ts: Date.now(), settlement: 'not_sent' })
+      showToast('Not saved: this link changed while you were editing it.', 'error')
+    }
+    const unsubscribeBoundary = subscribeBeforeScenarioReplacement(discard)
+    const unsubscribeStore = useCanvasStore.subscribe(() => {
+      const capture = pendingStrengthEditOf(edgeId ?? '')
+      const state = useCanvasStore.getState()
+      const current = state.edges.find(e => e.id === edgeId)
+      const rawChangedGraph = rawStrengthGestureRef.current && (currentScenarioId !== state.currentScenarioId
+        || edge?.source !== current?.source || edge?.target !== current?.target)
+      if (rawChangedGraph || (capture && !edgeEditCaptureMatchesCurrent(capture))) discard()
+    })
+    return () => { unsubscribeBoundary(); unsubscribeStore() }
+  }, [edgeId, finishStrengthPreview, clearPreview, showToast, currentScenarioId, edge?.source, edge?.target])
 
   // The Advanced numeric field is a complete edit, with no slider release.
   const handleStrengthInputChange = useCallback((v: number) => {
@@ -1322,7 +1370,7 @@ export const EdgePanel = memo(function EdgePanel({
                         documents. The row below stays UNCONDITIONAL; only the slider's
                         duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
                         REDs if either state stops reading exactly one. */}
-                    <SignedStrengthSlider value={signedValue} disabled={strengthEditIsSending} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
+                    <SignedStrengthSlider key={`${currentScenarioId}:${edge.source}:${edge.target}:${strengthGestureEpoch}`} value={signedValue} disabled={strengthEditIsSending} onGestureStart={handleStrengthGestureStart} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
                   </div>
                   {/* The panel's OWN endpoint scale — direction anchors for the track
                       above, never band words (`SignedStrengthSlider`'s header names them

@@ -25,7 +25,7 @@ import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1 } from '../adapters/plot/types'
 import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
-
+import { beforeScenarioReplacement } from './store/scenarioReplacement'
 /**
  * ⭐ THE RUN STATES ON WHICH A PRODUCER'S PERMISSION MAY CLEAR A WITHHOLDING.
  *
@@ -4849,7 +4849,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   importCanvas: (json: string) => {
     const imported = persistImport(json)
     if (!imported) return false
-
+    beforeScenarioReplacement()
     // Interim 2.467: record this graph's identity as imported-and-unregistered
     // BEFORE the set below, in a TAB-scoped marker. This is what survives a
     // page reload — the autosave puts the imported graph back on the canvas
@@ -5235,8 +5235,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     
     set({ nodes: updatedNodes })
   },
-
   resetCanvas: () => {
+    beforeScenarioReplacement()
     // ── "Start fresh" must be fresh on the NEXT LOAD too ────────────────────
     // Measured defect (link-track item 4c): resetCanvas cleared in-memory state
     // and `currentScenarioId`, but left `olumi-canvas-autosave` and
@@ -5310,6 +5310,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     useDraftStore.getState().resetAllModels()
   },
   adoptScenario: (scenarioId) => {
+    beforeScenarioReplacement()
     const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
     const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingLeft, get()) // same rule as resetCanvas (F1)
     scenarios.clearAutosave()
@@ -5319,7 +5320,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     useComparisonStore.getState().resetComparison()
     useDraftStore.getState().resetAllModels()
   },
-
   deleteEdge: (id) => {
     const { edges, selection } = get()
     const edge = edges.find(e => e.id === id)
@@ -6588,7 +6588,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.warn('[Canvas] Scenario not found:', id)
       return false
     }
-
+    beforeScenarioReplacement()
     const { nodes: persistedNodes, edges: rawEdges } = scenario.graph
     // ⛔ A persisted `measured` is another session's DOM (edit-structure/F1).
     const nodes = withoutPersistedMeasurement(persistedNodes)
@@ -8695,6 +8695,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // P2: Hydration hygiene - merge only graph/scenario bits, ignore unknown keys
   hydrateGraphSlice: (loaded) => {
+    if (loaded.nodes !== undefined || loaded.edges !== undefined || loaded.currentScenarioId !== undefined) {
+      beforeScenarioReplacement()
+    }
     const updates: Partial<CanvasState> = {}
 
     // Only merge known graph/scenario keys

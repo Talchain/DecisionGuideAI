@@ -154,6 +154,51 @@ function expectFinalSend(mean: number) {
 }
 
 describe('EdgePanel — one strength commit per gesture', () => {
+  it.each(['pointerup', 'touchend', 'touchcancel'] as const)(
+    'window %s commits the final pending tick once, even after blur and unmount', event => {
+      const view = mountSlider()
+      change(view.slider, 0.6)
+      // The last value is still inside the debounce when the pointer leaves.
+      fireEvent.change(view.slider, { target: { value: '-0.75' } })
+      expect(sendSystemEvent).not.toHaveBeenCalled()
+      fireEvent(window, new Event(event))
+      expectFinalSend(-0.75)
+      expect(storedData()).toMatchObject({ weight: 0.75, direction: 'negative' })
+      fireEvent.blur(view.slider)
+      fireEvent.mouseUp(view.slider)
+      fireEvent.keyDown(view.slider, { key: 'Enter' })
+      fireEvent(window, new Event(event))
+      view.unmount()
+      expect(setStrength).toHaveBeenCalledTimes(1)
+      expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('visibility hidden commits the final pending tick once and removes gesture listeners', () => {
+    const removeWindow = vi.spyOn(window, 'removeEventListener')
+    const removeDocument = vi.spyOn(document, 'removeEventListener')
+    const view = mountSlider()
+    change(view.slider, 0.6)
+    fireEvent.change(view.slider, { target: { value: '-0.75' } })
+    const visibility = vi.spyOn(document, 'visibilityState', 'get')
+    visibility.mockReturnValue('visible')
+    fireEvent(document, new Event('visibilitychange'))
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    visibility.mockReturnValue('hidden')
+    fireEvent(document, new Event('visibilitychange'))
+    expectFinalSend(-0.75)
+    for (const event of ['pointerup', 'touchend', 'touchcancel']) {
+      expect(removeWindow).toHaveBeenCalledWith(event, expect.any(Function))
+    }
+    expect(removeDocument).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
+    fireEvent.blur(view.slider)
+    view.unmount()
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    visibility.mockRestore()
+    removeWindow.mockRestore()
+    removeDocument.mockRestore()
+  })
+
   it('previews six debounced changes, then sends the last value exactly once on release', () => {
     const { slider } = mountSlider()
     for (const value of [0.55, 0.6, 0.65, 0.7, -0.7, -0.75]) {
