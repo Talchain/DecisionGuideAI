@@ -37,6 +37,9 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InterventionRow } from '../shared/InterventionRow'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
+import { classifyInterventionProvenance } from '../../../domain/valueProvenance'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
@@ -117,6 +120,7 @@ export const OptionPanel = memo(function OptionPanel({
    * called that "every control in OptionPanel". It was not.
    */
   readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
@@ -589,12 +593,34 @@ export const OptionPanel = memo(function OptionPanel({
 
   /** The option's own name, for each target box's accessible name. */
   const optionAccessibleLabel = resolveElementLabel(node?.data)
+  const firstTarget = interventions[0]
+  const firstReading = firstTarget ? targetReadings.get(firstTarget.factorId) : undefined
+  const firstTargetProvenance = classifyInterventionProvenance(
+    firstReading ? firstReading.provenanceSource : firstTarget?.provenanceSource,
+  )
+  const summaryChip = firstTargetProvenance?.kind === 'brief'
+    ? 'brief'
+    : firstTargetProvenance?.kind === 'ai' || firstTargetProvenance?.kind === 'accepted'
+      ? 'olumi'
+      : firstTargetProvenance?.userOwned ? 'user' : null
+  const summarySentence = firstTarget
+    ? `Sets ${firstTarget.factorLabel} to ${firstReading?.reading ?? firstTarget.displayValue ?? ''}${interventions.length > 1 ? ` + ${interventions.length - 1} more` : ''}`
+    : outboundConnections.length > 0
+      ? OPTION_STRINGS.linksWithoutValues
+        .replace('{count}', String(outboundConnections.length))
+        .replace('{s}', outboundConnections.length === 1 ? '' : 's')
+      : EMPTY_STATES.noInterventions
 
   if (!nodeId || !node) return null
 
   return (
     <div>
+      <div data-testid={!firstTarget && outboundConnections.length > 0 ? 'option-links-without-values' : undefined}>
+        <InspectorSummary sentence={summarySentence} chip={summaryChip} />
+      </div>
+      {summaryContext}
       {/* ── Context group ─────────────────────────────────────── */}
+      {(isBaselineOption || draftingNotes.length > 0 || descriptionBody) && (
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {isBaselineOption && (
           <div className="mb-2" data-testid="option-baseline-badge">
@@ -624,53 +650,43 @@ export const OptionPanel = memo(function OptionPanel({
           </div>
         )}
 
-        {/* WRITER 1 of 5 — `setDescription`. */}
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
-        {/* ⛔ READ-ONLY READS THE RECORD, NEVER THE EDIT BUFFER. The buffer is
-            an editing artefact; showing it to a reader who cannot edit offers
-            them a value whose provenance is "whatever was last typed into a
-            control that is no longer there". `descriptionBody` is what the model
-            holds. */}
-        {readOnly ? (
-          descriptionBody ? (
-            <p
-              className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`}
-              data-testid="option-description-readonly"
-            >
-              {descriptionBody}
-            </p>
-          ) : (
-            /* ⚠ NO `onStartEditing`, AND THE COMPONENT ALREADY KNEW HOW.
-                `EmptyDescriptionPrompt` treats the prop as optional and drops
-                `role="button"`, `tabIndex` and its click handler when it is
-                absent — it was built for exactly this case. Passing `() => {}`
-                turned it back into a button that answers nothing: a tab stop
-                announcing as an action, doing nothing when pressed. */
-            <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.option} />
-          )
-        ) : description || isEditingDescription ? (
-          <textarea
-            ref={descriptionRef}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              commitDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder={DESCRIPTION_PLACEHOLDERS.option}
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.option}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
+        {descriptionBody && (
+          <p
+            className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`}
+            data-testid="option-description-readonly"
+          >
+            {descriptionBody}
+          </p>
         )}
-        </fieldset>
       </PanelGroup>
+      )}
+
+      <InspectorMoreItems>
+        {/* The description writer keeps its own authority fence after moving. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+          {!readOnly && (description || isEditingDescription ? (
+            <textarea
+              ref={descriptionRef}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onBlur={() => {
+                commitDescription(description)
+                if (!description.trim()) setIsEditingDescription(false)
+              }}
+              autoFocus={isEditingDescription && !description}
+              placeholder={DESCRIPTION_PLACEHOLDERS.option}
+              rows={2}
+              maxLength={500}
+              className={`${typography.panelBody} ${controls.editableTextarea}`}
+            />
+          ) : (
+            <EmptyDescriptionPrompt
+              placeholder={DESCRIPTION_PLACEHOLDERS.option}
+              onStartEditing={() => setIsEditingDescription(true)}
+            />
+          ))}
+        </fieldset>
+      </InspectorMoreItems>
 
       {/* ── Input group (what this option changes) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.whatThisChanges}>
@@ -683,29 +699,7 @@ export const OptionPanel = memo(function OptionPanel({
               {OPTION_TARGET_EDIT_ROUTE_NOTE}
             </p>
           )}
-          {interventions.length === 0 ? (
-            /* L-40 — the empty state is derived from THE SAME edge data the
-               Connections group below reads (`outboundConnections`), not from
-               `data.interventions` alone. An add-path option carries real
-               factor edges and no intervention map, so the old copy denied
-               three "Very strong +" connections that were on screen inches
-               below it. Two data sources, one user-facing question, is how a
-               panel comes to contradict itself. */
-            outboundConnections.length > 0 ? (
-              <p
-                data-testid="option-links-without-values"
-                className={`${typography.panelMeta} text-text-light py-2 text-center`}
-              >
-                {OPTION_STRINGS.linksWithoutValues
-                  .replace('{count}', String(outboundConnections.length))
-                  .replace('{s}', outboundConnections.length === 1 ? '' : 's')}
-              </p>
-            ) : (
-              <p className={`${typography.panelMeta} text-text-light py-2 text-center`}>
-                {EMPTY_STATES.noInterventions}
-              </p>
-            )
-          ) : (
+          {interventions.length > 0 && (
             interventions.map(iv => (
               <InterventionRow
                 /*
@@ -969,7 +963,6 @@ export const OptionPanel = memo(function OptionPanel({
                     </div>
                     <div
                       className={`${typography.panelMeta} text-text-light`}
-                      title={[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
                       data-testid="option-panel-result-caption"
                     >
                       {resultCaption} · of runs
@@ -977,10 +970,17 @@ export const OptionPanel = memo(function OptionPanel({
                     {/* SC-24 v3: Compare is now previous Run vs this Run; the options are compared on Analysis. */}
                     <ResultsLink label="Compare all options" tab="results" />
                   </div>
+                  <InspectorMoreItems>
+                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-result-explanation">
+                      {[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
+                    </p>
+                  </InspectorMoreItems>
                 </div>
               )}
 
               {/* Comparative context */}
+              <InspectorMoreItems>
+              <div data-testid="option-comparative-context">
               {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
                 // The NUMBER, for the pp arithmetic below.
                 const myPct = Math.round(displayMetadata.winRate * 100)
@@ -1039,6 +1039,8 @@ export const OptionPanel = memo(function OptionPanel({
                 }
                 return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
               })()}
+              </div>
+              </InspectorMoreItems>
 
               {/* Story headline */}
               {headline && (
@@ -1133,11 +1135,13 @@ export const OptionPanel = memo(function OptionPanel({
           my first audit of "every control in OptionPanel" reported them absent
           — while the comment at the intervention call site above literally
           names this component. Audit the tree, not the file. */}
+      <InspectorMoreItems>
       <TechnicalDisclosure visible={techMode}>
         <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
           <OptionAdvancedEditor nodeId={nodeId} />
         </fieldset>
       </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

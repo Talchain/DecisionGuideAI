@@ -1,12 +1,12 @@
 /**
  * Brief 3 — GoalPanel, FactorExternalPanel, FactorObservablePanel v6.2 tests.
  *
- * Covers: EmptyDescriptionPrompt, ImportanceBar, quick-set state, click-to-edit,
+ * Covers: description presentation, ImportanceBar, quick-set state, click-to-edit,
  * PanelGroup structure, no SectionTitle uppercase headers, coaching placement.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { FactorExternalPanel } from '../panels/FactorExternalPanel'
 import { FactorObservablePanel } from '../panels/FactorObservablePanel'
@@ -133,7 +133,7 @@ describe('GoalPanel v6.2', () => {
     ;(node.data as any).description = 'Reach EBITDA positive by Q4'
     useCanvasStore.setState({ nodes: [...store.nodes] })
     render(<GoalPanel {...goalProps} />)
-    expect(screen.getByText('Reach EBITDA positive by Q4')).toBeTruthy()
+    expect(screen.getByTestId('goal-description-readonly').textContent).toBe('Reach EBITDA positive by Q4')
   })
 
   it('renders ImportanceBar when post-analysis and influence data is present', () => {
@@ -235,10 +235,14 @@ describe('GoalPanel v6.2', () => {
 // ─── FactorExternalPanel ───────────────────────────────────────────
 
 describe('FactorExternalPanel v6.2', () => {
-  it('renders EmptyDescriptionPrompt when description is empty', () => {
+  it('keeps the quiet description action in More when description is empty', () => {
     setExternalStore()
-    render(<FactorExternalPanel {...externalProps} />)
-    expect(screen.getByText('What is this factor and why does it matter?')).toBeTruthy()
+    const { container } = render(<FactorExternalPanel {...externalProps} />)
+    expect(screen.queryByText('What is this factor and why does it matter?')).toBeNull()
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
+    const descriptionFence = container.querySelector('fieldset[data-writer-fence="description"]')
+    expect(descriptionFence).not.toBeNull()
+    expect(within(descriptionFence as HTMLElement).getByRole('button', { name: 'Add a description' })).toBeTruthy()
   })
 
   it('renders both category pill and extraction label in context group', () => {
@@ -250,7 +254,7 @@ describe('FactorExternalPanel v6.2', () => {
     expect(contextGroup?.textContent).toContain('Source not recorded')
   })
 
-  it('renders ImportanceBar in context group when post-analysis influence data present', () => {
+  it('renders ImportanceBar in primary content when post-analysis influence data present', () => {
     setExternalStore({ results: { status: 'complete', report: {} } })
     mockDisplayMetadata.mockReturnValue({
       sensitivityRank: 2,
@@ -260,8 +264,8 @@ describe('FactorExternalPanel v6.2', () => {
       inSensitivityAnalysis: true,
     })
     const { container } = render(<FactorExternalPanel {...externalProps} />)
-    const contextGroup = container.querySelector('[data-panel-group="context"]')
-    expect(contextGroup?.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+    expect(container.querySelector('[data-panel-group="context"]')?.querySelector('[data-testid="importance-bar"]')).toBeNull()
   })
 
   it('quick-set buttons render in Your input group', () => {
@@ -319,17 +323,21 @@ describe('FactorExternalPanel v6.2', () => {
 // ─── FactorObservablePanel ─────────────────────────────────────────
 
 describe('FactorObservablePanel v6.2', () => {
-  it('renders EmptyDescriptionPrompt when description is empty', () => {
+  it('keeps the quiet description action in More when description is empty', () => {
     setObservableStore()
-    render(<FactorObservablePanel {...observableProps} />)
-    expect(screen.getByText('What is this factor and why does it matter?')).toBeTruthy()
+    const { container } = render(<FactorObservablePanel {...observableProps} />)
+    expect(screen.queryByText('What is this factor and why does it matter?')).toBeNull()
+    expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
+    const descriptionFence = container.querySelector('fieldset[data-writer-fence="description"]')
+    expect(descriptionFence).not.toBeNull()
+    expect(within(descriptionFence as HTMLElement).getByRole('button', { name: 'Add a description' })).toBeTruthy()
   })
 
   it('renders extraction label pill when source is present', () => {
     setObservableStore()
     // source = 'brief_extraction' → getExtractionLabel → 'From your brief'
     render(<FactorObservablePanel {...observableProps} />)
-    expect(screen.getByText('From your brief')).toBeTruthy()
+    expect(screen.getByTestId('observable-source-pill').textContent).toBe('From your brief')
   })
 
   it('renders value as clickable display (not always-visible input)', () => {
@@ -360,7 +368,7 @@ describe('FactorObservablePanel v6.2', () => {
     expect(screen.queryByText('Uncertain')).toBeNull()
   })
 
-  it('renders ImportanceBar in context group when post-analysis influence data present', () => {
+  it('renders ImportanceBar in primary content when post-analysis influence data present', () => {
     setObservableStore({ results: { status: 'complete', report: {} } })
     mockDisplayMetadata.mockReturnValue({
       sensitivityRank: 1,
@@ -370,8 +378,8 @@ describe('FactorObservablePanel v6.2', () => {
       inSensitivityAnalysis: true,
     })
     const { container } = render(<FactorObservablePanel {...observableProps} />)
-    const contextGroup = container.querySelector('[data-panel-group="context"]')
-    expect(contextGroup?.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+    expect(container.querySelector('[data-panel-group="context"]')?.querySelector('[data-testid="importance-bar"]')).toBeNull()
   })
 
   it('renders connection rows in Influences group with full labels', () => {

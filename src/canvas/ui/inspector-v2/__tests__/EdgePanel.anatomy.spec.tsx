@@ -93,6 +93,10 @@ describe('Relationship inspector anatomy', () => {
     const panel = openEdge()
     expect(within(panel).getAllByTestId('inspector-summary-sentence')).toHaveLength(1)
     expect(summary().textContent).toBe('As A increases, B increases: strong.')
+    const directionControl = within(panel).getByTestId('edge-direction-control')
+    expect(within(directionControl).getByText('Direction', { exact: true })).toBeVisible()
+    expect(within(directionControl).getByTestId('edge-direction-increases').textContent).toBe('increases B')
+    expect(within(directionControl).getByTestId('edge-direction-decreases').textContent).toBe('decreases B')
     const chips = within(panel).getAllByTestId('inspector-provenance-chip')
     expect(chips).toHaveLength(1)
     expect(chips[0]).toHaveAttribute('data-provenance', 'olumi')
@@ -346,14 +350,17 @@ describe('Relationship inspector anatomy', () => {
     expect(more()).toHaveAttribute('hidden')
   })
 
-  it('keeps the routed controllable-factor shell legacy, with visible actions and footer', () => {
+  it('also routes controllable factors into the shared anatomy, retaining Ask and save truth', () => {
     seed()
     render(<InspectorRouter nodeId="factor-a" edgeId={null} onClose={onClose} />)
-    expect(screen.getByRole('button', { name: 'Explore with Olumi: A' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Back to the conversation' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Ask Olumi about A' })).toBeVisible()
+    expect(screen.getByTestId('inspector-more-toggle')).toBeVisible()
+    expect(screen.getByTestId('inspector-more')).toContainElement(screen.getByTestId('inspector-authority-notice'))
+    expect(screen.getByTestId('inspector-header-menu')).toBeVisible()
+    openMore()
     expect(screen.getByTestId('inspector-authority-notice')).toBeVisible()
-    expect(screen.queryByTestId('inspector-more-toggle')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('inspector-header-menu')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-header-menu'))
+    expect(screen.getByRole('menuitem', { name: 'Back to the conversation' })).toBeVisible()
   })
 
   it('moves the existing conversation navigation into the header menu, closes it and the inspector', () => {

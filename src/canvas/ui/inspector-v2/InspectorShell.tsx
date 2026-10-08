@@ -24,7 +24,8 @@
  *  · The confidence-coded border and the header confidence badge are gone:
  *    one border colour for every pane (the body keeps any stated figure).
  *
- * The legacy anatomy above remains the default for node panels. Opt-in
+ * The legacy layout above remains the default for direct callers. Live
+ * node and edge panels opt into anatomy. Opt-in
  * anatomy panels put technical detail and the save truth inside More and may
  * provide quiet header actions. Header remains the drag surface when provided.
  */
@@ -56,6 +57,7 @@ export const InspectorShell = memo(function InspectorShell({
   onClose,
   dragHandlers,
   quickActions,
+  actions,
   headerMenu,
   more,
   footerNote,
@@ -280,6 +282,7 @@ export const InspectorShell = memo(function InspectorShell({
         {variant === 'anatomy' ? (
           <InspectorMoreProvider>
             {children}
+            {actions}
             <InspectorMore>
               {more}
               {technicalToggle}

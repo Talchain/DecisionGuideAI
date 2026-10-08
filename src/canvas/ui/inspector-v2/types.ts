@@ -31,21 +31,22 @@ export interface InspectorPanelProps {
   /** Navigate selection to a different node/edge */
   onNavigate: (id: string) => void
   /**
-   * ⭐⭐ THE PANEL OWNS ITS OWN AUTHORITY BOUNDARY, AND THE ROUTER HAS NOT
-   * WRAPPED IT.
+   * ⭐⭐ PANEL AUTHORITY MUST SURVIVE THE MOVE INTO MORE.
    *
-   * Present only for panels in `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`.
-   * For every other panel this prop is absent and the Router's outer
-   * `<fieldset disabled>` is unchanged.
+   * Authority-owning panels fence their own writers. Other node panels retain
+   * the Router's outer `<fieldset disabled>` and receive the same value so
+   * controls portalled into More can reproduce that DOM boundary.
    *
    * ⛔ IT IS A DUTY, NOT A PERMISSION. A panel receiving `readOnly` must place
-   * every control that reaches a mutation behind its own disabled fieldset — it
+   * every writer without a durable carrier behind its own disabled fieldset — it
    * may NEVER read this as licence to enable a write. What it buys is the
    * ability to leave NON-writing controls alive: navigation, disclosure and
    * coaching, which the blanket wrap was disabling for a reason that was never
    * about them.
    */
   readOnly?: boolean
+  /** Visible review reasons, immediately after the panel's own summary. */
+  summaryContext?: ReactNode
 }
 
 // ─── Drag handlers (from InspectorModal) ──────────────────────────
@@ -59,7 +60,7 @@ export interface DragHandlers {
 
 // ─── Shell props ───────────────────────────────────────────────────
 export interface InspectorShellProps {
-  /** Anatomy is opt-in; node panels retain the existing legacy shell. */
+  /** Anatomy is opt-in for callers outside the live Router. */
   variant?: 'legacy' | 'anatomy'
   /** Node ID for rationale lookup (optional — edges don't have rationales) */
   nodeId?: string
@@ -83,6 +84,8 @@ export interface InspectorShellProps {
    * group. Anatomy panels own their actions and ignore this slot.
    */
   quickActions?: ReactNode
+  /** Anatomy actions, after the panel content and before More. */
+  actions?: ReactNode
   /** Quiet header actions, rendered in the More actions menu when supplied. */
   headerMenu?: ReactNode
   /** Shell-level More items, placed after the panel's More items. */

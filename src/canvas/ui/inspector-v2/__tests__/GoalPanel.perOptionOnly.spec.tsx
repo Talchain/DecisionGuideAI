@@ -62,10 +62,10 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('SERVED: says where the figures are, in both arms, and never denies them', () => {
-    const { getByTestId, container } = renderWith(SERVED)
+  it('SERVED: says where the figures are, once beside the target, and never denies them', () => {
+    const { getByTestId, queryByTestId, container } = renderWith(SERVED)
     expect(getByTestId('goal-probability-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
-    expect(getByTestId('goal-impact-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
+    expect(queryByTestId('goal-impact-per-option')).toBeNull()
     const text = container.textContent ?? ''
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(text).not.toContain(GOAL_STRINGS.impactUnavailable)

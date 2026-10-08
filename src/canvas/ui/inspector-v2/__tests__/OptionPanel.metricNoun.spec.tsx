@@ -53,7 +53,7 @@
  *   `Current model · of runs`, with the model-relative sentence as its title.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, within } from '@testing-library/react'
+import { render, within, fireEvent } from '@testing-library/react'
 
 import { InspectorModal } from '../../../components/InspectorModal'
 import { useCanvasStore } from '../../../store'
@@ -192,10 +192,14 @@ describe("the option inspector captions the win probability with the canvas's no
     expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
     // ED decision 2's second half: the explanation says the figure is
     // conditional on the model — the register's own sentence, for THIS figure.
-    expect(caption.getAttribute('title')).toBe(OPTION_RESULT_COPY.sentence('62%'))
-    expect(caption.getAttribute('title')).toBe('In this model, 62% of runs supported this option.')
+    expect(caption.getAttribute('title')).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'More' }))
+    const explanation = within(dialog).getByTestId('option-result-explanation')
+    expect(within(dialog).getByTestId('inspector-more')).toContainElement(explanation)
+    expect(explanation.textContent).toBe(OPTION_RESULT_COPY.sentence('62%'))
+    expect(explanation.textContent).toBe('In this model, 62% of runs supported this option.')
     // The recommend stem is banned even negated (J1 ruling).
-    expect(caption.getAttribute('title')).not.toMatch(/recommend/i)
+    expect(explanation.textContent).not.toMatch(/recommend/i)
     // The retired caption is not what captions the figure any more — read from
     // the SAME element whose presence and adjacency were just proven.
     expect(caption.textContent).not.toMatch(new RegExp(`${METRIC_NOUN.support}(?![a-z])`))
@@ -230,7 +234,7 @@ describe("the option inspector captions the win probability with the canvas's no
    * the card read `Last run 62% of runs` and this hero read `62% Current model ·
    * of runs`, titled "the model as it stands". Same figure, same moment.
    */
-  it('F5 — after the model changes, the hero caption reads "Last run · of runs" and its title says so', () => {
+  it('F5 — after the model changes, the hero caption reads "Last run · of runs" and its More explanation says so', () => {
     // CEE's own verdict after the served edit: `complete_stale`, cause `graph_changed`.
     useCanvasStore.setState({ analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' }, analysisFreshnessDirty: true } as never)
     const { dialog } = openInspector(OPTION_ID)
@@ -239,7 +243,8 @@ describe("the option inspector captions the win probability with the canvas's no
     expect(caption.previousElementSibling?.textContent?.trim()).toBe('62%')
     expect(caption.textContent).toBe(`${OPTION_RESULT_COPY.lastRun} · of runs`)
     expect(caption.textContent).not.toContain(OPTION_RESULT_COPY.current)
-    expect(caption.getAttribute('title')).toContain(OPTION_RESULT_COPY.changedNote)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'More' }))
+    expect(within(dialog).getByTestId('option-result-explanation').textContent).toContain(OPTION_RESULT_COPY.changedNote)
     // The comparison bars beneath it are the same last run's shares, and say so.
     expect(within(dialog).getByTestId('option-panel-compare-last-run').textContent).toBe(OPTION_RESULT_COPY.lastRunNoNewComparison)
   })

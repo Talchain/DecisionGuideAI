@@ -63,7 +63,7 @@ function seed(extra: Record<string, unknown>, goalThreshold: number | null) {
 
 /** The ONE "Success …" sentence the panel's readout arm renders — bound by position in the readout, not by a value. */
 function successSentence(container: HTMLElement): string {
-  const lines = Array.from(container.querySelectorAll('p'))
+  const lines = Array.from(container.querySelectorAll('[data-panel-group="input"] p'))
     .map(p => p.textContent ?? '')
     .filter(t => /^Success (means|is)\b/.test(t))
   expect(lines, 'PRECONDITION: exactly one success sentence is rendered').toHaveLength(1)
@@ -151,6 +151,7 @@ describe('B · the tech-mode disclosure, opened through the real Router', () => 
     seed(extra, null)
     const utils = render(<InspectorRouter nodeId={GOAL_ID} edgeId={null} onClose={vi.fn()} />)
     const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'More' }))
     await user.click(screen.getByRole('button', { name: 'Show technical detail' }))
     await user.click(screen.getByRole('button', { name: /Show model detail/i }))
     const fence = utils.container.querySelector('fieldset[data-writer-fence="advanced-editor"]') as HTMLElement | null
