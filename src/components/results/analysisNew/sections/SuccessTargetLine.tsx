@@ -817,7 +817,9 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                // min-w: beside the shrink-0 direction select and the w-24 unit box, `min-w-0 flex-1` collapsed the number box to
+                // nothing in the canvas target popover (#2659 served witness, 8 Oct). The figure field must always be visible.
+                className={`${typography.panelMeta} min-w-[4.5rem] flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
