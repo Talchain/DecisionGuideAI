@@ -300,7 +300,9 @@ const allIds = (root: HTMLElement) => [...root.querySelectorAll('[data-testid]')
 /** …outside the reserved slot: the slot's CONTENT is the slot's business (one fixed line). */
 const faceIds = (root: HTMLElement, id: string) => {
   const s = root.querySelector(`[data-testid="factor-driver-slot-${id}"]`)!
-  return [...root.querySelectorAll('[data-testid]')].filter(e => (e === s || !s.contains(e)) && !e.closest('[data-card-mark="driver"], [data-card-mark="driver-last-run"]')).map(e => e.getAttribute('data-testid')!)
+  // The pre-run "Working assumption · no analysis yet" mark LEAVES after a Run by design (#2649 G1/G2 slice): it sits
+  // in the absolutely-placed bottom band, so its leaving cannot change the card's height. Every other face id must match.
+  return [...root.querySelectorAll('[data-testid]')].filter(e => (e === s || !s.contains(e)) && !e.closest('[data-card-mark="driver"], [data-card-mark="driver-last-run"], [data-card-mark="working-assumption"]')).map(e => e.getAttribute('data-testid')!)
 }
 
 describe('FOUND turning point on the rank-1 factor — the ONE card that may grow, and only by the flip plot', () => {

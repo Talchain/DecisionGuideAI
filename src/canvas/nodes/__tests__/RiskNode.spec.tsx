@@ -243,14 +243,9 @@ describe('RiskNode', () => {
     expect(screen.getByText('High risk')).toBeDefined()
   })
 
-  // P1.7 — the defining probability × impact pair is shown in the body.
-  // ⚠ RE-POINTED FOR ED #63 5809278282 (bounded anatomy, one primary line): the
-  // pair is the line, figures first; `Entered estimate` left the VISIBLE line
-  // (43 characters cannot be one ~19-character landing line) and rides sr-only,
-  // `title` and the popover. The 9 Sep "no native tooltip" rule was about a
-  // qualifier that was visible; the title is now the sighted-mouse recovery
-  // for one that is not, so it is asserted PRESENT.
-  it('shows the probability/impact pair in STANDARD view', () => {
+  // P1.7 — the probability × impact pair names the band mark. The styled
+  // Tooltip provides its hover words; design audit #13 forbids a native title.
+  it('names the probability/impact pair in STANDARD view, with no native title', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
@@ -260,7 +255,7 @@ describe('RiskNode', () => {
     expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
     // Design audit #13 (26 Sep): no native title. The provenance is on the
     // line itself (" · entered"), in full for a screen reader, and in the popover.
-    expect(line).toHaveAttribute('title', '90% likely · High impact')
+    expect(line.getAttribute('title') ?? '').toBe('')
     expect(screen.getByTestId('risk-exposure-provenance').getAttribute('aria-label')).toBe(' · entered')
   })
 

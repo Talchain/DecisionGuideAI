@@ -55,7 +55,8 @@ export function CardMarkShape({ mark, level = 3, rank = 1, cell = null, stale = 
 export function CardMark({ id, testId, words, description, className = '', level, cell, factorId }: { id: CardMarkId; testId?: string; words?: string; description?: string; className?: string; level?: number; cell?: number | null; factorId?: string }) {
   const mark = cardMark(id)
   const label = words ?? mark.words
-  return <BottomCardMark><Tooltip asChild content={description ?? label}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} title={label} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
+  const tooltipWords = description && !description.includes(label) ? `${label} · ${description}` : description || label
+  return <BottomCardMark><Tooltip asChild content={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
     <CardMarkShape mark={mark} level={level} cell={cell} />
   </span></span></Tooltip></BottomCardMark>
 }

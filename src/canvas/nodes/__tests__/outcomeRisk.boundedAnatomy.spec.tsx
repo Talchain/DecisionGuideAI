@@ -207,11 +207,11 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     ['risk', 'entered (impact only)', { impact: 'high' }, 'risk-exposure-line', 'High impact', 'Entered estimate · High impact'],
   ] as const
 
-  it.each(TEXT_STATES)('%s %s: original words name the bottom visual', (kind, _s, data, testId, short, full) => {
+  it.each(TEXT_STATES)('%s %s: original words name the bottom visual, with no native title', (kind, _s, data, testId, short, full) => {
     draw(kind, data)
     const line = screen.getByTestId(testId)
     expect(line).toHaveAttribute('aria-label', short)
-    expect(line).toHaveAttribute('title', short)
+    expect(line.getAttribute('title') ?? '').toBe('')
     expect(line.getAttribute('aria-description') ?? line.getAttribute('aria-label')).toBe(full)
     expect(line.textContent).not.toContain(short)
     expect(line.closest('[data-card-bottom-band]')).not.toBeNull()

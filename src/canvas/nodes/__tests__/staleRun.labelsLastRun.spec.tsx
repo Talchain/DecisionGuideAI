@@ -272,6 +272,8 @@ describe('factor card, Standard view — the driver line', () => {
     expect(screen.getByTestId('node-title')).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
     expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('Last run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
   })
 })
 

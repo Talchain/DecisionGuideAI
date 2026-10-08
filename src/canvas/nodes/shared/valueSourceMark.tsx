@@ -309,7 +309,7 @@ export function ValueSourceMark({
   const Icon = definition.Icon
   return (
     <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
-      <span role="img" aria-label={definition.words} title={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>
+      <span role="img" aria-label={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>
       <span className={typography.screenReaderOnly}>{mark.label}</span>
     </SourceMark></BottomCardMark>
   )

@@ -353,6 +353,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
       // Paul 23 Sep point 3(d): the fallback may not invent a past run either.
       expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
       expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
+      expect(document.body.textContent).not.toContain('Last run')
+      expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
       cleanup()
     }
   })
@@ -584,6 +586,8 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     const anchor = within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise')
     expect(anchor.textContent).toBe('Model result')
     expect(face('Raise the plan price').querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
+    expect(face('Raise the plan price').textContent).not.toContain('Last run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
   })
 })
 
@@ -664,7 +668,7 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     // (DESIGN-GAP-v31 #34) shows AND announces the whole sentence.
     const unset = within(card).getByTestId('risk-exposure-unset')
     expect(unset.getAttribute('aria-label')).toBe('Likelihood and impact not set yet')
-    expect(unset.getAttribute('title')).toBe('Likelihood and impact not set yet')
+    expect(unset.getAttribute('title') ?? '').toBe('')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })

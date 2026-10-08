@@ -148,7 +148,7 @@ afterEach(() => {
 })
 
 describe('slice B — pre-run state is a band mark on the valued factor, never a visible line', () => {
-  it.each(['standard', 'expert'] as const)('pre-run %s: no visible line, one band mark with its words, reserved slot', viewMode => {
+  it.each(['standard', 'expert'] as const)('pre-run %s: no visible line, one band mark with exact words and no native title, reserved slot', viewMode => {
     seed(VALUED, 'pre', viewMode)
     renderFactor(VALUED)
     expect(semantic()).toBe('none')
@@ -156,7 +156,7 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
     expect(screen.queryAllByText(/Working assumption/)).toHaveLength(0)
     const mark = within(card()).getByTestId(`factor-working-assumption-mark-${ID}`)
     expect(mark).toHaveAttribute('aria-label', 'Working assumption · no analysis yet')
-    expect(mark).toHaveAttribute('title', 'Working assumption · no analysis yet')
+    expect(mark.getAttribute('title') ?? '').toBe('')
     expect(within(card()).queryByTestId(`factor-no-analysis-${ID}`)).toBeNull()
     expect(screen.queryByTestId(`factor-popover-no-analysis-${ID}`)).toBeNull()
     if (viewMode === 'standard') {
@@ -183,6 +183,8 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
       expect(card()).toBeInTheDocument()
       expect(screen.queryByTestId(`factor-working-assumption-mark-${ID}`)).toBeNull()
       expect(card().textContent).not.toContain('Working assumption')
+      expect(document.body.textContent).not.toContain('no analysis yet')
+      expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('no analysis yet')
       expect(screen.queryByTestId(`factor-no-analysis-${ID}`)).toBeNull()
       expect(screen.queryByTestId(`factor-popover-no-analysis-${ID}`)).toBeNull()
     })
@@ -194,6 +196,8 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
       expect(card()).toBeInTheDocument()
       expect(screen.queryByTestId(`factor-working-assumption-mark-${ID}`)).toBeNull()
       expect(card().textContent).not.toContain('Working assumption')
+      expect(document.body.textContent).not.toContain('no analysis yet')
+      expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('no analysis yet')
     })
   }
 
@@ -204,6 +208,8 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
     expect(card()).toBeInTheDocument()
     expect(screen.queryByTestId(`factor-working-assumption-mark-${ID}`)).toBeNull()
     expect(card().textContent).not.toContain('Working assumption')
+    expect(document.body.textContent).not.toContain('no analysis yet')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('no analysis yet')
   })
 
   it('a RERUN in progress after an earlier run (no result on screen, a run has completed before) → NOT claimed', () => {
@@ -214,6 +220,8 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
     expect(card()).toBeInTheDocument()
     expect(screen.queryByTestId(`factor-working-assumption-mark-${ID}`)).toBeNull()
     expect(card().textContent).not.toContain('Working assumption')
+    expect(document.body.textContent).not.toContain('no analysis yet')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('no analysis yet')
   })
 
   it('a factor that needs input states its gap, not "no analysis yet"', () => {
@@ -223,5 +231,7 @@ describe('slice B — pre-run state is a band mark on the valued factor, never a
     // A factor with no value shows no value, so it gets no "no analysis yet" mark (FactorNode `noAnalysisYet`).
     expect(screen.queryByTestId(`factor-working-assumption-mark-${ID}`)).toBeNull()
     expect(card().textContent).not.toContain('Working assumption')
+    expect(document.body.textContent).not.toContain('no analysis yet')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('no analysis yet')
   })
 })

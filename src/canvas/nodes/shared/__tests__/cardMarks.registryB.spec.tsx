@@ -26,12 +26,12 @@ it('pre-run, the bottom-left Key lists the working-assumption mark the factor ca
   // Phase gate control: a run-only mark is not listed before a Run.
   expect(screen.queryByTestId('legend-card-mark-driver')).toBeNull()
 })
-it.each([1, 2, 3])('driver %s: numeral, short bar and the unchanged caption in aria', rank => {
+it.each([1, 2, 3])('driver %s: numeral, short bar and the unchanged caption in aria, with no native title', rank => {
   render(<FactorDriverLine nodeId="driver" rank={{ rank, setSize: 3 }} value={.4} inSlot />)
   const caption = screen.getByTestId('factor-driver-line-caption')
   expect(caption.textContent).toBe(String(rank))
   expect(caption).toHaveAttribute('aria-label', `Driver ${rank} of 3 ranked`)
-  expect(caption).toHaveAttribute('title', `Driver ${rank} of 3 ranked`)
+  expect(caption.getAttribute('title') ?? '').toBe('')
   expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(new RegExp(`^Driver ${rank} of 3 ranked in this run\\. `))
   expect(screen.getByTestId('factor-driver-line-bar-fill').style.width).toBe('max(4px, 40%)')
   expect(screen.queryByTestId('factor-driver-line-history')).toBeNull()

@@ -292,9 +292,11 @@ export function SourceMark({
   const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`
   if (!onOpen) {
     return (
-      <span className={classes} title={tip} aria-label={ariaLabel ?? tip} aria-description={ariaDescription} data-card-mark={cardMarkId} data-testid={testId} data-value-source={dataValueSource}>
-        {children}
-      </span>
+      <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tip}>
+        <span className={classes} aria-label={ariaLabel ?? tip} aria-description={ariaDescription} data-card-mark={cardMarkId} data-testid={testId} data-value-source={dataValueSource}>
+          {children}
+        </span>
+      </Tooltip>
     )
   }
   return (
@@ -343,9 +345,9 @@ export function EstimateMarker({
     <BottomCardMark><SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={tip} onOpen={onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
           mark kind. As a button its accessible name is the full `tip`
-          (`aria-label`, as v3.1 `prov()` does); as a static mark, its title. */}
+          (`aria-label`, as v3.1 `prov()` does); the styled tooltip keeps it. */}
       <Icon aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />
-      <span aria-label={UNCONFIRMED_ESTIMATE_TOKEN} title={UNCONFIRMED_ESTIMATE_TOKEN} className={typography.screenReaderOnly}>{UNCONFIRMED_ESTIMATE_TOKEN}</span>
+      <span aria-label={UNCONFIRMED_ESTIMATE_TOKEN} className={typography.screenReaderOnly}>{UNCONFIRMED_ESTIMATE_TOKEN}</span>
     </SourceMark></BottomCardMark>
   )
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -12,6 +12,7 @@ import { DecisionNode } from '../DecisionNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { AnalysisStateCue } from '../../components/AnalysisStateCue'
+import { TOOLTIP_SURFACE_CLASS } from '../../../components/Tooltip'
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
 vi.mock('../shared/useNodeAttention', () => ({ useNodeAttention: () => ({ reasons: [{ kind: 'fragile_link', order: 1, label: 'The comparison depends on a link from here. How sure are you of it?' }], marked: true, markedCount: 1, candidateCount: 1, fromLastRun: null }) }))
 const components = { factor: FactorNode, option: OptionNode, outcome: OutcomeNode, risk: RiskNode, goal: GoalNode, decision: DecisionNode }
@@ -30,7 +31,7 @@ function seed(type: keyof typeof components, data: Record<string, unknown> = {},
 function exact(testId: string, words: string) {
   const el = screen.getByTestId(testId)
   expect(el).toHaveAttribute('aria-label', words)
-  expect(el).toHaveAttribute('title', words)
+  expect(el.getAttribute('title') ?? '').toBe('')
   expect(el.textContent).not.toContain(words)
   return el
 }
@@ -107,6 +108,21 @@ it('working assumption is a band mark on the factor (words in aria + tooltip, ne
   cleanup(); seed('factor', { observedState: { value: 10, source: 'user' }, unit: 'GBP' }, true)
   expect(screen.getByTestId('node-header-row')).toBeInTheDocument()
   expect(screen.queryByTestId('factor-working-assumption-mark-marks-factor')).toBeNull()
+})
+it('focusing the working-assumption band mark shows its exact words in the styled tooltip, with no non-empty native title', async () => {
+  seed('factor', { observedState: { value: 10, source: 'user' }, unit: 'GBP' })
+  const mark = screen.getByTestId('factor-working-assumption-mark-marks-factor')
+  const words = 'Working assumption · no analysis yet'
+  expect(mark).toHaveAttribute('aria-label', words)
+  expect(mark.getAttribute('title') ?? '').toBe('')
+  expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+  expect(screen.queryByRole('tooltip')).toBeNull()
+  // Same real focus -> styled Tooltip pattern as GoalNode.limitPillsOnTheTargetRow.
+  act(() => mark.focus())
+  expect(document.activeElement).toBe(mark)
+  const tip = await screen.findByRole('tooltip')
+  expect(tip.textContent).toBe(words)
+  expect(tip).toHaveClass(TOOLTIP_SURFACE_CLASS)
 })
 it('decision assumptions become a band glyph, with the exact old sentence', () => {
   seed('decision')

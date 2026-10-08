@@ -142,7 +142,7 @@
  *   LINES for a human; the verdict is the asserted counts, never a margin.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { BOARD_STATES_BOARDS, BOARD_STATES_MEASURE_ONLY_BOARDS, GATE_TAG } from './canvasGateSet'
@@ -407,6 +407,12 @@ interface BoardReading {
   lodRung: string | null
   /** Every in-slot driver caption: its text, its glyph width and its slot's width (layout px). */
   driverCaptions: Array<{ card: string; text: string; textPx: number; slotPx: number }>
+  /** #2649 bottom band: cards with a band holding at least one mark (the positive control). */
+  bandsWithMarks: number
+  /** Visible text outside a card's bottom band whose box intersects the band (layout px). */
+  bandOverlaps: Array<{ card: string; el: string; overlapPx: number; text: string }>
+  /** A band whose marks overflow it (marks scrolled out of sight). */
+  bandOverflow: Array<{ card: string; overflowPx: number }>
 }
 
 /** One reader for (a), (b) and (d)'s inputs. `scope` restricts (b) to elements inside it. */
@@ -550,6 +556,81 @@ function READ_BOARD(arg: { clipTol: number; scope: string | null }): BoardReadin
         slotPx: (slot as HTMLElement).clientWidth,
       }]
     }),
+    ...readBottomBands(els, arg.clipTol),
+  }
+
+  /*
+   * ⭐ THE BOTTOM BAND CLEARS THE BODY (#2649, the #1833 class). The band is
+   * `position:absolute` at the card's foot; nothing in the card's flow reserves
+   * its height, so a body row can sit under it. For every card: any visible own
+   * text run OUTSIDE the band whose box intersects the band's box, by more than
+   * the tolerance in both axes, is an overlap. A band whose marks overflow it
+   * (`overflow-x-auto`) hides marks: reported too. In READ_BOARD so it runs at
+   * every state; the planted control in `measureState` proves it can see one.
+   */
+  function readBottomBands(cards: HTMLElement[], tol: number) {
+    let bandsWithMarks = 0
+    const bandOverlaps: BoardReading['bandOverlaps'] = []
+    const bandOverflow: BoardReading['bandOverflow'] = []
+    for (const card of cards) {
+      const band = card.querySelector('[data-card-bottom-band]') as HTMLElement | null
+      if (!band || getComputedStyle(band).visibility === 'hidden' || band.children.length === 0) continue
+      bandsWithMarks++
+      const k = card.getBoundingClientRect().width / Math.max(1, card.offsetWidth)
+      const B = band.getBoundingClientRect()
+      if (band.scrollWidth > band.clientWidth + tol) bandOverflow.push({ card: card.dataset.id ?? '?', overflowPx: band.scrollWidth - band.clientWidth })
+      for (const el of [...card.querySelectorAll('*')] as HTMLElement[]) {
+        if (band.contains(el)) continue
+        const cs = getComputedStyle(el)
+        if (cs.display === 'none' || cs.visibility === 'hidden' || isSrOnly(el, cs)) continue
+        for (const n of el.childNodes) {
+          if (n.nodeType !== Node.TEXT_NODE || !(n.textContent ?? '').trim()) continue
+          const range = document.createRange()
+          range.selectNodeContents(n)
+          for (const q of range.getClientRects()) {
+            const dx = (Math.min(q.right, B.right) - Math.max(q.left, B.left)) / k
+            const dy = (Math.min(q.bottom, B.bottom) - Math.max(q.top, B.top)) / k
+            if (dx > tol && dy > tol) {
+              bandOverlaps.push({ card: card.dataset.id ?? '?', el: describe(el), overlapPx: Math.round(dy * 10) / 10, text: (n.textContent ?? '').trim().slice(0, 50) })
+              break
+            }
+          }
+        }
+      }
+    }
+    return { bandsWithMarks, bandOverlaps, bandOverflow }
+  }
+}
+
+/*
+ * Review evidence (#2649, DL landing condition 3): the board at landing zoom, one card
+ * of each kind, and (at the end) the bottom-left Key open. Written under the uploaded
+ * `canvas-gate-report` artifact. Evidence only: never asserted, never fails the gate.
+ */
+async function landingShots(page: Page, board: string, state: string, legend = false): Promise<void> {
+  const dir = join(process.cwd(), 'test-results', 'canvas-gate', 'landing-shots')
+  try {
+    mkdirSync(dir, { recursive: true })
+    await page.screenshot({ path: join(dir, `${board}-${state}-board.png`) })
+    if (state === 'LANDING') {
+      const kinds = ['decision', 'option', 'factor', 'outcome', 'risk', 'goal']
+      for (const kind of kinds) {
+        const card = page.locator(`.react-flow__node-${kind}`).first()
+        if (await card.count()) await card.screenshot({ path: join(dir, `${board}-${state}-${kind}.png`) })
+      }
+    }
+    if (legend) {
+      const btn = page.getByTestId('btn-canvas-legend')
+      if (await btn.count()) {
+        await btn.click()
+        await page.waitForTimeout(400)
+        await page.screenshot({ path: join(dir, `${board}-${state}-legend.png`) })
+        await page.keyboard.press('Escape')
+      }
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(`landingShots ${board} ${state}: ${String(e)}`)
   }
 }
 
@@ -969,6 +1050,11 @@ interface StateResult {
   zoomRestoredTo: number | null
   cues: { lastRun: number; driverLines: number; resultsStatus: string | null }
   driverCaptions: BoardReading['driverCaptions']
+  bandsWithMarks: number
+  bandOverlaps: BoardReading['bandOverlaps']
+  bandOverflow: BoardReading['bandOverflow']
+  /** LANDING only: a text span planted over one band must be read as an overlap. */
+  bandControl: { planted: boolean; detected: boolean } | null
   ms: { read: number; c: number; e: number }
 }
 
@@ -995,6 +1081,31 @@ async function measureState(page: Page, board: string, state: StateName, o: Stat
     longCaption = { stressed, clipped: r.clipped }
   }
   const msRead = Date.now() - tRead
+
+  // Planted control for the band reader (LANDING): a visible text span placed over
+  // one card's band, inside the card but outside the band, must read as an overlap.
+  let bandControl: StateResult['bandControl'] = null
+  if (state === 'LANDING') {
+    const planted = await page.evaluate(() => {
+      const band = document.querySelector('.react-flow__node [data-card-bottom-band]') as HTMLElement | null
+      const card = band?.closest('.react-flow__node') as HTMLElement | null
+      if (!band || !card || band.children.length === 0) return false
+      const probe = document.createElement('span')
+      probe.setAttribute('data-d2-band-probe', '')
+      probe.textContent = 'band overlap probe'
+      const host = (band.offsetParent as HTMLElement | null) ?? (band.parentElement as HTMLElement)
+      probe.style.cssText = `position:absolute;left:${band.offsetLeft}px;top:${band.offsetTop}px;font-size:12px;line-height:${band.offsetHeight}px;white-space:nowrap`
+      host.appendChild(probe)
+      return true
+    })
+    let detected = false
+    if (planted) {
+      const r = await page.evaluate(READ_BOARD, { clipTol: CLIP_TOLERANCE_PX, scope: '[data-d2-none]' })
+      detected = r.bandOverlaps.some((o) => o.text === 'band overlap probe')
+      await page.evaluate(() => document.querySelectorAll('[data-d2-band-probe]').forEach((e) => e.remove()))
+    }
+    bandControl = { planted, detected }
+  }
 
   // (d) with its control
   const upward = upwardSameBand(reading)
@@ -1048,6 +1159,10 @@ async function measureState(page: Page, board: string, state: StateName, o: Stat
     zoomRestoredTo,
     cues: { lastRun: reading.lastRunCues, driverLines: reading.driverLines, resultsStatus: reading.resultsStatus },
     driverCaptions: reading.driverCaptions,
+    bandsWithMarks: reading.bandsWithMarks,
+    bandOverlaps: reading.bandOverlaps,
+    bandOverflow: reading.bandOverflow,
+    bandControl,
     ms: { read: msRead, c: msC, e: msE },
   }
   // eslint-disable-next-line no-console
@@ -1099,6 +1214,7 @@ test.describe('board states geometry', () => {
       })
       results.push(L.result)
       const landing = { heights: new Map(L.reading.cards.map((c) => [c.id, c.h])), zoom: L.reading.zoom }
+      await landingShots(page, board.name, 'LANDING')
       lap('landing')
 
       // ── POST-RUN
@@ -1236,6 +1352,7 @@ test.describe('board states geometry', () => {
         expect(r.lodRung, `${board.name} ${r.state}: read on LOD rung ${r.lodRung}, LANDING on ${L.result.lodRung} — the camera restore failed`).toBe(L.result.lodRung)
       }
 
+      await landingShots(page, board.name, 'END', true)
       // ── THE ASSERTED VERDICTS: (b), (c), (d). (a) and (e) are REPORTED above.
       const failures: string[] = []
       for (const r of results) {
@@ -1244,7 +1361,12 @@ test.describe('board states geometry', () => {
         if (r.occlusion && r.occlusion.card === null) failures.push(`(c) ${r.state} VACUOUS — no card of [${r.occlusion.tried.join(', ')}] opened a menu overlapping its inspector`)
         for (const oc of r.occlusion?.occluded ?? []) failures.push(`(c) ${r.state} card=${r.occlusion?.card} item="${oc.label}" top=${oc.top}`)
         for (const u of r.upward) failures.push(`(d) ${r.state} ${u.source} -> ${u.target} band=${u.band} up=${u.upModelPx}px (tol ${u.tolModelPx}px)`)
+        for (const o of r.bandOverlaps) failures.push(`(f) ${r.state} band overlap card=${o.card} el=${o.el} ${o.overlapPx}px "${o.text}"`)
+        for (const o of r.bandOverflow) failures.push(`(f) ${r.state} band overflow card=${o.card} +${o.overflowPx}px (marks scrolled out of sight)`)
       }
+      // (f) controls: the reader saw bands with marks, and saw a planted overlap.
+      expect(L.result.bandsWithMarks, `${board.name} LANDING: no card has a bottom band with a mark — the band reading is about nothing`).toBeGreaterThan(0)
+      expect(L.result.bandControl?.detected ?? false, `${board.name} LANDING: the band reader missed a text span planted over a band`).toBe(true)
       expect(failures, `${board.name}: geometry defects across LANDING / POST-RUN / STALE / RELOAD`).toEqual([])
     })
   }

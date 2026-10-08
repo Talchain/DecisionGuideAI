@@ -360,6 +360,8 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     expect(face().contains(driver)).toBe(true)
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('Last run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
     expectNothingItMustNeverSay()
   })
 
@@ -551,6 +553,8 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.querySelector('[data-card-mark][aria-label*="in this run"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('in this run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('in this run')
     expectNothingItMustNeverSay()
   })
 

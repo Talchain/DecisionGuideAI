@@ -1012,7 +1012,7 @@ export const GoalNode = memo((props: NodeProps) => {
       ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
       : null
   const noTargetStatusChip = (
-    <BottomCardMark><Tooltip asChild content="Add target"><span className="inline-flex"><button
+    <BottomCardMark><Tooltip asChild content={`${GOAL_NO_TARGET_STATE} · Add target`}><span className="inline-flex"><button
       type="button"
       onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
       onPointerDown={(e) => e.stopPropagation()}
@@ -1049,7 +1049,7 @@ export const GoalNode = memo((props: NodeProps) => {
       data-testid="goal-node-no-target-chip"
       data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
-      <span data-testid={`goal-target-status-${props.id}`} data-card-mark="target-not-captured" role="img" aria-label={GOAL_NO_TARGET_STATE} title={GOAL_NO_TARGET_STATE}><CardMarkShape mark={cardMark('target-not-captured')} /></span>
+      <span data-testid={`goal-target-status-${props.id}`} data-card-mark="target-not-captured" role="img" aria-label={GOAL_NO_TARGET_STATE}><CardMarkShape mark={cardMark('target-not-captured')} /></span>
     </button></span></Tooltip></BottomCardMark>
   )
 

@@ -124,8 +124,8 @@ describe('decision 5 — the #1 treatment on the graph carries "no value yet" fo
     const ep = screen.getByTestId(EVIDENCE)
     expect(ep.getAttribute('data-factor-id')).toBe('pro_paying_subscribers')
     expect(ep.getAttribute('aria-label')).toBe('Evidence priority: Pro paying subscribers · no value yet')
-    // The row's hover/clause text is the same composed string.
-    expect(screen.getByTestId(EVIDENCE).getAttribute('title')).toContain('Pro paying subscribers · no value yet')
+    // The mark's exact words remain accessible, with no native tooltip.
+    expect(ep.getAttribute('title') ?? '').toBe('')
   })
 
   it('CONTROL — C01 (#1 valued): the same factor is named, with no qualifier', () => {

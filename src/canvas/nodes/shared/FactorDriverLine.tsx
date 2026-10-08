@@ -273,14 +273,14 @@ export function FactorDriverLine({
     : `${lastRun}${driverLineCaption(rank, fromLastRun, noValueYet)}`
   const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun, noValueYet })}`
   const denominatorNote = driverLineDenominatorNote(rank, fromLastRun)
+  const tooltipWords = `${explanation} ${denominatorNote}`
   const visual = inSlot || onCard
   const line = (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={`${explanation} ${denominatorNote}`}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tooltipWords.includes(caption) ? tooltipWords : `${caption} · ${tooltipWords}`}>
       <button
         type="button"
         data-testid={testId}
         data-card-mark={visual ? fromLastRun ? 'driver-last-run' : 'driver' : undefined}
-        title={explanation}
         data-node-tooltip="true"
         aria-label={explanation}
         aria-description={denominatorNote}
@@ -304,7 +304,6 @@ export function FactorDriverLine({
         <span
           data-testid={`${testId}-caption`}
           aria-label={caption}
-          title={caption}
           // Regular weight (contract `.driver`; audit T10): the rank is a finding
           // about the factor, secondary to its value line above.
           className={`${typography.edgeLabel} text-text-body underline-offset-[3px] group-hover:underline${visual ? ' shrink-0' : ''}`}

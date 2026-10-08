@@ -26,7 +26,7 @@ function mark(testId: string, id: string, words: string) {
   const el = screen.getByTestId(testId)
   expect(el).toHaveAttribute('data-card-mark', id)
   expect(el).toHaveAttribute('aria-label', words)
-  expect(el).toHaveAttribute('title', words)
+  expect(el.getAttribute('title') ?? '').toBe('')
   expect(el.textContent).not.toContain(words)
   expect(screen.getByTestId(`option-bottom-marks-${node.id}`).contains(el)).toBe(true)
   return el

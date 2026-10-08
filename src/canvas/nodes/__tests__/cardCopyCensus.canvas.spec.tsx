@@ -391,7 +391,7 @@ function visibleRuns(root: HTMLElement): string[] {
   const hiddenOutcome = root.querySelector('[data-card-band-hidden] [data-testid="outcome-unquantified"]')
   if (hiddenOutcome) {
     expect(hiddenOutcome).toHaveAttribute('aria-label', 'Outcome not quantified')
-    expect(hiddenOutcome).toHaveAttribute('title', 'Outcome not quantified')
+    expect(hiddenOutcome.getAttribute('title') ?? '').toBe('')
     out.push(hiddenOutcome.getAttribute('aria-label')!)
   }
   root.querySelectorAll('[data-card-band-hidden]').forEach(el => el.remove())
@@ -403,7 +403,7 @@ function visibleRuns(root: HTMLElement): string[] {
     const words = el.getAttribute('aria-label')
     expect(words).not.toBeNull()
     expect(el.textContent).not.toContain(words)
-    expect(el).toHaveAttribute('title', words)
+    expect(el.getAttribute('title') ?? '').toBe('')
     if (el.getAttribute('data-testid') !== 'risk-exposure-provenance' || !detailedRisk) out.push(words!.trim())
   })
   root.querySelectorAll('*').forEach((el) => {

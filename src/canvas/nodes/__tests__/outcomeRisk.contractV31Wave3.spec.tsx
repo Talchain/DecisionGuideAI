@@ -115,14 +115,14 @@ beforeEach(() => {
 
 describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
   // Contract v3.1 `.small-state` (26 Sep, WS4; was ED 5809278282's short form): Standard SHOWS the fixture sentence too.
-  it('an outcome with no number says so, in the fixture’s exact words', () => {
+  it('an outcome with no number says so in the fixture’s exact words, with no native title', () => {
     renderOutcome()
     const line = screen.getByTestId('outcome-unquantified')
     expect(line).toHaveAttribute('aria-label', 'Outcome not quantified')
     expect(shown(line)).toBe('—')
     expect(announced(line)).toBe('Outcome not quantified')
-    // Design audit #13 (26 Sep): no native title repeating the visible line.
-    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
+    // Design audit #13 (26 Sep): one styled Tooltip, no native title.
+    expect(line.getAttribute('title') ?? '').toBe('')
     expect(OUTCOME_UNQUANTIFIED_LINE).toBe('Outcome not quantified')
     expect(screen.queryByTestId('outcome-recorded-value')).toBeNull()
     cleanup()
@@ -192,14 +192,14 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
 })
 
 describe('OR-02 — the risk state line is a label, not a sentence', () => {
-  // Byte for byte in Standard's visible text, sr-only + title and on the Detailed card — contract v3.1 (DESIGN-GAP-v31 #34) shows the whole label.
-  it('has no trailing full stop, and renders byte for byte', () => {
+  // Byte for byte on the mark's accessible name in Standard and Detailed.
+  it('has no trailing full stop, names the mark byte for byte, and has no native title', () => {
     renderRisk()
     expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     const line = screen.getByTestId('risk-exposure-unset')
     expect(announced(line)).toBe('Likelihood and impact not set yet')
-    // Design audit #13 (26 Sep): no native title repeating the visible line.
-    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
+    // Design audit #13 (26 Sep): one styled Tooltip, no native title.
+    expect(line.getAttribute('title') ?? '').toBe('')
     expect(line).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
     expect(shown(line)).toBe('')
     cleanup()

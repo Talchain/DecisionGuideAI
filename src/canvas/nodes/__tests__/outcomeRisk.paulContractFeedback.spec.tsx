@@ -134,7 +134,7 @@ const renderOutcome = (id: string, label: string, extra: Record<string, unknown>
 const shown = (el: Element) => {
   const words = el.getAttribute('aria-label')
   expect(el.textContent).not.toContain(words)
-  expect(el).toHaveAttribute('title', words)
+  expect(el.getAttribute('title') ?? '').toBe('')
   return words
 }
 const announced = (el: Element) => el.getAttribute('aria-description') ?? el.getAttribute('aria-label')

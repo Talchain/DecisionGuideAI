@@ -144,7 +144,7 @@ describe('audit #13: no native title on the card internals the served boards sho
     expect(screen.getByRole('group').hasAttribute('aria-description')).toBe(false)
   })
 
-  it('an unquantified outcome: the visible line, with no native title repeating it', () => {
+  it('an unquantified outcome: exact band-mark words, with no native title', () => {
     render(
       <ReactFlowProvider>
         <OutcomeNode {...(baseProps as unknown as NodeProps)} id="out_1" type="outcome" data={{ label: 'Net revenue retention', type: 'outcome' }} />
@@ -153,10 +153,10 @@ describe('audit #13: no native title on the card internals the served boards sho
     const line = screen.getByTestId('outcome-unquantified')
     expect(line).toHaveAttribute('aria-label', 'Outcome not quantified')
     expect(line.textContent).not.toContain('Outcome not quantified')
-    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
+    expect(line.getAttribute('title') ?? '').toBe('')
   })
 
-  it('an unset risk: the visible line, with no native title repeating it', () => {
+  it('an unset risk: exact band-mark words, with no native title', () => {
     render(
       <ReactFlowProvider>
         <RiskNode {...(baseProps as unknown as NodeProps)} id="risk_1" type="risk" data={{ label: 'Enterprise churn', type: 'risk' }} />
@@ -165,6 +165,6 @@ describe('audit #13: no native title on the card internals the served boards sho
     const line = screen.getByTestId('risk-exposure-unset')
     expect(line).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
     expect(line.textContent).not.toContain('Likelihood and impact not set yet')
-    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
+    expect(line.getAttribute('title') ?? '').toBe('')
   })
 })
