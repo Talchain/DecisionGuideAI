@@ -13,7 +13,7 @@
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
-import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
+import { isUnsizedRelationship } from '../../domain/edgeProvenance'
 import { UnsizedLinkRow } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
 import { action } from '../../../components/results/analysisNew/panelSurfaces'
 import { focusEdgeById, focusNodeById } from '../../utils/focusHelpers'
@@ -67,7 +67,7 @@ function useStrengthenLink(row: GuidanceRow): { edgeId: string; fromLabel: strin
   const current = useCanvasStore(selectRunAffirmedCurrent)
   const ends = useRefOnCanvas(ref)
   const edge = useCanvasStore((s) => (ref ? s.edges.find((e) => e.source === ref.fromId && e.target === ref.toId) ?? null : null))
-  if (!ref || !ends || !edge || !current || !isStrengthPlaceholder(edge.data)) return null
+  if (!ref || !ends || !edge || !current || !isUnsizedRelationship(edge.data as Record<string, unknown> | undefined)) return null
   return { edgeId: edge.id, fromLabel: nodeLabel(ref.fromId), toLabel: nodeLabel(ref.toId) }
 }
 

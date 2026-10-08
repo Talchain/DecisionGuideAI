@@ -118,7 +118,7 @@ import {
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
-import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
+import { isUnsizedRelationship } from '../../canvas/domain/edgeProvenance'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
@@ -2191,7 +2191,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const edge = edges.find((e) => e.source === l.from && e.target === l.to)
           // ⛔ The retained warning is the Run's word; whether the link is STILL unsized is the edge's. Once Edit or an
           // acceptance sizes it (or the user states it), the typed placeholder predicate clears and the offer goes (#2408 CR).
-          if (!edge || seen.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
+          if (!edge || seen.has(edge.id) || !isUnsizedRelationship(edge.data as Record<string, unknown> | undefined)) continue
           seen.add(edge.id)
           const labelOf = (id: string) => String((nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label ?? id)
           out.push({ edgeId: edge.id, fromLabel: labelOf(l.from), toLabel: labelOf(l.to) })

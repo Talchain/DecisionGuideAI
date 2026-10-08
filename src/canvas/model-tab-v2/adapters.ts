@@ -145,8 +145,6 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { EDGE_PROVENANCE, edgeProvenance } from '../domain/edgeProvenance'
-import { isStrengthAccepted } from '../domain/strengthAccepted'
-import { isStrengthStated } from '../domain/strengthStated'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { DEFINITIONAL_SUFFIX } from '../domain/naturalEffect'
@@ -833,8 +831,6 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     input.edges as Edge<EdgeData>[],
   )) {
     const data = edge.data as Record<string, unknown> | undefined
-    // RT-12: only the live admitted example strength carries this attribution.
-    const exampleFigure = edgeSizePhrase(data)?.exampleFigure === true
     const attention: AttentionReason[] = []
     if (edgeIsContested(data)) attention.push('contested')
     if (input.fragileEdgeIds?.has(getDisplayEdgeId(edge))) attention.push('fragile')
@@ -863,11 +859,11 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     // Gate 5 (Codex r1 P1-1): an ACCEPTED Olumi strength keeps `provenanceDisplay: 'ai_inferred'` byte-identical (CEE
     // records the approval as review), and a strength sized from the user's own figure is not Olumi's estimate: neither
     // is an unconfirmed estimate to offer for confirmation (domain/strengthAccepted, domain/strengthStated).
+    // Data layer Phase 1 (PR2a): "Olumi's estimate, not yet confirmed" is offered only for a relationship the ONE
+    // classifier calls Olumi's estimate (`edgeProvenance.ts`): never a definition, an acceptance, the user's brief, an
+    // example figure, a person's own setting or a PLACEHOLDER (nobody estimated it, so there is nothing to confirm).
     if (
-      !isStrengthDefinitional(data) &&
-      !isStrengthAccepted(data) &&
-      !isStrengthStated(data) &&
-      !exampleFigure &&
+      edgeProvenance(data)?.kind === 'olumi_estimate' &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {

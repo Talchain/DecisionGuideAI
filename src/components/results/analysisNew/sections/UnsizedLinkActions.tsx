@@ -28,7 +28,7 @@ import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuth
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
-import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceholder'
+import { isUnsizedRelationship } from '../../../../canvas/domain/edgeProvenance'
 
 /**
  * ⭐ 8 Oct 2026 (Paul: the zone was a wall of "X to Y · Accept starting strength · Edit", repeated under every option;
@@ -57,7 +57,7 @@ export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized
   const s = useCanvasStore.getState()
   if (!selectRunAffirmedCurrent(s)) return 'not_current'
   const edge = s.edges.find((e) => e.id === edgeId)
-  if (!edge || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
+  if (!edge || !isUnsizedRelationship(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
   return null
 }
 
