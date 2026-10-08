@@ -104,19 +104,53 @@ describe('Rule R read-time display mirror', () => {
     }
   })
 
-  it('scaling: 500 -> 2000 nodes, min-of-5 ratio < 8', () => {
-    const small = chain(500)
-    const large = chain(2000)
+  it('scaling: 1000 -> 8000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 2)', () => {
+    const small = chain(1000)
+    const large = chain(8000)
+    type Graph = ReturnType<typeof chain>
     // The walk itself (uncached), so the row measures its growth, not the memo's retention of 30 results.
-    const minimum = (graph: ReturnType<typeof chain>) => Math.min(...Array.from({ length: 5 }, () => {
+    const walk = (graph: Graph) => computeRouteOnceHeld(graph.nodes, graph.edges)
+    // A known-linear walk over the same kind of structures: a Set of node ids, a Map of counts, one pass over the edges.
+    const reference = (graph: Graph) => {
+      const ids = new Set<string>()
+      for (const node of graph.nodes) ids.add(node.id)
+      const incoming = new Map<string, number>()
+      for (const edge of graph.edges) if (ids.has(edge.source) && ids.has(edge.target)) incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1)
+      return incoming.size
+    }
+    const time = (f: (graph: Graph) => unknown, graph: Graph, calls: number) => {
       const start = performance.now()
-      for (let i = 0; i < 10; i++) computeRouteOnceHeld(graph.nodes, graph.edges)
-      return performance.now() - start
-    }))
-    for (let i = 0; i < 5; i++) { computeRouteOnceHeld(small.nodes, small.edges); computeRouteOnceHeld(large.nodes, large.edges) }
-    const smallMs = minimum(small)
-    const largeMs = minimum(large)
-    expect(largeMs / smallMs, `min-of-5: ${smallMs.toFixed(2)}ms -> ${largeMs.toFixed(2)}ms`).toBeLessThan(8)
+      for (let i = 0; i < calls; i++) f(graph)
+      return Math.max(performance.now() - start, 0.05)
+    }
+    for (const f of [walk, reference]) { time(f, small, 10); time(f, large, 10) }
+    const calibrate = (f: (graph: Graph) => unknown) => {
+      const samples = Array.from({ length: 3 }, () => time(f, large, 1)).sort((a, b) => a - b)
+      const oneCallLargeMs = samples[1]
+      return Math.max(1, Math.ceil(160 / oneCallLargeMs))
+    }
+    // Calibrate each function independently to ~160 ms at LARGE (so the 8× smaller sample is ~20 ms, not a noisy few ms), then use its same call count at both sizes.
+    const walkCalls = calibrate(walk)
+    const referenceCalls = calibrate(reference)
+    // ⛔ Gate on the NORMALISED ratio (walk growth ÷ a plain Map/Set walk's growth); both ratios stay in the message.
+    // Sizes 1000 → 8000 (8×), so a quadratic regression (~64×) sits far from linear (8×). At 1000 → 4000 the gap was thin:
+    // local real 0.97–1.13 vs mutant 2.22–2.48, and CI read the real walk at 1.46 (#2631 shard 2, 8 Oct 00:0xZ).
+    // Measured at 1000 → 8000, 8 Oct 00:1xZ (one file, load < 25): real normalised 0.73–0.94 (raw 11.9–13.1, 8 runs);
+    // quadratic mutant (one O(n) target scan per edge) normalised 3.99–4.48 (raw 57–60, 3 runs). Bar 2 ≈ their geometric
+    // midpoint (1.94): ~2× margin each side, with room for CI reading the real walk ~1.5× higher than the Mac.
+    const min = { walkSmall: Infinity, walkLarge: Infinity, refSmall: Infinity, refLarge: Infinity }
+    for (let round = 0; round < 7; round++) {
+      min.walkSmall = Math.min(min.walkSmall, time(walk, small, walkCalls))
+      min.walkLarge = Math.min(min.walkLarge, time(walk, large, walkCalls))
+      min.refSmall = Math.min(min.refSmall, time(reference, small, referenceCalls))
+      min.refLarge = Math.min(min.refLarge, time(reference, large, referenceCalls))
+    }
+    const walkRatio = min.walkLarge / min.walkSmall
+    const referenceRatio = min.refLarge / min.refSmall
+    const normalisedRatio = walkRatio / referenceRatio
+    const message = `scaling: walkSmall=${min.walkSmall.toFixed(3)}ms walkLarge=${min.walkLarge.toFixed(3)}ms refSmall=${min.refSmall.toFixed(3)}ms refLarge=${min.refLarge.toFixed(3)}ms walkCalls=${walkCalls} refCalls=${referenceCalls} raw=${walkRatio.toFixed(6)}× normalised=${normalisedRatio.toFixed(6)}× reference=${referenceRatio.toFixed(6)}× (interleaved min-of-7)`
+    console.log(message)
+    expect(normalisedRatio, message).toBeLessThan(2)
   })
 
   it('hook: changing an earlier link flips the boolean with the held edge object unchanged', () => {
