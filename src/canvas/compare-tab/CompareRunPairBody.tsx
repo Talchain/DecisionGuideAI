@@ -15,7 +15,7 @@
  * reads the SAME fact Reasoning reads (`selectRunOnRecordWithoutResult`, from the Run control's own facts), passed
  * down by the dock; it decides nothing of its own.
  */
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
@@ -34,6 +34,8 @@ import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/
 import { buildRunChangeArtefact } from './runChangeArtefact'
 import { ComparePairSections } from './ComparePairSections'
 import { withheldReasonSegments } from './withheldReasonSegments'
+import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
+import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
 import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
@@ -114,6 +116,10 @@ export function CompareRunPairBody({
     const data = nodes.find(n => n.id === id)?.data as { label?: unknown } | undefined
     return typeof data?.label === 'string' ? data.label : null
   }), [withheldReason, inferenceWarnings, nodes])
+  // Each named link's tick reads the canvas NOW, by the link's ids (a sizing edit after the Run ticks its row).
+  const edges = useCanvasStore(s => s.edges)
+  const linkSizingState: LinkSizingStateOf = useCallback((fromId, toId) => linkSizingStateOf(edges, fromId, toId), [edges])
+  const unsizedLinks = useMemo(() => unsizedLinksOf(inferenceWarnings), [inferenceWarnings])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
@@ -172,7 +178,8 @@ export function CompareRunPairBody({
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />
+        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink}
+        linkSizingState={linkSizingState} unsizedLinks={unsizedLinks} />
     </div>
   )
 }

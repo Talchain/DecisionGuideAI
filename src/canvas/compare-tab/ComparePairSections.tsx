@@ -17,6 +17,7 @@ import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import { CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
 import type { ReasonSegment } from './withheldReasonSegments'
+import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { GraphLink } from '../../components/results/GraphLink'
 import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords } from '../../components/results/analysis-hero/goalChanceCopy'
 
@@ -80,7 +81,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
  */
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
-  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null,
+  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, linkSizingState, unsizedLinks = [],
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -93,6 +94,10 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
+  /** Each named link's sizing on the canvas now (stored provenance, by its ids): turns the not-shown line into a checklist. */
+  linkSizingState?: LinkSizingStateOf
+  /** Every link the same Run's GOAL_FIGURES_PLACEHOLDER_PATH warning lists (`unsizedLinksOf`), named or only counted. */
+  unsizedLinks?: ReadonlyArray<{ from: string; to: string }>
 }): JSX.Element {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
@@ -111,6 +116,8 @@ export function ComparePairSections({
   const showFigures = resultsAllowed && !view.movementsUnavailable
   const cohortChanged = rows.some((row) => row.kind === 'option' && row.change !== 'changed')
   const askAvailable = runIsCurrent && !analysing
+  // The not-shown line's named links as the user's next step (DL GO "A", 8 Oct): only CEE's named links, never the canvas's.
+  const sizingLinks = !resultsAllowed && linkSizingState ? sizingLinksOf(withheldSegments) : []
   const ask = (): void => openAskOlumi({
     label: COMPARE_ASK_LABEL,
     context: `${resultHeadline}.${qualification ? ` ${qualification}` : ''} Previous run: ${delta.endpoints?.prior.run_id ?? 'not recorded'}. Latest run: ${delta.endpoints?.current.run_id ?? 'not recorded'}. ${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`,
@@ -185,7 +192,15 @@ export function ComparePairSections({
             })}
           </ul>
         ) : null}
-        {!resultsAllowed ? (
+        {!resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
+          // The shared sentence, word for word; its named links are the checklist's rows below, each with its own press.
+          <>
+            <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
+              {withheldSegments!.map((s) => s.text).join('')}
+            </p>
+            <CompareSizingChecklist links={sizingLinks} listed={unsizedLinks} stateOf={linkSizingState} />
+          </>
+        ) : !resultsAllowed ? (
           <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
             {withheldSegments?.some((s) => s.link)
               // "Set them" with a way to: each named link is one click to its own inspector (`GraphLink` → `openLinkInspector`;
