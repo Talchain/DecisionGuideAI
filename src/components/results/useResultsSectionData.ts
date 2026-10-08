@@ -126,9 +126,10 @@ import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
-import { readGoalChanceLicence, type GoalChanceDriverNames, type GoalChanceLicence } from './utils/goalChanceLicence'
+import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
+import { runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
-import { readGoalChanceRange, type GoalChanceRange } from './utils/goalChanceRange'
+import type { GoalChanceRange } from './utils/goalChanceRange'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1367,6 +1368,8 @@ export interface ResultsSectionDataReturn {
    * `null` = no licence, and every surface renders exactly as before.
    */
   goalChanceLicence?: GoalChanceLicence | null
+  /** ⭐ RunView PR 1: the Run's one per-option view (`runViewOf`). OPTIONAL: absent = the empty view. */
+  runView?: RunView
   /**
    * ⭐ G4/G5 phase 2, P3: how the hero names what an option's goal chance rests on most (CEE's `driver_by_option` on the
    * licence): a node's canvas label and a factor's unit. The hero words the sentence. OPTIONAL: absent = nothing is said.
@@ -1509,18 +1512,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const leaderPermission = report?.producer_leader_permission ?? null
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
-  const goalChanceLicence = useMemo(
-    () => readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
-    [report],
-  )
+  // ⭐ RunView PR 1: the Run's ONE view, built once per report (`runViewOf`); the licence and range are read there only.
+  const runView = useMemo(() => runViewOf(report), [report])
+  const goalChanceLicence = runView.goalChance
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
     [report],
   )
-  const goalChanceRange = useMemo(
-    () => readGoalChanceRange((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
-    [report],
-  )
+  const goalChanceRange = runView.goalChanceRange
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -4891,6 +4890,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalChanceDriverNames,
       goalChanceInvite,
       goalChanceRange,
+      runView,
     }),
     [
       recommendation,
@@ -4915,6 +4915,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalChanceDriverNames,
       goalChanceInvite,
       goalChanceRange,
+      runView,
     ],
   )
 }

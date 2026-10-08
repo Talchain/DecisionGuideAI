@@ -78,6 +78,8 @@ export interface GoalChanceLicence {
   readonly form: GoalChanceForm
   readonly optionIds: readonly string[]
   readonly pctByOption: Readonly<Record<string, number>>
+  /** RC4 attribution recorded by CEE for this Run; the screen never recounts the graph. */
+  readonly olumiEstimateLinkCount?: number
   /** Options whose chance was withheld for their own path (subset of `optionIds`, no figure); empty when none. */
   readonly withheldOptionIds: readonly string[]
   /** `similar` (H2) only: the options within 10 points of the top, in the model's order (≥ 2); else empty. */
@@ -206,6 +208,8 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     form,
     optionIds: ids as string[],
     pctByOption: pct as Record<string, number>,
+    ...(typeof r.olumi_estimate_link_count === 'number' && Number.isSafeInteger(r.olumi_estimate_link_count)
+      && r.olumi_estimate_link_count > 0 ? { olumiEstimateLinkCount: r.olumi_estimate_link_count } : {}),
     withheldOptionIds: (ids as string[]).filter((id) => withheld.has(id)),
     similarOptionIds: sameRaw as string[],
     leaderOptionId,

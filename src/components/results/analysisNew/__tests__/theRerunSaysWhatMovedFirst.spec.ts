@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { buildCommitmentSynthesis } from '../commitmentSynthesis'
+import { buildCommitmentSynthesis, runDeltaSentence } from '../commitmentSynthesis'
 import { buildRunDeltaView } from '../runDeltaView'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 
@@ -70,10 +70,14 @@ describe('after a re-run, "What we have" says what moved', () => {
   })
 })
 
-describe('the first re-run after the automatic first pass says why nothing is compared', () => {
-  const PAIR = "This run is not compared with Olumi's automatic first pass; the next re-run will show what moved."
-  it('unrequested_run_in_pair (served 62c6b142, first edit → Re-run) → the line', () => {
-    expect(founded(null, { runDeltaAbsenceReason: 'unrequested_run_in_pair' })).toMatch(new RegExp(PAIR.replace(/[.?()]/g, '\\$&') + '$'))
+describe('the first re-run after the automatic first pass: the Reasoning bullet does not narrate the pairing', () => {
+  // ⭐ 8 Oct 2026 (Paul): how Olumi pairs runs is not about the decision. The Compare tab and the chat card keep the
+  // sentence (`runDeltaSentence` with `absenceReason`, pinned by applyV5State.runDeltaAbsenceBindsAndSurvives).
+  it('unrequested_run_in_pair (served 62c6b142, first edit → Re-run) → no pairing sentence in "What we have"', () => {
+    expect(founded(null, { runDeltaAbsenceReason: 'unrequested_run_in_pair' })).not.toMatch(/automatic first pass/)
+  })
+  it('CONTRAST: the shared producer still says it where the caller asks for it', () => {
+    expect(runDeltaSentence(null, { isStale: false, absenceReason: 'unrequested_run_in_pair' })).toMatch(/automatic first pass/)
   })
   it('CONTRAST: another absence reason, or a stale run, adds nothing', () => {
     expect(founded(null, { runDeltaAbsenceReason: 'some_other_reason' })).not.toMatch(/automatic first pass/)

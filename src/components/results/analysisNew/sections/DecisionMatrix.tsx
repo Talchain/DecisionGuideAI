@@ -1,12 +1,10 @@
 import { typography } from '../../../../styles/typography'
 import { stripEncodingNotation } from '../../utils/cleanFactorLabel'
-import { formatGoalProbability } from '../../utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/goalFitBasisCaveatCopy'
 import { formatThreshold } from '../../RangeVisualization'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { MODEL_SCORE_COPY } from '../modelScore'
 import { goalChanceDriverLines, goalChanceOptionLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
-import { goalProbabilityWords } from '../../utils/goalAnchorCopy'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
@@ -71,16 +69,18 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const rangeEntry = range?.rangeByOption[id]
     const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf, range?.target)
     const rangeClauses = splitRangeLine(rangeLine)
-    const readout = rangeEntry !== undefined ? null : licensed
-      ? licence.withheldOptionIds.includes(id) ? null : goalProbabilityWords(`${licence.pctByOption[id]}%`)
-      : rec.goalThreshold != null && option.goalProbability != null && option.notAnalysed !== true
-        ? goalProbabilityWords(formatGoalProbability(option.goalProbability, option.nValidSamples))
-        : null
+    // ⭐ RunView PR 1: ONE source for the chance (CEE's licence, via the Run's view). The report's own figure is never
+    // shown; a Run with goal figures but no licence says RUN_AGAIN_FOR_CHANCE (DL ruling 1, 8 Oct).
+    const viewChance = data.runView?.chanceOf(id)
+    const readout = rangeEntry !== undefined || option.notAnalysed === true ? null
+      : viewChance?.kind === 'figure' ? viewChance.words : null
+    const unlicensedLine = rangeEntry === undefined && option.notAnalysed !== true && viewChance?.kind === 'withheld'
+      && viewChance.by === 'no_licence' ? viewChance.reason : null
     // A range first: S3's reader (readGoalChanceRange) already bars it on a Run-wide withhold by CODE, and the
     // withheld SENTENCE also fires on the range's own causes (PLACEHOLDER_PATH, TARGET_NOT_TESTABLE), so keying on it
     // would hide every real range (Science, 7 Oct). Then the Run-level withhold, then the option's point or line.
     // Unresolved range labels never fall back to a raw point estimate.
-    const chance = (rangeEntry !== undefined ? rangeClauses.chance : withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : readout)) ?? 'Not shown.'
+    const chance = (rangeEntry !== undefined ? rangeClauses.chance : withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : unlicensedLine ?? readout)) ?? 'Not shown.'
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.

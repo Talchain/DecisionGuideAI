@@ -254,7 +254,9 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
       expect(marker, `${id}: the \`Not ranked\` marker renders`).not.toBeNull()
       expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
       expect(marker!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
-      expect(marker!.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
+      // ONE status mark (DL 8 Oct, workstream D): on this STALE run the withheld mark wins and names the stale line.
+      expect(marker!.getAttribute('aria-description')).toBe(`${EXPLORATORY_REASON_LINE} · Also: Last run · no new comparison yet`)
+      expect(byId(`option-stale-state-${id}`)).toBeNull()
       expect(tokens(slot).has('h-[1lh]')).toBe(true)
       cleanup()
     }
@@ -325,7 +327,10 @@ describe('DIFF item 5 — the option the run left out keeps saying so, in the re
     expect(slot().contains(line())).toBe(true)
     expect(slot().getAttribute('class')).toBe(preClass)
     expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Last run')
-    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Not analysed')
+    // ONE status mark (DL 8 Oct, workstream D): stale outranks not-analysed; "Not analysed" is named in its tooltip
+    // (and the line's screen-reader sentence still says it), never a second glyph.
+    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toBeNull()
+    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)!.getAttribute('aria-description')).toBe('Also: no new comparison yet · Not analysed')
     expect(line()!.textContent).not.toContain('Last run · Not analysed')
     // One line: it never wraps; the reason is the part that gives way, whole.
     expect([...tokens(line())]).toEqual(expect.arrayContaining(['flex-nowrap', 'whitespace-nowrap']))

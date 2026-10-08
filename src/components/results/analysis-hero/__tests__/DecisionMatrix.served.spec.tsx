@@ -11,6 +11,7 @@ import { DecisionMatrix, type DecisionMatrixProps } from '../../analysisNew/sect
 import { GOAL_FIGURES_WITHHELD_CODES } from '../../utils/goalIdentityWithheld'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { readGoalChanceRange } from '../../utils/goalChanceRange'
+import { RUN_AGAIN_FOR_CHANCE } from '../../../../canvas/runView/runView'
 import { goalChanceRangeLine } from '../goalChanceCopy'
 import { GoalChanceRangeLines } from '../GoalChanceRangeLines'
 import { buildHeroModel } from '../buildHeroModel'
@@ -134,6 +135,29 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     }
     expect(screen.getByRole('table').textContent).not.toMatch(/\d+(?:\.\d+)?%/)
     expect(screen.queryByRole('spinbutton')).toBeNull()
+  })
+
+  it('RunView (DL ruling 1): a Run with goal figures but NO licence never shows the report figure; it says run again', () => {
+    seedPaulRun(SERVED_STAMP)
+    const state = useCanvasStore.getState()
+    const source = state.results.report as unknown as Record<string, unknown>
+    const probabilities = Object.fromEntries(Object.entries(report.option_probabilities).map(([id, row]) =>
+      [id, { ...row, ...(id in PCT ? { goal_probability: PCT[id as keyof typeof PCT] / 100 } : {}) }]))
+    const warnings = ((source.inference_warnings ?? []) as Array<{ code?: string }>).filter((w) =>
+      !GOAL_FIGURES_WITHHELD_CODES.includes(w.code ?? '') && w.code !== 'GOAL_CHANCE_LICENSED')
+    useCanvasStore.setState({
+      results: { ...state.results, report: { ...source, option_probabilities: probabilities, inference_warnings: warnings } },
+      ceeAnalysisReady: { ...state.ceeAnalysisReady, goal_threshold_raw: 1200000, goal_threshold_unit: '£' },
+    } as never)
+    const data = renderHook(() => useResultsSectionData()).result.current
+    expect(data.goalChanceLicence).toBeNull()
+    render(<DecisionMatrix {...propsFor(data)} />)
+    open()
+    for (const id of QUOTED_ORDER) {
+      const cell = screen.getByTestId(`decision-matrix-chance-${id}`).textContent!
+      expect(cell).toContain(RUN_AGAIN_FOR_CHANCE)
+      expect(cell).not.toMatch(/\d+(?:\.\d+)?%/)
+    }
   })
 
   it('one withheld option uses the hero words without a figure', () => {

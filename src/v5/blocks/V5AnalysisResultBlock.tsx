@@ -70,8 +70,7 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { readGoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
-import { readGoalChanceRange } from '../../components/results/utils/goalChanceRange'
+import { runViewOf } from '../../canvas/runView/runView'
 import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
@@ -462,8 +461,9 @@ function V5AnalysisResultBlockImpl({
   // headline; win share below is supporting detail. Read the licence from THIS
   // persisted block, never the current report in the store, so an older card
   // cannot acquire a newer Run's figures.
-  const goalChanceLicence = readGoalChanceLicence(block.enrichment?.inference_warnings)
-  const goalChanceRange = readGoalChanceRange(block.enrichment?.inference_warnings)
+  const blockRunView = runViewOf(block.enrichment)
+  const goalChanceLicence = blockRunView.goalChance
+  const goalChanceRange = blockRunView.goalChanceRange
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
   const pointGoalChanceLines = goalChanceLicence === null
     ? null

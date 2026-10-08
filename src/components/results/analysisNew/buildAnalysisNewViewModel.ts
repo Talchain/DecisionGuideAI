@@ -106,6 +106,8 @@ import {
   formatConjunctionList,
   goalLabelOf,
   olumiSuppliedFiguresDisclosure,
+  unsizedAssumptionsOf,
+  unsizedAwareCause,
   withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
@@ -3873,6 +3875,13 @@ function buildChecks(
      * So the fact gets its own field, from the same gate.
      */
     leaderWithheld: leaderNotPutForward,
+    // Only where the cause stated IS the unsized-path sentence (an estimate refusal can outrank it; see
+    // `withheldLeaderCause`), so the short form never names links the stated cause does not.
+    leaderWithholdAssumptions:
+      withheldCause !== null &&
+      withheldCause === unsizedAwareCause(producerWithholdReason, conf?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+        ? unsizedAssumptionsOf(conf?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+        : null,
     leaderWithholdDetail:
       leaderNotPutForward
         ? (selectWithheldLeaderDisclosureFromWarnings(data.confidence?.inferenceWarnings)?.title ?? null) || null

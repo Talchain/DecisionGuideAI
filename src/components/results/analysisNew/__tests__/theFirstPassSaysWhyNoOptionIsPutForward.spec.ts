@@ -36,7 +36,9 @@ describe('the automatic first pass says what it is', () => {
   it('⭐ Still open names the first pass, not a failed check', () => {
     const s = buildCommitmentSynthesis(vmFor(FIRST_PASS))
     expect(s.open?.source).toBe('first_pass')
-    expect(s.open?.text).toBe(COMMITMENT_COPY.firstPassWithheld)
+    // 8 Oct 2026: short at rest; how to get a comparison is one click away.
+    expect(s.open?.text).toBe(COMMITMENT_COPY.short.firstPass)
+    expect(s.open?.detail).toBe(COMMITMENT_COPY.short.firstPassDetail)
     expect(s.open?.text).not.toMatch(/could not confirm/i)
   })
 

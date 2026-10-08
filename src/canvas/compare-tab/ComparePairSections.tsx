@@ -15,10 +15,23 @@ import {
 import { CoverageNote, InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
-import { CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import { CompareLatestOnlyFigures, CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import type { LatestShare } from './latestOnlyShares'
 import type { ReasonSegment } from './withheldReasonSegments'
+import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { GraphLink } from '../../components/results/GraphLink'
 import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords } from '../../components/results/analysis-hero/goalChanceCopy'
+
+/**
+ * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
+ *   · `stateOf` / `listed`: each named link's sizing now, and every link the Run's warning lists (the checklist);
+ *   · `latestShares`: the first sized pair's latest side (`latestOnlyShares`), or null.
+ */
+export type SizingPath = {
+  readonly stateOf: LinkSizingStateOf
+  readonly listed: ReadonlyArray<{ from: string; to: string }>
+  readonly latestShares: readonly LatestShare[] | null
+}
 
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
@@ -80,7 +93,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
  */
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
-  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null,
+  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, sizingPath = null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -93,7 +106,11 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
+  /** The way out of a withheld Run: the links to size, then the first sized pair's latest side (`SizingPath`). */
+  sizingPath?: SizingPath | null
 }): JSX.Element {
+  const linkSizingState = sizingPath?.stateOf
+  const latestShares = sizingPath?.latestShares ?? null
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
   const rows = view.inputs?.rows ?? []
@@ -111,6 +128,8 @@ export function ComparePairSections({
   const showFigures = resultsAllowed && !view.movementsUnavailable
   const cohortChanged = rows.some((row) => row.kind === 'option' && row.change !== 'changed')
   const askAvailable = runIsCurrent && !analysing
+  // The not-shown line's named links as the user's next step (DL GO "A", 8 Oct): only CEE's named links, never the canvas's.
+  const sizingLinks = !resultsAllowed && linkSizingState ? sizingLinksOf(withheldSegments) : []
   const ask = (): void => openAskOlumi({
     label: COMPARE_ASK_LABEL,
     context: `${resultHeadline}.${qualification ? ` ${qualification}` : ''} Previous run: ${delta.endpoints?.prior.run_id ?? 'not recorded'}. Latest run: ${delta.endpoints?.current.run_id ?? 'not recorded'}. ${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`,
@@ -121,6 +140,8 @@ export function ComparePairSections({
   const shareResults = (
     <>
       {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
+      {resultsAllowed && view.movementsUnavailable && latestShares
+        ? <CompareLatestOnlyFigures shares={latestShares} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
       {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
       {showFigures && cohortChanged ? (
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}>{MOVEMENT_SCOPE_TEXT}</p>
@@ -185,7 +206,15 @@ export function ComparePairSections({
             })}
           </ul>
         ) : null}
-        {!resultsAllowed ? (
+        {!resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
+          // The shared sentence, word for word; its named links are the checklist's rows below, each with its own press.
+          <>
+            <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
+              {withheldSegments!.map((s) => s.text).join('')}
+            </p>
+            <CompareSizingChecklist links={sizingLinks} listed={sizingPath?.listed ?? []} stateOf={linkSizingState} />
+          </>
+        ) : !resultsAllowed ? (
           <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
             {withheldSegments?.some((s) => s.link)
               // "Set them" with a way to: each named link is one click to its own inspector (`GraphLink` → `openLinkInspector`;

@@ -417,7 +417,7 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
     expect(door.compareDocumentPosition(acts) & Node.DOCUMENT_POSITION_FOLLOWING, 'acts read after the door').toBeTruthy()
   })
 
-  it('⭐ an inline ✦ follows "Still open" and asks about the unresolved uncertainty', () => {
+  it('⭐ a ✦ on the right of "Still open" asks about the unresolved uncertainty', () => {
     const onAsk = vi.fn()
     renderZone({ onAsk })
     const open = screen.getByTestId(`${TID}-open`)
@@ -435,16 +435,32 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
     expect(within(screen.getByTestId(`${TID}-before`)).queryByRole('button')).toBeNull()
   })
 
-  it('⭐ the ✦ never wraps alone: it shares one no-wrap run with the sentence\'s LAST WORD, and the text is unchanged', () => {
-    // Served funding brief at 360 (`7fc20dff`, 30 Sep 2026): the ✦ sat on a line of its own under "…a run you start can."
+  it('⭐ the ✦ sits beside the sentence, not inside it (8 Oct 2026: icons on the right), and the text is unchanged', () => {
     renderZone({})
     const text = screen.getByTestId(`${TID}-open-text`)
-    const ask = within(text).getByTestId(`${TID}-open-ask`)
-    const run = ask.parentElement!
-    expect(run.className).toContain('whitespace-nowrap')
-    const words = (text.textContent ?? '').trim().split(' ')
-    expect(run.textContent, 'the run holds exactly the last word (the glyph adds no text)').toBe(words[words.length - 1])
-    expect(words.length, 'PRECONDITION: a multi-word sentence').toBeGreaterThan(1)
+    const ask = screen.getByTestId(`${TID}-open-ask`)
+    expect(text.contains(ask), 'the glyph is not part of the sentence').toBe(false)
+    expect(text.textContent).toBe(FULL.open!.text)
+    expect(text.compareDocumentPosition(ask) & Node.DOCUMENT_POSITION_FOLLOWING, 'it reads after the sentence').toBeTruthy()
+  })
+
+  it('⭐ a bullet with more to say shows ONE short line at rest; the rest opens beneath it', () => {
+    const withDetail: CommitmentSynthesis = {
+      ...FULL,
+      open: { text: 'It rests on 2 assumptions Olumi made.', detail: 'Olumi assumed how strongly each of these works:', detailItems: ['‘A’ affects ‘B’', '‘C’ affects ‘B’'], source: 'leader_withheld_cause' },
+    }
+    renderZone({ synthesis: withDetail })
+    expect(screen.getByTestId(`${TID}-open-text`).textContent).toBe('It rests on 2 assumptions Olumi made.')
+    expect(screen.queryByTestId(`${TID}-open-detail`), 'closed at rest').toBeNull()
+    const toggle = screen.getByTestId(`${TID}-open-toggle`)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const detail = screen.getByTestId(`${TID}-open-detail`)
+    expect(detail).toHaveTextContent('Olumi assumed how strongly each of these works:')
+    expect(within(detail).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['‘A’ affects ‘B’', '‘C’ affects ‘B’'])
+    // CONTRAST: a bullet with nothing more to say has no chevron.
+    expect(screen.queryByTestId(`${TID}-founded-toggle`)).toBeNull()
   })
 
   it('CONTRAST: with no record to offer (a re-run in flight), the commit row keeps its ask', () => {

@@ -30,7 +30,7 @@
  * a band like "0.4 to 0.9" has the first and not the second. A mark that
  * absorbed the ⚠ would destroy that distinction, so it does not.
  */
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 
 export interface ValueProvenanceMarkProps {
@@ -43,10 +43,12 @@ export interface ValueProvenanceMarkProps {
    * `classifyObservedValueProvenance`; 52f8cd). The stamp alone (`user_assumption`) cannot say so.
    */
   accepted?: boolean
+  /** Data layer Phase 1: the edge provenance classifier's mark kind, when the row has one; it wins. */
+  kind?: ValueProvenanceKind
 }
 
-export function ValueProvenanceMark({ source, rowId, accepted = false }: ValueProvenanceMarkProps) {
-  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
+export function ValueProvenanceMark({ source, rowId, accepted = false, kind }: ValueProvenanceMarkProps) {
+  const cls = kind ? { kind } : accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   // Absence is rendered as absence — the same rule `SourceProvenancePill` keeps
   // with `showWhenAbsent={false}`. An unrecognised literal is NOT drawn as a
   // neutral glyph, because that would assert "we know where this came from".
