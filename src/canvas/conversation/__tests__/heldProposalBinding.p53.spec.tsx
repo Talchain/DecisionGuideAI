@@ -320,4 +320,63 @@ describe('P53: an approval is bound to the message that issued it, from render t
     ])
     expect(screen.getByTestId(`suggested-chip-${A.approve_action.id}`)).toBeTruthy()
   })
+
+  // ── buddy r2 (3a11e4e0) ────────────────────────────────────────────────────────────────────────────────────────
+  async function openPanelWithReloadFallback(issuedTurnId: string | null) {
+    const newerA = { ...proposal(PID_A, 'A', 'f'.repeat(32)), revision: 'revision-A-reoffer', issued_turn_id: issuedTurnId }
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true'); vi.stubEnv('VITE_V5_ENDPOINT', 'https://cee.test/proxy/v5/turn')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ schema: 'scenario_graph.v1', scenario_id: SID, graph_present: true,
+      graph: { nodes: [{ id: 'f', kind: 'factor', label: 'Factor' }], edges: [] }, proposal_fields: wire(newerA as never) }), { status: 200 })))
+    useCanvasStore.setState({ currentScenarioId: SID } as never)
+    const send = vi.fn().mockResolvedValue(undefined)
+    render(<SuggestedChips chips={chips(A)} replyId="restored-assistant-t1" onChipClick={send} />)
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled()); await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: AMEND_PROPOSAL_ACTION.label }))
+    const panel = screen.queryByRole('region', { name: 'What this change assumes' })
+    if (panel) fireEvent.click(within(panel).getByRole('button', { name: "Use Olumi's suggestions" }))
+    vi.unstubAllGlobals(); vi.unstubAllEnvs()
+    return { panel, send }
+  }
+
+  it('R2-P1: the panel never opens on a record another turn issued; the amend sentence goes instead', async () => {
+    const { panel, send } = await openPanelWithReloadFallback('t2')
+    expect(panel).toBeNull()
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0].id).toBe('agent-amend-proposal')
+    expect((send.mock.calls[0][0] as ProposalPanelAction).proposalEdits).toBeUndefined()
+  })
+
+  it('R2-P1 control: the panel opens on a record THIS reply\'s turn issued, and its approve binds that record', async () => {
+    const { panel, send } = await openPanelWithReloadFallback('t1')
+    expect(panel).not.toBeNull()
+    expect((send.mock.calls[0][0] as ProposalPanelAction).proposalEdits).toMatchObject({ proposal_id: PID_A, digest: 'f'.repeat(32), fields: [] })
+  })
+
+  it('R2-P2a: B issued by t2 keeps its card although t2 also carried A\'s continuity copy', () => {
+    const restored = reconcileRestoredProposalFields([
+      reply('restored-assistant-t1', 'Issued A'),
+      reply('restored-assistant-t2', 'Issued B', { actionChips: chips(A) }),
+    ], wire(proposal(PID_A, 'A', DIGEST_A, 't1'), proposal(PID_B, 'B', DIGEST_B, 't2')))
+    expect(restored[0]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: false })
+    expect(restored[1]).toMatchObject({ heldProposalId: PID_B, heldProposalEarlier: false })
+    expect((restored[1].actionChips ?? []).map(c => c.id)).not.toContain(A.approve_action.id)
+  })
+
+  it('R2-P2b: an unmatched proposal already on the last reply as a continuity copy is labelled earlier', () => {
+    const restored = reconcileRestoredProposalFields([
+      reply('restored-assistant-t1', 'Earlier'), reply('restored-assistant-t2', 'Latest', { actionChips: chips(A) }),
+    ], wire({ ...proposal(PID_A, 'A', DIGEST_A), issued_turn_id: null } as unknown as ReturnType<typeof proposal>))
+    expect(restored[1]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: true })
+  })
+
+  it('R2-P2c: a user-only tail still leaves the current held set on the latest real reply, so A stays visible on t1', () => {
+    const restored = reconcileRestoredProposalFields([
+      reply('restored-assistant-t1', 'Issued A'), reply('restored-assistant-t2', 'Ordinary answer'),
+      { id: 'restored-user-t3', role: 'user', content: 'A new question', timestamp: new Date('2026-10-08T01:05:00Z') },
+    ], wire(proposal(PID_A, 'A', DIGEST_A, 't1')))
+    expect(restored[1].proposalFields).toBeDefined()
+    renderThread(restored)
+    const groupA = screen.getByTestId(`suggested-chip-${A.approve_action.id}`).closest('.response-chip-group') as HTMLElement
+    expect(within(groupA).getByText('Issued A')).toBeTruthy()
+  })
 })

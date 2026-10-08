@@ -121,7 +121,9 @@ describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
     expect(panel().innerHTML).not.toContain('text-[11px]')
   })
   it('replay and reload read the graph opt-in when card has no fields', async () => {
-    fetchSpy.mockImplementation(async () => response(graph()))
+    // P53: a reload-fallback record opens the panel only when CEE says THIS reply's turn issued it (issued_turn_id).
+    const issued = { ...wire(), proposals: [{ ...wire().proposals[0], issued_turn_id: 'replayed' }] }
+    fetchSpy.mockImplementation(async () => response({ ...graph(), proposal_fields: issued }))
     render(<Chips chips={CHIPS} replyId="replayed" onChipClick={vi.fn().mockResolvedValue(undefined)} />)
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
     expect(JSON.parse(fetchSpy.mock.calls[0][1].body).include_conversation_turns).toBe(true)

@@ -145,44 +145,52 @@ export function reconcileRestoredProposalFields(
       actionChips: [...card, ...others], proposalFields: rawProposalFields }
   }
 
-  // Issuing replies take priority over an unmatched entry's fallback, regardless of the read's proposal order.
+  // 1. Each proposal's issuing reply (exactly one match), else unmatched.
+  const matchedAt = new Map<string, number>()
   for (const held of proposals) {
     const matches = held.issued_turn_id == null ? [] : out.flatMap((message, index) =>
       isReply(message) && (message.id === `restored-assistant-${held.issued_turn_id}`
         || message.clientTurnId === held.issued_turn_id || message.serverTurnId === held.issued_turn_id) ? [index] : [])
-    if (matches.length !== 1) { unmatched.push(held); continue }
-    const index = matches[0]
-    // The same restored card is enriched with its binding; a different card retains its own reply.
-    if (approveIds(out[index]).some(id => id !== held.approve_action.id)) continue
-    attach(index, held, false)
+    if (matches.length === 1) matchedAt.set(held.proposal_id, matches[0]); else unmatched.push(held)
   }
 
-  // A matched proposal is shown on its issuing reply only: CEE's continuity copy on another reply (the last turn's
-  // persisted suggested_actions) leaves that reply, with its amend chip when no other approve card remains there.
-  const placed = new Map<string, number>()
-  out.forEach((message, index) => { if (message.heldProposalId !== undefined && message.heldProposalEarlier === false) placed.set(message.heldProposalId, index) })
+  // 2. A matched proposal is shown on its issuing reply only: CEE's continuity copy on any other reply (the last
+  // turn's persisted suggested_actions) leaves that reply FIRST, so it can't block that reply's own card (buddy r2).
   for (let i = 0; i < out.length; i++) {
     const chipsHere = out[i].actionChips
     if (!chipsHere) continue
     const strip = new Set<string>()
-    for (const [id, at] of placed) if (at !== i) { strip.add(`agent-approve-proposal:${id}`); strip.add(`agent-decline-proposal:${id}`) }
+    for (const [id, at] of matchedAt) if (at !== i) { strip.add(`agent-approve-proposal:${id}`); strip.add(`agent-decline-proposal:${id}`) }
     if (strip.size === 0 || !chipsHere.some(c => strip.has(c.id))) continue
     let kept = chipsHere.filter(c => !strip.has(c.id))
     if (!kept.some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) kept = kept.filter(c => c.id !== 'agent-amend-proposal')
     out[i] = { ...out[i], actionChips: kept }
   }
 
+  // 3. Attach each matched proposal on its issuing reply; a reply still holding a DIFFERENT card keeps its own.
+  for (const held of proposals) {
+    const index = matchedAt.get(held.proposal_id)
+    if (index === undefined || approveIds(out[index]).some(id => id !== held.approve_action.id)) continue
+    attach(index, held, false)
+  }
+
+  // 4. The oldest unmatched proposal goes on the last reply, labelled earlier, unless a later user message comes after
+  // it or that reply holds a different card. Its own continuity copy there is relabelled, not skipped (buddy r2).
+  // Only the oldest: CEE's continuity rule offers the next one once it is answered (design §16).
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
   let last = out.length - 1
   while (last >= 0 && typeof out[last].sessionDivider === 'string') last--
   const reply = out[last]
-  if (unmatched.length > 0 && reply !== undefined && isReply(reply) && approveIds(reply).length === 0) {
-    attach(last, unmatched[0], true)
-  } else if (proposals.length > 0 && reply !== undefined && isReply(reply) && out[last].proposalFields === undefined) {
-    // The latest reply carries the read's CURRENT held set, as a live reply carries `_proposal_fields`: ChatThread
-    // shows an earlier reply's card only while this set still lists it.
-    out[last] = { ...out[last], proposalFields: rawProposalFields }
+  if (unmatched.length > 0 && reply !== undefined && isReply(reply)
+    && approveIds(reply).every(id => id === unmatched[0].approve_action.id)) attach(last, unmatched[0], true)
+
+  // 5. The latest REAL reply carries the read's CURRENT held set (as a live reply carries `_proposal_fields`), even
+  // when a user message follows it: ChatThread shows an earlier reply's card only while this set lists it (buddy r2).
+  let latest = out.length - 1
+  while (latest >= 0 && !isReply(out[latest])) latest--
+  if (proposals.length > 0 && latest >= 0 && out[latest].proposalFields === undefined) {
+    out[latest] = { ...out[latest], proposalFields: rawProposalFields }
   }
   return out
 }
