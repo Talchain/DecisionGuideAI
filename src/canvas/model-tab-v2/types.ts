@@ -306,6 +306,11 @@ export interface ModelRow {
    * `classifyObservedValueProvenance` (the adoption's review), which `provenanceSource` alone cannot carry.
    * Present only when true.
    */
+  /**
+   * Data layer Phase 1: a relationship row's mark kind from the ONE edge provenance classifier (`edgeProvenance.ts`).
+   * When present it IS the mark (a link's author is not an observed-state literal: "Set by you" has none).
+   */
+  provenanceKind?: import('../domain/valueProvenance').ValueProvenanceKind
   provenanceAccepted?: true
   /**
    * Empty when the row needs nothing.

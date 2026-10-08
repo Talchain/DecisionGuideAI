@@ -144,6 +144,7 @@ import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { EDGE_PROVENANCE, edgeProvenance } from '../domain/edgeProvenance'
 import { isStrengthAccepted } from '../domain/strengthAccepted'
 import { isStrengthStated } from '../domain/strengthStated'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
@@ -882,15 +883,18 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         const value = edgeValueParts(data)
         return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
       })(),
-      // Gate 5: the mark says whose the SIZE is — the user's stated figure reads as their brief (the wire's own
-      // `provenance.source`), an accepted Olumi strength as accepted (the factor rows' `provenanceAccepted`, :659).
-      // Example attribution is carried by the size sentence and detail basis, not the factor-source taxonomy.
-      provenanceSource: exampleFigure
-        ? undefined
-        : isStrengthStated(data)
-          ? 'brief_extraction'
-          : typeof data?.weightSource === 'string' ? data.weightSource : undefined,
-      ...(!exampleFigure && isStrengthAccepted(data) ? { provenanceAccepted: true as const } : {}),
+      // Data layer Phase 1: whose the SIZE is comes from the ONE edge provenance classifier (`edgeProvenance.ts`), the
+      // same answer the canvas icon and the inspector chip give. It used to pass the raw `weightSource` ('cee'), which
+      // no observed-state class names, so an Olumi estimate carried NO mark here (DATA-LAYER-CENSUS defect 3).
+      ...(() => {
+        const provenance = edgeProvenance(data)
+        const entry = provenance === null ? null : EDGE_PROVENANCE[provenance.kind]
+        return {
+          provenanceSource: entry?.modelTabSource,
+          ...(entry?.mark ? { provenanceKind: entry.mark } : {}),
+          ...(provenance?.kind === 'accepted' ? { provenanceAccepted: true as const } : {}),
+        }
+      })(),
       attention,
       editable: true,
     })
