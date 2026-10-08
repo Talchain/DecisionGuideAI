@@ -54,6 +54,9 @@ export const QUESTIONS = {
   'examine-link': linkQuestion,
   'question-link': (c: QuestionContext) => `Is ${link(c)} right, and what other route could reach the goal?`,
   'test-link': (c: QuestionContext) => `What happens to the comparison without ${link(c)}?`,
+  // Item 3 (Paul 7 Oct; CEE #2776): the drawn link's press. CEE answers with a card (direction, band, one reason) the
+  // person accepts, changes or declines; the judgement stays theirs.
+  'drawn-link': (c: QuestionContext) => `I drew ${link(c)}. Does it help or hurt, and how strongly? Suggest a strength for me to accept or change.`,
   goal: (c: QuestionContext) => c.stage === 'ran-current'
     ? `What does reaching ${goal(c)} depend on most in this model, and what would change that?`
     : c.stage === 'withheld' ? `What does Olumi still need before it can say how likely ${goal(c)} is to be reached?`
@@ -66,7 +69,7 @@ export const QUESTIONS = {
       : question
   },
   'pre-mortem': (c: QuestionContext) => c.stage === 'ran-current' || c.stage === 'withheld'
-    ? 'Imagine this decision went badly a year from now. What most plausibly went wrong?'
+    ? 'Imagine this decision went badly. What most plausibly went wrong?'
     : `What could make ${c.kind === 'option' ? element(c) : decision(c)} go badly that isn’t in the model yet?`,
   risks: (_c: QuestionContext) => 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?',
   gaps: (c: QuestionContext) => c.stage === 'ran-current'
