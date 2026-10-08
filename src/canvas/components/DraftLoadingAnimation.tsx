@@ -41,24 +41,20 @@
  * surface. `__tests__/narrationHonesty.invariant.spec.ts` now enforces it
  * over BOTH tables, so the two cannot drift apart again.
  *
- * ⚠ AMENDED 29 Jul (ROADMAP 2.122) — CEE-2 LANDED, AND THE TABLE STILL CANNOT
- * BE DELETED. The note here used to say this file "should be driven by real
- * GRAPH_READY / COACHING_READY frames and the elapsed-time table deleted
- * outright" once the streamed turn route existed. That route now exists (#751,
- * `POST /proxy/v5/turn/stream`) and the UI consumes it — and the deletion would
- * be a REGRESSION, for a measured reason:
+ * ⭐ P44 S2: phase PROGRESS now feeds the post-GRAPH_READY wait.
+ * CEE emits first_analysis when automatic analysis is dispatched and writing
+ * when the reply call is sent. Those real events drive ThinkingDots; label
+ * PROGRESS (nodes/edges) is still never fed, and other phases remain inert.
  *
- *   the wire carries **no PROGRESS frames at all**. Zero observed across three
- *   live runs on deployed staging (`PHASE0-EVIDENCE-2026-07-28/
- *   cee2-live-latency.md` honest note 4 — "the route emits the frame class;
- *   nothing feeds it"; it needs the Anthropic streaming adapter, #745's
- *   inherited LOW and #751's rowed item 5).
+ * ⛔ P44 S2: the pre-GRAPH_READY elapsed-time table still cannot name a phase.
+ * The new events arrive AFTER GRAPH_READY. Historical runs observed no
+ * PROGRESS at all (`PHASE0-EVIDENCE-2026-07-28/cee2-live-latency.md`, note 4);
+ * label progress still needs the Anthropic streaming adapter (#745).
  *
  * So between DRAFTING (271 ms) and GRAPH_READY (35.8 s median, 39.9 s on the
  * cold run) the client holds ONE frame and a clock. Deleting this table would
  * convert 36 seconds of honest escalating acknowledgement into 36 seconds of
- * silence. It stays until PROGRESS frames actually arrive — see the 2.122
- * PROGRESS row.
+ * silence. It stays until label PROGRESS actually arrives before GRAPH_READY.
  *
  * What DID change: there is now a second table, `SETTLING_STAGES`, for the
  * window after GRAPH_READY. It is licensed differently and that difference is

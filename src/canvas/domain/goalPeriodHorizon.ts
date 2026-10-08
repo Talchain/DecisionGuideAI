@@ -31,7 +31,20 @@ export function goalPeriodText(data: unknown): string | null {
 
 /** "by 31 Mar 2027" / "within 6 months", or `null` when no horizon is stated or it is malformed. */
 export function goalHorizonText(data: unknown): string | null {
-  const horizon = (data as { goal_horizon?: unknown } | null | undefined)?.goal_horizon
+  const source = data as { goal_horizon?: unknown; goal_horizon_months?: unknown } | null | undefined
+  const horizon = source?.goal_horizon
+  if (horizon === undefined) {
+    const months = source?.goal_horizon_months
+    const validMonths = typeof months === 'number'
+      && Number.isFinite(months)
+      && Number.isInteger(months)
+      && months >= 1
+      && months <= 120
+    if (!validMonths) {
+      return null
+    }
+    return `within ${months} ${months === 1 ? 'month' : 'months'}`
+  }
   if (horizon === null || typeof horizon !== 'object') return null
   const h = horizon as { deadline?: unknown; months?: unknown }
   if (typeof h.deadline === 'string') {

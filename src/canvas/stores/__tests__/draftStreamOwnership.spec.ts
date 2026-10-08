@@ -189,3 +189,45 @@ describe('markDraftStreamCoachingLanded — F1, the coaching frame is identity-g
     expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(true)
   })
 })
+
+// ⭐ P44 S2: only real phases from the owning stream may move its narration.
+describe('markDraftStreamServerPhase — P44 S2', () => {
+  it('ignores server phases from another turn', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't2', A)
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'writing')
+    expect(useDraftStore.getState().draftStreamServerPhase).toBeNull()
+
+    useDraftStore.getState().markDraftStreamServerPhase('t2', 'first_analysis')
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'writing')
+    expect(useDraftStore.getState().draftStreamServerPhase).toBe('first_analysis')
+  })
+
+  it('records the owning turn’s phases and never regresses from writing', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'first_analysis')
+    expect(useDraftStore.getState().draftStreamServerPhase).toBe('first_analysis')
+
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'writing')
+    expect(useDraftStore.getState().draftStreamServerPhase).toBe('writing')
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'first_analysis')
+    expect(useDraftStore.getState().draftStreamServerPhase).toBe('writing')
+  })
+
+  it.each(['drafting', 'idle'] as const)('resets on %s', (phase) => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'writing')
+    useDraftStore.getState().setDraftStreamPhase(
+      phase,
+      phase === 'idle' ? null : 't2',
+      phase === 'idle' ? null : A,
+    )
+    expect(useDraftStore.getState().draftStreamServerPhase).toBeNull()
+  })
+
+  it('preserves the owning turn’s phase when its preview becomes unsettled', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamServerPhase('t1', 'writing')
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 't1', A)
+    expect(useDraftStore.getState().draftStreamServerPhase).toBe('writing')
+  })
+})
