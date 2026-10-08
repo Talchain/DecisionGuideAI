@@ -192,6 +192,8 @@ async function typedFigureEdit(page: Page, dialog: Locator, storedMean: number |
   await fineTune.click()
   const slider = dialog.getByRole('slider', { name: 'Effect on target' })
   await expect(slider, `[${label}] the Fine-tune slider did not open`).toBeVisible()
+  // A user's drag focuses the range first; the edit commits on release (blur), so an unfocused value set never sends.
+  await slider.focus()
   await slider.evaluate((el, v) => {
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
     set.call(el, String(v))

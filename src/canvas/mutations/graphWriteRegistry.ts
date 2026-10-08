@@ -58,8 +58,9 @@ export const GRAPH_WRITE_REGISTRY: GraphWriteRegistryEntry[] = [
   // local-only setObservedField/guest-confirmation and value fallback paths.
   // A file/mutator key cannot distinguish them: record the mixed key as named
   // unresolved debt below rather than claiming a reversible or gated path.
-  // updateEdge likewise has live local_only/not_wire_encodable fallbacks before
-  // the pending lifecycle is registered; its mixed key is named debt too.
+  // Slider preview ticks now capture/revert through pendingEdgeEdit. Ordinary
+  // strength/direction fallback writes still leave this mixed key as named debt.
+  { file: 'src/canvas/ui/inspector-v2/useInspectorMutations.ts', mutators: ['updateEdge'], class: 'optimistic', revert: 'revertEdgeEdit' },
   { file: 'src/canvas/components/pre-analysis-v3/model/CalibrateDrillIn.tsx', mutators: ['updateNode'], class: 'optimistic', revert: 'revertOptimisticFactorEdit' },
   // EdgePanel updateEdgeData is a structural_add_edge retry, not a strength
   // edit. Its no-revert gap is named unresolved debt; preserve the retry writer.
@@ -138,5 +139,5 @@ export const GRAPH_WRITE_REGISTRY: GraphWriteRegistryEntry[] = [
   { file: 'src/canvas/hooks/useConnectGesture.ts', mutators: ['addEdge'], class: 'known_unresolved', reason: 'structural_add_edge has no equivalent created-edge revert lifecycle; useStructuralAddEdgeEvents.ts:18-29 states this explicitly', owner: 'EDIT-UX mutation transaction', reopen: 'slice-ii-structural-add-edge-rollback' },
   { file: 'src/canvas/ui/inspector-v2/panels/EdgePanel.tsx', mutators: ['updateEdgeData'], class: 'known_unresolved', reason: 'Structural-add-edge retry capture, without created-edge rollback. Preserved unchanged as expressly required', owner: 'EDIT-UX mutation transaction', reopen: 'slice-ii-structural-add-edge-rollback' },
   { file: 'src/canvas/ui/inspector-v2/useInspectorMutations.ts', mutators: ['updateNode'], class: 'known_unresolved', reason: 'Local-only factor value fallback and guest confirmation provenance. Live callers include useModelEditAuthority:668-670/718/911 and ModelReviewTool:342/734-745', owner: 'EDIT-UX mutation transaction', reopen: 'slice-ii-local-fallback' },
-  { file: 'src/canvas/ui/inspector-v2/useInspectorMutations.ts', mutators: ['updateEdge'], class: 'known_unresolved', reason: 'Live edge strength/direction setters write before absent-carrier/not-encodable outcomes; their dispatched revert does not cover those branches', owner: 'EDIT-UX mutation transaction', reopen: 'slider-slice' },
+  { file: 'src/canvas/ui/inspector-v2/useInspectorMutations.ts', mutators: ['updateEdge'], class: 'known_unresolved', reason: 'Ordinary strength/preset and direction setters still write before absent-carrier/not-encodable outcomes; slider preview commits now restore their original capture', owner: 'EDIT-UX mutation transaction', reopen: 'slice-ii-local-fallback' },
 ]
