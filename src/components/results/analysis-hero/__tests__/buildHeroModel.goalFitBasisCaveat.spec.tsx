@@ -16,6 +16,24 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withChanceReport } from './helpers/chanceCellOf'
+import { report as servedReport } from '../../__tests__/helpers/paulRun4276f3f9'
+
+// WS5 (#2709): goal rows come from RunView cells, so the numeric fixture is fed through a LICENSED report carrying the
+// same values (C-CELL, as goalAttainmentCopy). A numeric goal with no licence is not a served shape.
+function licensed(data: ReturnType<typeof makeHeroData>): ReturnType<typeof makeHeroData> {
+  const options = data.recommendation.allOptions
+  return withChanceReport(data, {
+    ...servedReport,
+    option_probabilities: Object.fromEntries(options.map(o => [o.id, { goal_probability: o.goalProbability }])),
+    inference_warnings: [{
+      code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+      option_ids: options.map(o => o.id),
+      pct_by_option: Object.fromEntries(options.map(o => [o.id, Math.round(o.goalProbability! * 100)])),
+      target: { comparator: 'at_least', value: data.recommendation.goalThreshold, unit: 'count' },
+    }],
+  })
+}
 
 function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   expect(model.kind).toBe('chart')
@@ -26,14 +44,14 @@ describe('buildHeroModel — goal_fit_basis caveat', () => {
   it('renders the modelled-basis caveat adjacent to the goalFit line when flagged', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsModelledBasis: true })
     const b = makeOption({ ...OPTION_B, goalFitIsModelledBasis: false })
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    const m = chart(buildHeroModel(licensed(makeHeroData({ options: [a, b] }))))
     expect(m.rows[0].detail.goalFit).toBeTruthy()
     expect(m.rows[0].detail.goalFitCaveat).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
     expect(m.rows[1].detail.goalFitCaveat).toBeUndefined()
   })
 
   it('renders no caveat for any row when the flag is absent (honest default)', () => {
-    const m = chart(buildHeroModel(makeHeroData()))
+    const m = chart(buildHeroModel(licensed(makeHeroData())))
     expect(m.rows[0].detail.goalFit).toBeTruthy()
     expect(m.rows[0].detail.goalFitCaveat).toBeUndefined()
     expect(m.rows[1].detail.goalFitCaveat).toBeUndefined()
