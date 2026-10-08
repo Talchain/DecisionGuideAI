@@ -49,8 +49,8 @@ function restoreStaleRun() {
   })
   useCanvasStore.getState().setAnalysisStateV1(verdict)
   trust.semantic = composeAnalysisState({
-    analysisState: verdict, freshness: null, dirty: false, source: undefined,
-    resultsStatus: 'complete', importHold: false, hasReport: true,
+    analysisState: useCanvasStore.getState().analysisStateV1, freshness: null, dirty: false, source: undefined,
+    resultsStatus: 'complete', importHold: false, hasReport: true, ceeAnalysisReadyStatus: undefined, aiPanelV2On: false,
   }).semantic
 }
 
