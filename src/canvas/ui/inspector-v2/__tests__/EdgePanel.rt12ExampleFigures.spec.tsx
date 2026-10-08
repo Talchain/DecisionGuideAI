@@ -5,7 +5,7 @@
  * Rendered text proves the reader wiring; jsdom makes no layout claim.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 
 import example from '../../../domain/__tests__/fixtures/d1.patched.rt12.json'
@@ -61,7 +61,9 @@ function seedExample(link: typeof LINKS[number], changedByUser = false) {
 }
 
 function open(edgeId: string) {
-  return render(<InspectorRouter nodeId={null} edgeId={edgeId} onClose={vi.fn()} />)
+  const rendered = render(<InspectorRouter nodeId={null} edgeId={edgeId} onClose={vi.fn()} />)
+  fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+  return rendered
 }
 
 beforeEach(() => {
@@ -86,7 +88,7 @@ describe('RT-12 · mounted InspectorRouter → EdgePanel and ExamineLink', () =>
     expect(screen.queryByTestId('edge-confirm-current-strength')).toBeNull()
     expect(container.textContent).not.toMatch(/current estimate is|Confirm this estimate/)
     expect(container.textContent).not.toMatch(WRONG_AUTHOR)
-    const examine = screen.getByTestId('inspector-examine-link')
+    const examine = screen.getByTestId('inspector-examine-link-why')
     expect(examine.getAttribute('data-basis')).toBe('example')
     expect(screen.getByTestId('inspector-examine-link-why').textContent).toBe(EXAMPLE_WHY)
   })
@@ -105,8 +107,9 @@ describe('RT-12 · mounted InspectorRouter → EdgePanel and ExamineLink', () =>
     const { container } = open(edge.id)
     expect(screen.getByTestId('edge-values-provenance').textContent).toContain('Olumi estimated this strength')
     expect(screen.getByTestId('edge-confirm-current-strength')).toBeTruthy()
-    expect(container.textContent).toMatch(/current estimate is/)
-    expect(screen.getByTestId('inspector-examine-link').getAttribute('data-basis')).toBe('olumi_estimate')
+    expect(screen.getByTestId('edge-strength-spread').textContent).toContain('Strong')
+    expect(container.textContent).not.toMatch(/current estimate is/)
+    expect(screen.getByTestId('inspector-examine-link-why').getAttribute('data-basis')).toBe('olumi_estimate')
     expect(screen.getByTestId('edge-strength-spans-bands').textContent).toContain('fits this estimate')
     expect(container.textContent).not.toContain(EXAMPLE_COPY)
   })
@@ -116,6 +119,6 @@ describe('RT-12 · mounted InspectorRouter → EdgePanel and ExamineLink', () =>
     const { container } = open(link.id)
     expect(screen.getByTestId('edge-values-provenance').textContent).toContain('You set this strength.')
     expect(container.textContent).not.toContain(EXAMPLE_COPY)
-    expect(screen.queryByTestId('inspector-examine-link')).toBeNull()
+    expect(screen.queryByTestId('inspector-examine-link-why')).toBeNull()
   })
 })

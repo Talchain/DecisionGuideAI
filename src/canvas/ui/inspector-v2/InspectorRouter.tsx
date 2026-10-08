@@ -31,7 +31,8 @@ import { InspectorCoaching } from './shared/InspectorCoaching'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
 import { ExamineAssumption } from './examine/ExamineAssumption'
-import { ExamineLink } from './examine/ExamineLink'
+import { canReceiveAsk } from './askSemantic'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
@@ -205,6 +206,7 @@ export const InspectorRouter = memo(function InspectorRouter({
   // reads. Above every early return for the rules of hooks (see the note on
   // `handleLabelChange`); an edge or empty selection simply has no reasons.
   const attention = useNodeAttention(nodeId ?? '')
+  const canAsk = useGuidanceStore(canReceiveAsk)
 
   if (!panelType) return null
 
@@ -273,31 +275,19 @@ export const InspectorRouter = memo(function InspectorRouter({
         onTechToggleChange={setTechMode}
         onClose={onClose}
         dragHandlers={dragHandlers}
-        quickActions={
-          <>
-            {/* ⭐ Slice 1 (52f8cd): examine a link's strength — the twin of the factor section. Prefill-only (`requestAsk`). */}
-            <ExamineLink
-              edgeId={edgeId}
-              source={edge.source}
-              target={edge.target}
-              sourceLabel={sourceLabel}
-              targetLabel={targetLabel}
-              data={edge.data as Record<string, unknown> | undefined}
-              structural={isStructural}
-              // Gate 5 item 3c: where "Examine with Olumi" stands, the generic "Explore with Olumi" is left out.
-              after={(examineShown) => (
-                <InspectorQuickActions
-                  elementId={edgeId}
-                  elementLabel={edgeLabel}
-                  panelType="edge"
-                  labelContext={{ sourceLabel, targetLabel }}
-                  onBackToConversation={handleBackToConversation}
-                  omitExplore={examineShown}
-                />
-              )}
-            />
-          </>
-        }
+        variant="anatomy"
+        headerMenu={canAsk ? (
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="inspector-back-to-conversation"
+            onClick={handleBackToConversation}
+            className="w-full px-3 py-2 text-left text-text-body hover:bg-panel-hover"
+          >
+            Back to the conversation
+          </button>
+        ) : undefined}
+        more={<div className="mt-3"><EdgeLabelModeToggle /></div>}
         footerNote={
           <InspectorAgencyNote>
             {isStructural
@@ -312,29 +302,8 @@ export const InspectorRouter = memo(function InspectorRouter({
           </InspectorAgencyNote>
         }
       >
-        {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
-            This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
-            `<fieldset disabled>` below. A disabled fieldset natively inerts every
-            form-associated descendant, `<button>` included, so the control
-            rendered and `setMode` was uncallable — the reachability zero it was
-            written to close stayed open, and the panel's own spec could not see
-            it because that spec renders `EdgePanel` directly and never crosses
-            this boundary.
-
-            It belongs out here on the same grounds as `Show technical detail`,
-            which the authority guard's register already lists as a presentation
-            toggle: it writes NO model value, it only changes how the canvas
-            draws labels it already has. The notice above says the fields inside
-            "are read-only for now"; a display preference does not sit under that
-            sentence.
-
-            ⚠ Registered in `DELIBERATELY_OUTSIDE` so this is a defended
-            exception rather than an escape — that guard requires the entry to
-            match a real element AND to resolve outside the boundary, so it REDs
-            if the control is renamed, removed, or moved back inside. */}
-        <div className="mb-2">
-          <EdgeLabelModeToggle />
-        </div>
+        {/* Board label mode is in the shell's More slot, outside every fieldset.
+            Its DELIBERATELY_OUTSIDE authority registration remains load-bearing. */}
         {/* ⭐⭐ NO BLANKET FENCE HERE ANY MORE, AND THAT IS THE CHANGE.
             This branch used to wrap the whole panel in `<fieldset disabled>`,
             which natively inerts every form-associated descendant — so the
