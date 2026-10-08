@@ -18,7 +18,7 @@
  * Click failures show a brief inline error that auto-dismisses after 5s.
  */
 
-import { useState, useEffect, useId, useRef } from 'react'
+import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -39,7 +39,7 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX, WIDEN_ADD_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
-import { HeldProposalPanel, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
+import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this set are filtered out when V5 is active. On V4 the set is
@@ -183,6 +183,7 @@ interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ProposalPanelAction) => Promise<void>
   proposalFields?: unknown
+  heldProposalEarlier?: boolean
   replyId?: string
   openedProposalId?: string | null
   onOpenProposal?: (id: string) => void
@@ -221,6 +222,7 @@ export function SuggestedChips({
   isHistorical = false,
   runGate,
   proposalFields,
+  heldProposalEarlier = false,
   replyId,
   openedProposalId: controlledProposalId,
   onOpenProposal,
@@ -233,6 +235,14 @@ export function SuggestedChips({
   // (ready → missing, ready → not_ready) flip `visible` emptiness on the
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
   const fields = useHeldProposalFields(proposalFields, replyId, chips)
+  // ⛔ ONE BINDABLE RECORD PER REPLY (P53, buddy r1 P1 + r2 P1): this reply's own record, or a reload-fallback record
+  // only when CEE says this reply's turn issued it. The amend panel, the panel's own approve and the plain approve
+  // all read it, so no path can carry another message's record (the fallback reads the CURRENT set, where a
+  // target-keyed id may be a re-offer with another digest).
+  const ownFields = useMemo(() => readProposalFields(proposalFields), [proposalFields])
+  const turnOfReply = replyId?.startsWith('restored-assistant-') ? replyId.slice('restored-assistant-'.length) : replyId
+  const bindable = useMemo(() => ownFields ?? (fields === null ? null : { ...fields,
+    proposals: fields.proposals.filter(p => p.issued_turn_id != null && p.issued_turn_id === turnOfReply) }), [ownFields, fields, turnOfReply])
   const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
@@ -477,7 +487,7 @@ export function SuggestedChips({
   const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
 
-  const proposal = fields?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
+  const proposal = bindable?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
     && visible.some(c => c.id === p.approve_action.id))
 
   function handleClick(chip: ProposalPanelAction) {
@@ -489,7 +499,7 @@ export function SuggestedChips({
     if (isRunChip && runGateClosed) return
     setChipError(null)
     if (chip.id === 'agent-amend-proposal') {
-      const entry = fields?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
+      const entry = bindable?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
       // Nothing the panel can show (no field it draws, no missing data): keep the amend sentence, never an empty panel.
       if (entry && (entry.fields.length > 0 || entry.missing.length > 0)) {
         if (onOpenProposal) onOpenProposal(entry.proposal_id)
@@ -521,13 +531,26 @@ export function SuggestedChips({
       gatedRun()
       return
     }
-    onChipClick(chip).catch(() => {
+    // Every approval carries the record displayed under this reply, even when no values changed.
+    // ⛔ ONLY THIS REPLY'S RECORD (buddy r1 P1): the reload fallback reads the CURRENT set, which may hold a re-offer of
+    // the same target-keyed id with another digest. It binds only when CEE says this reply's turn issued it.
+    const held = bindable?.proposals.find(p => p.approve_action.id === chip.id)
+    const action = held && bindable && !chip.proposalEdits ? { ...chip, proposalEdits: {
+      proposal_id: held.proposal_id, revision: held.revision, digest: held.digest,
+      graph_hash: bindable.graph_hash, fields: [],
+    } } : chip
+    onChipClick(action).catch(() => {
       setChipError("That didn't work. Try typing your request instead.")
     })
   }
 
   return (
     <div className="flex flex-col self-start gap-1 mb-4">
+      {heldProposalEarlier && (
+        <p className={typography.chatMeta} data-testid="held-proposal-earlier-label">
+          An earlier suggestion, still waiting for your answer:
+        </p>
+      )}
       {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
           row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
       {visible.map((chip, i) => {
@@ -656,9 +679,9 @@ export function SuggestedChips({
         </p>
       )}
 
-      {proposal && fields && (
-        <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${fields.graph_hash}`}
-          proposal={proposal} graphHash={fields.graph_hash} disabled={disabled} onAction={handleClick} />
+      {proposal && bindable && (
+        <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${bindable.graph_hash}`}
+          proposal={proposal} graphHash={bindable.graph_hash} disabled={disabled} onAction={handleClick} />
       )}
 
       {chipError && (

@@ -26,6 +26,8 @@ const factorValueFieldSchema = z.object({
 const fieldSchema = z.discriminatedUnion('kind', [linkStrengthFieldSchema, factorValueFieldSchema])
 const proposalSchema = z.object({
   proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
+  // CEE (EDIT-PANEL, 8 Oct): the turn whose reply first offered this proposal; null = CEE could not match it (= absent).
+  issued_turn_id: z.string().min(1).nullable().optional(),
   revision: z.string().min(1),
   digest: z.string().regex(/^[0-9a-f]{32}$/),
   approve_action: actionSchema,

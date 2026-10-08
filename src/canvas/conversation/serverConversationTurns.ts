@@ -122,26 +122,77 @@ export function buildRestoredThread(
  * ⭐ S-D (§15): a held Agent-lane change (`gmh_…`) comes back on a reload ONLY through the read's `proposal_fields`,
  * which CEE documents as "the proposals still held, with what each assumes and its exact card". `held_proposal_offers`
  * never carries one: CEE builds it from the conventional pending store alone (witnessed on CEE 4f9f9e5, sd-wire-4).
- * As live, where CEE re-offers the oldest hold beside every later reply, the oldest entry arms the LATEST reply.
- * A later user message, or a held card that reply already carries, takes priority. No valid entry → unchanged.
+ * Each proposal belongs to its issuing reply. Older reads without an issuing turn, or entries whose turn was not
+ * restored, may arm the latest reply only when it has no held card; that fallback is explicitly labelled earlier.
+ * A later user message, or another held card that reply already carries, takes priority. No valid entry → unchanged.
  */
 export function reconcileRestoredProposalFields(
   messages: readonly ConversationMessage[],
   rawProposalFields: unknown,
 ): ConversationMessage[] {
-  const held = readProposalFields(rawProposalFields)?.proposals[0]
+  const proposals = readProposalFields(rawProposalFields)?.proposals ?? []
+  const out = [...messages]
+  const unmatched: typeof proposals = []
+  const isReply = (message: ConversationMessage) => message.role === 'assistant' && !message.synthetic
+    && typeof message.sessionDivider !== 'string'
+  const approveIds = (message: ConversationMessage) => (message.actionChips ?? [])
+    .filter(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:')).map(c => c.id)
+  const attach = (index: number, held: typeof proposals[number], earlier: boolean) => {
+    const reply = out[index]
+    const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
+    const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
+    out[index] = { ...reply, heldProposalId: held.proposal_id, heldProposalEarlier: earlier,
+      actionChips: [...card, ...others], proposalFields: rawProposalFields }
+  }
+
+  // 1. Each proposal's issuing reply (exactly one match), else unmatched.
+  const matchedAt = new Map<string, number>()
+  for (const held of proposals) {
+    const matches = held.issued_turn_id == null ? [] : out.flatMap((message, index) =>
+      isReply(message) && (message.id === `restored-assistant-${held.issued_turn_id}`
+        || message.clientTurnId === held.issued_turn_id || message.serverTurnId === held.issued_turn_id) ? [index] : [])
+    if (matches.length === 1) matchedAt.set(held.proposal_id, matches[0]); else unmatched.push(held)
+  }
+
+  // 2. A matched proposal is shown on its issuing reply only: CEE's continuity copy on any other reply (the last
+  // turn's persisted suggested_actions) leaves that reply FIRST, so it can't block that reply's own card (buddy r2).
+  for (let i = 0; i < out.length; i++) {
+    const chipsHere = out[i].actionChips
+    if (!chipsHere) continue
+    const strip = new Set<string>()
+    for (const [id, at] of matchedAt) if (at !== i) { strip.add(`agent-approve-proposal:${id}`); strip.add(`agent-decline-proposal:${id}`) }
+    if (strip.size === 0 || !chipsHere.some(c => strip.has(c.id))) continue
+    let kept = chipsHere.filter(c => !strip.has(c.id))
+    if (!kept.some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) kept = kept.filter(c => c.id !== 'agent-amend-proposal')
+    out[i] = { ...out[i], actionChips: kept }
+  }
+
+  // 3. Attach each matched proposal on its issuing reply; a reply still holding a DIFFERENT card keeps its own.
+  for (const held of proposals) {
+    const index = matchedAt.get(held.proposal_id)
+    if (index === undefined || approveIds(out[index]).some(id => id !== held.approve_action.id)) continue
+    attach(index, held, false)
+  }
+
+  // 4. The oldest unmatched proposal goes on the last reply, labelled earlier, unless a later user message comes after
+  // it or that reply holds a different card. Its own continuity copy there is relabelled, not skipped (buddy r2).
+  // Only the oldest: CEE's continuity rule offers the next one once it is answered (design §16).
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
-  let last = messages.length - 1
-  while (last >= 0 && typeof messages[last].sessionDivider === 'string') last--
-  const reply = messages[last]
-  if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.synthetic
-    || (reply.actionChips ?? []).some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) return [...messages]
-  const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
-  const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
-  return [...messages.slice(0, last),
-    { ...reply, heldProposalId: held.proposal_id, actionChips: [...card, ...others], proposalFields: rawProposalFields },
-    ...messages.slice(last + 1)]
+  let last = out.length - 1
+  while (last >= 0 && typeof out[last].sessionDivider === 'string') last--
+  const reply = out[last]
+  if (unmatched.length > 0 && reply !== undefined && isReply(reply)
+    && approveIds(reply).every(id => id === unmatched[0].approve_action.id)) attach(last, unmatched[0], true)
+
+  // 5. The latest REAL reply carries the read's CURRENT held set (as a live reply carries `_proposal_fields`), even
+  // when a user message follows it: ChatThread shows an earlier reply's card only while this set lists it (buddy r2).
+  let latest = out.length - 1
+  while (latest >= 0 && !isReply(out[latest])) latest--
+  if (proposals.length > 0 && latest >= 0 && out[latest].proposalFields === undefined) {
+    out[latest] = { ...out[latest], proposalFields: rawProposalFields }
+  }
+  return out
 }
 
 

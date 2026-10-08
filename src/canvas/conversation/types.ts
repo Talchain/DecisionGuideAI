@@ -36,6 +36,8 @@ export interface ConversationMessage {
   deliveryScenarioId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
+  /** The fresh held record could not be associated with its issuing reply. */
+  heldProposalEarlier?: boolean
   /** Request correlation for the held card, separate from durable message deduplication. */
   heldTurnId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
