@@ -15,6 +15,7 @@
  */
 import { create } from 'zustand'
 import { z } from 'zod'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 export interface ChangedSinceRunLink {
   readonly from: string
@@ -82,12 +83,34 @@ interface ChangedSinceRunState {
 
 export const useChangedSinceRunStore = create<ChangedSinceRunState>(() => ({ scenarioId: null, value: null }))
 
+// Snapshot the adopted Run's identity, so another accepted read of that same Run can keep the held words.
+// A refused read of a different Run leaves the previous verdict in place and cannot attach its new set to it.
+let recorded: {
+  readonly kind: AnalysisStateV1['run_state']['kind']
+  readonly computedAt: string
+  readonly value: ChangedSinceRun
+} | null = null
+
+export function changedSinceRunForVerdict(
+  state: ChangedSinceRunState,
+  verdict: AnalysisStateV1 | null | undefined,
+): ChangedSinceRun | null {
+  const runState = verdict?.run_state
+  return recorded !== null && runState !== undefined && 'computed_at' in runState &&
+    runState.kind === recorded.kind && runState.computed_at === recorded.computedAt &&
+    state.value === recorded.value ? recorded.value : null
+}
+
 /**
  * Hold CEE's answer for `scenarioId`. An absent or malformed block (`raw` → `null`) clears what was held for that
  * scenario rather than keeping marks the server no longer stands behind.
  */
-export function adoptChangedSinceRun(scenarioId: string, raw: unknown): void {
-  useChangedSinceRunStore.setState({ scenarioId, value: readChangedSinceRun(raw) })
+export function adoptChangedSinceRun(scenarioId: string, raw: unknown, verdict: AnalysisStateV1 | null = null): void {
+  const value = readChangedSinceRun(raw)
+  const runState = verdict?.run_state
+  recorded = runState !== undefined && 'computed_at' in runState && value !== null
+    ? { kind: runState.kind, computedAt: runState.computed_at, value } : null
+  useChangedSinceRunStore.setState({ scenarioId, value })
 }
 
 /** Selector for a card: is this node marked for the scenario on screen? */

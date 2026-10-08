@@ -19,8 +19,8 @@ import type { ActionChip } from '../../../conversation/types'
 const SEMANTICS: FreshnessDisplaySemantic[] = ['current', 'changed', 'cannot_confirm', 'none', 'never_run']
 
 /** `ReanalyseBar`'s null, as it stood at 79a058e5 (`ReanalyseBar.tsx:190-192`), restated as the oracle. */
-function barAt79a058e5(semantic: FreshnessDisplaySemantic, importHold: boolean, hasCompletedFirstRun: boolean): boolean {
-  const neverRun = !hasCompletedFirstRun
+function barAt79a058e5(semantic: FreshnessDisplaySemantic, importHold: boolean, hasRunOnRecord: boolean): boolean {
+  const neverRun = !hasRunOnRecord
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   return !(semantic !== 'changed' && !heldUnsure && !neverRun)
 }
@@ -28,10 +28,10 @@ function barAt79a058e5(semantic: FreshnessDisplaySemantic, importHold: boolean, 
 describe('reanalyseBarShows: the bar predicate, moved verbatim', () => {
   for (const semantic of SEMANTICS) {
     for (const importHold of [false, true]) {
-      for (const hasCompletedFirstRun of [false, true]) {
-        it(`semantic=${semantic} importHold=${importHold} firstRun=${hasCompletedFirstRun}`, () => {
-          expect(reanalyseBarShows({ semantic, importHold, hasCompletedFirstRun })).toBe(
-            barAt79a058e5(semantic, importHold, hasCompletedFirstRun),
+      for (const hasRunOnRecord of [false, true]) {
+        it(`semantic=${semantic} importHold=${importHold} firstRun=${hasRunOnRecord}`, () => {
+          expect(reanalyseBarShows({ semantic, importHold, hasRunOnRecord })).toBe(
+            barAt79a058e5(semantic, importHold, hasRunOnRecord),
           )
         })
       }
@@ -41,26 +41,26 @@ describe('reanalyseBarShows: the bar predicate, moved verbatim', () => {
 
 describe('shellRerunControl: exactly one control after the first Run', () => {
   it('model changed → the bar', () => {
-    expect(shellRerunControl({ semantic: 'changed', importHold: false, hasCompletedFirstRun: true })).toBe('bar')
+    expect(shellRerunControl({ semantic: 'changed', importHold: false, hasRunOnRecord: true })).toBe('bar')
   })
   it('current → the composer icon', () => {
-    expect(shellRerunControl({ semantic: 'current', importHold: false, hasCompletedFirstRun: true })).toBe('composer')
+    expect(shellRerunControl({ semantic: 'current', importHold: false, hasRunOnRecord: true })).toBe('composer')
   })
   it('held import it cannot confirm → the bar ("Can\'t confirm…" carries the button)', () => {
-    expect(shellRerunControl({ semantic: 'cannot_confirm', importHold: true, hasCompletedFirstRun: true })).toBe('bar')
+    expect(shellRerunControl({ semantic: 'cannot_confirm', importHold: true, hasRunOnRecord: true })).toBe('bar')
   })
   it('cannot confirm WITHOUT a hold → the bar is null, so the composer icon (never zero controls)', () => {
-    expect(shellRerunControl({ semantic: 'cannot_confirm', importHold: false, hasCompletedFirstRun: true })).toBe('composer')
+    expect(shellRerunControl({ semantic: 'cannot_confirm', importHold: false, hasRunOnRecord: true })).toBe('composer')
   })
   it('no Run yet → none (a run control is not a rerun; no readiness button is offered)', () => {
-    expect(shellRerunControl({ semantic: 'changed', importHold: false, hasCompletedFirstRun: false })).toBe('none')
+    expect(shellRerunControl({ semantic: 'changed', importHold: false, hasRunOnRecord: false })).toBe('none')
   })
 })
 
 describe('hostRerunControl: one control per chat host', () => {
-  const changed = { semantic: 'changed' as const, importHold: false, hasCompletedFirstRun: true }
-  const current = { semantic: 'current' as const, importHold: false, hasCompletedFirstRun: true }
-  const preRun = { semantic: 'changed' as const, importHold: false, hasCompletedFirstRun: false }
+  const changed = { semantic: 'changed' as const, importHold: false, hasRunOnRecord: true }
+  const current = { semantic: 'current' as const, importHold: false, hasRunOnRecord: true }
+  const preRun = { semantic: 'changed' as const, importHold: false, hasRunOnRecord: false }
   it('docked: the shell decides (bar / composer / none)', () => {
     expect(hostRerunControl('docked', changed)).toBe('bar')
     expect(hostRerunControl('docked', current)).toBe('composer')
@@ -103,7 +103,7 @@ describe('hostRerunControl: one control per chat host', () => {
     expect(dockSurfaceShowsRerun('results', changed)).toBe(true)
     expect(dockSurfaceShowsRerun('compare', changed)).toBe(false)
     // Model with a plain cannot-confirm: its bar is null, so the floating chat must not defer to it (never zero).
-    const unsure = { semantic: 'cannot_confirm' as const, importHold: false, hasCompletedFirstRun: true }
+    const unsure = { semantic: 'cannot_confirm' as const, importHold: false, hasRunOnRecord: true }
     expect(dockSurfaceShowsRerun('diagnostics', unsure)).toBe(false)
     expect(chatRunChipStandsAside(hostRerunControl('floating', unsure)), 'the chip stays as the one control').toBe(false)
   })
@@ -112,14 +112,14 @@ describe('hostRerunControl: one control per chat host', () => {
 const runChip: ActionChip = { id: 'agent-run-analysis', label: 'Run analysis', intent: 'primary', message: 'Run analysis', action_type: 'run_analysis' }
 const premortem: ActionChip = { id: 'agent-next-pre-mortem', label: 'Run a pre-mortem', intent: 'secondary', message: 'Run a pre-mortem' }
 
-function seed(hasCompletedFirstRun: boolean) {
+function seed(hasRunOnRecord: boolean) {
   useCanvasStore.setState({
-    hasCompletedFirstRun,
-    results: { status: hasCompletedFirstRun ? 'complete' : 'idle' } as any,
+    hasCompletedFirstRun: hasRunOnRecord,
+    results: { status: hasRunOnRecord ? 'complete' : 'idle' } as any,
     analysisFreshness: null,
     analysisFreshnessDirty: false,
   })
-  if (hasCompletedFirstRun) {
+  if (hasRunOnRecord) {
     useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
   }
 }
@@ -150,7 +150,7 @@ describe('SuggestedChips: the run chip when the host owns the rerun control', ()
 
   it('CONTRAST: before the first Run without a model the host owns no run, so CEE\'s "Run analysis" chip stays (a run, not a rerun)', () => {
     seed(false)
-    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} rerunOwnedByHost={chatRunChipStandsAside(hostRerunControl('docked', { semantic: 'changed', importHold: false, hasCompletedFirstRun: false }))} />)
+    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} rerunOwnedByHost={chatRunChipStandsAside(hostRerunControl('docked', { semantic: 'changed', importHold: false, hasRunOnRecord: false }))} />)
     expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent('Run analysis')
   })
 })

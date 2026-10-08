@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import {
   adoptChangedSinceRun,
+  changedSinceRunForVerdict,
   isLinkChangedSinceRun,
   isNodeChangedSinceRun,
   readChangedSinceRun,
@@ -10,6 +12,13 @@ import {
 const S = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const OTHER = '9e8d7c6b-5a49-4382-b716-0c5d4e3f2a1b'
 const RUN_AT = '2026-10-08T09:30:00.000Z'
+const stale = (): AnalysisStateV1 => ({
+  run_state: { kind: 'complete_stale', computed_at: RUN_AT, cause: 'graph_changed' },
+  readiness: { status: 'ready', blockers: [] },
+  leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+  robustness: {}, usable_for_prose: false, usable_for_chips: false, usable_for_followup: false,
+  requires_rerun: true, blocked_unusable: false, contradictions: [],
+})
 const wire = (over: Record<string, unknown> = {}) => ({
   version: 1, since_run_id: 'run_b', node_ids: ['fac_price'], links: [{ from: 'fac_price', to: 'out_rev' }],
   unattributed_changes: 0, complete: true, ...over,
@@ -87,5 +96,45 @@ describe('marks: only the named elements, only on their own scenario', () => {
     adoptChangedSinceRun(S, wire())
     adoptChangedSinceRun(S, wire({ since_run_id: 'run_c', node_ids: [], links: [] }))
     expect(isNodeChangedSinceRun(useChangedSinceRunStore.getState(), S, 'fac_price')).toBe(false)
+  })
+})
+
+describe('held words: bound to the adopted Run, not the parsed verdict object', () => {
+  it('a later accepted read of the same stale Run keeps the held value', () => {
+    const adopted = stale()
+    adoptChangedSinceRun(S, wire(), adopted)
+    const held = useChangedSinceRunStore.getState()
+    const laterRead = stale()
+    expect(laterRead).not.toBe(adopted)
+    expect(changedSinceRunForVerdict(held, laterRead)).toBe(held.value)
+  })
+
+  it('a newer Run hides the held words even if the verdict object is reused', () => {
+    const adopted = stale()
+    adoptChangedSinceRun(S, wire(), adopted)
+    adopted.run_state = { kind: 'complete_stale', computed_at: '2026-10-08T10:30:00.000Z', cause: 'graph_changed' }
+    expect(changedSinceRunForVerdict(useChangedSinceRunStore.getState(), adopted)).toBeNull()
+  })
+
+  it('a different run_state kind hides the held words even at the same computed_at', () => {
+    const adopted = stale()
+    adoptChangedSinceRun(S, wire(), adopted)
+    adopted.run_state = { kind: 'complete_current', computed_at: RUN_AT }
+    expect(changedSinceRunForVerdict(useChangedSinceRunStore.getState(), adopted)).toBeNull()
+  })
+
+  it('a refused read with a different Run cannot attach its held set to the accepted Run', () => {
+    const accepted = stale()
+    const refusedRead = stale()
+    refusedRead.run_state = { kind: 'complete_stale', computed_at: '2026-10-08T10:30:00.000Z', cause: 'graph_changed' }
+    adoptChangedSinceRun(S, wire({ node_ids: ['fac_cost'], links: [] }), refusedRead)
+    expect(changedSinceRunForVerdict(useChangedSinceRunStore.getState(), accepted)).toBeNull()
+  })
+
+  it('a matching Run cannot expose a value that was replaced outside adoption', () => {
+    const adopted = stale()
+    adoptChangedSinceRun(S, wire(), adopted)
+    useChangedSinceRunStore.setState({ value: readChangedSinceRun(wire()) })
+    expect(changedSinceRunForVerdict(useChangedSinceRunStore.getState(), stale())).toBeNull()
   })
 })
