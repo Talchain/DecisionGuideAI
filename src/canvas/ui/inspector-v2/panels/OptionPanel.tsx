@@ -13,6 +13,7 @@ import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
+import { resolveNodeTypeLiteral } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
@@ -316,13 +317,22 @@ export const OptionPanel = memo(function OptionPanel({
   // Interventions
   // Map values may be plain numbers (legacy/analysis_ready) or
   // UIInterventionValue/CEEInterventionV3 objects ({ value, source, ... });
-  // unwrapInterventionValue normalises both. Entries that fail to unwrap
-  // (malformed objects, non-finite numbers) are dropped — InterventionRow
-  // requires a finite numeric `currentValue`.
-  const interventions = useMemo(() => {
-    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-    if (!raw) return []
-    return Object.entries(raw).flatMap(([factorId, rawValue]) => {
+  // unwrapInterventionValue normalises both. Malformed recorded entries are
+  // dropped. A linked factor with no entry gets the same row with no value;
+  // absence stays distinct from a saved zero.
+  const interventionRows = useMemo(() => {
+    const raw = ((node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined) ?? {}
+    const linkedWithoutValues = [...new Set(edges
+      .filter(e => e.source === nodeId)
+      .map(e => e.target))]
+      .filter(factorId => !Object.prototype.hasOwnProperty.call(raw, factorId) && nodes.some(n =>
+        n.id === factorId && resolveNodeTypeLiteral(n) === 'factor',
+      ))
+    const entries = [
+      ...Object.entries(raw),
+      ...linkedWithoutValues.map(factorId => [factorId, undefined] as const),
+    ]
+    return entries.flatMap(([factorId, rawValue]) => {
       /*
        * ⭐⭐ `source` IS THE THIRD NAME HERE, AND ITS ABSENCE WAS THE WHOLE
        * DEFECT (B1-b). #827 made `unwrapInterventionValue` carry the producer's
@@ -334,7 +344,7 @@ export const OptionPanel = memo(function OptionPanel({
        * prescribes.
        */
       const { value, displayValue, source } = unwrapInterventionValue(rawValue)
-      if (value == null) return []
+      if (value == null && !linkedWithoutValues.includes(factorId)) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
       // Defensive unwrap: observedState.value / .raw_value should be plain
@@ -366,7 +376,7 @@ export const OptionPanel = memo(function OptionPanel({
          */
         // …else CEE's node-level `scale_frame` (`optionEntryScaleOf`), the same reference the card's editor uses.
         cap: optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, (factorNode?.data as Record<string, unknown> | undefined)?.scale_frame),
-        value,
+        value: value ?? undefined,
         displayValue: displayValue ?? undefined,
         /*
          * ⚠ THE INTERVENTION'S OWN STAMP, NOT THE OPTION NODE'S, and the two
@@ -383,7 +393,13 @@ export const OptionPanel = memo(function OptionPanel({
         provenanceSource: source ?? undefined,
       }]
     })
-  }, [node?.data, nodes])
+  }, [node?.data, nodes, edges, nodeId])
+
+  // Readings and summaries describe recorded targets only, never empty boxes.
+  const interventions = useMemo(() => interventionRows.filter(
+    (iv): iv is typeof iv & { value: number } => iv.value !== undefined,
+  ), [interventionRows])
+  const linkedWithoutValueCount = interventionRows.length - interventions.length
 
   // Set of already-intervened factor IDs for the dropdown and connection filter
   const interventionIds = useMemo(() => {
@@ -402,7 +418,7 @@ export const OptionPanel = memo(function OptionPanel({
         if (!tgt) return null
         const kind = (tgt.type || tgt.data?.kind || 'factor') as NodeType
         if (kind === 'decision') return null
-        if (interventionIds.has(e.target)) return null
+        if (interventionIds.has(e.target) || interventionRows.some(iv => iv.factorId === e.target)) return null
         return {
           edgeId: e.id,
           nodeId: e.target,
@@ -418,7 +434,7 @@ export const OptionPanel = memo(function OptionPanel({
         label: string
         strength: EdgeValueDisplay
       }>
-  }, [edges, nodes, nodeId, interventionIds])
+  }, [edges, nodes, nodeId, interventionIds, interventionRows])
 
   /**
    * ⛔⛔ DOES THIS OPTION HAVE ANY CONNECTION AT ALL — a DIFFERENT question from
@@ -454,7 +470,6 @@ export const OptionPanel = memo(function OptionPanel({
     return nodes
       .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
       .map(n => {
-        const obs = (n.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
         // The card's own reader (`factorDisplayText`), so the add list says what the
         // factor card says: "£0", "$10,000 / year". It read the deprecated
         // `formatFactorValue`, which printed "GBP 0" (Paul's test, 28 Sep).
@@ -463,19 +478,9 @@ export const OptionPanel = memo(function OptionPanel({
           id: n.id,
           label: resolveElementLabel(n.data),
           valueDisplay,
-          // Defensive unwrap: see the interventions memo above. baseline flows
-          // into mutations.setIntervention as the initial intervention value
-          // for newly-added factor changes; passing an object would corrupt the
-          // store and propagate "[object Object]" through downstream renders.
-          baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
         }
       })
   }, [nodes, nodeId])
-
-  const handleAddFactor = useCallback((factorId: string, baseline: number | undefined) => {
-    mutations.setIntervention(factorId, baseline ?? 0)
-    setShowDropdown(false)
-  }, [mutations])
 
   // All option results for comparison bars
   const allOptions = useMemo(() => {
@@ -611,17 +616,17 @@ export const OptionPanel = memo(function OptionPanel({
       : interventions.length === 2
         ? `Changes 2 factors: ${firstTarget.factorLabel} and ${interventions[1].factorLabel}.`
         : `Changes ${interventions.length} factors: ${firstTarget.factorLabel}, ${interventions[1].factorLabel} and ${interventions.length - 2} more.`
-    : outboundConnections.length > 0
+    : linkedWithoutValueCount > 0
       ? OPTION_STRINGS.linksWithoutValues
-        .replace('{count}', String(outboundConnections.length))
-        .replace('{s}', outboundConnections.length === 1 ? '' : 's')
+        .replace('{count}', String(linkedWithoutValueCount))
+        .replace('{s}', linkedWithoutValueCount === 1 ? '' : 's')
       : EMPTY_STATES.noInterventions
 
   if (!nodeId || !node) return null
 
   return (
     <div>
-      <div data-testid={!firstTarget && outboundConnections.length > 0 ? 'option-links-without-values' : undefined}>
+      <div data-testid={!firstTarget && linkedWithoutValueCount > 0 ? 'option-links-without-values' : undefined}>
         <InspectorSummary sentence={summarySentence} chip={summaryChip} />
       </div>
       {summaryContext}
@@ -705,8 +710,8 @@ export const OptionPanel = memo(function OptionPanel({
               {OPTION_TARGET_EDIT_ROUTE_NOTE}
             </p>
           )}
-          {interventions.length > 0 && (
-            interventions.map(iv => (
+          {interventionRows.length > 0 && (
+            interventionRows.map(iv => (
               <InterventionRow
                 /*
                  * ⭐⭐ THE KEY IS THE ENTITY'S IDENTITY, AND THE ENTITY IS
@@ -756,9 +761,11 @@ export const OptionPanel = memo(function OptionPanel({
                     ? targetReadings.get(iv.factorId)!.provenanceSource
                     : iv.provenanceSource
                 }
-                reading={targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
+                reading={iv.value === undefined
+                  ? `${iv.factorLabel} to …`
+                  : targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
                 readingIsTarget={targetReadings.get(iv.factorId)?.readingIsTarget ?? true}
-                inputMatchesReading={targetReadings.get(iv.factorId)?.inputMatchesReading ?? false}
+                inputMatchesReading={iv.value === undefined || (targetReadings.get(iv.factorId)?.inputMatchesReading ?? false)}
                 optionLabel={optionAccessibleLabel}
                 /* ⭐ A value that did not land stays on ITS row, marked, until
                    dismissed — bound by factor identity, never by position. */
@@ -794,8 +801,9 @@ export const OptionPanel = memo(function OptionPanel({
                  * delete this paragraph to do it.
                  *
                  * ⛔ THE OTHER THREE FENCES STAY. `description`, `add-factor`
-                 * and `advanced-editor` are unchanged: the first two write
-                 * locally and the third's own intervention rows already route
+                 * and `advanced-editor` remain. Description writes locally;
+                 * the factor inventory has no add writer, and the editor's
+                 * own intervention rows already route
                  * through this same owner while its remaining fields do not.
                  * Unfencing per PANEL rather than per WRITER is what the
                  * Router's blanket did, and this panel exists to be finer than
@@ -824,7 +832,7 @@ export const OptionPanel = memo(function OptionPanel({
               a sentence the row is already saying. */}
           {interventionNotice !== null &&
             !(unappliedIntervention !== null &&
-              interventions.some(iv => iv.factorId === unappliedIntervention.factorId)) && (
+              interventionRows.some(iv => iv.factorId === unappliedIntervention.factorId)) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-1.5`}
               data-testid="option-intervention-notice"
@@ -872,7 +880,7 @@ export const OptionPanel = memo(function OptionPanel({
                     {OPTION_EDIT_ROUTE_NOTE}
                   </p>
                 )}
-                {/* WRITERS 3 of 5 — each item calls `handleAddFactor`. */}
+                {/* Factor inventory only; the dormant local add writer is removed. */}
                 <fieldset disabled={readOnly} className="contents" data-writer-fence="add-factor">
                 {controllableFactors.length === 0 ? (
                   <div className={`${typography.panelMeta} text-text-light px-3 py-2`}>
@@ -886,7 +894,6 @@ export const OptionPanel = memo(function OptionPanel({
                         key={f.id}
                         type="button"
                         disabled={alreadySet}
-                        onClick={() => !alreadySet && handleAddFactor(f.id, f.baseline)}
                         className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
                           alreadySet
                             ? 'opacity-40 cursor-not-allowed'

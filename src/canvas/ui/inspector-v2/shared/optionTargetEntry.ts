@@ -159,6 +159,8 @@ function userUnitMagnitude(
 export const OPTION_TARGET_ENTRY_REFUSAL = {
   unreadable: (example: string) =>
     `Not saved · not a number this row can read. Enter an amount such as ${example}.`,
+  unreadableWithoutValue: (unit: string) =>
+    `Not saved · not a number this row can read. Enter an amount in ${unit}.`,
   unreadableModelScale: 'Not saved · not a number this row can read. Enter a value between 0 and 1.',
   outOfRange: (lowest: string, highest: string) =>
     `Not saved · must be between ${lowest} and ${highest} for this factor.`,
@@ -203,13 +205,14 @@ export function typedMarkerDenotesRowUnit(
  *
  * @param example — the value the row is showing, used only to phrase the
  *   "such as …" example in the unreadable sentence. It is the reader's own
- *   record, so the example invents nothing.
+ *   record, so the example invents nothing. Absent for an empty linked target;
+ *   the refusal then names the unit without inventing a recorded amount.
  */
 export function admitOptionTargetEntry(
   text: string,
   frame: OptionTargetEntryFrame,
   anchor: OptionTargetAnchor,
-  example: number,
+  example?: number,
 ): OptionTargetEntryAdmission {
   let typed = text.trim()
   // A reader may type the unit the field already names ("5 months"). The
@@ -226,7 +229,9 @@ export function admitOptionTargetEntry(
       ok: false,
       reason:
         frame.kind === 'user_units'
-          ? OPTION_TARGET_ENTRY_REFUSAL.unreadable(describeOptionTargetValue(example, frame, anchor))
+          ? example === undefined
+            ? OPTION_TARGET_ENTRY_REFUSAL.unreadableWithoutValue(frame.unit)
+            : OPTION_TARGET_ENTRY_REFUSAL.unreadable(describeOptionTargetValue(example, frame, anchor))
           : OPTION_TARGET_ENTRY_REFUSAL.unreadableModelScale,
     }
   }
