@@ -101,12 +101,12 @@ describe('the evidence: the served run ranked an unvalued factor as its main dri
 describe('hero "Main driver"', () => {
   it('⭐ the unvalued main driver reads "· no value yet"', () => {
     seed()
-    expect(heroPill()).toBe(`Main driver: ${TOP_LABEL} · no value yet`)
+    expect(heroPill()).toBe(`Moves the result most: ${TOP_LABEL} · no value yet`)
   })
 
-  it('CONTROL: the model now states a value for it → the served words, unchanged', () => {
+  it('CONTROL: the model now states a value for it → no note', () => {
     seed([TOP])
-    expect(heroPill()).toBe(DOM['hero-quicklink-driver'])
+    expect(heroPill()).toBe(`Moves the result most: ${TOP_LABEL}`)
   })
 })
 

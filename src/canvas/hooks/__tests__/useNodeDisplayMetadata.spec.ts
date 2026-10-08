@@ -428,7 +428,7 @@ describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
     expect(result.current.influence).toBe(1)
   })
 
-  it('reports influence_score when EVERY factor carries a finite producer score', () => {
+  it('reports normalised_elasticity even when EVERY factor carries a finite producer score', () => {
     mockState = {
       results: {
         status: 'complete',
@@ -441,8 +441,8 @@ describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
       },
     }
     const { result } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
-    expect(result.current.influenceProvenance).toBe('influence_score')
-    expect(result.current.influence).toBeCloseTo(0.62)
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+    expect(result.current.influence).toBeCloseTo(0.2 / 0.8)
   })
 
   it('is null outside results mode and for nodes not in the analysis', () => {

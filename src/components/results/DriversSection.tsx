@@ -815,11 +815,15 @@ function DriverRow({
  */
 function GatedDriverRow({
   driver,
+  statusText = INFLUENCE_GATED_COPY,
+  testIdPrefix = 'driver-gated-row',
   onFocus,
   isHighlighted,
   registerRef,
 }: {
   driver: GatedDriverItem
+  statusText?: string
+  testIdPrefix?: string
   onFocus?: (nodeId: string) => void
   isHighlighted?: boolean
   registerRef?: (element: HTMLDivElement | null) => void
@@ -836,7 +840,7 @@ function GatedDriverRow({
   return (
     <div
       ref={registerRef}
-      data-testid={`driver-gated-row-${driver.factorKey}`}
+      data-testid={`${testIdPrefix}-${driver.factorKey}`}
       className={`rounded-lg border overflow-hidden bg-panel relative transition-all duration-200 ${
         isHighlighted
           ? 'border-warning ring-2 ring-warning/30 shadow-lg'
@@ -862,7 +866,7 @@ function GatedDriverRow({
           </span>
         )}
         <span className={`${typography.panelMeta} text-text-light text-right flex-shrink-0`}>
-          {INFLUENCE_GATED_COPY}
+          {statusText}
         </span>
       </div>
     </div>
@@ -912,6 +916,7 @@ export function DriversSection({
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
   // Covered-withheld factors (ISL #213): listed after every ranked row, words only.
   const gatedDrivers = data.gatedDrivers ?? []
+  const unrankedDrivers = data.unrankedDrivers ?? []
 
 
   // Diagnostic logging for data issues. Gated on the runtime debug flag
@@ -956,7 +961,7 @@ export function DriversSection({
   }
 
   // No drivers
-  if (drivers.length === 0 && gatedDrivers.length === 0) {
+  if (drivers.length === 0 && gatedDrivers.length === 0 && unrankedDrivers.length === 0) {
     return (
       <div className="p-3 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
@@ -979,10 +984,11 @@ export function DriversSection({
   const TOP_DRIVERS_COUNT = 3
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
   // Gated rows follow the ranked rows inside the same collapsed window.
-  const listedCount = visibleDrivers.length + gatedDrivers.length
+  const listedCount = visibleDrivers.length + gatedDrivers.length + unrankedDrivers.length
   const displayGated = showAll
     ? gatedDrivers
     : gatedDrivers.slice(0, Math.max(0, TOP_DRIVERS_COUNT - visibleDrivers.length))
+  const displayUnranked = showAll ? unrankedDrivers : unrankedDrivers.slice(0, Math.max(0, TOP_DRIVERS_COUNT - displayDrivers.length - displayGated.length))
 
   // Audit A1-PRIMARY: column-header disclosure marker. Render only when at
   // least one row carries `confidence_provenance.is_provisional === true`.
@@ -1408,6 +1414,9 @@ export function DriversSection({
                 : undefined
               }
             />
+          ))}
+          {displayUnranked.map((driver) => (
+            <GatedDriverRow key={driver.factorKey} driver={driver} statusText="Not ranked in this run" testIdPrefix="driver-unranked-row" onFocus={onFocusNode} />
           ))}
         </div>
       </div>

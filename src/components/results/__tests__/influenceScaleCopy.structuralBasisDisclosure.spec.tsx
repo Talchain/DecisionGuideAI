@@ -165,7 +165,7 @@ describe('importance_basis is carried through the shared driver policy, not re-d
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.5, importanceBasis: 'graph_structural' },
       { key: 'b', influenceScore: 0.4, rawElasticity: 0.2, importanceBasis: 'graph_structural' },
     ])
-    expect(model.get('a')?.provenance).toBe('influence_score')
+    expect(model.get('a')?.provenance).toBe('normalised_elasticity')
     expect(model.get('a')?.importanceBasis).toBe('graph_structural')
     expect(model.get('b')?.importanceBasis).toBe('graph_structural')
   })

@@ -2393,21 +2393,20 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
     expect(screen.queryByText(/the #1 driver/)).toBeNull()
   })
 
-  it('ranks candidate levers by the POLICY value, not raw elasticity', () => {
+  it('ranks candidate levers by the policy\'s normalised elasticity, even with complete producer scores', () => {
     mountLeader(
       winsViaState({
         factors: [
-          // Complete coverage: policy = influence_score. Raw elasticity
-          // order is scope > clarity (0.93 > 0.9) — the OLD code picked by
-          // that and would choose fac_scope; the policy picks fac_clarity.
+          // Complete coverage still uses |elasticity|: scope > clarity
+          // (0.93 > 0.9), despite the opposite producer influence order.
           { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
           { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
         ],
         interventions: { fac_clarity: 1, fac_scope: 0 },
       }),
     )
-    expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
-    expect(screen.queryByText('Design Change Scope')).toBeNull()
+    expect(screen.getByText('Design Change Scope')).toBeInTheDocument()
+    expect(screen.queryByText('Pricing Page Clarity')).toBeNull()
   })
 
   // -------------------------------------------------------------------------

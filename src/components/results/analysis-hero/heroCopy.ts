@@ -388,9 +388,9 @@ export const HERO_COPY = {
    * pill labelled for both, never two pills pointing at one node.
    */
   pills: {
-    mainDriver: (factor: string) => `Main driver: ${factor}`,
+    mainDriver: (factor: string) => `Moves the result most: ${factor}`,
     topFlipRisk: (factor: string) => `Tipping point: ${factor}`,
-    combined: (factor: string) => `Main driver and top flip risk: ${factor}`,
+    combined: (factor: string) => `Moves the result most and top flip risk: ${factor}`,
     /**
      * ⛔ THE TIE VARIANTS STILL NAME THE FACTOR. "Main driver: X" is a
      * comparative claim and a tie cannot support one — but going quiet would
@@ -404,9 +404,9 @@ export const HERO_COPY = {
      * so the hedge cannot be read as applying to the flip-risk half — which
      * has its own owner (`selectFlipRisk`) and is not in question here.
      */
-    mainDriverTied: (factor: string) => `Tied for main driver: ${factor}`,
+    mainDriverTied: (factor: string) => `Tied for moving the result most: ${factor}`,
     combinedTied: (factor: string) =>
-      `Tied for main driver, and top flip risk: ${factor}`,
+      `Tied for moving the result most, and top flip risk: ${factor}`,
   },
 
   /**
@@ -440,13 +440,13 @@ export const HERO_COPY = {
      * sentence ("the result depends on…") is UI-authored causal prose and
      * stays forbidden until a producer rationale string exists.
      */
-    mainReason: (factor: string) => `Main driver: ${factor}.`,
+    mainReason: (factor: string) => `Moves the result most: ${factor}.`,
     /**
      * The pill-less path's tie variant — same rule and same register as
      * `pills.mainDriverTied`. The factor is still named; only the
      * comparative claim yields.
      */
-    mainReasonTied: (factor: string) => `Tied for main driver: ${factor}.`,
+    mainReasonTied: (factor: string) => `Tied for moving the result most: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
