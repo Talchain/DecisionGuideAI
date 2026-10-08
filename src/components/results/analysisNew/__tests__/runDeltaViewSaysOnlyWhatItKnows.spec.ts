@@ -97,8 +97,16 @@ describe('only C1_attributable licenses a causal reading', () => {
 
   it('⭐ C0 alone states a PROVEN negative — hash_equal is true by the case', () => {
     const limit = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor).attributionLimit ?? ''
-    expect(limit).toMatch(/did not change/i)
+    expect(limit).toMatch(/no difference below comes from an edit/i)
     expect(limit).not.toMatch(/cannot be established/i)
+  })
+
+  it('⛔ the C0 note says "nothing the analysis uses changed" ONCE — the rider states only the consequence', () => {
+    const v = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor)
+    const SAME_INPUTS = /nothing the analysis uses differed|did not change|unchanged/i
+    expect(v.comparability, 'control: part A carries the proven claim').toMatch(SAME_INPUTS)
+    expect(v.attributionLimit ?? '').not.toMatch(SAME_INPUTS)
+    expect(v.attributionLimit ?? '').toMatch(/the analysis uses/i)
   })
 
   // P0 5943180154 (served 2 Oct): an accepted estimate changes sizing AUTHORSHIP, which the analysis hash excludes, so

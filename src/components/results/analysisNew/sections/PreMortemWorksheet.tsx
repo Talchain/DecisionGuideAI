@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore, selectPremortemWorksheet } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
@@ -32,10 +33,16 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   const conversation = useOptionalConversationContext()
   const busy = isBusy || conversation?.isThinking === true
   const worksheet = read?.status === 'available' && read.worksheet.scenario_id === scenarioId ? read.worksheet : null
+  // P02: a reload re-renders this browser's worksheet for the same current Run; nothing is sent.
+  const hydrate = useCanvasStore(s => s.hydratePremortemWorksheet)
+  const runAt = useCanvasStore(s => s.analysisStateV1?.run_state.kind === 'complete_current' ? s.analysisStateV1.run_state.computed_at : null)
+  useEffect(() => { if (!worksheet) hydrate() }, [worksheet, hydrate, scenarioId, graphHash, runAt])
   const target = (id: string) => resolveModelTarget(id, nodes, edges, { endpointFallback: false })
   const stale = !!worksheet && (isStale || dirty || graphHash !== worksheet.run.graph_hash_at_run ||
     !samePremortemRun(heldRun, { scenarioId: worksheet.scenario_id, graphHashAtRun: worksheet.run.graph_hash_at_run, computedAt: worksheet.run.computed_at }) ||
-    worksheet.rows.some(row => !nodes.some(node => node.id === row.option_id) || !target(row.risk_request.affected_node_id) || row.risk_request.grounding_ids.some(id => !target(id))))
+    worksheet.rows.some(row => !nodes.some(node => node.id === row.option_id)
+      || (row.risk_request !== undefined && (!target(row.risk_request.affected_node_id) || row.risk_request.grounding_ids.some(id => !target(id))))
+      || (row.on_map !== undefined && !target(row.on_map.node_id))))
   const groundingLabel = (id: string) => {
     const resolved = target(id)
     const nodeLabel = (nodeId: string) => String(nodes.find(node => node.id === nodeId)?.data.label ?? '')
@@ -50,7 +57,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
     if (resolved?.kind === 'edge') openEdgeStrengthEditor(resolved.id, { centre: false })
   }
   const addRisk = (row: Row) => {
-    if (stale || busy || !dispatch) return
+    if (stale || busy || !dispatch || !row.risk_request) return
     // This typed message is outbound request text, never a worksheet readout.
     const { message } = row.risk_request
     const ids = [...new Set([row.risk_request.affected_node_id, ...row.risk_request.grounding_ids])]
@@ -82,16 +89,19 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
         return <div key={option.id} data-option-id={option.id} className="space-y-2">
           <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(option.id)}>{String(option.data.label ?? '')}</button>
           {rows.length === 0 ? <p className={`${typography.panelBody} text-text-light`}>Not stress-tested</p> : rows.map(row => <div key={row.row_id} className="space-y-1" data-row-id={row.row_id}>
-            <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.provenance}</p>
+            <p className={`${typography.panelMeta} text-text-light`}>{row.source === 'server_built' ? PREMORTEM_COPY.serverBuilt : PREMORTEM_COPY.provenance}</p>
             <p className={`${typography.panelBody} text-text-body`}>{row.failure_way}</p>
             <p className={`${typography.panelBody} text-text-body`}>{PREMORTEM_COPY.warning}: {row.early_warning}</p>
+            {row.mitigation ? <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p> : null}
             <div className="flex flex-wrap gap-1">
               {row.grounding.kind === 'not_in_model' ? <span className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span> : row.grounding.ids.map(id =>
                 target(id) ? <button key={id} type="button" className={buttonClass} disabled={stale} onClick={() => openElement(id)}>
                   {groundingLabel(id)}
                 </button> : <span key={id} className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span>) }
             </div>
-            <button type="button" className={buttonClass} disabled={stale || busy || !dispatch} onClick={() => addRisk(row)}>Add this as a risk</button>
+            {row.on_map ? <p className={`${typography.panelMeta} text-text-light`} data-testid="premortem-on-map">
+              {PREMORTEM_COPY.onMap}: <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(row.on_map!.node_id)}>Inspect ‘{row.on_map.label}’</button>
+            </p> : row.risk_request ? <button type="button" className={buttonClass} disabled={stale || busy || !dispatch} onClick={() => addRisk(row)}>Add this as a risk</button> : null}
           </div>)}
         </div>
       })}

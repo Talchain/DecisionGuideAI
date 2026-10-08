@@ -1,0 +1,19 @@
+{
+ "source": "chip",
+ "chip": {
+  "id": "agent-approve-proposal:prop_b7542aa96cc5a4133732832615003b7f"
+ },
+ "message": "Yes, use those.",
+ "proposal_edits": {
+  "proposal_id": "prop_b7542aa96cc5a4133732832615003b7f",
+  "revision": "accea5e5-1a67-4c76-be1e-ae65037b8bfb",
+  "digest": "4498a0155ce6913311e35849e2cb6520",
+  "graph_hash": "170e3775c39bb2d8",
+  "fields": [
+   {
+    "field_id": "factor_value:fac_hours",
+    "value": 12
+   }
+  ]
+ }
+}

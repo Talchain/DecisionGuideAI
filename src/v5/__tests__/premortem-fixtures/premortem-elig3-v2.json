@@ -1,0 +1,194 @@
+{
+ "source": "CEE #2773 @ e7989d49 premortemWorksheetDiagnosticsFor on the captured A2-ELIG draw 2 (elig-3, staging CEE d738949, scenario f4b544a6, req 3be98169): existing_risk = served reply + reconstructed appendix; server_built = the same with story 1 tripping PM-NO-WINNER (settleMethodTurn replaced it).",
+ "existing_risk": {
+  "kind": "premortem",
+  "version": 2,
+  "scenario_id": "f4b544a6-d3c6-4b81-a18d-d8aaab790be7",
+  "turn_id": "aa189c2a-3b8c-4f5f-9083-898104041ac2",
+  "run": {
+   "graph_hash_at_run": "f94a1df61db1ca54",
+   "computed_at": "2026-10-07T11:25:10.908Z"
+  },
+  "binding": {
+   "scenario_id": "f4b544a6-d3c6-4b81-a18d-d8aaab790be7",
+   "graph_revision": "f94a1df61db1ca54",
+   "dependencies": [
+    {
+     "kind": "map_structure",
+     "id": "whole_graph",
+     "fingerprint": "7f0d70dc6d81e417f027ff784078a727a89947818a465ca12d43f9bff9e0e38a"
+    },
+    {
+     "kind": "analysis",
+     "id": "run",
+     "fingerprint": "f51409497c76482e86dda3b6da02f44bce5b7c986f9fd05ff686dbb4d56a12fc"
+    }
+   ]
+  },
+  "rows": [
+   {
+    "row_id": "pm_41caf6b5668d1aa68fa646dd",
+    "option_id": "raise_prices_10",
+    "option_label": "Raise prices 10%",
+    "failure_way": "It is a year later and this decision went badly because ‘Raise prices 10%’ increased ‘Price rise from current price’, but ‘Customers lost from price rise’ eroded the revenue gain.",
+    "early_warning": "Cancellation requests rose after customers received renewal notices.",
+    "mitigation": "Test the increase with a small renewal cohort before extending it.",
+    "grounding": {
+     "kind": "factor",
+     "ids": [
+      "price_rise_from_current_price"
+     ],
+     "labels": [
+      "Price rise from current price"
+     ]
+    },
+    "provenance": "olumi_hypothesis",
+    "source": "olumi_drafted",
+    "on_map": {
+     "node_id": "customers_lost_from_price_rise",
+     "label": "Customers lost from price rise"
+    }
+   },
+   {
+    "row_id": "pm_c34da4d121c5fa176f1ade4e",
+    "option_id": "launch_starter_tier",
+    "option_label": "Launch starter tier",
+    "failure_way": "It is a year later and this decision went badly because ‘Launch starter tier’ set ‘Starter tier launched’, but weak starter uptake left monthly recurring revenue short of the goal.",
+    "early_warning": "Starter sign-ups fell below your stated uptake range.",
+    "mitigation": "Test demand with a limited launch before committing more resources.",
+    "grounding": {
+     "kind": "factor",
+     "ids": [
+      "starter_tier_launched"
+     ],
+     "labels": [
+      "Starter tier launched"
+     ]
+    },
+    "provenance": "olumi_hypothesis",
+    "source": "olumi_drafted",
+    "risk_request": {
+     "chip_id": "agent-next-suggest-risks",
+     "message": "Prepare one risk called \"weak starter uptake\": It is a year later and this decision went badly because ‘Launch starter tier’ set ‘Starter tier launched’, but weak starter uptake left monthly recurring revenue short of the goal. It would lower \"monthly recurring revenue\". Early warning: Starter sign-ups fell below your stated uptake range. Olumi hypothesis — for you to challenge. Show the proposed change for approval.",
+     "affected_node_id": "monthly_recurring_revenue",
+     "direction": "negative",
+     "grounding_ids": [
+      "starter_tier_launched"
+     ]
+    }
+   }
+  ],
+  "coverage": [
+   {
+    "option_id": "raise_prices_10",
+    "option_label": "Raise prices 10%",
+    "status": "stress_tested"
+   },
+   {
+    "option_id": "launch_starter_tier",
+    "option_label": "Launch starter tier",
+    "status": "stress_tested"
+   },
+   {
+    "option_id": "keep_pricing_as_it_is",
+    "option_label": "Keep pricing as it is",
+    "status": "not_stress_tested"
+   }
+  ],
+  "blindspot_question": "Could existing customers have downgraded to the starter tier rather than it attracting only new subscribers?"
+ },
+ "server_built": {
+  "kind": "premortem",
+  "version": 2,
+  "scenario_id": "f4b544a6-d3c6-4b81-a18d-d8aaab790be7",
+  "turn_id": "aa189c2a-3b8c-4f5f-9083-898104041ac2",
+  "run": {
+   "graph_hash_at_run": "f94a1df61db1ca54",
+   "computed_at": "2026-10-07T11:25:10.908Z"
+  },
+  "binding": {
+   "scenario_id": "f4b544a6-d3c6-4b81-a18d-d8aaab790be7",
+   "graph_revision": "f94a1df61db1ca54",
+   "dependencies": [
+    {
+     "kind": "map_structure",
+     "id": "whole_graph",
+     "fingerprint": "7f0d70dc6d81e417f027ff784078a727a89947818a465ca12d43f9bff9e0e38a"
+    },
+    {
+     "kind": "analysis",
+     "id": "run",
+     "fingerprint": "f51409497c76482e86dda3b6da02f44bce5b7c986f9fd05ff686dbb4d56a12fc"
+    }
+   ]
+  },
+  "rows": [
+   {
+    "row_id": "pm_09def3719f6b839fca457856",
+    "option_id": "raise_prices_10",
+    "option_label": "Raise prices 10%",
+    "failure_way": "The effect of ‘Price rise from current price’ fell short of what ‘monthly recurring revenue’ needed.",
+    "early_warning": "early results diverging from the expected effect.",
+    "mitigation": "test this lever with a small group before expanding.",
+    "grounding": {
+     "kind": "factor",
+     "ids": [
+      "price_rise_from_current_price"
+     ],
+     "labels": [
+      "Price rise from current price"
+     ]
+    },
+    "provenance": "olumi_hypothesis",
+    "source": "server_built"
+   },
+   {
+    "row_id": "pm_c34da4d121c5fa176f1ade4e",
+    "option_id": "launch_starter_tier",
+    "option_label": "Launch starter tier",
+    "failure_way": "It is a year later and this decision went badly because ‘Launch starter tier’ set ‘Starter tier launched’, but weak starter uptake left monthly recurring revenue short of the goal.",
+    "early_warning": "Starter sign-ups fell below your stated uptake range.",
+    "mitigation": "Test demand with a limited launch before committing more resources.",
+    "grounding": {
+     "kind": "factor",
+     "ids": [
+      "starter_tier_launched"
+     ],
+     "labels": [
+      "Starter tier launched"
+     ]
+    },
+    "provenance": "olumi_hypothesis",
+    "source": "olumi_drafted",
+    "risk_request": {
+     "chip_id": "agent-next-suggest-risks",
+     "message": "Prepare one risk called \"weak starter uptake\": It is a year later and this decision went badly because ‘Launch starter tier’ set ‘Starter tier launched’, but weak starter uptake left monthly recurring revenue short of the goal. It would lower \"monthly recurring revenue\". Early warning: Starter sign-ups fell below your stated uptake range. Olumi hypothesis — for you to challenge. Show the proposed change for approval.",
+     "affected_node_id": "monthly_recurring_revenue",
+     "direction": "negative",
+     "grounding_ids": [
+      "starter_tier_launched"
+     ]
+    }
+   }
+  ],
+  "coverage": [
+   {
+    "option_id": "raise_prices_10",
+    "option_label": "Raise prices 10%",
+    "status": "stress_tested"
+   },
+   {
+    "option_id": "launch_starter_tier",
+    "option_label": "Launch starter tier",
+    "status": "stress_tested"
+   },
+   {
+    "option_id": "keep_pricing_as_it_is",
+    "option_label": "Keep pricing as it is",
+    "status": "not_stress_tested"
+   }
+  ],
+  "blindspot_question": "Could existing customers have downgraded to the starter tier rather than it attracting only new subscribers?"
+ },
+ "settled_reply": "Imagine this decision has gone badly. Failure stories to test:\n1. The effect of ‘Price rise from current price’ fell short of what ‘monthly recurring revenue’ needed. Watch for: early results diverging from the expected effect. Mitigate: test this lever with a small group before expanding.\n2. It is a year later and this decision went badly because ‘Launch starter tier’ set ‘Starter tier launched’, but weak starter uptake left monthly recurring revenue short of the goal. Watch for: Starter sign-ups fell below your stated uptake range. Mitigate: Test demand with a limited launch before committing more resources.\nOutside the model: Could existing customers have downgraded to the starter tier rather than it attracting only new subscribers?"
+}

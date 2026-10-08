@@ -490,7 +490,8 @@ export function SuggestedChips({
     setChipError(null)
     if (chip.id === 'agent-amend-proposal') {
       const entry = fields?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
-      if (entry) {
+      // Nothing the panel can show (no field it draws, no missing data): keep the amend sentence, never an empty panel.
+      if (entry && (entry.fields.length > 0 || entry.missing.length > 0)) {
         if (onOpenProposal) onOpenProposal(entry.proposal_id)
         else setOpenedProposalId(entry.proposal_id)
         return

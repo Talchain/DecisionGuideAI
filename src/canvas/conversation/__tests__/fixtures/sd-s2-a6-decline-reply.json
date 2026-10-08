@@ -1,0 +1,555 @@
+{
+ "response_version": 2,
+ "assistant_text": "Set aside: Record these 2 link strengths: \"Hours\" → \"Revenue\" as moderate, Olumi’s estimate; \"Cost\" → \"Revenue\" as moderate, Olumi’s estimate. Nothing in the model changed.",
+ "blocks": [],
+ "suggested_actions": [
+  {
+   "id": "agent-suggest-starting-assumptions",
+   "label": "Suggest starting assumptions",
+   "message": "Suggest starting assumptions for what this model is missing, so I can review and approve them."
+  },
+  {
+   "id": "agent-suggest-what-it-needs",
+   "label": "Suggest what it still needs",
+   "message": "Suggest what this model still needs before the analysis can run, so I can approve it."
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "frame",
+ "analysis_state": {
+  "run_state": {
+   "kind": "unknown_degraded",
+   "cause": "no_graph_this_turn"
+  },
+  "readiness": {
+   "status": "unknown",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "constraint_verdict_withheld"
+  },
+  "robustness": {},
+  "usable_for_prose": false,
+  "usable_for_chips": false,
+  "usable_for_followup": false,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "graph_hash": "170e3775c39bb2d8",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "opt_a",
+    "label": "Keep £49",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "Connected to 1 factor(s); awaiting effect value(s)",
+    "user_questions": [
+     "Which factor(s) does \"Keep £49\" change, and what value should each be set to?"
+    ]
+   },
+   {
+    "option_id": "opt_b",
+    "label": "Raise to £59",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "Connected to 1 factor(s); awaiting effect value(s)",
+    "user_questions": [
+     "Which factor(s) does \"Raise to £59\" change, and what value should each be set to?"
+    ]
+   }
+  ],
+  "goal_node_id": "goal_x",
+  "status": "needs_user_input",
+  "blockers": [
+   {
+    "option_id": "opt_a",
+    "option_label": "Keep £49",
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Hours\" needs a numeric value for option \"Keep £49\"",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "opt_b",
+    "option_label": "Raise to £59",
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Hours\" needs a numeric value for option \"Raise to £59\"",
+    "suggested_action": "add_value"
+   },
+   {
+    "factor_id": "fac_cost",
+    "factor_label": "Cost",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Cost\" is not connected to any option",
+    "suggested_action": "add_value"
+   },
+   {
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "blocker_type": "missing_value",
+    "message": "What is \"Hours\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+    "suggested_action": "add_value"
+   }
+  ],
+  "goal_threshold": 0.8,
+  "bias_findings": [],
+  "readiness_issues": [
+   {
+    "issue_id": "semantic_1",
+    "repairability": "human_input_required",
+    "option_id": "opt_a",
+    "option_label": "Keep £49",
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Factor \"Hours\" needs a numeric value for option \"Keep £49\"",
+    "provenance": "unattributed",
+    "obligation": "offered"
+   },
+   {
+    "issue_id": "semantic_2",
+    "repairability": "human_input_required",
+    "option_id": "opt_b",
+    "option_label": "Raise to £59",
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Factor \"Hours\" needs a numeric value for option \"Raise to £59\"",
+    "provenance": "unattributed",
+    "obligation": "offered"
+   },
+   {
+    "issue_id": "semantic_3",
+    "repairability": "human_input_required",
+    "factor_id": "fac_cost",
+    "factor_label": "Cost",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Cost\".",
+    "provenance": "unattributed",
+    "obligation": "offered"
+   },
+   {
+    "issue_id": "level_1",
+    "code": "MISSING_FACTOR_LEVEL",
+    "category": "option_values",
+    "message": "What is \"Hours\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+    "repairability": "human_input_required",
+    "factor_id": "fac_hours",
+    "factor_label": "Hours",
+    "provenance": "unattributed",
+    "obligation": "required"
+   }
+  ],
+  "repair_proposal": {
+   "proposal_version": "readiness_repair_v1",
+   "complete": true,
+   "issue_ids": [
+    "semantic_1",
+    "semantic_2",
+    "semantic_3",
+    "level_1"
+   ],
+   "changes": [],
+   "unresolved_inputs": [
+    {
+     "issue_id": "semantic_1",
+     "kind": "option_effect_value",
+     "prompt": "Factor \"Hours\" needs a numeric value for option \"Keep £49\"",
+     "option_id": "opt_a",
+     "factor_id": "fac_hours",
+     "obligation": "offered",
+     "provenance": "unattributed"
+    },
+    {
+     "issue_id": "semantic_2",
+     "kind": "option_effect_value",
+     "prompt": "Factor \"Hours\" needs a numeric value for option \"Raise to £59\"",
+     "option_id": "opt_b",
+     "factor_id": "fac_hours",
+     "obligation": "offered",
+     "provenance": "unattributed"
+    },
+    {
+     "issue_id": "semantic_3",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Cost\".",
+     "factor_id": "fac_cost",
+     "obligation": "offered",
+     "provenance": "unattributed"
+    },
+    {
+     "issue_id": "level_1",
+     "kind": "option_effect_value",
+     "prompt": "What is \"Hours\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+     "factor_id": "fac_hours",
+     "obligation": "required",
+     "provenance": "unattributed"
+    }
+   ]
+  },
+  "may_run": false,
+  "analysis_admission": {
+   "structurally_analysable": false,
+   "missing_important_inputs": [
+    {
+     "issue_id": "semantic_1",
+     "code": "MISSING_OPTION_VALUE",
+     "option_id": "opt_a",
+     "option_label": "Keep £49",
+     "factor_id": "fac_hours",
+     "factor_label": "Hours",
+     "why_it_matters": "Factor \"Hours\" needs a numeric value for option \"Keep £49\"",
+     "obligation": "offered",
+     "waived_by_exclusion": false
+    },
+    {
+     "issue_id": "semantic_2",
+     "code": "MISSING_OPTION_VALUE",
+     "option_id": "opt_b",
+     "option_label": "Raise to £59",
+     "factor_id": "fac_hours",
+     "factor_label": "Hours",
+     "why_it_matters": "Factor \"Hours\" needs a numeric value for option \"Raise to £59\"",
+     "obligation": "offered",
+     "waived_by_exclusion": false
+    },
+    {
+     "issue_id": "semantic_3",
+     "code": "MISSING_OPTION_VALUE",
+     "factor_id": "fac_cost",
+     "factor_label": "Cost",
+     "why_it_matters": "Choose the missing effect value for \"Cost\".",
+     "obligation": "offered",
+     "waived_by_exclusion": false
+    },
+    {
+     "issue_id": "level_1",
+     "code": "MISSING_FACTOR_LEVEL",
+     "factor_id": "fac_hours",
+     "factor_label": "Hours",
+     "why_it_matters": "What is \"Hours\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+     "obligation": "required",
+     "waived_by_exclusion": false
+    }
+   ],
+   "semantic_quality_sufficient": false,
+   "permitted_analysis_mode": "none",
+   "reasons": [
+    {
+     "field": "structurally_analysable",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "Review all 4 readiness issues together before analysis."
+    },
+    {
+     "field": "missing_important_inputs",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "One input is still needed from you."
+    },
+    {
+     "field": "semantic_quality_sufficient",
+     "code": "NO_COMPARISON_SUBSTRATE",
+     "message": "Nothing in this model connects the options to your goal, so there is no comparison to draw a leader from."
+    },
+    {
+     "field": "permitted_analysis_mode",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "This model cannot be analysed yet."
+    }
+   ],
+   "graph_hash": "170e3775c39bb2d81fd4b84c256ba2954524f7a806a20409c5d38a700d2a5399",
+   "semantic_signals": {
+    "confidence_parameters_total": 5,
+    "confidence_parameters_user_stated": 0,
+    "confidence_parameters_machine_authored": 2,
+    "confidence_parameters_unattributed": 3,
+    "material_parameters_total": 0,
+    "material_parameters_user_stated": 0,
+    "intervened_factor_baselines_total": 0,
+    "intervened_factor_baselines_user_stated": 0,
+    "material_parameters_awaiting_user_node_ids": [],
+    "goal_target_stated": false
+   }
+  },
+  "current_graph_hash": "170e3775c39bb2d8"
+ },
+ "draft_graph": {
+  "nodes": [
+   {
+    "id": "dec_x",
+    "kind": "decision",
+    "label": "Choose a price"
+   },
+   {
+    "id": "goal_x",
+    "kind": "goal",
+    "label": "Revenue",
+    "goal_threshold": 0.8
+   },
+   {
+    "id": "opt_a",
+    "kind": "option",
+    "label": "Keep £49"
+   },
+   {
+    "id": "opt_b",
+    "kind": "option",
+    "label": "Raise to £59"
+   },
+   {
+    "id": "fac_hours",
+    "kind": "factor",
+    "label": "Hours"
+   },
+   {
+    "id": "fac_cost",
+    "kind": "factor",
+    "label": "Cost"
+   }
+  ],
+  "edges": [
+   {
+    "from": "dec_x",
+    "to": "opt_a",
+    "strength": {
+     "mean": 1,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive"
+   },
+   {
+    "from": "dec_x",
+    "to": "opt_b",
+    "strength": {
+     "mean": 1,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive"
+   },
+   {
+    "from": "opt_a",
+    "to": "fac_hours",
+    "strength": {
+     "mean": 1,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive"
+   },
+   {
+    "from": "opt_b",
+    "to": "fac_hours",
+    "strength": {
+     "mean": 1,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive"
+   },
+   {
+    "from": "fac_hours",
+    "to": "goal_x",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_placeholder"
+    },
+    "defaulted": true,
+    "strength": {
+     "mean": 0.5,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "positive"
+   },
+   {
+    "from": "fac_cost",
+    "to": "goal_x",
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_placeholder"
+    },
+    "defaulted": true,
+    "strength": {
+     "mean": -0.5,
+     "std": 0.1
+    },
+    "exists_probability": 1,
+    "effect_direction": "negative"
+   }
+  ],
+  "node_count": 6,
+  "edge_count": 6
+ },
+ "model_gap": {
+  "kind": "goal_target_missing",
+  "goal_id": "goal_x",
+  "deadline_known": false,
+  "question": "One gap: ‘Revenue’ has no target or deadline yet. What would count as meeting it, and by when?"
+ },
+ "action_bar": {
+  "v": 1,
+  "state_key": "7ab3489f292f66f7",
+  "revision": {
+   "graph_hash": "170e3775c39bb2d8",
+   "run_key": null
+  },
+  "priority": [
+   {
+    "action_id": "set_goal",
+    "label": "Set target",
+    "icon": "Target",
+    "group": "gap",
+    "press_id": "act:set_goal",
+    "user_line": "Help me set a target for my goal.",
+    "enabled": true,
+    "why_now": "Your goal has no target yet, so no chance of meeting it can be worked out.",
+    "offer_key": "7f1c96bdbefa957e"
+   }
+  ],
+  "standard": [
+   {
+    "action_id": "review",
+    "label": "Review",
+    "icon": "ListChecks",
+    "group": "review",
+    "press_id": "agent-next-review-decision",
+    "user_line": "Review this decision: what should I check before relying on it?",
+    "enabled": false,
+    "disabled_reason": "Needs a current analysis.",
+    "offer_key": "2933b0ef3d3fad39"
+   },
+   {
+    "action_id": "what_changes",
+    "label": "What changes",
+    "icon": "SlidersHorizontal",
+    "group": "method",
+    "press_id": "agent-next-what-would-change",
+    "user_line": "What would most likely change this result?",
+    "enabled": false,
+    "disabled_reason": "Needs a current analysis.",
+    "offer_key": "14dbb5c54adace84"
+   },
+   {
+    "action_id": "strengthen",
+    "label": "Strengthen",
+    "icon": "ShieldCheck",
+    "group": "review",
+    "press_id": "agent-next-strengthen",
+    "user_line": "What would most strengthen this model?",
+    "enabled": false,
+    "disabled_reason": "Needs a current analysis.",
+    "offer_key": "d11e16e35f4ada08"
+   },
+   {
+    "action_id": "pre_mortem",
+    "label": "Pre-mortem",
+    "icon": "ClipboardList",
+    "group": "method",
+    "press_id": "agent-next-pre-mortem",
+    "user_line": "Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?",
+    "enabled": true,
+    "why_now": "Imagine this went badly and find the most likely causes.",
+    "offer_key": "3b50a3223ffe3078"
+   }
+  ],
+  "more": [
+   {
+    "action_id": "more_options",
+    "label": "More options",
+    "icon": "GitFork",
+    "group": "gap",
+    "press_id": "agent-next-widen",
+    "user_line": "Suggest options I haven’t considered.",
+    "enabled": true,
+    "why_now": "There is no do-nothing option to compare against.",
+    "offer_key": "ef2ac297b2486906"
+   },
+   {
+    "action_id": "frame_brief",
+    "label": "Frame brief",
+    "icon": "FileText",
+    "group": "gap",
+    "press_id": "act:frame_brief",
+    "user_line": "Help me frame my brief: what is missing from it?",
+    "enabled": true,
+    "why_now": "See what your brief has and what it is missing.",
+    "offer_key": "5eb6db055adc2106"
+   },
+   {
+    "action_id": "more_risks",
+    "label": "More risks",
+    "icon": "ShieldAlert",
+    "group": "gap",
+    "press_id": "agent-next-suggest-risks",
+    "user_line": "Suggest risks I haven't considered.",
+    "enabled": true,
+    "why_now": "Find risks you haven’t considered yet.",
+    "offer_key": "a680989212be5b5e"
+   }
+  ]
+ },
+ "_diagnostic_trace": {
+  "exit_path": "agent_lane_v1",
+  "agent_mode": "full",
+  "hops": 0,
+  "stopped_reason": "answered",
+  "tools_called": [
+   "withdraw_proposal"
+  ],
+  "timing": {
+   "total_ms": 1,
+   "provider_ms": 0,
+   "tool_ms": 1,
+   "overhead_ms": 0,
+   "tool_provider_ms": 0,
+   "provider_calls": 0,
+   "tool_calls": 1,
+   "hops": 0,
+   "route_total_ms": 12,
+   "dispatches": [
+    {
+     "path": "/assist/v1/scenarios/:scenario/graph",
+     "ms": 2,
+     "status": 200
+    }
+   ],
+   "dispatch_ms": 2
+  },
+  "write_claims_removed": 0,
+  "coaching": {
+   "eligible": false,
+   "reason": "no_run_this_turn"
+  }
+ },
+ "_agent": {
+  "session_id": "sess_6b1e2d3c-4b5a-4f6e-9d7c-8b9a0e1f3d02",
+  "mode": "full",
+  "tool_calls": [
+   {
+    "name": "withdraw_proposal",
+    "ok": true,
+    "mutated": false,
+    "proposal_id": "prop_9bf52ed7cfd93aa25d5ab994f8e45c00"
+   }
+  ],
+  "mutated": false,
+  "hops": 0,
+  "stopped_reason": "answered",
+  "turn_id": "62308d82-4d8b-4c84-b3dd-ce71f8502a13",
+  "durability": "recorded",
+  "receipts": []
+ },
+ "_provider_calls": []
+}

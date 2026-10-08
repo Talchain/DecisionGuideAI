@@ -67,6 +67,7 @@ import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { EdgeRelationshipSummary } from '../shared/EdgeRelationshipSummary'
 import { INSPECTOR_RULE, inspectorButton, inspectorSectionHighlight } from '../inspectorStyle'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { LINK_MARGIN_LABEL, linkMarginSentence } from '../../../../components/results/utils/fragileEdgeCopy'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { takeEdgeEditRefusalText } from '../../../conversation/pendingEdgeEdit'
@@ -978,7 +979,7 @@ export const EdgePanel = memo(function EdgePanel({
                   )}
                   {techMode && edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
-                      Assumption robustness: {edgeEValue.toFixed(1)}x
+                      {LINK_MARGIN_LABEL}. {linkMarginSentence(edgeEValue)}
                     </p>
                   )}
                 </div>
