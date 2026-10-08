@@ -10,7 +10,8 @@
  * thin wrapper useGraphReadiness() for backward compatibility.
  */
 import { create } from 'zustand'
-import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { buildSessionAuthKey, buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { withSessionReadTimeout } from '../conversation/turnLifecycle'
 import { isBlockedCarrier } from '../domain/usableAnalysisReady'
 import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
@@ -105,6 +106,8 @@ const BACKOFF_MULTIPLIER = 2
 
 export interface ReadinessStoreState {
   readiness: GraphReadiness | null
+  /** Opaque auth identity owning the published server verdict. */
+  verdictAuthKey: string | null
   loading: boolean
   error: string | null
   /**
@@ -134,10 +137,13 @@ export interface ReadinessStoreActions {
   startListening: () => () => void
   /** Reset state AND unsubscribe the canvas listener + clear timers. */
   reset: () => void
+  /** Auth boundary: invalidate work and publication while retaining mounted listeners. */
+  resetForAuth: () => void
 }
 
 const initialState: ReadinessStoreState = {
   readiness: null,
+  verdictAuthKey: null,
   loading: false,
   error: null,
   stale: false,
@@ -198,7 +204,15 @@ let pendingScheduledPayload: string | null = null
 /** The payload of the last SUCCESSFUL request. Never written on failure. */
 let lastPayloadHash: string | null = null
 /** Auth context of the last successful request; never reuse another session's verdict. */
-let lastAuthHeadersKey: string | null = null
+let lastAuthKey: string | null = null
+/** One owner/lifecycle fence for pre-dispatch work, responses, failures and finally. */
+interface ReadinessOwner { generation: number; authKey: string | null }
+const ownerFence: ReadinessOwner = { generation: 0, authKey: null }
+function ownsReadiness(check: ReadinessOwner): boolean {
+  return check.generation === ownerFence.generation &&
+    (check.authKey === null || check.authKey === ownerFence.authKey)
+}
+
 let fetchInFlight = false
 /**
  * ROADMAP 2.332 (adversarial review, amendment 1) — a call that arrived while
@@ -599,17 +613,24 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
  * from an ANSWER" (`describeReadinessCheck`). A server answer is untouched:
  * still retained by identity, still stale if the model moved.
  */
-function publishCheckFailure(message: string): void {
-  const { readiness, verdictAtMs } = useReadinessStore.getState()
-  const retainedVerdictIsLocal = readiness !== null && verdictAtMs === null
+function publishCheckFailure(message: string, check: ReadinessOwner): void {
+  if (!ownsReadiness(check)) return
+  const { readiness, verdictAtMs, verdictAuthKey } = useReadinessStore.getState()
+  const retainOwnVerdict = readiness !== null && verdictAtMs !== null &&
+    check.authKey !== null && verdictAuthKey === check.authKey
+  if (!retainOwnVerdict) {
+    lastPayloadHash = null
+    lastAuthKey = null
+  }
   useReadinessStore.setState({
     error: message,
     loading: false,
-    ...(retainedVerdictIsLocal ? { readiness: null } : {}),
+    ...(!retainOwnVerdict ? { readiness: null, verdictAtMs: null, verdictAuthKey: null } : {}),
   })
 }
 
 async function fetchReadiness(): Promise<void> {
+  const check: ReadinessOwner = { generation: ownerFence.generation, authKey: null }
   // ROADMAP 2.332 amendment 1 — defer, never discard. See `fetchQueued`.
   if (fetchInFlight) {
     fetchQueued = true
@@ -621,10 +642,44 @@ async function fetchReadiness(): Promise<void> {
 
   try {
     const now = Date.now()
-    if (backoff.until > now) {
+    // Resolve the canonical session before any owner-specific early return or
+    // publication. The bounded wait covers both cold import and SDK session lock.
+    let identity
+    try {
+      identity = await withSessionReadTimeout(
+        import('../../lib/supabase')
+          .then(({ getSessionIdentity }) => getSessionIdentity())
+          .catch(() => ({ userId: null, accessToken: null })),
+      )
+    } catch {
+      // The bounded race rejects; its late session completion has no write path.
+      // An unconfirmed identity cannot be treated as a guest or retain a verdict.
+      publishCheckFailure('Could not reach the readiness service', check)
+      return
+    }
+    if (!ownsReadiness(check)) return
+    const authKey = await buildSessionAuthKey(identity)
+    if (!ownsReadiness(check)) return
+    const published = useReadinessStore.getState()
+    const ownerChanged = ownerFence.authKey !== authKey
+    check.authKey = authKey
+    ownerFence.authKey = authKey
+    if (ownerChanged) {
+      lastPayloadHash = null
+      lastAuthKey = null
+      backoff = { delay: 0, until: 0 }
+    }
+    // All publications, including local empty-canvas state, have this owner.
+    // Same-owner rate-limit backoff must leave its standing error untouched.
+    if (ownerChanged || (published.readiness !== null && published.verdictAuthKey !== authKey)) {
+      useReadinessStore.setState({ readiness: null, error: null, verdictAtMs: null, verdictAuthKey: null })
+    }
+    if (!ownsReadiness(check)) return
+    const authHeaders = buildTurnAuthHeaders(identity)
+    if (backoff.until > Date.now()) {
       if (import.meta.env.DEV) {
         console.warn(
-          `[readinessStore] Rate limited, waiting ${Math.ceil((backoff.until - now) / 1000)}s`,
+          `[readinessStore] Rate limited, waiting ${Math.ceil((backoff.until - Date.now()) / 1000)}s`,
         )
       }
       return
@@ -667,6 +722,7 @@ async function fetchReadiness(): Promise<void> {
           confidence_explanation: 'Add some nodes to get started',
           improvements: [],
         },
+        verdictAuthKey: authKey,
         loading: false,
         error: null,
         // This verdict IS a function of the current payload (zero nodes), so
@@ -695,17 +751,9 @@ async function fetchReadiness(): Promise<void> {
     //
     // A no-op now touches NO store state at all: it does not clear the error,
     // does not flash loading, and does not disturb the stale mark.
-    // Same session seam as useConversation and the journal-backed undo command.
-    // Load at request time as captureAgentTurnForUndo does: importing the auth
-    // client eagerly requires Supabase configuration even for store-only consumers.
-    const identity = await import('../../lib/supabase')
-      .then(({ getSessionIdentity }) => getSessionIdentity())
-      .catch(() => ({ userId: null, accessToken: null }))
-    const authHeaders = buildTurnAuthHeaders(identity)
-    const authHeadersKey = JSON.stringify(authHeaders)
     const payloadJson = buildReadinessPayload(canvasState)
 
-    if (payloadJson === lastPayloadHash && authHeadersKey === lastAuthHeadersKey) {
+    if (payloadJson === lastPayloadHash && authKey === lastAuthKey) {
       return
     }
 
@@ -742,6 +790,7 @@ async function fetchReadiness(): Promise<void> {
 
       let response: DeduplicatedResponse
       try {
+        if (!ownsReadiness(check)) return
         const { promise, entry } = dedupUtils.deduplicatedFetch(
           `${CEE_BASE_URL}/graph-readiness`,
           payloadJson,
@@ -749,10 +798,13 @@ async function fetchReadiness(): Promise<void> {
           // The user's Supabase bearer identifies the scenario owner. The BFF
           // still supplies the service key; guests retain the empty header set.
           authHeaders,
+          authKey,
         )
         currentInflightEntry = entry
         response = await promise
+        if (!ownsReadiness(check)) return
       } catch (fetchErr) {
+        if (!ownsReadiness(check)) return
         // An abort is a cancellation, not a failure — the outer catch owns it.
         if ((fetchErr as Error).name === 'AbortError') throw fetchErr
 
@@ -830,7 +882,7 @@ async function fetchReadiness(): Promise<void> {
             ? 'Could not read the readiness service response'
             : 'Could not reach the readiness service'
         console.warn(`[readinessStore] ${message} — publishing no verdict:`, fetchErr)
-        publishCheckFailure(message)
+        publishCheckFailure(message, check)
         return
       }
 
@@ -881,7 +933,7 @@ async function fetchReadiness(): Promise<void> {
           // not the rate-limit handling. `lastPayloadHash` is likewise still
           // unset, so the identical graph can be re-asked once the window
           // clears; a failure here must not be sticky.
-          publishCheckFailure('Could not check readiness right now — the service is rate limited')
+          publishCheckFailure('Could not check readiness right now — the service is rate limited', check)
           return
         }
 
@@ -934,7 +986,7 @@ async function fetchReadiness(): Promise<void> {
             `[readinessStore] ${message} (HTTP 404) — publishing no verdict:`,
             response.errorBody,
           )
-          publishCheckFailure(message)
+          publishCheckFailure(message, check)
           return
         }
 
@@ -989,7 +1041,7 @@ async function fetchReadiness(): Promise<void> {
           '[readinessStore] Readiness response carried no can_run_analysis boolean — publishing no verdict:',
           { received: typeof data.can_run_analysis },
         )
-        publishCheckFailure('Could not read the readiness service response')
+        publishCheckFailure('Could not read the readiness service response', check)
         return
       }
 
@@ -1207,8 +1259,9 @@ async function fetchReadiness(): Promise<void> {
 
       // Only cache the payload hash after a successful fetch — failed fetches
       // should allow retry on the same payload.
+      if (!ownsReadiness(check)) return
       lastPayloadHash = currentPayloadJson
-      lastAuthHeadersKey = authHeadersKey
+      lastAuthKey = authKey
       // ── ROADMAP 2.332 amendment 1: an answer clears only its OWN mark ──
       //
       // `stale: false` was unconditional here, and that let an answer launder
@@ -1224,8 +1277,10 @@ async function fetchReadiness(): Promise<void> {
       // request and the change detector, so it cannot disagree with either.
       const answersCurrentModel =
         buildReadinessPayload(useCanvasStore.getState()) === currentPayloadJson
+      if (!ownsReadiness(check)) return
       useReadinessStore.setState({
         readiness: normalized,
+        verdictAuthKey: authKey,
         loading: false,
         error: null,
         // Cleared only when this verdict describes the model on the canvas.
@@ -1234,6 +1289,7 @@ async function fetchReadiness(): Promise<void> {
         verdictAtMs: Date.now(),
       })
     } catch (err) {
+      if (!ownsReadiness(check)) return
       if ((err as Error).name === 'AbortError') return
 
       // ── ROADMAP 2.339: the last fabrication path in this file ────
@@ -1281,9 +1337,12 @@ async function fetchReadiness(): Promise<void> {
           ? `The readiness service could not answer (HTTP ${err.status})`
           : 'Could not complete the readiness check'
       console.warn(`[readinessStore] ${message} — publishing no verdict:`, err)
-      publishCheckFailure(message)
+      publishCheckFailure(message, check)
     }
+  } catch {
+    publishCheckFailure('Could not complete the readiness check', check)
   } finally {
+    if (!ownsReadiness(check)) return
     fetchInFlight = false
     // Drain exactly one deferred call. Re-entry is bounded, not a loop: the
     // flag is cleared BEFORE the re-invoke, and the re-invoked fetch returns
@@ -1373,7 +1432,9 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
 
         pendingScheduledPayload = nextPayload
         if (debounceTimer) clearTimeout(debounceTimer)
+        const scheduledGeneration = ownerFence.generation
         debounceTimer = setTimeout(() => {
+          if (scheduledGeneration !== ownerFence.generation) return
           debounceTimer = null
           // Cleared BEFORE the fetch: from here the question is being asked,
           // not scheduled, and `lastObservedPayload` takes over as the record
@@ -1397,12 +1458,20 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
 
     // Return a release function. Subscription only tears down when
     // the last consumer releases (refCount drops to 0).
+    const subscription = unsubCanvasStore
+    let released = false
     return () => {
+      if (released || subscription !== unsubCanvasStore) return
+      released = true
       listenerRefCount--
       if (listenerRefCount <= 0) {
         stopListening()
       }
     }
+  },
+
+  resetForAuth: () => {
+    invalidateReadinessOwner()
   },
 
   reset: () => {
@@ -1413,11 +1482,19 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
 
 /** Clean up subscription, timers, and module-level state. */
 function stopListening(): void {
+  invalidateReadinessOwner()
   listenerRefCount = 0
   if (unsubCanvasStore) {
     unsubCanvasStore()
     unsubCanvasStore = null
   }
+}
+
+/** Invalidate the same fence on auth boundaries and last-listener teardown. */
+function invalidateReadinessOwner(): void {
+  ownerFence.generation++
+  ownerFence.authKey = null
+  dedupUtils.clearInflightCache()
   if (debounceTimer) {
     clearTimeout(debounceTimer)
     debounceTimer = null
@@ -1435,11 +1512,12 @@ function stopListening(): void {
   }
   lastObservedPayload = null
   lastPayloadHash = null
-  lastAuthHeadersKey = null
+  lastAuthKey = null
   fetchInFlight = false
   fetchQueued = false
   backoff = { delay: 0, until: 0 }
   lastLogTime = 0
+  useReadinessStore.setState(initialState)
 }
 
 // Selectors
@@ -1523,6 +1601,8 @@ export const __test__ = {
   getModuleState: () => ({
     lastObservedPayload,
     lastPayloadHash,
+    lastAuthKey,
+    generation: ownerFence.generation,
     fetchInFlight,
     fetchQueued,
     backoff,

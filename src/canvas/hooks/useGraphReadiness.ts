@@ -75,10 +75,11 @@ interface InflightEntry {
   settled: boolean
 }
 const inflightCache = new Map<string, InflightEntry>()
+let unkeyedRequest = 0
 
 /**
  * Deduplicated fetch: reuses an in-flight (or recently resolved) request
- * for the same endpoint + payload body + auth headers. Returns a pre-parsed response so
+ * for the same endpoint + payload body + opaque auth key. Returns a pre-parsed response so
  * multiple consumers can safely read the result without "body stream already
  * read" errors. Uses refCount to prevent one consumer's unmount from
  * aborting a request shared by other consumers.
@@ -88,12 +89,13 @@ function deduplicatedFetch(
   payloadJson: string,
   correlationId: string,
   extraHeaders: Record<string, string> = {},
+  authKey?: string,
 ): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
-  // Ownership is decided from the bearer: equal graphs under different
-  // sessions must never share an in-flight or recently resolved response.
-  // Sort the caller's headers so equivalent header sets still deduplicate.
-  const headersKey = JSON.stringify(Object.entries(extraHeaders).sort(([a], [b]) => a.localeCompare(b)))
-  const cacheKey = JSON.stringify([url, payloadJson, headersKey])
+  // Never retain a bearer in a Map key. Production supplies the SHA-256
+  // fingerprint built from its session. A caller with headers but no opaque
+  // key is deliberately unshared; forgetting the key cannot mix identities.
+  const scope = authKey ?? (Object.keys(extraHeaders).length ? `unkeyed:${++unkeyedRequest}` : 'guest')
+  const cacheKey = JSON.stringify([url, payloadJson, scope])
   const existing = inflightCache.get(cacheKey)
   if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
     existing.refCount++
@@ -187,7 +189,7 @@ export function clearInflightCache(): void {
 }
 
 /** @internal — exposed for unit testing dedup logic and readinessStore. */
-export const __test__ = { deduplicatedFetch, releaseInflightEntry }
+export const __test__ = { deduplicatedFetch, releaseInflightEntry, clearInflightCache }
 
 // ── Types (re-exported for all consumers) ──────────────────────────
 
