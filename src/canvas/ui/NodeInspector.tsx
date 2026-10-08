@@ -63,7 +63,6 @@ import { InterventionDisplay } from '../components/InterventionDisplay'
 import { UserMappingForm, NeedsMappingPrompt } from '../components/UserMappingForm'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode, type UIOption } from '../../types/options'
 import { InspectorAccordion } from './inspector'
-import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from './inspector/GoalProgressChecklist'
 import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
@@ -228,10 +227,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
    * `cap / raw === 1.25` exactly, because the cap is derived from the target.
    * That "80%" is a constant for every decision ever made.
    *
-   * ⚠ ONLY THE TWO CLAIM-MAKING BRANCHES BELOW MOVE. The Assumptions-section
-   * `GoalThresholdEditor` further down still keys on the raw scalar: it gates an
-   * EDITOR, not an assertion, and offering someone the chance to set a target is
-   * never a false statement (CLAUDE.md trap 21 — two questions, two conditions).
+   * The dormant v1 inspector retains its readouts. Its local-only threshold
+   * editor was removed; the active v2 inspector owns target edits.
    */
   const displayableTarget = resolveDisplayableGoalTarget({
     goalThreshold,
@@ -514,12 +511,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       )}
 
-      {/* E.4: Goal threshold — inline editor when unset, read-only when set */}
-      {isGoalNode && displayableTarget == null && (
-        <div className="mt-2">
-          <GoalThresholdEditor nodeId={nodeId} />
-        </div>
-      )}
+      {/* The dormant v1 inspector keeps its target readout; target edits belong to v2. */}
       {isGoalNode && displayableTarget != null && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>
           Target: \u2265 {(() => {
@@ -875,11 +867,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </span>
           </div>
         </div>
-      )}
-
-      {/* B.I.8 + E.4: Goal threshold editor — only in Assumptions when threshold is already set */}
-      {isGoalNode && goalThreshold != null && (
-        <GoalThresholdEditor nodeId={nodeId} />
       )}
 
       {/* Factor value editor */}

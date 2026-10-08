@@ -9,7 +9,6 @@ import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constra
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
-import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { useAnalysisMetadata } from '../../../hooks/useAnalysisMetadata'
@@ -157,7 +156,7 @@ export const GoalPanel = memo(function GoalPanel({
    * carrier sits behind this pane's own fence (description, constraints,
    * advanced editor), and the target control is `SuccessTargetLine` — the
    * Model tab's control, committing through `proposeGoalTarget` — instead of
-   * the store-only `GoalThresholdEditor`.
+   * the deleted store-only threshold editor.
    */
   readOnly = false,
   summaryContext,
@@ -253,9 +252,6 @@ export const GoalPanel = memo(function GoalPanel({
   const goalFitSubstituted =
     probGoal !== null && basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
 
-  const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
-  const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
-
   /**
    * The success-target string (ROADMAP 2.315(c)).
    *
@@ -294,12 +290,6 @@ export const GoalPanel = memo(function GoalPanel({
    * instead, rather than a sentence ending in "NaN".
    */
   //
-  // ⚠ THE SCALE-SAFE UNIT IS HOISTED BECAUSE IT NOW HAS TWO READERS. The
-  // readout below applies the unit only when the number is on the scale that
-  // unit describes; the EDITOR sits on the other side of the same branch and
-  // must obey the same rule, or "≥ 0.8 £" simply reappears inside the input.
-  // One expression, both consumers — never two copies of the tag check.
-  const scaleSafeUnit = goalThresholdRepresentation === 'normalised' ? undefined : thresholdUnit
   /**
    * ⭐⭐⭐ THE READOUT GOES THROUGH THE OWNER THE CARD ALREADY USES.
    *
@@ -392,10 +382,10 @@ export const GoalPanel = memo(function GoalPanel({
    * and read by both surfaces.
    *
    * ⚠ IT IS A DISJUNCT, NOT THE WHOLE GATE, AND THAT IS DELIBERATE. The editor
-   * ALSO keeps rendering when this panel has no number to display at all —
-   * the pre-existing branch where a brief-extracted raw sits on the node and
-   * `GoalThresholdEditor` pre-populates from it under a "From your brief"
-   * badge. Gating on the admission ALONE would delete that. As a sufficient
+   * ALSO keeps rendering when this panel has no pipeline number to display —
+   * including a brief-extracted raw target on the node. The shared control
+   * reads that target itself. Gating on the admission ALONE would delete that.
+   * As a sufficient
    * condition that nothing overrides, the property the chip needs —
    * *admission yes ⟹ the editor is on screen* — holds by construction.
    */
@@ -727,41 +717,10 @@ export const GoalPanel = memo(function GoalPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
           {/* §4.2 Success target */}
-          {/* ⛔⛔ THE BRANCH GATE KEEPS THE STORE AS ITS SUBJECT. Sourcing the
-              readout TEXT from the node (above) must not move this branch, and my
-              first attempt did: with the text node-sourced, `targetDisplay != null`
-              became TRUE in the quadrant where the node holds a brief-extracted raw
-              and the store holds no number — so the READOUT took over and the
-              EDITOR vanished. `capturePromiseAnswers.spec.tsx` names that exact
-              quadrant as "THE QUADRANT THE OBVIOUS FIX DELETES… the exact state
-              `GoalThresholdEditor`'s `thresholdRaw` pre-population and its
-              'From your brief' badge exist for. The admission is a SUFFICIENT
-              condition, never the whole gate." It was right and I was the obvious
-              fix.
-              ⭐ So: WHICH branch is the store's question, WHAT it says is the
-              node's, and `targetDisplay != null` still guards against claiming a
-              target we cannot state — which is #1844's withholding intent intact. */}
+          {/* The mounted inspector owns the target carrier. Legacy direct mounts
+              reuse the same control when no target readout is available. */}
           {readOnly ? (
-            /* ⭐⭐ THE MOUNTED TARGET CONTROL IS THE MODEL TAB'S, NOT A COPY OF IT.
-               `readOnly` is what the Router hands this pane since `goal` joined
-               `AUTHORITY_OWNING_PANELS` — i.e. this is the branch a user sees.
-               `GoalThresholdEditor` (the other arm) commits through
-               `setGoalThresholdAndUpdateNode`, a store-only write that reverts
-               on reload; the note beneath it records why carving it out of the
-               fence "would make things worse". So it is not carved out — it is
-               not rendered here at all, and `SuccessTargetLine` stands in its
-               place: the same direction selector (at least / at most), the same
-               value parse and the same unit rule as the Model tab, committing
-               through the same `useModelEditAuthority.proposeGoalTarget` →
-               typed `add_constraint`, with NO local echo (the applied response
-               owns the store write). Pinned through the real Router by
-               `GoalPanel.targetReachesTheModel.spec.tsx`.
-
-               ⚠ IT REPLACES THE "Success means reaching ≥ …" READOUT TOO, and
-               that is deliberate: `SuccessTargetLine` shows the stated figure
-               and whose it is, and paints NO bound onto a target whose direction
-               nobody recorded — the readout's `≥` did. The probability sentence
-               and the "unlocks" sentence keep their own gates. */
+            /* The active inspector shares the Model tab's authoritative control. */
             <div data-testid="goal-panel-target-block">
               <SuccessTargetLine
                 goalNodeId={nodeId}
@@ -817,74 +776,23 @@ export const GoalPanel = memo(function GoalPanel({
             </div>
           ) : (
             <div>
-              <GoalThresholdEditor unit={scaleSafeUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
-              {/* ⚠ "Adding a specific target unlocks probability calculations."
-                  is TRUE only while there are none. It used to be unreachable
-                  whenever the pipeline held a number, because that state
-                  rendered the readout; routing the DIVERGENT arm here (store
-                  holds a number, node holds no captured target) would have made
-                  this sentence newly reachable beside a run that HAS produced
-                  probabilities — a fresh false claim bought with the fix for
-                  another one, which is the trade this PR exists to refuse.
-                  `targetDisplay == null` is exactly "the pipeline holds no
-                  number", so it is the condition the sentence is true under.
-
-                  ⚠⚠ THE LAST SENTENCE HERE READ "The editor stands alone on the
-                  divergent arm and claims nothing: it carries its own label and
-                  PLACEHOLDER" UNTIL #1172 ROUND 3, AND MEASUREMENT REFUTED IT.
-                  On the divergent arm the placeholder NEVER RENDERS, because
-                  the field is not empty: `GoalThresholdEditor` seeds from
-                  `goalThreshold != null ? String(goalThreshold) : rawString`,
-                  i.e. the STORE scalar first. Routing the divergent arm here
-                  made that seed reachable from this panel for the first time,
-                  so the editor arrives pre-filled with the pipeline's number on
-                  the very arm whose whole premise is that the node captured
-                  nothing. It does not "claim nothing" — it shows 0.8 under
-                  "Success means reaching" beside a card saying the target was
-                  not captured.
-
-                  ⚠ WHAT THAT DOES *NOT* CURRENTLY REACH, stated exactly so it
-                  is neither inherited nor lost: `handleBlur` has no dirty check,
-                  so committing that seed untouched would write
-                  `success_threshold: 0.8` + `threshold_source: 'user'` and
-                  re-tag the store 'raw' — reviving `≥ £0.8` and attesting a
-                  target the reader never stated. It is NOT user-reachable
-                  today, because `InspectorRouter`'s `<fieldset disabled>` inerts
-                  this input, and a disabled control fires neither focus nor
-                  blur. The finding was measured by mounting `GoalPanel`
-                  directly, where that boundary does not exist. So the SEED is a
-                  live display defect and the WRITE is fenced by the boundary —
-                  ⚠ AND THAT FENCE IS THE REASON CARVING THIS EDITOR OUT OF THE
-                  FIELDSET WOULD MAKE THINGS WORSE, NOT BETTER. ⚠ NOT YET IN
-                  THE REGISTER — handed to the orchestrator with this PR, not
-                  minted here; do not read this as a row. The
-                  remedy is to give the SEED the same admission that owns the
-                  chip (`canCaptureGoalTarget`), so nothing captured means an
-                  empty field — deliberately not done here, on SCOPE. ⚠ The reason
-                  given here until a sweep at `4a1eba8c` was "it changes a component
-                  five other mounted surfaces share". BOTH HALVES WERE FALSE, and
-                  they were false in the direction that keeps a live display defect
-                  deferred. Derived at `4a1eba8c`: outside this file
-                  `GoalThresholdEditor` has exactly TWO non-test render sites, and
-                  both are in the SAME component (`NodeInspector.tsx:445`, `:760`).
-                  That component has no reachable render site — `InspectorModal.tsx:17`
-                  is the module literal `const USE_INSPECTOR_V2 = true` (not an env
-                  read, so no `define` in `vite.config.ts` pins it) and `:160` returns
-                  above the file's only `<NodeInspector>`; the other renderer,
-                  `PropertiesPanel`, has zero non-test importers. So: ONE other
-                  component, ZERO with a reachable render site.
-                  The "five" is the STORE ACTION's call-site list attached to the
-                  wrong noun — `setGoalThresholdAndUpdateNode`, whose non-test call
-                  sites numbered six besides this editor at that SHA. None of them
-                  renders this component, and mountedness was never measured for any
-                  of them. A count of call sites is not a count of surfaces, and the
-                  word "mounted" turned a recorded unknown into an asserted fact.
-                  ⚠ The second half survives as a CONSTRAINT, not as a reason: the
-                  change must not break the "From your brief" pre-fill (node raw,
-                  store null). It is not an obstacle either — `canCaptureGoalTarget`
-                  IS `statedGoalTargetRaw(data) == null`, so a stated
-                  `goal_threshold_raw` makes it false and gating the seed on that
-                  admission preserves the pre-fill by construction. */}
+              <SuccessTargetLine
+                goalNodeId={nodeId}
+                onCommitOutcome={(outcome) => {
+                  setTargetSettlement(null)
+                  setTargetOutcome(outcome)
+                }}
+                onSendSettled={(settlement, detail) => setTargetSettlement({ settlement, detail })}
+                testId="goal-panel-target"
+              />
+              {(targetSettlement !== null || targetOutcome !== null) && (
+                <p className={`${typography.panelMeta} text-text-light mt-1`}
+                  data-testid="goal-panel-target-outcome" role="status">
+                  {targetSettlement !== null
+                    ? goalTargetSettlementReceipt(targetSettlement)
+                    : GOAL_TARGET_RECEIPT[targetOutcome!]}
+                </p>
+              )}
               {targetUnlocksLine}
             </div>
           )}

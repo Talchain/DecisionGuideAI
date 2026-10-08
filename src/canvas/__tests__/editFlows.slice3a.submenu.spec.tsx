@@ -4,7 +4,7 @@ import { CanvasContextMenu } from '../contextMenu/CanvasContextMenu'
 import { getSubmenuPosition, Submenu } from '../contextMenu/Submenu'
 import type { MenuEntry } from '../contextMenu/types'
 
-vi.mock('../ToastContext', () => ({ useShowToast: () => vi.fn() }))
+vi.mock('../ToastContext', () => ({ useShowToast: () => vi.fn(), useShowToastSafe: () => vi.fn() }))
 vi.mock('../hooks/useModelEditAuthority', () => ({
   useModelEditAuthority: () => ({ proposeFactorValue: vi.fn() }),
 }))

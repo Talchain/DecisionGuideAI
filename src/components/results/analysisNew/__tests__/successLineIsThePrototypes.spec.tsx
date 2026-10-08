@@ -12,11 +12,11 @@
  * the form replaced the row, had no question label, an unlabelled number box,
  * Save / Cancel / Not sure yet.
  *
- * ⚠⚠ THE WRITE PATH IS NOT PART OF THIS CHANGE, AND TWO CASES PIN THAT. The
- * number arm still commits through `proposeGoalTarget` with the exact
- * arguments it always sent, and with no dispatcher mounted it still writes
- * locally — where its button says "Save", never "Send to Olumi", because
- * nothing is sent (`COPY.successTarget.changedLocally`).
+ * ⚠⚠ THE DISPATCHED WRITE PATH IS UNCHANGED, AND TWO CASES PIN THE CONTRAST.
+ * The number arm still commits through `proposeGoalTarget` with the exact
+ * arguments it always sent. With no dispatcher mounted it reports local_only
+ * without writing, discloses "Not saved" and keeps the draft; the prototype's
+ * existing local button and help layout remain covered.
  *
  * ⚠ SCOPED TO THE REASONING TAB. `SuccessTargetLine` is also the Inspector's
  * goal control (`GoalPanel.tsx`); the last block pins that its default mount
@@ -32,6 +32,7 @@ const nodes: unknown[] = []
 const showToast = vi.fn()
 const setGoalThresholdAndUpdateNode = vi.fn()
 const proposeGoalTarget = vi.fn()
+const onCommitOutcome = vi.fn()
 const captureScenarioId = vi.fn(() => 'scenario-7' as string | null)
 let goalTargetDispatchAvailable = true
 
@@ -75,6 +76,19 @@ vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
     proposeFactorConfirmation: vi.fn(),
   }),
 }))
+// Observe the real control's outcome while preserving ModelStrip's disclosure callback.
+vi.mock('../sections/SuccessTargetLine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../sections/SuccessTargetLine')>()
+  return {
+    ...actual,
+    SuccessTargetLine: (props: import('../sections/SuccessTargetLine').SuccessTargetLineProps) => (
+      <actual.SuccessTargetLine {...props} onCommitOutcome={outcome => {
+        onCommitOutcome(outcome)
+        props.onCommitOutcome(outcome)
+      }} />
+    ),
+  }
+})
 
 import { ModelStrip } from '../sections/ModelStrip'
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
@@ -113,6 +127,7 @@ beforeEach(() => {
   showToast.mockReset()
   setGoalThresholdAndUpdateNode.mockReset()
   proposeGoalTarget.mockReset().mockReturnValue('dispatched')
+  onCommitOutcome.mockReset()
   captureScenarioId.mockClear().mockReturnValue('scenario-7')
   goalTargetDispatchAvailable = true
 })
@@ -225,7 +240,7 @@ describe('the form — the prototype goal-form, under the row rather than in pla
     expect(showToast).toHaveBeenCalledWith(COPY.successTarget.dispatched)
   })
 
-  it('⛔ HONESTY CONTRAST: with no dispatcher nothing is sent, so the button says "Save", not "Send to Olumi"', () => {
+  it('⛔ HONESTY CONTRAST: with no dispatcher Save discloses refusal and keeps the draft without writing', () => {
     goalTargetDispatchAvailable = false
     seed(UNSET_WITH_UNIT)
     render(<ModelStrip isPreRun={false} />)
@@ -237,8 +252,13 @@ describe('the form — the prototype goal-form, under the row rather than in pla
     fireEvent.change(screen.getByTestId(`${T}-input`), { target: { value: '125' } })
     fireEvent.click(save)
     expect(proposeGoalTarget).not.toHaveBeenCalled()
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 125, { unit: '%' })
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(onCommitOutcome).toHaveBeenCalledOnce()
+    expect(onCommitOutcome).toHaveBeenCalledWith('local_only')
+    expect(COPY.successTarget.changedLocally).toBe("Not saved: this target can't be sent to Olumi right now.")
     expect(showToast).toHaveBeenCalledWith(COPY.successTarget.changedLocally)
+    expect(screen.getByTestId(`${T}-editor`)).toBeInTheDocument()
+    expect(screen.getByTestId(`${T}-input`)).toHaveValue('125')
   })
 
   it('a goal with no declared unit gets a VISIBLY labelled unit field beside the number', () => {
