@@ -11,6 +11,7 @@ import { Settings, LogOut, LayoutGrid } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -64,6 +65,8 @@ export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
     await signOut()
   }, [signOut])
 
+  // The guest posture's user is the sentinel (`{ id: 'guest' }`), never null: the ONE predicate decides (guestIdentity.ts).
+  const isGuest = sanitiseUserId(user?.id) === null
   const initial = getInitial(profile, user)
   const displayName = profile?.display_name || user?.email?.split('@')[0] || ''
   const email = user?.email || ''
@@ -128,7 +131,16 @@ export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
             >
               <LogOut className="h-4 w-4" />
-              <span className={typography.bodySmall}>Sign out</span>
+              <span className="flex flex-col">
+                <span className={typography.bodySmall}>Sign out</span>
+                {/* P48 E: a guest's Sign out runs the identity boundary, so Olumi stops reopening their work here.
+                    Says what changes for the person, never where the work is stored (src/test/guestStorageClaims.ts). */}
+                {isGuest && (
+                  <span className={`${typography.caption} text-text-light`} data-testid="sign-out-guest-note">
+                    Olumi won’t reopen your guest work here automatically
+                  </span>
+                )}
+              </span>
             </button>
           </div>
         </div>
