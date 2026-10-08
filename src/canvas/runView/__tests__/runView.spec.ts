@@ -8,7 +8,6 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildRunView, runViewOf, OPTION_CHANCE_WITHHELD, RUN_AGAIN_FOR_CHANCE } from '../runView'
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
-import { goalChanceOptionLines } from '../../../components/results/analysis-hero/goalChanceCopy'
 
 // Captured (C3, 23b1495c): the GOAL_CHANCE_LICENSED record, verbatim fields.
 const C3 = {
@@ -23,8 +22,6 @@ const C3 = {
   user_link_existence: { links: 1, one_in: 5 },
   display_rounding_by_option: { keep_pro_at_49: 'whole', raise_pro_to_59: 'whole' },
 }
-const LABELS: Record<string, string> = { keep_pro_at_49: 'Keep Pro at £49', raise_pro_to_59: 'Raise Pro to £59', a: 'A', b: 'B' }
-const labelOf = (id: string) => LABELS[id] ?? null
 
 describe('RunView: one per-option view, one chance source', () => {
   it('C3 captured: each option\'s chance is CEE\'s licensed figure in its display words; the Run\'s lines are byte-identical', () => {
@@ -32,7 +29,8 @@ describe('RunView: one per-option view, one chance source', () => {
     const view = buildRunView(report)
     expect(view.chanceOf('raise_pro_to_59')).toEqual({ kind: 'figure', pct: 0, words: 'less than 1%' })
     expect(view.chanceOf('keep_pro_at_49')).toEqual({ kind: 'figure', pct: 0, words: 'less than 1%' })
-    expect(goalChanceOptionLines(view.goalChance!, labelOf)).toEqual(goalChanceOptionLines(readGoalChanceLicence([C3])!, labelOf))
+    // The Run's lines read the same licence the direct reader returns (line parity: analysis-hero/__tests__/runViewParity.spec.ts).
+    expect(view.goalChance).toEqual(readGoalChanceLicence([C3]))
   })
 
   it('an option CEE withheld keeps its place and says so; the others keep their figures', () => {
