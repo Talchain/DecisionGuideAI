@@ -1,0 +1,125 @@
+{
+  "source": "CEE codex/data/canonical-view-1 @ 283b8a98, route inject (assist.v1.scenario-graph.canonical-view.test.ts setup; fixture canonical-view-b1.json = a captured Run fact)",
+  "a_current": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "run": {
+      "run_id": "faf1bf9cba45bd8ed2da45dde18d1467aa38c3e12cb93c50734fb8047de6dcce",
+      "graph_hash_at_run": "66f8f59b6d4dbe90",
+      "computed_at": "2026-10-07T07:53:50.172Z"
+    },
+    "staleness": {
+      "stale": false,
+      "revision": 7,
+      "run_revision": null,
+      "basis": "analysis_graph_hash_interim",
+      "reason": "graph_hash_match",
+      "limitation": "Hash equality cannot detect brief, framing or stage changes."
+    },
+    "leader_licence": "withheld",
+    "options": [
+      {
+        "option_id": "raise_prices_10",
+        "cell": {
+          "kind": "figure",
+          "display": "about 47%"
+        },
+        "main_driver": {
+          "kind": "available",
+          "driver": {
+            "to": "monthly_recurring_revenue",
+            "from": "existing_plan_price_increase",
+            "kind": "link_strength",
+            "side": "low",
+            "strength": "weaker",
+            "authored_by": "user",
+            "quantity_id": "existing_plan_price_increase->monthly_recurring_revenue",
+            "user_stated_link": true
+          },
+          "detail": "It rests most on how strongly ‘Existing-plan price increase’ affects ‘Monthly recurring revenue’, at the size you set: if that effect is weaker than that, the chance falls. How sure are you of that size?"
+        }
+      },
+      {
+        "option_id": "launch_49_starter_tier",
+        "cell": {
+          "kind": "figure",
+          "display": "about 52%"
+        },
+        "main_driver": {
+          "kind": "available",
+          "driver": {
+            "to": "monthly_recurring_revenue",
+            "from": "starter_tier_mrr",
+            "kind": "link_strength",
+            "side": "low",
+            "strength": "weaker",
+            "authored_by": "olumi",
+            "quantity_id": "starter_tier_mrr->monthly_recurring_revenue",
+            "user_stated_link": false
+          },
+          "detail": "It rests most on Olumi’s own estimate of how strongly ‘Starter tier MRR’ affects ‘Monthly recurring revenue’: if that effect is weaker than Olumi assumed, the chance falls. Is that estimate right?"
+        }
+      },
+      {
+        "option_id": "keep_pricing_as_it_is",
+        "cell": {
+          "kind": "figure",
+          "display": "less than 1%"
+        },
+        "main_driver": {
+          "kind": "none_licensed",
+          "reason": "none"
+        }
+      }
+    ]
+  },
+  "b_stale_after_edit": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "run": {
+      "run_id": "faf1bf9cba45bd8ed2da45dde18d1467aa38c3e12cb93c50734fb8047de6dcce",
+      "graph_hash_at_run": "66f8f59b6d4dbe90",
+      "computed_at": "2026-10-07T07:53:50.172Z"
+    },
+    "staleness": {
+      "stale": true,
+      "revision": 8,
+      "run_revision": null,
+      "basis": "analysis_graph_hash_interim",
+      "reason": "graph_hash_diverged",
+      "limitation": "Hash equality cannot detect brief, framing or stage changes."
+    },
+    "leader_licence": "withheld",
+    "options": []
+  },
+  "c_refused_only": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "run": null,
+    "staleness": {
+      "stale": null,
+      "revision": 7,
+      "run_revision": null,
+      "basis": "analysis_graph_hash_interim",
+      "reason": null,
+      "limitation": "Hash equality cannot detect brief, framing or stage changes."
+    },
+    "leader_licence": "withheld",
+    "options": []
+  },
+  "c2_no_run": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "run": null,
+    "staleness": {
+      "stale": null,
+      "revision": 7,
+      "run_revision": null,
+      "basis": "analysis_graph_hash_interim",
+      "reason": null,
+      "limitation": "Hash equality cannot detect brief, framing or stage changes."
+    },
+    "leader_licence": "withheld",
+    "options": []
+  }
+}

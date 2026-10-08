@@ -126,6 +126,7 @@ import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisPa
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
+import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 import { runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 import type { GoalChanceRange } from './utils/goalChanceRange'
@@ -1513,7 +1514,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
   // ⭐ RunView PR 1: the Run's ONE view, built once per report (`runViewOf`); the licence and range are read there only.
-  const runView = useMemo(() => runViewOf(report), [report])
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const runView = useMemo(() => runViewOf(report, canonical), [report, canonical])
   const goalChanceLicence = runView.goalChance
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),

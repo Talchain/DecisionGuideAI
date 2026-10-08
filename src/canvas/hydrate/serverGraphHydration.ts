@@ -22,6 +22,8 @@ import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWord
 import { recordCanonicalOpen } from './canonicalOpenOutcome'
 import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
 import { readServerConversationTurns } from '../conversation/serverConversationTurns'
@@ -349,6 +351,9 @@ async function readAndMergeServerGraph(
   // a bar is taken only from the scenario the read answered for.
   if (result.scenarioId === scenarioId && result.actionBar !== undefined) {
     useActionBarStore.getState().setBar(scenarioId, parseActionBar(result.actionBar, reportActionBarIssue))
+  }
+  if (result.scenarioId === scenarioId) {
+    useCanonicalAnalysisViewStore.getState().adopt(scenarioId, parseCanonicalAnalysisView(result.canonicalAnalysisView))
   }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
