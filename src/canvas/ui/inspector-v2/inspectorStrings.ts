@@ -1001,16 +1001,6 @@ export const GOAL_CONSTRAINT_COPY = {
   perOptionOnly:       'No single option is put forward on this run. Each option\u2019s chance of meeting your goal, in this model, is in Analysis.',
   perOptionOnlyLink:   'Open Analysis',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
-  // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST
-  // sessions. A guest's canvas graph lives only in the browser — the client
-  // RPC write path is RLS-gated and silently swallows a guest's writes, so a
-  // constraint typed into THIS panel never reaches the server graph that CEE's
-  // run_analysis reads. The working alternative is chat: CEE's add_constraint
-  // handler persists server-side regardless of auth, so a guest's chat-entered
-  // constraints ARE analysed. Authenticated users' panel edits persist too, so
-  // they never see this. Owned here; pinned as a raw literal in specs.
-  guestConstraintsNotInAnalysis:
-    "In guest mode, constraints added here aren't included in the analysis. Add them in chat instead.",
 } as const
 
 // ─── Decision panel strings ──────────────────────────────────────

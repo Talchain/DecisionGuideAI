@@ -43,8 +43,6 @@ import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
-import { useAuth } from '../../../../contexts/AuthContext'
-import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
@@ -198,24 +196,6 @@ export const GoalPanel = memo(function GoalPanel({
   // Prefer post-analysis (has probability scores) over pre-analysis preview
   const goalConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
     isResultsMode ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
-
-  // UI-SEM-087: display-honesty gate (same class as UI-SEM-071/082 — gate on
-  // truth, never fabricate). Live wire-probe (parallel-briefs/S-AUDIT-2026-07-20)
-  // REFUTED the original "constraints reach nothing" premise in BOTH directions:
-  // an authenticated user's panel constraints persist (gated write-through →
-  // scenarios.graph → CEE run_analysis reads its own server graph), and a
-  // GUEST's CHAT-entered constraints also reach analysis (CEE's add_constraint
-  // handler persists server-side regardless of auth). The ONLY dead leg is the
-  // GUEST GoalPanel → client-RPC persistence hop: guest writes are scenario-id
-  // /RLS-gated and silently swallowed, so a guest's PANEL-entered constraint
-  // never reaches the server graph. So the honest condition is exactly "this
-  // session's writes don't persist" — the canonical isPersistenceActive
-  // predicate (shared with useScenario / loginDraftImport), NOT the run path.
-  // Pre-analysis only (entry is disabled in results mode, and post-analysis
-  // probabilities would contradict the note). Remove when the guest panel→graph
-  // persistence hop lands (or a producer echo confirms the constraints were used).
-  const { user, authenticated } = useAuth()
-  const constraintsInert = !isResultsMode && !isPersistenceActive(authenticated, user)
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -1128,30 +1108,8 @@ export const GoalPanel = memo(function GoalPanel({
                     {GOAL_FIT_BASIS_CAVEAT_COPY}
                   </p>
                 )}
-                {/* UI-SEM-087: honest status when the constraints displayed here
-                    do not reach the engine — guest panel writes are RLS-swallowed. */}
-                {constraintsInert && (
-                  <p
-                    className={`${typography.panelMeta} text-text-light mt-1`}
-                    data-testid="constraints-inert-note"
-                  >
-                    {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
-                  </p>
-                )}
               </div>
             </div>
-          )}
-
-          {/* UI-SEM-087: honest status at the point of ENTRY, shown only when
-              no constraint list is present to carry the note (mutually
-              exclusive with the display-surface note above — never stacked). */}
-          {constraintsInert && !hasConstraints && (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-2`}
-              data-testid="constraints-inert-note-entry"
-            >
-              {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
-            </p>
           )}
 
           {/* B.5: Add constraint button + inline form.
