@@ -157,6 +157,21 @@ export function reconcileRestoredProposalFields(
     attach(index, held, false)
   }
 
+  // A matched proposal is shown on its issuing reply only: CEE's continuity copy on another reply (the last turn's
+  // persisted suggested_actions) leaves that reply, with its amend chip when no other approve card remains there.
+  const placed = new Map<string, number>()
+  out.forEach((message, index) => { if (message.heldProposalId !== undefined && message.heldProposalEarlier === false) placed.set(message.heldProposalId, index) })
+  for (let i = 0; i < out.length; i++) {
+    const chipsHere = out[i].actionChips
+    if (!chipsHere) continue
+    const strip = new Set<string>()
+    for (const [id, at] of placed) if (at !== i) { strip.add(`agent-approve-proposal:${id}`); strip.add(`agent-decline-proposal:${id}`) }
+    if (strip.size === 0 || !chipsHere.some(c => strip.has(c.id))) continue
+    let kept = chipsHere.filter(c => !strip.has(c.id))
+    if (!kept.some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) kept = kept.filter(c => c.id !== 'agent-amend-proposal')
+    out[i] = { ...out[i], actionChips: kept }
+  }
+
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
   let last = out.length - 1

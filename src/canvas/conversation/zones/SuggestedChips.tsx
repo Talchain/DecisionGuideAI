@@ -39,7 +39,7 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX, WIDEN_ADD_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
-import { HeldProposalPanel, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
+import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this set are filtered out when V5 is active. On V4 the set is
@@ -524,10 +524,17 @@ export function SuggestedChips({
       return
     }
     // Every approval carries the record displayed under this reply, even when no values changed.
-    const held = fields?.proposals.find(p => p.approve_action.id === chip.id)
-    const action = held && fields && !chip.proposalEdits ? { ...chip, proposalEdits: {
+    // ⛔ ONLY THIS REPLY'S RECORD (buddy r1 P1): the reload fallback reads the CURRENT set, which may hold a re-offer of
+    // the same target-keyed id with another digest. It binds only when CEE says this reply's turn issued it.
+    const own = readProposalFields(proposalFields)
+    const turnOfReply = replyId?.startsWith('restored-assistant-') ? replyId.slice('restored-assistant-'.length) : replyId
+    const source = own ?? fields
+    const held = own?.proposals.find(p => p.approve_action.id === chip.id)
+      ?? (own === null ? fields?.proposals.find(p => p.approve_action.id === chip.id
+        && p.issued_turn_id != null && p.issued_turn_id === turnOfReply) : undefined)
+    const action = held && source && !chip.proposalEdits ? { ...chip, proposalEdits: {
       proposal_id: held.proposal_id, revision: held.revision, digest: held.digest,
-      graph_hash: fields.graph_hash, fields: [],
+      graph_hash: source.graph_hash, fields: [],
     } } : chip
     onChipClick(action).catch(() => {
       setChipError("That didn't work. Try typing your request instead.")

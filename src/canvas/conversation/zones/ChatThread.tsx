@@ -328,7 +328,9 @@ export const ChatThread = memo(function ChatThread({
   // Re-offers share an approve id. Only its newest reply owns that card, while distinct restored holds stay visible.
   // ⛔ STALE-LIVE: an earlier reply's card shows only while CEE's CURRENT held set (the latest reply's proposal_fields,
   // which projects only live proposals) still lists it; approving or declining it on a later turn retires the card.
-  const currentHeldIds = new Set((readProposalFields(lastReplyMsg?.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
+  // Read from the latest REAL reply: a synthetic error or notice settles nothing (buddy r1 P2).
+  const latestRealReply = [...messages].reverse().find(m => m.role === 'assistant' && !m.synthetic && typeof m.sessionDivider !== 'string')
+  const currentHeldIds = new Set((readProposalFields(latestRealReply?.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
   const heldChipOwners = new Map<string, ConversationMessage>()
   for (const message of messages) {
     if (message.role !== 'assistant' || message.synthetic || message.sessionDivider) continue
@@ -416,8 +418,10 @@ export const ChatThread = memo(function ChatThread({
         if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        const heldId = msg.heldProposalId
-        const heldApproveId = heldId ? `agent-approve-proposal:${heldId}` : undefined
+        // A live reply carries only its approve chip (no heldProposalId), so the id is read from the chip (buddy r1 P2).
+        const heldApproveId = msg.heldProposalId !== undefined ? `agent-approve-proposal:${msg.heldProposalId}`
+          : (msg.actionChips ?? []).find(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))?.id
+        const heldId = heldApproveId?.slice('agent-approve-proposal:'.length)
         const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
           && currentHeldIds.has(heldId)
           && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)

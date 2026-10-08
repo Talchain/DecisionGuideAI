@@ -1,6 +1,6 @@
 /** P53 contract: approval binds to the held record on the reply that issued the card. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import { ChatThread } from '../zones/ChatThread'
 import { AMEND_PROPOSAL_ACTION, type ProposalPanelAction } from '../proposalFields'
@@ -262,5 +262,62 @@ describe('P53: an approval is bound to the message that issued it, from render t
       wire({ ...proposal(PID_A, 'A', DIGEST_A), issued_turn_id: null } as unknown as ReturnType<typeof proposal>))
     expect(restored[1]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: true })
     expect(restored[0].heldProposalId).toBeUndefined()
+  })
+
+  // ── buddy r1 (5bdaa5a1) ────────────────────────────────────────────────────────────────────────────────────────
+  async function pressWithReloadFallback(issuedTurnId: string | null) {
+    const newerA = { ...proposal(PID_A, 'A', 'f'.repeat(32)), revision: 'revision-A-reoffer', issued_turn_id: issuedTurnId }
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true'); vi.stubEnv('VITE_V5_ENDPOINT', 'https://cee.test/proxy/v5/turn')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ schema: 'scenario_graph.v1', scenario_id: SID, graph_present: true,
+      graph: { nodes: [{ id: 'f', kind: 'factor', label: 'Factor' }], edges: [] }, proposal_fields: wire(newerA as never) }), { status: 200 })))
+    useCanvasStore.setState({ currentScenarioId: SID } as never)
+    const send = vi.fn().mockResolvedValue(undefined)
+    render(<SuggestedChips chips={chips(A)} replyId="restored-assistant-t1" onChipClick={send} />)
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled()); await act(async () => {})
+    fireEvent.click(screen.getByTestId(`suggested-chip-${A.approve_action.id}`))
+    vi.unstubAllGlobals(); vi.unstubAllEnvs()
+    return send.mock.calls[0][0] as ProposalPanelAction
+  }
+
+  it('R1-P1: a replayed reply with no record of its own never binds the CURRENT re-offer issued by another turn', async () => {
+    const chip = await pressWithReloadFallback('t2')
+    expect(chip.proposalEdits).toBeUndefined()
+  })
+
+  it('R1-P1 control: the fallback record binds when CEE says THIS reply\'s turn issued it', async () => {
+    const chip = await pressWithReloadFallback('t1')
+    expect(chip.proposalEdits).toMatchObject({ proposal_id: PID_A, digest: 'f'.repeat(32), revision: 'revision-A-reoffer', fields: [] })
+  })
+
+  it('R1-P2a (reload): a proposal matched to its issuing reply leaves the continuity copy on the last reply', () => {
+    const restored = reconcileRestoredProposalFields([
+      reply('restored-assistant-t1', 'Issued A'),
+      reply('restored-assistant-t2', 'Latest answer', { actionChips: [...chips(A), ...buildSuggestedActionChips([], [{ id: 'agent-next-run', label: 'Run', message: 'Run it.' }])] }),
+    ], wire(proposal(PID_A, 'A', DIGEST_A, 't1')))
+    expect(restored[0]).toMatchObject({ heldProposalId: PID_A, heldProposalEarlier: false })
+    expect((restored[1].actionChips ?? []).map(c => c.id)).toEqual(['agent-next-run'])
+    renderThread(restored)
+    const groupA = screen.getByTestId(`suggested-chip-${A.approve_action.id}`).closest('.response-chip-group') as HTMLElement
+    expect(within(groupA).getByText('Issued A')).toBeTruthy()
+  })
+
+  it('R1-P2b (live): live replies carry only their approve chip; both held cards stay visible under their own replies', () => {
+    renderThread([
+      reply('live-1', 'Offered A', { actionChips: chips(A), proposalFields: wire(A) }),
+      reply('live-2', 'Offered B', { actionChips: chips(B), proposalFields: wire(A, B) }),
+    ])
+    const groupA = screen.getByTestId(`suggested-chip-${A.approve_action.id}`).closest('.response-chip-group') as HTMLElement
+    const groupB = screen.getByTestId(`suggested-chip-${B.approve_action.id}`).closest('.response-chip-group') as HTMLElement
+    expect(within(groupA).getByText('Offered A')).toBeTruthy()
+    expect(within(groupB).getByText('Offered B')).toBeTruthy()
+  })
+
+  it('R1-P2c: a synthetic error after the latest real reply settles nothing; held cards stay visible', () => {
+    renderThread([
+      reply('live-1', 'Offered A', { actionChips: chips(A), proposalFields: wire(A) }),
+      reply('live-2', 'Offered B', { actionChips: chips(B), proposalFields: wire(A, B) }),
+      reply('err', 'That did not go through.', { synthetic: true }),
+    ])
+    expect(screen.getByTestId(`suggested-chip-${A.approve_action.id}`)).toBeTruthy()
   })
 })
