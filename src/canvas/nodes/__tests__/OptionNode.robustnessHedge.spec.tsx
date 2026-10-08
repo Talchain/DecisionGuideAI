@@ -46,6 +46,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
@@ -61,6 +62,8 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -90,12 +93,13 @@ function reportWithRobustness(robustness: Record<string, unknown>) {
 const makeStoreState = (report: unknown) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: { status: 'complete', report },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   optionNumbering: { [NODE_ID]: 1, [SIBLING_ID]: 2 },
@@ -103,7 +107,7 @@ const makeStoreState = (report: unknown) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -126,14 +130,15 @@ const baseProps = {
   draggable: true,
 }
 
-function renderOption(report: unknown) {
+function renderOption(report: unknown, licensedChance = true) {
+  const chanceReport = licensedChance ? withLicensedOptionChances(report as object, { [NODE_ID]: 41, [SIBLING_ID]: 29 }) : report
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
+    (selector as (s: unknown) => unknown)(makeStoreState(chanceReport)),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire a Tech Lead', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -150,7 +155,7 @@ function expectNoClaimNoGrade(container: HTMLElement, contrast: { notRankedReaso
   // CONTRAST CONTROL FIRST.
   expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
   if (contrast === 'share') {
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
   } else {
     // CURRENT-READ row 9 (AIQ 5912710392): a withheld run's result slot holds `Not ranked` + the reason.
     const slot = screen.getByTestId(`option-share-slot-${NODE_ID}`)
@@ -198,12 +203,12 @@ describe('OptionNode — no leader pill and no robustness grade on the card (ED 
     expectNoClaimNoGrade(container)
   })
 
-  it('TWIN — the win probability is never suppressed on a fragile run', () => {
+  it('TWIN — a licensed chance is never suppressed on a fragile run', () => {
     // ⚠ BOUND BY IDENTITY, and the first cut of this test was not: `getByText(/53%/)`
     // matched several elements and threw. A value predicate another element can
     // satisfy is trap 19, in the suite whose own header warns about it.
     renderOption(reportWithRobustness({ level: 'very_low' }))
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53%')
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
   })
 
   it('withheld crown on a fragile run: still neither — and the share is withheld too (CURRENT-READ row 9)', () => {
@@ -211,7 +216,7 @@ describe('OptionNode — no leader pill and no robustness grade on the card (ED 
       ...reportWithRobustness({ level: 'very_low' }),
       producer_leader_permission: { permitted: false, withheld_reason: 'separation_unavailable' },
     }
-    const { container } = renderOption(withheld)
+    const { container } = renderOption(withheld, false)
     // CURRENT-READ row 9 (AIQ 5912710392): WAS contrasted against the share ("53% of runs"). A withheld
     // leader now withholds the share, so the contrast control is `Not ranked`. This stamp carries no
     // `producer_cause` (only `withheld_reason`), so the reason said is the fallback.

@@ -1,3 +1,4 @@
+import { optionChanceFixture } from '../../../../../tests/helpers/optionChanceFixture'
 /**
  * `resolveLodMetricLine` — what a card still says below the legibility floor.
  *
@@ -53,6 +54,8 @@ const meta = (o: Partial<NodeDisplayMetadata>): NodeDisplayMetadata =>
  * Locked Canvas design (23 Sep 2026): the factor fallback reads this fact, so
  * every factor test that exercises — or must exclude — that arm supplies it.
  */
+const chanceCells = optionChanceFixture({ Build: 41, 'Hire Four': 29 })
+
 const DRIVER_2_OF_3 = { driverRank: { rank: 2, setSize: 3 } }
 
 describe('the deployed defect: a factor with no stated value said nothing', () => {
@@ -148,31 +151,33 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
 })
 
 describe('the other three types, which rendered nothing at any zoom before', () => {
-  it('an option says where it stands, as a figure and not the comparative sentence', () => {
-    // Locked Canvas design (23 Sep 2026), ED 11:52Z: "Do not use `Support` as
-    // the result label … must be explicitly model-relative, e.g. `Current model
-    // · 55% of runs`". The caption is the card's own (`optionResultCaption`).
+  it('an option shows the Results chance cell and never the runs share', () => {
+    // WS5-1 #2704: the card's caption precedes the Results chance cell.
+    // Its licensed 41% is distinct from the 47% runs share.
     const line = resolveLodMetricLine({
       nodeType: 'option',
       data: { label: 'Build' },
       label: 'Build',
       displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
-      facts: { optionResultCaption: 'Current model' },
+      facts: { optionResultCaption: 'Current model', optionChanceCell: chanceCells('Build') },
     })
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(line).toBe('Current model · supported by 47% of runs')
+    // The exact chance words survive at far zoom; the share does not.
+    expect(line).toBe(`Current model · ${chanceCells('Build').text}`)
+    expect(line).toContain('41%')
+    expect(line).not.toContain('of runs')
     expect(line).not.toContain(METRIC_NOUN.support)
   })
 
-  it('⛔ a win share with NO caption is withheld — never a bare or `Support` figure', () => {
+  it('⛔ a Results chance with NO caption is withheld — never a bare figure', () => {
     // Locked Canvas design (23 Sep 2026): the caption is what makes the figure
-    // model-relative (ED 11:52Z), so the same node without one states no share.
+    // model-relative (ED 11:52Z), so the same node without one states no chance.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
         data: { label: 'Build' },
         label: 'Build',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
+        facts: { optionChanceCell: chanceCells('Build') },
       }),
     ).toBeNull()
   })
@@ -186,7 +191,7 @@ describe('the other three types, which rendered nothing at any zoom before', () 
         data: { label: 'Build' },
         label: 'Build',
         displayMetadata: meta({ isResultsMode: false, winRate: 0.47 }),
-        facts: { optionResultCaption: 'Current model' },
+        facts: { optionResultCaption: 'Current model', optionChanceCell: chanceCells('Build') },
       }),
     ).toBeNull()
   })
@@ -384,7 +389,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
     ).toBe('Changes 2 factors')
   })
 
-  it('TWIN — after a run the win share still wins, whatever the change count is', () => {
+  it('TWIN — after a run the Results chance cell wins, whatever the change count is', () => {
     // Locked Canvas design (23 Sep 2026), ED 11:52Z: model-relative caption,
     // never `Support`. `Last run` is the `changed` currency's caption.
     expect(
@@ -393,21 +398,21 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         data: { label: 'Hire Four' },
         label: 'Hire Four',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
-        facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run' },
+        facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run', optionChanceCell: chanceCells('Hire Four') },
       }),
-    ).toBe('Last run · supported by 41% of runs') // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
+    ).toBe(`Last run · ${chanceCells('Hire Four').text}`)
   })
 
-  it('TWIN — with no caption the share is withheld and the change count speaks instead', () => {
-    // Locked Canvas design (23 Sep 2026): an uncaptioned share falls through to
-    // the option's own change-count line, not to a `Support N%` figure.
+  it('TWIN — with no chance cell the change count speaks instead, despite a win share', () => {
+    // WS5-1 #2704: a no-source chance cell falls through to the option's
+    // own change-count line, even with a caption and runs share.
     expect(
       resolveLodMetricLine({
         nodeType: 'option',
         data: { label: 'Hire Four' },
         label: 'Hire Four',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
-        facts: { optionIsBaseline: false, optionInterventionCount: 2 },
+        facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run', optionChanceCell: optionChanceFixture({})('Hire Four') },
       }),
     ).toBe('Changes 2 factors')
   })

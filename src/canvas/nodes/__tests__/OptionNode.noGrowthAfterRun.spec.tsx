@@ -34,9 +34,11 @@
  * cannot render any more.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { useOptionChanceCell } from '../shared/useOptionChanceCell'
 import { useCanvasStore } from '../../store'
 import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../../state/winShareGate'
 
@@ -47,12 +49,15 @@ vi.mock('@xyflow/react', async () => {
 
 // Served pricing starter (design audit capture `run-1280x800-pricing-model.json`).
 const SERVED_OPTIONS = [
-  { id: 'opt_full_switch', label: 'Full Switch to Usage-Based at Renewal', win: 0.34, share: '34% of runs' },
-  { id: 'opt_hybrid', label: 'Hybrid Platform Fee Plus Usage', win: 0.004, share: '< 1% of runs' },
-  { id: 'opt_new_logos', label: 'Usage-Based for New Logos Only', win: 0.53, share: '53% of runs' },
-  { id: 'opt_status_quo', label: 'Keep Per-Seat Pricing (Status Quo)', win: 0.13, share: '13% of runs' },
+  { id: 'opt_full_switch', label: 'Full Switch to Usage-Based at Renewal', win: 0.34, chancePct: 41 },
+  { id: 'opt_hybrid', label: 'Hybrid Platform Fee Plus Usage', win: 0.004, chancePct: 18 },
+  { id: 'opt_new_logos', label: 'Usage-Based for New Logos Only', win: 0.53, chancePct: 62 },
+  { id: 'opt_status_quo', label: 'Keep Per-Seat Pricing (Status Quo)', win: 0.13, chancePct: 12 },
 ] as const
-const nodes = SERVED_OPTIONS.map(o => ({ id: o.id, type: 'option', position: { x: 0, y: 0 }, data: { label: o.label, type: 'option' } }))
+const nodes = [
+  ...SERVED_OPTIONS.map(o => ({ id: o.id, type: 'option', position: { x: 0, y: 0 }, data: { label: o.label, type: 'option', kind: 'option' } })),
+  { id: 'goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } },
+]
 const GOAL_ONLY_STAMP = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' }
 
 const seedPreRun = () => {
@@ -67,7 +72,7 @@ const seedPreRun = () => {
 
 const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
   useCanvasStore.setState({
-    nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard',
+    nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard', goalThreshold: 100,
     analysisStateV1: null,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-26T18:05:00.000Z' },
     analysisFreshnessDirty: false, importPendingServerRegistration: false, currentScenarioId: 'pricing-scenario',
@@ -76,6 +81,12 @@ const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
     results: { status: 'complete', hash: 'run-1', report: {
       option_probabilities: Object.fromEntries(SERVED_OPTIONS.filter(o => !unscored.includes(o.id)).map(o => [o.id, { status: 'computed', win_probability: o.win }])),
       robustness: { near_tie: { is_tie: false, top_option_id: 'opt_new_logos' } },
+      inference_warnings: goalOnly ? [] : [{
+        code: 'GOAL_CHANCE_LICENSED', form: 'each',
+        option_ids: SERVED_OPTIONS.filter(option => !unscored.includes(option.id)).map(option => option.id),
+        pct_by_option: Object.fromEntries(SERVED_OPTIONS.filter(option => !unscored.includes(option.id)).map(option => [option.id, option.chancePct])),
+        target: { comparator: 'at_least', value: 100, unit: 'customers' },
+      }],
       ...(goalOnly ? { producer_leader_permission: GOAL_ONLY_STAMP } : {}),
     } },
   } as never)
@@ -83,15 +94,16 @@ const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
 
 const renderCard = (id: string) => {
   const n = nodes.find(x => x.id === id)!
-  return render(<ReactFlowProvider><OptionNode
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
     id={n.id} type="option" data={n.data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
     dragging={false} zIndex={0} deletable selectable draggable
-  /></ReactFlowProvider>)
+  /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 
 const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
 const slot = (id: string) => screen.queryByTestId(`option-share-slot-${id}`)
+const chanceText = (id: string) => renderHook(() => useOptionChanceCell(id), { wrapper: OptionChanceCellProvider }).result.current.text
 
 afterEach(() => {
   cleanup()
@@ -104,9 +116,9 @@ afterEach(() => {
 describe('served pricing options — the share line is ONE line in a slot reserved before the run', () => {
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the share fills it" on the served (withheld) stamp. The served
   // run now fills the SAME slot with `Not ranked`; the share filling it is pinned on a PERMITTED run.
-  it.each(SERVED_OPTIONS.map(o => [o.id, o.share] as const))(
-    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run, the share on a permitted run',
-    (id, share) => {
+  it.each(SERVED_OPTIONS.map(o => [o.id] as const))(
+    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run, the licensed chance on a permitted run',
+    (id) => {
       seedPreRun()
       renderCard(id)
       const pre = slot(id)
@@ -144,7 +156,9 @@ describe('served pricing options — the share line is ONE line in a slot reserv
       expect(post!.getAttribute('aria-hidden')).toBeNull()
       const row = screen.getByTestId(`option-analysis-currency-${id}`)
       expect(row.parentElement).toBe(post)
-      expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(share)
+      expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceText(id))
+      expect(chanceText(id)).toContain('chance of meeting your goal, in this model.')
+      expect(row.getAttribute('aria-label')).not.toContain('of runs')
     },
   )
 
@@ -152,7 +166,7 @@ describe('served pricing options — the share line is ONE line in a slot reserv
   // served (withheld) stamp. The one-row geometry is kept on the same option with no stamp. The `· Goal only`
   // unit (whole, `shrink-0`, after the readout, never `truncate`) only rendered on a withheld run's share,
   // which no longer exists, so its absence is pinned here and the served run is pinned in the row above.
-  it('opt_full_switch post-run (PERMITTED run): "34% of runs" is ONE non-wrapping row — no wrap class, no qualifier', () => {
+  it('opt_full_switch post-run (PERMITTED run): the licensed chance is ONE non-wrapping row — no wrap class, no qualifier', () => {
     seedPostRun(false)
     renderCard('opt_full_switch')
     const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
@@ -164,17 +178,16 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     expect(readout.parentElement).toBe(row)
     expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
     expect(screen.queryByTestId('option-share-provisional-opt_full_switch')).toBeNull()
-    // The share itself never gives way.
-    // ⚠ RE-PINNED 27 Sep: the readout is now a box-less wrapper (`contents`)
-    // around the figure and its unit, so the figure is the element that must
-    // not shrink. The unit `of runs` is the one part allowed to give way.
-    expect(tokens(readout)).toContain('contents')
-    expect(tokens(screen.getByTestId('option-win-figure-opt_full_switch'))).toContain('shrink-0')
-    expect(screen.getByTestId('option-win-figure-opt_full_switch').textContent).toBe('34%')
-    // Whatever gives way on a narrow card stays whole in the row's name (the
-    // existing tooltip reads the same string).
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(row.getAttribute('aria-label')!.startsWith('Current model · supported by 34% of runs.')).toBe(true)
+    // The caption stays whole; the shared chance is recoverable in the accessible name.
+    expect(tokens(readout)).toContain('truncate')
+    expect(screen.queryByTestId('option-win-figure-opt_full_switch')).toBeNull()
+    expect(screen.queryByTestId('option-win-unit-opt_full_switch')).toBeNull()
+    expect(row.querySelector('.h-full.rounded-full')).toBeNull()
+    const anchor = screen.getByTestId('option-win-anchor-opt_full_switch')
+    expect(anchor.textContent).toBe('Current model')
+    expect(anchor.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(row.getAttribute('aria-label')).toBe(`Current model · ${chanceText('opt_full_switch')}`)
+    expect(row.getAttribute('aria-label')).not.toContain('of runs')
   })
 
   it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {

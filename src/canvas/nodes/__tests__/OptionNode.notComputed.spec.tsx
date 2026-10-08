@@ -27,6 +27,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { NOT_COMPUTED_BADGE, NOT_COMPUTED_REASON_COPY } from '../../../components/results/utils/notAnalysedCopy'
 
@@ -110,20 +111,34 @@ const twoOptionReport = (opts: { failedReason?: string } = {}) => ({
  * absent in Standard, the view the product opens in.
  */
 const renderBoth = (results: ReturnType<typeof twoOptionReport>, viewMode: 'standard' | 'expert' = 'standard') => {
+  // Headline controls carry an explicit chance licence, independently of their runs-share value.
+  const chanceIds = Object.entries(results.report.option_probabilities)
+    .filter(([, row]) => row.status !== 'failed').map(([id]) => id)
+  // The licence names at least two options; the extra comparison control grants the genuine zero its own licence.
+  chanceIds.push('opt-licence-context')
+  const licensedResults = { ...results, report: { ...results.report, option_probabilities: { ...results.report.option_probabilities, 'opt-licence-context': { status: 'computed' } }, inference_warnings: [{
+    code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: chanceIds,
+    pct_by_option: Object.fromEntries(chanceIds.map(id => [id, id === COMPUTED_TRUE_ZERO ? 0 : 23])),
+    target: { comparator: 'at_least', value: 100, unit: 'customers' },
+  }] } }
   useCanvasStore.setState({
     nodes: [
-      { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-      { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+      { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+      { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
+      { id: 'opt-licence-context', type: 'option', position: { x: 400, y: 0 }, data: { label: 'Comparison control', type: 'option', kind: 'option' } },
+      { id: 'goal', type: 'goal', position: { x: 0, y: 100 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } },
     ],
     edges: [],
-    results,
+    results: licensedResults,
+    hasCompletedFirstRun: true,
+    goalThreshold: 100,
     viewMode,
   } as never)
   return render(
-    <ReactFlowProvider>
-      <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      <OptionNode {...baseProps} id={COMPUTED_TRUE_ZERO} data={{ label: 'Double the spend', type: 'option' }} />
-    </ReactFlowProvider>,
+    <ReactFlowProvider><OptionChanceCellProvider>
+      <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      <OptionNode {...baseProps} id={COMPUTED_TRUE_ZERO} data={{ label: 'Double the spend', type: 'option', kind: 'option' }} />
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -170,7 +185,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
 
   it('a GENUINE measured zero keeps its readout and gets no disclosure', () => {
     renderBoth(twoOptionReport())
-    expect(screen.getByTestId(`option-win-readout-${COMPUTED_TRUE_ZERO}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`option-win-readout-${COMPUTED_TRUE_ZERO}`)).toHaveTextContent('less than 1% chance of meeting your goal')
     expect(screen.queryByTestId(`option-not-computed-${COMPUTED_TRUE_ZERO}`)).toBeNull()
   })
 
@@ -218,8 +233,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // two, because it carries no number and so reads as a judgement.
     useCanvasStore.setState({
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
       ],
       edges: [],
       results: {
@@ -246,9 +261,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       viewMode: 'expert',
     } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
@@ -260,8 +275,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // gap, same leader; only `status` differs.
     useCanvasStore.setState({
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
       ],
       edges: [],
       results: {
@@ -277,9 +292,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       viewMode: 'expert',
     } as never)
     const { unmount } = render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
     expect(screen.getByText(/Close to the option most runs supported/i)).toBeInTheDocument()
     // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
@@ -287,11 +302,13 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     unmount()
     useCanvasStore.setState({ viewMode: 'standard' } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // This control carries only a runs share, so it grants no chance headline.
+    expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
 
@@ -322,8 +339,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     useCanvasStore.setState({
       viewMode,
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', is_baseline: false } },
-        { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', is_baseline: false } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option', is_baseline: false } },
+        { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option', is_baseline: false } },
       ],
       edges: [],
       results: {
@@ -348,9 +365,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       },
     } as never)
     return render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', is_baseline: false }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option', is_baseline: false }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
   }
 
@@ -374,7 +391,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBehindFixture('computed', 'standard')
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // This control carries only a runs share, so it grants no chance headline.
+    expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
@@ -447,14 +466,14 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
 
   it('renders nothing at all outside results mode', () => {
     useCanvasStore.setState({
-      nodes: [{ id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold', type: 'option' } }],
+      nodes: [{ id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold', type: 'option', kind: 'option' } }],
       edges: [],
       results: { status: 'idle', report: null },
     } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()
