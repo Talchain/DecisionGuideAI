@@ -328,6 +328,30 @@ export function goalPathUnsizedCause(
 type LinkEnds = { from: string; to: string }
 
 /**
+ * The same unsized links as `goalPathUnsizedCause`, as data for the commitment zone's short form: every link whose two
+ * ends have a display label (`named`, the Run's order) and how many there are in all (`total`). Null when there is no
+ * such warning or not one link can be named.
+ */
+export function unsizedAssumptionsOf(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): { named: LinkEnds[]; total: number } | null {
+  const links = unsizedLinksOf(inferenceWarnings)
+  if (links.length === 0) return null
+  const label = (id: string): string | null => {
+    const raw = labelOf(id)
+    const text = typeof raw === 'string' ? raw.trim() : ''
+    return text.length > 0 && text.length <= 120 ? text : null
+  }
+  const named = links.flatMap((l) => {
+    const from = label(l.from)
+    const to = label(l.to)
+    return from === null || to === null ? [] : [{ from, to }]
+  })
+  return named.length > 0 ? { named, total: links.length } : null
+}
+
+/**
  * Science's ONE plural rule for both strings (#87; MC github-21): name up to three links in the carrier's order
  * (nearest the goal first, ties by graph edge order: MC's), then "and N more".
  * - `named`: every link that is NAMED has both labels; links counted in "N more" need none.
@@ -2082,6 +2106,8 @@ export const ANALYSIS_NEW_COPY = {
      * as a mode, and the reader is being offered one specific change.
      */
     changeValue: 'Change this value',
+    /** The act's visible word on the value row; `changeValue` stays its accessible name (8 Oct 2026). */
+    changeValueShort: 'Change',
     valueInputLabel: (name: string) => `New value for ${name}`,
     saveValue: 'Save',
     cancelValue: 'Cancel',
@@ -3093,8 +3119,7 @@ export const ANALYSIS_NEW_COPY = {
        * a fact stated twice in one scroll, which is the defect this split
        * exists to remove.
        */
-      orderingCaveat:
-        'A list with no figures beside it is not a finding that the options are level.',
+      orderingCaveat: 'No figures yet. It is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

@@ -1276,6 +1276,13 @@ export interface ChecksSection {
    */
   leaderWithholdDetail: string | null
   /**
+   * The links behind an unsized-path withhold (`goal_path_unsized`), as canvas labels in the Run's own order, so the
+   * commitment zone can say "It rests on 3 assumptions Olumi made" and list them under a disclosure instead of
+   * restating `leaderWithholdCause`'s long sentence. `total` counts every link; `named` holds those whose two ends have
+   * a label. Null on every other withhold, and when the cause is not the unsized one.
+   */
+  leaderWithholdAssumptions?: { named: ReadonlyArray<{ from: string; to: string }>; total: number } | null
+  /**
    * ⭐ THE SHARES COMPARE THE GOAL ONLY — the leader was withheld BECAUSE the
    * check against the user's limits could not support one
    * (`constraint_verdict_withheld`). "How the options compare" states it above

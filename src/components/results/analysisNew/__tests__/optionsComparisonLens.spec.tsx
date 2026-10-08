@@ -225,7 +225,10 @@ describe('the two lenses', () => {
     const rec = (data as unknown as { recommendation: { allOptions: Array<Record<string, unknown>> } }).recommendation
     rec.allOptions = rec.allOptions.map((o, i) => (i === 0 ? { ...o, goalCertaintyUnearned: { say: SAY } } : o))
     renderRun(data)
-    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(SAY)
+    // 8 Oct 2026: one short visible line; the producer's sentence one press away (keyboard-reachable, not a tooltip).
+    expect(screen.getByTestId(`${T}-goal-withheld-short`)).toBeVisible()
+    fireEvent.click(screen.getByTestId(`${T}-goal-withheld-toggle`))
+    expect(screen.getByTestId(`${T}-goal-withheld-why`)).toHaveTextContent(SAY)
     expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('data-locked', 'true')
   })
 
@@ -240,8 +243,11 @@ describe('the two lenses', () => {
     } as unknown as ResultsSectionDataReturn
     renderRun(withheld)
     expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAccessibleDescription(WORDS)
-    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip.
-    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(WORDS)
+    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip. Since 8 Oct 2026 the
+    // visible line is short and the producer's words open under it ("Not shown." is said by the line itself).
+    expect(screen.getByTestId(`${T}-goal-withheld-short`)).toBeVisible()
+    fireEvent.click(screen.getByTestId(`${T}-goal-withheld-toggle`))
+    expect(screen.getByTestId(`${T}-goal-withheld-why`)).toHaveTextContent(WORDS.slice('Not shown. '.length))
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 
