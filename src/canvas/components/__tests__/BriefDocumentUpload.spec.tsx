@@ -28,7 +28,16 @@ describe('BriefDocumentUpload', () => {
     expect(input.type).toBe('file')
     expect(input.multiple).toBe(false)
     expect(input.accept).toBe('.xlsx,.csv,.pptx,.docx,.pdf')
-    expect(screen.getByText(BRIEF_UPLOAD_COPY.privacy)).toBeTruthy()
+    expect(BRIEF_UPLOAD_COPY.label).toBe('Add a document')
+  })
+
+  it('shows the privacy line only once a file has been added, and drops it on remove', async () => {
+    render(<Harness initial="" />)
+    expect(screen.queryByText(BRIEF_UPLOAD_COPY.privacy)).toBeNull()
+    choose(new File(['Starter price,£49\n'], 'prices.csv'))
+    await waitFor(() => expect(screen.getByText(BRIEF_UPLOAD_COPY.privacy)).toBeTruthy())
+    fireEvent.click(screen.getByText(BRIEF_UPLOAD_COPY.remove))
+    expect(screen.queryByText(BRIEF_UPLOAD_COPY.privacy)).toBeNull()
   })
 
   it('is an icon inside the box, with its name for screen readers and a hover hint', () => {

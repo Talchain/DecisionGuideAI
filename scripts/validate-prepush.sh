@@ -234,13 +234,16 @@ header "Check 6 — Dependency audit (file: references)"
 # false-positiving. grep -a per repo trap 17: absence claims must not go
 # silently blind on a NUL-bearing file.
 FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null \
-  | grep -v '"@talchain/schemas"' || true)
+  | grep -v '"@talchain/schemas"' \
+  | grep -vE '"xlsx": "file:\./vendor/xlsx-[0-9]+\.[0-9]+\.[0-9]+\.tgz"' || true)
 
 PNPM_LOCKFILE="$REPO_ROOT/pnpm-lock.yaml"
 LOCK_REF_PATTERN="[[:space:]'\"@]file:"
 # Allowlist: exempt only refs whose file: TARGET is the vendored schemas
 # tarball (any version — check 6a pins the bytes via the SHA manifest).
-ALLOWED_LOCK_REF="file:(\./)?vendor/talchain-schemas-[^/[:space:]]*\.tgz"
+# Second (and last) exemption: SheetJS, which is not on npm past 0.18.5 and
+# is vendored so its bytes are pinned (sha256 sidecar + lockfile sha512).
+ALLOWED_LOCK_REF="file:(\./)?vendor/(talchain-schemas-[^/[:space:]]*|xlsx-[0-9]+\.[0-9]+\.[0-9]+)\.tgz"
 LOCK_AUDIT_BROKEN=0
 LOCK_FILE_REFS=""
 if [ ! -f "$PNPM_LOCKFILE" ]; then

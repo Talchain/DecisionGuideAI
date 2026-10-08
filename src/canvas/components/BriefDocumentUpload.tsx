@@ -1,5 +1,5 @@
 /**
- * "Upload a document" for the first-use brief (ROADMAP 3.8, slice 1).
+ * "Add a document" for the first-use brief (ROADMAP 3.8, slice 1).
  *
  * ONE file is read entirely in this browser (`brief-ingest/`); the file is not
  * uploaded. Its text, with a locator marker on every segment and a note for
@@ -8,7 +8,9 @@
  *
  * Two pieces, one state: the `trigger` is a paperclip icon that sits INSIDE the
  * brief box (AIInputBar's `inBoxAction` slot, above send); the `feedback` (count
- * line, errors, "Remove what was added", privacy line) sits under the box.
+ * line, errors, "Remove what was added", privacy line) sits under the box. The
+ * privacy line appears only once a file has been added, beside the text it
+ * describes, so the empty composer stays quiet.
  *
  * Scope: the empty-canvas composer only. Adding a document to an existing
  * model is a later slice.
@@ -19,8 +21,8 @@ import { typo } from '../../styles/typography'
 import { ACCEPT_ATTRIBUTE, assembleBrief, extractBriefDocument } from '../brief-ingest'
 
 export const BRIEF_UPLOAD_COPY = {
-  label: 'Upload a document',
-  hint: 'Upload a document (.xlsx, .csv, .pptx, .docx, .pdf)',
+  label: 'Add a document',
+  hint: 'Add a document (.xlsx, .csv, .pptx, .docx, .pdf)',
   reading: 'Reading your file…',
   check: 'Olumi read this from your file. Check the figures before you draft.',
   privacy: 'Olumi reads your file in this browser; the file is not uploaded. Only the text you send is kept.',
@@ -138,7 +140,7 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
           {error}
         </p>
       ) : null}
-      <p className={typo('chatBody', 'text-text-light m-0')}>{BRIEF_UPLOAD_COPY.privacy}</p>
+      {added ? <p className={typo('chatBody', 'text-text-light m-0')}>{BRIEF_UPLOAD_COPY.privacy}</p> : null}
     </div>
   )
 

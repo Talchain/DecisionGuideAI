@@ -157,13 +157,16 @@ header "Check 5 — Dependency audit (file: references)"
 # See scripts/validate-prepush.sh Check 6 for the serialisation notes; the two
 # blocks are kept in lockstep.
 FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null \
-  | grep -v '"@talchain/schemas"' || true)
+  | grep -v '"@talchain/schemas"' \
+  | grep -vE '"xlsx": "file:\./vendor/xlsx-[0-9]+\.[0-9]+\.[0-9]+\.tgz"' || true)
 
 PNPM_LOCKFILE="$REPO_ROOT/pnpm-lock.yaml"
 LOCK_REF_PATTERN="[[:space:]'\"@]file:"
 # Allowlist: exempt only refs whose file: TARGET is the vendored schemas
 # tarball (any version — Check 5a pins the bytes via the SHA manifest).
-ALLOWED_LOCK_REF="file:(\./)?vendor/talchain-schemas-[^/[:space:]]*\.tgz"
+# Second (and last) exemption: SheetJS, which is not on npm past 0.18.5 and
+# is vendored so its bytes are pinned (sha256 sidecar + lockfile sha512).
+ALLOWED_LOCK_REF="file:(\./)?vendor/(talchain-schemas-[^/[:space:]]*|xlsx-[0-9]+\.[0-9]+\.[0-9]+)\.tgz"
 LOCK_AUDIT_BROKEN=0
 LOCK_FILE_REFS=""
 if [ ! -f "$PNPM_LOCKFILE" ]; then
