@@ -71,7 +71,7 @@ describe('the goal target line names its source (Paul 23 Sep point 1)', () => {
     const m = container.querySelector(`[data-testid="goal-target-source-${id}"]`)
     expect(m, 'the target line must carry a source mark').not.toBeNull()
     expect(m!.getAttribute('data-value-source')).toBe('unknown')
-    expect(m!.querySelector('[aria-hidden="true"]')!.textContent).toBe('no source')
+    expect(m!.querySelector('.lucide-help-circle')).not.toBeNull()
     expect(m!.querySelector('.sr-only')!.textContent).toBe('Source not recorded')
     // Spoken and hovered on the route control too — not sight-only.
     const route = container.querySelector(`[data-testid="${GOAL_TARGET_ROUTE_TESTID}"]`)

@@ -36,6 +36,9 @@ const COPY_ONLY_IMPORTERS = new Set([
   // Compare-chance (#87 6035414740): Compare says each Run's goal chance in the hero's own words; it mounts nothing.
   join(SRC, 'canvas', 'compare-tab', 'ComparePairSections.tsx'),
   join(SRC, 'canvas', 'compare-tab', '__tests__', 'CompareRunPairBody.goalChances.spec.tsx'),
+  // B15 (#87, DL 7 Oct): the chat Analysis-result card leads with each option's goal chance in the hero's own words,
+  // read from its own block's licence; it mounts nothing.
+  join(SRC, 'v5', 'blocks', 'V5AnalysisResultBlock.tsx'),
 ])
 
 function heroImportOffenders(content: string, file: string): string[] {

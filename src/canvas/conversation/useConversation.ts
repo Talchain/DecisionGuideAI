@@ -149,6 +149,7 @@ import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
+import { readAgentTurnReceipts } from '../undo/captureAgentTurnForUndo'
 import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
@@ -6267,6 +6268,7 @@ export function useConversation(): UseConversationReturn {
             proposalFields: readTurnProposalFields(target.response),
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
+            ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(actionScience.success ? { actionScience: actionScience.data } : {}),

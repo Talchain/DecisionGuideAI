@@ -185,7 +185,7 @@ function renderGoal(
 
 /** Every channel a reader can reach this chip through. */
 const channelsOf = (chip: Element) => ({
-  visible: chip.textContent ?? '',
+  visible: chip.querySelector('[data-card-mark="target-not-captured"]')?.getAttribute('aria-label') ?? '',
   'aria-label': chip.getAttribute('aria-label') ?? '',
   title: chip.getAttribute('title') ?? '',
 })
@@ -211,7 +211,8 @@ describe('the no-target chip states a fact about the MODEL, never a verdict on t
     const { chip } = renderGoal()
     // IDENTITY, not a value predicate another element could satisfy: the chip
     // is found by its testid and its whole text is asserted.
-    expect(chip!.textContent).toBe(GOAL_NO_TARGET_STATE)
+    expect(chip!.textContent).toBe('')
+    expect(chip!.querySelector('[data-card-mark="target-not-captured"]')).toHaveAttribute('aria-label', GOAL_NO_TARGET_STATE)
   })
 
   it('⭐⭐ THE RENDER↔COMPOSITION BINDING — every channel is what `goalNoTargetChannels` says', () => {
@@ -310,11 +311,13 @@ describe('the reduced line carries the state, and is still text the full-zoom ca
     const full = renderGoal()
     expect(full.text).toContain(LABEL) // positive control: the card rendered
     const fullText = full.text
+    const fullWords = full.chip!.querySelector('[data-card-mark="target-not-captured"]')?.getAttribute('aria-label')
     cleanup()
     const low = renderGoal({}, { lodRung: 'line' })
     expect(low.lodLine).not.toBeNull()
     expect(low.lodLine!.trim().length).toBeGreaterThan(0)
-    expect(fullText).toContain(low.lodLine!)
+    expect(fullWords).toBe(low.lodLine!)
+    expect(fullText).not.toContain(low.lodLine!)
   })
 })
 

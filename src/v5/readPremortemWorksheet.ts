@@ -1,6 +1,7 @@
 /** Local copy of the CEE v2 envelope (CEE #2773). No shared-schema or CEE runtime import. */
 import { z } from 'zod'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
+import { belongsToThisIdentity, readIdentityEpoch } from '../canvas/store/scenarios'
 
 export const PREMORTEM_COPY = {
   title: 'Imagine it failed: plausible ways',
@@ -147,16 +148,31 @@ export function mergePremortemWorksheets(held: PremortemWorksheetV1, incoming: P
  * ⭐ P02: THE WORKSHEET SURVIVES A RELOAD. CEE stores no worksheet with its turn row, so this browser keeps the last
  * available worksheet per scenario. It is restored only for the SAME Run (scenario, graph hash at run, computed_at),
  * re-parsed by the schema above, and never sent anywhere. A fresh browser has none (UNVERIFIED there by design).
+ * ⛔ ONE IDENTITY (CHAT-STABLE Codex P1 on #2634, 8 Oct): the entry carries the identity epoch it was written under and
+ * is read back only if `belongsToThisIdentity` (the CAN-F2w rule autosave uses); an unreadable epoch writes nothing, an
+ * unstamped entry never restores, and the prefix is in the identity boundary's sweep (`USER_SCOPED_STORAGE_PREFIXES`).
  */
 const STORAGE_PREFIX = 'olumi-premortem-worksheet:v2:'
+/**
+ * The identity this tab booted under. A response that lands after an identity boundary (another tab signed in or out)
+ * was requested under the OLD identity, so it is never cached under the new one (Codex r1 P1 on #2652). An in-tab
+ * boundary also stops the copy until the next reload: the worksheet simply does not survive that reload (fails closed).
+ * Replace with `epochThisTabMayWriteUnder()` once CHAT-STABLE's #2646 fence is on staging.
+ */
+const TAB_IDENTITY_EPOCH = readIdentityEpoch()
 export function storePremortemWorksheet(worksheet: PremortemWorksheetV1): void {
-  try { globalThis.localStorage?.setItem(STORAGE_PREFIX + worksheet.scenario_id, JSON.stringify(worksheet)) } catch { /* storage unavailable */ }
+  const identityEpoch = readIdentityEpoch()
+  if (identityEpoch === undefined || identityEpoch !== TAB_IDENTITY_EPOCH) return
+  try { globalThis.localStorage?.setItem(STORAGE_PREFIX + worksheet.scenario_id, JSON.stringify({ identityEpoch, worksheet })) } catch { /* storage unavailable */ }
 }
 export function loadPremortemWorksheet(run: PremortemRunStamp): PremortemWorksheetV1 | null {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_PREFIX + run.scenarioId)
     if (!raw) return null
-    const parsed = PremortemWorksheetV1Schema.safeParse(JSON.parse(raw))
+    const entry = JSON.parse(raw) as { identityEpoch?: unknown; worksheet?: unknown } | null
+    if (entry === null || typeof entry !== 'object' || !('identityEpoch' in entry)) return null
+    if (!belongsToThisIdentity(entry.identityEpoch)) return null
+    const parsed = PremortemWorksheetV1Schema.safeParse(entry.worksheet)
     if (!parsed.success) return null
     const w = parsed.data
     return samePremortemRun(run, { scenarioId: w.scenario_id, graphHashAtRun: w.run.graph_hash_at_run, computedAt: w.run.computed_at }) ? w : null

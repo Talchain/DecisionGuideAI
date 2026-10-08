@@ -212,9 +212,9 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     const marker = byId(`option-not-ranked-${id}`)!
     expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
-    expect(slot.contains(marker)).toBe(true)
-    expect(marker.textContent).toBe(NOT_RANKED_MARKER)
-    expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+    expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
+    expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
     expect(tokens(marker).has('whitespace-nowrap')).toBe(true)
   })
 
@@ -228,7 +228,7 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
       const row = byId(`option-analysis-currency-${id}`)!
       expect(row, `${id}: precondition: the share row renders`).not.toBeNull()
       const anchor = byId(`option-win-anchor-${id}`)!
-      expect(anchor.textContent).toBe('Last run')
+      expect(anchor.getAttribute('aria-label')).toBe('Last run')
       expect(GIVES_WAY(anchor), `${id}: "Last run" may not truncate`).toBe(false)
       expect(between(anchor, row).filter(GIVES_WAY)).toEqual([])
       // `Last run` is already the short form: no second anchor.
@@ -252,8 +252,9 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
       expect(byId(`option-share-goal-only-${id}`)).toBeNull()
       const marker = byId(`option-not-ranked-${id}`)
       expect(marker, `${id}: the \`Not ranked\` marker renders`).not.toBeNull()
-      expect(slot.contains(marker)).toBe(true)
-      expect(marker!.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
+      expect(marker!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+      expect(marker!.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
       expect(tokens(slot).has('h-[1lh]')).toBe(true)
       cleanup()
     }
@@ -323,8 +324,9 @@ describe('DIFF item 5 — the option the run left out keeps saying so, in the re
     expect(line(), 'the not-analysed line renders on a stale run').not.toBeNull()
     expect(slot().contains(line())).toBe(true)
     expect(slot().getAttribute('class')).toBe(preClass)
-    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)!.textContent).toBe('Last run · ')
-    expect(line()!.textContent!.startsWith('Last run · Not analysed')).toBe(true)
+    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Last run')
+    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Not analysed')
+    expect(line()!.textContent).not.toContain('Last run · Not analysed')
     // One line: it never wraps; the reason is the part that gives way, whole.
     expect([...tokens(line())]).toEqual(expect.arrayContaining(['flex-nowrap', 'whitespace-nowrap']))
     const reason = byId(`option-not-analysed-reason-${LEFT_OUT}`)!
@@ -344,7 +346,7 @@ describe('DIFF item 5 — the option the run left out keeps saying so, in the re
     renderCard(LEFT_OUT)
     expect(line()).not.toBeNull()
     expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)).toBeNull()
-    expect(line()!.textContent!.startsWith('Not analysed')).toBe(true)
+    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Not analysed')
     expect(line()!.getAttribute('title')).not.toMatch(/returned/i)
     expect(byId(`option-result-unavailable-${LEFT_OUT}`)).toBeNull()
   })

@@ -201,7 +201,7 @@ describe('DIFF N2 — market-entry: the factor reads what the status quo pursues
     const { container } = renderOption(MARKET, 'opt_uk_fs')
     const meta = onCard(container, '[data-testid="option-baseline-meta-opt_uk_fs"]')
     expect(meta.length).toBe(1)
-    expect(meta[0].textContent).toBe('Baseline · no changes')
+    expect(meta[0].getAttribute('aria-label')).toBe('Baseline · no changes')
   })
 
   it('the other options still read "Pursued → Not pursued" for the UK focus — the rows and the factor now agree', () => {
