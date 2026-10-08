@@ -5,6 +5,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 
 const trust: { semantic: FreshnessDisplaySemantic | undefined } = { semantic: 'changed' }
@@ -16,6 +18,11 @@ import { adoptChangedSinceRun, useChangedSinceRunStore } from '../../changes/cha
 
 const SID = 'scn-p48'
 const REPORT = { option_comparison: [{ option_id: 'a', outcome: { mean: 1, p10: 0, p50: 1, p90: 2 } }] }
+const RUN_AT = '2026-10-08T00:00:00.000Z'
+const delta = (over: Record<string, unknown> = {}) => ({
+  scenarioId: SID, analysisHash: 'hash_b',
+  delta: { endpoints: { current: { run_id: 'run_b', computed_at: RUN_AT } } }, ...over,
+})
 const wire = (over: Record<string, unknown> = {}) => ({
   version: 1, since_run_id: 'run_b', node_ids: ['f'], links: [{ from: 'f', to: 'o' }], unattributed_changes: 0, complete: true, ...over,
 })
@@ -38,7 +45,9 @@ beforeEach(() => {
   trust.semantic = 'changed'
   useCanvasStore.setState({
     currentScenarioId: SID,
-    results: { status: 'complete', report: REPORT },
+    results: { status: 'complete', report: REPORT, runId: 'run_b', hash: 'hash_b', runEpoch: 1, reportEpoch: 1 },
+    runDelta: null,
+    analysisStateV1: null,
     edges: [
       { id: 'e1', source: 'f', target: 'o' },
       { id: 'e2', source: 'o', target: 'f' },
@@ -62,6 +71,160 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(screen.queryByTestId(LIGHT)).toBeNull()
   })
 
+  it.each(['run_a', null])('changes since %s cannot describe the displayed run_b findings', (sinceRunId) => {
+    adoptChangedSinceRun(SID, wire({ since_run_id: sinceRunId }))
+    renderInFlow()
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    expect(lightingCss()).toBeNull()
+  })
+
+  it.each([undefined, 'restored:hash_b'])('an absent or placeholder displayed Run id (%s) leaves the plain sentence', (runId) => {
+    useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, runId } })
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['connecting run_b still holds run_a’s report', { status: 'connecting', runEpoch: 2, reportEpoch: 1 }],
+    ['a conversation report inherits a legacy run_b id', { resultsSource: 'conversation' }],
+    ['the report has no epoch proving its run_b identity', { reportEpoch: undefined }],
+    ['a hydrated report inherited run_b with the historical sentinel', { reportEpoch: 0, runEpoch: 0 }],
+  ])('%s never borrows that legacy id for lighting', (_label, over) => {
+    useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, ...over } } as never)
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+  })
+
+  it('a scenario-stamped historical restore can identify the displayed run_b', () => {
+    useCanvasStore.setState({ results: {
+      ...useCanvasStore.getState().results, runEpoch: undefined, reportEpoch: 0, restoredForScenarioId: SID,
+    } })
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  it('V5 uses the hash/scenario-bound current endpoint run_b, even beside an inherited legacy run_a id', () => {
+    useCanvasStore.setState({
+      results: { ...useCanvasStore.getState().results, resultsSource: 'conversation', runId: 'run_a' },
+      runDelta: delta(), analysisStateV1: { run_state: { computed_at: RUN_AT } },
+    } as never)
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  it('conflicting direct run_b findings and a canonical run_a delta cannot borrow either id', () => {
+    useCanvasStore.setState({
+      runDelta: delta({ delta: { endpoints: { current: { run_id: 'run_a', computed_at: RUN_AT } } } }),
+      analysisStateV1: { run_state: { computed_at: RUN_AT } },
+    } as never)
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    act(() => adoptChangedSinceRun(SID, wire()))
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    act(() => useCanvasStore.setState({ analysisStateV1: null }))
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  it('a newer canonical Run without a delta cannot borrow an inherited direct run_b id', () => {
+    useCanvasStore.setState({ analysisStateV1: { run_state: { computed_at: RUN_AT } } } as never)
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+  })
+
+  it.each([null, { run_state: {} }, { run_state: { computed_at: '' } }])(
+    'V5 cannot identify displayed run_b from a delta when canonical Run time is absent (%j)', (analysisStateV1) => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, resultsSource: 'conversation' },
+        runDelta: delta(), analysisStateV1,
+      } as never)
+      adoptChangedSinceRun(SID, wire())
+      renderInFlow()
+      expect(screen.queryByTestId(LIGHT)).toBeNull()
+    },
+  )
+
+  it.each<[string, ReturnType<typeof delta>]>([
+    ['another analysis hash', delta({ analysisHash: 'hash_a' })],
+    ['another scenario', delta({ scenarioId: 'scn-other' })],
+    ['another endpoint Run', delta({ delta: { endpoints: { current: { run_id: 'run_a', computed_at: RUN_AT } } } })],
+    ['an older endpoint time despite a colliding hash', delta({ delta: { endpoints: { current: { run_id: 'run_b', computed_at: '2026-10-07T00:00:00.000Z' } } } })],
+    ['an endpoint without a recorded time', delta({ delta: { endpoints: { current: { run_id: 'run_b' } } } })],
+  ])('V5 refuses a Run id bound to %s', (_label, runDelta) => {
+    useCanvasStore.setState({
+      results: { ...useCanvasStore.getState().results, resultsSource: 'conversation' },
+      runDelta, analysisStateV1: { run_state: { computed_at: RUN_AT } },
+    } as never)
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+  })
+
+  it('Run A → complete Run B → edit again never revives A-relative changes beside B’s findings', () => {
+    useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, runId: 'run_a', hash: 'hash_a' } })
+    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a' }))
+    const { rerender } = renderInFlow()
+    fireEvent.click(screen.getByTestId(LIGHT))
+    expect(lightingCss()).toContain('rf__node-f')
+    trust.semantic = 'current'
+    act(() => useCanvasStore.setState({ results: {
+      ...useCanvasStore.getState().results, runId: 'run_b', hash: 'hash_b', runEpoch: 2, reportEpoch: 2,
+    } }))
+    rerender(
+      <div className="react-flow" data-testid="flow">
+        <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
+        <AnalysisStateCue />
+      </div>,
+    )
+    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    trust.semantic = 'changed'
+    rerender(
+      <div className="react-flow" data-testid="flow">
+        <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
+        <AnalysisStateCue />
+      </div>,
+    )
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    expect(lightingCss()).toBeNull()
+    act(() => adoptChangedSinceRun(SID, wire({ node_ids: ['g'], links: [{ from: 'g', to: 'o' }] })))
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-g')
+    expect(lightingCss()).toContain('rf__edge-e3')
+    expect(lightingCss()).not.toContain('rf__node-f')
+    expect(lightingCss()).not.toContain('rf__edge-e1')
+  })
+
+  it('new run_c findings and changes arriving together invalidate run_b’s focus and pin', () => {
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    const light = screen.getByTestId(LIGHT)
+    act(() => light.focus())
+    fireEvent.click(light)
+    act(() => {
+      useCanvasStore.setState({ results: {
+        ...useCanvasStore.getState().results, runId: 'run_c', hash: 'hash_c', runEpoch: 2, reportEpoch: 2,
+      } })
+      adoptChangedSinceRun(SID, wire({ since_run_id: 'run_c', node_ids: ['g'], links: [{ from: 'g', to: 'o' }] }))
+    })
+    expect(screen.getByTestId(LIGHT)).toBe(light)
+    expect(light).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+  })
+
   it('keyboard: focus lights exactly the named node and the link by its two ends; blur clears', () => {
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
@@ -82,6 +245,15 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(lightingCss()).toBeNull()
   })
 
+  it('link e1 lighting wins over StyledEdge’s inline stroke and strokeWidth', () => {
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain(
+      '[data-testid="rf__edge-e1"] .react-flow__edge-path{stroke:var(--info)!important;stroke-width:3px!important}',
+    )
+  })
+
   it('a press pins the lighting; a second press, or Esc, clears it', () => {
     adoptChangedSinceRun(SID, wire())
     renderInFlow()
@@ -94,6 +266,58 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     fireEvent.click(light)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(light).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+  })
+
+  it('keyboard: a second activation and Escape dismiss lighting while focus remains; refocus restores it', () => {
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    const light = screen.getByTestId(LIGHT)
+    act(() => light.focus())
+    fireEvent.click(light)
+    fireEvent.click(light)
+    expect(light).toHaveFocus()
+    expect(light).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+    act(() => light.blur())
+    act(() => light.focus())
+    expect(lightingCss()).toContain('rf__node-f')
+    fireEvent.click(light)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(light).toHaveFocus()
+    expect(light).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+    act(() => light.blur())
+    act(() => light.focus())
+    expect(lightingCss()).toContain('rf__node-f')
+  })
+
+  it('pointer: a second pane click and Escape dismiss lighting until the pointer leaves and returns', () => {
+    adoptChangedSinceRun(SID, wire())
+    renderInFlow()
+    const sentence = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)
+    sentence.getBoundingClientRect = () => ({ left: 10, right: 250, top: 700, bottom: 713, width: 240, height: 13, x: 10, y: 700, toJSON: () => ({}) })
+    const at = (x: number, type = 'pointermove') =>
+      act(() => { screen.getByTestId('pane').dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: 706 })) })
+    at(50)
+    at(50, 'click')
+    at(50, 'click')
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+    at(51)
+    expect(lightingCss()).toBeNull()
+    at(400)
+    at(50)
+    expect(lightingCss()).toContain('rf__node-f')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    at(51)
+    expect(lightingCss()).toBeNull()
+    at(400)
+    at(50)
+    expect(lightingCss()).toContain('rf__node-f')
+    at(50, 'click')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    at(51)
     expect(lightingCss()).toBeNull()
   })
 
@@ -125,19 +349,81 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(screen.getByText('2 other changes since the last Run')).toBeInTheDocument()
   })
 
+  it('the count grows above the bottom-anchored sentence, leaving its pane hit target fixed', () => {
+    // JSDOM does not lay out flex children: pin the cascade that anchors the first child at the bottom.
+    const css = readFileSync(resolve(__dirname, '../AnalysisStateCue.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const slotRule = [...css.matchAll(/\.slot\s*\{([^}]*)\}/g)].at(-1)?.[1] ?? ''
+    expect(slotRule).toMatch(/flex-direction\s*:\s*column-reverse/)
+    expect(slotRule).toMatch(/justify-content\s*:\s*flex-start/)
+    adoptChangedSinceRun(SID, wire({ unattributed_changes: 2 }))
+    renderInFlow()
+    const sentence = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)
+    sentence.getBoundingClientRect = () => ({ left: 10, right: 250, top: 700, bottom: 713, width: 240, height: 13, x: 10, y: 700, toJSON: () => ({}) })
+    const at = (type: string) =>
+      act(() => { screen.getByTestId('pane').dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: 50, clientY: 706 })) })
+    at('pointermove')
+    expect(screen.getByText('2 other changes since the last Run')).toBeInTheDocument()
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)).toBe(sentence)
+    at('click')
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('focus → sentence removed by a Run → return has no focus, pin or lighting on the retained cue instance', () => {
+    adoptChangedSinceRun(SID, wire())
+    const { rerender } = renderInFlow()
+    const node = screen.getByTestId('rf__node-g')
+    act(() => screen.getByTestId(LIGHT).focus())
+    expect(lightingCss()).toContain('rf__node-f')
+    trust.semantic = 'current'
+    rerender(
+      <div className="react-flow" data-testid="flow">
+        <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
+        <AnalysisStateCue />
+      </div>,
+    )
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
+    trust.semantic = 'changed'
+    rerender(
+      <div className="react-flow" data-testid="flow">
+        <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
+        <AnalysisStateCue />
+      </div>,
+    )
+    expect(screen.getByTestId('rf__node-g')).toBe(node)
+    expect(screen.getByTestId(LIGHT)).not.toHaveFocus()
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
+    expect(lightingCss()).toBeNull()
+  })
+
   it('a Run that makes the model current takes the sentence, and the pin, with it', () => {
     adoptChangedSinceRun(SID, wire())
     const { rerender } = renderInFlow()
+    const node = screen.getByTestId('rf__node-g')
     fireEvent.click(screen.getByTestId(LIGHT))
     expect(lightingCss()).not.toBeNull()
     trust.semantic = 'current'
     rerender(
       <div className="react-flow" data-testid="flow">
         <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
         <AnalysisStateCue />
       </div>,
     )
+    expect(screen.queryByTestId('rf__node-g')).toBe(node)
     expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    expect(lightingCss()).toBeNull()
+    trust.semantic = 'changed'
+    rerender(
+      <div className="react-flow" data-testid="flow">
+        <div className="react-flow__pane" data-testid="pane" />
+        <div className="react-flow__node" data-testid="rf__node-g" />
+        <AnalysisStateCue />
+      </div>,
+    )
+    expect(screen.queryByTestId('rf__node-g')).toBe(node)
+    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
     expect(lightingCss()).toBeNull()
   })
 })

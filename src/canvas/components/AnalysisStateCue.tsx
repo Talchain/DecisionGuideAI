@@ -76,7 +76,7 @@
  * `rf__node-` / `rf__edge-` ids, painted only while lit, so no card or edge component carries a mark. Changes CEE
  * cannot place are said once, as a count, while lit. With no answer from CEE the sentence is the plain line it was.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   OVERLAY_BAND_BOTTOM,
   OVERLAY_BAND_HEIGHT,
@@ -84,7 +84,9 @@ import {
   useOverlayCell,
 } from './CanvasOverlayBand'
 import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
-import { useCanvasStore } from '../store'
+import { HISTORICAL_REPORT_EPOCH, useCanvasStore } from '../store'
+import { runDeltaDescribesDisplayedAnalysis } from '../state/storedRunDelta'
+import { isSyntheticRestoreId } from '../store/runIdentityPlaceholder'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { CHANGED_SINCE_RUN_WORDS, isLinkChangedSinceRun, useChangedSinceRunStore } from '../changes/changedSinceRun'
 import styles from './AnalysisStateCue.module.css'
@@ -124,26 +126,45 @@ export function changedSetLightingCss(nodeIds: readonly string[], edgeIds: reado
   const edges = edgeIds.map((id) => `.react-flow [data-testid=${attr(`rf__edge-${id}`)}] .react-flow__edge-path`)
   return [
     nodes.length ? `${nodes.join(',')}{outline:2px dashed var(--info);outline-offset:3px;border-radius:var(--radius-sm)}` : '',
-    edges.length ? `${edges.join(',')}{stroke:var(--info);stroke-width:3px}` : '',
+    edges.length ? `${edges.join(',')}{stroke:var(--info)!important;stroke-width:3px!important}` : '',
   ].join('')
 }
 
 /**
- * What the sentence can light, for the scenario on screen: `null` when CEE gave no answer (or answered for another
- * scenario) or named nothing — then the sentence is the plain line it always was.
+ * What the sentence can light, for the scenario and displayed Run: no confirmed match leaves the plain line.
  */
 function useChangedSet() {
   const scenarioId = useCanvasStore((st) => st.currentScenarioId)
   const edges = useCanvasStore((st) => st.edges)
+  const displayedRunId = useCanvasStore((st) => {
+    const r = st.results
+    if (r.report == null || st.currentScenarioId == null) return null
+    // Legacy runId can name an in-flight Run or survive a V5 completion; require report provenance.
+    const sameEpoch = typeof r.reportEpoch === 'number' && r.reportEpoch !== HISTORICAL_REPORT_EPOCH && r.reportEpoch === r.runEpoch
+    const restoredHere = r.reportEpoch === HISTORICAL_REPORT_EPOCH && r.restoredForScenarioId === st.currentScenarioId
+    const legacyId = r.status === 'complete' && r.resultsSource !== 'conversation' && (sameEpoch || restoredHere) &&
+      r.runId && !isSyntheticRestoreId(r.runId) ? r.runId : null
+    if (st.analysisStateV1 == null) return legacyId
+    // V5 records the real Run id on the delta's current endpoint. Hash alone cannot identify a repeated Run.
+    if (!runDeltaDescribesDisplayedAnalysis(st.runDelta, r.hash, st.currentScenarioId)) return null
+    const current = st.runDelta?.delta.endpoints?.current
+    const rs = st.analysisStateV1.run_state
+    const computedAt = rs && 'computed_at' in rs ? rs.computed_at : null
+    if (!current || typeof computedAt !== 'string' || computedAt.length === 0 || current.computed_at !== computedAt) return null
+    // Neither authority wins a conflict: a same-hash completion can retain the other Run's identity.
+    const id = current.run_id
+    return id && !isSyntheticRestoreId(id) && (legacyId == null || legacyId === id) ? id : null
+  })
   const held = useChangedSinceRunStore()
   return useMemo(() => {
     if (scenarioId == null || held.scenarioId !== scenarioId || held.value == null) return null
+    if (displayedRunId == null || held.value.sinceRunId !== displayedRunId) return null
     const nodeIds = [...held.value.nodeIds]
     const edgeIds = edges.filter((e) => isLinkChangedSinceRun(held, scenarioId, e.source, e.target)).map((e) => e.id)
     const unattributed = held.value.unattributedChanges
     if (nodeIds.length === 0 && edgeIds.length === 0 && unattributed === 0) return null
-    return { nodeIds, edgeIds, unattributed }
-  }, [scenarioId, edges, held])
+    return { scenarioId, runId: displayedRunId, nodeIds, edgeIds, unattributed }
+  }, [scenarioId, displayedRunId, edges, held])
 }
 
 /**
@@ -182,11 +203,12 @@ export function AnalysisStateCue() {
   const changed = useChangedSet()
   const shown = modelChangedSinceRun && granted && (cellWidth === undefined || cellWidth >= ANALYSIS_STATE_CUE_MIN_WIDTH_PX)
   const lightable = shown && changed !== null
-  const [pinned, setPinned] = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const [focused, setFocused] = useState(false)
+  const [{ pinned, hovered, focused, dismissed }, setLighting] = useState({
+    pinned: false, hovered: false, focused: false, dismissed: false,
+  })
   const sentenceRef = useRef<HTMLParagraphElement>(null)
-  const lit = lightable && (pinned || hovered || focused)
+  const lit = lightable && !dismissed && (pinned || hovered || focused)
+  const toggleLighting = useCallback(() => setLighting((s) => ({ ...s, pinned: !s.pinned, dismissed: s.pinned })), [])
 
   // The pointer, read off the `.react-flow` root: only a PANE hit inside the sentence's box counts.
   useEffect(() => {
@@ -201,12 +223,12 @@ export function AnalysisStateCue() {
     }
     const onMove = (e: MouseEvent) => {
       const on = over(e)
-      setHovered(on)
+      setLighting((s) => ({ ...s, hovered: on, dismissed: on && !s.hovered ? false : s.dismissed }))
       if (on) root.setAttribute('data-analysis-cue-hover', '')
       else root.removeAttribute('data-analysis-cue-hover')
     }
-    const onClick = (e: MouseEvent) => { if (over(e)) setPinned((p) => !p) }
-    const onLeave = () => { setHovered(false); root.removeAttribute('data-analysis-cue-hover') }
+    const onClick = (e: MouseEvent) => { if (over(e)) toggleLighting() }
+    const onLeave = () => { setLighting((s) => ({ ...s, hovered: false })); root.removeAttribute('data-analysis-cue-hover') }
     root.addEventListener('pointermove', onMove)
     root.addEventListener('click', onClick)
     root.addEventListener('pointerleave', onLeave)
@@ -216,17 +238,21 @@ export function AnalysisStateCue() {
       root.removeEventListener('pointerleave', onLeave)
       root.removeAttribute('data-analysis-cue-hover')
     }
-  }, [lightable])
+  }, [lightable, toggleLighting])
 
   useEffect(() => {
-    if (!pinned) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPinned(false) }
+    if (!lightable) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLighting((s) => ({ ...s, pinned: false, dismissed: true }))
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [pinned])
+  }, [lightable])
 
-  // A pin never outlives what it lit: the sentence leaving (a Run, the slot taken) clears it.
-  useEffect(() => { if (!lightable) { setPinned(false); setHovered(false) } }, [lightable])
+  // No interaction outlives its Run or availability; removal need not dispatch the button's blur.
+  useLayoutEffect(() => {
+    setLighting({ pinned: false, hovered: false, focused: false, dismissed: false })
+  }, [lightable, changed?.scenarioId, changed?.runId])
 
   if (!modelChangedSinceRun || !granted) return null
   if (cellWidth !== undefined && cellWidth < ANALYSIS_STATE_CUE_MIN_WIDTH_PX) return null
@@ -252,9 +278,9 @@ export function AnalysisStateCue() {
             aria-label={ANALYSIS_STATE_CUE_LIGHT_WORDS.aria}
             aria-pressed={pinned}
             className={`${styles.light} ${lit ? styles.lit : ''}`}
-            onClick={() => setPinned((p) => !p)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onClick={toggleLighting}
+            onFocus={() => setLighting((s) => ({ ...s, focused: true, dismissed: false }))}
+            onBlur={() => setLighting((s) => ({ ...s, focused: false }))}
           >
             {ANALYSIS_STATE_CUE_COPY}
           </button>

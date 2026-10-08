@@ -4,7 +4,7 @@
  * `.slot` mirrors the overlay band's bottom-left cell — the component sets its
  * left, bottom, height and (measured) width from the band's own constants and
  * cell — but it is rendered INSIDE `.react-flow`, not in the band. xyflow gives
- * `.react-flow` `z-index: 0`, so it is a stacking context: its background sits
+ * `.react-flow` `z-index: 0`, so it is a stacking context: its ground sits
  * at -1 and `.react-flow__renderer` (the pane, the viewport, every card and
  * edge) at 4. At 3 this line paints above the canvas ground and BENEATH the
  * whole graph, so no card, edge or cue can ever be covered by it and no
@@ -13,7 +13,7 @@
  * `AnalysisStateCue.band.spec.tsx` reads both numbers — this one and xyflow's
  * — out of the stylesheets' bytes.
  *
- * No surface, border, shadow or strip: Paul ruled out a canvas footer bar, so
+ * No surface, frame, shadow or strip: Paul ruled out a canvas footer bar, so
  * this is one muted line on the canvas ground.
  */
 .slot {
@@ -36,11 +36,11 @@
   color: var(--text-light);
 }
 
-/* P48: a second line (the unattributed count) stacks UNDER the sentence; one child lays out exactly as before. */
+/* P48: the count grows ABOVE the bottom-anchored sentence, so appearing never moves its pane hit target. */
 .slot {
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 /* The sentence as a toggle (keyboard; the pointer is read off the pane). Same type, no surface: a dotted underline
