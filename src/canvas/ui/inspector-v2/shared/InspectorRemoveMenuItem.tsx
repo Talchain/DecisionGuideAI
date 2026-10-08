@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import { useShowToast } from '../../../ToastContext'
+import { useShowToastSafe } from '../../../ToastContext'
 import { deleteAction, type DeleteTarget } from '../../../contextMenu/actions'
 import { canDeleteFromContextMenu } from '../../../contextMenu/useMenuItems'
 
@@ -10,7 +10,7 @@ export function InspectorRemoveMenuItem({ target, onRequested }: {
   target: InspectorRemoveTarget
   onRequested: (target: InspectorRemoveTarget) => void
 }) {
-  const showToast = useShowToast()
+  const showToast = useShowToastSafe()
   return (
     <button
       type="button"
