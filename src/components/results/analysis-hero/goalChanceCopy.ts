@@ -127,12 +127,20 @@ export function goalChanceOptionLines(
   return lines
 }
 
+/** CEE `deliverableIsALaunch` twin: the launch IS the deliverable (a terminal "launch", or "launching the …"); a
+ * deliverable "launch" only modifies ("the pre-launch security review", "launch checklist") is not one. */
+function deliverableIsALaunch(deliverable: string): boolean {
+  const words = deliverable.trim().toLowerCase().split(/\s+/u)
+  return words.at(-1) === 'launch'
+    || (words[0] === 'launching' && words.length > 2 && ['the', 'a', 'an'].includes(words[1]!))
+}
+
 /**
  * The ruled share-by-date words (DL #2762 r3, CEE `shareGoalChanceWords` twin): a deliverable that names a launch reads
  * "chance of launching by <date>"; any other reads "chance of finishing <deliverable> by <date>".
  */
 function shareChanceWords(share: { readonly deliverable: string; readonly date: string }): string {
-  return /\blaunch(?:ing)?\b/i.test(share.deliverable)
+  return deliverableIsALaunch(share.deliverable)
     ? `chance of launching by ${share.date}`
     : `chance of finishing ${share.deliverable} by ${share.date}`
 }

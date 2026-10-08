@@ -54,9 +54,14 @@ describe('share-by-date chance: the same words as CEE chat', () => {
   it('removes only the leading share marker and preserves the deliverable verbatim', () => {
     const read = licence({ ...TARGET, unit: '% of Feature Launch (v2)' })
     expect(goalChanceTargetWords(read)).toBe('Feature Launch (v2) done by 7 April 2027')
+    // CEE twin: the head here is "(v2)", not "launch", so the deliverable is said verbatim with "finishing".
     expect(goalChanceOptionLines(read, labels)![0])
-      .toBe('‘Team A’: about 62% chance of launching by 7 April 2027, in this model.')
+      .toBe('‘Team A’: about 62% chance of finishing Feature Launch (v2) by 7 April 2027, in this model.')
     // CONTROL (ruled words, CEE shareGoalChanceWords twin): a deliverable that is not a launch keeps "finishing <it> by", verbatim.
+    // CONTROL (DL #2762 r4): "launch" only modifying the deliverable is not a launch.
+    const review = licence({ ...TARGET, unit: '% of the pre-launch security review' })
+    expect(goalChanceOptionLines(review, labels)![0])
+      .toBe('‘Team A’: about 62% chance of finishing the pre-launch security review by 7 April 2027, in this model.')
     const other = licence({ ...TARGET, unit: '% of Data Migration (v2)' })
     expect(goalChanceOptionLines(other, labels)![0])
       .toBe('‘Team A’: about 62% chance of finishing Data Migration (v2) by 7 April 2027, in this model.')
