@@ -36,6 +36,7 @@ import { ComparePairSections } from './ComparePairSections'
 import { withheldReasonSegments } from './withheldReasonSegments'
 import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
+import { latestOnlyShares } from './latestOnlyShares'
 import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
@@ -120,6 +121,10 @@ export function CompareRunPairBody({
   const edges = useCanvasStore(s => s.edges)
   const linkSizingState: LinkSizingStateOf = useCallback((fromId, toId) => linkSizingStateOf(edges, fromId, toId), [edges])
   const unsizedLinks = useMemo(() => unsizedLinksOf(inferenceWarnings), [inferenceWarnings])
+  // The first sized pair: the latest side from the report on screen, which `view` (non-null only when the stored delta
+  // describes this same response_hash and scenario) already binds to the delta's latest Run.
+  const report = useCanvasStore(s => s.results?.report)
+  const latestShares = useMemo(() => view === null ? null : latestOnlyShares(view, report, (id) => labels.get(id) ?? null), [view, report, labels])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
@@ -179,7 +184,7 @@ export function CompareRunPairBody({
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink}
-        linkSizingState={linkSizingState} unsizedLinks={unsizedLinks} />
+        linkSizingState={linkSizingState} unsizedLinks={unsizedLinks} latestShares={latestShares} />
     </div>
   )
 }

@@ -15,7 +15,8 @@ import {
 import { CoverageNote, InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
-import { CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import { CompareLatestOnlyFigures, CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import type { LatestShare } from './latestOnlyShares'
 import type { ReasonSegment } from './withheldReasonSegments'
 import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { GraphLink } from '../../components/results/GraphLink'
@@ -82,6 +83,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
   runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, linkSizingState, unsizedLinks = [],
+  latestShares = null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -98,6 +100,8 @@ export function ComparePairSections({
   linkSizingState?: LinkSizingStateOf
   /** Every link the same Run's GOAL_FIGURES_PLACEHOLDER_PATH warning lists (`unsizedLinksOf`), named or only counted. */
   unsizedLinks?: ReadonlyArray<{ from: string; to: string }>
+  /** The first sized pair (`prior_withheld`): the latest Run's own shares, bound to the analysis on screen (`latestOnlyShares`). */
+  latestShares?: readonly LatestShare[] | null
 }): JSX.Element {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
@@ -127,7 +131,9 @@ export function ComparePairSections({
   // The run-share half: inline when it leads, behind Result details when goal chances lead.
   const shareResults = (
     <>
-      {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
+      {resultsAllowed && view.movementsUnavailable && latestShares
+        ? <CompareLatestOnlyFigures shares={latestShares} designationsWithheld={designationsWithheld} optionLink={optionLink} />
+        : resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
       {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
       {showFigures && cohortChanged ? (
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}>{MOVEMENT_SCOPE_TEXT}</p>
