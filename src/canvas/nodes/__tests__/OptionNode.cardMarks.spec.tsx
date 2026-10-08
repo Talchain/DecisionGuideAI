@@ -44,7 +44,10 @@ it('share-withheld: exact words become a bottom glyph; permitted is the contrast
 it.each([false, true])('last-run status becomes a glyph and the percentage stays (detailed %s); current is the contrast', (detailed) => {
   seed({ changed: true, detailed })
   mark(`option-win-anchor-${node.id}`, 'last-run', 'Last run')
-  mark(`option-stale-state-${node.id}`, 'no-new-comparison', 'Last run · no new comparison yet')
+  // ONE status mark (DL 8 Oct, workstream D): "Last run" wins; the stale line is named in its tooltip, not drawn twice.
+  expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
+  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveAttribute('aria-description', 'Also: Last run · no new comparison yet')
+  expect(screen.getByTestId(`option-bottom-marks-${node.id}`).querySelectorAll('[data-card-mark="last-run"],[data-card-mark="no-new-comparison"]')).toHaveLength(1)
   expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
   cleanup(); seed()
   expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveTextContent('Current model')
