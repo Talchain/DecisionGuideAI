@@ -52,7 +52,8 @@ export function olumiScaleRange(cap: number, unit: string | null | undefined): O
   if (u.length > MAX_UNIT_LENGTH) return null
   const hi = formatNumber(cap)
   if (u === '') return { lo: '0', hi, trailing: '' }
-  if (u === '%') return { lo: '0%', hi: `${hi}%`, trailing: '' }
+  // A rate: '%', or '%' with a period CEE stated ('%/month', '% per month'); the period is never guessed from the label.
+  if (u.startsWith('%')) return { lo: '0%', hi: `${hi}%`, trailing: trailingOf(u.slice(1)) }
   for (const sym of SYMBOLS) {
     if (u.startsWith(sym)) return { lo: `${sym}0`, hi: `${sym}${hi}`, trailing: trailingOf(u.slice(sym.length)) }
   }

@@ -53,6 +53,8 @@ describe('olumiScaleSentence', () => {
 describe('olumiScaleRangeText over the stored unit corpus', () => {
   const rows: ReadonlyArray<readonly [string | undefined, number, string]> = [
     ['%', 13, '0% to 13%'],
+    ['%/month', 13, '0% to 13% a month'],
+    ['% per month', 13, '0% to 13% a month'],
     ['£/month', 98, '£0 to £98 a month'],
     ['£ per subscriber per month', 98, '£0 to £98 per subscriber per month'],
     ['subscribers', 2000, '0 to 2,000 subscribers'],
