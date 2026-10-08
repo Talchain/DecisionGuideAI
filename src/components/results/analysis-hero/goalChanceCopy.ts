@@ -93,7 +93,7 @@ function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (opti
 /** The shared renderer reads the Run's RC4 count, never a count of current canvas links. */
 function estimateLinkAttribution(licence: GoalChanceLicence): string {
   const k = licence.olumiEstimateLinkCount
-  return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'link' : 'links'} (see Check estimates)`
+  return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'relationship' : 'relationships'} (see Check estimates)`
 }
 
 export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
