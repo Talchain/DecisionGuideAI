@@ -700,7 +700,7 @@ export function AnalysisNewTabBody({
   const matrixRunId = useCanvasStore((s) => s.results?.runId)
   const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): while this surface's footer shows the Re-analyse bar,
-  // that is the rerun; the ribbon's Re-run and the ⋯ menu's "Rerun analysis" stand aside (witness 7 Oct: three here).
+  // that is the rerun; the pre-run action, ribbon's Re-run and ⋯ menu's "Rerun analysis" stand aside.
   const footerOwnsRerun = shellRerunControl(useReanalyseBarInputs()) === 'bar'
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
@@ -1620,7 +1620,7 @@ export function AnalysisNewTabBody({
             ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
             renders nothing rather than a control that does nothing — the
             same fail-closed shape `onSendMessage` uses one section over. */}
-        {!isBusyNow && !runRefusedByGate && onReanalyse ? (
+        {!isBusyNow && !runRefusedByGate && onReanalyse && !footerOwnsRerun ? (
           <button
             type="button"
             onClick={onReanalyse}
@@ -2869,7 +2869,7 @@ export function AnalysisNewTabBody({
           <PreRunCommitment
             bullets={buildPreRunCommitmentBullets({
               optionCount: modelStrip.rows.find((r) => r.kind === 'option')?.nodes.length ?? 0,
-              // Exactly the pre-run act's own condition (inside `preRunStatus`).
+              // Run availability; the act itself yields when the footer owns rerun.
               canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse),
             })}
             status={preRunStatus}

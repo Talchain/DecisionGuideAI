@@ -15,11 +15,10 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: vi.fn(() => vi.fn()) }
 })
-// Expensive bodies are irrelevant to the footer mount. Hosts, store, hydration, trust and rerun routing stay real.
+// Unrelated bodies are irrelevant to the footer mount. Reasoning stays real to verify its shared run owner.
 vi.mock('../../components/pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 vi.mock('../../components/ModelTabBody', () => ({ ModelTabBody: () => null }))
 vi.mock('../../components/OlumiTabBody', () => ({ OlumiTabBody: () => null }))
-vi.mock('../../../components/results/analysisNew/AnalysisNewTabBody', () => ({ AnalysisNewTabBody: () => null }))
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({ useStageAwarePlaceholder: () => 'Ask Olumi…' }))
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
@@ -53,9 +52,11 @@ import { FloatingOlumiPanel } from '../../components/FloatingOlumiPanel'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { ToastProvider } from '../../ToastContext'
 import { useReadinessStore } from '../../stores/readinessStore'
+import { useDeclinedSavedRunStore } from '../../stores/declinedSavedRunStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { useUIStore } from '../../../stores/uiStore'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import { ANALYSIS_NEW_COPY as COPY } from '../../../components/results/analysisNew/analysisNewCopy'
 import run1Block from './fixtures/served-6b2b94dd-run1.block.json'
 
 const SID = '11111111-2222-4333-8444-555555555555'
@@ -182,12 +183,44 @@ beforeEach(() => {
     graphHealth: { status: 'healthy', score: 100, issues: [] },
   } as never)
   useChangedSinceRunStore.setState({ scenarioId: null, value: null })
+  useDeclinedSavedRunStore.getState().clear()
 })
 afterEach(() => {
   cleanup()
   useReadinessStore.getState().reset()
   vi.unstubAllGlobals()
   localStorage.removeItem('feature.aiPanelV2')
+})
+
+describe('Reasoning has one run owner', () => {
+  it('a signed-in reportless stale reload leaves Re-analyse as the only run control', async () => {
+    await hydrate('signed-in reportless')
+    await mountHost('analysisNew')
+    const dock = within(screen.getByTestId('outputs-dock'))
+    const status = dock.getByTestId('analysis-new-status-pre-run')
+    expect(status).toHaveTextContent(COPY.status.savedRunStale)
+    expect(status).not.toHaveTextContent(COPY.status.preRun)
+    const bar = within(dock.getByTestId('reanalyse-bar'))
+    expect(dock.getAllByRole('button', { name: /^(Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
+      .toEqual([bar.getByRole('button', { name: 'Re-analyse' })])
+    expect(dock.queryByTestId('analysis-new-status-pre-run-act')).toBeNull()
+  }, 30_000)
+
+  it('a truly never-run model keeps the body run action', async () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'f', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Price' } }],
+      analysisStateV1: { ...stale, run_state: { kind: 'never_run' }, requires_rerun: false },
+    } as never)
+    await mountHost('analysisNew')
+    const dock = within(screen.getByTestId('outputs-dock'))
+    expect(dock.getByTestId('analysis-new-status-pre-run')).toHaveTextContent(COPY.status.preRun)
+    const action = dock.getByTestId('analysis-new-status-pre-run-act')
+    expect(action).toHaveTextContent('Run the analysis')
+    expect(action).toBeEnabled()
+    expect(dock.getAllByRole('button', { name: /^(Re-analyse|Run the analysis|Re-run|Rerun analysis|Analyse)$/ }))
+      .toEqual([action])
+    expect(dock.queryByTestId('reanalyse-bar')).toBeNull()
+  }, 30_000)
 })
 
 describe.each(RELOAD_MODES)('real hosts after %s stale hydration', mode => {
