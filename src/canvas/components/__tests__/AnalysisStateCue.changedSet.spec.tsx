@@ -139,117 +139,36 @@ describe('P48: the analysis-state cue lights the changed set', () => {
     expect(lightingCss()).toContain('rf__node-f')
   })
 
-  it('restored real Run A + A-relative changes + matching complete_stale stamp still lights; Run B clears it', () => {
+  // ⛔ A complete_stale verdict binds NOTHING (Codex review r4 on #2648, P1 ×2): the verdict is not bound to the
+  // displayed report, and a normal stale hydration drops the report. Plain line, never lit against another Run.
+  it.each([
+    ['a matching stamp', { since_run_id: 'run_a', since_run_computed_at: RUN_AT }],
+    ['a one-character mismatch', { since_run_id: 'run_a', since_run_computed_at: '2026-10-08T00:00:00.001Z' }],
+    ['an absent stamp', { since_run_id: 'run_a' }],
+  ])('a stale reload with %s stays the plain line (no toggle, no lighting)', (_name, over) => {
     restoreStaleRun()
     expect(trust.semantic).toBe('changed')
-    expect(useCanvasStore.getState().results.runId).toBe('run_a')
-    expect(useCanvasStore.getState().runDelta).toBeNull()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
-    const { rerender } = renderInFlow()
-    act(() => screen.getByTestId(LIGHT).focus())
-    expect(lightingCss()).toContain('rf__node-f')
-    expect(lightingCss()).toContain('rf__edge-e1')
-    trust.semantic = 'current'
-    act(() => useCanvasStore.setState({ results: {
-      ...useCanvasStore.getState().results, runId: 'run_b', hash: 'hash_b', runEpoch: 2, reportEpoch: 2,
-    } }))
-    rerender(<div className="react-flow"><AnalysisStateCue /></div>)
-    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    adoptChangedSinceRun(SID, wire(over))
+    renderInFlow()
+    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
     expect(lightingCss()).toBeNull()
   })
 
-  it('complete_current still binds by since_run_id, regardless of the stamp, after a stale reload', () => {
+  it('after a stale reload, a complete_current Run B binds by since_run_id and lights', () => {
     restoreStaleRun()
     adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
     renderInFlow()
-    act(() => screen.getByTestId(LIGHT).focus())
-    expect(lightingCss()).toContain('rf__node-f')
+    expect(screen.queryByTestId(LIGHT)).toBeNull()
     act(() => {
       useCanvasStore.setState({
         results: { ...useCanvasStore.getState().results, runId: 'run_b', hash: 'hash_b', runEpoch: 2, reportEpoch: 2 },
         runDelta: delta(), analysisStateV1: { run_state: { kind: 'complete_current', computed_at: RUN_AT } },
       } as never)
-      adoptChangedSinceRun(SID, wire({ since_run_computed_at: '2026-10-08T00:00:00.001Z' }))
+      adoptChangedSinceRun(SID, wire())
     })
-    // A new binding clears lighting even if the DOM button retains focus; refocus to light this Run.
-    act(() => screen.getByTestId(LIGHT).blur())
     act(() => screen.getByTestId(LIGHT).focus())
-    expect(lightingCss()).toContain('rf__node-f')
-    act(() => adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT })))
-    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
-    expect(screen.queryByTestId(LIGHT)).toBeNull()
-    expect(lightingCss()).toBeNull()
-    act(() => adoptChangedSinceRun(SID, wire()))
-    act(() => screen.getByTestId(LIGHT).focus())
-    expect(lightingCss()).toContain('rf__node-f')
-  })
-
-  it.each([
-    ['a stamp one character different', wire({ since_run_id: 'run_a', since_run_computed_at: '2026-10-08T00:00:00.001Z' })],
-    ['an absent stamp', wire({ since_run_id: 'run_a' })],
-    ['a null since_run_id', wire({ since_run_id: null })],
-  ])('a stale reload returns to the plain line on %s, clearing its lighting', (_label, changedSinceRun) => {
-    restoreStaleRun()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
-    renderInFlow()
-    const light = screen.getByTestId(LIGHT)
-    act(() => light.focus())
-    fireEvent.click(light)
-    expect(light).toHaveAttribute('aria-pressed', 'true')
-    expect(lightingCss()).toContain('rf__node-f')
-    act(() => adoptChangedSinceRun(SID, changedSinceRun))
-    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
-    expect(screen.queryByTestId(LIGHT)).toBeNull()
-    expect(lightingCss()).toBeNull()
-    act(() => adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT })))
-    expect(screen.getByTestId(LIGHT)).toHaveAttribute('aria-pressed', 'false')
-    expect(lightingCss()).toBeNull()
-  })
-
-  it.each(['never_run', 'running', 'blocked', 'refused', 'unknown_degraded'])('%s cannot use the stale timestamp binding', (kind) => {
-    restoreStaleRun()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
-    renderInFlow()
-    fireEvent.click(screen.getByTestId(LIGHT))
-    expect(lightingCss()).toContain('rf__node-f')
-    act(() => useCanvasStore.setState({ analysisStateV1: { run_state: { kind } } } as never))
-    expect(screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).textContent).toBe(ANALYSIS_STATE_CUE_COPY)
-    expect(screen.queryByTestId(LIGHT)).toBeNull()
-    expect(lightingCss()).toBeNull()
-  })
-
-  it('matching stale changes cannot claim findings are shown after the report is removed', () => {
-    restoreStaleRun()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
-    renderInFlow()
-    fireEvent.click(screen.getByTestId(LIGHT))
-    expect(lightingCss()).toContain('rf__node-f')
-    act(() => useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, report: null } }))
-    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
-    expect(lightingCss()).toBeNull()
-  })
-
-  it('a new matching stale stamp invalidates the previous focus and pin even with the same since_run_id', () => {
-    restoreStaleRun()
-    adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: RUN_AT }))
-    renderInFlow()
-    const light = screen.getByTestId(LIGHT)
-    act(() => light.focus())
-    fireEvent.click(light)
-    expect(lightingCss()).toContain('rf__node-f')
-    const computedAt = '2026-10-08T00:00:00.001Z'
-    act(() => {
-      useCanvasStore.setState({ analysisStateV1: { run_state: {
-        kind: 'complete_stale', computed_at: computedAt, cause: 'graph_changed',
-      } } } as never)
-      adoptChangedSinceRun(SID, wire({ since_run_id: 'run_a', since_run_computed_at: computedAt }))
-    })
-    expect(screen.getByTestId(LIGHT)).toBe(light)
-    expect(light).toHaveAttribute('aria-pressed', 'false')
-    expect(lightingCss()).toBeNull()
-    act(() => light.blur())
-    act(() => light.focus())
-    expect(lightingCss()).toContain('rf__node-f')
+    expect(lightingCss()).toContain('[data-testid="rf__node-f"]')
   })
 
   it('a V5 report B restored with inherited Run A identity cannot light A-relative changes', () => {
@@ -633,6 +552,24 @@ describe('P48: the lighting rule keeps an id exact', () => {
     const rule = (sheet.sheet!.cssRules[0] as CSSStyleRule).selectorText
     expect(host.querySelector('.changed path')!.matches(rule)).toBe(true)
     expect(host.querySelector('.other path')!.matches(rule)).toBe(false)
+    sheet.remove()
+    host.remove()
+  })
+})
+
+describe('P48: the node lighting rule reaches the changed node itself', () => {
+  it('node f matches the rule and carries the outline; unchanged node g does not match', () => {
+    const host = document.createElement('div')
+    host.className = 'react-flow'
+    host.innerHTML = '<div class="react-flow__node" data-testid="rf__node-f"></div><div class="react-flow__node" data-testid="rf__node-g"></div>'
+    document.body.appendChild(host)
+    const sheet = document.createElement('style')
+    sheet.textContent = changedSetLightingCss(['f'], [])
+    document.head.appendChild(sheet)
+    const rule = sheet.sheet!.cssRules[0] as CSSStyleRule
+    expect(host.querySelector('[data-testid="rf__node-f"]')!.matches(rule.selectorText)).toBe(true)
+    expect(host.querySelector('[data-testid="rf__node-g"]')!.matches(rule.selectorText)).toBe(false)
+    expect(rule.style.getPropertyValue('outline')).toContain('dashed')
     sheet.remove()
     host.remove()
   })

@@ -169,10 +169,12 @@ function useChangedSet() {
   return useMemo(() => {
     if (scenarioId == null || held.scenarioId !== scenarioId || held.value == null) return null
     if (held.value.sinceRunId == null) return null
-    // A complete_stale read omits run_delta. CEE names that Run by result.computed_at instead; compare its exact text.
-    if (staleRunComputedAt !== null) {
-      if (held.value.sinceRunComputedAt !== staleRunComputedAt) return null
-    } else if (displayedRunId == null || held.value.sinceRunId !== displayedRunId) return null
+    // ⛔ A complete_stale read binds nothing here, even when CEE's since_run_computed_at equals run_state.computed_at:
+    // the verdict is not bound to the DISPLAYED report (a historical Run picked from the palette keeps the stale
+    // verdict), and a normal stale hydration drops the report anyway, so the sentence is not shown. Plain line until the
+    // displayed report carries its own Run identity (Codex review r4 on #2648, P1 ×2; DL to rule).
+    if (staleRunComputedAt !== null) return null
+    if (displayedRunId == null || held.value.sinceRunId !== displayedRunId) return null
     const nodeIds = [...held.value.nodeIds]
     const edgeIds = edges.filter((e) => isLinkChangedSinceRun(held, scenarioId, e.source, e.target)).map((e) => e.id)
     const unattributed = held.value.unattributedChanges
