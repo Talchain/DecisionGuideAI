@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { useCanvasStore } from '../store'
 import type { CanonicalAnalysisView } from '../runView/canonicalAnalysisView'
 
 export const useCanonicalAnalysisViewStore = create<{
@@ -8,10 +7,5 @@ export const useCanonicalAnalysisViewStore = create<{
   adopt: (scenarioId: string, view: CanonicalAnalysisView | null) => void
 }>(set => ({ scenarioId: null, view: null, adopt: (scenarioId, view) => set({ scenarioId, view }) }))
 
-// READ-derived authority must not survive leaving its scenario, including a new empty canvas.
-useCanvasStore.subscribe((state, previous) => {
-  if (state.currentScenarioId !== previous.currentScenarioId
-    && useCanonicalAnalysisViewStore.getState().scenarioId !== state.currentScenarioId) {
-    useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
-  }
-})
+// Scenario scoping is at READ time: useResultsSectionData takes the view only when its scenarioId is the current one.
+// No store subscription here — a module-load subscribe broke every spec that mocks useCanvasStore (#2709 CI).
