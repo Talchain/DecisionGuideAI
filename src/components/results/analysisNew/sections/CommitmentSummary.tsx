@@ -384,7 +384,7 @@ export function CommitmentSummary({
               indent. a `<b>` label matches its `b{font-weight:
               600}`, against the plain body weight the label shared with its
               sentence before. */}
-          <ul className="list-disc pl-4 m-0 space-y-1.5">
+          <ul className="list-disc pl-4 m-0 space-y-2">
             {bullets.map((b) => (
               <CommitmentBulletItem
                 key={b.key}
