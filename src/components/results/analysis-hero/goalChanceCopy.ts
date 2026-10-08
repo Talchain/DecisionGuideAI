@@ -56,7 +56,7 @@ const listOf = (items: readonly string[]): string =>
  * The headline for a licensed Run, or `null` when a label or the target cannot be said (the surface then keeps the
  * headline it had). `labelOf` returns the option's display label, or null.
  */
-export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
+function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
   const target = goalChanceTargetWords(licence)
   if (target === null) return null
   const lead = 'In this model, on current information,'
@@ -88,6 +88,19 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
     case 'each':
       return `${lead} each option’s chance of meeting your goal (${target}):`
   }
+}
+
+/** The shared renderer reads the Run's RC4 count, never a count of current canvas links. */
+function estimateLinkAttribution(licence: GoalChanceLicence): string {
+  const k = licence.olumiEstimateLinkCount
+  return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'link' : 'links'} (see Check estimates)`
+}
+
+export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
+  const text = unlabelledGoalChanceHeadline(licence, labelOf)
+  const attribution = estimateLinkAttribution(licence)
+  if (text === null || attribution === '') return text
+  return text.endsWith(':') ? `${text.slice(0, -1)}${attribution}:` : `${text.slice(0, -1)}${attribution}.`
 }
 
 /**
@@ -132,7 +145,7 @@ export function goalChanceOptionLines(
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}.${spread}${shortfall}`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}${estimateLinkAttribution(licence)}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
