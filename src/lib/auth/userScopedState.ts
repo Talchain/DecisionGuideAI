@@ -22,9 +22,9 @@ export { USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES, USER_SCOPED_SES
 
 /** One identity boundary for sign-out and A→B auth transitions. */
 /** `nextOwner`: the identity this boundary leads to (a user id; `null` = signed out); omitted = not known (the epoch always rotates). */
-export function clearUserScopedState(nextOwner?: string | null): void {
-  // Each step on its own: one that throws (`clearAllScenarioStorage` removes three keys unguarded) never stops the steps
-  // after it, so the storage sweep below always runs.
+export function clearUserScopedState(nextOwner?: string | null): 'joined' | 'fresh' {
+  // Each step on its own: one that throws never stops the memory resets after it; a fresh boundary also completes
+  // its shared storage sweep. Joined boundaries reset only this tab's memory.
   const step = (fn: () => void): void => {
     try { fn() } catch { /* the boundary goes on */ }
   }
@@ -32,8 +32,10 @@ export function clearUserScopedState(nextOwner?: string | null): void {
   // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
   // CAN-F2g: THIS tab crosses the boundary and owns the resulting epoch (joining one another tab already rotated for
   // the same boundary); every tab that has not crossed it is stale and cannot write.
-  step(() => crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner))
-  step(() => useCanvasStore.getState().resetCanvas())
+  let boundary: 'joined' | 'fresh' = 'fresh'
+  try { boundary = crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner) } catch { /* cleanup still runs */ }
+  const preserveStorage = boundary === 'joined'
+  step(() => useCanvasStore.getState().resetCanvas({ preserveStorage }))
   // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
   // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,
   // and autosave would then write it for the next account (Codex, #2484 round 2).
@@ -45,25 +47,29 @@ export function clearUserScopedState(nextOwner?: string | null): void {
     draftChatPreDraftSnapshot: null,
     currentScenarioId: null,
   }))
-  step(clearAllScenarioStorage)
-  step(clearAllTranscripts)
-  step(clearAllVersions)
+  if (!preserveStorage) step(clearAllScenarioStorage)
+  step(() => clearAllTranscripts({ preserveStorage }))
+  if (!preserveStorage) step(clearAllVersions)
   step(() => useLayoutStore.getState().resetForAuth())
-  step(clearDurableDissent)
-  step(() => useStrengthenStore.getState()._reset())
-  step(() => useDecisionRecordStore.getState()._reset())
-  step(() => useSuccessMeasureStore.getState()._reset())
+  if (!preserveStorage) step(clearDurableDissent)
+  if (preserveStorage) step(() => useStrengthenStore.setState({ records: {}, priorityOrder: [] }))
+  else step(() => useStrengthenStore.getState()._reset())
+  step(() => useDecisionRecordStore.getState()._reset({ preserveStorage }))
+  if (preserveStorage) step(() => useSuccessMeasureStore.setState({ isOpen: false, byScenario: {} }))
+  else step(() => useSuccessMeasureStore.getState()._reset())
   // The coaching on screen is about the previous identity's model, and a later canvas mount adopts whatever the
   // singleton already holds without re-checking its scenario (`guidanceStore.rehydrateGuidance`). Clear it in memory;
   // the blob goes with the session keys below (its own clear needs a mounted canvas to name the scenario).
-  step(() => useGuidanceStore.getState().clearGuidanceItems())
+  if (preserveStorage) step(() => useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false }))
+  else step(() => useGuidanceStore.getState().clearGuidanceItems())
   // CEE's stored chat turns offered to the panel (`serverConversationTurnsStore`), held in memory and keyed by scenario
   // only: an offer read under the previous identity and not yet taken would be handed to the next account's panel.
   step(() => useServerConversationTurnsStore.setState({ offer: null }))
   // Panel participants' names and their cited evidence, fetched with the previous owner's token (in memory, 5-min TTL).
   step(clearRoundRosterCache)
   step(clearCitedEvidenceCache)
-  step(sweepUserScopedStorage)
-  // The sweep removed `SIGNED_IN_HERE_KEY`: the next signed-in moment on this page records it again (`lapseBoundary.ts`).
+  if (!preserveStorage) step(sweepUserScopedStorage)
+  // This tab crossed the boundary; a fresh sweep removed `SIGNED_IN_HERE_KEY`, while a join preserves shared records.
   step(noteIdentityBoundary)
+  return boundary
 }

@@ -17,6 +17,7 @@ import RouteLoadingFallback from '../components/RouteLoadingFallback'
 import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
 import { AuthProvider } from '../contexts/AuthContext'
 import GuestCopyOnSignIn from '../components/auth/GuestCopyOnSignIn'
+import StaleTabLock from '../components/auth/StaleTabLock'
 // P1 (external review round 2): gate the DebugPanel MOUNT on the ?diag/env check
 // so the ~250 KB chunk downloads only when diagnostics are requested. This is the
 // SINGLE mount — the duplicate ReactFlowGraph mount was removed.
@@ -947,6 +948,7 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
+            <StaleTabLock />
             {/* ACCOUNTS B3: copies a guest's decision into the account on EVERY
                 sign-in path (password, magic link, invite, another tab), so it
                 sits at the shell rather than inside one auth page. Renders null. */}

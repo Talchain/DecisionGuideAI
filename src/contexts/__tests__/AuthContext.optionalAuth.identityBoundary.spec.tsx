@@ -40,7 +40,7 @@ vi.mock('../../lib/auth/userScopedState', async importOriginal => {
     ...real,
     clearUserScopedState: (nextOwner?: string | null) => {
       boundary.calls += 1
-      real.clearUserScopedState(nextOwner)
+      return real.clearUserScopedState(nextOwner)
     },
   }
 })
@@ -77,10 +77,12 @@ async function renderGuestProvider(): Promise<{ fire: (event: string, s: unknown
 
 describe('CAN-F2w × guest posture: the identity boundary', () => {
   // ONE module instance for the whole file (no `vi.resetModules`): the boundary under test and the page's epoch must be
-  // the same `scenarios` module, as they are in a real page. Each case starts as a fresh page load instead.
+  // the same `scenarios` module, as they are in a real page. Give each case a currently-held era after clearing disk.
   beforeEach(async () => {
     vi.clearAllMocks() // each case fires ITS OWN provider's callback, never a previous case's
     localStorage.clear()
+    const { crossIdentityBoundaryInThisTab } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('current-test-page', null)
     boundary.calls = 0
     // A fresh page load also starts with no boundary seen on it (`lapseBoundary.ts` keeps that per page).
     const { __resetLapseBoundaryForTests } = await import('../../lib/auth/lapseBoundary')
@@ -139,10 +141,10 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
     await fire('SIGNED_IN', session('account-a'))
     expect(boundary.calls).toBe(0)
     expect(snapshot()).toEqual(before)
-    expect(localStorage.getItem(EPOCH)).toBeNull()
+    expect(localStorage.getItem(EPOCH)).toBe(before[EPOCH])
   })
 
-  it('a first sign-in adopts an epoch another tab rotated, without sweeping the guest\'s work', async () => {
+  it('S-G2 buddy-r1: a first sign-in in an unmatched rotated era stays LOCKED, without sweeping guest work', async () => {
     const { crossIdentityBoundaryInThisTab, epochThisTabMayWriteUnder } = await import('../../canvas/store/scenarios')
     crossIdentityBoundaryInThisTab('this-tab-before-rotation', null)
     localStorage.setItem(MAIN, A_SLOT)
@@ -155,9 +157,32 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
 
     expect(boundary.calls).toBe(0)
     expect(snapshot()).toEqual(before)
-    expect(epochThisTabMayWriteUnder(), 'the signed-in tab remained stale and unable to save').toEqual({
-      epoch: 'another-tab-boundary|owner:none',
-    })
+    expect(epochThisTabMayWriteUnder(), 'an unmatched first sign-in must stay LOCKED').toBeNull()
+  })
+
+  it.each(['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION'])('S-G2 auth event %s: queued A session cannot join B era', async event => {
+    const { crossIdentityBoundaryInThisTab, getIdentityWriteBlockReason } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('A-page', 'account-a')
+    getSession.mockResolvedValue({ data: { session: session('account-a') } })
+    const { fire } = await renderGuestProvider()
+    localStorage.setItem(EPOCH, 'another-tab-B|owner:account-b')
+    localStorage.setItem(MAIN, A_SLOT)
+    localStorage.setItem(DECISION_RECORD_OWNER, JSON.stringify({ ownerId: 'account-b', epoch: 'B-record-era' }))
+    const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+    await fire(event, session('account-a'))
+    expect(boundary.calls).toBe(0)
+    expect(getIdentityWriteBlockReason(), 'queued A session reauthorized writes in B era').toBe('stale')
+    expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])), 'rejected adoption must not change the current owner record').toEqual(before)
+  })
+
+  it.each(['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION'])('S-G2 auth event %s: matching owner adopts another tab epoch', async event => {
+    const { crossIdentityBoundaryInThisTab, getIdentityWriteBlockReason } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('prior-page', null)
+    const { fire } = await renderGuestProvider()
+    localStorage.setItem(EPOCH, 'another-tab-A|owner:account-a')
+    await fire(event, session('account-a'))
+    expect(boundary.calls).toBe(0)
+    expect(getIdentityWriteBlockReason()).toBeNull()
   })
 
   it('CONTROL: a same-owner refresh (A → A) is not a boundary — storage is byte-identical', async () => {
@@ -168,6 +193,50 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
     await fire('TOKEN_REFRESHED', session('account-a'))
     expect(boundary.calls).toBe(0)
     expect(snapshot()).toEqual(before)
+  })
+
+  it('S-G2 background neighbour: delayed SIGNED_OUT after guest first-sign-in B preserves B decision owner and record', async () => {
+    const { crossIdentityBoundaryInThisTab } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('old-A-tab', 'account-a')
+    getSession.mockResolvedValue({ data: { session: session('account-a') } })
+    const { fire } = await renderGuestProvider()
+    // Another tab signs A out, then the current guest first-signs-in as B. First sign-in keeps the guest era.
+    localStorage.setItem(EPOCH, 'current-guest-era|owner:none')
+    const { observeDecisionRecordOwner, useDecisionRecordStore } = await import('../../components/results/modals/decisionRecordStore')
+    observeDecisionRecordOwner('account-b') // the real owner adoption called by B's first SIGNED_IN
+    const record = { optionId: 'B-option', optionLabel: 'B reasoning', optionNumber: 1, confidence: 70,
+      rationale: 'B words', expectation: 'B expectation', assumptionToWatch: 'B assumption',
+      revisitTrigger: '2026-12-01', analysisHash: 'B-hash', savedAt: 1234, remote: null }
+    expect(useDecisionRecordStore.getState().saveRecord('B-scenario', record)).not.toBeNull()
+    const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+
+    await fire('SIGNED_OUT', null) // a suspended A tab finally receives the original sign-out
+
+    expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])),
+      'background owner observation after a join must not revoke B or erase the current record').toEqual(before)
+    expect(useDecisionRecordStore.getState().byScenario, 'the stale tab resets only its own memory').toEqual({})
+    observeDecisionRecordOwner('account-b')
+    expect(useDecisionRecordStore.getState().byScenario['B-scenario']).toEqual(record)
+  })
+
+  it('CONTROL S-G2 joined A→B adopts B decision records in memory without rewriting shared storage', async () => {
+    const { crossIdentityBoundaryInThisTab } = await import('../../canvas/store/scenarios')
+    crossIdentityBoundaryInThisTab('old-A-tab', 'account-a')
+    getSession.mockResolvedValue({ data: { session: session('account-a') } })
+    const { fire } = await renderGuestProvider()
+    localStorage.setItem(EPOCH, 'current-B-era|owner:account-b')
+    const { observeDecisionRecordOwner, useDecisionRecordStore } = await import('../../components/results/modals/decisionRecordStore')
+    observeDecisionRecordOwner('account-b')
+    const record = { optionId: 'B-option', optionLabel: 'B reasoning', optionNumber: 1, confidence: 70,
+      rationale: 'B words', expectation: 'B expectation', assumptionToWatch: 'B assumption',
+      revisitTrigger: '2026-12-01', analysisHash: 'B-hash', savedAt: 1234, remote: null }
+    expect(useDecisionRecordStore.getState().saveRecord('B-scenario', record)).not.toBeNull()
+    localStorage.setItem('olumi-signed-in-here.v1', '1') // B's existing sign-in also records the lapse marker
+    const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+    await fire('SIGNED_IN', session('account-b'))
+    expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))).toEqual(before)
+    expect(useDecisionRecordStore.getState().byScenario['B-scenario']).toEqual(record)
+    expect(useDecisionRecordStore.getState().saveRecord('B-scenario', { ...record, rationale: 'B next words' })).not.toBeNull()
   })
 
   it('an explicit sign-out runs the boundary ONCE (its own SIGNED_OUT event does not rotate the epoch again)', async () => {

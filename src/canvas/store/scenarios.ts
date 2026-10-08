@@ -780,12 +780,14 @@ function eraOwnerOf(epoch: string): string | undefined {
  * Otherwise rotate, then adopt whatever the shared key actually HOLDS, so a refused or silently dropped epoch write is
  * never adopted (coldLoadDeepLink.spec, "an epoch write … at sign-out").
  */
-export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: string | null): void {
+export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: string | null): 'joined' | 'fresh' {
   const shared = readIdentityEpoch()
   const next = nextOwner === undefined ? undefined : ownerTag(nextOwner)
   if (typeof shared === 'string' && shared !== tabIdentityEpoch && next !== undefined && eraOwnerOf(shared) === next) {
     tabIdentityEpoch = shared
-    return
+    pendingIdentityEpochWitness = undefined
+    notifyIdentityEpochChanged()
+    return 'joined'
   }
   try {
     localStorage.setItem(IDENTITY_EPOCH_KEY, `${freshEpoch}${EPOCH_OWNER_TAG}${ownerTag(nextOwner)}`)
@@ -794,16 +796,26 @@ export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: s
   }
   tabIdentityEpoch = readIdentityEpoch()
   pendingIdentityEpochWitness = undefined
+  notifyIdentityEpochChanged()
+  return 'fresh'
 }
-/**
- * A sign-in that is NOT an identity boundary in this tab (the same account again, or this tab's first). That tab
- * already swept its own previous identity, or never had one, so it holds no other account's model, and it takes
- * whatever era the browser is now in. Without this, a tab whose epoch another tab rotated (a null-session boot sweep)
- * stayed unable to save after signing back in, until a reload (Codex #2516 r2, real-auth).
- */
-export function adoptIdentityEpochAtSignIn(): void {
-  tabIdentityEpoch = readIdentityEpoch()
-  pendingIdentityEpochWitness = undefined
+/** A non-boundary auth event may join only its own owner's era; a queued session cannot authorise another account. */
+export function adoptIdentityEpochAtSignIn(userId: string): boolean {
+  const shared = readIdentityEpoch()
+  // A transient refusal is not evidence of a boundary. Retain the valid tab witness and any pending boot witness.
+  if (shared === undefined) return true
+  if (shared === tabIdentityEpoch || (typeof shared === 'string' && eraOwnerOf(shared) === userId)) {
+    tabIdentityEpoch = shared
+    pendingIdentityEpochWitness = undefined
+    notifyIdentityEpochChanged()
+    return true
+  }
+  notifyIdentityEpochChanged() // the mounted lock latches synchronously, before any further auth side effects
+  return false
+}
+
+function notifyIdentityEpochChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('olumi:identity-epoch-changed'))
 }
 /**
  * Whether this tab may write identity-stamped state now, and under which epoch. `null` = skip: the shared epoch is
@@ -840,6 +852,13 @@ export function getIdentityWriteBlockReason(): IdentityWriteBlockReason | null {
   return 'reason' in permission ? permission.reason : null
 }
 
+/** The page lock also covers a readable key removal; unresolved boot storage is never guessed stale. */
+export function isIdentityEpochStaleForThisTab(): boolean {
+  const permission = identityWritePermission()
+  if ('reason' in permission) return permission.reason === 'stale'
+  return permission.epoch !== tabIdentityEpoch
+}
+
 export function identityWriteBlockedMessage(reason: IdentityWriteBlockReason): string {
   return reason === 'unreadable'
     ? 'This browser is not letting Olumi save right now, so this change was not saved.'
@@ -869,19 +888,22 @@ function showAutosaveFenceToast(reason: IdentityWriteBlockReason, epoch?: string
   showIdentityWriteBlockedToast(reason)
 }
 
+/** Shared automatic recovery/autosave notice decision: one warning per stale era, from one permission read. */
+export function automaticIdentityWriteAllowed(): boolean {
+  const permission = identityWritePermission()
+  if ('reason' in permission) {
+    showAutosaveFenceToast(permission.reason, permission.reason === 'stale' ? permission.epoch : undefined)
+    return false
+  }
+  autosaveNotifiedUnreadable = false
+  return true
+}
+
 /** Returns whether the slot now holds this write (an identical payload already does). `false` = nothing was written. */
 export function saveAutosave(data: AutosaveData): boolean {
   if (!isLocalStorageAvailable()) {
     if (!isThinClientSession()) showAutosaveFenceToast('unreadable')
     return false
-  }
-
-  // THIN CLIENT: a signed-in browser writes the LAYOUT only, never the model. Every writer that reaches the
-  // main slot (`useAutosave`, `crashFlush`, `applyDraftResult`) comes through here. Reported as written, exactly as
-  // before CAN-F2g: the model's copy is CEE's, and this port changes no thin-page behaviour.
-  if (isThinClientSession()) {
-    saveThinLayout(data.scenarioId, data.nodes)
-    return true
   }
 
   // CAN-F2w: every write is stamped with the current identity epoch. CAN-F2g: and only by a tab that holds it.
@@ -895,6 +917,11 @@ export function saveAutosave(data: AutosaveData): boolean {
     return false
   }
   autosaveNotifiedUnreadable = false
+  // A current thin page still reports true for its layout write; stale or unreadable pages reach no layout writer.
+  if (isThinClientSession()) {
+    saveThinLayout(data.scenarioId, data.nodes)
+    return true
+  }
   const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {

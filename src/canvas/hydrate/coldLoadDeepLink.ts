@@ -88,12 +88,9 @@ function read(key: string): string | null | undefined {
     return undefined
   }
 }
-/** The same tab fence and notice as Save; the first Canvas mount may be much later than this page's boot. */
+/** Automatic deep-link recovery and autosave share one per-era notice; this mount may be much later than boot. */
 function localWriteAllowed(): boolean {
-  const reason = scenarios.getIdentityWriteBlockReason()
-  if (reason === null) return true
-  scenarios.showIdentityWriteBlockedToast(reason)
-  return false
+  return scenarios.automaticIdentityWriteAllowed()
 }
 /** A write that cannot throw: whether it was accepted, rechecking the fence even during recovery. */
 function write(key: string, value: string | null): boolean {

@@ -248,8 +248,8 @@ export interface DecisionRecordState {
    */
   attachRemote: (scenarioKey: string, capture: DecisionRecordCapture, remote: DecisionRecordRemote) => boolean
   isCurrentCapture: (scenarioKey: string, capture: DecisionRecordCapture) => boolean
-  /** Test/reset seam — clears memory AND storage. */
-  _reset: () => void
+  /** Test/reset seam — clears memory and storage unless preserving storage for joined-era cleanup. */
+  _reset: (options?: { preserveStorage?: boolean }) => void
   /** Test seam — re-reads localStorage (simulates a reload, or a new tab). */
   _rehydrateForTests: () => void
 }
@@ -352,15 +352,17 @@ function write(key: string, value: unknown): 'persisted' | false {
 }
 
 /** Existing auth adoption calls this before exposing the next user's UI. */
-export function observeDecisionRecordOwner(ownerId: string | null): void {
+export function observeDecisionRecordOwner(ownerId: string | null, options?: { preserveStorage?: boolean }): void {
   const current = readBoundary()
+  // A delayed joined transition can adopt an existing matching owner, but must never revoke the current era's owner.
+  if (options?.preserveStorage && (!current || current.ownerId !== ownerId)) { invalidate(); return }
   // Tabs observing the same transition must choose the same generation. A
   // random initial epoch let the later publisher erase the first tab's notes.
   // Explicit sign-out still rotates to a random epoch before deleting records.
   const next: Boundary = current && current.ownerId === ownerId ? current : {
     ownerId, epoch: uuidv5(JSON.stringify([current?.epoch ?? null, ownerId]), uuidv5.URL),
   }
-  if (!current || current.ownerId !== ownerId) {
+  if (!options?.preserveStorage && (!current || current.ownerId !== ownerId)) {
     // Publish revocation first, so a stale tab cannot refill the cleared generation.
     try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }
     eraseRecords(next.epoch, !!current && current.ownerId !== ownerId)
@@ -422,7 +424,8 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
     return stillCurrent
   },
 
-  _reset: () => {
+  _reset: (options) => {
+    if (options?.preserveStorage) { invalidate(); return }
     clearDecisionRecords()
     observeDecisionRecordOwner(null)
   },

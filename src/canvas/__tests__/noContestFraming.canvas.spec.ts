@@ -109,6 +109,7 @@ const SCOPE_DIRS = [
   'src/v5/blocks',
 ]
 const SCOPE_FILES = [
+  'src/components/auth/StaleTabLock.tsx',
   'src/components/results/analysisNew/sections/PreMortemWorksheet.tsx',
   'src/components/results/analysis-hero/goalOptionCoverage.tsx',
   // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
@@ -597,4 +598,8 @@ describe('the canvas never frames a decision as a contest', () => {
 
 it('S4-UI: the contest sweep includes per-option withholding copy', () => {
   expect(scopeFiles()).toContain(path.join(ROOT, 'src/components/results/analysis-hero/goalOptionCoverage.tsx'))
+})
+
+it('S-G2: the contest sweep includes the mounted stale-tab lock copy', () => {
+  expect(scopeFiles()).toContain(path.join(ROOT, 'src/components/auth/StaleTabLock.tsx'))
 })

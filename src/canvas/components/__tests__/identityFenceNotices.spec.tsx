@@ -17,6 +17,8 @@ vi.mock('@xyflow/react', async (importOriginal) => {
 const EPOCH_KEY = 'olumi-canvas-identity-epoch'
 const SLOT = 'olumi-canvas-autosave'
 const A_ID = 'aaaaaaaa-0000-4000-8000-00000000000a'
+const B_ID = 'bbbbbbbb-0000-4000-8000-00000000000b'
+const POINTER = 'olumi-canvas-current-scenario-id'
 const STALE = 'Someone signed in or out in another tab, so this tab can no longer save. Changes made here since then were not saved, and reloading will discard them. Reload this tab to carry on.'
 const UNREADABLE = 'This browser is not letting Olumi save right now, so this change was not saved.'
 
@@ -47,7 +49,7 @@ async function bootGuestUi() {
 
 async function signInThenOutInAnotherTab() {
   const other = await bootTab()
-  other.auth.adoptIdentityEpochAtSignIn()
+  other.auth.adoptIdentityEpochAtSignIn('user-A')
   other.auth.clearUserScopedState(null)
   return other
 }
@@ -159,6 +161,52 @@ describe('identity fences answer the real Save entry points', () => {
 })
 
 describe('autosave discloses a fence once per tab per fenced era', () => {
+  it('P2: deep-link rollback and following autosave share one stale notice for the same era', async () => {
+    const guest = await bootGuestUi()
+    const deepLink = await import('../../hydrate/coldLoadDeepLink')
+    guest.scenarios.setCurrentScenarioId(A_ID)
+    expect(guest.scenarios.saveAutosave({
+      scenarioId: A_ID,
+      nodes: guest.store.getState().nodes,
+      edges: [],
+      timestamp: Date.now(),
+    })).toBe(true)
+    guest.store.setState({ nodes: [], edges: [] }) // a first Canvas mount with only a remembered slot
+    const other = await bootTab()
+    const storageSnapshot = () => Object.fromEntries(
+      Object.keys(localStorage).sort().map((key) => [key, localStorage.getItem(key)]),
+    )
+    let storageAtBoundary: Record<string, string | null> | undefined
+    const setItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      setItem.call(this, key, value)
+      // The external boundary lands after the pointer write but before its verification. Both rollback writes
+      // consequently hit the fence, followed by the old tab's periodic autosave.
+      if (this === localStorage && key === POINTER && value === B_ID) {
+        other.auth.clearUserScopedState(null)
+        storageAtBoundary = storageSnapshot()
+      }
+    })
+    const events: string[] = []
+    const onToast = (event: Event) => { events.push((event as CustomEvent).detail.message) }
+    window.addEventListener('topbar:show-toast', onToast)
+    try {
+      expect(deepLink.claimColdLoadDeepLink(B_ID)).toBe('declined')
+      expect(storageAtBoundary, 'precondition: the boundary landed inside the write/readback window').toBeDefined()
+      expect(guest.scenarios.saveAutosave({
+        scenarioId: A_ID,
+        nodes: guest.store.getState().nodes,
+        edges: [],
+        timestamp: Date.now() + 1,
+      })).toBe(false)
+      expect(storageSnapshot(), 'rollback and autosave must leave the new identity storage unchanged').toEqual(storageAtBoundary)
+      expect(events, 'deep-link recovery and autosave must share a tab-lifetime, per-era dedupe').toEqual([STALE])
+    } finally {
+      deepLink.__resetColdLoadDeepLinkForTests()
+      window.removeEventListener('topbar:show-toast', onToast)
+    }
+  })
+
   it('STALE ERA: stale, unreadable, stale ticks in one shared epoch show exactly one stale notice', async () => {
     const guest = await bootGuestUi()
     await signInThenOutInAnotherTab()

@@ -374,7 +374,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingUser, setPendingUser] = React.useState<User | null>(null);
 
   const handleAuthStateChange = useCallback((session: Session | null) => {
-    observeDecisionRecordOwner(session?.user.id ?? null);
     if (!session) {
       clearAuthStates();
       clearSentryUser();
@@ -387,8 +386,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set user immediately (synchronous side-effects only).
     // Profile fetch is deferred to the useEffect below.
     const u = session.user;
-    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState(u.id);
-    else adoptIdentityEpochAtSignIn(); // not a boundary here: take the browser's current era (CAN-F2g, #2516)
+    let joinedBoundary = false;
+    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) joinedBoundary = clearUserScopedState(u.id) === 'joined';
+    else if (!adoptIdentityEpochAtSignIn(u.id)) return; // an unmatched era locks before auth can publish owner state
+    observeDecisionRecordOwner(u.id, { preserveStorage: joinedBoundary });
     lastSignedInUserId = u.id;
     setSentryUser(u.id, u.email ?? '');
     identifyUser(u.id, u.email ?? '', u.user_metadata?.full_name);
@@ -600,11 +601,12 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       const nextOwner = s?.user.id ?? null;
       // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
       // B before it left B's records owned by nobody (Codex #2484 final round).
-      if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState(nextOwner);
-      // A first sign-in or same-owner refresh is not a boundary: take the browser's current era (CAN-F2g; Codex #2646 r1).
-      else if (s) adoptIdentityEpochAtSignIn();
+      let joinedBoundary = false;
+      if (ownerRef.current !== null && nextOwner !== ownerRef.current) joinedBoundary = clearUserScopedState(nextOwner) === 'joined';
+      // A first sign-in or refresh joins only an era owned by this user (or one this tab already holds).
+      else if (s && !adoptIdentityEpochAtSignIn(s.user.id)) return;
       ownerRef.current = nextOwner;
-      observeDecisionRecordOwner(nextOwner);
+      observeDecisionRecordOwner(nextOwner, { preserveStorage: joinedBoundary });
       if (!s) {
         setSession(null);
         setPendingUser(null);
