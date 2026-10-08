@@ -41,6 +41,11 @@
  * locally invented verdict could also satisfy.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// The timer harness supplies the new request-time session dependency.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import { useReadinessStore, __test__ } from '../readinessStore'
 import { useCanvasStore } from '../../store'
 import { clearInflightCache, CEE_READINESS_LEVELS } from '../../hooks/useGraphReadiness'
