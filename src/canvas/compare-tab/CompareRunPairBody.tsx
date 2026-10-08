@@ -123,7 +123,8 @@ export function CompareRunPairBody({
   const unsizedLinks = useMemo(() => unsizedLinksOf(inferenceWarnings), [inferenceWarnings])
   // The first sized pair: the latest side from the report on screen, which `view` (non-null only when the stored delta
   // describes this same response_hash and scenario) already binds to the delta's latest Run.
-  const report = useCanvasStore(s => s.results?.report)
+  // Self-binding as `nearTie` is: the report counts only while its hash is the one this tab was handed.
+  const report = useCanvasStore(s => (s.results?.hash === responseHash ? s.results?.report : null))
   const latestShares = useMemo(() => view === null ? null : latestOnlyShares(view, report, (id) => labels.get(id) ?? null), [view, report, labels])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
