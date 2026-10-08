@@ -4328,7 +4328,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 // screen. After the first run this arm IS the 'reanalyse' arm.
                 case 'reanalyseAfterFirstRun':
                 case 'reanalyse':
-                  if (bar === 'reanalyseAfterFirstRun' && isPreRun) return null
+                  if (bar === 'reanalyseAfterFirstRun' && !rerunInputs.hasRunOnRecord) return null
                   return (
                     <ReanalyseBar
                       onReanalyse={handleRunAnalysis}
@@ -4357,7 +4357,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   // SAME bar and gate trio as the 'reanalyse' arm above: it renders
                   // its own null unless the model changed (or a held import cannot
                   // confirm), so a fresh Run shows nothing here.
-                  if (!isPreRun) {
+                  if (rerunInputs.hasRunOnRecord) {
                     return (
                       <ReanalyseBar
                         onReanalyse={handleRunAnalysis}

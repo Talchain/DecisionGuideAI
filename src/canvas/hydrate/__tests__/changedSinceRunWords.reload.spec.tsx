@@ -43,10 +43,10 @@ const fetchSpy = vi.fn()
 function mount(blockedReason?: string) {
   return render(<ReanalyseBar onReanalyse={vi.fn()} canRun={!blockedReason} blockedReason={blockedReason} isAnalysing={false} />)
 }
-async function read(over: Record<string, unknown> = {}) {
+async function read(over: Record<string, unknown> = {}, includeConversationTurns = true) {
   fetchSpy.mockResolvedValue(new Response(JSON.stringify(body(over)), { status: 200 }))
   let outcome: Awaited<ReturnType<typeof hydrateCanvasFromServer>> | undefined
-  await act(async () => { outcome = await hydrateCanvasFromServer(SID, { includeConversationTurns: true }) })
+  await act(async () => { outcome = await hydrateCanvasFromServer(SID, { includeConversationTurns }) })
   return outcome
 }
 async function namedReload() {
@@ -123,10 +123,24 @@ describe('changed-since-Run words after reload', () => {
     expect(screen.queryByText(SUMMARY)).not.toBeInTheDocument()
   })
 
-  it('a refused merge cannot attach a new set to the previously adopted stale verdict', async () => {
+  it('a later accepted non-conversation read of the SAME stale Run keeps the words', async () => {
+    await namedReload()
+    const adopted = useCanvasStore.getState().analysisStateV1
+    const held = useChangedSinceRunStore.getState().value
+    expect(await read({}, false)).toBe('unchanged')
+    expect(JSON.parse(fetchSpy.mock.calls.at(-1)![1].body).include_conversation_turns).not.toBe(true)
+    expect(useCanvasStore.getState().analysisStateV1).not.toBe(adopted)
+    expect(useCanvasStore.getState().analysisStateV1?.run_state).toEqual(adopted?.run_state)
+    expect(useChangedSinceRunStore.getState().value).toBe(held)
+    expect(screen.getAllByText(SUMMARY)).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Re-analyse' })).toBeInTheDocument()
+  })
+
+  it('a refused merge with a different Run cannot attach a new set to the previously adopted stale verdict', async () => {
     await namedReload()
     const adopted = useCanvasStore.getState().analysisStateV1
     expect(await read({
+      analysis_state: { ...stale, run_state: { kind: 'complete_stale', computed_at: '2026-10-08T10:00:00.000Z', cause: 'graph_changed' } },
       graph_identity_hash: identity('b'.repeat(64)),
       graph: { nodes: [{ id: 'foreign', kind: 'factor', label: 'Another model' }], edges: [] },
       changed_since_run: { ...changed, node_ids: ['o'], links: [] },
@@ -152,10 +166,13 @@ describe('changed-since-Run words after reload', () => {
     expectGeneric()
   })
 
-  it('a foreign response cannot contribute a sentence', async () => {
+  it('a foreign response cannot replace the held words for the accepted Run', async () => {
     await namedReload()
-    expect(await read({ scenario_id: OTHER })).toBe('unchanged')
-    expectGeneric()
+    const held = useChangedSinceRunStore.getState().value
+    expect(await read({ scenario_id: OTHER, changed_since_run: { ...changed, node_ids: ['o'], links: [] } })).toBe('unchanged')
+    expect(useChangedSinceRunStore.getState().value).toBe(held)
+    expect(screen.getAllByText(SUMMARY)).toHaveLength(1)
+    expect(screen.queryByText('Changed since your last Run: ‘Revenue’.')).not.toBeInTheDocument()
   })
 
   it.each([
@@ -202,7 +219,7 @@ describe('changed-since-Run words after reload', () => {
   it('current and cannot-confirm semantics cannot show held changed words', async () => {
     await namedReload()
     const verdict = useCanvasStore.getState().analysisStateV1!
-    // Keep this EXACT bound object to discriminate semantic gating from identity gating.
+    // Reuse the verdict object: the recorded kind and timestamp must remain an adoption-time snapshot.
     act(() => {
       verdict.run_state = { kind: 'complete_current', computed_at: '2026-10-08T09:00:00.000Z' }
       verdict.requires_rerun = false

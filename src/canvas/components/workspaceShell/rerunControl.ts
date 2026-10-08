@@ -22,14 +22,15 @@ import type { OutputTab } from '../../../stores/uiStore'
 import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
+import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
 
 export interface ReanalyseBarInputs {
   /** `useAnalysisTrust().semantic`. */
   semantic: FreshnessDisplaySemantic
   /** `importPendingServerRegistration`: the canvas holds an import the server has not registered. */
   importHold: boolean
-  /** Whether a Run has EVER completed for this model (read from the store, never inferred from `semantic`). */
-  hasCompletedFirstRun: boolean
+  /** A locally completed Run or a completed Run on the server record, supplied by the shared state predicate. */
+  hasRunOnRecord: boolean
   /** The readiness bar's pre-run window; absent means this caller offers no readiness button. */
   preRunWithModel?: boolean
 }
@@ -44,8 +45,8 @@ export function readinessBarShowsAnalyse(preRunWithModel: boolean): boolean {
  * stand aside for it read ONE predicate: never run → the bar (as "Analyse"); a held import it cannot confirm → the bar
  * ("Can't confirm…"); the model changed → the bar ("Model changed…"); anything else → no bar.
  */
-export function reanalyseBarShows({ semantic, importHold, hasCompletedFirstRun }: ReanalyseBarInputs): boolean {
-  const neverRun = !hasCompletedFirstRun
+export function reanalyseBarShows({ semantic, importHold, hasRunOnRecord }: ReanalyseBarInputs): boolean {
+  const neverRun = !hasRunOnRecord
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   return semantic === 'changed' || heldUnsure || neverRun
 }
@@ -55,17 +56,20 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
-  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
+  const hasRunOnRecord = useCanvasStore((s) => selectHasRunOnRecord({
+    hasCompletedFirstRun: s.hasCompletedFirstRun ?? true,
+    analysisStateV1: s.analysisStateV1,
+  }))
   // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
   const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
-  return { semantic, importHold, hasCompletedFirstRun, preRunWithModel: !hasCompletedFirstRun && nodeCount > 0 }
+  return { semantic, importHold, hasRunOnRecord, preRunWithModel: !hasRunOnRecord && nodeCount > 0 }
 }
 
 /** Which shell control owns the run. Before the first Run, 'none' leaves the chat chip available. */
 export type ShellRerunControl = 'readiness' | 'bar' | 'composer' | 'none'
 
 export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl {
-  if (!inputs.hasCompletedFirstRun) return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false) ? 'readiness' : 'none'
+  if (!inputs.hasRunOnRecord) return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false) ? 'readiness' : 'none'
   return reanalyseBarShows(inputs) ? 'bar' : 'composer'
 }
 
@@ -85,7 +89,7 @@ export function hostRerunControl(host: RerunHost, inputs: ReanalyseBarInputs): H
   const shell = shellRerunControl(inputs)
   if (host === 'docked') return shell
   // The floating host mounts no pre-run Analyse. 'beside-dock' is selected only when the dock shows a control.
-  if (!inputs.hasCompletedFirstRun) return host === 'floating-beside-dock' ? 'elsewhere' : 'none'
+  if (!inputs.hasRunOnRecord) return host === 'floating-beside-dock' ? 'elsewhere' : 'none'
   if (host === 'floating-beside-dock') return shell === 'none' ? 'none' : 'elsewhere'
   // The floating panel has no composer icon: it shows its own bar while the bar would show, and nothing otherwise
   // (a current analysis needs no rerun).
@@ -107,9 +111,9 @@ export function chatRunChipStandsAside(control: HostRerunControl): boolean {
  * when the bar shows; the Analysis tab's body footer carries its Rerun once a Run exists.
  */
 export function dockSurfaceShowsRerun(tab: OutputTab, inputs: ReanalyseBarInputs): boolean {
-  if (tab === 'results') return inputs.hasCompletedFirstRun
+  if (tab === 'results') return inputs.hasRunOnRecord
   const footerBar = WORKSPACE_SURFACES[tab].footerBar
-  if (!inputs.hasCompletedFirstRun) {
+  if (!inputs.hasRunOnRecord) {
     if (footerBar === 'readiness') return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false)
     // Model mounts the never-run ReanalyseBar; Reasoning's after-first-run arm does not.
     return footerBar === 'reanalyse' && reanalyseBarShows(inputs)

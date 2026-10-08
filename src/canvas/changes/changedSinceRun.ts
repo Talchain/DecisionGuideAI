@@ -83,15 +83,22 @@ interface ChangedSinceRunState {
 
 export const useChangedSinceRunStore = create<ChangedSinceRunState>(() => ({ scenarioId: null, value: null }))
 
-// Like analysisStaleReasonWords, words belong to the exact verdict the read actually adopted. A refused merge
-// leaves the previous verdict in place; its new set must not become readable against that previous verdict.
-let recorded: { readonly verdict: AnalysisStateV1; readonly value: ChangedSinceRun } | null = null
+// Snapshot the adopted Run's identity, so another accepted read of that same Run can keep the held words.
+// A refused read of a different Run leaves the previous verdict in place and cannot attach its new set to it.
+let recorded: {
+  readonly kind: AnalysisStateV1['run_state']['kind']
+  readonly computedAt: string
+  readonly value: ChangedSinceRun
+} | null = null
 
 export function changedSinceRunForVerdict(
   state: ChangedSinceRunState,
   verdict: AnalysisStateV1 | null | undefined,
 ): ChangedSinceRun | null {
-  return recorded !== null && verdict === recorded.verdict && state.value === recorded.value ? recorded.value : null
+  const runState = verdict?.run_state
+  return recorded !== null && runState !== undefined && 'computed_at' in runState &&
+    runState.kind === recorded.kind && runState.computed_at === recorded.computedAt &&
+    state.value === recorded.value ? recorded.value : null
 }
 
 /**
@@ -100,7 +107,9 @@ export function changedSinceRunForVerdict(
  */
 export function adoptChangedSinceRun(scenarioId: string, raw: unknown, verdict: AnalysisStateV1 | null = null): void {
   const value = readChangedSinceRun(raw)
-  recorded = verdict !== null && value !== null ? { verdict, value } : null
+  const runState = verdict?.run_state
+  recorded = runState !== undefined && 'computed_at' in runState && value !== null
+    ? { kind: runState.kind, computedAt: runState.computed_at, value } : null
   useChangedSinceRunStore.setState({ scenarioId, value })
 }
 

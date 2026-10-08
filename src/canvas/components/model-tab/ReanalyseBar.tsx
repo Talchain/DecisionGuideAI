@@ -76,7 +76,6 @@ import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { reanalyseBarShows, useReanalyseBarInputs } from '../workspaceShell/rerunControl'
 import { useCanvasStore } from '../../store'
-import { selectRunOnRecord } from '../../state/analysisStateSelector'
 import { changedSinceRunForVerdict, useChangedSinceRunStore } from '../../changes/changedSinceRun'
 import { changedSinceRunWords } from '../../changes/changedSinceRunWords'
 
@@ -150,9 +149,9 @@ export function ReanalyseBar({
 }: ReanalyseBarProps) {
   // The inputs and the show predicate live in `workspaceShell/rerunControl.ts`, the one owner of "which control
   // reruns the analysis", so every control that stands aside for this bar reads the same condition. The store reads
-  // are unchanged (including `hasCompletedFirstRun ?? true`, the defensive default `composeAnalysisState` applies).
+  // use the shared Run-on-record fact, including reportless reloads.
   const barInputs = useReanalyseBarInputs()
-  const { semantic, importHold, hasCompletedFirstRun } = barInputs
+  const { semantic, importHold, hasRunOnRecord } = barInputs
   const verdict = useCanvasStore((s) => s.analysisStateV1)
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const nodes = useCanvasStore((s) => s.nodes)
@@ -194,12 +193,12 @@ export function ReanalyseBar({
    * cannot be `'never_run'` even when no run has ever completed — a freshly
    * registered, never-analysed model then reported "Can't confirm this
    * analysis matches the current model", asserting an analysis that never
-   * existed. `hasCompletedFirstRun` does not pass through that fork, so a truly
+   * existed. The shared Run-on-record fact does not pass through that fork, so a truly
    * never-run model still wins over the import-registration hold. A stale reload
    * carries the server's Run-on-record verdict without a report or that local
-   * flag: honour that fact only in this bar's headline/control-label decision.
+   * flag: the same fact decides host routing and this bar's headline/control label.
    */
-  const neverRun = !hasCompletedFirstRun && !selectRunOnRecord(verdict)
+  const neverRun = !hasRunOnRecord
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   if (!reanalyseBarShows(barInputs)) return null
 
