@@ -447,17 +447,17 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
   it('⭐ a bullet with more to say shows ONE short line at rest; the rest opens beneath it', () => {
     const withDetail: CommitmentSynthesis = {
       ...FULL,
-      open: { text: 'It rests on 2 assumptions Olumi made.', detail: 'Olumi assumed how strongly each of these works:', detailItems: ['‘A’ affects ‘B’', '‘C’ affects ‘B’'], source: 'leader_withheld_cause' },
+      open: { text: "2 links Olumi drafted aren't sized in the model yet.", detail: 'Olumi drafted these links; none is sized in the model yet:', detailItems: ['‘A’ affects ‘B’', '‘C’ affects ‘B’'], source: 'leader_withheld_cause' },
     }
     renderZone({ synthesis: withDetail })
-    expect(screen.getByTestId(`${TID}-open-text`).textContent).toBe('It rests on 2 assumptions Olumi made.')
+    expect(screen.getByTestId(`${TID}-open-text`).textContent).toBe("2 links Olumi drafted aren't sized in the model yet.")
     expect(screen.queryByTestId(`${TID}-open-detail`), 'closed at rest').toBeNull()
     const toggle = screen.getByTestId(`${TID}-open-toggle`)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     const detail = screen.getByTestId(`${TID}-open-detail`)
-    expect(detail).toHaveTextContent('Olumi assumed how strongly each of these works:')
+    expect(detail).toHaveTextContent('Olumi drafted these links; none is sized in the model yet:')
     expect(within(detail).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['‘A’ affects ‘B’', '‘C’ affects ‘B’'])
     // CONTRAST: a bullet with nothing more to say has no chevron.
     expect(screen.queryByTestId(`${TID}-founded-toggle`)).toBeNull()
