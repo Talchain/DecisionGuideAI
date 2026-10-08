@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useShowToastSafe } from '../../../ToastContext'
-import { useConnectGesture } from '../../../hooks/useConnectGesture'
+import { CONNECTION_REFUSAL_COPY, useConnectGesture } from '../../../hooks/useConnectGesture'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
 import { controls } from '../../../../styles/controls'
@@ -64,7 +64,11 @@ export function InspectorConnectPicker({
           if (isViewerSession()) return
           const targetId = event.target.value
           if (!targets.some(target => target.id === targetId)) return
-          if (!isValidConnection({ source: nodeId, target: targetId })) return
+          if (!isValidConnection({ source: nodeId, target: targetId })) {
+            // Never a silent refusal (Codex head review P1): the canvas states why it refuses, so the picker does too.
+            showToast(CONNECTION_REFUSAL_COPY.no_longer_valid, 'warning')
+            return
+          }
           const edgeIdsBefore = new Set(useCanvasStore.getState().edges.map(edge => edge.id))
           onConnect({ source: nodeId, target: targetId, sourceHandle: null, targetHandle: null })
           const edge = useCanvasStore.getState().edges.find(candidate =>

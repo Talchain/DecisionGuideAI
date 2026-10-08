@@ -64,6 +64,8 @@ export const CONNECTION_REFUSAL_COPY = {
   duplicate: 'This relationship already exists. Click it to adjust its strength.',
   edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
   question: `The ${DECISION_NODE_LABEL} links only to its options. To show what an option changes, draw the link from the option.`,
+  /** A picked pair that stopped being valid between being offered and being chosen (the model moved). */
+  no_longer_valid: 'That link can no longer be added: the model changed since the list was shown. Choose again.',
 } as const
 
 /** Does this pair put the Question at one end of a link CEE forbids? Read against the live store. */

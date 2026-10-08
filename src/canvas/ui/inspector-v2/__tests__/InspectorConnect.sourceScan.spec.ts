@@ -38,3 +38,14 @@ describe('Inspector connect — one existing writer', () => {
     expect(text).not.toMatch(/\buseShowToast\s*\(/)
   })
 })
+
+// Codex head review P1 (3b-ii): the external factor's advanced editor keeps an EDITABLE range (`setPriorRange`), so its
+// notice must not call every technical field read-only. It names the range as a judgement, then "other" fields.
+import { INSPECTOR_FACTOR_EXTERNAL_REASON } from '../useInspectorMutations'
+describe('external factor notice is true of its editable range', () => {
+  it('names the range, and only OTHER technical fields as read-only', () => {
+    expect(INSPECTOR_FACTOR_EXTERNAL_REASON).toContain('A range you set here is a judgement for Olumi')
+    expect(INSPECTOR_FACTOR_EXTERNAL_REASON).toContain('Other technical fields and the description are read-only')
+    expect(INSPECTOR_FACTOR_EXTERNAL_REASON).not.toMatch(/(?<!Other )technical fields here are read-only/)
+  })
+})

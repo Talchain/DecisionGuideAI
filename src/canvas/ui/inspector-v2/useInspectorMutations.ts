@@ -594,7 +594,7 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
 // ⚠ Paul 23 Sep contract feedback point 11: boilerplate tail dropped; the
 // Conditional rename and the range's role stay; the remaining fenced fields are named.
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Description and technical fields here are read-only for now.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. A range you set here is a judgement for Olumi, not an edit to the shared model. Other technical fields and the description are read-only for now.`
 
 /**
  * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.

@@ -1,5 +1,10 @@
 /** EDIT-UX 3b-ii: inspector links use the canvas gesture, then finish the edit. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const { pickerToast } = vi.hoisted(() => ({ pickerToast: vi.fn() }))
+vi.mock('../../../ToastContext', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useShowToastSafe: () => pickerToast,
+}))
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 
@@ -22,7 +27,7 @@ vi.mock('@xyflow/react', async importOriginal => ({
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
-import { useConnectGesture } from '../../../hooks/useConnectGesture'
+import { CONNECTION_REFUSAL_COPY, useConnectGesture } from '../../../hooks/useConnectGesture'
 import { USER_EDGE_DEFAULTS } from '../../../domain/edges'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../../utils/openEdgeStrengthEditor'
 import { __resetViewerModeForTests, setViewerScenario } from '../../../../lib/viewerMode'
@@ -283,6 +288,8 @@ describe('Connections — the drag validator owns available pairs', () => {
     expect(reportManualEdit).not.toHaveBeenCalled()
     expect(proposeForDrawnLink).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().edges.some(edge => edge.source === SOURCE && edge.target === TARGET)).toBe(false)
+    // Never a silent refusal (Codex head review P1): the picker says why, in the canvas's refusal voice.
+    expect(pickerToast).toHaveBeenCalledWith(CONNECTION_REFUSAL_COPY.no_longer_valid, 'warning')
   })
 
   it('choosing a causal link opens that new edge’s strength through the existing event and selection', async () => {
