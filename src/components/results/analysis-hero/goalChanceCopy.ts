@@ -127,12 +127,15 @@ export function goalChanceOptionLines(
   return lines
 }
 
-/** CEE `deliverableIsALaunch` twin: the launch IS the deliverable (a terminal "launch", or "launching the …"); a
- * deliverable "launch" only modifies ("the pre-launch security review", "launch checklist") is not one. */
+/** CEE `deliverableIsALaunch` twin (byte-for-byte logic, #2762 r5): the deliverable's HEAD (the words before the first
+ * preposition) ends in "launch", or it is "launching <object>". "the security review before launch" is not a launch. */
+const HEAD_PREPOSITIONS = new Set(['before', 'after', 'in', 'for', 'of', 'by', 'to', 'on', 'with', 'at', 'from', 'across'])
 function deliverableIsALaunch(deliverable: string): boolean {
   const words = deliverable.trim().toLowerCase().split(/\s+/u)
-  return words.at(-1) === 'launch'
-    || (words[0] === 'launching' && words.length > 2 && ['the', 'a', 'an'].includes(words[1]!))
+  const preposition = words.findIndex(word => HEAD_PREPOSITIONS.has(word))
+  const head = preposition < 0 ? words : words.slice(0, preposition)
+  return head.at(-1) === 'launch'
+    || (head[0] === 'launching' && head.slice(1).some(word => !['the', 'a', 'an', ''].includes(word)))
 }
 
 /**

@@ -62,6 +62,11 @@ describe('share-by-date chance: the same words as CEE chat', () => {
     const review = licence({ ...TARGET, unit: '% of the pre-launch security review' })
     expect(goalChanceOptionLines(review, labels)![0])
       .toBe('‘Team A’: about 62% chance of finishing the pre-launch security review by 7 April 2027, in this model.')
+    // CEE r5 twin rows: the head phrase decides.
+    expect(goalChanceOptionLines(licence({ ...TARGET, unit: '% of the security review before launch' }), labels)![0])
+      .toBe('‘Team A’: about 62% chance of finishing the security review before launch by 7 April 2027, in this model.')
+    expect(goalChanceOptionLines(licence({ ...TARGET, unit: '% of the app launch in Europe' }), labels)![0])
+      .toBe('‘Team A’: about 62% chance of launching by 7 April 2027, in this model.')
     const other = licence({ ...TARGET, unit: '% of Data Migration (v2)' })
     expect(goalChanceOptionLines(other, labels)![0])
       .toBe('‘Team A’: about 62% chance of finishing Data Migration (v2) by 7 April 2027, in this model.')
