@@ -54,7 +54,7 @@ describe('P02 GR2: a goal figure under an unconfirmed reading is withheld everyw
     expect(GOAL_FIGURES_WITHHELD_CODES).toContain(READING_CODE)
     const code = { code: READING_CODE, option_ids: OPTION_IDS, withheld_claims: ['goal_probability', 'joint_probability'], message: PRODUCER_WORDS }
     const h = holder({ ...LICENSED, reading_label: READING_LABEL }, code)
-    expect(readGoalFigureWithholds(h).map((w) => w.code)).toEqual([READING_CODE])
+    expect(readGoalFigureWithholds(h).map((w) => w.code)).toEqual([READING_CODE, READING_CODE])
     expect(readGoalIdentityWithheld(h)?.message).toBe(PRODUCER_WORDS)
   })
 

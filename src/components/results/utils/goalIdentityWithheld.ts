@@ -68,6 +68,15 @@ export interface GoalIdentityWithheld {
 /** snake_case ids or structural characters mean the text is not display-safe. */
 const NOT_DISPLAY_SAFE = /\b[a-z0-9]+_[a-z0-9_]+\b|[{}[\]<>]/
 
+/** Presence, not parseability or producer scope: the whole report is under an unconfirmed reading. */
+export function goalFiguresUnderReading(holder: unknown): boolean {
+  if (!isPlainObject(holder) || !Array.isArray(holder.inference_warnings)) return false
+  return holder.inference_warnings.some((w) => isPlainObject(w) && (
+    w.code === 'GOAL_FIGURES_READING_UNCONFIRMED'
+    || (w.code === 'GOAL_CHANCE_LICENSED' && Object.prototype.hasOwnProperty.call(w, 'reading_label'))
+  ))
+}
+
 /** One warning list for the figure scope and both reason readers, including GR2's fail-closed fallback. */
 function goalFigureWarnings(holder: Record<string, unknown>): Record<string, unknown>[] {
   const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
@@ -76,14 +85,23 @@ function goalFigureWarnings(holder: Record<string, unknown>): Record<string, unk
   // Presence, not parseability: even null/undefined or a malformed label must never expose a bare goal figure.
   const hasReading = warnings.some((w) => isPlainObject(w) && w.code === 'GOAL_CHANCE_LICENSED'
     && Object.prototype.hasOwnProperty.call(w, 'reading_label'))
-  if (hasReading && !matched.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED')) {
+  // A producer's scoped warning may add words, but can never narrow this full-scope withhold.
+  if (hasReading) {
     matched.push({
       code: 'GOAL_FIGURES_READING_UNCONFIRMED',
       withheld_claims: ['goal_probability', 'joint_probability'],
       message: GOAL_IDENTITY_WITHHELD_FALLBACK,
+      synthesizedReading: true,
     })
   }
   return matched
+}
+
+/** Scope stays full; use the producer's words where its reading warning covers this reader. */
+function readingReasons(warnings: Record<string, unknown>[]): Record<string, unknown>[] {
+  return warnings.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED' && w.synthesizedReading !== true)
+    ? warnings.filter((w) => w.synthesizedReading !== true)
+    : warnings
 }
 
 export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld | null {
@@ -96,7 +114,7 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   // Item-3: the target warning states the complete sizing requirement; the placeholder names only a subset.
   // Select words independently of the node/claim scopes, which still retain every matched warning.
   const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
-  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const reasons = readingReasons(hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched)
   const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
   // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
@@ -109,10 +127,10 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
 /** Producer reasons for ONE option, using B3's fail-closed option scope. null means no safe reason. */
 export function readGoalWithheldReasonFor(holder: unknown, optionId: string): string | null {
   if (!isPlainObject(holder)) return null
-  const matched = goalFigureWarnings(holder).filter((w) => {
+  const matched = readingReasons(goalFigureWarnings(holder).filter((w) => {
     const optionIds = nonEmptyStrings(w.option_ids)
     return optionIds === null || optionIds.includes(optionId)
-  })
+  }))
   // The synthesized cause-neutral reason stands alone, just as it does in the run-level reader.
   if (matched.some((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED' && w.message === GOAL_IDENTITY_WITHHELD_FALLBACK)) {
     return GOAL_IDENTITY_WITHHELD_FALLBACK.slice('Not shown.'.length).trim()
@@ -126,7 +144,7 @@ export function readGoalWithheldReasonFor(holder: unknown, optionId: string): st
   })[0]
   // Item-3 applies only among warnings covering this option; another option's target cannot replace its placeholder.
   const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
-  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const reasons = readingReasons(hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched)
   const words = ownMessage !== undefined ? [ownMessage.trim()]
     : reasons.map((w) => typeof w.message === 'string' ? w.message.trim() : '')
   if (words.length === 0 || words.some((raw) => !raw || raw.length > 400 || NOT_DISPLAY_SAFE.test(raw))) return null

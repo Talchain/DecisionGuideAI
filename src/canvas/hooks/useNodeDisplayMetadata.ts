@@ -22,7 +22,7 @@ import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
 import { holdsValueOrRange } from '../utils/observedStateHelpers'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import {
-  selectGoalProbability,
+  selectGoalProbabilityForReport,
   type GoalProbabilityInput,
   type GoalProbabilityBasis,
   type GoalFitBaseCaveat,
@@ -573,7 +573,7 @@ export function useNodeDisplayMetadata(
           // existed. `selectGoalProbability` now owns the decision outright:
           // which quantity may be shown, and with what provenance. Read it;
           // never re-derive either field here, and never add a third chooser.
-          const decision = selectGoalProbability(rec)
+          const decision = selectGoalProbabilityForReport(report, recommendedOptionId)
           achievementProbability = decision.goalProbability
           achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
           achievementProbabilityBaseCaveat = decision.goalFitBaseCaveat
@@ -611,7 +611,7 @@ export function useNodeDisplayMetadata(
       // fabrication this estate forbids.
       let goalFitAvailableForOptions = false
       if (nodeType === 'goal' && achievementProbability === null) {
-        for (const entry of Object.values(optionProbabilities)) {
+        for (const [optionId, entry] of Object.entries(optionProbabilities)) {
           if (!entry) continue
           // ⭐ THE PRODUCER'S COMPUTE STATUS, CONSULTED BEFORE THE ENTRY IS
           // READ — the same predicate, on the same field, as the win gate
@@ -637,7 +637,7 @@ export function useNodeDisplayMetadata(
           ) {
             continue
           }
-          if (selectGoalProbability(entry as GoalProbabilityInput).goalProbability != null) {
+          if (selectGoalProbabilityForReport(report, optionId).goalProbability != null) {
             goalFitAvailableForOptions = true
             break
           }

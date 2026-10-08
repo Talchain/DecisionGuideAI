@@ -81,6 +81,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
   runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null,
+  goalChancesWithheld = false,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -93,6 +94,8 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
+  /** The current report's unconfirmed goal reading withholds both sides' bare figures for this pair. */
+  goalChancesWithheld?: boolean
 }): JSX.Element {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
@@ -164,20 +167,25 @@ export function ComparePairSections({
           <ul className={`${typography.panelBody} text-text-body list-none p-0 mt-2 mb-0 space-y-2`} data-testid="compare-goal-chances" data-wire-fields={GOAL_CHANCE_FIELDS}>
             {goalRows.map((g) => {
               const name = g.label ?? 'An option this run does not name'
+              // Retain recorded absences, and route each figure through the existing not-shown words for both render paths.
+              const prior = goalChancesWithheld && (g.prior.kind === 'point' || g.prior.kind === 'range')
+                ? { kind: 'withheld' } as const : g.prior
+              const current = goalChancesWithheld && (g.current.kind === 'point' || g.current.kind === 'range')
+                ? { kind: 'withheld' } as const : g.current
               // A side with a figure reads in the panel's ink; the latest one a step stronger. No figure stays muted.
               const tone = (side: typeof g.prior, latest: boolean) => side.kind === 'point' || side.kind === 'range'
                 ? (latest ? 'text-text-header' : 'text-text-body') : 'text-text-light'
               return (
                 <li key={g.optionId} data-option-id={g.optionId}>
                   {/* The whole pair in its words, for assistive technology; the drawn line below repeats it for the eye. */}
-                  <span className="sr-only" data-testid="compare-goal-chance-words">{`${name}: ${goalChanceCompareWords(g.prior, g.current)}`}</span>
+                  <span className="sr-only" data-testid="compare-goal-chance-words">{`${name}: ${goalChanceCompareWords(prior, current)}`}</span>
                   {/* v3 artefact row: the option, then its pair on the same line at the right; a long name pushes the pair below. */}
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3" data-testid="compare-goal-chance-row">
                     <OptionNameLink name={name} link={optionLink(g.optionId)} />
                     <p className={`${typography.panelTabular} flex items-baseline gap-x-2 m-0 ml-auto`} aria-hidden="true" data-testid="compare-goal-chance-pair">
-                      <span className={tone(g.prior, false)}>{goalChanceSideWords(g.prior)}</span>
+                      <span className={tone(prior, false)}>{goalChanceSideWords(prior)}</span>
                       <ArrowRight className={`${icon('inline')} self-center flex-shrink-0 text-text-light`} aria-hidden="true" />
-                      <span className={tone(g.current, true)}>{goalChanceSideWords(g.current)}</span>
+                      <span className={tone(current, true)}>{goalChanceSideWords(current)}</span>
                     </p>
                   </div>
                 </li>

@@ -124,3 +124,19 @@ describe('useNodeDisplayMetadata — jointGoalProbability (REAL hook)', () => {
     expect(md.jointGoalProbability ?? null).toBeNull()
   })
 })
+
+
+describe('P02 r2 B: unstamped reading reports fail closed in the real metadata hook', () => {
+  it.each([
+    [{ code: 'GOAL_CHANCE_LICENSED', reading_label: null }],
+    [{ code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['other'], withheld_claims: ['joint_probability'] }],
+  ].map(warnings => [warnings]))('withholds both figures and never advertises a per-option goal figure: %j', (inference_warnings) => {
+    for (const withPointer of [true, false]) {
+      setReport({ ...reportFor(REAL_GOAL_OPTION, withPointer), inference_warnings })
+      const md = renderForGoal()
+      expect(md.achievementProbability).toBeNull()
+      expect(md.jointGoalProbability).toBeNull()
+      expect(md.goalFitAvailable).toBe(false)
+    }
+  })
+})

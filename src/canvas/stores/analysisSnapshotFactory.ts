@@ -17,7 +17,7 @@ import { hasObservedData } from '../utils/observedStateHelpers'
 import { isSuppressedUnit } from '../utils/labelUtils'
 import { deriveDecisionVerdict, type DecisionVerdict } from '../../lib/decisionVerdict'
 import {
-  selectGoalProbability,
+  selectGoalProbabilityForReport,
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
 import { goalLevelFromIdentityCaveat } from '../../components/results/utils/goalLevelFromIdentity'
@@ -683,15 +683,24 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   const snapshotWithholds = readGoalFigureWithholds(rawV2Response)
   const goalIdentityWithheld = snapshotWithholds.length > 0 &&
     (winnerId === null || withheldClaimsFor(snapshotWithholds, winnerId).has('goal_probability'))
-  const goalDecision = selectGoalProbability(
-    winner != null
-      ? ({
-          ...winner,
-          ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
-          ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
-        } as GoalProbabilityInput)
-      : undefined,
-  )
+  const rawWarnings = (rawV2Response as unknown as { inference_warnings?: unknown }).inference_warnings
+    ?? (rawV2Response.robustness as { inference_warnings?: unknown } | undefined)?.inference_warnings
+  const reportWarnings = (_report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings
+  const goalDecision = selectGoalProbabilityForReport({
+    inference_warnings: [
+      ...(Array.isArray(rawWarnings) ? rawWarnings : []),
+      ...(Array.isArray(reportWarnings) ? reportWarnings : []),
+    ],
+    option_probabilities: {
+      [winnerId ?? '']: winner != null
+        ? ({
+            ...winner,
+            ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
+            ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
+          } as GoalProbabilityInput)
+        : undefined,
+    },
+  }, winnerId ?? '')
   const goalProbability = goalDecision.goalProbability != null
     ? Math.round(goalDecision.goalProbability * 100)
     : null

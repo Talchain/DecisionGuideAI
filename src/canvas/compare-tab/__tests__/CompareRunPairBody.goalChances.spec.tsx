@@ -75,10 +75,12 @@ describe('the view carries the producer\'s goal chances by identity', () => {
   })
 })
 
-function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true): string {
+function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true, inferenceWarnings?: unknown): string {
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.44, opt_49: 0.56 } })
   report.producer_leader_permission = permission
+  // Hydrated reports may carry warnings without per-option mapper stamps; Compare must read the report itself.
+  if (inferenceWarnings !== undefined) (report as { inference_warnings?: unknown }).inference_warnings = inferenceWarnings
   const hash = report.model_card.response_hash
   useCanvasStore.setState({ currentScenarioId: 'scn-1',
     nodes: [...RUN_CHANGE_LABELS.keys()].map((id) => ({ id, type: id.startsWith('opt') ? 'option' : 'factor', position: { x: 0, y: 0 }, data: { label: RUN_CHANGE_LABELS.get(id) } })), edges: [],
@@ -181,5 +183,43 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     cleanup()
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true)} />)
     expect(screen.getByTestId('compare-goal-chances')).toBeInTheDocument()
+  })
+})
+
+describe('P02-GR2 E · a current unconfirmed reading withholds the pair’s goal figures', () => {
+  const readingLabel = {
+    v: 1, source: 'olumi_reading', goal: { id: 'mrr', label: 'MRR' },
+    factors: [{ id: 'price', label: 'Pro plan price' }, { id: 'subscribers', label: 'Pro paying subscribers' }],
+    addends: [],
+  }
+  it.each([
+    ['valid reading_label', [{ code: 'GOAL_CHANCE_LICENSED', reading_label: readingLabel }]],
+    ['malformed reading_label', [{ code: 'GOAL_CHANCE_LICENSED', reading_label: { ...readingLabel, factors: [] } }]],
+    ['present undefined reading_label', [{ code: 'GOAL_CHANCE_LICENSED', reading_label: undefined }]],
+    ['typed scoped reading warning without a label', [{ code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['opt_49'], withheld_claims: ['joint_probability'] }]],
+  ])('%s: accessible and visual sides say not shown, preserving not recorded', (_name, warnings) => {
+    render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true, warnings)} />)
+    expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
+    expect(goalWords()).toEqual([
+      'Keep £49: Earlier not shown → Latest not shown',
+      'Raise to £60: Earlier not recorded → Latest not shown',
+    ])
+    expect(goalPairs()).toEqual(['not shownnot shown', 'not recordednot shown'])
+    expect(screen.getByTestId('compare-goal-chances')).not.toHaveTextContent('%')
+    expect(goalRows().flatMap((li) => [...within(li).getByTestId('compare-goal-chance-pair').querySelectorAll('span')].map((span) => span.className)))
+      .toEqual(['text-text-light', 'text-text-light', 'text-text-light', 'text-text-light'])
+  })
+
+  it('CONTROL: no reading_label keeps the goal rows byte-identical, including both kinds of figure', () => {
+    render(<CompareRunPairBody responseHash={seed(withGoal())} />)
+    const plainRows = screen.getByTestId('compare-goal-chances').innerHTML
+    const plainWords = goalWords()
+    const plainPairs = goalPairs()
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true, [{ code: 'GOAL_CHANCE_LICENSED' }])} />)
+    expect(screen.getByTestId('compare-goal-chances').innerHTML).toBe(plainRows)
+    expect(goalWords()).toEqual(plainWords)
+    expect(goalPairs()).toEqual(plainPairs)
+    expect(goalPairs()).toEqual(['about 47%about 15%', 'not recordedbetween about 20% and 40%'])
   })
 })

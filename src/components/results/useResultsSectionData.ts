@@ -75,7 +75,7 @@ import { resultsGoalLabel } from './utils/resultsGoalLabel'
 import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
-import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { selectGoalProbabilityForReport } from './utils/selectGoalProbability'
 import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { resolveOptionInterventionCount } from '../../canvas/nodes/shared/optionInterventionCount'
@@ -117,7 +117,7 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { goalFiguresUnderReading, readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
@@ -1497,7 +1497,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
   const goalChanceLicence = useMemo(
-    () => readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
+    () => {
+      const licence = readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings)
+      return goalFiguresUnderReading(report) && licence?.readingLabel === undefined ? null : licence
+    },
     [report],
   )
   const goalChanceInvite = useMemo(
@@ -2297,7 +2300,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // plus a local `goal_fit_basis` read, and the canvas hook derived the
       // same pair independently; the two disagreed live. Read them, never
       // re-derive them.
-      const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
+      const goalDecision = selectGoalProbabilityForReport(report, nodeId)
       const { goalProbability, goalFitIsModelledBasis, goalFitBaseCaveat } = goalDecision
 
       // Display-honesty: per-option valid sample count for resolution-aware
@@ -2352,7 +2355,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
         // B3 (DL R1): the producer withheld this option's goal figure, and whether its KEPT outcome rests on Olumi's
         // estimates the user accepted. Carried so every outcome surface can keep the spread and say so beside it.
-        ...((prob as { goalIdentityWithheld?: true }).goalIdentityWithheld === true ? { goalFigureWithheld: true as const } : {}),
+        ...(goalDecision.withheldBy === 'reading_unconfirmed' || (prob as { goalIdentityWithheld?: true }).goalIdentityWithheld === true ? { goalFigureWithheld: true as const } : {}),
         ...((prob as { outcomeRestsOnAcceptedOlumi?: true }).outcomeRestsOnAcceptedOlumi === true
           ? { outcomeRestsOnAcceptedOlumi: true as const }
           : {}),

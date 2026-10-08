@@ -488,6 +488,12 @@ export function mapV2ResponseToReportV1(
 
   return {
     schema: 'report.v1',
+    // Preserve the report-level reading gate across legacy hydration (root wins, nested legacy fallback).
+    ...(() => {
+      const warnings = (v2Response as unknown as { inference_warnings?: unknown }).inference_warnings
+        ?? (v2Response.robustness as { inference_warnings?: unknown } | undefined)?.inference_warnings
+      return Array.isArray(warnings) ? { inference_warnings: warnings } : {}
+    })(),
     meta: {
       seed: meta.seed,
       response_id: v2Response.response_hash,

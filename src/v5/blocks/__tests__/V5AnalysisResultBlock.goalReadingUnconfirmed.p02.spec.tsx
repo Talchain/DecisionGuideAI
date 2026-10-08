@@ -70,4 +70,15 @@ describe('P02 GR2: the chat card renders the goal reading beside every figure', 
     render(<V5AnalysisResultBlock block={block({ ...READING_LABEL, factors: [READING_LABEL.factors[0]] })} />)
     expect(screen.queryByTestId('v5-analysis-result-goal-chances')).not.toBeInTheDocument()
   })
+
+  it('D: a persisted reading withhold without a reading_label cannot print plain licensed figures', () => {
+    const card = block()
+    const warnings = card.enrichment!.inference_warnings as unknown[]
+    warnings.push({
+      code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['raise_prices_by_10'],
+      withheld_claims: ['joint_probability'], message: 'Not shown. Confirm the goal reading.',
+    })
+    render(<V5AnalysisResultBlock block={card} />)
+    expect(screen.queryByTestId('v5-analysis-result-goal-chances')).not.toBeInTheDocument()
+  })
 })

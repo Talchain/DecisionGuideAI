@@ -35,7 +35,10 @@ interface CapturedBlock {
 }
 
 /** The funding capture's option identities and distributions stay intact; only the documented licence/goal values change. */
-function seed(form: string, fields: Record<string, unknown> = {}, extraWarnings: Array<Record<string, unknown>> = []) {
+function seed(
+  form: string, fields: Record<string, unknown> = {}, extraWarnings: Array<Record<string, unknown>> = [],
+  stripOptionStamps = false,
+) {
   seedPaulRun(SERVED_STAMP)
   const source = fx.analysis_block as CapturedBlock
   const record = {
@@ -56,6 +59,11 @@ function seed(form: string, fields: Record<string, unknown> = {}, extraWarnings:
       inference_warnings: [record, ...extraWarnings],
     },
   } as never)
+  if (stripOptionStamps) {
+    for (const probability of Object.values(mapped.option_probabilities ?? {})) {
+      delete (probability as { goalIdentityWithheld?: true }).goalIdentityWithheld
+    }
+  }
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
     results: { ...state.results, report: { ...mapped, producer_leader_permission: SERVED_STAMP } },
@@ -110,8 +118,8 @@ describe('GR2: labelled licence figures reach the hero and decision matrix', () 
     }
   })
 
-  it('CONTROL: no reading keeps the existing highest headline, omitted quoted lines and matrix sentences exactly', () => {
-    const data = seed('highest')
+  it.each([false, true])('CONTROL: no reading keeps the exact plain sentences (unstamped report: %s)', (unstamped) => {
+    const data = seed('highest', {}, [], unstamped)
     expect(data.recommendation.goalFiguresWithheldMessage).toBeNull()
     const model = mount(data)
     expect(model.headline).toBe(
@@ -121,6 +129,49 @@ describe('GR2: labelled licence figures reach the hero and decision matrix', () 
     expect(screen.getByTestId('hero-subline').textContent).toBe(plainLine('current_outreach'))
     for (const id of ORDER) {
       expect(screen.getByTestId(`decision-matrix-chance-${id}`).textContent).toBe(plainLine(id))
+    }
+  })
+
+  it.each([
+    { name: 'valid label', fields: { reading_label: READING }, warnings: [], labelled: true },
+    { name: 'malformed label', fields: { reading_label: { ...READING, factors: [READING.factors[0]] } }, warnings: [], labelled: false },
+    { name: 'typed warning without label', fields: {}, warnings: [{
+      code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: [CONVERTIBLE], withheld_claims: ['joint_probability'],
+      message: 'Not shown. Confirm the goal reading.',
+    }], labelled: false },
+  ])('B: an unstamped report with $name withholds every independent option figure', ({ fields, warnings, labelled }) => {
+    const data = seed('highest', fields, warnings, true)
+    // Values stay on the report; removing the mapper stamps exercises the report accessor itself.
+    for (const id of ORDER) {
+      const probability = useCanvasStore.getState().results!.report!.option_probabilities![id]
+      expect(probability.goal_probability).toBe(PCT[id] / 100)
+      expect((probability as { goalIdentityWithheld?: true }).goalIdentityWithheld).toBeUndefined()
+    }
+    for (const option of data.recommendation.allOptions) {
+      expect(option.goalProbability).toBeNull()
+      expect(option.goalFigureWithheld).toBe(true)
+    }
+    const model = mount(data)
+    if (labelled) {
+      expect(screen.getByTestId('hero-subline').textContent).toBe(ORDER.map(labelledLine).join(' '))
+      for (const id of ORDER) expect(screen.getByTestId(`decision-matrix-chance-${id}`).textContent).toBe(labelledLine(id))
+    } else {
+      expect(`${model.headline} ${model.subline ?? ''}`).not.toMatch(/\d+%/)
+      for (const id of ORDER) expect(screen.getByTestId(`decision-matrix-chance-${id}`)).not.toHaveTextContent(/\d+%/)
+    }
+  })
+
+  it('D: a reading withhold without a reading_label suppresses the hook licence and mounted hero figures', () => {
+    const data = seed('highest', {}, [{
+      code: 'GOAL_FIGURES_READING_UNCONFIRMED', severity: 'warning',
+      option_ids: [CONVERTIBLE], withheld_claims: ['goal_probability', 'joint_probability'],
+      message: 'Not shown. Confirm the goal reading.',
+    }])
+    expect(data.goalChanceLicence).toBeNull()
+    const model = mount(data)
+    expect(`${model.headline} ${model.subline ?? ''}`).not.toMatch(/\d+%/)
+    for (const id of ORDER) {
+      expect(screen.getByTestId(`decision-matrix-chance-${id}`)).not.toHaveTextContent(/\d+%/)
     }
   })
 

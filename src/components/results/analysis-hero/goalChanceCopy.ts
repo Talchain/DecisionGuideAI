@@ -133,7 +133,7 @@ export function goalChanceOptionLines(
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
     const share = shareByDateWords(licence.target)
-    const chance = share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
+    const chance = licence.readingLabel !== undefined || share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
     // Replace the plain sentence end: `chance` already includes the one "in this model".
     const reading = licence.readingLabel === undefined ? '' : goalReadingClause(licence.readingLabel)
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the

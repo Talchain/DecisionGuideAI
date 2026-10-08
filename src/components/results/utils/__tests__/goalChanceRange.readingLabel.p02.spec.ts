@@ -33,17 +33,19 @@ describe('P02 GR2: an unconfirmed reading cannot leave bare goal-chance ranges',
     expect(readGoalChanceRange([RANGE, LICENCE, { code: 'GOAL_FIGURES_READING_UNCONFIRMED' }])).toBeNull()
   })
 
-  it('honours the typed reading-unconfirmed option scope, retaining a valid sibling', () => {
-    const range = readGoalChanceRange([
+  it('a scoped reading warning cannot retain a bare sibling range under a label', () => {
+    expect(readGoalChanceRange([
       RANGE, { ...LICENCE, reading_label: READING_LABEL },
       { code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['starter'],
         withheld_claims: ['goal_probability', 'joint_probability'] },
-    ])
-    expect(range?.optionIds).toEqual(['pro'])
-    expect(range?.rangeByOption).toEqual({ pro: {
-      lowPct: 23, highPct: 90, lowRounding: 'whole', highRounding: 'nearest_5',
-      kind: 'link_strength', from: 'price', to: 'revenue', among: 'all',
-    } })
+    ])).toBeNull()
+  })
+
+  it('a typed-only scoped joint warning is still a report-level reading fact for every range', () => {
+    expect(readGoalChanceRange([
+      RANGE, LICENCE,
+      { code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['starter'], withheld_claims: ['joint_probability'] },
+    ])).toBeNull()
   })
 
   it('fails closed for an unreadable typed reading-unconfirmed option scope', () => {

@@ -88,17 +88,22 @@ describe('P02 GR2: strict reading-label shape and same-sentence copy', () => {
     expect(readGoalWithheldReasonFor(h, 'a')).toBe(GOAL_IDENTITY_WITHHELD_FALLBACK.slice('Not shown.'.length).trim())
   })
 
-  it('uses the typed reading withhold without a label, and never duplicates a scoped typed warning', () => {
+  it('a scoped typed reading warning never narrows the full reading-label withhold', () => {
     const code = { code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['a'],
       withheld_claims: ['goal_probability', 'joint_probability'], message: 'Not shown. Confirm the goal reading.' }
-    for (const h of [{ inference_warnings: [code] }, holder(READING, [code])]) {
+    const unlabelled = { inference_warnings: [code] }
+    expect(readGoalFigureWithholds(unlabelled)).toHaveLength(1)
+    expect(withheldClaimsFor(readGoalFigureWithholds(unlabelled), 'b').size).toBe(0)
+    for (const reading of [READING, null]) {
+      const h = holder(reading, [code])
       const withholds = readGoalFigureWithholds(h)
-      expect(withholds).toHaveLength(1)
-      expect(withheldClaimsFor(withholds, 'a').has('goal_probability')).toBe(true)
-      expect(withheldClaimsFor(withholds, 'b').size).toBe(0)
+      expect(withholds).toHaveLength(2)
+      for (const optionId of ['a', 'b']) {
+        expect([...withheldClaimsFor(withholds, optionId)]).toEqual(['goal_probability', 'joint_probability'])
+      }
       expect(readGoalIdentityWithheld(h)?.message).toBe(code.message)
       expect(readGoalWithheldReasonFor(h, 'a')).toBe('Confirm the goal reading.')
-      expect(readGoalWithheldReasonFor(h, 'b')).toBeNull()
+      expect(readGoalWithheldReasonFor(h, 'b')).toBe(GOAL_IDENTITY_WITHHELD_FALLBACK.slice('Not shown.'.length).trim())
     }
   })
 
