@@ -243,7 +243,7 @@ export function RunChangesSummary(): JSX.Element | null {
           )}
         </span>
         {' '}
-        {headPrefill && lines.changed[0] ? putBack(lines.changed[0].row, headPrefill, 'pill') : null}
+        {headPrefill && lines.changed[0] ? <>{putBack(lines.changed[0].row, headPrefill, 'pill')}{' '}</> : null}
         <button
           type="button"
           aria-expanded={open}
