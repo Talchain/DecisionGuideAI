@@ -503,13 +503,8 @@ export function ModelReviewTool({
             {COPY.nothingToReview}
           </span>
         )}
-        <span className="flex items-center">
-          <PanelIconButton
-            ai
-            label={COPY.askFraming}
-            onClick={() => onAsk(WHOLE_FRAMING_ASK)}
-            testId={`${testId}-ask-framing`}
-          />
+        {/* ✎ before ✦, the panel's one order (the success line below and the picked mark's detail), 8 Oct 2026. */}
+        <span className="flex items-center gap-px">
           <span ref={briefPencilRef} className="inline-flex">
             <PanelIconButton
               Icon={Pencil}
@@ -519,6 +514,12 @@ export function ModelReviewTool({
               testId={`${testId}-edit-brief`}
             />
           </span>
+          <PanelIconButton
+            ai
+            label={COPY.askFraming}
+            onClick={() => onAsk(WHOLE_FRAMING_ASK)}
+            testId={`${testId}-ask-framing`}
+          />
         </span>
       </div>
 

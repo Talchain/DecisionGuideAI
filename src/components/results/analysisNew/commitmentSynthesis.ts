@@ -119,14 +119,37 @@ export const COMMITMENT_COPY = {
   /** V2 `synthesisHTML()` bullet 2 at rest ("…lacks assessed evidence"): the evidence check's own state. */
   evidenceNotAssessed: 'The evidence behind the inputs has not been assessed.',
   /**
-   * Bullet 2 when CEE withheld the leader because nobody asked for this run
-   * (`unrequested_analysis_withheld`). "Could not confirm" read as a failed
-   * check on Paul's test (27 Sep); the true cause is the policy. "Can", not
-   * "will": a run the user starts may still withhold for another reason.
+   * Bullet 2 when CEE withheld the leader because nobody asked for this run (`unrequested_analysis_withheld`): see
+   * `short.firstPass`. "Could not confirm" read as a failed check on Paul's test (27 Sep); the true cause is the policy.
    */
-  firstPassWithheld: "This is Olumi's automatic first pass, which names no option. Start a run to see how the options compare in this model.",
   /** Bullet 3 on that run: the move that can change it. */
   firstPassBefore: "Check Olumi's estimates, then run the analysis.",
+  /**
+   * ⭐ SHORT FORM, DETAIL ONE CLICK AWAY (Paul, 8 Oct 2026: "very punchy, short bullets and any additional helpful
+   * context under progressive disclosure"). Each long bullet keeps its whole meaning: the headline says the fact, the
+   * detail says the rest, and nothing is dropped.
+   */
+  short: {
+    firstPass: "This is Olumi's first pass, which names no option.",
+    firstPassDetail: 'Start a run to see how the options compare in this model.',
+    leaderNotConfirmed: 'Which option leads is not confirmed yet.',
+  },
+  /**
+   * ⭐ THE UNSIZED-PATH WITHHOLD AS BELIEFS, NOT LINK PARAMETERS (Paul, 8 Oct 2026: the old sentence listed every link
+   * in graph words and claimed the comparison "turns on" them, a claim nothing measured — the list is the Run's order,
+   * not an influence ranking). The headline counts Olumi's own estimates the comparison rests on; the detail names them
+   * as plain relationships and says how to find out which one matters.
+   */
+  assumptions: {
+    headline: (n: number): string =>
+      n === 1 ? 'It rests on an assumption Olumi made.' : `It rests on ${n} assumptions Olumi made.`,
+    lead: (n: number): string =>
+      n === 1 ? 'Olumi estimated how strongly this works, and nobody has checked it yet:' : 'Olumi estimated how strongly these work, and nobody has checked them yet:',
+    item: (from: string, to: string): string => `‘${from}’ affects ‘${to}’`,
+    more: (n: number): string => `and ${n} more`,
+    close: (n: number): string =>
+      n === 1 ? 'Check it to see how much it matters.' : 'Check them to see which ones matter.',
+  },
   /** V2 `synthesisHTML()` (re-run): the consequence leads. Producer noise verdicts only. */
   sinceLastRun: {
     noneMoved: 'Since the last run, no option moved beyond ordinary run-to-run variation.',
@@ -225,7 +248,7 @@ export type OpenSource =
   | 'leader_withheld_cause'
   /** (a) `COPY.checks.leader_not_assessed.meaning`, when withheld and the cause is not nameable. */
   | 'leader_withheld'
-  /** (a) `COMMITMENT_COPY.firstPassWithheld`, when withheld on Olumi's automatic first pass. */
+  /** (a) `COMMITMENT_COPY.short.firstPass`, when withheld on Olumi's automatic first pass. */
   | 'first_pass'
   /** (b) `COPY.disclosure.tippingPoint(...)` over `vm.sensitivity.tippingPoints[0]`. */
   | 'tipping_point'
@@ -253,7 +276,12 @@ export type BeforeSource =
   | 'first_pass'
 
 export interface CommitmentBullet<S extends string> {
+  /** What the bullet says at rest: one short sentence. */
   text: string
+  /** The rest of what it has to say, behind the bullet's disclosure. Null when the sentence is complete on its own. */
+  detail?: string | null
+  /** A list under `detail` (one line each), e.g. the assumptions an unsized-path withhold rests on. */
+  detailItems?: ReadonlyArray<string> | null
   /** Stable identity for tests and `data-source`; never rendered as copy. */
   source: S
 }
@@ -439,8 +467,12 @@ export function runDeltaSentence(
   return parts.length > 0 ? parts.join(' ') : null
 }
 
+/**
+ * ⛔ NO `absenceReason` HERE. "This run is not compared with Olumi's automatic first pass…" says how the system pairs
+ * runs, not anything about the decision (Paul, 8 Oct 2026). The chat card, the record of its own run, still says it.
+ */
 function sinceLastRun(vm: CommitmentSynthesisInput): string | null {
-  return runDeltaSentence(vm.whatsChanged, { isStale: vm.status.isStale, absenceReason: vm.runDeltaAbsenceReason })
+  return runDeltaSentence(vm.whatsChanged, { isStale: vm.status.isStale })
 }
 
 function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
@@ -509,13 +541,33 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
     // `1a298d6d`): the withheld sentence alone named no cause the reader could
     // act on. Appended, never substituted — see `checks.leaderWithholdDetail`.
     const detail = vm.checks.leaderWithholdDetail ?? null
-    const withDetail = (text: string) => (detail !== null ? `${text} ${detail}` : text)
+    const withDetail = (more: string | null) => [more, detail].filter((p): p is string => p !== null).join(' ') || null
+    // `detail` is set only when there is one, so a bullet with nothing more to say stays `{ text, source }`.
+    const bullet = (text: string, more: string | null, source: OpenSource): CommitmentBullet<OpenSource> => {
+      const d = withDetail(more)
+      return d === null ? { text, source } : { text, detail: d, source }
+    }
     if (cause === null && vm.checks.firstPassWithheld) {
-      return { text: withDetail(COMMITMENT_COPY.firstPassWithheld), source: 'first_pass' }
+      return bullet(COMMITMENT_COPY.short.firstPass, COMMITMENT_COPY.short.firstPassDetail, 'first_pass')
+    }
+    const assumptions = cause !== null ? vm.checks.leaderWithholdAssumptions ?? null : null
+    if (assumptions !== null) {
+      const a = COMMITMENT_COPY.assumptions
+      const more = assumptions.total - assumptions.named.length
+      return {
+        text: a.headline(assumptions.total),
+        detail: withDetail(a.lead(assumptions.total)) ?? a.lead(assumptions.total),
+        detailItems: [
+          ...assumptions.named.map((l) => a.item(l.from, l.to)),
+          ...(more > 0 ? [a.more(more)] : []),
+          a.close(assumptions.total),
+        ],
+        source: 'leader_withheld_cause',
+      }
     }
     return cause !== null
-      ? { text: withDetail(cause), source: 'leader_withheld_cause' }
-      : { text: withDetail(COPY.checks.leader_not_assessed.meaning), source: 'leader_withheld' }
+      ? bullet(cause, null, 'leader_withheld_cause')
+      : bullet(COMMITMENT_COPY.short.leaderNotConfirmed, COPY.checks.leader_not_assessed.meaning, 'leader_withheld')
   }
 
   // (b) RETIRED: the tipping condition has ONE owner on this tab, the
@@ -576,7 +628,7 @@ function beforeBullet(
 }
 
 /** Bullet 3's fallback — the prototype's own sentence, adapted to this panel's acts. */
-export const RESPOND_OR_RECORD = 'Answer the challenge above, or record your view and why you hold it.'
+export const RESPOND_OR_RECORD = 'Answer the challenge above, or record your view.'
 
 const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 
@@ -604,15 +656,22 @@ export function buildCommitmentSynthesis(
 export type CommitmentBulletKey = 'founded' | 'open' | 'before'
 
 /** The bullets that have content, in display order, with their labels. */
-export function commitmentBullets(
-  s: CommitmentSynthesis,
-): Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> {
-  const out: Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> = []
+export type CommitmentBulletRow = {
+  key: CommitmentBulletKey
+  label: string
+  text: string
+  detail: string | null
+  detailItems: ReadonlyArray<string> | null
+  source: string
+}
+
+export function commitmentBullets(s: CommitmentSynthesis): CommitmentBulletRow[] {
+  const out: CommitmentBulletRow[] = []
   for (const key of ['founded', 'open', 'before'] as const) {
     const b = s[key]
     if (b) {
       const label = key === 'founded' && s.describesLastRun ? COMMITMENT_COPY.labels.lastRun : COMMITMENT_COPY.labels[key]
-      out.push({ key, label, text: b.text, source: b.source })
+      out.push({ key, label, text: b.text, detail: b.detail ?? null, detailItems: b.detailItems ?? null, source: b.source })
     }
   }
   return out
@@ -647,7 +706,10 @@ export function buildPreRunCommitmentBullets(input: {
  * the drawer shows what was on screen and nothing the panel did not say.
  */
 export function commitmentAskContext(s: CommitmentSynthesis): string {
-  const lines = commitmentBullets(s).map((b) => `${b.label}: ${b.text}`)
+  // The detail travels with its bullet: the ask sees the whole sentence even when the reader has not opened it.
+  const lines = commitmentBullets(s).map((b) =>
+    [`${b.label}: ${b.text}`, b.detail, ...(b.detailItems ?? []).map((i) => `- ${i}`)].filter(Boolean).join(' '),
+  )
   // The context says which staleness it is, in the glance ribbon's own words:
   // 'changed' is a claim about the model, 'unconfirmed' only that we cannot tell.
   if (lines.length > 0 && s.describesLastRun) {

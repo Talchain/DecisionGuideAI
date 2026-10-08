@@ -33,7 +33,7 @@
  * docblock used to describe. See `panelSurfaces.ts` for why.
  */
 import { useState, type ReactNode } from 'react'
-import { ChevronRight, GitCompare, Info, NotebookPen } from 'lucide-react'
+import { ChevronDown, ChevronRight, GitCompare, Info, NotebookPen } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
@@ -44,6 +44,7 @@ import {
   commitmentAskContext,
   commitmentBullets,
   type CommitmentBulletKey,
+  type CommitmentBulletRow,
   type CommitmentSynthesis,
 } from '../commitmentSynthesis'
 import { PanelIconButton } from '../PanelIconButton'
@@ -251,16 +252,68 @@ function RecordYourView({
   )
 }
 
-/** Everything up to and including the last space, so the last word can share a no-wrap run with a trailing glyph. */
-function textBeforeLastWord(text: string): string {
-  const i = text.lastIndexOf(' ')
-  return i < 0 ? '' : text.slice(0, i + 1)
-}
+/** The disclosure's accessible names; the chevron itself carries no text. */
+const DETAIL_TOGGLE = { show: 'Show more', hide: 'Show less' } as const
 
-/** The sentence's last word (the whole text when it has no space). */
-function lastWord(text: string): string {
-  const i = text.lastIndexOf(' ')
-  return i < 0 ? text : text.slice(i + 1)
+/**
+ * ⭐ ONE BULLET: a label, ONE short sentence, and — when it has more to say — a chevron on the right that opens the
+ * rest beneath it (Paul, 8 Oct 2026: "very punchy, short bullets and any additional helpful context under progressive
+ * disclosure"; "all the icons ideally on the right"). The "Still open" ✦ moves off the end of the sentence to the
+ * same right-hand cluster, after the chevron: AI acts sit rightmost across the panel.
+ */
+function CommitmentBulletItem({
+  bullet,
+  testId,
+  onOpenAsk,
+}: {
+  bullet: CommitmentBulletRow
+  testId: string
+  onOpenAsk: (() => void) | null
+}) {
+  const [open, setOpen] = useState(false)
+  const items = bullet.detailItems ?? []
+  const hasDetail = bullet.detail !== null || items.length > 0
+  const detailId = `${testId}-${bullet.key}-detail`
+  return (
+    <li className={`${typography.panelBody} text-text-body m-0`} data-testid={`${testId}-${bullet.key}`} data-source={bullet.source}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0">
+          <b className="text-text-header">{bullet.label}: </b>
+          <span data-testid={`${testId}-${bullet.key}-text`}>{bullet.text}</span>
+        </span>
+        {hasDetail || onOpenAsk ? (
+          <span className="flex shrink-0 items-center gap-px -my-1">
+            {hasDetail ? (
+              <PanelIconButton
+                Icon={open ? ChevronDown : ChevronRight}
+                label={open ? DETAIL_TOGGLE.hide : DETAIL_TOGGLE.show}
+                expanded={open}
+                onClick={() => setOpen((v) => !v)}
+                testId={`${testId}-${bullet.key}-toggle`}
+              />
+            ) : null}
+            {onOpenAsk ? (
+              <PanelIconButton ai label={COMMITMENT_COPY.openAsk.label} onClick={onOpenAsk} testId={`${testId}-open-ask`} />
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+      {hasDetail && open ? (
+        <div id={detailId} className="mt-1 space-y-1 text-text-light" data-testid={detailId}>
+          {bullet.detail !== null ? <p className="m-0">{bullet.detail}</p> : null}
+          {items.length > 0 ? (
+            <ul className="list-none m-0 p-0 space-y-0.5" data-testid={`${detailId}-items`}>
+              {items.map((item) => (
+                <li key={item} className="relative pl-3 m-0 before:content-['·'] before:absolute before:left-0">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  )
 }
 
 export function CommitmentSummary({
@@ -331,43 +384,23 @@ export function CommitmentSummary({
               indent. a `<b>` label matches its `b{font-weight:
               600}`, against the plain body weight the label shared with its
               sentence before. */}
-          <ul className="list-disc pl-4 m-0 space-y-1">
+          <ul className="list-disc pl-4 m-0 space-y-1.5">
             {bullets.map((b) => (
-              <li
+              <CommitmentBulletItem
                 key={b.key}
-                className={`${typography.panelBody} text-text-body m-0`}
-                data-testid={`${testId}-${b.key}`}
-                data-source={b.source}
-              >
-                <b className="text-text-header">{b.label}: </b>
-                {b.key === 'open' ? (
-                  // ⭐ THE GLYPH NEVER WRAPS ALONE (served funding brief at 360, 30 Sep 2026: the ✦ sat on a line of
-                  // its own under "…a run you start can."). The sentence's last word and the glyph share one
-                  // no-wrap run, so they break together. The glyph has no text (aria-label only), so the text
-                  // span's textContent is still exactly `b.text`.
-                  <span data-testid={`${testId}-${b.key}-text`}>
-                    {textBeforeLastWord(b.text)}
-                    <span className="whitespace-nowrap">
-                      {lastWord(b.text)}
-                      <PanelIconButton
-                        ai
-                        inline
-                        label={COMMITMENT_COPY.openAsk.label}
-                        onClick={() =>
-                          onAsk({
-                            label: COMMITMENT_COPY.openAsk.label,
-                            draft: COMMITMENT_COPY.openAsk.draft,
-                            context: commitmentAskContext(synthesis),
-                          })
-                        }
-                        testId={`${testId}-open-ask`}
-                      />
-                    </span>
-                  </span>
-                ) : (
-                  <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
-                )}
-              </li>
+                bullet={b}
+                testId={testId}
+                onOpenAsk={
+                  b.key === 'open'
+                    ? () =>
+                        onAsk({
+                          label: COMMITMENT_COPY.openAsk.label,
+                          draft: COMMITMENT_COPY.openAsk.draft,
+                          context: commitmentAskContext(synthesis),
+                        })
+                    : null
+                }
+              />
             ))}
           </ul>
         </div>

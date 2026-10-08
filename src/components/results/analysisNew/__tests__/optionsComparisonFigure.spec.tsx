@@ -686,15 +686,15 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     // `COPY.checks.leader_not_assessed.orderingCaveat` would pass against ANY future
     // rewording, including one that dropped the denial — the component and the
     // assertion would simply agree with each other. This is the string a reader
-    // meets, typed out, so a reword REDs here and has to be a decision.
+    // meets, typed out, so a reword REDs here and has to be a decision. (Decided 8 Oct 2026, Paul: shorter.)
     expect(caveat).toHaveTextContent(
-      'A list with no figures beside it is not a finding that the options are level.',
+      'No figures yet. It is not a finding that the options are level.',
     )
 
     // And the owning constant still IS that sentence — so this file cannot rot
     // into asserting a string the product no longer uses.
     expect(COPY.checks.leader_not_assessed.orderingCaveat).toBe(
-      'A list with no figures beside it is not a finding that the options are level.',
+      'No figures yet. It is not a finding that the options are level.',
     )
 
     // ⭐⭐ AND THE OTHER HALF IS SOMEWHERE ELSE, WHICH IS THE POINT OF THE SPLIT.
