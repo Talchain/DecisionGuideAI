@@ -22,6 +22,7 @@
 import { z } from 'zod'
 
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../../v5/responseParser'
+import { parseBiasRisk, type BiasRiskView } from './biasRiskContract'
 
 export const ACTION_BAR_KEY = 'action_bar' as const
 export const ACTION_BAR_VERSION = 1 as const
@@ -79,6 +80,7 @@ export interface ActionBarV1 {
   readonly standard: readonly ActionOffer[]
   /** Everything else that is relevant, ranked: the ⋯ menu. */
   readonly more: readonly ActionOffer[]
+  readonly bias_risk?: BiasRiskView
 }
 
 /** Why a bar, or part of one, was not rendered. Reported once per read, never thrown. */
@@ -129,7 +131,8 @@ export function parseActionBar(raw: unknown, report: (issue: ActionBarIssue) => 
   for (const offer of standard) standardIds.add(offer.action_id)
   const priority = slot('priority', envelope.data.priority)
   const more = slot('more', envelope.data.more)
-  return { v: ACTION_BAR_VERSION, state_key: envelope.data.state_key, revision: envelope.data.revision, priority, standard, more }
+  const biasRisk = parseBiasRisk((raw as Record<string, unknown>).bias_risk, [...priority, ...standard, ...more])
+  return { v: ACTION_BAR_VERSION, state_key: envelope.data.state_key, revision: envelope.data.revision, priority, standard, more, ...(biasRisk ? { bias_risk: biasRisk } : {}) }
 }
 
 /** `action_bar` from a parsed turn or a scenario read: top level first, then the additive sidecar. */
