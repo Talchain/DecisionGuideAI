@@ -7370,7 +7370,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // field to the autosave projection — would restore a refusal into a session
   // where no analysis was refused.
   setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => {
-    set({ analysisRefusalNotice: notice })
+    set({ analysisRefusalNotice: notice === null ? null : { ...notice, graphHashAtRefusal: notice.graphHashAtRefusal ?? get().lastServerGraphHash ?? null } })
   },
 
   // Step 5. Deliberately a bare set with NO sessionStorage write and NO
