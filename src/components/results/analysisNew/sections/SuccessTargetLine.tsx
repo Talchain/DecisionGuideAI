@@ -1117,7 +1117,15 @@ function ReasoningSuccessRow({
 }
 
 /** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
-const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_BOX = `${typography.panelBody} rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_CLASS = `${FIELD_BOX} w-full min-w-0`
+/**
+ * The direction select sizes to its words and the figure box takes the rest, never below 4.5rem. `w-full` and
+ * `w-auto` on one element let `w-full` win in the generated CSS, so the select filled the row and the number box
+ * drew 18px wide in the canvas target popover (#2659 served witness, 8 Oct).
+ */
+const DIRECTION_SELECT_CLASS = `${FIELD_BOX} w-auto shrink-0`
+const NUMBER_INPUT_CLASS = `${FIELD_BOX} min-w-[4.5rem] flex-1`
 
 /**
  * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
@@ -1274,7 +1282,7 @@ function ReasoningSuccessForm({
                   onChange={(e) => onDirection(e.target.value as ConstraintType)}
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.directionLabel}
-                  className={`${FIELD_CLASS} w-auto shrink-0`}
+                  className={DIRECTION_SELECT_CLASS}
                   data-testid={`${testId}-direction`}
                 >
                   <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
@@ -1288,7 +1296,7 @@ function ReasoningSuccessForm({
                   value={draft}
                   onChange={(e) => onDraft(e.target.value)}
                   onKeyDown={onEditorKeyDown}
-                  className={FIELD_CLASS}
+                  className={NUMBER_INPUT_CLASS}
                   data-testid={`${testId}-input`}
                 />
               </span>
