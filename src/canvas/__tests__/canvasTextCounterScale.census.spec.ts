@@ -308,6 +308,10 @@ const FOREIGN_RENDERED = [
   'src/canvas/editNotes/EditNote.tsx',
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
+  // 8 Oct 2026 (Canvas #2659, GOAL-REACH row 28): the goal card's "Target not captured" mark opens the shared target
+  // editor in a popover that portals to `document.body` (outside the transform), panel tokens at screen size, like
+  // NodeHoverCard below. It renders SuccessTargetLine (divider off).
+  'src/canvas/components/GoalTargetPopover.tsx',
   // 29 Sep 2026 (Paul: bring the hover pop-ups back): the card pop-up portals to
   // `document.body` (outside the transform); the link pop-up renders in
   // `EdgeLabelRenderer` and counter-scales ITSELF (`scale(1/zoom)`), like the

@@ -321,24 +321,17 @@ describe('the reduced line carries the state, and is still text the full-zoom ca
   })
 })
 
-/**
- * ⚠⚠ THIS BLOCK WAS NAMED "the repair the copy promises actually answers"
- * UNTIL #1172 ROUND 3. It never checked that, and could not: it contains the
- * select-and-raise route test and its control, which prove the chip RAISES the
- * inspector and nothing about what the inspector can then do. The name claimed
- * more than anything under it asserted — and the thing it claimed is false
- * (`goalChipPromiseVsDestination.spec.tsx`). Renamed to what it measures.
- */
-describe('the chip raises this goal’s inspector — the route, not the repair', () => {
-  it('⭐ clicking the chip selects the goal and raises its inspector', () => {
+/** DGAI replaces the old select-and-raise route; targetPress pins the editor's writer and dismissal. */
+describe('the chip opens this goal’s target editor on the canvas', () => {
+  it('⭐ clicking the chip opens the shared editor without selecting the goal or raising its inspector', () => {
     const raised = vi.fn()
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, raised)
     try {
       const { chip } = renderGoal()
       fireEvent.click(chip!)
-      // Bound by identity: the node this chip belongs to, not "some node".
-      expect(selectNodeWithoutHistory).toHaveBeenCalledWith(GOAL_ID)
-      expect(raised).toHaveBeenCalledTimes(1)
+      expect(document.querySelector('[data-testid="goal-node-target-editor-editor"]')).not.toBeNull()
+      expect(selectNodeWithoutHistory).not.toHaveBeenCalled()
+      expect(raised).not.toHaveBeenCalled()
     } finally {
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, raised)
     }
