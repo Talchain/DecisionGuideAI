@@ -134,9 +134,11 @@ const READY_GRAPH = {
  * committed draft that is the terminal graph, values included. This is the
  * body the recovery read returns.
  */
-function serverGraphResult(): ScenarioGraphResult {
+function serverGraphResult(scenarioId: string = SCENARIO): ScenarioGraphResult {
   return {
     status: 'graph',
+    // The response's own scenario_id: every served read carries it (8/8 staging reads, 8 Oct).
+    scenarioId,
     graph: { nodes: TERMINAL_GRAPH.nodes, edges: TERMINAL_GRAPH.edges },
     briefText: null,
     notModelled: null,
@@ -931,6 +933,35 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === START_NEW_DRAFT_CHIP_ID)).toBe(false)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
     expect(runGate().allowed).toBe(true)
+  })
+
+  // ⛔ P44 draft-stall (DL/Codex r3 P1): a recovery read never installs ANOTHER scenario's graph, on either read.
+  it('RED foreign (both reads): the read answers for scenario B over A\'s untouched preview → nothing applied, nothing claimed', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult('scenario-B-foreign'))
+    const result = await driveClosedAfterDrafting('close', { withPreview: true })
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(mockFetchScenarioGraph.mock.calls.every(c => c[0] === SCENARIO)).toBe(true)
+    expect(canvasEdgeWeight('d1', 'opt_a'), 'B\'s values never land on A').toBe(0)
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const contents = result.current.messages.map(m => m.content)
+    expect(contents).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+  })
+
+  it('RED foreign (first read only): B on the first read is refused, A on the later read applies — each read checks its own answer', async () => {
+    mockFetchScenarioGraph
+      .mockResolvedValueOnce(serverGraphResult('scenario-B-foreign'))
+      .mockResolvedValueOnce(serverGraphResult(SCENARIO))
+    const result = await driveClosedAfterDrafting('close', { withPreview: true })
+
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(mockCallV5Turn, 'the first read refused, so the re-send ran').toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0.5)
+    expect(result.current.messages.map(m => m.content)).not.toContain(UNSETTLED_DRAFT_NOTICE)
   })
 
   it('RED P1a: a user renames the settling preview before close → the label survives and the buffered re-send runs once', async () => {
