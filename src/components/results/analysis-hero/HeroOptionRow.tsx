@@ -28,6 +28,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { TechnicalDisclosure } from '../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { HERO_COPY } from './heroCopy'
 import type { HeroLens, HeroRowVM } from './heroTypes'
 
@@ -438,6 +439,14 @@ export function HeroOptionRow({
       ) : (
         <div aria-current={isLeader ? 'true' : undefined} className={HERO_ROW_GRID}>
           {rowGrid}
+        </div>
+      )}
+
+      {lens === 'goal' && row.goal.why && (
+        <div className="pb-1.5 pl-10 pr-2">
+          <TechnicalDisclosure visible label="Why?" openLabel="Hide why" compact>
+            <span>{row.goal.why}</span>
+          </TechnicalDisclosure>
         </div>
       )}
 

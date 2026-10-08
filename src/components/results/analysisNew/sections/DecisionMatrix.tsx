@@ -1,3 +1,4 @@
+import { TechnicalDisclosure } from '../../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { typography } from '../../../../styles/typography'
 import { stripEncodingNotation } from '../../utils/cleanFactorLabel'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/goalFitBasisCaveatCopy'
@@ -71,7 +72,8 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const viewChance = data.runView?.chanceOf(id)
     const readout = rangeEntry !== undefined || option.notAnalysed === true ? null
       : viewChance?.kind === 'figure' ? viewChance.words : null
-    const chance = optionChanceCellFromResults(data, id).text ?? 'Not shown.'
+    const chanceCell = optionChanceCellFromResults(data, id)
+    const chance = chanceCell.text ?? 'Not shown.'
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.
@@ -83,6 +85,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const centreReadout = centre === null ? null : rangeFigure(centre)
     return {
       id, label: stripEncodingNotation(option.label), chance,
+      why: chanceCell.kind !== 'none' ? chanceCell.why : undefined,
       driver: rangeEntry !== undefined
         ? rangeDriverLine(rangeLine)
         : withheld !== null ? null : option.goalCertaintyUnearned == null ? driverLines[id] ?? null : null,
@@ -120,6 +123,9 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
             <th scope="row" className={`${cell} [font-weight:inherit] text-left`}>{row.label}</th>
             <td className={cell} data-testid={`decision-matrix-chance-${row.id}`}>
               <span>{row.chance}</span>
+              {row.why && <TechnicalDisclosure visible label="Why?" openLabel="Hide why" compact>
+                <span>{row.why}</span>
+              </TechnicalDisclosure>}
               {row.caveat && <p className={`${typography.panelMeta} text-text-light`}>{row.caveat}</p>}
               {row.baseCaveat && <p className={`${typography.panelMeta} text-text-light`}>{row.baseCaveat}</p>}
             </td>

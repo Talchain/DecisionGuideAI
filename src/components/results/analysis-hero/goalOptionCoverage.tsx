@@ -28,7 +28,11 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
     ...model,
     goalOptionCoverage: {
       hasFigures: true,
-      withheldLines: model.rows.filter((row) => !figureIds.has(row.id)).map((row) => {
+      withheldLines: model.rows.filter((row) => {
+        const cell = optionChanceCellFromResults(data, row.id)
+        // The row already owns the server face and its Why? disclosure. Do not repeat its explanation here.
+        return !figureIds.has(row.id) && !(cell.kind === 'withheld' && cell.why !== undefined)
+      }).map((row) => {
         // Legacy callers carry only the Run-wide message. Once warnings are present, no Run-wide fallback is allowed.
         const rowReason = readGoalWithheldReasonFor({ inference_warnings: data.confidence?.inferenceWarnings }, row.id)
           ?? (data.confidence?.inferenceWarnings === undefined ? reason : null)

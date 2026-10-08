@@ -123,12 +123,13 @@ describe('WS5 real served chance cells', () => {
     expect(model.rows.find(r => r.id === X)!.goal.value).toBeNull()
     expect(model.rows.find(r => r.id === X)!.goal.readout).toContain('between about 5% and 37%')
   })
-  it('H3/R2-5 served figure matrix/hero parity preserves licensed sentences and canonical digits', async () => {
+  it('H3/R2-5 historical served figure without a face prints only its display fragment across matrix/hero/card', async () => {
     const data = await from(figures)
     heroParity(data)
     for (const option of figures.j.canonical_analysis_view.options) {
       const text = data.runView!.chanceCellOf(option.option_id, ctx(data)).text!
-      expect(text).not.toBe(option.cell.display)
+      // C-CELL: historical bytes have no face; a client sentence is no longer licensed.
+      expect(text).toBe(option.cell.display)
       for (const pct of option.cell.display.match(/\d+%/g)!) expect(text).toContain(pct)
       cardParity(data, option.option_id)
     }
@@ -161,15 +162,19 @@ describe('WS5 real served chance cells', () => {
   it.each([bodies.c_refused_only, bodies.c2_no_run])('C3 real no-run / unknown staleness falls through ($run)', async canonical => {
     const data = await from(figures)
     const view = buildRunView(useCanvasStore.getState().results.report, canonical as never)
-    for (const option of data.recommendation.allOptions) expect(view.chanceCellOf(option.id, ctx(data))).toEqual(data.runView!.chanceCellOf(option.id, ctx(data)))
+    // C-CELL: no matching view means the preserved licence fallback, not the matched READ's display-only cell.
+    const fallback = buildRunView(useCanvasStore.getState().results.report)
+    for (const option of data.recommendation.allOptions) expect(view.chanceCellOf(option.id, ctx(data))).toEqual(fallback.chanceCellOf(option.id, ctx(data)))
   })
   it('C4 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): different run id ignored even when graph hash matches', async () => {
     const data = await from(figures)
     const d = variant(data, { kind: 'withheld', reasons: [{ code: 'test', message: 'M-SERVER' }] }, 'different')
-    expect(d.runView.chanceCellOf(X, ctx(d))).toEqual(data.runView!.chanceCellOf(X, ctx(data)))
+    // C-CELL: a mismatched Run keeps the uncovered-path composer; a matched READ without face prints display only.
+    expect(d.runView.chanceCellOf(X, ctx(d))).toEqual(buildRunView(useCanvasStore.getState().results.report).chanceCellOf(X, ctx(data)))
   })
-  it.each([['M-SERVER', 'M-SERVER'], [null, OPTION_CHANCE_WITHHELD]])('C5 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): withheld message %s', async (message, expected) => {
+  it.each([['M-SERVER', OPTION_CHANCE_WITHHELD], [null, OPTION_CHANCE_WITHHELD]])('C5 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): withheld without a face never prints reasons.message %s', async (message, expected) => {
     const d = variant(await from(figures), { kind: 'withheld', reasons: [{ code: 'test', message }] })
+    // C-CELL: reasons are not faces; old producer without face retains the existing fallback.
     expect(d.runView.chanceCellOf(X, ctx(d))).toEqual({ kind: 'withheld', text: expected })
     heroParity(d)
   })
@@ -241,6 +246,8 @@ describe('WS5 real served chance cells', () => {
     const data = await from(figures)
     const canonical = structuredClone(figures.j.canonical_analysis_view)
     const entry = canonical.options.find(o => o.option_id === X)!
+    // C-CELL stimulus: an explicit additive face keeps this driver's option boundary. Historical bytes have display only.
+    Object.assign(entry.cell, { face: `‘Launch starter tier’: ${entry.cell.display}` })
     const driver = { ...canonical.options[0].main_driver.driver, strength: 'stronger' }
     entry.main_driver = (kind === 'available' ? { kind, driver } : kind === 'none_licensed' ? { kind, reason: 'none' } : { kind }) as never
     const report = useCanvasStore.getState().results.report

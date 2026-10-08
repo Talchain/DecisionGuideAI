@@ -1,8 +1,8 @@
 /** Tolerant READ boundary. Unknown versions and malformed records carry no authority. */
 export type CanonicalAnalysisCell =
-  | { readonly kind: 'figure'; readonly display: string }
-  | { readonly kind: 'range'; readonly display: string; readonly detail: Readonly<Record<string, unknown>> }
-  | { readonly kind: 'withheld'; readonly reasons: readonly { readonly code: string; readonly message: string | null }[] }
+  | { readonly kind: 'figure'; readonly display: string; readonly face?: string }
+  | { readonly kind: 'range'; readonly display: string; readonly face?: string; readonly detail: Readonly<Record<string, unknown>> }
+  | { readonly kind: 'withheld'; readonly face?: string; readonly why?: string; readonly reasons: readonly { readonly code: string; readonly message: string | null }[] }
   | { readonly kind: 'none' }
 export type CanonicalMainDriver =
   | { readonly kind: 'available'; readonly driver: Readonly<Record<string, unknown>>; readonly detail?: string }
@@ -20,6 +20,7 @@ export interface CanonicalAnalysisView {
     readonly reason: string | null
     readonly limitation: 'Hash equality cannot detect brief, framing or stage changes.'
   }
+  readonly face_when_stale?: string
   readonly leader_licence: 'permitted' | 'permitted_with_caveat' | 'withheld'
   readonly options: readonly { readonly option_id: string; readonly cell: CanonicalAnalysisCell; readonly main_driver: CanonicalMainDriver }[]
 }
@@ -37,6 +38,7 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
     if ((staleness.revision !== null && !(typeof staleness.revision === 'number' && Number.isSafeInteger(staleness.revision) && staleness.revision >= 0))
       || staleness.run_revision !== null || staleness.basis !== 'analysis_graph_hash_interim'
       || !nullableString(staleness.reason) || staleness.limitation !== 'Hash equality cannot detect brief, framing or stage changes.') return null
+    if (v.face_when_stale !== undefined && typeof v.face_when_stale !== 'string') return null
     const ids = new Set<string>()
     for (const option of v.options) {
       if (!rec(option) || typeof option.option_id !== 'string' || option.option_id.trim() === '' || !rec(option.cell)) return null
@@ -50,6 +52,8 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
         if (typeof driver.reason !== 'string') return null
       } else if (driver.kind !== 'not_recorded') return null
       const cell = option.cell
+      if (cell.face !== undefined && typeof cell.face !== 'string') return null
+      if (cell.why !== undefined && typeof cell.why !== 'string') return null
       if (cell.kind === 'figure' || cell.kind === 'range') {
         if (typeof cell.display !== 'string' || (cell.kind === 'range' && !rec(cell.detail))) return null
       } else if (cell.kind === 'withheld') {
