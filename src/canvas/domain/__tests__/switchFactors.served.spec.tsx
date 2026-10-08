@@ -168,7 +168,7 @@ for (const mode of ['live', 'cold'] as const) {
     it('#13/#14 mounted factor inspector: value and set by options', () => {
       render(<FactorControllablePanel nodeId={ID} techMode={false} onClose={vi.fn()} onNavigate={vi.fn()} readOnly />)
       // The standalone value duplicate moved to the summary sentence.
-      expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('Starter tier availability is Not in use.')
+      expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('Starter tier availability: Not in use.')
       expect(screen.getByText('In use')).toBeTruthy()
     })
     it('#2 mounted option inspector, including a user-set target', () => {

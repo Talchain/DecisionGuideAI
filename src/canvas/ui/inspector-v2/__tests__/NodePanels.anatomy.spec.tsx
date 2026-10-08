@@ -233,7 +233,7 @@ describe('specific node contracts', () => {
   })
   it('summarises the option target and retains exactly one provenance pill in its row', () => {
     open('option')
-    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent(/^Sets Price to /)
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent(/^Changes Price\.$/)
     const row = screen.getByTestId('inspector-intervention-controllable')
     expect(row.querySelectorAll('[data-testid="inspector-intervention-controllable-provenance"]')).toHaveLength(1)
   })
