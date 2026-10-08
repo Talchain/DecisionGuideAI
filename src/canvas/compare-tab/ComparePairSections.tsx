@@ -81,7 +81,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
   runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null,
-  goalChancesWithheld = false,
+  held = false,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -94,8 +94,11 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
-  /** The current report's unconfirmed goal reading withholds the CURRENT side's bare figure for this pair. */
-  goalChancesWithheld?: boolean
+  /**
+   * GR2: the current report's unconfirmed goal reading withholds the CURRENT side's bare goal-chance figure for this pair.
+   * (Short name: the mount's source scan bounds this element's props to 400 characters.)
+   */
+  held?: boolean
 }): JSX.Element {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
@@ -170,7 +173,7 @@ export function ComparePairSections({
               // Retain recorded absences, and route each figure through the existing not-shown words for both render paths.
               // Only the CURRENT side rests on the current reading; the earlier Run keeps its own recorded figure (Codex r2 P1).
               const prior = g.prior
-              const current = goalChancesWithheld && (g.current.kind === 'point' || g.current.kind === 'range')
+              const current = held && (g.current.kind === 'point' || g.current.kind === 'range')
                 ? { kind: 'withheld' } as const : g.current
               // A side with a figure reads in the panel's ink; the latest one a step stronger. No figure stays muted.
               const tone = (side: typeof g.prior, latest: boolean) => side.kind === 'point' || side.kind === 'range'

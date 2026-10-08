@@ -112,7 +112,7 @@ export function CompareRunPairBody({
   // selector read, so the phrases match its sentence exactly.
   const inferenceWarnings = useCanvasStore(s => (s.results?.report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings)
   // The displayed pair is bound to this hash; a current unconfirmed reading withholds its bare goal figures.
-  const goalChancesWithheld = useCanvasStore(s => s.results?.hash === responseHash && goalFiguresUnderReading(s.results?.report))
+  const held = useCanvasStore(s => s.results?.hash === responseHash && goalFiguresUnderReading(s.results?.report))
   const withheldSegments = useMemo(() => withheldReason === null ? null : withheldReasonSegments(withheldReason, inferenceWarnings, (id) => {
     const data = nodes.find(n => n.id === id)?.data as { label?: unknown } | undefined
     return typeof data?.label === 'string' ? data.label : null
@@ -175,7 +175,7 @@ export function CompareRunPairBody({
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} goalChancesWithheld={goalChancesWithheld} />
+        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} held={held} />
     </div>
   )
 }
