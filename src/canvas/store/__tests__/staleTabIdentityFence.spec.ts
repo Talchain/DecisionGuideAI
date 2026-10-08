@@ -30,8 +30,10 @@ async function bootTab() {
   const persist = await import('../../persist')
   const crash = await import('../../persist/crashFlush')
   const auth = await import('../../../lib/auth/userScopedState')
+  const authUtils = await import('../../../lib/auth/authUtils')
+  const lock = await import('../../../lib/auth/staleTabLock')
   const { useCanvasStore: store } = await import('../../store')
-  return { scenarios, persist, crash, auth, store }
+  return { scenarios, persist, crash, auth, authUtils, lock, store }
 }
 /** Another tab's identity boundary, as it reaches THIS tab: shared storage changes, this tab's memory does not. */
 function anotherTabRotatesEpoch(next: string) {
@@ -108,6 +110,18 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(reload.scenarios.loadAutosave()?.scenarioId, 'B\'s own work did not survive B\'s reload').toBe(B_ID)
   })
 
+  it('CONTROL S-G2 current real-auth sign-out keeps the next guest decision-record writer usable', async () => {
+    localStorage.setItem(EPOCH_KEY, 'current-A|owner:user-A')
+    const current = await bootTab()
+    current.authUtils.clearAuthStates()
+    const { useDecisionRecordStore } = await import('../../../components/results/modals/decisionRecordStore')
+    const record = { optionId: 'guest-option', optionLabel: 'Guest reasoning', optionNumber: 1, confidence: 70,
+      rationale: 'Guest words', expectation: 'Guest expectation', assumptionToWatch: 'Guest assumption',
+      revisitTrigger: '2026-12-01', analysisHash: 'guest-hash', savedAt: 1234, remote: null }
+    expect(useDecisionRecordStore.getState().saveRecord('guest-scenario', record),
+      'the current tab must remain able to retain its next guest work after its own sign-out').not.toBeNull()
+  })
+
   it('TWIN (must stay green): a browser with no epoch at all still autosaves (no boundary has happened)', async () => {
     const tab = await bootTab()
     tab.scenarios.saveAutosave(graph(A_ID, 'guest work'))
@@ -115,17 +129,20 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(reload.scenarios.loadAutosave()?.scenarioId).toBe(A_ID)
   })
 
-  it('⭐ TWIN (Review Desk): BOTH tabs run the sign-out sweep, and tab 1 still saves its new account\'s work', async () => {
-    // gotrue relays SIGNED_OUT across tabs, so the second tab runs its own sweep for the SAME boundary.
+  it.each(['storage-first', 'SDK-relay-first'])('S-G2 v2 CORE: sign-out LOCKS A observer in %s order; the originator stays usable', async order => {
+    // Shared storage and SDK relays have independent delivery; neither order lets an observer adopt the epoch.
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     const tab2 = await bootTab() // both tabs loaded while A was signed in
     const tab1 = await bootTab()
     tab1.auth.clearUserScopedState(null) // tab 1 signs out (every sign-out path passes null: clearAuthStates, adopt(null))
     const afterTab1 = localStorage.getItem(EPOCH_KEY)
     expect(afterTab1, 'precondition: tab 1 rotated the epoch').not.toBe('epoch-A')
-    tab2.auth.clearUserScopedState(null) // tab 2 hears SIGNED_OUT and sweeps too (AuthContext adopt(null))
+    if (order === 'storage-first') expect(tab2.lock.checkStaleTabLock()).toBe(true)
+    expect(tab2.auth.clearUserScopedState(null), 'an observer must never join or rotate').toBe('blocked')
+    expect(tab2.lock.checkStaleTabLock(), 'the SDK-first path must lock before it can adopt').toBe(true)
+    expect(tab2.scenarios.getIdentityWriteBlockReason(), 'observer keeps its old witness').toBe('stale')
 
-    expect(localStorage.getItem(EPOCH_KEY), 'the second sweep minted another epoch, stranding tab 1').toBe(afterTab1)
+    expect(localStorage.getItem(EPOCH_KEY), 'the observer minted another epoch, stranding tab 1').toBe(afterTab1)
     // tab 1 signs in as B (not a boundary there: its owner is already null) and works
     expect(tab1.scenarios.saveAutosave(graph(B_ID, 'B own')), 'tab 1 is locked out of saving B\'s work').toBe(true)
     const raw = JSON.parse(localStorage.getItem(SLOT) ?? 'null') as { scenarioId?: string; identityEpoch?: string } | null
@@ -154,7 +171,7 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(localStorage.getItem(SLOT)).toBeNull()
   })
 
-  it('⭐ a tab that missed A→B and then crosses A→C does NOT join B\'s era: B\'s surviving records are never C\'s', async () => {
+  it('S-G2 v2: a tab that missed A→B cannot cross A→C; it LOCKS and preserves B work', async () => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     const stale = await bootTab() // still on A; it misses the next transition
     const other = await bootTab()
@@ -162,30 +179,208 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     const eraB = localStorage.getItem(EPOCH_KEY)
     expect(other.scenarios.saveAutosave(graph(B_ID, 'B work')), 'precondition: B works in its era').toBe(true)
 
-    // this tab now crosses A→C itself, and the sweep's removal of B's slot is REFUSED (the supported degradation)
+    // A stale tab cannot originate a new account transition or touch the current B work.
     const realRemove = Storage.prototype.removeItem
     const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
       if (k === SLOT) return undefined
       return realRemove.call(this, k)
     })
-    stale.auth.clearUserScopedState('user-C')
+    expect(stale.auth.clearUserScopedState('user-C')).toBe('blocked')
     spy.mockRestore()
 
     expect(localStorage.getItem(SLOT), 'precondition: B\'s slot survived the refused removal').not.toBeNull()
-    expect(localStorage.getItem(EPOCH_KEY), 'this tab joined B\'s era for C').not.toBe(eraB)
-    const tabC = await bootTab()
-    expect(tabC.scenarios.loadAutosave()?.scenarioId ?? null, 'C restores B\'s model').toBeNull()
+    expect(localStorage.getItem(EPOCH_KEY), 'the stale observer rotated B\'s era for C').toBe(eraB)
+    expect(stale.lock.checkStaleTabLock()).toBe(true)
+    expect(stale.scenarios.saveAutosave(graph(A_ID, 'C attempted')), 'C cannot publish under B\'s era').toBe(false)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.scenarioId, 'B surviving records stay B\'s').toBe(B_ID)
   })
 
-  it('⭐ real-auth: a tab that signed out and signs back in can save, even after another tab\'s null-session boot rotated', async () => {
-    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+  it('S-G2 buddy-r1: a first sign-in after another tab rotates an unmatched era stays LOCKED', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
     const tab1 = await bootTab()
-    tab1.auth.clearUserScopedState(null) // tab 1 signs A out
-    const tab3 = await bootTab() // a new tab opens signed out: real-auth sweeps on its null session (AuthContext:377)
-    tab3.auth.clearUserScopedState(null)
+    const tab2 = await bootTab()
+    // A first sign-in keeps the held guest era's owner tag. A's genuine sign-out must still rotate it.
+    expect(tab2.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    tab2.auth.clearUserScopedState(null)
+    expect(localStorage.getItem(EPOCH_KEY)).not.toBe('guest-era|owner:none')
 
-    tab1.auth.adoptIdentityEpochAtSignIn() // A signs back in in tab 1: not a boundary there (AuthContext:388)
-    expect(tab1.scenarios.saveAutosave(graph(A_ID, 'A again')), 'tab 1 is locked out until a reload').toBe(true)
+    expect(tab1.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+    expect(tab1.lock.checkStaleTabLock()).toBe(true)
+    expect(tab1.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(tab1.scenarios.saveAutosave(graph(A_ID, 'A again')), 'an unmatched first sign-in must stay locked').toBe(false)
+  })
+
+  it('S-G2 v2 null boot: a second never-signed-in page is a no-op and preserves shared guest work', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+    const tab1 = await bootTab()
+    const tab2 = await bootTab()
+    localStorage.setItem('olumi-canvas-transcript', 'first guest reasoning')
+    const sharedBeforeNull = Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
+    // The real provider uses this posture for getSession(null) and INITIAL_SESSION(null) when its own
+    // lastSignedInUserId is null. The mounted real-provider regression also drives both transport callbacks.
+    tab2.authUtils.clearAuthStates({ rotateEpoch: false })
+    tab2.authUtils.clearAuthStates({ rotateEpoch: false })
+
+    expect(localStorage.getItem(EPOCH_KEY)).toBe('guest-era|owner:none')
+    expect(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))).toEqual(sharedBeforeNull)
+    expect(tab1.lock.checkStaleTabLock()).toBe(false)
+    expect(tab1.scenarios.saveAutosave(graph(A_ID, 'still signed out'))).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('guest-era|owner:none')
+  })
+
+  it.each(['optional-auth', 'real-auth'])('S-G2 v2 delayed SIGNED_OUT %s LOCKS without deleting fresh guest autosave or shared work', async caller => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const suspended = await bootTab()
+    suspended.store.setState({ nodes: graph(A_ID, 'old A').nodes, edges: [], currentScenarioId: A_ID })
+    const signOutTab = await bootTab()
+    signOutTab.auth.clearUserScopedState(null)
+    const guest = await bootTab()
+    expect(guest.scenarios.saveAutosave(graph(B_ID, 'fresh guest'))).toBe(true)
+    guest.scenarios.setCurrentScenarioId(B_ID)
+    localStorage.setItem('olumi-canvas-transcript', JSON.stringify({ version: 1, scenarios: {} }))
+    localStorage.setItem('olumi-canvas-model-versions-v1', 'fresh guest versions')
+    localStorage.setItem('olumi.dissent.v2.fresh:objection', 'fresh dissent')
+    localStorage.setItem('canvas-layout-options-v6', 'fresh layout')
+    localStorage.setItem('decisionRecord.v2:guest:record:scenario', 'fresh decision record')
+    const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+
+    if (caller === 'real-auth') suspended.authUtils.clearAuthStates()
+    else expect(suspended.auth.clearUserScopedState(null)).toBe('blocked')
+    expect(suspended.lock.checkStaleTabLock()).toBe(true)
+    expect(guest.lock.checkStaleTabLock(), 'the completed sign-out guest must stay usable').toBe(false)
+
+    expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])),
+      'the delayed observer must not perform ANY shared localStorage deletion or rewrite').toEqual(before)
+    expect(suspended.store.getState().nodes).toEqual([])
+    expect(suspended.store.getState().currentScenarioId).toBeNull()
+    const reload = await bootTab()
+    expect(reload.scenarios.loadAutosave()?.scenarioId).toBe(B_ID)
+  })
+
+  it('S-G2 queued refresh A cannot adopt B era or publish A metadata and pointer', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const suspended = await bootTab()
+    suspended.store.setState({ currentScenarioId: A_ID, nodes: graph(A_ID, 'private A').nodes, edges: [], isDirty: true })
+    const thin = await import('../../thinClient/thinClient')
+    thin.__latchThinClientForTests()
+    localStorage.setItem(EPOCH_KEY, 'epoch-B|owner:user-B')
+    localStorage.setItem('olumi-canvas-scenarios', '[]')
+    localStorage.setItem('olumi-canvas-current-scenario-id', B_ID)
+    const before = Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+
+    suspended.auth.adoptIdentityEpochAtSignIn('user-A')
+
+    expect(suspended.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(suspended.store.getState().saveCurrentScenario('private A')).toBeNull()
+    expect(Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))).toEqual(before)
+  })
+
+  it('S-G2 THIN STALE: autosave does not overwrite B positions for a shared scenario', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const suspended = await bootTab()
+    const thin = await import('../../thinClient/thinClient')
+    thin.__latchThinClientForTests()
+    localStorage.setItem(EPOCH_KEY, 'epoch-B|owner:user-B')
+    const key = thin.LAYOUT_KEY_PREFIX + B_ID
+    localStorage.setItem(key, JSON.stringify({ sharedNode: { x: 500, y: 600 } }))
+    const before = localStorage.getItem(key)
+    const stale = { ...graph(B_ID, 'A'), nodes: [{ id: 'sharedNode', type: 'decision', position: { x: 10, y: 20 }, data: { label: 'A' } }] } as import('../scenarios').AutosaveData
+
+    expect(suspended.scenarios.saveAutosave(stale)).toBe(false)
+    expect(localStorage.getItem(key), 'stale A replaced current B positions').toBe(before)
+    const reloadedThin = (await bootTab(), await import('../../thinClient/thinClient'))
+    expect(reloadedThin.loadThinLayout(B_ID)).toEqual({ sharedNode: { x: 500, y: 600 } })
+  })
+
+  it('S-G2 THIN UNCHANGED: a current epoch layout still writes and reports true', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const current = await bootTab()
+    const thin = await import('../../thinClient/thinClient')
+    thin.__latchThinClientForTests()
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'current'))).toBe(true)
+    expect(thin.loadThinLayout(A_ID)).toEqual({ 'current-n': { x: 1, y: 1 } })
+    expect(localStorage.getItem(SLOT)).toBeNull()
+  })
+
+  it('S-G2 P1: a transient refresh read never replaces a valid thin-tab witness with undefined', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const current = await bootTab()
+    const thin = await import('../../thinClient/thinClient')
+    thin.__latchThinClientForTests()
+    const realGet = Storage.prototype.getItem
+    const refusedRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY) throw new DOMException('Transient refresh read', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    current.auth.adoptIdentityEpochAtSignIn('user-A')
+    refusedRead.mockRestore()
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'current'))).toBe(true)
+  })
+
+  it.each(['guest-era|owner:none', null])('S-G2 round 2 P1: rejected sign-in after both boot reads fail requires the reload lock (shared %s)', async bootEpoch => {
+    if (bootEpoch !== null) localStorage.setItem(EPOCH_KEY, bootEpoch)
+    const realGet = Storage.prototype.getItem
+    const refusedRead = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY) throw new DOMException('Both boot reads refused', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    const tab = await bootTab()
+    const lock = await import('../../../lib/auth/staleTabLock')
+    const unsubscribe = lock.subscribeStaleTabLock(() => {})
+    try {
+      expect(lock.isStaleTabLocked(), 'unreadable storage alone is not a lock').toBe(false)
+      refusedRead.mockRestore()
+      // Write permission may recover shared null, but this must not invent an auth/restore boot witness.
+      if (bootEpoch === null) expect(tab.scenarios.getIdentityWriteBlockReason()).toBeNull()
+      expect(tab.scenarios.identityEpochStillHeldByThisTab()).toBe(false)
+      expect(tab.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+      expect(lock.isStaleTabLocked(), 'rejected adoption with no boot witness silently stranded the session').toBe(true)
+      expect(tab.scenarios.saveAutosave(graph(A_ID, 'unverified A'))).toBe(false)
+      expect(localStorage.getItem(SLOT)).toBeNull()
+      expect(localStorage.getItem(EPOCH_KEY)).toBe(bootEpoch)
+    } finally { unsubscribe() }
+  })
+
+  it('S-G2 v2 same owner tag cannot authorise a changed era: the observer LOCKS and keeps its witness', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const current = await bootTab()
+    localStorage.setItem(EPOCH_KEY, 'new-era-A|owner:user-A')
+    expect(current.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(false)
+    expect(current.lock.checkStaleTabLock()).toBe(true)
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'own'))).toBe(false)
+  })
+
+  it('S-G2 v2 CONTROL: first sign-in holding the same epoch does not rotate or lock', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const current = await bootTab()
+    expect(current.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    expect(localStorage.getItem(EPOCH_KEY)).toBe('epoch-A|owner:user-A')
+    expect(current.lock.checkStaleTabLock()).toBe(false)
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'own'))).toBe(true)
+  })
+
+  it('S-G2 v2 P0(6): clearing your own storage is shared null, never stale, and the next write is unstamped', async () => {
+    localStorage.setItem(EPOCH_KEY, 'guest-era|owner:none')
+    const current = await bootTab()
+    localStorage.clear()
+    expect(current.scenarios.getIdentityWriteBlockReason()).toBeNull()
+    expect(current.lock.checkStaleTabLock(), 'lock predicate must equal write predicate').toBe(false)
+    expect(current.scenarios.saveAutosave(graph(A_ID, 'guest after clear'))).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBeUndefined()
+  })
+
+  it('S-G2 v2 CONTROL: reload after the shared boundary captures its epoch and stays usable', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A|owner:user-A')
+    const old = await bootTab()
+    anotherTabRotatesEpoch('epoch-B|owner:user-B')
+    expect(old.lock.checkStaleTabLock()).toBe(true)
+    const reload = await bootTab()
+    expect(reload.lock.checkStaleTabLock()).toBe(false)
+    expect(reload.scenarios.saveAutosave(graph(B_ID, 'B after reload'))).toBe(true)
   })
 
   // ── S-G port onto current staging (7 Oct): the thin latch (#2511) already removes the model copy for a page that was
@@ -194,7 +389,7 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
   it('⭐ S-G row 2, real calls: a guest tab under another tab\'s sign-in then sign-out writes NOTHING for the next guest', async () => {
     const guestTab = await bootTab() // a guest page, no boundary has happened in this browser yet
     const tab1 = await bootTab()
-    tab1.auth.adoptIdentityEpochAtSignIn() // A signs in in tab 1: a first sign-in, not a boundary (AuthContext)
+    tab1.auth.adoptIdentityEpochAtSignIn('user-A') // A signs in in tab 1: a first sign-in, not a boundary (AuthContext)
     tab1.auth.clearUserScopedState(null) // A signs out in tab 1: the boundary
 
     expect(guestTab.scenarios.saveAutosave(graph(A_ID, 'before sign-in')), 'the stale guest tab reported a write').toBe(false)
@@ -212,7 +407,7 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     })
 
     const tab1 = await bootTab()
-    tab1.auth.adoptIdentityEpochAtSignIn() // first sign-in, as in S-G row 2
+    tab1.auth.adoptIdentityEpochAtSignIn('user-A') // first sign-in, as in S-G row 2
     tab1.auth.clearUserScopedState(null) // real sign-out boundary in the OTHER registry
 
     const currentGuest = await bootTab()
@@ -405,11 +600,13 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
       return realGet.call(this, key)
     })
     const tab = await bootTab()
+    const lock = await import('../../../lib/auth/staleTabLock')
     const messages: string[] = []
     const listener = (event: Event) => { messages.push((event as CustomEvent).detail.message) }
     window.addEventListener('topbar:show-toast', listener)
     try {
       expect.soft(tab.scenarios.getIdentityWriteBlockReason()).toBeNull()
+      expect.soft(lock.checkStaleTabLock()).toBe(false)
       expect.soft(tab.scenarios.saveAutosave(graph(A_ID, 'own work'))).toBe(true)
       expect.soft(JSON.parse(localStorage.getItem(SLOT) ?? 'null')?.identityEpoch).toBe('unchanged-boot-era')
       expect.soft(messages, 'recovered storage must not claim an identity boundary').toEqual([])
@@ -455,11 +652,10 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(localStorage.getItem(SLOT)).toBe(currentAutosave)
   })
 
-  it('⭐ THIN UNCHANGED: a signed-in (thin) page under a rotated epoch still writes its layout and reports it, never the model', async () => {
+  it('⭐ THIN UNCHANGED: a signed-in (thin) page holding the current epoch still writes its layout and reports true', async () => {
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     localStorage.setItem('sb-testproject-auth-token', '{"access_token":"t","user":{"id":"u"}}')
     const thinTab = await bootTab()
-    anotherTabRotatesEpoch('epoch-B')
 
     expect(thinTab.scenarios.saveAutosave(graph(A_ID, 'A thin')), 'the fence changed what a thin page reports').toBe(true)
     expect(localStorage.getItem(`olumi-thin-layout:${A_ID}`), 'the thin page lost its layout write').not.toBeNull()

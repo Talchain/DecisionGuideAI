@@ -16,6 +16,7 @@
  * sessionStorage (survives reloads, dies with the session — matching the
  * unpersisted scenario identity's scope), keyed per scenario id.
  */
+import '../../../lib/auth/userScopedKeys'
 import { create } from 'zustand'
 
 import { resolveScenarioKey } from './scenarioKey'

@@ -23,6 +23,7 @@
  * Persistence: sessionStorage (survives reloads, dies with the session —
  * matching the unpersisted scenario identity's scope). Manual, version-keyed.
  */
+import '../../lib/auth/userScopedKeys'
 import { create } from 'zustand'
 import type { Recommendation, RecStatus } from '../../components/results/strengthen/strengthenTypes'
 

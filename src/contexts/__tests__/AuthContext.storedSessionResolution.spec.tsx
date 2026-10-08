@@ -106,6 +106,7 @@ function storedSessionValue() {
 // ---------------------------------------------------------------------------
 
 const getSession = vi.fn()
+const signInWithPassword = vi.fn()
 const onAuthStateChange = vi.fn(
   (_callback?: (event: string, session: unknown) => void) => ({
     data: { subscription: { unsubscribe: vi.fn() } },
@@ -156,7 +157,7 @@ vi.mock('../../lib/supabase', () => ({
         onAuthStateChange(...(a as Parameters<typeof onAuthStateChange>)),
       signInWithOtp: vi.fn(),
       signInWithOAuth: vi.fn(),
-      signInWithPassword: vi.fn(),
+      signInWithPassword,
       signOut: vi.fn(async () => ({ error: null })),
     },
   },
@@ -212,6 +213,7 @@ vi.mock('../../lib/posthog', async importOriginal => ({
 const loadingPerRender: boolean[] = []
 /** Every value of `user.id` this render pass exposed, in order. */
 const userIdPerRender: Array<string | undefined> = []
+let explicitSignIn: ((email: string, password: string) => Promise<{ error: unknown }>) | undefined
 
 async function renderMountPath() {
   const { AuthProvider, useAuth } = await import('../AuthContext')
@@ -220,6 +222,7 @@ async function renderMountPath() {
 
   function Recorder() {
     const ctx = useAuth()
+    explicitSignIn = ctx.signInWithPassword
     loadingPerRender.push(ctx.loading)
     userIdPerRender.push(ctx.user?.id)
     return null
@@ -434,7 +437,7 @@ describe('OptionalAuthProvider — stored-session resolution', () => {
   // and it must retire the failure — otherwise the user signs in again and is
   // still told the restore failed. One predicate, two opposite harms: both get
   // a case.
-  it('a session-carrying event does retire a failed restore', async () => {
+  it('an explicit local sign-in carrying a session does retire a failed restore', async () => {
     localStorage.setItem(STORED_SESSION_KEY, storedSessionValue())
     getSession.mockResolvedValue({
       data: { session: null },
@@ -450,11 +453,16 @@ describe('OptionalAuthProvider — stored-session resolution', () => {
     const emit = onAuthStateChange.mock.calls[0]?.[0]
     expect(typeof emit).toBe('function')
 
+    const signedIn = {
+      access_token: 'fixture-not-a-real-token',
+      user: { id: OWNER_ID, email: 'owner@example.com' },
+    }
+    signInWithPassword.mockImplementationOnce(async () => {
+      emit!('SIGNED_IN', signedIn)
+      return { data: { session: signedIn }, error: null }
+    })
     await act(async () => {
-      emit!('SIGNED_IN', {
-        access_token: 'fixture-not-a-real-token',
-        user: { id: OWNER_ID, email: 'owner@example.com' },
-      })
+      await explicitSignIn!('owner@example.com', 'fixture-password')
       await Promise.resolve()
     })
 

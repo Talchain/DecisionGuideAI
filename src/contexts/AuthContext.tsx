@@ -6,7 +6,7 @@ import { supabase, getProfile } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
-import { adoptIdentityEpochAtSignIn, clearUserScopedState } from '../lib/auth/userScopedState';
+import { adoptIdentityEpochAtSignIn, clearUserScopedState, resetUserScopedMemory } from '../lib/auth/userScopedState';
 
 // The last signed-in user in this tab. Module-level, not a hook: there is one auth provider, and a different
 // user arriving without an explicit sign-out must still clear the previous user's state.
@@ -16,9 +16,54 @@ import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
 import { isThinClientSession } from '../canvas/thinClient/thinClient';
-import { recordSignInAfterBoundary, sessionLapsedHere } from '../lib/auth/lapseBoundary';
+import { recordSignInAfterBoundary } from '../lib/auth/lapseBoundary';
+import { identityEpochStillHeldByThisTab, readIdentityEpoch } from '../canvas/store/scenarios';
+import { checkStaleTabLock, lockStaleTab } from '../lib/auth/staleTabLock';
 import { setSentryUser, clearSentryUser } from '../lib/monitoring';
 import { identifyUser, resetPostHog, trackEvent } from '../lib/posthog';
+
+// Only a verified result from an explicit action can authorize a different owner in this tab.
+// SDK callbacks can precede the operation's result; defer them until the returned session identifies the originator.
+type SessionReceiver = (session: Session | null, originating: boolean) => void
+let localSessionReceiver: SessionReceiver | undefined
+let originatingSignIn: { events: { session: Session | null; receive: SessionReceiver }[] } | null = null
+
+export async function runOriginatingSignIn<T extends { data?: { session?: Session | null }; error?: unknown }>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const action = { events: [] as { session: Session | null; receive: SessionReceiver }[] }
+  originatingSignIn = action
+  let result: T | undefined
+  try {
+    result = await operation()
+    return result
+  } finally {
+    if (originatingSignIn === action) originatingSignIn = null
+    const confirmed = !result?.error ? result?.data?.session : null
+    let delivered = false
+    for (const event of action.events) {
+      const own = !!confirmed && event.session?.user.id === confirmed.user.id
+      event.receive(event.session, own)
+      delivered ||= own
+    }
+    if (confirmed && !delivered) localSessionReceiver?.(confirmed, true)
+  }
+}
+
+function receiveAuthRelay(session: Session | null, receive: SessionReceiver): void {
+  if (originatingSignIn) originatingSignIn.events.push({ session, receive })
+  else receive(session, false)
+}
+
+function detectRestoreLapse(expectingStoredSession: boolean): void {
+  if (!expectingStoredSession) return
+  if (identityEpochStillHeldByThisTab()) clearUserScopedState(null)
+  else if (typeof readIdentityEpoch() === 'string') {
+    // A different readable era (including an unknown boot witness) makes this detector an observer.
+    lockStaleTab()
+    resetUserScopedMemory()
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Context type
@@ -204,7 +249,7 @@ async function callSignInWithPassword(
     if (typeof supabase.auth.signInWithPassword !== 'function') {
       return { error: signInUnavailable('signInWithPassword') };
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await runOriginatingSignIn(() => supabase.auth.signInWithPassword({ email, password }));
     if (error) {
       authLogger.error('ERROR', 'Password sign-in failed', error);
       return { error };
@@ -373,23 +418,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // keeps onAuthStateChange callback lightweight (no chained Supabase queries).
   const [pendingUser, setPendingUser] = React.useState<User | null>(null);
 
-  const handleAuthStateChange = useCallback((session: Session | null) => {
-    observeDecisionRecordOwner(session?.user.id ?? null);
+  const [expectingStoredSession] = React.useState(hasStoredSupabaseSession);
+  const initialRestorePending = React.useRef(true);
+
+  const handleAuthStateChange = useCallback((session: Session | null, originating = false, boot = false) => {
+    const nextOwner = session?.user.id ?? null;
+    const initialBoot = boot && initialRestorePending.current;
+    initialRestorePending.current = false;
+    if (checkStaleTabLock()) { resetUserScopedMemory(); return; }
+    if (!initialBoot && nextOwner !== lastSignedInUserId && !originating) {
+      lockStaleTab(); // the SDK relay is an observer, even before the epoch storage event arrives
+      resetUserScopedMemory();
+      return;
+    }
+    if (originating && lastSignedInUserId !== null && nextOwner !== lastSignedInUserId) {
+      if (clearUserScopedState(nextOwner) === 'blocked') return;
+    } else if (session && !adoptIdentityEpochAtSignIn(session.user.id)) return;
+    lastSignedInUserId = nextOwner;
     if (!session) {
-      clearAuthStates();
       clearSentryUser();
       resetPostHog();
       setState({ user: null, profile: null, loading: false, authenticated: false });
       setPendingUser(null);
       return;
     }
-
-    // Set user immediately (synchronous side-effects only).
-    // Profile fetch is deferred to the useEffect below.
     const u = session.user;
-    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState(u.id);
-    else adoptIdentityEpochAtSignIn(); // not a boundary here: take the browser's current era (CAN-F2g, #2516)
-    lastSignedInUserId = u.id;
+    observeDecisionRecordOwner(u.id);
+    recordSignInAfterBoundary();
     setSentryUser(u.id, u.email ?? '');
     identifyUser(u.id, u.email ?? '', u.user_metadata?.full_name);
     trackEvent('signed_in', { provider: u.app_metadata?.provider ?? 'unknown' });
@@ -419,26 +474,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     authLogger.debug('INIT', 'Initializing auth state');
     let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    const localReceiver: SessionReceiver = (session, originating) => {
+      if (!cancelled) handleAuthStateChange(session, originating);
+    };
+    localSessionReceiver = localReceiver;
 
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        handleAuthStateChange(session);
+        if (cancelled) return;
+        if (!session && initialRestorePending.current) detectRestoreLapse(expectingStoredSession);
+        handleAuthStateChange(session, false, true);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           authLogger.debug('STATE', 'Auth state changed', { event: _event });
-          handleAuthStateChange(session);
+          receiveAuthRelay(session, localReceiver);
         });
 
         cleanup = () => subscription.unsubscribe();
       } catch (error) {
+        if (cancelled) return;
+        if (initialRestorePending.current) detectRestoreLapse(expectingStoredSession);
         authLogger.error('ERROR', 'Auth initialization failed', error);
         setState(prev => ({ ...prev, loading: false }));
       }
     })();
 
-    return () => cleanup?.();
-  }, [handleAuthStateChange]);
+    return () => {
+      cancelled = true;
+      cleanup?.();
+      if (localSessionReceiver === localReceiver) localSessionReceiver = undefined;
+    };
+  }, [handleAuthStateChange, expectingStoredSession]);
 
   const value = React.useMemo((): AuthContextType => ({
     ...state,
@@ -462,7 +530,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       authLogger.debug('SIGN_OUT', 'Sign out attempt');
       try {
+        if (checkStaleTabLock()) return { error: null };
+        initialRestorePending.current = false;
         clearAuthStates();
+        lastSignedInUserId = null;
         clearSentryUser();
         resetPostHog();
         setState({ user: null, profile: null, loading: false, authenticated: false });
@@ -482,7 +553,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
       } catch (error) {
         try {
-          clearAuthStates();
+          if (lastSignedInUserId !== null) {
+            clearAuthStates();
+            lastSignedInUserId = null;
+          }
           setState({ user: null, profile: null, loading: false, authenticated: false });
           navigate('/login', { replace: true });
         } catch (cleanupError) {
@@ -576,12 +650,10 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   // Scoped, deliberately, to the INITIAL restore. See the field's doc comment.
   const [restoreFailed, setRestoreFailed] = React.useState(false);
 
-  // CAN-F2w: THE IDENTITY BOUNDARY IN THE GUEST POSTURE, as the real-auth provider has it. A different account
-  // replacing the one on this page (A → B), or a session that ends here because it ended elsewhere (A → none: another
-  // tab signed out), clears the previous identity's state and rotates the autosave epoch (`clearUserScopedState`).
-  // A first sign-in (guest → A) and a same-owner refresh are NOT boundaries: the guest's work stays theirs. A stored
-  // session the SDK DROPS while restoring IS one: see the lapse in place below (DL ruling, #2534).
+  // This tab's explicit A→B action rotates; relayed owner changes only lock. First local sign-in carries guest work.
+  // A stored session dropped while restoring is this tab's first lapse detector boundary.
   const ownerRef = React.useRef<string | null>(null);
+  const initialRestorePending = React.useRef(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -595,14 +667,20 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       setRestoreFailed(failed);
     };
 
-    const adopt = (s: Session | null) => {
+    const adopt = (s: Session | null, originating = false, boot = false) => {
       if (cancelled) return;
+      if (checkStaleTabLock()) { resetUserScopedMemory(); return; }
       const nextOwner = s?.user.id ?? null;
-      // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
-      // B before it left B's records owned by nobody (Codex #2484 final round).
-      if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState(nextOwner);
-      // A first sign-in or same-owner refresh is not a boundary: take the browser's current era (CAN-F2g; Codex #2646 r1).
-      else if (s) adoptIdentityEpochAtSignIn();
+      const initialBoot = boot && initialRestorePending.current;
+      initialRestorePending.current = false;
+      if (!initialBoot && nextOwner !== ownerRef.current && !originating) {
+        lockStaleTab();
+        resetUserScopedMemory();
+        return;
+      }
+      if (originating && ownerRef.current !== null && nextOwner !== ownerRef.current) {
+        if (clearUserScopedState(nextOwner) === 'blocked') return;
+      } else if (s && !adoptIdentityEpochAtSignIn(s.user.id)) return;
       ownerRef.current = nextOwner;
       observeDecisionRecordOwner(nextOwner);
       if (!s) {
@@ -610,7 +688,6 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         setPendingUser(null);
         return;
       }
-      // LAPSE-BOUNDARY: a session adopted after an identity boundary on this page is recorded, so its lapse is one too.
       recordSignInAfterBoundary();
       const u = s.user;
       setSentryUser(u.id, u.email ?? '');
@@ -618,6 +695,8 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       setSession(prev => ({ user: u, profile: prev?.profile ?? null }));
       setPendingUser(u);
     };
+    const localReceiver: SessionReceiver = (s, originating) => adopt(s, originating);
+    localSessionReceiver = localReceiver;
 
     // ── THE SILENCE MUST NOT BE RELOCATED ──────────────────────────────────
     // The defect being fixed is a user left with no answer. Making them wait
@@ -648,13 +727,10 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data, error } = await supabase.auth.getSession();
         const restored = data?.session ?? null;
-        // LAPSE-BOUNDARY IN PLACE (Codex #2534 r2 P1-2; DL ruling): this page booted with a stored session and the SDK
-        // has dropped it (its refresh failed), so the session ended here without a sign-out. The owner above starts
-        // null, so `adopt(null)` sees no change; the boundary runs now, before the guest can act. Otherwise the guest
-        // reads A's local keys until a reload, and the record left behind turns the NEXT tab's boot into a lapse that
-        // sweeps this guest's own work. A restore that only timed out still has its token, so nothing runs.
-        if (!cancelled && !restored && expectingStoredSession && sessionLapsedHere()) clearUserScopedState();
-        adopt(restored);
+        // A definitive failed restore of the stored identity is a lapse, even if the SDK kept its old token.
+        // An unresolved timeout does not run this path. The first detector rotates before the guest can act.
+        if (!cancelled && !restored && initialRestorePending.current) detectRestoreLapse(expectingStoredSession);
+        adopt(restored, false, true);
         // Failed ONLY if this browser held a session and we could not bring it
         // back. A visitor who never had one has not failed at anything, and
         // must not be told they have.
@@ -663,7 +739,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
           authLogger.debug('INIT', 'Stored session could not be restored', error);
         }
         const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-          adopt(s);
+          receiveAuthRelay(s, localReceiver);
           // ⚠ THIS IS NOT ONLY "LATER" EVENTS, AND ASSUMING SO RETIRED THE
           // FAILURE THIS PROVIDER EXISTS TO REPORT. `onAuthStateChange` REPLAYS
           // an `INITIAL_SESSION` event to every callback the moment it
@@ -692,6 +768,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         // A guest build must never fail to boot because auth is unavailable.
         authLogger.debug('INIT', 'Optional auth unavailable; staying a guest', error);
         // ...but a user who WAS signed in is owed the failure, not silence.
+        if (!cancelled && initialRestorePending.current) detectRestoreLapse(expectingStoredSession);
         settle(expectingStoredSession);
       }
     })();
@@ -700,6 +777,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       if (timeout !== undefined) clearTimeout(timeout);
       cleanup?.();
+      if (localSessionReceiver === localReceiver) localSessionReceiver = undefined;
     };
   }, [expectingStoredSession]);
 
@@ -763,9 +841,10 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       // No real session: there is genuinely nothing to sign out of, and
       // pretending otherwise would send a request that cannot succeed.
-      if (!session) return { error: null };
+      if (!session || checkStaleTabLock()) return { error: null };
       authLogger.debug('SIGN_OUT', 'Sign out attempt (optional-auth posture)');
       try {
+        initialRestorePending.current = false;
         clearAuthStates();
         ownerRef.current = null; // this IS the boundary; the SIGNED_OUT event that follows must not run it again
         clearSentryUser();

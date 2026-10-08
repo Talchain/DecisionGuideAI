@@ -48,6 +48,7 @@
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 import { noteGuestTurn } from '../lib/guestWork';
+import { checkStaleTabLock } from '../lib/auth/staleTabLock';
 
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
 import {
@@ -100,6 +101,7 @@ export async function callV5Turn(
   payload: OrchestratorTurnPayload,
   opts: V5CallOptions = {},
 ): Promise<V5CallResult> {
+  if (checkStaleTabLock()) throw new DOMException('', 'AbortError');
   const url = resolveEndpoint();
   const fetchFn = opts.fetchImpl ?? fetch;
 

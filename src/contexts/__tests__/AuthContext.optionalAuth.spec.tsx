@@ -519,7 +519,7 @@ describe('AuthContext × guest posture — auth stays OPTIONAL', () => {
   it('account adoption clears previous private decision notes before exposing the next user', async () => {
     const session = (id: string) => ({ user: { id, email: `${id}@example.com`, app_metadata: {}, user_metadata: {} }, access_token: 'fixture' })
     getSession.mockResolvedValue({ data: { session: session('account-a') } })
-    await renderGuestProvider()
+    const ctx = await renderGuestProvider()
     const records = await import('../../components/results/modals/decisionRecordStore')
     const record = {
       optionId: 'opt-a', optionLabel: 'A', optionNumber: 1, confidence: 70,
@@ -529,7 +529,11 @@ describe('AuthContext × guest posture — auth stays OPTIONAL', () => {
     const capture = records.useDecisionRecordStore.getState().saveRecord('shared-scenario', record)!
     expect(records.useDecisionRecordStore.getState().byScenario['shared-scenario'].rationale).toBe('Private A notes')
     const callback = onAuthStateChange.mock.calls[0][0]
-    await act(async () => { callback('SIGNED_IN', session('account-b')) })
+    signInWithPassword.mockImplementationOnce(async () => {
+      callback('SIGNED_IN', session('account-b'))
+      return { data: { session: session('account-b') }, error: null }
+    })
+    await act(async () => { await ctx.signInWithPassword!('account-b@example.com', 'fixture-password') })
     expect(screen.getByTestId('user-id')).toHaveTextContent('account-b')
     expect(records.useDecisionRecordStore.getState().byScenario).toEqual({})
     expect(Object.keys(localStorage).filter(key => key.includes(':record:'))).toEqual([])

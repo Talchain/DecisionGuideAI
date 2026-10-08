@@ -2,7 +2,7 @@ import { AuthError } from '@supabase/supabase-js';
 import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
 import { clearDurableDissent } from '../../canvas/stores/dissentStore'
-import { clearDecisionRecords } from '../../components/results/modals/decisionRecordStore';
+import { clearDecisionRecords, observeDecisionRecordOwner } from '../../components/results/modals/decisionRecordStore';
 import { clearUserScopedState } from './userScopedState'
 
 function parseAuthError(error: AuthError | Error | unknown): string {
@@ -70,11 +70,12 @@ export function validateAuthInputs(email: string, password: string): string | nu
 }
 
 // Clear all auth-related states
-export function clearAuthStates(): void {
+export function clearAuthStates(options?: { rotateEpoch?: boolean }): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
+  // Only an originating sign-out reaches this sweep. A stale caller cannot rotate, sweep, or adopt the new identity.
+  if (options?.rotateEpoch === false || clearUserScopedState(null, options) === 'blocked') return;
   clearDecisionRecords();
-  // Every caller is a sign-out or a null session: the next identity is nobody (CAN-F2g epoch owner, #2516).
-  clearUserScopedState(null);
+  observeDecisionRecordOwner(null); // restore this current tab's guest context after the fresh clear
   // Clear early access validation state
   clearAccessValidation();
 

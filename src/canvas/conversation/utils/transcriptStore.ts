@@ -147,11 +147,13 @@ export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
  * Accepted cost: the same account signing back in on THIS page does not re-save a fenced decision's local transcript
  * until the user re-enters it (`releaseTranscriptTombstone`); CEE's stored turns restore it either way.
  */
-export function clearAllTranscripts(): void {
+export function clearAllTranscripts(options?: { preserveStorage?: boolean }): void {
   for (const scenarioId of Object.keys(readFile())) forgottenThisPageLoad.add(scenarioId)
   for (const scenarioId of touchedThisPageLoad) forgottenThisPageLoad.add(scenarioId)
   touchedThisPageLoad.clear()
-  try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
+  if (!options?.preserveStorage) {
+    try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
+  }
 }
 
 /**

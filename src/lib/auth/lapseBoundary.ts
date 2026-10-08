@@ -2,7 +2,7 @@
  * ⭐ LAPSE-BOUNDARY (DL ruling on #2525, Codex r1 P1-3; HIGH): a signed-in session that ENDS WITHOUT A SIGN-OUT is an
  * identity boundary too.
  *
- * Sign-out, A→B and A→none in another tab all run `clearUserScopedState`. A lapse runs nothing: a refresh token that
+ * Explicit sign-out and a local A→B run `clearUserScopedState`; relayed identity changes lock observers. A refresh token that
  * fails while the browser is closed is dropped by supabase-js on the next load, and that page booted signed in, so no
  * provider sees an owner change (`AuthContext`'s `lastSignedInUserId` lives in memory only). The page after it is a
  * GUEST's, in a browser still holding the previous account's transcript, run history and every other user-scoped key.
@@ -18,7 +18,7 @@
  * runs from the main bundle (`userScopedKeys.ts`, a leaf with no imports).
  */
 import { hasStoredSupabaseSession } from '../storedSupabaseSession'
-import { freshIdentityEpoch, IDENTITY_EPOCH_STORAGE_KEY, SIGNED_IN_HERE_KEY, sweepUserScopedStorage } from './userScopedKeys'
+import { freshIdentityEpoch, crossIdentityEpochInThisTab, identityEpochStillHeldByThisTab, __resetTabIdentityEpochForTests, SIGNED_IN_HERE_KEY, sweepUserScopedStorage } from './userScopedKeys'
 
 /** Written by a signed-in page; removed only by the identity boundary's sweep. */
 export { SIGNED_IN_HERE_KEY }
@@ -60,6 +60,7 @@ export function recordSignInAfterBoundary(): void {
 export function __resetLapseBoundaryForTests(): void {
   markedSinceBoundary = false
   boundaryOnThisPage = false
+  __resetTabIdentityEpochForTests()
 }
 
 /** Synchronous: this browser was signed in, and the session is gone without the boundary having run. */
@@ -78,6 +79,13 @@ export function sessionLapsedHere(): boolean {
  */
 export const LAPSE_BOUNDARY_BOUND_MS = 8_000
 
+/** An observer never sweeps. Its stale witness will latch the mounted lock when the app loads. */
+function detectorMayRotate(): boolean {
+  if (identityEpochStillHeldByThisTab()) return true
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('olumi:identity-epoch-changed'))
+  return false
+}
+
 /**
  * The boundary without its chunk: the same fresh epoch FIRST and the same storage sweep as `clearUserScopedState`, from
  * the main bundle. Its in-memory resets have nothing to reset yet: no store it resets is in `main.tsx`'s static graph,
@@ -89,8 +97,8 @@ export const LAPSE_BOUNDARY_BOUND_MS = 8_000
  * names `sb-*` keys); storage has no lock shared with supabase-js, the same as the loaded path (Codex, #2534 r1 P1-2).
  */
 function sweepWithoutTheChunk(): boolean {
-  if (!sessionLapsedHere()) return false
-  try { localStorage.setItem(IDENTITY_EPOCH_STORAGE_KEY, freshIdentityEpoch()) } catch { /* the sweep goes on */ }
+  if (!sessionLapsedHere() || !detectorMayRotate()) return false
+  if (crossIdentityEpochInThisTab(freshIdentityEpoch(), null) === 'blocked') return false
   sweepUserScopedStorage()
   noteIdentityBoundary()
   return true
@@ -102,10 +110,10 @@ function sweepWithoutTheChunk(): boolean {
  * the storage sweep runs without it (`sweepWithoutTheChunk`), and a chunk that arrives AFTER the bound runs nothing more.
  */
 export async function runLapseBoundaryIfNeeded(
-  loadBoundary: () => Promise<{ clearUserScopedState: () => void }> = () => import('./userScopedState'),
+  loadBoundary: () => Promise<{ clearUserScopedState: (nextOwner?: string | null) => unknown }> = () => import('./userScopedState'),
   boundMs: number = LAPSE_BOUNDARY_BOUND_MS,
 ): Promise<boolean> {
-  if (!sessionLapsedHere()) return false
+  if (!sessionLapsedHere() || !detectorMayRotate()) return false
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const loaded = await Promise.race([
@@ -116,9 +124,9 @@ export async function runLapseBoundaryIfNeeded(
     if (loaded === null) return sweepWithoutTheChunk()
     // Decided again AFTER the await: another tab may have stored a session meanwhile, and a sweep then would delete a
     // signed-in identity's work (Codex, #2530 r1).
-    if (!sessionLapsedHere()) return false
+    if (!sessionLapsedHere() || !detectorMayRotate()) return false
     // Its sweep removes `SIGNED_IN_HERE_KEY` too (`USER_SCOPED_STORAGE_KEYS`), so the next guest boot is not a lapse.
-    loaded.clearUserScopedState()
+    if (loaded.clearUserScopedState(null) === 'blocked') return false
   } catch {
     // The chunk failed to load: sweep without it.
     return sweepWithoutTheChunk()

@@ -23,6 +23,53 @@ vi.mock('../../lib/payload-trace-store', () => ({
   recordResponsePayload: (...args: unknown[]) => mockRecordResponse(...args),
 }))
 
+describe('S-G2 v2 P5 — identity lock gates buffered turn transport', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    vi.resetModules()
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  it.each(['stale', 'latched'] as const)('%s tab refuses before ledger, trace, callback or network and surfaces no turn error', async state => {
+    const scenarios = await import('../../canvas/store/scenarios')
+    const lock = await import('../../lib/auth/staleTabLock')
+    const { GUEST_WORK_PREFIX } = await import('../../lib/guestWork')
+    const { callV5Turn: send } = await import('../v5Adapter')
+    const ledgerKey = GUEST_WORK_PREFIX + validPayload.scenario_id
+    const ledgerBefore = JSON.stringify({ lastActiveAt: 1, label: 'guest work before boundary' })
+    localStorage.setItem(ledgerKey, ledgerBefore)
+    localStorage.setItem(scenarios.IDENTITY_EPOCH_KEY, 'other-tab|owner:none')
+    if (state === 'latched') {
+      expect(lock.checkStaleTabLock()).toBe(true)
+      localStorage.removeItem(scenarios.IDENTITY_EPOCH_KEY)
+      expect(scenarios.getIdentityWriteBlockReason()).toBeNull()
+    } else {
+      expect(lock.isStaleTabLocked()).toBe(false)
+      expect(scenarios.getIdentityWriteBlockReason()).toBe('stale')
+    }
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const onRequestStarted = vi.fn()
+    const outcome = await send(validPayload, { fetchImpl, onRequestStarted }).then(
+      value => ({ value }),
+      error => ({ error }),
+    )
+    expect.soft(outcome).toMatchObject({ error: { name: 'AbortError' } })
+    expect.soft(localStorage.getItem(ledgerKey)).toBe(ledgerBefore)
+    expect.soft(mockRecordRequest).not.toHaveBeenCalled()
+    expect.soft(mockRecordResponse).not.toHaveBeenCalled()
+    expect.soft(onRequestStarted).not.toHaveBeenCalled()
+    expect.soft(fetchImpl).not.toHaveBeenCalled()
+    expect.soft(lock.isStaleTabLocked()).toBe(true)
+  })
+})
+
 // ── Explicit endpoint for every case that is not ABOUT endpoint resolution ───
 // `resolveEndpoint()` now FAILS CLOSED, so there is no implicit default to lean
 // on. 43 cases in this file used to depend on that default without saying so —

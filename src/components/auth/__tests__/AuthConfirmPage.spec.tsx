@@ -24,6 +24,7 @@ const mockUpdatePassword = vi.fn()
 const mockSignInWithMagicLink = vi.fn()
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ updatePassword: mockUpdatePassword, signInWithMagicLink: mockSignInWithMagicLink }),
+  runOriginatingSignIn: (operation: () => Promise<unknown>) => operation(),
 }))
 
 import AuthConfirmPage from '../AuthConfirmPage'

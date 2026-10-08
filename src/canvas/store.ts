@@ -1493,7 +1493,7 @@ interface CanvasState {
   }) => Promise<LayoutAttemptResult>
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
-  resetCanvas: () => void
+  resetCanvas: (options?: { preserveStorage?: boolean }) => void
   /**
    * Open ANOTHER scenario on a clean slate: the whole scenario-scoped state `resetCanvas` clears (graph, analysis
    * state, results, freshness, authority identity, comparison, draft models), applied whether or not the canvas is
@@ -5236,7 +5236,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ nodes: updatedNodes })
   },
 
-  resetCanvas: () => {
+  resetCanvas: (options) => {
     // ── "Start fresh" must be fresh on the NEXT LOAD too ────────────────────
     // Measured defect (link-track item 4c): resetCanvas cleared in-memory state
     // and `currentScenarioId`, but left `olumi-canvas-autosave` and
@@ -5268,9 +5268,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // is left alone. Only an UNSAVED decision's transcript is discarded, which is
     // the demo-hazard case this item exists for.
     // Saved means a local record OR a server graph for this decision (F1): `leavingDecisionIsSaved`.
-    const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
-    const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingReset, get())
-    scenarios.clearAutosave()
+    const scenarioIdBeingReset = options?.preserveStorage ? null : scenarios.getCurrentScenarioId()
+    const isSavedRecord = options?.preserveStorage || leavingDecisionIsSaved(scenarioIdBeingReset, get())
+    if (!options?.preserveStorage) scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingReset)
 
     const { nodes, edges } = get()
@@ -5299,7 +5299,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
 
     // Clear current scenario ID - user is starting fresh, not editing old scenario
-    scenarios.clearCurrentScenarioId()
+    if (!options?.preserveStorage) scenarios.clearCurrentScenarioId()
 
     set({ ...scenarioResetState(), scenarioEpoch: get().scenarioEpoch + 1 })
     // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)

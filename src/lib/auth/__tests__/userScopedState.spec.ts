@@ -1,11 +1,134 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearUserScopedState, USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES } from '../userScopedState'
 import { loadRuns, saveRuns, type StoredRun } from '../../../canvas/store/runHistory'
 import { isGraphServerAcknowledged, markGraphServerAcknowledged } from '../../../canvas/store/importRegistrationMarker'
 import { useServerConversationTurnsStore } from '../../../canvas/stores/serverConversationTurnsStore'
 
+/** Browser tabs share localStorage, but each keeps its own sessionStorage across a reload. */
+function tabSession(): Storage {
+  const values = new Map<string, string>()
+  return {
+    get length() { return values.size },
+    clear: () => values.clear(),
+    getItem: key => values.get(key) ?? null,
+    key: index => [...values.keys()][index] ?? null,
+    removeItem: key => { values.delete(key) },
+    setItem: (key, value) => { values.set(key, value) },
+  }
+}
+
+async function bootTab(session: Storage) {
+  vi.stubGlobal('sessionStorage', session)
+  vi.resetModules()
+  const auth = await import('../userScopedState')
+  const scenarios = await import('../../../canvas/store/scenarios')
+  const success = await import('../../../components/results/modals/successMeasureStore')
+  const strengthen = await import('../../../canvas/stores/strengthenStore')
+  const guidance = await import('../../../canvas/stores/guidanceStore')
+  const { useCanvasStore: canvas } = await import('../../../canvas/store')
+  const lock = await import('../staleTabLock')
+  return { auth, scenarios, success, strengthen, guidance, canvas, lock }
+}
+
 describe('user-scoped state identity boundary', () => {
-  afterEach(() => { localStorage.clear(); sessionStorage.clear() })
+  afterEach(() => { localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals() })
+
+  it.each(['shared-scenario', '__unscoped__'])('S-G2 v2 P0(2): reload BEFORE relay drops A tab-local reasoning for B (%s)', async scenarioKey => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'era-A|owner:user-A')
+    const sessionA = tabSession()
+    const tabA = await bootTab(sessionA)
+    expect(tabA.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    tabA.success.useSuccessMeasureStore.getState().saveMeasure(scenarioKey, {
+      metric: 'A private measure', direction: 'reach_at_least', threshold: 27, unit: '%',
+      timeframe: 'A private timeframe', baseline: 'A private baseline', savedAt: 123,
+    })
+    tabA.strengthen.useStrengthenStore.getState().reconcile([{
+      id: 'A-finding', helpType: 'clarify', title: 'A private finding', signal: 'A signal',
+      whyNow: 'A reason', tryThis: 'A next step', sourceLine: 'Source: test.', targetId: null, priority: 1,
+      action: { kind: 'ai-dialogue', label: 'Discuss', actionType: 'discuss', prompt: 'A words' },
+    }], 'A-analysis', scenarioKey, 123)
+    tabA.guidance.setGuidancePersistenceContext(() => ({ scenarioId: scenarioKey, graphHash: 'shared-graph' }))
+    tabA.guidance.useGuidanceStore.getState().setGuidanceItems([{
+      item_id: 'A-guidance', source: 'analysis', title: 'A private guidance', priority: 1,
+      primary_action: { type: 'discuss', prompt: 'A private prompt' },
+    }])
+    tabA.canvas.getState().setCeeAnalysisReady({ status: 'ready', options: [], goal_node_id: 'A-goal' } as never)
+    expect(tabA.canvas.getState().ceeAnalysisReady).not.toBeNull()
+    expect(sessionA.getItem('olumi-cee-analysis-ready')).toContain('A-goal')
+    sessionA.setItem('canvas.viewMode', 'device-preference')
+    expect(sessionA.getItem('defineSuccess.measure.v1')).toContain('A private baseline')
+    expect(sessionA.getItem('strengthen.lifecycle.v1')).toContain('A private finding')
+    expect(sessionA.getItem('guidance.items.v1')).toContain('A private guidance')
+
+    const sessionOther = tabSession()
+    const other = await bootTab(sessionOther)
+    expect(other.auth.adoptIdentityEpochAtSignIn('user-A')).toBe(true)
+    expect(other.auth.clearUserScopedState('user-B')).toBe('fresh') // genuine A→B in another tab
+    other.success.useSuccessMeasureStore.getState().saveMeasure('B-own-scenario', {
+      metric: 'B own measure', direction: 'keep_below', threshold: 5, unit: '%',
+      timeframe: 'B own timeframe', baseline: 'B own baseline', savedAt: 456,
+    })
+    localStorage.setItem('olumi-canvas-autosave', 'B own shared work')
+    const sharedBeforeLock = Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
+    vi.stubGlobal('sessionStorage', sessionA)
+
+    // Reload happens after the epoch storage event and BEFORE any SDK relay or provider cleanup.
+    expect(tabA.lock.checkStaleTabLock()).toBe(true)
+    expect(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])),
+      'the observer lock must preserve the current account\'s shared work').toEqual(sharedBeforeLock)
+    expect(sessionA.getItem('canvas.viewMode')).toBe('device-preference')
+
+    const reloadB = await bootTab(sessionA) // same-tab Reload keeps A's old sessionStorage if cleanup missed it
+    expect(reloadB.auth.adoptIdentityEpochAtSignIn('user-B')).toBe(true)
+    expect.soft(reloadB.success.selectSuccessMeasure(reloadB.success.useSuccessMeasureStore.getState(), scenarioKey),
+      'B reopening Define success restored A\'s metric, timeframe and baseline').toBeNull()
+    expect.soft(reloadB.success.selectSuccessMeasure(reloadB.success.useSuccessMeasureStore.getState(), '__unscoped__'),
+      'B\'s empty canvas restored A\'s unscoped measure').toBeNull()
+    expect.soft(reloadB.strengthen.useStrengthenStore.getState().records, 'B restored A\'s strengthen history').toEqual({})
+    expect.soft(reloadB.guidance.useGuidanceStore.getState().rehydrateGuidance({
+      scenarioId: scenarioKey, currentAnalysisHash: 'A-analysis', currentGraphHash: 'shared-graph',
+    }), 'B restored A\'s guidance blob').toBe(0)
+    for (const key of ['defineSuccess.measure.v1', 'strengthen.lifecycle.v1', 'guidance.items.v1',
+      'olumi-cee-analysis-ready', 'olumi-cee-analysis-ready-node-ids']) expect.soft(sessionA.getItem(key), key).toBeNull()
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe(localStorage.getItem('olumi-canvas-identity-epoch'))
+    expect(other.success.selectSuccessMeasure(other.success.useSuccessMeasureStore.getState(), 'B-own-scenario')?.metric).toBe('B own measure')
+    expect(sessionOther.getItem('defineSuccess.measure.v1')).toContain('B own measure')
+  })
+
+
+  it.each(['missing', 'mismatched'])('S-G2 v2 P3: %s sidecar clears every session key and prefix before stores rehydrate', async mode => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'B-current|owner:user-B')
+    const sessionA = tabSession()
+    const leaf = await import('../userScopedKeys')
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) sessionA.setItem(key, 'A private state')
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) sessionA.setItem(`${prefix}scenario-a`, 'A private state')
+    sessionA.setItem('defineSuccess.measure.v1', JSON.stringify({ version: 1, byScenario: { __unscoped__: {
+      metric: 'A private metric', timeframe: 'A private timeframe', baseline: 'A private baseline',
+    } } }))
+    if (mode === 'mismatched') sessionA.setItem('olumi.session.identity-epoch', 'A-old|owner:user-A')
+    sessionA.setItem('canvas.viewMode', 'device preference')
+    const bootB = await bootTab(sessionA)
+    expect(bootB.success.selectSuccessMeasure(bootB.success.useSuccessMeasureStore.getState(), '__unscoped__')).toBeNull()
+    for (const key of leaf.USER_SCOPED_SESSION_KEYS) expect.soft(sessionA.getItem(key), key).toBeNull()
+    for (const prefix of leaf.USER_SCOPED_STORAGE_PREFIXES) expect.soft(sessionA.getItem(`${prefix}scenario-a`), prefix).toBeNull()
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe('B-current|owner:user-B')
+    expect(sessionA.getItem('canvas.viewMode')).toBe('device preference')
+    expect(bootB.lock.checkStaleTabLock()).toBe(false)
+  })
+
+  it('S-G2 v2 P3 CONTROL: same-epoch reload preserves the current tab session data', async () => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'A-current|owner:user-A')
+    const sessionA = tabSession()
+    const tabA = await bootTab(sessionA)
+    tabA.success.useSuccessMeasureStore.getState().saveMeasure('__unscoped__', {
+      metric: 'A own measure', direction: 'reach_at_least', threshold: 27, unit: '%',
+      timeframe: 'A own timeframe', baseline: 'A own baseline', savedAt: 123,
+    })
+    const reload = await bootTab(sessionA)
+    expect(reload.success.selectSuccessMeasure(reload.success.useSuccessMeasureStore.getState(), '__unscoped__')?.metric).toBe('A own measure')
+    expect(sessionA.getItem('olumi.session.identity-epoch')).toBe('A-current|owner:user-A')
+    expect(reload.lock.checkStaleTabLock()).toBe(false)
+  })
 
   it('clears every registered persisted key and prefix while leaving device flags alone', () => {
     for (const key of USER_SCOPED_STORAGE_KEYS) localStorage.setItem(key, 'user-a')
