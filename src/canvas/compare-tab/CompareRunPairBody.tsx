@@ -102,7 +102,7 @@ export function CompareRunPairBody({
   /** `selectRunOnRecordWithoutResult` from the dock; absent = no Run on record, so "No comparison yet" stands. */
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
-  const view = useDisplayedRunDeltaView(responseHash)
+  const view = useDisplayedRunDeltaView(responseHash, 'all')
   const delta = useCanvasStore(s => s.runDelta?.delta)
   const endpoints = delta?.endpoints
   const nodes = useCanvasStore(s => s.nodes)

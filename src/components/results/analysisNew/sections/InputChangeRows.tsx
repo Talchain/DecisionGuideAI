@@ -1,8 +1,8 @@
 /**
  * The Compare tab's input changes, as rows (Compare v3 handoff, 4 Oct 2026, §1 and §3): a section heading with the
  * number of recorded changes, then for each row a kind icon, the input's name and context, a "Show on the canvas"
- * crosshair, and its recorded before → after (values, a strength band position, or the estimate's origin). Two rows
- * first; the rest expand in place; incomplete coverage stays visible beside them.
+ * crosshair, and its recorded before → after (values, a strength band position, or the estimate's origin). Every row
+ * is present immediately; incomplete coverage stays visible beside them.
  *
  * ⛔ SAME FACTS, SAME WORDS AS `InputChanges`. The rows are `buildRunDeltaView`'s; each row's own sentence
  * (`inputRowText` / `linkRowText`) is rendered for assistive technology, and the drawn parts (`inputChangeRowParts`)
@@ -10,12 +10,12 @@
  * Canvas lighting and focus use the caller's `InputRowLight` / `InputRowFocus`, by the row's ids, never its text.
  */
 import { useState } from 'react'
-import { ArrowRight, Check, ChevronDown, ChevronRight, Crosshair, Info, Lightbulb, Link2, Settings, Shield, Target } from 'lucide-react'
+import { ArrowRight, Check, Crosshair, Info, Lightbulb, Link2, Settings, Shield, Target } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { typography } from '../../../../styles/typography'
 import { PanelIconButton } from '../PanelIconButton'
-import { action, icon } from '../panelSurfaces'
-import { INPUT_ROWS_SHOWN_FIRST, type RunDeltaFrame, type RunDeltaInputRow, type RunDeltaInputsView } from '../runDeltaView'
+import { icon } from '../panelSurfaces'
+import { type RunDeltaFrame, type RunDeltaInputRow, type RunDeltaInputsView } from '../runDeltaView'
 import {
   ACCEPTED_ESTIMATE_NOTE,
   STRENGTH_BAND_ORDER,
@@ -198,13 +198,10 @@ export function InputChangeRows({ inputs, rowFocus, rowLight, frame = 'rerun' }:
   rowLight?: InputRowLight
   frame?: RunDeltaFrame
 }): JSX.Element {
-  const [expanded, setExpanded] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const rows = inputs?.rows ?? []
   const partial = inputs?.coverage === 'partial'
   const empty = inputs === null ? null : emptyInputsText(inputs, frame)
-  const shown = expanded ? rows : rows.slice(0, INPUT_ROWS_SHOWN_FIRST)
-  const hidden = rows.length - INPUT_ROWS_SHOWN_FIRST
   return (
     <div data-testid={inputs ? `${WHATS_CHANGED_TESTID}-inputs` : undefined} data-coverage={inputs?.coverage} data-layout="rows">
       <div className="flex items-baseline justify-between gap-3 mb-1">
@@ -226,7 +223,7 @@ export function InputChangeRows({ inputs, rowFocus, rowLight, frame = 'rerun' }:
       ) : (
         <>
           <ul className="list-none p-0 m-0" aria-labelledby="compare-input-changes-heading">
-            {shown.map((row) => (
+            {rows.map((row) => (
               <InputChangeRow
                 key={row.key}
                 row={row}
@@ -238,18 +235,6 @@ export function InputChangeRows({ inputs, rowFocus, rowLight, frame = 'rerun' }:
               />
             ))}
           </ul>
-          {hidden > 0 ? (
-            <button
-              type="button"
-              className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 mt-1`}
-              data-testid={`${WHATS_CHANGED_TESTID}-inputs-toggle`}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? <ChevronDown className={icon('inline')} aria-hidden="true" /> : <ChevronRight className={icon('inline')} aria-hidden="true" />}
-              {expanded ? 'Show fewer changes' : `See all ${rows.length} recorded changes`}
-            </button>
-          ) : null}
           {partial ? <div className="mt-2"><CoverageNote text={INPUTS_PARTIAL_TEXT} testId={`${WHATS_CHANGED_TESTID}-inputs-partial`} /></div> : null}
         </>
       )}

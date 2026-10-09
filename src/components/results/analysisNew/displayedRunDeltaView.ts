@@ -31,20 +31,21 @@ export function displayedRunDeltaView(
   responseHash: string | null | undefined,
   scenarioId: string | null | undefined,
   labels: ReadonlyMap<string, string>,
+  inputRows: 'folded' | 'all' = 'folded',
 ): RunDeltaView | null {
   if (!runDeltaDescribesDisplayedAnalysis(stored, responseHash, scenarioId)) return null
   const label = (id: string) => labels.get(id) ?? null
-  return buildRunDeltaView(stored!.delta, label, label)
+  return buildRunDeltaView(stored!.delta, label, label, 'rerun', inputRows)
 }
 
 /** The Compare tab's read. The Reasoning tab's view model calls `displayedRunDeltaView` with the same inputs. */
-export function useDisplayedRunDeltaView(responseHash: string | null | undefined): RunDeltaView | null {
+export function useDisplayedRunDeltaView(responseHash: string | null | undefined, inputRows: 'folded' | 'all' = 'folded'): RunDeltaView | null {
   const stored = useCanvasStore((s) => s.runDelta)
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const nodes = useCanvasStore((s) => s.nodes)
   const labels = useMemo(() => nodeLabelMap(nodes), [nodes])
   return useMemo(
-    () => displayedRunDeltaView(stored, responseHash, scenarioId, labels),
-    [stored, responseHash, scenarioId, labels],
+    () => displayedRunDeltaView(stored, responseHash, scenarioId, labels, inputRows),
+    [stored, responseHash, scenarioId, labels, inputRows],
   )
 }

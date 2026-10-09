@@ -1,7 +1,7 @@
 /**
  * Compare v3 input rows (handoff 4 Oct 2026 §1, §3; Paul 7 Oct "keep implementing and completing it"): a heading with the
  * recorded-change count; per row a kind icon, the input's name and context, a crosshair to the canvas, and its recorded
- * before → after (values, a four-step strength band position, or the estimate's origin); two rows first, the rest in place;
+ * before → after (values, a four-step strength band position, or the estimate's origin); all recorded rows immediately;
  * incomplete coverage visible.
  *
  * Bound by IDENTITY: the producer's kind / change / field / band id / sizing literal, row ids into the canvas, and the
@@ -196,7 +196,7 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     expect(left).toHaveTextContent('Left the comparison')
   })
 
-  it('a strength row draws four ordered bands with the earlier and latest positions (the folded strength too)', () => {
+  it('each strength row draws its own ordered bands; sizing is a separate row', () => {
     render(<CompareRunPairBody responseHash={seed(delta([ROWS.strength, ROWS.sizing, ROWS.sizingStrength]))} />)
     const [strength, sizing] = rowEls()
     const steps = within(strength).getByTestId('compare-input-strength-steps').querySelectorAll('i')
@@ -205,17 +205,20 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     ])
     expect(strength.querySelector('svg[class*="lucide-link"]')).not.toBeNull()
     // (The contract refuses a "changed" strength with equal bands, so no real row reaches the "both" step.)
-    const folded = within(sizing).getByTestId('compare-input-strength-steps').querySelectorAll('i[data-at]')
+    expect(within(sizing).queryByTestId('compare-input-strength-steps')).toBeNull()
+    const folded = within(rowEls()[2]).getByTestId('compare-input-strength-steps').querySelectorAll('i[data-at]')
     expect([...folded].map((s) => [s.getAttribute('data-band'), s.getAttribute('data-at')])).toEqual([['slight', 'before'], ['moderate', 'after']])
   })
 
-  it('a strength change folded into an ACCEPTED estimate is read out too (Codex r1 P1; control: the user\'s own estimate already says the bands)', () => {
+  it('each recorded sizing and strength change has its own accessible row', () => {
     render(<CompareRunPairBody responseHash={seed(delta([ROWS.sizing, ROWS.sizingStrength]))} />)
-    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe("You accepted Olumi's estimate for how much Churn changes Revenue. Strength: slight → moderate.")
-    expect(rowEls()[0].querySelector('[data-testid="compare-input-row-values"]')).toHaveTextContent('SlightModerate')
+    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe("You accepted Olumi's estimate for how much Churn changes Revenue.")
+    expect(rowEls()).toHaveLength(2)
+    expect(rowEls()[1].querySelector('.sr-only')).toHaveTextContent('slight → moderate')
+    expect(rowEls()[1].querySelector('[data-testid="compare-input-row-values"]')).toHaveTextContent('SlightModerate')
     cleanup()
     render(<CompareRunPairBody responseHash={seed(delta([{ ...ROWS.sizing, after: { raw: 'user' } }, ROWS.sizingStrength]))} />)
-    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe('You gave your own estimate for how much Churn changes Revenue: slight → moderate.')
+    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe('You gave your own estimate for how much Churn changes Revenue.')
   })
 
   it('an accepted estimate shows its origin pills and keeps Olumi as the origin (control: the user\'s own estimate has no note)', () => {
@@ -230,17 +233,11 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     expect(rowEls()[0].querySelector('[data-accepted]')).toBeNull()
   })
 
-  it('two rows first; the rest expand in place and keyboard focus stays on the control', () => {
+  it('every input row is present immediately in producer order', () => {
     render(<CompareRunPairBody responseHash={seed(delta([ROWS.setting, ROWS.factor, ROWS.strength]))} />)
-    expect(rowEls()).toHaveLength(2)
-    const toggle = screen.getByTestId(`${T}-inputs-toggle`)
-    expect(toggle).toHaveTextContent('See all 3 recorded changes')
-    toggle.focus()
-    fireEvent.click(toggle)
     expect(rowEls()).toHaveLength(3)
-    expect(document.activeElement).toBe(toggle)
-    expect(toggle).toHaveTextContent('Show fewer changes')
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(rowEls().map(el => el.getAttribute('data-entity-id'))).toEqual(['fac_price', 'fac_demand', 'e_demand_rev'])
+    expect(screen.queryByTestId(`${T}-inputs-toggle`)).toBeNull()
   })
 
   it('partial coverage stays visible beside the rows and the count says "recorded" (control: complete coverage says neither)', () => {
