@@ -4,6 +4,7 @@ import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
 import {
   classifyInterventionProvenance,
+  classifyNodeProvenance,
   classifyObservedValueProvenance,
   factorValueIsUnconfirmedEstimate,
   VALUE_PROVENANCE_LABEL,
@@ -40,7 +41,7 @@ import { isStatedTargetValue, resolveGoalTarget, type GoalTargetSource } from '.
  * only orders them and collapses the seven kinds into the four words a card has
  * room for. The hover/assistive label keeps the precise kind.
  */
-export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unknown'
+export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unverified_brief' | 'unknown'
 
 /** The visible word per mark. `est.` is the existing token, not a new spelling. */
 export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
@@ -49,6 +50,7 @@ export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, strin
   brief: cardMark('source-brief').words,
   panel: cardMark('source-panel').words,
   unknown: cardMark('source-unknown').words,
+  unverified_brief: cardMark('source-unverified_brief').words,
 })
 
 /** The accessible name per mark (screen readers, and the hover title). */
@@ -58,6 +60,7 @@ export const VALUE_SOURCE_MARK_LABEL: Readonly<Record<ValueSourceMarkKind, strin
   brief: cardMark('source-brief').ariaWords,
   panel: cardMark('source-panel').ariaWords,
   unknown: cardMark('source-unknown').ariaWords,
+  unverified_brief: cardMark('source-unverified_brief').ariaWords,
 })
 
 function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
@@ -67,6 +70,8 @@ function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
     case 'assumption':
     case 'human':
       return 'you'
+    case 'unverified_brief':
+      return 'unverified_brief'
     case 'brief':
       return 'brief'
     case 'panel':
@@ -158,6 +163,14 @@ function resolveFactorValueSource(data: unknown): {
   awaitingReceipt: boolean
 } {
   const d = data as Record<string, unknown> | undefined
+  const provenance = typeof d?.provenance === 'string' ? d.provenance : null
+  const nodeClass = classifyNodeProvenance(provenance)
+  if (nodeClass?.kind === 'unverified_brief') {
+    return { mark: { kind: 'unverified_brief', label: VALUE_SOURCE_MARK_LABEL.unverified_brief }, awaitingReceipt: false }
+  }
+  if (provenance && !nodeClass) {
+    return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: false }
+  }
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   // The WHOLE observed state, not the stamp alone: `user_assumption` + the adoption's review is Olumi's figure, accepted
   // (kind `accepted`, `classifyObservedValueProvenance`); the bare literal is still the user's assumption.

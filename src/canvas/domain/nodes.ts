@@ -215,7 +215,8 @@ export const NodeDataSchema = z.object({
 
   // CEE display provenance (optional, threaded from /assist/v1/draft-graph response).
   // Drives "From brief" / "AI estimate" / "User set" pills. UI never invents this value.
-  provenance: z.enum(['from_brief', 'ai_inferred', 'user_set']).optional(),
+  // Preserve future string members; readers leave unrecognised authorship unmarked.
+  provenance: z.enum(['from_brief', 'ai_inferred', 'user_set', 'unverified_brief']).or(z.string()).optional(),
 })
 
 /**

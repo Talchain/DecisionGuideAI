@@ -76,6 +76,8 @@ export type ValueProvenanceKind =
   | 'human'
   /** Extracted from the user's own brief by the model. */
   | 'brief'
+  /** User material whose binding to the brief could not be confirmed. */
+  | 'unverified_brief'
   /** The model's own estimate. */
   | 'ai'
   /**
@@ -128,8 +130,11 @@ export interface ValueProvenanceClass {
  * The record is TOTAL over `ValueProvenanceKind`, so a new kind is a type error
  * here rather than a silent fallback at every consumer.
  */
+export const UNVERIFIED_BRIEF_LABEL = 'Not confirmed from your brief'
+
 export const VALUE_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, string>> = Object.freeze({
   brief: 'From brief',
+  unverified_brief: UNVERIFIED_BRIEF_LABEL,
   /* ⭐ MODEL-11: 'Olumi estimate', not 'AI estimate'. The prototype never says
      "AI" (`Olumi_Reasoning_Prototype_V2.html` :479-497: 'Olumi estimate',
      'Olumi assumption') and this tab said both — five factor marks read 'AI
@@ -364,6 +369,7 @@ export function classifyNodeProvenance(
 ): ValueProvenanceClass | null {
   if (provenance === 'user_set') return { kind: 'human', userOwned: true }
   if (provenance === 'from_brief') return { kind: 'brief', userOwned: false }
+  if (provenance === 'unverified_brief') return { kind: 'unverified_brief', userOwned: false }
   if (provenance === 'ai_inferred') return { kind: 'ai', userOwned: false }
   return null
 }

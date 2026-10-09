@@ -54,6 +54,7 @@
  */
 
 import type { Node } from '@xyflow/react'
+import { classifyNodeProvenance, type ValueProvenanceKind } from '../../../domain/valueProvenance'
 import { kindOf } from './graphFacts'
 import { mayClaimOlumiAuthorship } from '../../../domain/olumiAuthorshipClaim'
 import type { Attribution } from '../types'
@@ -64,10 +65,13 @@ import type { Attribution } from '../types'
  * `attribution` is required on purpose. It is the whole point of this type:
  * the field is what a new slice cannot forget.
  */
+export type NodeAttribution = Attribution | { kind: 'unattributed' }
+
 export interface AuthoredEntity {
   nodeId: string
   label: string
-  attribution: Attribution
+  attribution: NodeAttribution
+  provenanceKind?: ValueProvenanceKind
 }
 
 /** The kinds this projection serves. Widen it here, never by re-deriving. */
@@ -77,8 +81,8 @@ export type AuthoredEntityKind = 'option' | 'risk'
  * The ONE reading of CEE's authorship stamp for a named entity.
  *
  * Olumi's own renders an `[Olumi]` pill; everything else — `from_brief`, a
- * user-created node with no stamp at all — is the person's, and renders
- * unmarked. The asymmetry is the design: we mark what Olumi authored, we do not
+ * user-created node with no stamp at all — renders unmarked. An unverified
+ * brief binding or future stamp is explicitly unattributed. The asymmetry is the design: we mark what Olumi authored, we do not
  * badge the user's own words back at them.
  *
  * ⛔⛔ IT ASKS THE OWNER; IT DOES NOT DECIDE. This read `provenance ===
@@ -101,7 +105,12 @@ export type AuthoredEntityKind = 'option' | 'risk'
  * untouched. Measured over this repo's 293 captured option nodes: 145 are
  * `ai_inferred` with no quote, 0 are `ai_inferred` with one.
  */
-export function attributionOfNode(data: unknown): Attribution {
+export function attributionOfNode(data: unknown): NodeAttribution {
+  const provenance = (data as Record<string, unknown> | undefined)?.provenance
+  if (typeof provenance === 'string') {
+    const cls = classifyNodeProvenance(provenance)
+    if (!cls || cls.kind === 'unverified_brief') return { kind: 'unattributed' }
+  }
   return mayClaimOlumiAuthorship(data)
     ? { kind: 'olumi' }
     : { kind: 'person', displayName: 'You' }
@@ -115,10 +124,12 @@ export function projectAuthoredEntities(
   for (const node of nodes) {
     if (kindOf(node) !== kind) continue
     const data = node.data as Record<string, unknown> | undefined
+    const cls = classifyNodeProvenance(typeof data?.provenance === 'string' ? data.provenance : null)
     out.push({
       nodeId: node.id,
       label: typeof data?.label === 'string' ? data.label : node.id,
       attribution: attributionOfNode(data),
+      ...(cls?.kind === 'unverified_brief' ? { provenanceKind: cls.kind } : {}),
     })
   }
   return out

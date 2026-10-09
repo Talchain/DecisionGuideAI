@@ -588,7 +588,7 @@ const UNCERTAINTY_ROWS: LegendRow[] = [
  * so keying the legend to the narrower sentence would make the legend false on
  * the majority of cards.
  */
-const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] as const)
+const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred', 'unverified_brief'] as const)
   .map((literal) => {
     const kind = classifyNodeProvenance(literal)!.kind
     const Icon = VALUE_PROVENANCE_ICON[kind]
