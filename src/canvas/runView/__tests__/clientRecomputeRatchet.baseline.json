@@ -136,7 +136,7 @@
     {"class":"CHANCE","symbol":"selectGoalLeader","file":"src/components/results/utils/selectGoalLeader.ts","call":0,"read":0,"def":1,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/components/DecisionSummary.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/components/model-tab/buildGoalFitRows.ts","call":0,"read":0,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/conversation/askAi.ts","call":1,"read":0,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/conversation/askAi.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/decisionBrief/buildDecisionBrief.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/hooks/useNodeDisplayMetadata.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/store.ts","call":0,"read":0,"def":0,"sanctioned":false},

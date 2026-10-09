@@ -1,6 +1,7 @@
 // Batch 1 regression rows authored before implementation; Vitest execution prohibited by brief.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { askAi, buildAskAiQuestion } from '../askAi'
+import { askAi, askAiStage, buildAskAiQuestion } from '../askAi'
+import { runViewOf } from '../../runView/runView'
 import { buildChipMeta } from '../chipMeta'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -211,6 +212,30 @@ describe('the draft’s UNREQUESTED automatic Run asks the drafted question (DL 
     ranWithheld({ permitted: true, producer_cause: 'unrequested_analysis_withheld' })
     askAi({ intent: 'explain', nodeIds: ['a'] })
     expect(dispatch.mock.calls[0][0].message).toBe(WITHHELD)
+  })
+})
+
+describe('S1 PR-2b: ask stage reads the RunView licence for every analysed option', () => {
+  const licence = {
+    code: 'GOAL_CHANCE_LICENSED', form: 'each',
+    target: { unit: '£/month', value: 20000, comparator: 'at_least' },
+    option_ids: ['x', 'y'], pct_by_option: { x: 0, y: 73 },
+  }
+  const probabilities = { x: { goal_probability: 0 }, y: { goal_probability: 0.73 } }
+  it.each([
+    ['Q1: licensed figures for every option', [licence], probabilities, ['figure', 'figure'], 'ran-current'],
+    ['Q2: one raw figure has no licence', [{ ...licence, option_ids: ['x', 'z'], pct_by_option: { x: 0, z: 73 } }], probabilities, ['figure', 'none'], 'withheld'],
+    ['Q2: raw figures without any licence', [], probabilities, ['withheld', 'withheld'], 'withheld'],
+    ['Q3: no goal figures at all', [], { x: { win_probability: 0.4 }, y: { win_probability: 0.6 } }, ['none', 'none'], 'withheld'],
+  ] as const)('%s', (_row, inference_warnings, option_probabilities, kinds, stage) => {
+    const report = { inference_warnings, option_probabilities }
+    vi.mocked(selectRunAffirmedCurrent).mockReturnValue(true)
+    useCanvasStore.setState({ hasCompletedFirstRun: true, results: { status: 'complete', report } } as never)
+    expect(Object.keys(option_probabilities).map(id => runViewOf(report).chanceOf(id).kind)).toEqual(kinds)
+    expect(askAiStage()).toBe(stage)
+    expect(buildAskAiQuestion({ intent: 'explain', nodeIds: ['a'] }).question).toBe(stage === 'ran-current'
+      ? 'How much does ‘Capacity’ matter to the options’ chances of meeting the goal, and why?'
+      : 'What does Olumi still need about ‘Capacity’ before it can say how likely each option is to meet the goal?')
   })
 })
 
