@@ -1354,6 +1354,7 @@ export interface ConfidenceSectionData {
   /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only).
    *  `code` is the entry's identity anchor (Lane 3 Car 1: CritiqueWarningStrip
    *  binds by it — never by positional pairing). */
+  critiqueRunContext?: import('./utils/humaniseCritique').CritiqueRunContext
   humanisedCritiques?: Array<{ code?: string; title: string; description: string; displayText: string | null; suggestion?: string; factorId?: string }>
 
   // ==========================================================================

@@ -1,3 +1,4 @@
+import { useCritiqueRunContext } from './utils/critiqueRunContext'
 /**
  * AdvancedSection — Phase 4 Task 5
  *
@@ -164,6 +165,7 @@ export function AdvancedSection({
   expertMode = false,
   inferenceWarnings,
 }: AdvancedSectionProps) {
+  const context = useCritiqueRunContext()
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
   const [narrativeExpanded, setNarrativeExpanded] = useState(false)
@@ -222,7 +224,7 @@ export function AdvancedSection({
   // goal holds a deadline, and the Analysis hero shows its sentence above the fold. Letting it open this panel would
   // pop "Advanced and receipts" on every such Run, for a reason already on screen. It is still LISTED below.
   // The same holds for CEE's GOAL_CHANCE_RANGE (Science S3, DL #87 7 Oct): the hero's range lines say it.
-  const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
+  const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings, undefined, context)
     .some((w) => w.code !== GOAL_HORIZON_NOT_TESTED_CODE && w.code !== 'GOAL_CHANCE_RANGE')
 
   return (
@@ -388,7 +390,7 @@ export function AdvancedSection({
                 predicate rather than from a second copy of it.
                 Pinned by `inferenceWarnings.oneMountPerEntry.spec.tsx`. */}
             {(() => {
-              const relevant = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
+              const relevant = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings, undefined, context)
               if (relevant.length === 0) return null
               const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
               const hidden = relevant.length - visible.length

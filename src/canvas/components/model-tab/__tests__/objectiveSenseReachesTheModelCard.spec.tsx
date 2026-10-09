@@ -1,3 +1,4 @@
+import { useCanvasStore } from '../../../store'
 /**
  * ⭐⭐ "RANKED BY LARGEST VALUE" IS A SENTENCE THE PRODUCT MUST SAY OUT LOUD.
  *
@@ -49,7 +50,7 @@
  * direction would be worse than the disclosure it replaced.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
 import { DetailToggleContext } from '../DetailToggleContext'
@@ -105,6 +106,7 @@ function auditWith(
 }
 
 function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings']) {
+  useCanvasStore.setState({ results: { status: 'complete', report: { option_probabilities: { a: { win_probability: 0.8 }, b: { win_probability: 0.2 } } } } } as never)
   return render(
     <DetailToggleContext.Provider value={{ showDetail: true }}>
       <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} />
@@ -183,4 +185,11 @@ describe('Model card audit trail — the ranking says what it ranked by', () => 
     expect(rows).toHaveLength(1)
     expect(rows[0].textContent).toContain(GENERIC_FALLBACK)
   })
+})
+
+it('all-unranked Model card makes no ordering claim', () => {
+  renderAudit([{ ...FOUNDER_WARNING }])
+  act(() => useCanvasStore.setState({ results: { status: 'complete', report: { option_probabilities: {} } } } as never))
+  const row = screen.getByTestId('audit-inference-warning-row')
+  expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
 })

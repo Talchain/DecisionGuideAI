@@ -1,3 +1,5 @@
+import served from '../analysis-hero/__tests__/fixtures/served-7ad369b7-pricing-drivers-accordion.json'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 /**
  * ⭐ B′ (5 Oct; RT-10, Science 5999608477 + 6000086883; DL github-e8): `GOAL_DIRECTION_UNATTESTED` says the assumption
  * in this model, as CEE's Run line does, and offers CEE's correction ("set the goal's target to 'at most' and re-run")
@@ -7,13 +9,16 @@
  * Corpus: the producer's own warnings from Paul's run `95b92672` (dated evidence, not authored here).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { render, screen, renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../../canvas/store'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { goalDirectionCorrectableByTarget } from '../../../canvas/domain/goalTarget'
 import { INFERENCE_WARNINGS_95B92672 } from '../utils/__fixtures__/inferenceWarnings.95b92672'
 import { humaniseCritique, GOAL_DIRECTION_UNATTESTED_TITLE, GOAL_DIRECTION_CORRECTABLE_TITLE } from '../utils/humaniseCritique'
 import { humaniseInferenceWarningTitle } from '../utils/humaniseInferenceWarning'
+
+import { InferenceWarningStrip } from '../InferenceWarningStrip'
+import { critiqueRunContext } from '../utils/critiqueRunContext'
 
 const CODE = 'GOAL_DIRECTION_UNATTESTED'
 /** A level target with no held comparator: the case B′ corrects (CEE sends no direction, ISL ranks by largest). */
@@ -106,5 +111,36 @@ describe('goalDirectionCorrectableByTarget agrees with the target line’s own `
     ['no goal', null, false],
   ] as const)('%s → %s', (_name, goal, expected) => {
     expect(goalDirectionCorrectableByTarget(goal as never)).toBe(expected)
+  })
+})
+
+describe('D1 run ranking context', () => {
+  const report = mapV5AnalysisToReport(served.analysis_result as never)
+  const unranked = { ...report, producer_leader_permission: { permitted: false } }
+  const ranked = { ...report, option_probabilities: Object.fromEntries(Object.entries(report.option_probabilities ?? {}).slice(0, 1)) }
+  it('D1-a all unranked: title, displayText and description contain no ordering claim', () => {
+    for (const goalDirectionCorrectable of [false, true]) {
+      const copy = humaniseCritique({ code: CODE, message: '', goalDirectionCorrectable }, undefined, critiqueRunContext(unranked))
+      for (const text of [copy.title, copy.displayText, copy.description]) {
+        expect(text).not.toMatch(/ordered|largest value|different question|scored highest/i)
+      }
+      expect(copy.title).toBe(goalDirectionCorrectable
+        ? 'In this model I’ve assumed a higher value is better for your goal. If lower is better, set the goal’s target to ‘at most’ and re-run.'
+        : 'In this model I’ve assumed a higher value is better for your goal.')
+    }
+  })
+  it('D1-b one ranked: exact existing constants', () => {
+    for (const goalDirectionCorrectable of [false, true]) {
+      const copy = humaniseCritique({ code: CODE, message: '', goalDirectionCorrectable }, undefined, critiqueRunContext(ranked))
+      expect(copy.title).toBe(goalDirectionCorrectable ? GOAL_DIRECTION_CORRECTABLE_TITLE : GOAL_DIRECTION_UNATTESTED_TITLE)
+      expect(copy.displayText).toBe(copy.title)
+    }
+  })
+  it('D1-c mounted strip: all-unranked run uses the unranked words', () => {
+    rowWith(NO_TARGET_GOAL)
+    render(<InferenceWarningStrip warnings={[{ ...INFERENCE_WARNINGS_95B92672.find(w => w.code === CODE)!, severity: 'warning', affected_nodes: [] }]} heldBackListedUnder={null} />)
+    const entry = screen.getByTestId('inference-warning-strip-entry')
+    expect(entry).toHaveAttribute('data-warning-code', CODE)
+    expect(screen.getByTestId('inference-warning-strip-entry-text').textContent).toBe('In this model I’ve assumed a higher value is better for your goal.')
   })
 })

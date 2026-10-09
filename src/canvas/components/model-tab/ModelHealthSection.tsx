@@ -1,3 +1,4 @@
+import { useCritiqueRunContext } from '../../../components/results/utils/critiqueRunContext'
 /**
  * ModelHealthSection — "Audit" section, collapsed by default.
  *
@@ -187,6 +188,7 @@ function ModelHealthSectionInner({
   onExpandChange,
   onHandOffToOlumi,
 }: ModelHealthSectionProps) {
+  const { hasRankedOptions } = useCritiqueRunContext()
   const { showDetail } = useContext(DetailToggleContext)
 
   // Root node default value warnings from inference_warnings
@@ -199,8 +201,8 @@ function ModelHealthSectionInner({
 
   // Audit-trail inference warnings: one row per code, sentence + code reference.
   const inferenceWarningRows = useMemo(
-    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings),
-    [auditTrail?.inferenceWarnings],
+    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings, { hasRankedOptions }),
+    [auditTrail?.inferenceWarnings, hasRankedOptions],
   )
 
   // Repairs summary: aggregate by code

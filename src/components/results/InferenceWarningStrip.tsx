@@ -1,3 +1,4 @@
+import { useCritiqueRunContext } from './utils/critiqueRunContext'
 /**
  * InferenceWarningStrip — compact honest-caveat strip for warning-severity
  * producer `inference_warnings` on the Analysis tab (roadmap 1.12; tagged
@@ -109,7 +110,8 @@ function StripEntry({ warning }: { warning: InferenceWarning }): JSX.Element {
   const [overflows, setOverflows] = useState(false)
   const textRef = useRef<HTMLSpanElement>(null)
 
-  const title = humaniseInferenceWarningTitle(warning)
+  const context = useCritiqueRunContext()
+  const title = humaniseInferenceWarningTitle(warning, undefined, context)
 
   /**
    * ⛔⛔ THE DEPS WERE `[title]` ALONE AND THAT WAS A HIDING DEFECT, not a

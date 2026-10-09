@@ -2102,6 +2102,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(
     conf.inferenceWarnings,
     inputs.nodeLabels,
+    data.confidence.critiqueRunContext,
   )
     // ⭐ `nodeId` IS WHAT TURNS "Add its current value." FROM AN INSTRUCTION INTO
   //   AN ACT. It is the VALUE-SLOT id, not merely the warning's node: the

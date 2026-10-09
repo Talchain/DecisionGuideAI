@@ -1,3 +1,4 @@
+import { critiqueRunContext } from './utils/critiqueRunContext'
 import { useSwitchFactorNodes } from '../../canvas/hooks/useSwitchFactorNodes'
 /**
  * useResultsSectionData Hook
@@ -4082,7 +4083,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
     const humanisedCritiques = plotCritiques.map(item => ({
       code: item.code,
-      ...humaniseCritique(item, nodeLabelMap),
+      ...humaniseCritique(item, nodeLabelMap, critiqueRunContext(report)),
     }))
 
     return {
@@ -4105,6 +4106,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
       // P0.1: Humanised critiques for attention banner
       humanisedCritiques,
+      critiqueRunContext: critiqueRunContext(report),
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
       // ⭐ THE PRODUCER'S SILENCE IS A THIRD STATE, AND IT USED TO BE
