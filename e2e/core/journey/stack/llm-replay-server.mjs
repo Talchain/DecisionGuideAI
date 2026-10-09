@@ -65,8 +65,12 @@ const KEY = process.env.JOURNEY_LLM_KEY
 // (llm-redirect-preload.mjs), which carries the real host in `x-journey-host`.
 const HTTP_PORT = process.env.JOURNEY_LLM_HTTP_PORT ? Number(process.env.JOURNEY_LLM_HTTP_PORT) : null
 const PROVIDER_HOSTS = new Set(['api.openai.com', 'api.anthropic.com'])
-// Record only: the DL's call budget for one record run; the next call is refused and ledgered.
-const MAX_CALLS = process.env.JOURNEY_LLM_MAX_CALLS ? Number(process.env.JOURNEY_LLM_MAX_CALLS) : 0
+// Record/fill only: the DL's call budget for one run; the next forward is refused and ledgered. Unset = no cap.
+// "0" is ZERO, never "no cap" (9 Oct, DL 87114: `J1_MAX_CALLS=0` was read as no cap and 2 real calls went out).
+const MAX_CALLS = (process.env.JOURNEY_LLM_MAX_CALLS ?? '') === '' ? Infinity : Number(process.env.JOURNEY_LLM_MAX_CALLS)
+if (MAX_CALLS !== Infinity && !(Number.isInteger(MAX_CALLS) && MAX_CALLS >= 0)) {
+  console.error(`[llm-replay] JOURNEY_LLM_MAX_CALLS must be a whole number >= 0, got ${process.env.JOURNEY_LLM_MAX_CALLS}`); process.exit(2)
+}
 
 for (const [k, v] of Object.entries({ JOURNEY_LLM_MODE: MODE, JOURNEY_LLM_FIXTURES: FIXTURES, JOURNEY_LLM_LEDGER: LEDGER })) {
   if (!v) { console.error(`[llm-replay] ${k} is required`); process.exit(2) }
@@ -292,7 +296,7 @@ function handle(req, res) {
     }
 
     // record (and fill's gaps)
-    if (MAX_CALLS && forwarded + 1 > MAX_CALLS) {
+    if (forwarded + 1 > MAX_CALLS) {
       ledger({ seq: n, outcome: 'refused_budget', signature })
       return refuse(res, 400, 'journey_budget_exhausted', `record budget of ${MAX_CALLS} calls reached`)
     }

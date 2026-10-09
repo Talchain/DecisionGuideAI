@@ -57,6 +57,9 @@ const ENRICHMENT_KEEP_LIST = [
   'option_comparison_status', 'conditional_probabilities', 'edge_e_values', 'inference_warnings',
   'confidence_tier', 'flip_thresholds', 'decision_brief', 'factor_evppi', 'decision_evpi',
   'p_win_sensitivity', 'correlation_model', 'critiques', 'conditional_winners', 'run_provenance',
+  // Registered in CEE's enrichment manifest (src/orchestrator-v5/context/enrichment-manifest.ts:131 'dominant_factor' R_UI_SCIENCE,
+  // :134 'flip_thresholds_status' R_FLIP_SIDECAR, :135 its _reason @ b33222d4). DL 87114 ruling 9 Oct: manifest-registered keys only.
+  'dominant_factor', 'flip_thresholds_status', 'flip_thresholds_status_reason',
 ]
 // analysis-result-headline.ts:297-298 @ a4977d9d
 const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points, so it assumed a higher value is better'
@@ -91,11 +94,19 @@ const VERDICT_WORDS = [/clearly ahead/i, /with high confidence/i, /\brecommend/i
 
 // Pinned per frozen set, once a recording exists (written after the record run is reviewed).
 const EXPECT_FILE = path.join(process.cwd(), 'e2e', 'core', 'journey', 'fixtures', 'j1', 'expect.json')
-const EXPECT: { goal_direction_assumed?: boolean; enrichment_keys?: string[]; placeholder_links?: string[] } =
+const EXPECT: { goal_direction_assumed?: boolean; enrichment_keys?: string[]; placeholder_links?: string[]; j2d_branch?: J2dBranch } =
   fs.existsSync(EXPECT_FILE) ? JSON.parse(fs.readFileSync(EXPECT_FILE, 'utf8')) : {}
 
 type Edge = { from: string; to: string; provenance?: Record<string, any>; strength?: { mean?: number } }
-interface Graph { nodes: { id: string; kind?: string; label?: string }[]; edges: Edge[] }
+interface Graph { nodes: { id: string; kind?: string; label?: string; nonlinear_identity?: { factor_ids?: string[]; addends?: string[] }; interventions?: Record<string, { value?: number; source?: string }> }[]; edges: Edge[] }
+/**
+ * J2d's two branches (DL 87114, 9 Oct, ruling c): J2d/J2e are J1's only pass through EDIT → commit door → re-Run →
+ * reload, so they never skip. `placeholder`: R1 withholds for unsized Olumi links, and J2d sizes exactly those.
+ * `option_intervention`: R1 withholds nothing, and J2d sets an option's intervention value in the option inspector, a write
+ * through the same checked graph-write door (DL 87114, 9 Oct: in the re-recorded G1 every causal link is the user's own
+ * stated figure or a definition, so no strength edit can land; J2f pins that refusal instead).
+ */
+type J2dBranch = 'placeholder' | 'option_intervention'
 interface Fragile { from_id: string; to_id: string; from_label: string; to_label: string; switch_probability: number; visible?: boolean }
 
 const J: {
@@ -106,7 +117,9 @@ const J: {
   fragile1?: Fragile[]; edited?: Fragile
   G2?: Graph; H2?: string; H2id?: string
   AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
-  G0?: Graph; H0?: string; R0?: string | null; sized?: { from: string; to: string; target: number }[]
+  G0?: Graph; H0?: string; R0?: string | null; sized?: { from: string; to: string; target: number }[]; j2dBranch?: J2dBranch
+  optionEdit?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
+  j5Branch?: 'fragile_link' | 'option_intervention'; j5Option?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
   cardS?: string; C?: string
 } = {}
 const advisory: Record<string, unknown> = {}
@@ -164,14 +177,27 @@ async function openEdgeInspector(page: Page, fromLabel: string, toLabel: string,
   await expect(edge, `[${label}] the canvas has no edge "${fromLabel} → ${toLabel}"`).toBeAttached({ timeout: 30_000 })
   const drawn = await edge.evaluate((el) => (el.querySelector('path') as SVGPathElement | null)?.getTotalLength?.() ?? 0)
   expect(drawn, `[${label}] the edge "${fromLabel} → ${toLabel}" has no drawn path`).toBeGreaterThan(0)
-  const pt = await edge.evaluate((el) => {
+  const midpoint = () => edge.evaluate((el) => {
     const p = el.querySelector('path') as SVGPathElement | null
+    let x: number, y: number
     if (p?.getTotalLength) {
       const m = p.getPointAtLength(p.getTotalLength() / 2); const c = p.getScreenCTM()!
-      return { x: c.a * m.x + c.c * m.y + c.e, y: c.b * m.x + c.d * m.y + c.f }
+      x = c.a * m.x + c.c * m.y + c.e; y = c.b * m.x + c.d * m.y + c.f
+    } else {
+      const r = el.getBoundingClientRect(); x = r.x + r.width / 2; y = r.y + r.height / 2
     }
-    const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    // Is the point on screen and on the canvas, not under a node card or the Outputs dock? (The edge's own cue, e.g. the
+    // fragile tag drawn at its midpoint, sits in a separate layer, so "inside the edge element" is too strict: replay16.)
+    const hit = document.elementFromPoint(x, y)
+    const onEdge = !!hit && !!hit.closest('.react-flow') && !hit.closest('.react-flow__node') && !hit.closest('[data-testid="outputs-dock"]')
+    return { x, y, onEdge }
   })
+  let pt = await midpoint()
+  if (!pt.onEdge) {
+    // After a reload the viewport can leave the link off screen (J2f, replay15): the canvas's own "Fit to view" control.
+    await page.getByRole('button', { name: 'Fit to view' }).click()
+    await expect.poll(async () => (pt = await midpoint()).onEdge, { message: `[${label}] the edge "${fromLabel} → ${toLabel}" is not reachable on screen even after Fit to view`, timeout: 10_000 }).toBe(true)
+  }
   await page.mouse.dblclick(pt.x, pt.y)
   const dialog = page.getByRole('dialog', { name: 'Edge inspector' })
   await expect(dialog, `[${label}] the edge inspector did not open`).toBeVisible({ timeout: 15_000 })
@@ -389,31 +415,171 @@ test.describe.serial('J1 · whole PoC', () => {
   const placeholderWarning = (ar: Record<string, any> | undefined): Record<string, any> | null =>
     ((ar?.enrichment?.inference_warnings ?? []) as Record<string, any>[]).find((w) => w?.code === PLACEHOLDER_CODE) ?? null
 
-  test('J2d · size what Olumi supplied: a typed figure on exactly each link the withhold names, by its ends', async () => {
+  /**
+   * Every G1 link's verdict for a canvas STRENGTH edit, mirroring the product's own refusals: structural (an option or
+   * the decision at either end), definitional (CEE `definitional-links.ts` definitionalLinkOf: an identity's operand or
+   * addend), definitional_label (`provenance.definitional`: the inspector offers no strength editor,
+   * `strengthDefinitional.ts`), already_user, and user_figure_held (CEE `user-figure-held.ts` userFigureHeld: the link
+   * holds the user's own stated figure, refused without an explicit replace). Replays 5, 7 and 8 (9 Oct) each hit one.
+   */
+  const strengthEditVerdict = (g: Graph, e: Edge): string => {
+    const kind = new Map(g.nodes.map((n) => [n.id, n.kind]))
+    if (['option', 'decision'].includes(kind.get(e.from) ?? '') || ['option', 'decision'].includes(kind.get(e.to) ?? '')) return 'structural'
+    const id = g.nodes.find((n) => n.id === e.to)?.nonlinear_identity
+    if (id && [...(id.factor_ids ?? []), ...(id.addends ?? [])].includes(e.from)) return 'definitional'
+    if (e.provenance?.definitional === true) return 'definitional_label'
+    if (e.provenance?.source === 'user_specified') return 'already_user'
+    const ne = e.provenance?.natural_effect, mean = e.strength?.mean
+    if (e.provenance?.magnitude === 'user_stated' && typeof ne?.strength_mean === 'number' && typeof mean === 'number' &&
+      (Math.abs(ne.strength_mean - mean) <= 1e-9 || (e.provenance?.clamped_from === ne.strength_mean && Math.abs(mean) === 1))) return 'user_figure_held'
+    return typeof mean === 'number' ? 'editable' : 'no_figure'
+  }
+
+  /**
+   * The `option_intervention` target, BY TYPE (DL 87114, 9 Oct): an option's numeric intervention on a factor, first by
+   * option id then factor id. Its write runs executeOptionInterventionBatch → commitDirectAnswer → appendCheckedGraphWrite,
+   * the one checked graph-write door. Only an option whose card offers the targets door counts (the baseline option,
+   * "Baseline · no changes", offers none: replay10). Deterministic: no LLM.
+   */
+  const optionInterventionCandidates = (g: Graph): { option: string; factor: string; value: number }[] => {
+    const out: { option: string; factor: string; value: number }[] = []
+    for (const o of g.nodes.filter((n) => n.kind === 'option').sort((a, b) => a.id.localeCompare(b.id))) {
+      for (const f of Object.keys(o.interventions ?? {}).sort()) {
+        const v = o.interventions![f]?.value
+        if (typeof v === 'number' && labelOf(g, f) && o.label) out.push({ option: o.id, factor: f, value: v })
+      }
+    }
+    return out
+  }
+  const TARGETS_DOOR = /factor targets?\. Open the inspector to change them\./
+  /** The first candidate whose option card offers the targets door AND whose inspector offers a text field for it. */
+  async function optionInterventionTarget(page: Page, g: Graph): Promise<{ t: { option: string; factor: string; value: number }; input: Locator } | null> {
+    for (const c of optionInterventionCandidates(g)) {
+      const input = await optionTargetInputIfAny(page, c.option, labelOf(g, c.factor))
+      if (input) return { t: c, input }
+    }
+    return null
+  }
+
+  /**
+   * Open the option's inspector through the card's own door ("N factor target(s). Open the inspector to change them.";
+   * replay10: a double-click opens the rename, not the inspector), and return its target field for `factorLabel`.
+   */
+  async function optionTargetInput(page: Page, optionId: string, factorLabel: string, label: string): Promise<Locator> {
+    await clearCanvasSelection(page)
+    const node = page.locator(`.react-flow__node[data-id="${optionId}"]`)
+    await expect(node, `[${label}] the canvas has no option card ${optionId}`).toBeVisible({ timeout: 30_000 })
+    const door = node.getByRole('button', { name: TARGETS_DOOR })
+    await expect(door, `[${label}] option card ${optionId} offers no "Open the inspector" door for its targets`).toHaveCount(1, { timeout: 15_000 })
+    await pressDoor(door)
+    const input = page.getByRole('textbox', { name: new RegExp(`^Target for ${factorLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) })
+    await expect(input, `[${label}] the option inspector has no target field for ${factorLabel}`).toBeVisible({ timeout: 15_000 })
+    return input
+  }
+  /**
+   * Activate the card's targets door from the keyboard: focus + Enter, a real user path. The door is revealed on hover and
+   * the expanded Outputs dock can cover the card after a reload (fill2: the dock intercepted the pointer for 60 s).
+   */
+  async function pressDoor(door: Locator): Promise<void> {
+    await door.focus()
+    await door.press('Enter')
+  }
+  /** Close the node inspector by its own button (Escape leaves it open over the canvas: replay12's hover timeout). */
+  async function closeNodeInspector(page: Page): Promise<void> {
+    const dialog = page.getByRole('dialog', { name: 'Node inspector' })
+    if (await dialog.count() === 0) return
+    await dialog.getByRole('button', { name: 'Close inspector' }).click()
+    await expect(dialog, 'the node inspector did not close').toHaveCount(0, { timeout: 15_000 })
+  }
+  /** The target's text field, if this option's inspector offers one (a yes/no factor has none: replay11). */
+  async function optionTargetInputIfAny(page: Page, optionId: string, factorLabel: string): Promise<Locator | null> {
+    const node = page.locator(`.react-flow__node[data-id="${optionId}"]`)
+    if (await node.count() === 0) return null
+    await clearCanvasSelection(page)
+    const door = node.getByRole('button', { name: TARGETS_DOOR })
+    if (await door.count() === 0) return null
+    await pressDoor(door)
+    const dialog = page.getByRole('dialog', { name: 'Node inspector' })
+    await expect(dialog).toBeVisible({ timeout: 15_000 })
+    const input = page.getByRole('textbox', { name: new RegExp(`^Target for ${factorLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) })
+    if (await input.count() > 0) return input.first()
+    await closeNodeInspector(page)
+    return null
+  }
+  const firstNumber = (s: string): number => Number((s.match(/-?\d+(?:\.\d+)?/) ?? ['NaN'])[0])
+
+  type OptionEdit = { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
+  /**
+   * The `option_intervention` edit, through the option inspector's target field (the checked graph-write door): the first
+   * candidate by type with a text field, skipping `exclude` (J5 edits a DIFFERENT target from J2d). +20% in the field's own
+   * precision. Asserts the edit turn, a clean boundary, and no refusal/unapplied marker on the row.
+   */
+  async function editOptionTarget(label: string, g: Graph, exclude: { option: string; factor: string } | null): Promise<OptionEdit> {
+    let found: { t: { option: string; factor: string; value: number }; input: Locator } | null = null
+    for (const c of optionInterventionCandidates(g)) {
+      if (exclude && c.option === exclude.option && c.factor === exclude.factor) continue
+      const input = await optionTargetInputIfAny(pageA, c.option, labelOf(g, c.factor))
+      if (input) { found = { t: c, input }; break }
+    }
+    const t = found?.t
+    console.log(`[${label}] option_intervention candidates: ${optionInterventionCandidates(g).map((c) => `${c.option}:${c.factor}=${c.value}`).join(' ') || 'none'}; excluding ${exclude ? `${exclude.option}:${exclude.factor}` : 'none'}; target: ${t ? `${t.option}:${t.factor}` : 'NONE'}`)
+    expect(t, `[${label}] COULD NOT MEASURE: no option inspector offers a target field to edit`).toBeTruthy()
+    const factorLabel = labelOf(g, t!.factor)
+    const input = found!.input
+    const seed = await input.inputValue()
+    const shownBefore = firstNumber(seed)
+    expect(Number.isFinite(shownBefore), `[${label}] the target field shows no number ("${seed}")`).toBe(true)
+    // A visibly different value in the field's own precision: +20% (whole numbers stay whole), never the same number.
+    const scaled = Number.isInteger(shownBefore) ? Math.round(shownBefore * 1.2) : Math.round(shownBefore * 1.2 * 100) / 100
+    const typedNumber = shownBefore === 0 ? 1 : scaled === shownBefore ? shownBefore + 1 : scaled
+    const typed = seed.replace(/-?\d+(?:\.\d+)?/, String(typedNumber))
+    const since = Date.now()
+    await input.fill(typed)
+    await input.press('Enter')
+    const turn = await nextTurn(turns, since, `${label} option intervention ${t!.option}:${t!.factor}`)
+    expect(turn.status, `[${label}] the option-intervention edit turn failed`).toBe(200)
+    assertBoundaryClean(label)
+    await expect(pageA.getByTestId(`intervention-entry-refusal-${t!.factor}`), `[${label}] the field refused the typed value`).toHaveCount(0)
+    await expect(pageA.getByTestId(`intervention-unapplied-${t!.factor}`), `[${label}] the typed value did not land`).toHaveCount(0)
+    await closeNodeInspector(pageA)
+    await quiet()
+    return { ...t!, factorLabel, typed, typedNumber }
+  }
+
+  test('J2d · edit through the canvas door: size what Olumi supplied, or (no withhold) set an option\'s intervention value', async () => {
     const w = placeholderWarning(J.AR1)
-    expect(w, `[J2d] COULD NOT MEASURE: R1 carries no ${PLACEHOLDER_CODE}, so there is no Olumi-supplied link to size`).not.toBeNull()
-    const links = ((w!.links ?? []) as { from: string; to: string }[])
-    expect(links.length, '[J2d] the withhold names no link').toBeGreaterThan(0)
-    if (EXPECT.placeholder_links) expect(links.map((l) => edgeKey(l)).sort(), '[J2d] the withhold names different links from the frozen journey').toEqual([...EXPECT.placeholder_links].sort())
-    const byId = new Map(J.G1!.nodes.map((n) => [n.id, n]))
+    const branch: J2dBranch = w ? 'placeholder' : 'option_intervention'
+    J.j2dBranch = branch
+    // Never silent: the branch is in the log, the evidence, and (when frozen) bound to the journey.
+    console.log(`[J2d] branch: ${branch}`)
+    test.info().annotations.push({ type: 'J2d branch', description: branch })
+    if (EXPECT.j2d_branch) expect(branch, '[J2d] the journey took a different J2d branch from the frozen one').toBe(EXPECT.j2d_branch)
     const sized: { from: string; to: string; target: number }[] = []
     await quiet()
-    for (const l of links) {
-      const stored = J.G1!.edges.find((e) => e.from === l.from && e.to === l.to)
-      expect(stored, `[J2d] the withhold names ${l.from}→${l.to}, which is not a link in G1`).toBeTruthy()
-      const fromLabel = byId.get(l.from)?.label, toLabel = byId.get(l.to)?.label
-      expect(fromLabel && toLabel, `[J2d] G1 has no labels for ${l.from}→${l.to}`).toBeTruthy()
-      const dialog = await openEdgeInspector(pageA, fromLabel!, toLabel!, 'J2d')
-      const since = Date.now()
-      const target = await typedFigureEdit(pageA, dialog, stored!.strength?.mean, 'J2d')
-      const turn = await nextTurn(turns, since, `J2d edit ${l.from}→${l.to}`)
-      expect(turn.status, `[J2d] the edit turn for ${l.from}→${l.to} failed`).toBe(200)
-      assertBoundaryClean('J2d')
-      sized.push({ ...l, target })
-      await quiet()
+    if (w) {
+      const links = ((w.links ?? []) as { from: string; to: string }[])
+      expect(links.length, '[J2d] the withhold names no link').toBeGreaterThan(0)
+      if (EXPECT.placeholder_links) expect(links.map((l) => edgeKey(l)).sort(), '[J2d] the withhold names different links from the frozen journey').toEqual([...EXPECT.placeholder_links].sort())
+      const byId = new Map(J.G1!.nodes.map((n) => [n.id, n]))
+      for (const l of links) {
+        const stored = J.G1!.edges.find((e) => e.from === l.from && e.to === l.to)
+        expect(stored, `[J2d] the withhold names ${l.from}→${l.to}, which is not a link in G1`).toBeTruthy()
+        const fromLabel = byId.get(l.from)?.label, toLabel = byId.get(l.to)?.label
+        expect(fromLabel && toLabel, `[J2d] G1 has no labels for ${l.from}→${l.to}`).toBeTruthy()
+        const dialog = await openEdgeInspector(pageA, fromLabel!, toLabel!, 'J2d')
+        const since = Date.now()
+        const target = await typedFigureEdit(pageA, dialog, stored!.strength?.mean, 'J2d')
+        const turn = await nextTurn(turns, since, `J2d edit ${l.from}→${l.to}`)
+        expect(turn.status, `[J2d] the edit turn for ${l.from}→${l.to} failed`).toBe(200)
+        assertBoundaryClean('J2d')
+        sized.push({ ...l, target })
+        await quiet()
+      }
+    } else {
+      J.optionEdit = await editOptionTarget('J2d', J.G1!, null)
     }
     await clearCanvasSelection(pageA)
-    // By identity in the stored model: each named link is the user's at the typed figure, and nothing else became the user's.
+    // By identity in the stored model: exactly what J2d edited is the user's, at what was typed, and nothing else changed hands.
     const body = await read('J2d')
     const G = body.graph as Graph
     for (const s of sized) {
@@ -423,15 +589,22 @@ test.describe.serial('J1 · whole PoC', () => {
     }
     const newlyUser = G.edges.filter((e) => e.provenance?.source === 'user_specified' &&
       J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey).sort()
-    expect(newlyUser, '[J2d] the typed figures stamped links the withhold did not name').toEqual(sized.map((s) => edgeKey(s)).sort())
-    expect(body.graph_hash, '[J2d] sizing did not change the model').not.toBe(J.H1)
-    expect(body.analysis_state?.run_state?.kind, '[J2d] R1 is not stale after sizing').toBe('complete_stale')
+    expect(newlyUser, '[J2d] the edit stamped links J2d did not edit').toEqual(sized.map((s) => edgeKey(s)).sort())
+    if (J.optionEdit) {
+      const iv = G.nodes.find((n) => n.id === J.optionEdit!.option)?.interventions?.[J.optionEdit!.factor]
+      expect(iv?.source, `[J2d] ${J.optionEdit.option}'s value for ${J.optionEdit.factor} is not stamped as the user's`).toBe('user_specified')
+      expect(iv?.value, `[J2d] ${J.optionEdit.option}'s stored value for ${J.optionEdit.factor} did not change`).not.toBe(J.optionEdit.value)
+      J.optionEdit.stored = iv!.value
+    }
+    // The revision bumps: the stored model's hash moves off H1.
+    expect(body.graph_hash, '[J2d] the edit did not change the model').not.toBe(J.H1)
+    expect(body.analysis_state?.run_state?.kind, '[J2d] R1 is not stale after the edit').toBe('complete_stale')
     J.G0 = J.G1; J.H0 = J.H1; J.R0 = J.R1; J.sized = sized
     J.G1 = G; J.H1 = body.graph_hash; J.H1id = body.graph_identity_hash?.value
-    writeEvidence('J2d-size.json', { warning: { code: w!.code, option_ids: w!.option_ids, links }, sized, H0: J.H0, H1: J.H1 })
+    writeEvidence('J2d-edit.json', { branch, warning: w ? { code: w.code, option_ids: w.option_ids, links: w.links } : null, sized, option_edit: J.optionEdit ?? null, H0: J.H0, H1: J.H1 })
   })
 
-  test('J2e · rerun on the sized model: the same withhold is gone and robustness is back', async () => {
+  test('J2e · rerun on the edited model: no withhold, robustness present, and the edit survives the re-Run and a reload', async () => {
     await quiet()
     const footer = pageA.getByTestId('results-analysis-footer-action')
     await expect(footer, '[J2e] the footer does not offer the rerun').toBeVisible({ timeout: 60_000 })
@@ -442,24 +615,98 @@ test.describe.serial('J1 · whole PoC', () => {
     const ar = analysisResultOf(turn.body)!
     expect(ar, '[J2e] the rerun carries no analysis_result').toBeTruthy()
     const body = await read('J2e')
-    expect(body.graph_hash, '[J2e] the rerun is not on the sized model').toBe(J.H1)
+    expect(body.graph_hash, '[J2e] the rerun is not on the edited model').toBe(J.H1)
     expect(body.analysis_state?.run_state?.kind, '[J2e] the rerun is not current').toBe('complete_current')
     const A = body.current_read?.computed_against_hash
     expect(A, '[J2e] the stored read names no analysis hash').toMatch(HASH)
     expect(ar.computed_against_hash, '[J2e] the turn and the stored read disagree on what the rerun was computed on').toBe(A)
-    // Identity: THIS run, computed on the sized model, carries no placeholder withhold, and its robustness is not
+    // Identity: THIS run, computed on the edited model, carries no placeholder withhold, and its robustness is not
     // the empty shape the withhold writes ({ fragile_edges: [], robust_edges: [] }).
-    expect(placeholderWarning(ar), `[J2e] the sized run still withholds for Olumi-supplied links: ${JSON.stringify(placeholderWarning(ar)?.links ?? null)}`).toBeNull()
+    expect(placeholderWarning(ar), `[J2e] the edited run still withholds for Olumi-supplied links: ${JSON.stringify(placeholderWarning(ar)?.links ?? null)}`).toBeNull()
     const rob = ar.enrichment?.robustness
     const robEdges = [...(rob?.fragile_edges ?? []), ...(rob?.robust_edges ?? [])]
-    expect(robEdges.length, '[J2e] the sized run\'s robustness is still the empty withheld shape').toBeGreaterThan(0)
+    expect(robEdges.length, '[J2e] the edited run\'s robustness is still the empty withheld shape').toBeGreaterThan(0)
     const labels = optionLabels()
-    expect(rankingWord(String(ar.summary ?? ''), labels), '[J2e] the sized run\'s summary ranks the options').toBeNull()
-    putForwardRow('J2e sized summary', String(ar.summary ?? ''), labels)
+    expect(rankingWord(String(ar.summary ?? ''), labels), '[J2e] the edited run\'s summary ranks the options').toBeNull()
+    putForwardRow('J2e edited summary', String(ar.summary ?? ''), labels)
     J.AR1 = ar; J.A1 = A; J.R1 = body.current_read?.run_delta?.endpoints?.current?.run_id ?? null
     J.R1at = body.analysis_state?.run_state?.computed_at ?? null
-    expect(J.R1at, '[J2e] the sized run has no computed_at').toBeTruthy()
-    writeEvidence('J2e-rerun.json', { R0: J.R0, R1: J.R1, A1: J.A1, H1: J.H1, robustness_edges: robEdges.length, summary: ar.summary })
+    expect(J.R1at, '[J2e] the edited run has no computed_at').toBeTruthy()
+    // The edit survives the re-Run (stored) and a real reload (stored AND on screen), by identity.
+    const holdsEdits = (g: Graph, label: string) => {
+      for (const s of J.sized!) {
+        const e = g.edges.find((x) => x.from === s.from && x.to === s.to)
+        expect(e?.provenance?.source, `[${label}] ${s.from}→${s.to} is no longer the user's`).toBe('user_specified')
+        expect(Math.abs((e?.strength?.mean ?? Number.NaN) - s.target), `[${label}] ${s.from}→${s.to} lost the typed figure ${s.target} (stored ${e?.strength?.mean})`).toBeLessThan(0.011)
+      }
+      if (J.optionEdit) {
+        const iv = g.nodes.find((n) => n.id === J.optionEdit!.option)?.interventions?.[J.optionEdit!.factor]
+        expect(iv?.source, `[${label}] ${J.optionEdit.option}'s value for ${J.optionEdit.factor} is no longer the user's`).toBe('user_specified')
+        expect(iv?.value, `[${label}] ${J.optionEdit.option}'s value for ${J.optionEdit.factor} moved after the edit`).toBe(J.optionEdit.stored)
+      }
+    }
+    holdsEdits(body.graph as Graph, 'J2e')
+    await quiet()
+    await pageA.reload({ waitUntil: 'load' })
+    await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: '[J2e] the reload does not render the edited model by id', timeout: 120_000 }).toEqual(nodesOf(J.G1!))
+    const after = await read('J2e reload')
+    expect(after.graph_hash, '[J2e] the reload reads a different model').toBe(J.H1)
+    holdsEdits(after.graph as Graph, 'J2e reload')
+    const shown: { what: string; shown: number }[] = []
+    for (const s of J.sized!) {
+      const dialog = await openEdgeInspector(pageA, labelOf(J.G1!, s.from), labelOf(J.G1!, s.to), 'J2e reload')
+      await dialog.locator('summary', { hasText: 'Fine-tune' }).click()
+      const v = Number(await dialog.getByRole('slider', { name: 'Effect on target' }).inputValue())
+      expect(Math.abs(v - s.target), `[J2e reload] the inspector shows ${v} for ${s.from}→${s.to}, not the typed figure ${s.target}`).toBeLessThan(0.011)
+      shown.push({ what: edgeKey(s), shown: v })
+      await pageA.keyboard.press('Escape')
+    }
+    if (J.optionEdit) {
+      const oe = J.optionEdit
+      const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const optionLabel = labelOf(J.G1!, oe.option)
+      // On screen after the reload, by identity: the "Since the last run" strip names THIS option's target and the typed
+      // figure ("Starter-tier price, Launch £49 starter tier: £49 per subscriber / month → £59 per subscriber / month").
+      const strip = pageA.getByRole('button', { name: new RegExp(`^${esc(oe.factorLabel)}, ${esc(optionLabel)}: .*→\\D*${esc(String(oe.typedNumber))}\\b`) })
+      await expect(strip, `[J2e reload] the since-last-run strip does not show ${oe.factorLabel} under ${optionLabel} moving to ${oe.typedNumber}`).toHaveCount(1, { timeout: 30_000 })
+      shown.push({ what: `${oe.option}:${oe.factor} (since-last-run strip)`, shown: oe.typedNumber })
+      // ⛔ KNOWN DEFECT (S2, DL 87114 9 Oct, owners af + 02): after a real reload the option card and the inspector show
+      // the user's typed figure as "Increases" with no number and no box (stored 0.295 is right; the £ frame is lost).
+      // This advisory asserts the BROKEN state exactly, so it turns FAIL (loudly) the day the figure comes back:
+      // then make it a hard row asserting the figure, and delete this one.
+      await runAdvisory('J2e-KNOWN-DEFECT-figure-missing-after-reload', async () => {
+        const card = pageA.locator(`.react-flow__node[data-id="${oe.option}"]`).getByRole('button', { name: `${oe.factorLabel}, as this option sets it — click to edit` })
+        const cardText = (await card.innerText()).trim()
+        if (/\d/.test(cardText)) throw new Error(`DEFECT MAY BE FIXED: the card now shows a figure for ${oe.factorLabel}: "${cardText}"`)
+        const input = await optionTargetInputIfAny(pageA, oe.option, oe.factorLabel)
+        if (input) throw new Error(`DEFECT MAY BE FIXED: the inspector offers a target box for ${oe.factorLabel} again ("${await input.inputValue()}")`)
+        return { state: 'BROKEN as known: no figure on the card or in the inspector after reload', card: cardText }
+      })
+    }
+    await clearCanvasSelection(pageA)
+    writeEvidence('J2e-rerun.json', { branch: J.j2dBranch, R0: J.R0, R1: J.R1, A1: J.A1, H1: J.H1, robustness_edges: robEdges.length, shown_after_reload: shown, summary: ar.summary })
+  })
+
+  test('J2f · a link holding the user\'s own figure refuses a strength edit, and the stored model does not move', async () => {
+    const verdicts = J.G1!.edges.map((e) => ({ e, v: strengthEditVerdict(J.G1!, e) }))
+    console.log(`[J2f] verdicts: ${verdicts.map((x) => `${edgeKey(x.e)}=${x.v}`).sort().join(' ')}`)
+    const held = verdicts.filter((x) => x.v === 'user_figure_held').map((x) => x.e).sort((a, b) => edgeKey(a).localeCompare(edgeKey(b)))[0]
+    expect(held, '[J2f] COULD NOT MEASURE: no G1 link holds the user\'s own figure').toBeTruthy()
+    await quiet()
+    const dialog = await openEdgeInspector(pageA, labelOf(J.G1!, held!.from), labelOf(J.G1!, held!.to), 'J2f')
+    const since = Date.now()
+    await typedFigureEdit(pageA, dialog, held!.strength?.mean, 'J2f')
+    const turn = await nextTurn(turns, since, `J2f edit ${edgeKey(held!)}`)
+    assertBoundaryClean('J2f')
+    expect(JSON.stringify(turn.body ?? ''), '[J2f] the refusal does not say the link holds the user\'s figure').toContain('This link holds your figure')
+    await pageA.keyboard.press('Escape')
+    await clearCanvasSelection(pageA)
+    await quiet()
+    const body = await read('J2f')
+    expect(body.graph_hash, '[J2f] a refused edit changed the stored model').toBe(J.H1)
+    const e = (body.graph as Graph).edges.find((x) => x.from === held!.from && x.to === held!.to)
+    expect(e?.strength?.mean, '[J2f] a refused edit moved the user\'s figure').toBe(held!.strength?.mean)
+    writeEvidence('J2f-held-refusal.json', { link: edgeKey(held!), mean: held!.strength?.mean, H1: J.H1 })
   })
 
   test('J3 · science finding: fragile edges are G1 edges, and the canvas marks exactly the ones it should', async () => {
@@ -504,11 +751,39 @@ test.describe.serial('J1 · whole PoC', () => {
     }
   })
 
-  test('J5 · approved typed edit on the fragile link: H2 ≠ H1, provenance user_specified (+J5a staleness)', async () => {
+  test('J5 · approved typed edit: the fragile link if its strength is editable, else another option target; H2 ≠ H1, user_specified (+J5a staleness)', async () => {
     const top = [...J.fragile1!].sort((a, b) => b.switch_probability - a.switch_probability)[0]
     J.edited = top
-    // A typed figure on the fragile link (never a band preset: DL 0df0e1, 6 Oct, F1), via the same inspector path.
+    const topEdge = J.G1!.edges.find((e) => e.from === top.from_id && e.to === top.to_id)!
+    const verdict = strengthEditVerdict(J.G1!, topEdge)
+    // BY TYPE (DL 87114, 9 Oct): a fragile link holding the user's own figure (or a definition) refuses a strength edit
+    // (J2f pins that), so J5 then sets a DIFFERENT option target than J2d through the same checked door. Named, never silent.
+    const branch = verdict === 'editable' ? 'fragile_link' : 'option_intervention'
+    J.j5Branch = branch
+    console.log(`[J5] branch: ${branch} (top fragile ${edgeKey(topEdge)} = ${verdict})`)
+    test.info().annotations.push({ type: 'J5 branch', description: `${branch} (top fragile ${edgeKey(topEdge)} = ${verdict})` })
     await quiet()
+    if (branch === 'option_intervention') {
+      J.j5Option = await editOptionTarget('J5', J.G1!, J.optionEdit ?? null)
+      const body = await read('J5')
+      J.G2 = body.graph as Graph; J.H2 = body.graph_hash; J.H2id = body.graph_identity_hash?.value
+      expect(J.H2, '[J5] the edit did not change the graph hash').not.toBe(J.H1)
+      const iv = J.G2.nodes.find((n) => n.id === J.j5Option!.option)?.interventions?.[J.j5Option!.factor]
+      expect(iv?.source, `[J5] ${J.j5Option.option}'s value for ${J.j5Option.factor} is not stamped as the user's`).toBe('user_specified')
+      expect(iv?.value, `[J5] ${J.j5Option.option}'s stored value for ${J.j5Option.factor} did not change`).not.toBe(J.j5Option.value)
+      J.j5Option.stored = iv!.value
+      const newlyUser = J.G2.edges.filter((e) => e.provenance?.source === 'user_specified' &&
+        J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey)
+      expect(newlyUser, '[J5] the option edit stamped links as the user\'s').toEqual([])
+      expect(body.analysis_state?.run_state?.kind, '[J5a] the stored read does not call R1 stale').toBe('complete_stale')
+      expect(body.analysis_state?.run_state?.cause, '[J5a] staleness has the wrong cause').toBe('graph_changed')
+      const notice = pageA.getByTestId('analysis-freshness-notice')
+      await expect(notice, '[J5a] the UI shows no stale notice').toHaveAttribute('data-freshness', 'stale', { timeout: 30_000 })
+      await expect(notice, '[J5a] the stale notice has the wrong words').toContainText('Model changed since this analysis. Re-run to update.')
+      writeEvidence('J5-edit.json', { branch, top_fragile: edgeKey(topEdge), top_verdict: verdict, option_edit: J.j5Option, H2: J.H2, H2id: J.H2id })
+      return
+    }
+    // A typed figure on the fragile link (never a band preset: DL 0df0e1, 6 Oct, F1), via the same inspector path.
     const dialog = await openEdgeInspector(pageA, top.from_label, top.to_label, 'J5')
     const before = J.G1!.edges.find((e) => e.from === top.from_id && e.to === top.to_id)!
     const since = Date.now()
@@ -538,7 +813,7 @@ test.describe.serial('J1 · whole PoC', () => {
     const notice = pageA.getByTestId('analysis-freshness-notice')
     await expect(notice, '[J5a] the UI shows no stale notice').toHaveAttribute('data-freshness', 'stale', { timeout: 30_000 })
     await expect(notice, '[J5a] the stale notice has the wrong words').toContainText('Model changed since this analysis. Re-run to update.')
-    writeEvidence('J5-edit.json', { edited: edgeKey({ from: top.from_id, to: top.to_id }), target, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
+    writeEvidence('J5-edit.json', { branch, edited: edgeKey({ from: top.from_id, to: top.to_id }), target, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
   })
 
   test('J6 · rerun: R2 is computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
@@ -599,8 +874,10 @@ test.describe.serial('J1 · whole PoC', () => {
       if (await empty.count()) throw new Error(`Compare shows no pair: ${await empty.first().getAttribute('data-absence-reason') ?? await empty.first().getAttribute('data-run-on-record') ?? 'no reason given'}`)
       // Identity: the edited link's input_changes rows, by entity_id, are the rows the tab lists.
       const changes = (body.current_read?.run_delta?.input_changes ?? []) as any[]
-      const touched = changes.filter((c) => c?.link?.from === J.edited!.from_id && c?.link?.to === J.edited!.to_id)
-      if (!touched.length) throw new Error(`run_delta.input_changes does not name the edited link (${changes.length} rows)`)
+      const touched = J.j5Branch === 'option_intervention'
+        ? changes.filter((c) => JSON.stringify(c).includes(J.j5Option!.option) && JSON.stringify(c).includes(J.j5Option!.factor))
+        : changes.filter((c) => c?.link?.from === J.edited!.from_id && c?.link?.to === J.edited!.to_id)
+      if (!touched.length) throw new Error(`run_delta.input_changes does not name J5's edit (${J.j5Branch}; ${changes.length} rows)`)
       const shown = await pair.locator('[data-testid$="-input-row"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entity-id')))
       const missing = touched.map((c) => String(c.entity_id)).filter((id) => !shown.includes(id))
       if (missing.length) throw new Error(`Compare does not list the edited link's change row(s) ${missing.join(', ')} (shown: ${shown.join(', ')})`)
@@ -633,8 +910,14 @@ test.describe.serial('J1 · whole PoC', () => {
       expect(r.body!.graph_hash, '[J8] the fresh browser reads a different graph').toBe(J.H2)
       expect(r.body!.analysis_state?.run_state?.kind, '[J8] the verdict did not survive as current').toBe('complete_current')
       expect(r.body!.current_read?.run_delta?.endpoints?.current?.run_id, '[J8] the fresh read names a different run').toBe(J.R2)
-      const e = (r.body!.graph as Graph).edges.find((x) => x.from === J.edited!.from_id && x.to === J.edited!.to_id)
-      expect(e?.provenance?.source, '[J8] the edit\'s provenance did not survive the fresh browser').toBe('user_specified')
+      if (J.j5Branch === 'option_intervention') {
+        const iv = (r.body!.graph as Graph).nodes.find((n) => n.id === J.j5Option!.option)?.interventions?.[J.j5Option!.factor]
+        expect(iv?.source, '[J8] the J5 option edit\'s provenance did not survive the fresh browser').toBe('user_specified')
+        expect(iv?.value, '[J8] the J5 option edit\'s value did not survive the fresh browser').toBe(J.j5Option!.stored)
+      } else {
+        const e = (r.body!.graph as Graph).edges.find((x) => x.from === J.edited!.from_id && x.to === J.edited!.to_id)
+        expect(e?.provenance?.source, '[J8] the edit\'s provenance did not survive the fresh browser').toBe('user_specified')
+      }
 
       // The canvas marks exactly R2's own fragile edges, and not R1's (Integrator amendment
       // @7cbd02f6). J3r, earlier in this run, is the positive control: R1's mark did paint

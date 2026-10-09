@@ -1,20 +1,23 @@
 {
- "_source": "record 4b + fills 1-3, local, 6 Oct 2026 (DL 0df0e1 GO; e8 #87 6006709102); tuple cee a8e69b48 plot c755127c isl d74b5f6a ui 2fc2128d; 21 calls total; green J0-J13 + ISO 2/2",
+ "_source": "re-record P02, local, 8-9 Oct 2026 (DL 87114 GO, #87 6070468985); tuple cee b33222d4 plot 5a1c2032 isl 87a031f7 ui 68a03f7f; 20 calls + 2 fills (seq 13/14); keep-list + manifest keys per DL ruling \u00b7 9 Oct (P02, DL 87114 ruling c): placeholder_links dropped (old node ids, absent from the re-recorded G1); R1 on S logs no goal-figure withhold (cee.log, contrast: ISO scenario logs both), so J2d takes option_intervention (DL 87114: every causal link is user_figure_held or definitional).",
  "goal_direction_assumed": false,
  "enrichment_keys": [
+  "conditional_winners",
   "confidence_tier",
   "critiques",
   "decision_brief",
+  "decision_evpi",
+  "dominant_factor",
   "edge_e_values",
+  "factor_evppi",
   "factor_sensitivity",
+  "flip_thresholds",
+  "flip_thresholds_status",
   "inference_warnings",
   "option_comparison",
   "option_comparison_status",
+  "p_win_sensitivity",
   "robustness"
  ],
- "placeholder_links": [
-  "price_rise_churn_mrr_loss::monthly_recurring_revenue",
-  "starter_monthly_price::starter_tier_mrr",
-  "starter_subscribers::starter_tier_mrr"
- ]
+ "j2d_branch": "option_intervention"
 }
