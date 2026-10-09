@@ -1,4 +1,3 @@
-import { useCanvasStore } from '../../../store'
 /**
  * ⭐⭐ "RANKED BY LARGEST VALUE" IS A SENTENCE THE PRODUCT MUST SAY OUT LOUD.
  *
@@ -50,7 +49,7 @@ import { useCanvasStore } from '../../../store'
  * direction would be worse than the disclosure it replaced.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
 import { DetailToggleContext } from '../DetailToggleContext'
@@ -105,11 +104,10 @@ function auditWith(
   }
 }
 
-function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings']) {
-  useCanvasStore.setState({ results: { status: 'complete', report: { option_probabilities: { a: { win_probability: 0.8 }, b: { win_probability: 0.2 } } } } } as never)
+function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings'], context?: { hasRankedOptions: boolean }) {
   return render(
     <DetailToggleContext.Provider value={{ showDetail: true }}>
-      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} />
+      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} context={context} />
     </DetailToggleContext.Provider>,
   )
 }
@@ -188,8 +186,8 @@ describe('Model card audit trail — the ranking says what it ranked by', () => 
 })
 
 it('all-unranked Model card makes no ordering claim', () => {
-  renderAudit([{ ...FOUNDER_WARNING }])
-  act(() => useCanvasStore.setState({ results: { status: 'complete', report: { option_probabilities: {} } } } as never))
+  // Production has no sanctioned fact source here; this tests the optional precomputed-fact contract.
+  renderAudit([{ ...FOUNDER_WARNING }], { hasRankedOptions: false })
   const row = screen.getByTestId('audit-inference-warning-row')
   expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
 })

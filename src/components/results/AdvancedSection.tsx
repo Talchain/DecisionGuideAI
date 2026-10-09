@@ -1,4 +1,4 @@
-import { useCritiqueRunContext } from './utils/critiqueRunContext'
+import type { CritiqueRunContext } from './utils/humaniseCritique'
 /**
  * AdvancedSection — Phase 4 Task 5
  *
@@ -64,6 +64,7 @@ export function translateFreshnessReason(
 }
 
 export interface AdvancedSectionProps {
+  context?: CritiqueRunContext
   /**
    * @deprecated Do NOT render. `recommendation_stability` is DEPRECATED and no
    * longer emitted by the producer (vendored 0.15.0 enrichment.js:250-262 — it
@@ -164,8 +165,8 @@ export function AdvancedSection({
   totalFactorCount,
   expertMode = false,
   inferenceWarnings,
+  context,
 }: AdvancedSectionProps) {
-  const context = useCritiqueRunContext()
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
   const [narrativeExpanded, setNarrativeExpanded] = useState(false)

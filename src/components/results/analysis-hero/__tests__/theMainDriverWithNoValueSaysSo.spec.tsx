@@ -76,7 +76,8 @@ function renderDrivers() {
 }
 
 function briefDriverItems(): string[] {
-  render(<DecisionBriefSectionContainer leaderClaimPermitted={false} />)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  render(<DecisionBriefSectionContainer hasOptionResult={data.recommendation.hasOptionResult} leaderClaimPermitted={false} />)
   return Array.from(screen.getByTestId('decision-brief-drivers').querySelectorAll('li')).map((li) => li.textContent ?? '')
 }
 
@@ -159,7 +160,8 @@ it('D2-a mounted container: no option results cannot attribute top drivers', () 
   seed()
   const state = useCanvasStore.getState()
   useCanvasStore.setState({ results: { ...state.results, report: { ...state.results.report, option_probabilities: {} } } } as never)
-  render(<DecisionBriefSectionContainer leaderClaimPermitted={false} />)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  render(<DecisionBriefSectionContainer hasOptionResult={data.recommendation.hasOptionResult} leaderClaimPermitted={false} />)
   const group = screen.getByTestId('decision-brief-drivers')
   expect(group.querySelectorAll('li')).toHaveLength(0)
   expect(group.querySelectorAll('p')).toHaveLength(1)

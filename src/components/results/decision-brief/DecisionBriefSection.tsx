@@ -1,4 +1,3 @@
-import { runAnalysedAnyOption } from '../utils/notAnalysedOptions'
 import { useId, useMemo, useState } from 'react'
 import { BookOpenText, CircleDot, GitBranch, Layers3 } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
@@ -242,11 +241,12 @@ export function DecisionBriefSection({
  * the existing leader/hero authority.
  */
 export interface DecisionBriefSectionContainerProps {
+  hasOptionResult?: boolean
   /** See `DecisionBriefSectionProps.leaderClaimPermitted` — passed straight through. */
   leaderClaimPermitted: boolean
 }
 
-export function DecisionBriefSectionContainer({ leaderClaimPermitted }: DecisionBriefSectionContainerProps) {
+export function DecisionBriefSectionContainer({ leaderClaimPermitted, hasOptionResult }: DecisionBriefSectionContainerProps) {
   const rawBrief = useCanvasStore(state => (
     (state.results.report as { decision_brief?: unknown } | null | undefined)?.decision_brief
   ))
@@ -280,7 +280,7 @@ export function DecisionBriefSectionContainer({ leaderClaimPermitted }: Decision
   return (
     <DecisionBriefSection
       brief={brief}
-      hasOptionResult={runAnalysedAnyOption(report?.option_probabilities, Object.keys(report?.option_probabilities ?? {}))}
+      hasOptionResult={hasOptionResult}
       leaderClaimPermitted={leaderClaimPermitted}
       estimatedInterventions={estimatedInterventions}
       noValueLabels={noValueLabels}

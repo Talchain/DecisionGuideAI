@@ -1,4 +1,4 @@
-import { useCritiqueRunContext } from '../../../components/results/utils/critiqueRunContext'
+import type { CritiqueRunContext } from '../../../components/results/utils/humaniseCritique'
 /**
  * ModelHealthSection — "Audit" section, collapsed by default.
  *
@@ -87,6 +87,7 @@ export interface AuditTrailData {
 export const MODELCARD_DISCUSS_LABEL = "Discuss the model's reliability with Olumi"
 
 interface ModelHealthSectionProps {
+  context?: CritiqueRunContext
   ceeQuality?: CeeQualityDimensions | null
   /** Audit trail from PLoT response metadata */
   auditTrail?: AuditTrailData
@@ -181,6 +182,7 @@ function QualityRow({ label, score }: { label: string; score?: number }) {
 function ModelHealthSectionInner({
   ceeQuality,
   auditTrail,
+  context,
   factorCount,
   edgeCount,
   factorsToVerify,
@@ -188,7 +190,6 @@ function ModelHealthSectionInner({
   onExpandChange,
   onHandOffToOlumi,
 }: ModelHealthSectionProps) {
-  const { hasRankedOptions } = useCritiqueRunContext()
   const { showDetail } = useContext(DetailToggleContext)
 
   // Root node default value warnings from inference_warnings
@@ -201,8 +202,8 @@ function ModelHealthSectionInner({
 
   // Audit-trail inference warnings: one row per code, sentence + code reference.
   const inferenceWarningRows = useMemo(
-    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings, { hasRankedOptions }),
-    [auditTrail?.inferenceWarnings, hasRankedOptions],
+    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings, context),
+    [auditTrail?.inferenceWarnings, context],
   )
 
   // Repairs summary: aggregate by code

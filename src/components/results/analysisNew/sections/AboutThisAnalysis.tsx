@@ -1,4 +1,3 @@
-import { useCritiqueRunContext } from '../../utils/critiqueRunContext'
 /**
  * About this analysis — ONE collapsed audit utility at the foot of the
  * Reasoning tab (Reasoning V2, 24 Sep 2026).
@@ -351,7 +350,7 @@ export function AboutThisAnalysis({
   foldedHasContent = false,
   testId = 'analysis-new-about',
 }: AboutThisAnalysisProps) {
-  const context = useCritiqueRunContext()
+  const context = vm.critiqueRunContext
   const [open, setOpen] = useState(false)
   /*
    * Each detail row opens on its own. It was one-at-a-time, which hid a row the

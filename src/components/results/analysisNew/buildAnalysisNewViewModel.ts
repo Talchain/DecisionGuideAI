@@ -4018,6 +4018,7 @@ export function buildAnalysisNewViewModel(
       ? uncertaintyBuild!.sensitivityConvergence
       : null
   return {
+    critiqueRunContext: data.confidence?.critiqueRunContext,
     status: buildStatus(inputs),
     /**
      * ⭐ ONE CALL, QUOTED — never re-derived by a consumer. `=== true` because

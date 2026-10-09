@@ -393,6 +393,8 @@ export type RobustnessDisplayVerdict = 'robust' | 'moderate' | 'fragile' | 'not_
  * This type describes the decision outcome data shape, not any UI component.
  */
 export interface DecisionResultData {
+  /** The existing runAnalysedAnyOption result, published by the results hook. */
+  hasOptionResult?: boolean
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
   goalLabel: string

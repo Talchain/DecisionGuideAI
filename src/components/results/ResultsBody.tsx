@@ -429,6 +429,7 @@ export const ResultsBody = memo(function ResultsBody({
           InferenceWarningStrip.tsx:11-17,70). Info-severity stays hidden;
           renders nothing when no warning-severity entries exist. */}
       <InferenceWarningStrip
+        context={resultsSectionData.confidence.critiqueRunContext}
         warnings={resultsSectionData.confidence.inferenceWarnings}
         // The held-back entries render in AdvancedSection's complement list.
         heldBackListedUnder={ADVANCED_SECTION_TITLE}
@@ -453,6 +454,7 @@ export const ResultsBody = memo(function ResultsBody({
           or Compare authority. */}
       <SectionErrorBoundary section="Decision brief">
         <DecisionBriefSectionContainer
+          hasOptionResult={resultsSectionData.recommendation.hasOptionResult}
           leaderClaimPermitted={leaderDesignationPermitted(resultsSectionData.recommendation) === true}
         />
       </SectionErrorBoundary>
@@ -993,6 +995,7 @@ export const ResultsBody = memo(function ResultsBody({
       <SectionErrorBoundary section="Advanced">
       <div>
         <AdvancedSection
+          context={resultsSectionData.confidence.critiqueRunContext}
           robustnessVerdict={resultsSectionData.recommendation.robustnessVerdict}
           freshnessReason={freshnessReason}
           responseHashIsLocal={responseHashIsLocal}
