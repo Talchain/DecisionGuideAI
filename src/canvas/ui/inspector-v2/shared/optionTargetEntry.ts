@@ -37,7 +37,7 @@
  * renders — the input never silently reverts or silently does nothing.
  */
 
-import { classifyUnit, denormaliseInterventionValue, isSuppressedUnit, toFiniteNumber } from '../../../utils/labelUtils'
+import { classifyUnit, denormaliseInterventionValue, isSuppressedUnit, toFiniteNumber, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { normaliseRawFactorValue } from '../../../utils/observedStateHelpers'
 import { formatNumber, formatValueWithUnit } from '../../../utils/formatValueWithUnit'
 import { parseSuccessTarget } from '../../../components/pre-analysis-v3/hero/parseSuccessTarget'
@@ -81,6 +81,40 @@ export function optionEntryScaleOf(cap: unknown, scaleFrame: unknown): number | 
   if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return cap
   if (typeof scaleFrame === 'number' && Number.isFinite(scaleFrame) && scaleFrame > 0) return scaleFrame
   return undefined
+}
+
+/**
+ * One display/entry frame for an option target. A user-owned raw cell defines
+ * its own unit and raw/model scale; otherwise CEE's scale_frame wins, then cap.
+ * Keep the factor's model baseline for comparisons, but only carry its raw
+ * anchor when it agrees with that frame. A conflicting anchor must not silently
+ * override the selected scale in the denormaliser or hide the entry box.
+ * `optionEntryScaleOf` retains its legacy cap-first contract for other callers.
+ */
+export function resolveOptionTargetDisplayFrame(
+  factorData: Record<string, unknown> | null | undefined,
+  intervention?: unknown,
+): { unit?: string; cap?: number } & OptionTargetAnchor {
+  const obs = factorData?.observedState as Record<string, unknown> | undefined
+  const factorUnit = (factorData?.unit as string | undefined) ?? (obs?.unit as string | undefined)
+  const cell = intervention !== null && typeof intervention === 'object' && !Array.isArray(intervention)
+    ? intervention as Record<string, unknown> : undefined
+  const { value, source } = unwrapInterventionValue(intervention)
+  const raw = toFiniteNumber(cell?.raw_value)
+  const cellUnit = typeof cell?.unit === 'string' ? cell.unit : undefined
+  const unitKind = classifyUnit(cellUnit).kind
+  const userCell = source === 'user_specified' && raw !== null &&
+    cellUnit !== undefined && !isSuppressedUnit(cellUnit) && unitKind !== 'none' && unitKind !== 'placeholder'
+  const rawScale = userCell && value !== null && value !== 0 ? raw / value : undefined
+  const cap = optionEntryScaleOf(rawScale, optionEntryScaleOf(factorData?.scale_frame, unwrapInterventionValue(obs?.cap).value))
+  const unit = userCell ? cellUnit : factorUnit
+  const observedValue = unwrapInterventionValue(obs?.value).value ?? undefined
+  let observedRawValue = toFiniteNumber(obs?.raw_value) ?? unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  if (cap !== undefined && observedValue !== undefined && observedValue > 0 && observedRawValue !== undefined &&
+    (unit !== factorUnit || Math.abs(observedRawValue / observedValue - cap) > cap * ANCHOR_AGREES_WITH_CAP)) {
+    observedRawValue = undefined
+  }
+  return { unit, cap, observedValue, observedRawValue }
 }
 
 export function resolveOptionTargetEntryFrame({
