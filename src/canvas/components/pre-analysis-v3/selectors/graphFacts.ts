@@ -5,6 +5,7 @@
  * structure only (boundary rule F.6) — no semantic judgements.
  */
 
+import { classifyNodeProvenance } from '../../../domain/valueProvenance'
 import type { Node } from '@xyflow/react'
 import { getObservedState } from '../../../utils/observedStateHelpers'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
@@ -51,7 +52,7 @@ export function computeGraphFacts(nodes: ReadonlyArray<Node>): GraphFacts {
       case 'risk': {
         riskCount++
         const provenance = (node.data as Record<string, unknown> | undefined)?.provenance
-        if (provenance !== 'ai_inferred') risksAllOlumi = false
+        if (classifyNodeProvenance(typeof provenance === 'string' ? provenance : null)?.kind !== 'ai') risksAllOlumi = false
         break
       }
       case 'factor':
@@ -96,6 +97,10 @@ export function computeProvenanceCounts(factorNodes: ReadonlyArray<Node>): Prove
     const source = getObservedState(node.data).source
     if (typeof source !== 'string' || source === '') continue
     estimableCount++
+    const provenance = (node.data as Record<string, unknown> | undefined)?.provenance
+    const nodeClass = classifyNodeProvenance(typeof provenance === 'string' ? provenance : null)
+    const neutralAuthorship = typeof provenance === 'string' && (!nodeClass || nodeClass.kind === 'unverified_brief')
+    if (neutralAuthorship) continue
     if (isReviewedByUser(node)) reviewedCount++
     else if (isAiSource(source)) aiEstimatedCount++
   }

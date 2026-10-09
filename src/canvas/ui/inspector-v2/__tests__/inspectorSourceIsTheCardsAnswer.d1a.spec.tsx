@@ -30,6 +30,7 @@ const WORDS = {
   you: VALUE_SOURCE_MARK_LABEL.you,
   panel: VALUE_SOURCE_MARK_LABEL.panel,
   unknown: VALUE_SOURCE_MARK_LABEL.unknown,
+  unverified_brief: 'Not confirmed from your brief',
 } as const
 
 const factor = (observedState: Record<string, unknown>) => ({ label: 'Pricing Level', kind: 'factor', observedState })

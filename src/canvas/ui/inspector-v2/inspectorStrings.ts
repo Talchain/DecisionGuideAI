@@ -4,7 +4,7 @@
  */
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
-import { classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { classifyNodeProvenance, classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
@@ -101,6 +101,7 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   human: 'Set by you',
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
+  unverified_brief: VALUE_PROVENANCE_LABEL.unverified_brief,
   ai: null,
   accepted: null, // Olumi's figure, accepted — a producer kind: never first-person copy
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
@@ -232,6 +233,12 @@ export function factorValueSourceLabel(
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : undefined
+  const mark = factorValueSourceMark(data)
+  // Node display provenance discloses an unconfirmed brief binding before any old value source.
+  if (mark?.kind === 'unverified_brief') return mark.label
+  if (typeof d?.provenance === 'string' && !classifyNodeProvenance(d.provenance)) {
+    return VALUE_SOURCE_MARK_LABEL.unknown
+  }
   const attributed = source ? attributedLabelFor(source, attributedTo, isAcceptedOlumiFigure(obs)) : null
   if (attributed) return attributed
   const words: Readonly<Record<ValueSourceMarkKind, string>> = {
@@ -240,8 +247,9 @@ export function factorValueSourceLabel(
     you: VALUE_SOURCE_MARK_LABEL.you,
     panel: VALUE_SOURCE_MARK_LABEL.panel,
     unknown: VALUE_SOURCE_MARK_LABEL.unknown,
+    unverified_brief: VALUE_SOURCE_MARK_LABEL.unverified_brief,
   }
-  return words[factorValueSourceMark(data)?.kind ?? 'unknown']
+  return words[mark?.kind ?? 'unknown']
 }
 
 /** Extraction type user-facing labels */
@@ -435,6 +443,7 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
   // glance downward; a competing one costs them a wrong belief about who
   // authored a number.
   brief: GROUP_LABELS.inputUnattributed,
+  unverified_brief: GROUP_LABELS.inputUnattributed,
   ai:    GROUP_LABELS.inputUnattributed,
   accepted: GROUP_LABELS.inputUnattributed, // Olumi's figure, accepted: not the user's input
   panel: GROUP_LABELS.inputUnattributed,

@@ -13,6 +13,7 @@ const PROVENANCE_VALUES: ReadonlySet<CEEProvenance> = new Set<CEEProvenance>([
   'from_brief',
   'ai_inferred',
   'user_set',
+  'unverified_brief',
 ])
 
 /**

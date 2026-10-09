@@ -1,5 +1,5 @@
-import type { CEEProvenance } from '../../../adapters/cee/types'
 import {
+  UNVERIFIED_BRIEF_LABEL,
   classifyNodeProvenance,
   classifyValueProvenance,
   type ValueProvenanceKind,
@@ -30,6 +30,7 @@ const PILL_BY_KIND: Record<ValueProvenanceKind, { label: string; borderClass: st
   assumption: { label: 'Your assumption', borderClass: 'border-success/30' },
   human: { label: 'Set by you', borderClass: 'border-success/30' },
   brief: { label: 'From brief', borderClass: 'border-success/30' },
+  unverified_brief: { label: UNVERIFIED_BRIEF_LABEL, borderClass: 'border-panel-border' },
   ai: { label: 'AI estimate', borderClass: 'border-info/30' },
   accepted: { label: 'Olumi\u2019s estimate \u00b7 you accepted it', borderClass: 'border-info/30' }, // AIQ 5921018606; reached only via `classifyObservedValueProvenance`
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
@@ -69,11 +70,15 @@ const PILL_BY_KIND: Record<ValueProvenanceKind, { label: string; borderClass: st
  * every pre-0.40.0 caller behaves exactly as before.
  */
 export function provenanceToPill(
-  p: CEEProvenance | undefined,
+  p: string | undefined,
   observedSource?: string | null,
   /** The whole observed state says Olumi's figure, ACCEPTED (`classifyObservedValueProvenance`; 52f8cd). */
   accepted = false,
 ): { label: string; borderClass: string } | null {
+  const nodeClass = classifyNodeProvenance(p)
+  // An unconfirmed binding or a future stamp cannot become an Olumi/user claim.
+  if (p && !nodeClass) return null
+  if (nodeClass?.kind === 'unverified_brief') return PILL_BY_KIND.unverified_brief
   if (accepted) return PILL_BY_KIND.accepted
   const cls =
     (observedSource ? classifyValueProvenance(observedSource) : null) ??

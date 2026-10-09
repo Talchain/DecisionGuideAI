@@ -199,6 +199,10 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
   // makes the contract legible at the call site (`data.provenance` is unknown).
   const raw = typeof provenance === 'string' ? provenance : null
   const nodeAuthorship = classifyNodeProvenance(raw)
+  if (raw && !nodeAuthorship) return []
+  if (nodeAuthorship?.kind === 'unverified_brief') {
+    return [{ claim: 'structural', kind: nodeAuthorship.kind }]
+  }
 
   /**
    * ⭐⭐⭐ WHEN THE CLAIM IS ABOUT A NUMBER, THE NUMBER'S OWN PROVENANCE ANSWERS IT.

@@ -47,7 +47,7 @@ export interface CEEv2Node {
   description?: string
   uncertainty?: number
   observed_state?: ObservedState
-  /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. Optional; UI never invents. */
+  /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'. Optional; UI never invents. */
   provenance?: CEEProvenance
 }
 
@@ -68,7 +68,7 @@ export interface CEEv2Edge {
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
   /**
-   * Display provenance label: 'from_brief' | 'ai_inferred' | 'user_set'.
+   * Display provenance label: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'.
    * Distinct from `provenance` (structural source object). UI uses this for pills only.
    */
   provenance_display?: CEEProvenance
@@ -116,8 +116,8 @@ export interface CEEDraftResponse {
     label: string
     type: string
     uncertainty: number // 0-1, higher = less certain
-    /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. */
-    provenance?: 'from_brief' | 'ai_inferred' | 'user_set'
+    /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'. */
+    provenance?: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
     /** Allow passthrough of unknown/additive CEE node fields */
     [key: string]: unknown
   }>
@@ -132,7 +132,7 @@ export interface CEEDraftResponse {
       | string
     provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
     /** Display provenance label for edges (distinct from structural `provenance`). */
-    provenance_display?: 'from_brief' | 'ai_inferred' | 'user_set'
+    provenance_display?: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
     /** Allow passthrough of unknown/additive CEE edge fields */
     [key: string]: unknown
   }>
@@ -733,7 +733,7 @@ export interface CEEDraftCoaching {
 }
 
 /** Provenance enum used on draft-graph nodes (provenance) and edges (provenance_display). */
-export type CEEProvenance = 'from_brief' | 'ai_inferred' | 'user_set'
+export type CEEProvenance = 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
 
 /**
  * CEE v2.2 Response with optional analysis_ready (V3 extension).
