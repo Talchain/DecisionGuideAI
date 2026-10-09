@@ -885,17 +885,11 @@ test.describe.serial('J1 · whole PoC', () => {
       expect(runIds.current, '[J7] Compare names a current run that is not R2').toBe(J.R2)
       if (J.R1) expect(runIds.prior, '[J7] Compare names a prior run that is not R1').toBe(J.R1)
     }
-    // C1.5 · never a ranking (hard), and (ADVISORY pending a DL ruling, #87) no chance section on the pair: today the pair
-    // carries "Chance of meeting your goal, in this model", which PLAN v2's "structural diff without chances" may forbid.
-    // Ranking words stay hard; the chance-section row is named and records the heading it found.
+    // C1.5 · never a ranking. The pair's "Chance of meeting your goal, in this model" section is ALLOWED: it is the
+    // witnessed Compare-chance feature (ODL 58e392 ruling, #87 6076333378; CEE #2741 + DGAI #2601), so only ranking words fail.
     const pairText = (await pair.innerText()).replace(/\s+/g, ' ')
     const ranking = pairText.match(/\b(winner|best option|recommend(?:ed|s)?)\b/i)
     expect(ranking?.[0] ?? null, `[J7] the Compare pair uses ranking words: "${ranking?.[0]}"`).toBeNull()
-    await runAdvisory('J7-C1.5-no-chance-on-pair', async () => {
-      const chance = pairText.match(/[^.]{0,40}\bchance of\b[^.]{0,60}/i)
-      if (chance) throw new Error(`the Compare pair carries a chance section: "${chance[0].trim()}"`)
-      return { chance_words: 0 }
-    })
     writeEvidence('J7-compare.json', { rows: changes.length, edited_rows: touched.length, shown, row_texts: rowTexts, run_ids: runIds ?? 'artefact not rendered' })
   })
 
