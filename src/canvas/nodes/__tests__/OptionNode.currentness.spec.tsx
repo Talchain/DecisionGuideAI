@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -66,6 +67,7 @@ describe('option results follow the composed freshness authority', () => {
       results: { status: 'complete', hash: 'last-run', report: CHANCE_REPORT },
       goalThreshold: 100,
     } as never)
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
     const { container } = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
       id={candidate.id} type="option" data={candidate.data} selected={false}
       isConnectable positionAbsoluteX={0} positionAbsoluteY={0}

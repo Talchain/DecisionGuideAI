@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 /**
  * buildHeroModel — GOAL-PROBABILITY IDENTITY in the hero detail line.
  *
@@ -46,6 +47,7 @@ function constrainedRow() {
     target: { comparator: 'at_least', value: 62, unit: 'count' },
   }] })
   data.goalChanceLicence = data.runView.goalChance
+  Object.assign(data, withCanonicalTestCells(data))
   const model = chart(buildHeroModel(data))
   const row = model.rows.find(r => r.id === OPTION_A.id)!
   const cellText = chanceCellOf(data, row.id).text

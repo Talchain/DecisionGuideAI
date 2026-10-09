@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 /** C-LOST restored: every licensed own driver follows its own cell as a separate attributed line. */
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
@@ -46,7 +47,7 @@ function seed(licence: Record<string, unknown>) {
 
 function heroModel(): HeroChartModel {
   const data = renderHook(() => useResultsSectionData()).result.current
-  const model = buildHeroModel(data)
+  const model = buildHeroModel(withCanonicalTestCells(data))
   expect(model.kind, 'precondition: the Run builds a chart').toBe('chart')
   return model as HeroChartModel
 }

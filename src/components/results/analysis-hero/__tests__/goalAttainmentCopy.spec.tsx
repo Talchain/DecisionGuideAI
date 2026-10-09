@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 /**
  * Goal-attainment copy — ONE claim across THREE hero surfaces.
  *
@@ -113,7 +114,10 @@ function chart(data = makeHeroData(), scalarTargetControl = false): HeroChartMod
   }
   const fed = withChanceReport(data, report)
   // Only this positive control asserts the scalar target identity. Historical joint fixtures keep their original gates.
-  if (scalarTargetControl) fed.goalChanceLicence = fed.runView!.goalChance
+  if (scalarTargetControl) {
+    fed.goalChanceLicence = fed.runView!.goalChance
+    Object.assign(fed, withCanonicalTestCells(fed))
+  }
   const model = buildHeroModel(fed)
   expect(model.kind).toBe('chart')
   dataOf.set(model as HeroChartModel, fed)

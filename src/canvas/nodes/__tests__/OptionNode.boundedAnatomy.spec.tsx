@@ -36,7 +36,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
-import { runViewOf } from '../../runView/runView'
+import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -134,13 +134,14 @@ vi.mock('../shared/useOptionChanceCell', () => ({
   useOptionChanceCell: (id: string) => {
     const results = useCanvasStore(state => state.results)
     const nodes = useCanvasStore(state => state.nodes)
-    return runViewOf(results.report).chanceCellOf(id, {
+    const context = {
       goalChanceHeroSays: true,
-      labelOf: (nodeId) => {
+      labelOf: (nodeId: string) => {
         const label = nodes.find(node => node.id === nodeId)?.data.label
         return typeof label === 'string' ? label : null
       },
-    })
+    }
+    return canonicalFixtureRunView(results.report, context).chanceCellOf(id, context)
   },
 }))
 

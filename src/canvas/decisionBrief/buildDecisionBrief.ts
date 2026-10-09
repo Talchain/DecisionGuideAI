@@ -400,6 +400,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
 
   if (run.status === 'current') {
     const report = mapV5AnalysisToReport(read.analysisResult as AnalysisResultBlock, {
+      computedAt: run.computedAt,
       goalCertainty: readGoalCertainty(read.goalCertainty),
       optionParticipation: readOptionParticipation(read.optionParticipation),
     })

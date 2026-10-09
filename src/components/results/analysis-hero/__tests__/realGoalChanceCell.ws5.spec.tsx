@@ -18,9 +18,11 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
 import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
-import { buildRunView, OPTION_CHANCE_WITHHELD, RUN_AGAIN_FOR_CHANCE } from '../../../../canvas/runView/runView'
+import { buildRunView } from '../../../../canvas/runView/runView'
+
 import { applyRealRead } from './helpers/realScenarioRead'
-import p02 from './fixtures/p02-B2-464abd0a-read-reloaded.json'
+import p02Body from '../../../../canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
+const p02 = { j: p02Body }
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
 import bodies from '../../../../canvas/runView/__tests__/fixtures/cee-canonical-view-bodies-283b8a98.json'
 
@@ -58,9 +60,9 @@ function heroParity(data: ReturnType<typeof useResultsSectionData>) {
   const entries = matrix(data)
   for (const row of model.rows) {
     const cell = data.runView!.chanceCellOf(row.id, ctx(data))
-    expect(row.goal.readout).toBe(cell.text)
-    expect(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent).toBe(cell.text)
-    expect(entries.find(e => e.id === row.id)!.text).toBe(cell.text)
+    expect(row.goal.readout).toBe(cell.text ?? HERO_COPY.readout.missing)
+    expect(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent).toBe(cell.text ?? HERO_COPY.readout.missing)
+    expect(entries.find(e => e.id === row.id)!.text).toBe(cell.text ?? 'Not shown.')
   }
   return model
 }
@@ -69,7 +71,9 @@ function cardParity(data: ReturnType<typeof useResultsSectionData>, id: string) 
   const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
     selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
   </OptionChanceCellProvider></ReactFlowProvider>)
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(data.runView!.chanceCellOf(id, ctx(data)).text)
+  const cell = data.runView!.chanceCellOf(id, ctx(data))
+  if (cell.kind === 'none') expect(screen.queryByTestId(`option-win-readout-${id}`)).toBeNull()
+  else expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(cell.text)
   card.unmount()
 }
 // SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire).
@@ -157,26 +161,28 @@ describe('WS5 real served chance cells', () => {
     const canonical = bodies.b_stale_after_edit
     const report = { ...useCanvasStore.getState().results.report, run_id: canonical.run.run_id }
     const view = buildRunView(report, canonical as never)
-    for (const option of data.recommendation.allOptions) expect(view.chanceCellOf(option.id, ctx(data))).toEqual({ kind: 'withheld', text: RUN_AGAIN_FOR_CHANCE })
+    for (const option of data.recommendation.allOptions) expect(view.chanceCellOf(option.id, ctx(data))).toEqual({ kind: 'none', text: null })
   })
   it.each([bodies.c_refused_only, bodies.c2_no_run])('C3 real no-run / unknown staleness falls through ($run)', async canonical => {
     const data = await from(figures)
     const view = buildRunView(useCanvasStore.getState().results.report, canonical as never)
-    // C-CELL: no matching view means the preserved licence fallback, not the matched READ's display-only cell.
+    // C-CELL: no matching view means no chance words.
     const fallback = buildRunView(useCanvasStore.getState().results.report)
     for (const option of data.recommendation.allOptions) expect(view.chanceCellOf(option.id, ctx(data))).toEqual(fallback.chanceCellOf(option.id, ctx(data)))
   })
   it('C4 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): different run id ignored even when graph hash matches', async () => {
     const data = await from(figures)
     const d = variant(data, { kind: 'withheld', reasons: [{ code: 'test', message: 'M-SERVER' }] }, 'different')
-    // C-CELL: a mismatched Run keeps the uncovered-path composer; a matched READ without face prints display only.
+    // C-CELL: a mismatched Run has no chance cell; a matched READ without face prints display only.
     expect(d.runView.chanceCellOf(X, ctx(d))).toEqual(buildRunView(useCanvasStore.getState().results.report).chanceCellOf(X, ctx(data)))
   })
-  it.each([['M-SERVER', OPTION_CHANCE_WITHHELD], [null, OPTION_CHANCE_WITHHELD]])('C5 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): withheld without a face never prints reasons.message %s', async (message, expected) => {
+  it.each([['M-SERVER', null], [null, null]])('C5 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): withheld without a face never prints reasons.message %s', async (message, expected) => {
     const d = variant(await from(figures), { kind: 'withheld', reasons: [{ code: 'test', message }] })
-    // C-CELL: reasons are not faces; old producer without face retains the existing fallback.
-    expect(d.runView.chanceCellOf(X, ctx(d))).toEqual({ kind: 'withheld', text: expected })
-    heroParity(d)
+    // C-CELL: reasons are not faces; old producer without face has no licensed chance sentence.
+    expect(d.runView.chanceCellOf(X, ctx(d))).toEqual({ kind: 'none', text: expected })
+    const model = buildHeroModel(d)
+    expect(model.kind).toBe('chart')
+    if (model.kind === 'chart') expect(model.rows.find(row => row.id === X)!.goal.readout).toBe(HERO_COPY.readout.missing)
   })
   it('C-LOST restored: basis caveat and joint identity stay beside the shared figure cell', async () => {
     const data = await from(figures)
@@ -230,7 +236,7 @@ describe('WS5 real served chance cells', () => {
     expect(model.kind).toBe('chart')
     if (model.kind !== 'chart') throw new Error('Expected chart')
     render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
-    expect(model.subline).not.toContain('69%')
+    expect(model.subline ?? '').not.toContain('69%')
     expect(model.headline).not.toContain('69%')
     expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
   })
@@ -238,7 +244,7 @@ describe('WS5 real served chance cells', () => {
     const data = variant(await from(figures), { kind: 'figure', display: 'about 71%' })
     const model = heroParity(data)
     expect(model.subline).toContain('71%')
-    expect(model.subline).not.toContain('69%')
+    expect(model.subline ?? '').not.toContain('69%')
     expect(screen.getByTestId('analysis-hero-panel').textContent).toContain('71%')
     expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
   })

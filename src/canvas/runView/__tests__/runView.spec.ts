@@ -6,7 +6,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildRunView, runViewOf, OPTION_CHANCE_WITHHELD, RUN_AGAIN_FOR_CHANCE } from '../runView'
+import { buildRunView, runViewOf } from '../runView'
+
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
 
 // Captured (C3, 23b1495c): the GOAL_CHANCE_LICENSED record, verbatim fields.
@@ -38,14 +39,14 @@ describe('RunView: one per-option view, one chance source', () => {
       no_driver_by_option: undefined, display_rounding_by_option: undefined }
     const view = buildRunView({ inference_warnings: [lic] })
     expect(view.chanceOf('a')).toEqual({ kind: 'figure', pct: 41, words: 'about 41%' })
-    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', reason: OPTION_CHANCE_WITHHELD, by: 'licence' })
+    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', by: 'licence' })
   })
 
-  it('DL ruling 1: goal figures in the report but NO licence → withheld, "Run the analysis again to see the chance."; never the report figure', () => {
+  it('goal figures in the report but NO licence → withheld numeric metadata without client words; never the report figure', () => {
     const view = buildRunView({ inference_warnings: [], option_probabilities: { a: { goal_probability: 0.074 }, b: { probability_of_goal: 0.3 } } })
     expect(view.unlicensedGoalFigures).toBe(true)
-    expect(view.chanceOf('a')).toEqual({ kind: 'withheld', reason: RUN_AGAIN_FOR_CHANCE, by: 'no_licence' })
-    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', reason: RUN_AGAIN_FOR_CHANCE, by: 'no_licence' })
+    expect(view.chanceOf('a')).toEqual({ kind: 'withheld', by: 'no_licence' })
+    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', by: 'no_licence' })
   })
 
   it('CONTROL: no goal figures and no licence → no chance to show (not "run again")', () => {

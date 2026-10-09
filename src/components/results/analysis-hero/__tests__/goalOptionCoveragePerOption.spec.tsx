@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
@@ -59,6 +60,7 @@ function expectedLine(data: ReturnType<typeof fromTurn>, id: string, message: st
   return `‘${label}’: not shown yet. ${message.slice('Not shown.'.length).trim()}`
 }
 function mount(data: ReturnType<typeof fromTurn>) {
+  Object.assign(data, withCanonicalTestCells(data))
   return render(<AnalysisHeroContainer data={data} fragileEdgeCount={0} />)
 }
 

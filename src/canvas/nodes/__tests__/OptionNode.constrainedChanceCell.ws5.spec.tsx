@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -46,6 +47,7 @@ describe('WS5 constrained option card chance cell', () => {
     }] }
     data.runView = buildRunView(report)
     data.goalChanceLicence = data.runView.goalChance
+    Object.assign(data, withCanonicalTestCells(data))
     // Only the Results projection is supplied; the real provider resolves
     // the card's cell from RunView with the same context as the Matrix.
     vi.spyOn(resultsData, 'useResultsSectionData').mockReturnValue(data)

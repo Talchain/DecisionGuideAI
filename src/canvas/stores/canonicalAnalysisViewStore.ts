@@ -7,5 +7,5 @@ export const useCanonicalAnalysisViewStore = create<{
   adopt: (scenarioId: string, view: CanonicalAnalysisView | null) => void
 }>(set => ({ scenarioId: null, view: null, adopt: (scenarioId, view) => set({ scenarioId, view }) }))
 
-// Scenario scoping is at READ time: useResultsSectionData takes the view only when its scenarioId is the current one.
+// Scenario scoping is at READ/TURN adoption and consumption: useResultsSectionData takes the view only when its scenarioId is the current one.
 // No store subscription here — a module-load subscribe broke every spec that mocks useCanvasStore (#2709 CI).

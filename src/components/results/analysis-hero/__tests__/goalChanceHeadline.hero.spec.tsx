@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 /**
  * ⭐ D3 MILESTONE 1, STEP 2 — EACH OPTION'S CHANCE OF MEETING THE GOAL IS THE HERO HEADLINE WHEN CEE LICENSED IT
  * (DL 0df0e1 #87 6005048156 / 6006078553; Science d5 6005279728 / 6005640764; Wording c6 6005196947 + 6 Oct rulings).
@@ -45,7 +46,7 @@ function seed(goal: Record<string, number>, licence: Record<string, unknown> | n
 
 function heroModel(): HeroChartModel {
   const data = renderHook(() => useResultsSectionData()).result.current
-  const model = buildHeroModel(data)
+  const model = buildHeroModel(withCanonicalTestCells(data))
   expect(model.kind, 'precondition: the Run builds a chart').toBe('chart')
   return model as HeroChartModel
 }

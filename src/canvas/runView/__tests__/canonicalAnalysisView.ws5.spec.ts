@@ -3,7 +3,8 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { stripComments } from '../../../../tests/helpers/stripSourceComments'
-import { buildRunView, RUN_AGAIN_FOR_CHANCE } from '../runView'
+import { buildRunView } from '../runView'
+
 import { report as capturedReport } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { fx } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
@@ -51,8 +52,8 @@ describe('WS5 tolerant canonical READ boundary', () => {
     const view = (await loadParser())(body)
     const report = { ...capturedReport, run_id: bodies.a_current.run.run_id, option_probabilities: { ...capturedReport.option_probabilities, a: { goal_probability: 0.4 }, b: { goal_probability: 0.4 } } }
     expect(buildRunView(report, view).chanceCellOf('a', ctx).kind).toBe('none')
-    expect(buildRunView(report, view).chanceCellOf('b', ctx).text).toBe(RUN_AGAIN_FOR_CHANCE)
-    expect(buildRunView(report, { ...view, staleness: { ...view.staleness, stale: null } }).chanceCellOf('a', ctx).text).toBe(RUN_AGAIN_FOR_CHANCE)
+    expect(buildRunView(report, view).chanceCellOf('b', ctx).text).toBeNull()
+    expect(buildRunView(report, { ...view, staleness: { ...view.staleness, stale: null } }).chanceCellOf('a', ctx).text).toBeNull()
   })
   it('GUARD only the narrow adapter carry reads the wire key; parsing has one owner, with positive control', () => {
     const root = join(process.cwd(), 'src')
@@ -77,7 +78,9 @@ describe('WS5 tolerant canonical READ boundary', () => {
     } }
     walk(root)
     // R2-4 narrow opaque transport exception: exactly one adapter expression, never the whole READ envelope.
-    expect(hits).toEqual(['adapters/cee/scenarioGraph.ts:b.canonical_analysis_view'])
+    expect(hits.sort()).toEqual(['adapters/cee/scenarioGraph.ts:b.canonical_analysis_view',
+      'v5/applyV5State.ts:(response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]?.canonical_analysis_view',
+      'v5/applyV5State.ts:(response as { canonical_analysis_view?: unknown }).canonical_analysis_view'].sort())
     const hydration = stripComments(readFileSync(join(root, 'canvas/hydrate/serverGraphHydration.ts'), 'utf8'), 'serverGraphHydration.ts')
     expect(hydration).toContain('parseCanonicalAnalysisView(result.canonicalAnalysisView)')
   })

@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { HERO_COPY } from '../heroCopy'
 import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -77,6 +78,7 @@ function producerReason(data: ReturnType<typeof fromTurn>) {
   return data.recommendation.goalFiguresWithheldMessage!.slice('Not shown.'.length).trim()
 }
 function mount(data: ReturnType<typeof fromTurn>) {
+  Object.assign(data, withCanonicalTestCells(data))
   return render(<AnalysisHeroContainer data={data} fragileEdgeCount={0} />)
 }
 

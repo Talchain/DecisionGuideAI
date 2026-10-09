@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * OptionNode — the option the analysis RAN ON and could not compute.
  *
@@ -134,6 +135,7 @@ const renderBoth = (results: ReturnType<typeof twoOptionReport>, viewMode: 'stan
     goalThreshold: 100,
     viewMode,
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
   return render(
     <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />

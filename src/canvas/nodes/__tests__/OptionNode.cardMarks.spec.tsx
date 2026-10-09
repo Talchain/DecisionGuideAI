@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -25,6 +26,7 @@ function seed({ withheld = false, changed = false, leftOut = false, baseline = f
     results: { status: 'complete', hash: 'run', report: !withheld && !leftOut
       ? withLicensedOptionChances(report, { [node.id]: 41, other: 29 }) : report },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
   return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={data} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 function mark(testId: string, id: string, words: string) {

@@ -1,3 +1,5 @@
+import { canonicalTestCellsOf } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -10,7 +12,9 @@ import { DecisionMatrix } from '../../../components/results/analysisNew/sections
 import { buildAnalysisNewViewModel } from '../../../components/results/analysisNew/buildAnalysisNewViewModel'
 import { GOAL_FIGURES_WITHHELD_CODES } from '../../../components/results/utils/goalIdentityWithheld'
 import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
-import { OPTION_CHANCE_WITHHELD, RUN_AGAIN_FOR_CHANCE } from '../../runView/runView'
+const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
+const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
+
 import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { fx, SCORED, seedPaulRun, resetPaulRun } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
 
@@ -43,11 +47,17 @@ function seed(kind: Case) {
   const warnings = ((source.inference_warnings ?? []) as Array<{ code?: string }>).filter(w =>
     !GOAL_FIGURES_WITHHELD_CODES.includes(w.code ?? '') && w.code !== 'GOAL_CHANCE_LICENSED' && w.code !== 'GOAL_CHANCE_RANGE')
   useCanvasStore.setState({
-    results: { ...state.results, report: { ...source, option_probabilities: probabilities,
+    results: { ...state.results, report: { ...source, run_id: 'canonical-chance-fixture', option_probabilities: probabilities,
       inference_warnings: [...warnings, ...(['figure', 'withheld', 'range'].includes(kind) ? [licence] : []), ...(kind === 'range' ? [range] : [])] } },
     ceeAnalysisReady: { ...state.ceeAnalysisReady, goal_threshold_raw: kind === 'none' ? undefined : 1200000, goal_threshold_unit: '£' },
     goalThreshold: kind === 'none' ? null : 1200000,
   } as never)
+  if (kind !== 'unlicensed' && kind !== 'none') {
+    const projection = renderHook(() => useResultsSectionData())
+    const canonical = canonicalTestCellsOf(projection.result.current, { run_id: 'canonical-chance-fixture', graph_hash_at_run: null, computed_at: null })
+    projection.unmount()
+    useCanonicalAnalysisViewStore.getState().adopt(state.currentScenarioId!, canonical)
+  }
 }
 
 function matrixText() {
@@ -79,16 +89,21 @@ function setGoalBasis() {
   } } } as never)
 }
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); resetPaulRun() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); resetPaulRun(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 describe('option card headline is the Results chance cell', () => {
   it.each(['figure', 'withheld', 'unlicensed', 'range'] as const)('%s: exact Results words, no runs share on face or accessible name', kind => {
     seed(kind)
     const expected = matrixText()
     if (kind === 'figure') expect(expected.toLowerCase()).toContain(GOAL_ANCHOR_COPY.readout('41%', false).toLowerCase())
-    if (kind === 'withheld') expect(expected).toContain(OPTION_CHANCE_WITHHELD)
-    if (kind === 'unlicensed') expect(expected).toBe(RUN_AGAIN_FOR_CHANCE)
+    if (kind === 'withheld') expect(expected).toContain(TEST_WITHHELD_FACE)
+    if (kind === 'unlicensed') expect(expected).toBe('Not shown.')
     if (kind === 'range') expect(expected).toContain('chance of meeting your goal')
     const { container } = card()
+    if (kind === 'unlicensed') {
+      expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
+      expect(container.textContent).not.toContain(TEST_RUN_AGAIN_COPY)
+      return
+    }
     const row = screen.getByTestId(`option-analysis-currency-${ID}`)
     expect(row.textContent).toContain(expected)
     expect(row.getAttribute('aria-label')).toContain(expected)
@@ -146,11 +161,11 @@ describe('option card headline is the Results chance cell', () => {
     else expect(caveat).toBeNull()
   })
 
-  it.each(['withheld', 'unlicensed', 'range'] as const)('%s: carries Results basis metadata but shows no figure caveat', kind => {
+  it.each(['withheld', 'unlicensed', 'range'] as const)('%s: retains only earned Results basis metadata and shows no figure caveat', kind => {
     seed(kind)
     setGoalBasis()
     const data = renderHook(() => useResultsSectionData()).result.current
-    expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBe('olumi_estimate')
+    expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBe(kind === 'range' ? 'olumi_estimate' : null)
     card()
     expect(screen.queryByTestId(`goal-fit-base-caveat-option-node-${ID}`)).toBeNull()
     expect(screen.queryByTestId(`goal-fit-basis-caveat-option-node-${ID}`)).toBeNull()
