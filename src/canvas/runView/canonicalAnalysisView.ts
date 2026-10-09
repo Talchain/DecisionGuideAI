@@ -15,10 +15,12 @@ export interface CanonicalAnalysisView {
   readonly staleness: {
     readonly stale: boolean | null
     readonly revision: number | null
-    readonly run_revision: null
-    readonly basis: 'analysis_graph_hash_interim'
+    readonly run_revision: number | null
+    readonly run_revision_source?: 'recorded' | 'legacy_unknown'
+    readonly basis: 'analysis_graph_hash_interim' | 'recorded_run_revision'
     readonly reason: string | null
     readonly limitation: 'Hash equality cannot detect brief, framing or stage changes.'
+      | 'No analysis hash was available; only the scenario revision was compared.'
   }
   readonly face_when_stale?: string
   readonly leader_licence: 'permitted' | 'permitted_with_caveat' | 'withheld'
@@ -36,8 +38,12 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
     if (!rec(v.staleness) || (v.staleness.stale !== null && typeof v.staleness.stale !== 'boolean') || !Array.isArray(v.options)) return null
     const staleness = v.staleness
     if ((staleness.revision !== null && !(typeof staleness.revision === 'number' && Number.isSafeInteger(staleness.revision) && staleness.revision >= 0))
-      || staleness.run_revision !== null || staleness.basis !== 'analysis_graph_hash_interim'
-      || !nullableString(staleness.reason) || staleness.limitation !== 'Hash equality cannot detect brief, framing or stage changes.') return null
+      || (staleness.run_revision !== null && !(typeof staleness.run_revision === 'number' && Number.isSafeInteger(staleness.run_revision) && staleness.run_revision >= 0))
+      || ('run_revision_source' in staleness && !(staleness.run_revision_source === 'recorded' && typeof staleness.run_revision === 'number')
+        && !(staleness.run_revision_source === 'legacy_unknown' && staleness.run_revision === null))
+      || !nullableString(staleness.reason)
+      || !(staleness.basis === 'analysis_graph_hash_interim' && staleness.limitation === 'Hash equality cannot detect brief, framing or stage changes.')
+        && !(staleness.basis === 'recorded_run_revision' && staleness.limitation === 'No analysis hash was available; only the scenario revision was compared.')) return null
     if (v.face_when_stale !== undefined && typeof v.face_when_stale !== 'string') return null
     const ids = new Set<string>()
     for (const option of v.options) {
