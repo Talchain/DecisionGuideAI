@@ -647,18 +647,21 @@ test.describe.serial('J1 · whole PoC', () => {
       const strip = pageA.getByRole('button', { name: new RegExp(`^${esc(oe.factorLabel)}, ${esc(optionLabel)}: .*→\\D*${esc(String(oe.typedNumber))}\\b`) })
       await expect(strip, `[J2e reload] the since-last-run strip does not show ${oe.factorLabel} under ${optionLabel} moving to ${oe.typedNumber}`).toHaveCount(1, { timeout: 30_000 })
       shown.push({ what: `${oe.option}:${oe.factor} (since-last-run strip)`, shown: oe.typedNumber })
-      // ⛔ KNOWN DEFECT (S2, DL 87114 9 Oct, owners af + 02): after a real reload the option card and the inspector show
-      // the user's typed figure as "Increases" with no number and no box (stored 0.295 is right; the £ frame is lost).
-      // This advisory asserts the BROKEN state exactly, so it turns FAIL (loudly) the day the figure comes back:
-      // then make it a hard row asserting the figure, and delete this one.
-      await runAdvisory('J2e-KNOWN-DEFECT-figure-missing-after-reload', async () => {
-        const card = pageA.locator(`.react-flow__node[data-id="${oe.option}"]`).getByRole('button', { name: `${oe.factorLabel}, as this option sets it — click to edit` })
-        const cardText = (await card.innerText()).trim()
-        if (/\d/.test(cardText)) throw new Error(`DEFECT MAY BE FIXED: the card now shows a figure for ${oe.factorLabel}: "${cardText}"`)
-        const input = await optionTargetInputIfAny(pageA, oe.option, oe.factorLabel)
-        if (input) throw new Error(`DEFECT MAY BE FIXED: the inspector offers a target box for ${oe.factorLabel} again ("${await input.inputValue()}")`)
-        return { state: 'BROKEN as known: no figure on the card or in the inspector after reload', card: cardText }
-      })
+      // After a real reload the user's typed figure is shown where they set it, in its own unit frame (02 #2722 fixed the
+      // S2 defect where the card and inspector fell back to "Increases", #87 6072744712). The frame is the one the
+      // since-last-run strip uses for the same target (e.g. "£"), so nothing here is pinned to this brief's currency.
+      const stripName = (await strip.getAttribute('aria-label')) ?? (await strip.innerText())
+      const prefix = (stripName.match(new RegExp(`→\\s*(\\D*?)${esc(String(oe.typedNumber))}\\b`)) ?? [, ''])[1]!.trim()
+      const card = pageA.locator(`.react-flow__node[data-id="${oe.option}"]`).getByRole('button', { name: `${oe.factorLabel}, as this option sets it — click to edit` })
+      await expect(card, `[J2e reload] the option card does not show ${prefix}${oe.typedNumber} for ${oe.factorLabel}`)
+        .toContainText(new RegExp(`${esc(prefix)}\\s?${esc(String(oe.typedNumber))}\\b`), { timeout: 30_000 })
+      const cardText = (await card.innerText()).trim()
+      const input = await optionTargetInputIfAny(pageA, oe.option, oe.factorLabel)
+      expect(input, `[J2e reload] the option inspector offers no target box for ${oe.factorLabel} after the reload (card: "${cardText}")`).not.toBeNull()
+      const boxed = await input!.inputValue()
+      expect(firstNumber(boxed), `[J2e reload] the inspector box shows "${boxed}", not ${oe.typedNumber}`).toBe(oe.typedNumber)
+      shown.push({ what: `${oe.option}:${oe.factor} (card: "${cardText}")`, shown: oe.typedNumber }, { what: `${oe.option}:${oe.factor} (inspector)`, shown: firstNumber(boxed) })
+      await closeNodeInspector(pageA)
     }
     await clearCanvasSelection(pageA)
     writeEvidence('J2e-rerun.json', { branch: J.j2dBranch, R0: J.R0, R1: J.R1, A1: J.A1, H1: J.H1, robustness_edges: robEdges.length, shown_after_reload: shown, summary: ar.summary })
