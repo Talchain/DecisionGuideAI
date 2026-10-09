@@ -50,9 +50,10 @@ describe('C1 Compare input rows, producer identities and values', () => {
     expect(screen.queryByTestId('compare-run-pair-run-on-record')).toBeNull()
     const row = pairRows().find(el => el.dataset.entityId === C1_OPTION_ROW.entity_id)
     expect(row, 'J7 must find the option-setting row by its producer identity').toBeDefined()
-    expect(row!).toHaveTextContent('Existing-customer price change, Raise prices 10%: 0.1 → 0.12')
-    expect(within(row!).getByTestId('compare-input-row-values')).toHaveTextContent(/^0\.10\.12$/)
-    expect(row!).not.toHaveTextContent('12%')
+    expect(row!).toHaveTextContent('Existing-customer price change, Raise prices 10%: 10% → 12%')
+    expect(within(row!).getByTestId('compare-input-row-values')).toHaveTextContent(/^10%12%$/)
+    expect(row!).toHaveAttribute('data-option-id', C1_OPTION_ROW.option_id)
+    expect(row!).not.toHaveTextContent('0.1')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 

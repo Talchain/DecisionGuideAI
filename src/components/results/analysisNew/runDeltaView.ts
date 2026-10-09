@@ -396,17 +396,13 @@ function formatInputValue(
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
 }
 
-/**
- * Option-setting display seam for #2898's carried frame and resolveOptionTargetDisplayFrame (#2722).
- * The installed contract has raw/unit, and label_before/label_after name the INPUT, not either value.
- * Until a value display frame travels on the row, preserve raw precision without scaling or percent conversion.
- */
+/** Option-setting values in the producer's carried raw/unit frame, without scaling or rounding. */
 export function optionInputChangeValues(row: RunDeltaInputChange): { before: string | null; after: string | null } {
   const value = (side: RunDeltaInputChange['before']): string | null => {
     if (side === null) return null
     const raw = String(side.raw)
     if (!side.unit) return raw
-    // Carried currency symbols keep the existing notation; no value is converted or rounded.
+    if (side.unit === '%') return `${raw}%`
     return ['£', '$', '€', '¥'].includes(side.unit) ? `${side.unit}${raw}` : `${raw} ${side.unit}`
   }
   return { before: value(row.before), after: value(row.after) }

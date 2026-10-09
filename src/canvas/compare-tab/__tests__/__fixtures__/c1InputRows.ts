@@ -2,23 +2,28 @@ import { RunDeltaInputChangeSchema, type RunDeltaInputChange } from '@talchain/s
 import type { Intervention } from '../../../domain/nodes'
 import { runChangeDelta } from './runChangeArtefact'
 
-// typed contract shape, not wire bytes; wire proof = J1 J7 (advisory → hard row by P02) on this PR's CI
-export const C1_OPTION_ROW: RunDeltaInputChange = RunDeltaInputChangeSchema.parse({
-  entity_kind: 'option_setting', entity_id: 'existing_customer_price_change', option_id: 'raise_prices_10',
-  field: 'value', label_before: 'Existing-customer price change', label_after: 'Existing-customer price change',
-  before: { raw: 0.10 }, after: { raw: 0.12 }, change: 'changed',
-})
+// Wire bytes copied from e2e/core/journey/fixtures/j1/llm/0026-openai.json:
+// request.input[4].content[0].text -> canonical_state.run_delta.input_changes[0].
+// The two link rows below are separate controls for truncation and sizing/strength folding.
+export const C1_OPTION_ROW: RunDeltaInputChange = RunDeltaInputChangeSchema.parse({"entity_kind":"option_setting","entity_id":"existing_customer_price_change","option_id":"raise_prices_10","field":"value","label_before":"Existing-customer price change","label_after":"Existing-customer price change","before":{"raw":10,"unit":"%"},"after":{"raw":12,"unit":"%"},"change":"changed"})
 
+// Canvas intervention values deliberately differ from the wire raw/unit frame; Compare must read the wire.
 // Provenance belongs to the stored intervention, not to the delta's closed row type.
 export const C1_INTERVENTIONS: { before: Intervention; after: Intervention } = {
   before: { value: 0.10, source: 'user_specified' },
   after: { value: 0.12, source: 'user_specified' },
 }
 
-// Endpoint ids/times are copied from J1-2719 journey/evidence/J6-rerun.json; the rows are typed fixtures.
+// Endpoint ids/times copied from the same 0026-openai.json canonical_state.run_delta.
 export const C1_ENDPOINTS = {
-  prior: { run_id: '68491b910172ee5387ce43355f589417f2bdc1c0c2efd50d140f44f9718f9de2', computed_at: '2026-10-09T04:40:23.177Z' },
-  current: { run_id: 'a2bd8aed0902dbd98534d5edcc98e906642fa8dbd93c57e56e8c31e16b6b58c6', computed_at: '2026-10-09T04:41:05.828Z' },
+  "prior": {
+    "run_id": "4c3bba94e3f301fc9285d80feb0d4163adabaaa357c23abd6aa9d634764d6fc7",
+    "computed_at": "2026-10-09T02:29:08.529Z"
+  },
+  "current": {
+    "run_id": "760492745ed6844007f07299ffcfc41f824278be5694bc90b6d08afdf0c41b48",
+    "computed_at": "2026-10-09T02:29:48.437Z"
+  }
 }
 
 export const C1_LINK_ROWS: RunDeltaInputChange[] = [
