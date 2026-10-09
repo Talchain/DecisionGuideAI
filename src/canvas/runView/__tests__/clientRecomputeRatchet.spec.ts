@@ -267,11 +267,11 @@ describe('WS5 client recompute census ratchet', () => {
     expect(isProductionSource('src/a/production.tsx')).toBe(true)
   })
 
-  it('CONTROL: finds a real selectGoalProbability call and positive CHANCE total', () => {
+  it('CONTROL: the retired askAi call is zero and the real CHANCE total stays positive', () => {
     const row = CURRENT.find(row => row.symbol === 'selectGoalProbability' && row.file === KNOWN_CALLER)
-    expect(row?.call).toBeGreaterThanOrEqual(1)
+    expect(row?.call ?? 0).toBe(0)
     expect(classTotals(CURRENT).CHANCE).toBeGreaterThan(0)
-    console.info(`CONTROL: ${KNOWN_CALLER} selectGoalProbability call=${row!.call}; CHANCE > 0`)
+    console.info(`CONTROL: ${KNOWN_CALLER} selectGoalProbability call=${row?.call ?? 0}; CHANCE > 0`)
   })
 
   it('CONTROL: planted calls count, comments and string mentions do not; definitions are separate', () => {
@@ -354,10 +354,12 @@ describe('WS5 client recompute census ratchet', () => {
     expect(ratchetViolations(census(removed), BASELINE.sites).join('\n')).toContain('lower the baseline to 0 for licensedChanceCopy')
   })
 
-  it('S1 PR-2a: only the held askAi chooser call remains', () => {
+  it('S1 PR-2b: no production chooser calls remain; keep the unused definition', () => {
     const callers = CURRENT.filter(row => row.symbol === 'selectGoalProbability' && row.call > 0)
-    expect(callers.map(row => [row.file, row.call])).toEqual([[KNOWN_CALLER, 1]])
-    console.info('selectGoalProbability production calls=1 (askAi); PERSIST copies=2')
+    expect(callers).toEqual([])
+    expect(CURRENT.filter(row => row.symbol === 'selectGoalProbability' && row.def > 0)
+      .map(row => [row.file, row.def])).toEqual([['src/components/results/utils/selectGoalProbability.ts', 1]])
+    console.info('selectGoalProbability production calls=0; definitions=1 (retained); PERSIST copies=2')
   })
 
   it('MUTANT (a): an additional production call and a new caller file both fail', () => {
@@ -373,9 +375,12 @@ describe('WS5 client recompute census ratchet', () => {
   })
 
   it('MUTANT (b): removing a production call requires lowering the baseline, including to zero', () => {
-    const reduced = ratchetViolations(census(withRemovedCall(SOURCES)), BASELINE.sites)
+    // The live caller is retired. Plant one to exercise removal against a one-call baseline.
+    const planted = withAddedCall(SOURCES)
+    const plantedBaseline = census(planted)
+    const reduced = ratchetViolations(census(withRemovedCall(planted)), plantedBaseline)
     expect(reduced).toHaveLength(1)
-    const original = CURRENT.find(row => row.symbol === 'selectGoalProbability' && row.file === KNOWN_CALLER)!
+    const original = plantedBaseline.find(row => row.symbol === 'selectGoalProbability' && row.file === KNOWN_CALLER)!
     expect(reduced[0]).toContain(`ratchet: lower the baseline to ${original.call - 1} for selectGoalProbability in ${KNOWN_CALLER}`)
     const singleton = census(new Map([['src/control.ts', 'selectGoalProbability(report, id)']]))
     expect(ratchetViolations([], singleton)[0]).toContain('ratchet: lower the baseline to 0')
