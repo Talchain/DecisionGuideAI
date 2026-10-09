@@ -120,6 +120,43 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
+ * PLoT's `dominant_factor` (B1, `trust/factor-dominance.ts`): rank 1 of the
+ * canonical driver order, named only when it clears PLoT's dominance rule.
+ * Both members must be non-empty strings, which is the same test the Results
+ * hook applies before trusting it (`useResultsSectionData`, "B2"). Anything
+ * else is absent: never a partial object, never a label invented from the id.
+ */
+function narrowDominantFactor(v: unknown): { factor_id: string; factor_label: string } | undefined {
+  if (!isPlainObject(v)) return undefined
+  const factorId = safeString(v.factor_id)
+  const factorLabel = safeString(v.factor_label)
+  return factorId !== undefined && factorLabel !== undefined
+    ? { factor_id: factorId, factor_label: factorLabel }
+    : undefined
+}
+
+/** PLoT's closed vocabulary for `flip_thresholds_status` (engine-v3 `flip_thresholds_status`). */
+const FLIP_THRESHOLDS_STATUSES = [
+  'computed',
+  'all_no_effect',
+  'partial_no_effect',
+  'unresolved',
+  'unavailable',
+] as const
+type FlipThresholdsStatus = (typeof FLIP_THRESHOLDS_STATUSES)[number]
+
+/**
+ * Narrowed to the producer's closed vocabulary, never defaulted: the Results
+ * hook CASTS this field to the union, so a token outside it would otherwise
+ * reach the tipping-point gate as if it were one of the five.
+ */
+function narrowFlipThresholdsStatus(v: unknown): FlipThresholdsStatus | undefined {
+  return typeof v === 'string' && (FLIP_THRESHOLDS_STATUSES as readonly string[]).includes(v)
+    ? (v as FlipThresholdsStatus)
+    : undefined
+}
+
+/**
  * Normalise a raw `goal_fit_basis` entry (PLoT #204, doctrine B).
  * `.passthrough()` on the schema side — only `scored_from` (open-vocab
  * string) and `node_ids` (string array) are read; unknown extra keys are
@@ -1549,6 +1586,33 @@ export function mapV5AnalysisToReport(
   // further UI change is needed once that lands.
   const constraintsStatus = safeString(enrichment?.constraints_status)
 
+  // Census 6 Oct (C3/C5, rank 4): three PLoT fields the Results hook ALREADY
+  // reads off `report`, which this mapper never wrote, so every V5 run showed
+  // the reader's absent branch.
+  //   - `dominant_factor` → `useResultsSectionData` (recommendation + drivers)
+  //     → the Reasoning tab's "<factor> dominates the model" insight and the
+  //     post-run "Dominant factor:" nudge.
+  //   - `flip_thresholds_status` (+ `_reason`) → the tornado's status note and
+  //     the Reasoning tab's tipping-point gate (`glanceCondition`).
+  // READER FIRST, like `constraints_status` above: a no-op until schemas
+  // 0.80.0 keep-lists the three keys and CEE transports them. Narrowed, never
+  // defaulted: absent or malformed in ⇒ absent out.
+  //
+  // ⛔ `dominant_factor` ALSO HAS TO NAME THE FIRST FACTOR ROW THIS MAPPER KEPT.
+  // PLoT computes it as rank 1 of its canonical order, and `factors` preserves
+  // that order — so a dominant factor that is not `factors[0]` means the claim
+  // and the rows came from different readings. The measured case (Codex, #2563
+  // r1): under an unevaluated goal identity PLoT keeps STRUCTURAL influence and
+  // still emits the key, while the rows this mapper keeps can be empty — and a
+  // "dominates the model" line beside a panel that ranks nothing is the
+  // contradiction the 26 Sep one-driver-authority rule exists to stop.
+  const dominantFactor = ((df) =>
+    df !== undefined && factors[0]?.factor_id === df.factor_id ? df : undefined)(
+    narrowDominantFactor(enrichment?.dominant_factor),
+  )
+  const flipThresholdsStatus = narrowFlipThresholdsStatus(enrichment?.flip_thresholds_status)
+  const flipThresholdsStatusReason = safeString(enrichment?.flip_thresholds_status_reason)
+
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
   //
@@ -1697,6 +1761,11 @@ export function mapV5AnalysisToReport(
   if (topLevelConditionalWinners) widened.conditional_winners = topLevelConditionalWinners
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
+  if (dominantFactor !== undefined) widened.dominant_factor = dominantFactor
+  if (flipThresholdsStatus !== undefined) widened.flip_thresholds_status = flipThresholdsStatus
+  if (flipThresholdsStatusReason !== undefined) {
+    widened.flip_thresholds_status_reason = flipThresholdsStatusReason
+  }
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
   // ⭐ CEE's typed run provenance (RC 5818628860; Runtime 5818605567):
   // `enrichment.run_provenance = { initiated_by, provisional: true,
