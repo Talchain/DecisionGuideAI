@@ -65,14 +65,15 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
       // These served Runs have a partial chance field; staging suppresses the brief's full set.
       expect(brief.chances).toEqual([])
       expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-      const rows = buildGoalFitRows(options, report.option_probabilities, view, { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
+      const rows = buildGoalFitRows(options, report.option_probabilities, view, { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, goalFiguresWithheldMessage: data.recommendation.goalFiguresWithheldMessage, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
       if (canonical === null) {
         expect(rows).not.toBeNull()
         expect(rows.length).toBeGreaterThan(0)
         for (const option of options) {
           const cell = optionChanceCellFromResults(data, option.id)
           if (cell.kind === 'none') { expect(rows.find(row => row.id === option.id)).toBeUndefined(); continue }
-          expect(cell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+          // The producer's withheld sentence verbatim when it gives one, else the static face (DL 87114).
+          expect(cell).toEqual({ kind: 'withheld', text: data.recommendation.goalFiguresWithheldMessage || CHANCE_NOT_SHOWN_YET })
           expect(cell.text).not.toMatch(/\d+%/)
           expect(cell.text).not.toContain('Why?')
           expect(rows.find(row => row.id === option.id)?.chanceCell).toEqual(cell)
