@@ -408,3 +408,36 @@ describe('the kept-model notice reaches the DOM of the mounted thread', () => {
     expect(screen.getByTestId(`suggested-chip-${START_NEW_DRAFT_CHIP_ID}`)).toBeTruthy()
   })
 })
+
+
+describe('ownership refusal on a streamed terminal frame', () => {
+  it('403 canonical before GRAPH_READY reaches the same exact bubble without retry or non-delivery claims', async () => {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + fCompleteError(403, {
+      error: 'model_write_ownership_refused',
+      message: "Nothing was saved. You don't have access to change this model.",
+    }))
+    await stream.close()
+    await act(async () => { await sent })
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+    const last = result.current.messages.at(-1)!
+    expect(last.content).toBe("Nothing was saved. You don't have access to change this model.")
+    expect(last.actionChips).toEqual([])
+    expect(result.current.lastSendFailure?.retryable).toBe(false)
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('sent')
+    render(<ChatThread messages={result.current.messages} isThinking={false} longRunningHint={null}
+      nodeCount={0} patchBlockStates={new Map()} patchRejections={new Map()}
+      onChipClick={async () => {}} onPatchAccept={() => {}} onPatchDismiss={() => {}}
+      onFeedback={() => {}} onRetry={() => {}} />)
+    expect(screen.getByTestId('message-assistant').querySelector('[data-testid="message-body-text"]')?.textContent).toBe("Nothing was saved. You don't have access to change this model.")
+    expect(screen.queryByTestId('suggested-chip-retry')).toBeNull()
+    expect(screen.queryByText('Not delivered')).toBeNull()
+    expect(screen.queryByLabelText('Retry sending this message')).toBeNull()
+  })
+})

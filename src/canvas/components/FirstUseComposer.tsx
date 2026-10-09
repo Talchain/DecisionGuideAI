@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { OWNERSHIP_REFUSAL_COPY } from '../../v5/ownershipRefusalCopy'
 import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 
 
@@ -85,6 +86,7 @@ const PANEL_MARGIN = 16
  * recovery suggestion.
  */
 function heroFailureCopy(failure: SendFailureNotice): string {
+  if (failure.ownershipRefusal !== undefined) return OWNERSHIP_REFUSAL_COPY[failure.ownershipRefusal]
   switch (failure.kind) {
     case 'transport':
       return "That didn't get through. The server didn't respond, so no model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
