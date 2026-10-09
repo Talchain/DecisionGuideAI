@@ -34,6 +34,9 @@ import {
 import { tierReadingNumber } from '../../utils/interventionDisplay'
 import { qualitativeTierLabel } from '../../utils/labelUtils'
 import { readoutIsBareModelFigure } from './bareModelFigure'
+import { resolveOptionTargetDisplayFrame } from '../../ui/inspector-v2/shared/optionTargetEntry'
+
+type ResolvedOptionTarget = OptionTargetLike & { raw_value?: unknown; unit?: unknown }
 
 /** The slice of `ceeAnalysisReady.options[]` these readers use. */
 export interface CeeOptionTargetsLike {
@@ -69,7 +72,7 @@ export interface TargetNodeLike {
 export function resolveOptionTargets(
   optionData: Record<string, unknown> | null | undefined,
   ceeOpt: CeeOptionTargetsLike | null | undefined,
-): Map<string, OptionTargetLike> {
+): Map<string, ResolvedOptionTarget> {
   const raw = ceeOpt?.interventions && typeof ceeOpt.interventions === 'object'
     ? joinInterventionDetails(
         ceeOpt.interventions as Record<string, unknown>,
@@ -77,19 +80,27 @@ export function resolveOptionTargets(
       )
     : Object.entries((optionData?.interventions ?? {}) as Record<string, unknown>)
   const ownInterventions = (optionData?.interventions ?? {}) as Record<string, unknown>
-  const targets = new Map<string, OptionTargetLike>()
+  const targets = new Map<string, ResolvedOptionTarget>()
   for (const [fid, entry] of raw) {
     const u = unwrapInterventionValue(entry)
     if (u.value == null) continue
     let source = u.source ?? null
+    let cell = entry
     if (source === null && ceeOpt) {
       const own = ownInterventions[fid]
       if (own !== null && typeof own === 'object' && !Array.isArray(own)) {
         const ownU = unwrapInterventionValue(own)
-        if (ownU.value === u.value) source = ownU.source ?? null
+        if (ownU.value === u.value) {
+          source = ownU.source ?? null
+          cell = entry !== null && typeof entry === 'object' && !Array.isArray(entry)
+            ? { ...entry, ...own } : own
+        }
       }
     }
-    targets.set(fid, { value: u.value, displayValue: u.displayValue, source })
+    const details = cell !== null && typeof cell === 'object' && !Array.isArray(cell)
+      ? cell as Record<string, unknown> : undefined
+    targets.set(fid, { value: u.value, displayValue: u.displayValue, source,
+      raw_value: details?.raw_value, unit: details?.unit })
   }
   return targets
 }
@@ -136,23 +147,18 @@ export function buildOptionNeedsInputTargetRow({
 }
 
 /**
- * The factor half of a change row — moved verbatim from `OptionNode`'s
- * `changeRows` memo. `data.unit` wins over `observedState.unit`, as it did there.
+ * The factor half of a change row, using the same target frame as both editors.
  */
 export function optionFactorContext(
   factorNode: TargetNodeLike | undefined,
   factorId: string,
+  intervention?: unknown,
 ): FactorContext {
-  const obs = factorNode?.data?.observedState as {
-    unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
-  } | undefined
+  const obs = factorNode?.data?.observedState as { factor_type?: string } | undefined
   return {
     label: (factorNode?.data?.label as string | undefined) ?? factorId,
-    unit: (factorNode?.data?.unit as string | undefined) ?? obs?.unit,
+    ...resolveOptionTargetDisplayFrame(factorNode?.data, intervention),
     factorType: obs?.factor_type,
-    cap: obs?.cap,
-    observedValue: obs?.value,
-    observedRawValue: obs?.raw_value,
     factorData: factorNode?.data ?? null,
   }
 }
@@ -221,7 +227,7 @@ export function buildOptionTargetRow({
   return buildOptionChangeRow({
     factorId,
     target,
-    factor: optionFactorContext(factorNode, factorId),
+    factor: optionFactorContext(factorNode, factorId, target),
     baselineOptionTarget: ref && ref.value != null
       ? { value: ref.value, displayValue: ref.displayValue ?? null }
       : null,

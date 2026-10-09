@@ -198,7 +198,7 @@ import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysi
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
-import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
+import { resolveOptionTargetDisplayFrame } from '../ui/inspector-v2/shared/optionTargetEntry'
 
 /**
  * ⭐ THE ONE-LINE OPTION BODY IS RETIRED — Paul, 25 Sep 2026, from live
@@ -922,6 +922,8 @@ export const OptionNode = memo((props: NodeProps) => {
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+    const optionNode = nodes.find(n => n.id === props.id)
+    const targets = resolveOptionTargets(optionNode?.data, ceeOption)
     let interventionEntries: [string, unknown][] = []
 
     if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
@@ -934,7 +936,6 @@ export const OptionNode = memo((props: NodeProps) => {
       )
     } else {
       // Fallback: option node data.interventions (pre-CEE state)
-      const optionNode = nodes.find(n => n.id === props.id)
       const nodeInterventions = (optionNode?.data as any)?.interventions
       if (nodeInterventions && typeof nodeInterventions === 'object') {
         interventionEntries = Object.entries(nodeInterventions)
@@ -966,11 +967,10 @@ export const OptionNode = memo((props: NodeProps) => {
         const observedState = factorNode?.data?.observedState as {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined
-        const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
+        const displayFrame = resolveOptionTargetDisplayFrame(factorNode?.data, targets.get(factorId) ?? rawValue)
         return [{
-          factorId, factorData: factorNode?.data, label: cleanedLabel, value, displayValue: servedSwitchReading(factorNode?.data, value) ?? displayValue ?? undefined, unit,
-          factorType: observedState?.factor_type, cap: optionEntryScaleOf(observedState?.cap, factorNode?.data?.scale_frame),
-          observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
+          factorId, factorData: factorNode?.data, label: cleanedLabel, value, displayValue: servedSwitchReading(factorNode?.data, value) ?? displayValue ?? undefined,
+          factorType: observedState?.factor_type, ...displayFrame,
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
