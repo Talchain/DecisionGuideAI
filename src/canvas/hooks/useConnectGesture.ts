@@ -51,7 +51,7 @@ import {
 } from '../validation/graphGuardrails'
 import { SHARED_MODEL_AUTHORITY_COPY } from '../mutations/mutationAuthority'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
-import { proposeForDrawnLink } from '../conversation/drawnLinkProposal'
+import { proposeForDrawnLink, proposeWhenLeftUnsized } from '../conversation/drawnLinkProposal'
 import { isRefusedQuestionLink } from '../domain/questionLink'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { linkIsStructural } from '../edges/edgePresentation'
@@ -113,10 +113,12 @@ export function createUserEdge(
   const edge = landed.edges.find(e => e.source === connection.source && e.target === connection.target)
   if (edge) reportManualEdit({ edit: { kind: 'structural_add_edge', elementId: edge.id, accepted: true },
     before: { nodes: landed.nodes, edges: landed.edges.filter(e => e.id !== edge.id) }, after: landed })
-  openNewCausalLinkStrengthEditor(edgeIdsBefore, connection.source, connection.target)
+  const strengthEditorOpened = openNewCausalLinkStrengthEditor(edgeIdsBefore, connection.source, connection.target) !== null
   // Item 3 (Paul 7 Oct): the link has no strength yet, so Olumi proposes one (direction, band, one reason) as a card
   // the user accepts, changes or declines. The editor above still opens: the user's own figure always wins.
-  if (edge) proposeForDrawnLink(edge.id)
+  // The proposal FOLLOWS the user: pressed only if they leave the link unsized, so it never holds their own write
+  // (a reload while the add waited behind the proposal turn lost the link; see `proposeWhenLeftUnsized`).
+  if (edge) { if (strengthEditorOpened) proposeWhenLeftUnsized(edge.id); else proposeForDrawnLink(edge.id) }
 }
 
 interface ConnectStartParams {
