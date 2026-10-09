@@ -354,6 +354,7 @@ function onlyAcquiredNodeMetadataDiffers(previous: unknown, incoming: unknown): 
  */
 export function mergeServerGraphOnHydrate(
   serverGraph: unknown,
+  opts?: { dropOmittedDisplay?: boolean },
 ): MergeServerGraphResult {
   if (serverGraph === null || typeof serverGraph !== 'object') return refused('unusableShape')
 
@@ -514,7 +515,7 @@ export function mergeServerGraphOnHydrate(
     if (!serverNode) return n
 
     const userStamps = captureUserProvenance(n.data)
-    const overlaid = overlayNode(n, serverNode)
+    const overlaid = overlayNode(n, serverNode, opts)
     if (overlaid === n) return n
 
     const nextData = observedValueUnchanged(n.data, overlaid.data)

@@ -66,7 +66,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createElement } from 'react'
 import { MessageBubble } from '../MessageBubble'
-import { render, screen, cleanup, renderHook, act } from '@testing-library/react'
+import { render, screen, cleanup, renderHook, act, waitFor } from '@testing-library/react'
+import { markFactorEditInFlight, settleFactorEditInFlight, __resetPendingFactorEditsForTest } from '../pendingFactorEdit'
+import { markEdgeEditInFlight, settleEdgeEdit, __resetPendingEdgeEditsForTest } from '../pendingEdgeEdit'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { settleSystemEventSend } from '../settleSystemEventSend'
+import { createRefusedGraphRefresh } from '../refusedGraphRefresh'
+import { deliveryRegistersVersion } from '../../registration/editDeliveryHold'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -224,14 +230,23 @@ function untyped500() {
   }
 }
 
-function stubFailure(status: number, body: unknown) {
-  const fetchStub = vi.fn(async () => ({
+function stubFailure(status: number, body: unknown, beforeRefusal?: () => void) {
+  const fetchStub = vi.fn(async (url: string) => url.endsWith('/graph') ? s2Response({
+    schema: 'scenario_graph.v1', scenario_id: SCENARIO_ID, graph_present: true,
+    graph: { nodes: [
+      { id: TARGET_ID, kind: 'factor', label: TARGET_ID, observed_state: PREV_OBSERVED, display_value: PREV_DISPLAY },
+      { id: BYSTANDER_ID, kind: 'factor', label: BYSTANDER_ID, observed_state: { value: BYSTANDER_VALUE } },
+    ], edges: [] },
+  }) : (() => {
+    beforeRefusal?.()
+    return {
     ok: false,
     status,
     headers: new Headers({ 'content-type': 'application/json' }),
     json: async () => body,
     text: async () => JSON.stringify(body),
-  } as unknown as Response))
+  } as unknown as Response
+  })())
   vi.stubGlobal('fetch', fetchStub)
   return fetchStub
 }
@@ -299,6 +314,8 @@ async function driveEdit(stub: () => unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  __resetPendingFactorEditsForTest()
+  __resetPendingEdgeEditsForTest()
 })
 
 afterEach(() => {
@@ -522,7 +539,10 @@ describe('factor_value_edit — an unconfirmed outcome KEEPS the value and says 
 
 describe('factor_value_edit 409 — the revert stands down rather than overwrite newer truth', () => {
   it('a value that has MOVED ON since dispatch is not reverted, and no "put it back" notice is shipped', async () => {
-    stubFailure(409, conflict409('rpc_cas_conflict'))
+    const fetchStub = stubFailure(409, conflict409('rpc_cas_conflict'), () => {
+      // The second carrier replaces A's pending register after A dispatches.
+      markFactorEditInFlight(TARGET_ID, 0.95)
+    })
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
       // The user re-edited to something else while the turn was in flight, so
@@ -550,6 +570,9 @@ describe('factor_value_edit 409 — the revert stands down rather than overwrite
     const obs = (useCanvasStore.getState().nodes.find((n) => n.id === TARGET_ID)!
       .data as Record<string, unknown>).observedState as Record<string, unknown>
     expect(obs.value).toBe(0.95)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+    expect(fetchStub.mock.calls.filter(([url]) => url.endsWith('/graph'))).toHaveLength(0)
+    expect(fetchStub).toHaveBeenCalledTimes(1)
 
     const notices = result.current.messages
       .filter((m) => m.role === 'assistant' && m.synthetic === true)
@@ -557,5 +580,290 @@ describe('factor_value_edit 409 — the revert stands down rather than overwrite
     // The copy promises the previous value is back. It is not, so the promise
     // is withheld rather than shipped beside a canvas it does not describe.
     expect(notices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.proven_no_write)
+  })
+})
+
+// S2 uses real POST parsing, canonical GET hydration and the existing server merge.
+const REFRESH_FAILED = "The latest state couldn't be refreshed."
+const OTHER_SCENARIO = '22222222-2222-4333-8444-555555555555'
+function s2Value(id = TARGET_ID): unknown {
+  return (useCanvasStore.getState().nodes.find(n => n.id === id)?.data.observedState as { value?: number })?.value
+}
+function s2Response(body: unknown, status = 200): Response {
+  return { ok: status >= 200 && status < 300, status, headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body, text: async () => JSON.stringify(body) } as Response
+}
+function s2Graph(value = 414, scenarioId = SCENARIO_ID) {
+  return { schema: 'scenario_graph.v1', scenario_id: scenarioId, graph_present: true,
+    graph: { nodes: [TARGET_ID, BYSTANDER_ID].map(id => ({ id, kind: 'factor', label: id,
+      observed_state: { value: id === TARGET_ID ? value : BYSTANDER_VALUE, unit: 'GBP' } })), edges: [] } }
+}
+function s2Seed() {
+  useCanvasStore.setState({ currentScenarioId: SCENARIO_ID, importPendingServerRegistration: false,
+    pendingEmittedEdits: 0, pendingStructuralAdds: [], pendingStructuralAddEdges: [], pendingStructuralDeletes: [],
+    pendingStructuralRenames: [], structuralRenameLifecycle: [], structuralAddLifecycle: [],
+    serverGraphIdentity: null, lastAuthoritativeGraph: null, lastServerGraphHash: 'cfded3af0aa14ebd',
+    nodes: [factorNode(TARGET_ID, 300, '300 GBP'), factorNode(BYSTANDER_ID, BYSTANDER_VALUE, '5.5 months')],
+    edges: [], results: { status: 'idle' }, history: { past: [], future: [] }, analysisFreshnessDirty: false } as never)
+}
+function s2Send(hook: ReturnType<typeof renderHook<ReturnType<typeof useConversation>, unknown>>,
+  sentValue = 300, previous = 221) {
+  return hook.result.current.sendSystemEvent({ type: 'factor_value_edit',
+    payload: { target_id: TARGET_ID, value: sentValue, field: 'value' } } as never,
+  { optimisticFactorEdit: { nodeId: TARGET_ID, sentValue,
+    prevObservedState: { value: previous, unit: 'GBP' }, prevDisplayValue: `${previous} GBP` } }).catch(() => undefined)
+}
+function s2Wire(read: () => Response | Promise<Response>, body: unknown = conflict409('turn_fence_superseded'), status = 409,
+  beforePostResponse?: () => void) {
+  const get = vi.fn(read)
+  vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/graph') ? get() : Promise.resolve().then(() => {
+    beforePostResponse?.()
+    return s2Response(body, status)
+  })))
+  return get
+}
+async function s2Refuse(hook: ReturnType<typeof renderHook<ReturnType<typeof useConversation>, unknown>>) {
+  await act(async () => { await s2Send(hook) })
+}
+
+describe('S2 shown equals saved after a proven refusal', () => {
+  beforeEach(s2Seed)
+  it('S2 idle recovery does not advance the UI delivery snapshot', () => {
+    const refresh = createRefusedGraphRefresh({ hasPendingTurn: () => false,
+      identity: async () => ({ userId: null, accessToken: null }), onFailure: vi.fn() })
+    try {
+      const before = deliveryRegistersVersion()
+      markFactorEditInFlight(TARGET_ID, 515)
+      expect(deliveryRegistersVersion()).toBe(before)
+      settleFactorEditInFlight(TARGET_ID, 515)
+      expect(deliveryRegistersVersion()).toBe(before)
+    } finally { refresh.dispose() }
+  })
+  it.each([
+    { type: 'factor_value_edit', payload: { target_id: TARGET_ID, value: 300, field: 'value' } },
+    { type: 'edge_strength_edit', payload: { from: TARGET_ID, to: BYSTANDER_ID, magnitude: 0.4,
+      intent: 'confirm_current', direction_intent: 'preserve', expected: { mean: 0.4, effect_direction: 'positive' } } },
+    { type: 'structural_add_edge', payload: { from: TARGET_ID, to: BYSTANDER_ID, magnitude: 0.4,
+      effect_direction: 'positive', base_graph_hash: 'cfded3af0aa14ebd' } },
+  ])('S2 raw $type carrier without F or S still recovers', async event => {
+    const get = s2Wire(() => s2Response(s2Graph()))
+    const hook = renderHook(() => useConversation())
+    await act(async () => { await hook.result.current.sendSystemEvent(event as never).catch(() => undefined) })
+    await waitFor(() => expect(s2Value()).toBe(414))
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [503, { code: 'model_read_failed', details: { reason: 'model_read_failed' } }],
+    [500, untyped500()],
+  ])('S3 non-proven %s %j issues no graph read', async (status, body) => {
+    const get = s2Wire(() => s2Response(s2Graph()), body, status)
+    const hook = renderHook(() => useConversation())
+    // No optimistic register may mask an illegal recovery request on this raw carrier.
+    await act(async () => {
+      await hook.result.current.sendSystemEvent({ type: 'factor_value_edit',
+        payload: { target_id: TARGET_ID, value: 300, field: 'value' } } as never).catch(() => undefined)
+    })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(get).not.toHaveBeenCalled()
+    expect(s2Value()).toBe(300)
+    expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(false)
+  })
+
+  it('S3 prior_range_edit proven conflict recovers through the existing wire carrier', async () => {
+    const graph = s2Graph()
+    const get = s2Wire(() => s2Response({ ...graph, graph: { ...graph.graph,
+      nodes: graph.graph.nodes.map(n => ({ ...n, prior: { distribution: 'uniform', range_min: 10, range_max: 20 } })),
+    } }), { code: 'revision_conflict' })
+    const hook = renderHook(() => useConversation())
+    const settlement = vi.fn()
+    await act(async () => {
+      settleSystemEventSend(hook.result.current.sendSystemEvent({ type: 'prior_range_edit',
+        payload: { target_id: TARGET_ID, range_min: 1, range_max: 2, distribution: 'uniform' } } as never), settlement)
+    })
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data.prior)
+      .toMatchObject({ distribution: 'uniform', range_min: 10, range_max: 20 }))
+    expect(settlement).toHaveBeenCalledTimes(1)
+    expect(settlement).toHaveBeenCalledWith('refused', expect.objectContaining({ conflictCategory: 'revision_conflict' }))
+    const fetchStub = vi.mocked(fetch)
+    expect(fetchStub).toHaveBeenCalledTimes(2)
+    const turn = fetchStub.mock.calls.find(([url]) => !String(url).endsWith('/graph'))!
+    expect(JSON.parse(String(turn[1]?.body)).event).toEqual({ kind: 'prior_range_edit',
+      target_id: TARGET_ID, range_min: 1, range_max: 2, distribution: 'uniform' })
+    expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(false)
+  })
+
+  it('S3 a refusal burst during recovery serialises reads and renders the final winner', async () => {
+    let active = 0
+    let maximum = 0
+    const answers: Array<(response: Response) => void> = []
+    const get = s2Wire(() => {
+      active += 1
+      maximum = Math.max(maximum, active)
+      return new Promise<Response>(resolve => { answers.push(response => { active -= 1; resolve(response) }) })
+    })
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    for (const value of [515, 615]) {
+      await act(async () => {
+        useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === TARGET_ID ? {
+          ...n, data: { ...n.data, observedState: { value, unit: 'GBP' }, display_value: `${value} GBP` },
+        } : n) } as never)
+        await s2Send(hook, value)
+      })
+      expect(active).toBe(1)
+      expect(get).toHaveBeenCalledTimes(1)
+    }
+    await act(async () => { answers[0](s2Response(s2Graph(414))) })
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    expect(s2Value()).toBe(221) // The invalidated first answer was never applied.
+    await act(async () => { answers[1](s2Response(s2Graph(777))) })
+    await waitFor(() => expect(s2Value()).toBe(777))
+    expect(factorDisplayText(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data)).toBe('777')
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(maximum).toBe(1)
+    expect(active).toBe(0)
+    expect(get).toHaveBeenCalledTimes(2)
+    const notices = hook.result.current.messages.filter(m => m.role === 'assistant' && m.synthetic).map(m => m.content)
+    expect(notices).toEqual([FENCE_SUPERSEDED_COPY, FENCE_SUPERSEDED_COPY, FENCE_SUPERSEDED_COPY])
+  })
+
+  it('S2 a network failure never requests recovery', async () => {
+    const get = vi.fn()
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/graph') ? get() : Promise.reject(new TypeError('offline'))))
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(get).not.toHaveBeenCalled()
+    expect(s2Value()).toBe(300)
+  })
+  it.each([515, 300])('S2 queued newer B=%s survives A refusal, including equal-value edits', async sentB => {
+    let refuseA!: (r: Response) => void
+    let refuseB!: (r: Response) => void
+    const post = vi.fn(() => new Promise<Response>(resolve => {
+      if (post.mock.calls.length === 1) refuseA = resolve
+      else refuseB = resolve
+    }))
+    const get = vi.fn(async () => s2Response(s2Graph()))
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/graph') ? get() : post()))
+    const hook = renderHook(() => useConversation())
+    let a!: Promise<unknown>
+    await act(async () => { a = s2Send(hook) })
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === TARGET_ID ? {
+        ...n, data: { ...n.data, observedState: { value: sentB, unit: 'GBP' } } } : n) } as never)
+      await s2Send(hook, sentB, 300)
+      refuseA(s2Response(conflict409('turn_fence_superseded'), 409))
+      await a
+    })
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2))
+    expect(s2Value()).toBe(sentB)
+    expect(get).not.toHaveBeenCalled()
+    await act(async () => { refuseB(s2Response(conflict409('turn_fence_superseded'), 409)) })
+    await waitFor(() => expect(s2Value()).toBe(414))
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+  it.each([
+    ['fence', conflict409('turn_fence_superseded')],
+    ['revision top-level', { code: 'revision_conflict' }],
+    ['revision details', { details: { code: 'revision_conflict' } }],
+  ])('S2 %s replaces reverted 221 with stored winner 414', async (_name, body) => {
+    const get = s2Wire(() => s2Response(s2Graph()), body)
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(s2Value()).toBe(414))
+    expect(get).toHaveBeenCalledTimes(1)
+    const shown = factorDisplayText(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data)
+    expect(shown).toBe('414')
+    expect(hook.result.current.messages.some(m => m.content.includes(REFRESH_FAILED))).toBe(false)
+    const notice = _name === 'fence' ? FENCE_SUPERSEDED_COPY : 'The scenario changed while I was saving, so nothing was saved. Try again.'
+    expect(hook.result.current.messages.some(m => m.content === notice)).toBe(true)
+  })
+
+  it.each(['failed', 'foreign', 'empty'] as const)('S2 %s refresh retains rollback and adds only the failure sentence', async failure => {
+    s2Wire(() => failure === 'failed' ? Promise.reject(new TypeError('offline')) : s2Response(
+      failure === 'foreign' ? s2Graph(414, OTHER_SCENARIO) : { ...s2Graph(), graph: { nodes: [], edges: [] } }))
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(true))
+    expect(s2Value()).toBe(221)
+    expect(hook.result.current.messages.some(m => m.content === FENCE_SUPERSEDED_COPY)).toBe(true)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it.each(['same factor', 'other factor', 'edge'] as const)('S2 waits for a pending %s, then reads again', async kind => {
+    const get = s2Wire(() => s2Response(s2Graph()), conflict409('turn_fence_superseded'), 409, () => {
+      if (kind !== 'edge') markFactorEditInFlight(kind === 'other factor' ? BYSTANDER_ID : TARGET_ID, 515)
+    })
+    const hook = renderHook(() => useConversation())
+    // B is admitted before A's response, including a pending write elsewhere on the graph.
+    const id = kind === 'other factor' ? BYSTANDER_ID : TARGET_ID
+    if (kind === 'edge') {
+      useCanvasStore.setState({ edges: [{ id: 'pending-edge', source: TARGET_ID, target: BYSTANDER_ID,
+        data: { weight: 0.9, direction: 'positive' } }] } as never)
+      markEdgeEditInFlight('pending-edge', 0.9, { weight: 0.2 }, undefined,
+        { scenarioId: SCENARIO_ID, from: TARGET_ID, to: BYSTANDER_ID })
+    } else {
+      useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === id ? {
+        ...n, data: { ...n.data, observedState: { value: 515, unit: 'GBP' } } } : n) } as never)
+      markFactorEditInFlight(id, 515)
+    }
+    await s2Refuse(hook)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(get).not.toHaveBeenCalled()
+    if (kind !== 'edge') expect(s2Value(id)).toBe(515)
+    await act(async () => {
+      if (kind === 'edge') settleEdgeEdit('pending-edge', 0.9)
+      else settleFactorEditInFlight(id, 515)
+    })
+    await waitFor(() => expect(s2Value()).toBe(414))
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('S2 a pending edit begun during GET invalidates it even if B settles before that GET answers', async () => {
+    let answer!: (response: Response) => void
+    const get = s2Wire(() => get.mock.calls.length === 1 ? new Promise<Response>(resolve => { answer = resolve }) : s2Response(s2Graph(515)))
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      markFactorEditInFlight(TARGET_ID, 515)
+      useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === TARGET_ID ? {
+        ...n, data: { ...n.data, observedState: { value: 515, unit: 'GBP' } } } : n) } as never)
+      settleFactorEditInFlight(TARGET_ID, 515)
+      answer(s2Response(s2Graph(414)))
+    })
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    expect(s2Value()).toBe(515)
+  })
+
+  it.each([false, true])('S2 switching scenarios (reopen=%s) rejects a late graph and notice', async reopen => {
+    let answer!: (response: Response) => void
+    const get = s2Wire(() => new Promise<Response>(resolve => { answer = resolve }))
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: OTHER_SCENARIO })
+      if (reopen) useCanvasStore.setState({ currentScenarioId: SCENARIO_ID })
+      answer(s2Response(s2Graph()))
+      await new Promise(resolve => setTimeout(resolve, 30))
+    })
+    expect(s2Value()).toBe(221)
+    expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(false)
+  })
+
+  it.each([
+    [500, untyped500()], [500, conflict409('turn_fence_superseded')],
+    [500, { code: 'revision_conflict' }], [409, conflict409('future_category')],
+  ])('S2 unknown outcome %s %j never reads', async (status, body) => {
+    const get = s2Wire(() => s2Response(s2Graph()), body, status)
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(get).not.toHaveBeenCalled()
   })
 })

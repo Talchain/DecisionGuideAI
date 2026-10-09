@@ -40,7 +40,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Node } from '@xyflow/react'
 
@@ -104,7 +104,13 @@ const sentBodies: Array<Record<string, unknown>> = []
 const answers: Array<{ status: number; body: unknown }> = []
 
 function stubFetch() {
-  const fetchStub = vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+  const fetchStub = vi.fn(async (url: unknown, init?: { body?: unknown; method?: string }) => {
+    if (String(url).endsWith(`/scenarios/${SCENARIO}/graph`)) {
+      return { ok: true, status: 200, json: async () => ({
+        schema: 'scenario_graph.v1', scenario_id: SCENARIO, graph_present: true, graph_hash: BASE,
+        graph: { nodes: canvasNodes().map(n => ({ id: n.id, ...n.data })), edges: [] },
+      }) } as Response
+    }
     if (typeof init?.body === 'string') sentBodies.push(JSON.parse(init.body))
     const next = answers.shift()
     if (!next) throw new Error('test transport: no answer queued')
@@ -444,12 +450,28 @@ describe('a CEE-applied receipt: the target shown, the base, and the analysis al
 
 describe('every refusal CEE #1859 can send says its own sentence, and moves nothing', () => {
   async function refusedWith(status: number, body: unknown) {
-    stubFetch()
+    const fetchStub = stubFetch()
     answers.push({ status, body })
     openGoal()
     await stateTarget('30000')
     await waitFor(() => expect(sentBodies).toHaveLength(1))
     await waitFor(() => expect(outcome()).not.toBe('Sent to Olumi. Its reply says whether the target was recorded.'))
+    if (status === 409) {
+      await waitFor(() => expect(fetchStub.mock.calls.filter(([url]) =>
+        String(url).endsWith(`/scenarios/${SCENARIO}/graph`))).toHaveLength(1))
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+      expect(fetchStub).toHaveBeenCalledTimes(2)
+      const writes = fetchStub.mock.calls.filter(([url]) => !String(url).endsWith(`/scenarios/${SCENARIO}/graph`))
+      expect(writes).toHaveLength(1)
+      expect(String(writes[0][0])).toMatch(/\/v5\/turn$/)
+      expect(writes[0][1]?.method).toBe('POST')
+      expect(JSON.parse(String(writes[0][1]?.body))).toEqual(sentBodies[0])
+      const read = fetchStub.mock.calls.find(([url]) => String(url).endsWith(`/scenarios/${SCENARIO}/graph`))!
+      // CEE's existing read endpoint uses POST with an empty read body.
+      expect(read[1]?.method).toBe('POST')
+      expect(JSON.parse(String(read[1]?.body))).toEqual({})
+    }
+    expect(sentBodies).toHaveLength(1)
   }
   function nothingMoved() {
     expect(goalNode(GOAL).goal_threshold_raw).toBe(25000)
