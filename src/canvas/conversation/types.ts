@@ -7,6 +7,7 @@
 
 import type { OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import type { ProvisionalView } from './provisionalView'
+import type { MethodResultV1 } from '../../v5/readMethodResult'
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
@@ -150,6 +151,11 @@ export interface ConversationMessage {
    * its own labelled block on the face of the reply. Kept in the transcript (producer text, no action).
    */
   provisionalView?: ProvisionalView
+  /**
+   * Accel P24 / SCI-10: the probe's typed rows (`_method_result` v:1, `readMethodResult`), shown as a card under the
+   * reply and kept in the transcript so a reload shows the same card. Producer text only; it carries no action.
+   */
+  methodResult?: MethodResultV1
   /**
    * What Olumi had to leave out of the model it drafted on THIS turn —
    * `model_building_notices`, a DECLARED optional field on the V5 body (schemas

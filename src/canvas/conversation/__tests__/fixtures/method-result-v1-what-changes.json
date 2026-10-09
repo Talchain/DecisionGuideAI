@@ -1,0 +1,46 @@
+{
+ "_source": "Reply = CEE what-changes-turn.test.ts:80-82 expected text at e80586d8 (RC @a4992165). Rows: the `quoted` sentence only; the `no_change` sentence stays in the chat (Science 393023 ruling 2).",
+ "assistant_text": "In this model, ‘Stay on AWS’ would be the first to be supported by the most runs if monthly cloud savings's effect on monthly spend fell below about a quarter of what it is now. ‘Switch to GCP’ would still be supported by the most runs even if monthly cloud overspend during migration's average effect on monthly spend fell to zero.",
+ "response": {
+  "assistant_text": "In this model, ‘Stay on AWS’ would be the first to be supported by the most runs if monthly cloud savings's effect on monthly spend fell below about a quarter of what it is now. ‘Switch to GCP’ would still be supported by the most runs even if monthly cloud overspend during migration's average effect on monthly spend fell to zero.",
+  "__additive__": {
+   "_method_result": {
+    "v": 1,
+    "action_id": "what_changes",
+    "outcome": "measured",
+    "scenario_id": "b207acee-050c-4c8b-9801-ab4aca062bc0",
+    "turn_id": "turn_wc_01",
+    "run": {
+     "graph_hash_at_run": "a1b2c3d4e5f60718",
+     "run_id": "run_d3"
+    },
+    "rows": [
+     {
+      "row_id": "flip:monthly_cloud_savings->monthly_spend",
+      "item_refs": [
+       {
+        "kind": "link",
+        "from_id": "monthly_cloud_savings",
+        "to_id": "monthly_spend"
+       },
+       {
+        "kind": "option",
+        "id": "stay_aws"
+       }
+      ],
+      "text": "‘Stay on AWS’ would be the first to be supported by the most runs if monthly cloud savings's effect on monthly spend fell below about a quarter of what it is now.",
+      "provenance": "server_built"
+     }
+    ]
+   }
+  }
+ },
+ "labels": {
+  "monthly_cloud_savings": "Monthly cloud savings",
+  "monthly_spend": "Monthly spend",
+  "stay_aws": "Stay on AWS"
+ },
+ "never_on_card": [
+  "‘Switch to GCP’ would still be supported by the most runs even if monthly cloud overspend during migration's average effect on monthly spend fell to zero."
+ ]
+}

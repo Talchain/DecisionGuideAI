@@ -30,6 +30,8 @@ import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
+import { displayableMethodResult } from '../../v5/readMethodResult'
+import { ConversationMethodResultCard } from './MethodResultCard'
 import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
@@ -208,6 +210,8 @@ export const MessageBubble = memo(function MessageBubble({
    * is never parsed or edited here (provisionalView.ts).
    */
   const provisional = !isUser && !isStreaming && !message.stoppedByUser ? message.provisionalView : undefined
+  // Accel P24 / SCI-10: a probe's typed rows, shown only when every row is a line of this reply (ruling 1).
+  const methodCard = !isUser && !isStreaming && !message.stoppedByUser ? displayableMethodResult(message.methodResult, message.content) : null
   const [provisionalWhyShown, setProvisionalWhyShown] = useState(false)
   const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
     ? message.content
@@ -552,6 +556,7 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         </div>
       )}
+      {methodCard && <ConversationMethodResultCard methodResult={methodCard} />}
       {/* The build's open questions, on demand and verbatim. Plain text via a
         * text node, like the reasoning panel below. */}
       {openQuestions && (
