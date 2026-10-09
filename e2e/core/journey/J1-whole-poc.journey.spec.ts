@@ -452,30 +452,7 @@ test.describe.serial('J1 · whole PoC', () => {
     return out
   }
   const TARGETS_DOOR = /factor targets?\. Open the inspector to change them\./
-  /** The first candidate whose option card offers the targets door AND whose inspector offers a text field for it. */
-  async function optionInterventionTarget(page: Page, g: Graph): Promise<{ t: { option: string; factor: string; value: number }; input: Locator } | null> {
-    for (const c of optionInterventionCandidates(g)) {
-      const input = await optionTargetInputIfAny(page, c.option, labelOf(g, c.factor))
-      if (input) return { t: c, input }
-    }
-    return null
-  }
 
-  /**
-   * Open the option's inspector through the card's own door ("N factor target(s). Open the inspector to change them.";
-   * replay10: a double-click opens the rename, not the inspector), and return its target field for `factorLabel`.
-   */
-  async function optionTargetInput(page: Page, optionId: string, factorLabel: string, label: string): Promise<Locator> {
-    await clearCanvasSelection(page)
-    const node = page.locator(`.react-flow__node[data-id="${optionId}"]`)
-    await expect(node, `[${label}] the canvas has no option card ${optionId}`).toBeVisible({ timeout: 30_000 })
-    const door = node.getByRole('button', { name: TARGETS_DOOR })
-    await expect(door, `[${label}] option card ${optionId} offers no "Open the inspector" door for its targets`).toHaveCount(1, { timeout: 15_000 })
-    await pressDoor(door)
-    const input = page.getByRole('textbox', { name: new RegExp(`^Target for ${factorLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) })
-    await expect(input, `[${label}] the option inspector has no target field for ${factorLabel}`).toBeVisible({ timeout: 15_000 })
-    return input
-  }
   /**
    * Activate the card's targets door from the keyboard: focus + Enter, a real user path. The door is revealed on hover and
    * the expanded Outputs dock can cover the card after a reload (fill2: the dock intercepted the pointer for 60 s).
