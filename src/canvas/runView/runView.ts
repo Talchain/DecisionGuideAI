@@ -122,7 +122,9 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
     const eligible = view.chanceOf(optionId).kind !== 'none'
       || view.goalChance?.optionIds.includes(optionId) === true
       || (view.goalChanceRange !== null && Object.prototype.hasOwnProperty.call(view.goalChanceRange.rangeByOption, optionId))
-    if (hasTarget && ctx.notAnalysed !== true && eligible) {
+    // The producer's own withheld sentence (goal identity) outranks the static face: the surface renders it.
+    const producerWithheld = typeof ctx.goalFiguresWithheldMessage === 'string' && ctx.goalFiguresWithheldMessage.trim() !== ''
+    if (hasTarget && ctx.notAnalysed !== true && eligible && !producerWithheld) {
       return { kind: 'withheld', text: CHANCE_NOT_SHOWN_YET }
     }
     return NO_CELL
