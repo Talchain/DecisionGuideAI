@@ -38,7 +38,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { MessageBubble } from '../MessageBubble'
+import { render, screen, cleanup, renderHook, act } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -258,6 +260,8 @@ async function driveAdd(seedExtra: Record<string, unknown> = {}) {
   return {
     hasNode: (id: string) => state.nodes.some((n) => n.id === id),
     lifecycle: state.structuralAddLifecycle[0]?.status,
+    messages: result.current.messages,
+    edges: state.edges,
     notices: result.current.messages
       .filter((m) => m.role === 'assistant' && m.synthetic === true)
       .map((m) => m.content),
@@ -268,6 +272,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
@@ -436,6 +441,18 @@ describe('structural_add — a 409 GRAPH_DIVERGED', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('structural_add — refused, but the removal must stand down', () => {
+  it('revision refusal protects the newer link and renders only the exact notice', async () => {
+    stub409('revision_conflict')
+    const r = await driveAdd({ edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] })
+    expect(r.hasNode(NEW_NODE_ID)).toBe(true)
+    expect(r.hasNode(SIBLING_ID)).toBe(true)
+    expect(r.edges.map(e => e.id)).toEqual(['e1'])
+    expect(r.lifecycle).toBe('refused')
+    expect(r.notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+    render(createElement(MessageBubble, { message: r.messages.at(-1)!, onChipClick: async () => {} }))
+    expect(screen.getByTestId('message-body-text').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(STRUCTURAL_ADD_NOTICE.refused_left_on_canvas)).toBeNull()
+  })
   it('⭐⭐ a CONNECTED node is LEFT on the canvas, and the copy names that exact state', async () => {
     // The add was refused, but the user has drawn an edge to it since. Removing
     // the node would destroy a link THIS GESTURE DID NOT CREATE — the data-loss

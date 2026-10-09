@@ -78,7 +78,9 @@
  *     `fenceRefusalCopyForCategory` (`v5/failureTypeRetryability.ts`) first and
  *     shows the fence's own per-verdict sentence when it answers.
  *
- * All of them reach the UI on the same envelope: a 409 `GRAPH_DIVERGED` with
+ * Revision CAS additionally uses `code: 'revision_conflict'` at the top level
+ * or under `details`; CEE's OLRV1 atomically rolls the whole transaction back.
+ * The other members reach the UI on the same envelope: a 409 `GRAPH_DIVERGED` with
  * the category in `details.conflict_category` and `retryable: false`. For the
  * first two, `system-events/dispatch.ts:1176-1197` copies
  * `err.conflict_category` onto `graphConflict` and `orchestrator/route-v2.ts`
@@ -103,6 +105,7 @@
 export const PROVEN_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set([
   'BASE_HASH_DIVERGED',
   'rpc_cas_conflict',
+  'revision_conflict', // CEE OLRV1: atomic revision CAS rolls the whole transaction back; nothing is written.
   'stale_base_graph_hash',
   'turn_fence_superseded',
   'turn_fence_stopped',

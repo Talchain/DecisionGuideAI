@@ -5,6 +5,7 @@
  * Single interception point for validate-patch migration.
  */
 
+import { REVISION_CONFLICT_NOTICE } from '../../../v5/failureTypeRetryability'
 import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../../store'
 import { useShowToastSafe } from '../../ToastContext'
@@ -892,10 +893,10 @@ export function useNodeMutations(nodeId: string) {
     const distribution = typeof existing?.distribution === 'string' && existing.distribution.length > 0
       ? existing.distribution
       : 'uniform'
-    const settle = (settlement: SystemEventSendSettlement) => {
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
       if (settlement === 'refused' || settlement === 'blocked') {
         const outcome = revertOptimisticPriorRangeEdit(edit)
-        showToast(outcome === 'reverted'
+        showToast(detail.conflictCategory === 'revision_conflict' ? REVISION_CONFLICT_NOTICE : outcome === 'reverted'
           ? 'Not saved: this range was not recorded. The previous range is back.'
           : 'Not saved: this range was not recorded. A newer change was kept.', 'error')
       } else if (settlement === 'unverified') {

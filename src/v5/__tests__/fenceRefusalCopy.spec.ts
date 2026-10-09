@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { BoundaryError } from '@talchain/schemas/boundary'
-import { fenceRefusalCopyForCategory, resolveFenceRefusalCopy } from '../failureTypeRetryability'
+import { extractConflictCategory, fenceRefusalCopyForCategory, resolveFailureBaseCopy, resolveFailureCopyForError, resolveFenceRefusalCopy } from '../failureTypeRetryability'
 
 function boundary409(details: Record<string, unknown>): BoundaryError {
   return {
@@ -122,4 +122,61 @@ describe('fenceRefusalCopyForCategory — the per-verdict sentence from a bare c
       )
     },
   )
+})
+
+
+describe('revision admission requires the HTTP 409 proof on every envelope', () => {
+  it.each([
+    { code: 'revision_conflict' },
+    { details: { code: 'revision_conflict' } },
+    boundary409({ code: 'revision_conflict', reason: 'system_event_commit_failed' }),
+    boundary409({ conflict_category: 'revision_conflict' }),
+  ])('gates extraction and copy for %j', body => {
+    expect(extractConflictCategory(body, 409)).toBe('revision_conflict')
+    expect(resolveFenceRefusalCopy(body, 409)).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    for (const status of [500, 422, 200, undefined]) {
+      expect(extractConflictCategory(body, status)).toBe('')
+      expect(resolveFenceRefusalCopy(body, status)).toBeNull()
+    }
+  })
+  it('preserves other conflict categories verbatim, including unknown strings', () => {
+    expect(extractConflictCategory(boundary409({ conflict_category: 'future_category' }), 500)).toBe('future_category')
+    expect(extractConflictCategory(boundary409({ code: 'revision_conflict', conflict_category: 'future_category' }), 500)).toBe('future_category')
+  })
+})
+
+describe('raw unparsed bodies admit only the exact revision code on HTTP 409', () => {
+  it.each(['stale_base_graph_hash', 'turn_fence_stopped', 'revision_conflict', 'future_category'])(
+    'ignores raw details.conflict_category %s and keeps the category unverified', category => {
+      const body = { details: { conflict_category: category } }
+      expect(extractConflictCategory(body, 409, 'raw')).toBe('')
+      expect(resolveFenceRefusalCopy(body, 409, 'raw')).toBeNull()
+      expect(resolveFailureCopyForError('GRAPH_DIVERGED', true, body, 409, 'raw')).toBe(resolveFailureBaseCopy('GRAPH_DIVERGED', true))
+      // Parsed envelopes retain their existing category admission, including D1's 409 gate.
+      expect(extractConflictCategory(boundary409(body.details), 409)).toBe(category)
+    },
+  )
+
+  it.each([
+    { code: 'revision_conflict' },
+    { details: { code: 'revision_conflict' } },
+    { code: 'revision_conflict', details: { conflict_category: 'stale_base_graph_hash' } },
+    { details: { code: 'revision_conflict', conflict_category: 'stale_base_graph_hash' } },
+  ])('admits only the exact revision code with HTTP 409 for %j', body => {
+    expect(extractConflictCategory(body, 409, 'raw')).toBe('revision_conflict')
+    expect(resolveFailureCopyForError('GRAPH_DIVERGED', true, body, 409, 'raw')).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    for (const status of [500, 422, 200, undefined]) {
+      expect(extractConflictCategory(body, status, 'raw')).toBe('')
+      expect(resolveFenceRefusalCopy(body, status, 'raw')).toBeNull()
+    }
+  })
+
+  it.each([
+    { code: 'stale_base_graph_hash', details: { conflict_category: 'stale_base_graph_hash' } },
+    { details: { code: 'turn_fence_stopped', conflict_category: 'turn_fence_stopped' } },
+    { code: 'revision_conflict_extra' },
+    { details: { code: 'future_code' } },
+  ])('rejects other raw codes without reading conflict_category for %j', body => {
+    expect(extractConflictCategory(body, 409, 'raw')).toBe('')
+  })
 })

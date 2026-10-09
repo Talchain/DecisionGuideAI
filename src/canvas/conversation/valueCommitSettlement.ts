@@ -21,10 +21,11 @@
  * the full reasoning and the one thing this predicate genuinely cannot tell
  * apart (a slow-but-successful commit from a lost one).
  */
-import type { SystemEventSendSettlement } from './settleSystemEventSend'
+import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
+import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from './settleSystemEventSend'
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
-export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed' | 'local_only'
+export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed' | 'local_only' | 'revision_conflict'
 
 /**
  * Did an optimistic write REVERT?
@@ -62,7 +63,7 @@ export function didValueCommitRevert(
 /**
  * The word + ARIA role a caller should render for one settlement state.
  *
- * ⚠ `role: 'alert'` ONLY ON `not_applied` — the one state this predicate can
+ * ⚠ `role: 'alert'` on `not_applied` and revision refusal — the one state this predicate can
  * assert with confidence (a genuine, observed revert). `saving` and
  * `unconfirmed` are both honest UNCERTAINTY, never a confirmed problem, so
  * they take the non-interrupting `status` role — the same split
@@ -77,6 +78,7 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
   ValueCommitSettlementWord,
   { readonly message: string; readonly role: 'alert' | 'status' }
 > = {
+  revision_conflict: { message: REVISION_CONFLICT_NOTICE, role: 'alert' },
   saving: { message: 'Saving…', role: 'status' },
   not_applied: {
     message: 'Not saved. The model kept its previous value; Olumi\'s reply says why.',
@@ -111,7 +113,7 @@ export const VALUE_NOT_ENCODABLE_COPY = 'This value cannot be sent to the model 
  * card and the canvas context menu cannot disagree about what a settlement
  * means (26 Sep 2026). The mapping and its reasons are that component's header:
  *
- *   refused → `not_applied` · unverified → `unconfirmed` · blocked → `local_only`
+ *   refused → `not_applied` (revision uses its exact notice) · unverified → `unconfirmed` · blocked → `local_only`
  *   queued → nothing (the flush queue owns it) · sent → `not_applied` only when
  *   the live value visibly REVERTED (`didValueCommitRevert`), else nothing.
  *
@@ -126,8 +128,9 @@ export function valueCommitSettlementWord(
   beforeCommit: number | null | undefined,
   committedTo: number | null | undefined,
   readNow: () => number | null | undefined,
+  detail: SystemEventSendSettlementDetail = {},
 ): ValueCommitSettlementWord | null {
-  if (settlement === 'refused') return 'not_applied'
+  if (settlement === 'refused') return detail.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'not_applied'
   if (settlement === 'unverified') return 'unconfirmed'
   if (settlement === 'blocked') return 'local_only'
   if (settlement === 'queued') return null
