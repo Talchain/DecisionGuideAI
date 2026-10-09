@@ -520,7 +520,7 @@ export function mergeServerGraphOnHydrate(
 
     const nextData = observedValueUnchanged(n.data, overlaid.data)
       ? restoreUserProvenance(overlaid.data, userStamps)
-      : clearUserProvenance(overlaid.data)
+      : restoreUserProvenance(clearUserProvenance(overlaid.data), captureUserProvenance(mapDraftNodeToCanvas(serverNode).data))
     const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
     const previousData = n.type === 'option' ? normaliseInterventionKeys(n.data ?? {}) : n.data
     const incomingData = next.type === 'option' ? normaliseInterventionKeys(next.data ?? {}) : next.data

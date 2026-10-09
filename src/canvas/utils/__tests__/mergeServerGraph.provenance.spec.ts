@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 import { useCanvasStore } from '../../store'
 import { mergeServerGraphOnHydrate } from '../mergeServerGraph'
+import { classifyObservedValueProvenance } from '../../domain/valueProvenance'
 import {
   isReviewedByUser,
   isReviewedEdge,
@@ -68,7 +69,7 @@ function dualStampedNode(value: number) {
   }
 }
 
-/** CEE's bag can never carry a user source — the enum has no such member. */
+/** CEE writes observed_state.source = 'user_override' since 2.396(b). */
 function serverNode(value: number, source = 'cee_inference') {
   return {
     id: 'factor-1',
@@ -172,6 +173,56 @@ describe('A1 probe 2 — a CHANGED value must kill the review claim in BOTH spel
     ])
     mergeServerGraphOnHydrate({ nodes: [serverNode(0.9, 'cee_inference')], edges: [] })
     expect((nodeById('factor-1').data as any).observedState.source).toBe('cee_inference')
+  })
+})
+
+describe('S2 recovery — a changed value keeps the SERVER\'s own user stamp (recovery == reload)', () => {
+  it('keeps the server user_override stamp when the value changes', () => {
+    seed([camelStampedNode(0.6)])
+    mergeServerGraphOnHydrate({ nodes: [serverNode(0.9, 'user_override')], edges: [] })
+
+    const data = nodeById('factor-1').data as any
+    expect(data.observedState.source).toBe('user_override')
+    expect(data.observedState.value).toBe(0.9)
+  })
+
+  it('PARITY: recovery classification equals reload and clears the local snake stamp', () => {
+    const graph = { nodes: [serverNode(0.9, 'user_override')], edges: [] }
+    seed([])
+    mergeServerGraphOnHydrate(graph)
+    const reloadClassification = classifyObservedValueProvenance(nodeById('factor-1').data.observedState)
+    expect(reloadClassification).not.toBeNull()
+
+    seed([dualStampedNode(0.6)])
+    mergeServerGraphOnHydrate(graph)
+    const data = nodeById('factor-1').data as any
+    const recoveryClassification = classifyObservedValueProvenance(data.observedState)
+    expect(recoveryClassification).toEqual(reloadClassification)
+    expect(recoveryClassification).not.toBeNull()
+    expect(data.observed_state?.source).toBeUndefined()
+  })
+
+  it('keeps a producer source on a changed value without inventing a user stamp', () => {
+    seed([camelStampedNode(0.6)])
+    mergeServerGraphOnHydrate({ nodes: [serverNode(0.9, 'cee_inference')], edges: [] })
+
+    expect((nodeById('factor-1').data as any).observedState.source).toBe('cee_inference')
+    expect(isReviewedByUser(nodeById('factor-1'))).toBe(false)
+  })
+
+  it('CONTRAST: a server bag with NO source stays unstamped — recovery never invents "Set by you"', () => {
+    seed([dualStampedNode(0.6)])
+    mergeServerGraphOnHydrate({
+      nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 0.9 } }],
+      edges: [],
+    })
+
+    const data = nodeById('factor-1').data as any
+    expect(data.observedState.value).toBe(0.9)
+    expect(data.observedState.source).toBeUndefined()
+    expect(data.observed_state?.source).toBeUndefined()
+    expect(classifyObservedValueProvenance(data.observedState)).toBeNull()
+    expect(isReviewedByUser(nodeById('factor-1'))).toBe(false)
   })
 })
 
