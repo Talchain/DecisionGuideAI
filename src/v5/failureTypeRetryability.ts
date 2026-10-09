@@ -143,19 +143,20 @@ const FENCE_REFUSAL_COPY: Record<string, string> = {
 }
 
 /**
- * Read `details.conflict_category` or CEE's exact revision-conflict code from
- * a typed envelope or an HTTP-409 raw body. Fail closed: absent, non-string,
- * or unknown code → ''. Never infer no-write from another code or a prefix.
+ * Read `details.conflict_category` from a parsed envelope. Raw bodies admit
+ * only CEE's exact revision-conflict code on HTTP 409; their unparsed
+ * `details.conflict_category` is never proof of a refusal.
  */
-export function extractConflictCategory(err: unknown): string {
+export function extractConflictCategory(err: unknown, httpStatus?: number, source: 'parsed' | 'raw' = 'parsed'): string {
   if (!err || typeof err !== 'object' || Array.isArray(err)) return ''
   const envelope = err as { code?: unknown; details?: unknown }
   const details = envelope.details && typeof envelope.details === 'object' && !Array.isArray(envelope.details)
     ? envelope.details as { code?: unknown; conflict_category?: unknown } : undefined
-  // CEE also sends error.v1 or additive code fields; callers admit raw bodies only on HTTP 409.
-  if (envelope.code === 'revision_conflict' || details?.code === 'revision_conflict') return 'revision_conflict'
+  // CEE OLRV1 proves no-write only on HTTP 409, including schema-valid typed envelopes.
+  if (httpStatus === 409 && (envelope.code === 'revision_conflict' || details?.code === 'revision_conflict')) return 'revision_conflict'
+  if (source === 'raw') return ''
   const category = details?.conflict_category
-  return typeof category === 'string' ? category : ''
+  return typeof category === 'string' && (category !== 'revision_conflict' || httpStatus === 409) ? category : ''
 }
 
 /**
@@ -185,8 +186,8 @@ export function fenceRefusalCopyForCategory(category: string | undefined | null)
  * Honest copy for a fence or revision refusal, or null for other categories
  * — callers fall back to `resolveFailureBaseCopy` for those.
  */
-export function resolveFenceRefusalCopy(err: unknown): string | null {
-  return fenceRefusalCopyForCategory(extractConflictCategory(err))
+export function resolveFenceRefusalCopy(err: unknown, httpStatus?: number, source: 'parsed' | 'raw' = 'parsed'): string | null {
+  return fenceRefusalCopyForCategory(extractConflictCategory(err, httpStatus, source))
 }
 
 /**
@@ -200,10 +201,12 @@ export function resolveFailureCopyForError(
   code: FailureTypeLiteral,
   showRetry: boolean,
   err: unknown,
+  httpStatus?: number,
+  source: 'parsed' | 'raw' = 'parsed',
 ): string {
-  if (extractConflictCategory(err) === 'revision_conflict') return FENCE_REFUSAL_COPY.revision_conflict
+  if (extractConflictCategory(err, httpStatus, source) === 'revision_conflict') return FENCE_REFUSAL_COPY.revision_conflict
   if (code === 'GRAPH_DIVERGED') {
-    const fenceCopy = resolveFenceRefusalCopy(err)
+    const fenceCopy = resolveFenceRefusalCopy(err, httpStatus, source)
     if (fenceCopy !== null) return fenceCopy
   }
   return resolveFailureBaseCopy(code, showRetry)

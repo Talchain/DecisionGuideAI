@@ -64,7 +64,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { MessageBubble } from '../MessageBubble'
+import { render, screen, cleanup, renderHook, act } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -281,6 +283,7 @@ async function driveEdit(stub: () => unknown) {
       ?.observedState ?? {}) as Record<string, unknown>
 
   return {
+    messages: result.current.messages,
     /** Bound by IDENTITY — the exact factor the event named. */
     targetValue: read(TARGET_ID).value,
     targetDisplay: (state.nodes.find((n) => n.id === TARGET_ID)?.data as Record<string, unknown>)
@@ -299,6 +302,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
@@ -311,6 +315,7 @@ describe('factor_value_edit 409 — a guaranteed no-write reverts and says so', 
   it.each([
     ['top-level code', { code: 'revision_conflict' }],
     ['details.code', { details: { code: 'revision_conflict' } }],
+    ['typed review body', { error: 'INTERNAL_ERROR', boundary: 'B1', direction: 'egress', validator: 'commit', details: { code: 'revision_conflict', reason: 'system_event_commit_failed' }, request_id: 'req_review', retryable: false }],
     ['executor envelope', { ...conflict409('revision_conflict'), code: 'revision_conflict', expected: 7, current: 8 }],
     ['central mapper envelope', { schema: 'error.v1', code: 'revision_conflict', message: 'stale revision', expected: 7, current: 8, details: { code: 'revision_conflict', expected: 7, current: 8 } }],
   ])('revision_conflict (%s) restores the value and shows the atomic no-write notice', async (_shape, body) => {
@@ -319,6 +324,9 @@ describe('factor_value_edit 409 — a guaranteed no-write reverts and says so', 
     expect(r.targetDisplay).toBe(PREV_DISPLAY)
     expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
     expect(r.notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+    render(createElement(MessageBubble, { message: r.messages.at(-1)!, onChipClick: async () => {} }))
+    expect(screen.getByTestId('message-body-text').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server)).toBeNull()
   })
 
   it("'rpc_cas_conflict' puts the SERVER's value back on the named factor and renders the diverged notice", async () => {
@@ -409,11 +417,16 @@ describe('factor_value_edit — an unconfirmed outcome KEEPS the value and says 
     [409, { code: 'some_future_conflict_category' }],
     [409, { details: { code: 'some_future_conflict_category' } }],
     [500, { code: 'revision_conflict' }],
+    [500, { error: 'INTERNAL_ERROR', boundary: 'B1', direction: 'egress', validator: 'commit', details: { code: 'revision_conflict', reason: 'system_event_commit_failed' }, request_id: 'req_review', retryable: false }],
+    [500, conflict409('revision_conflict')],
   ])('an unrecognised code or non-409 refusal stays unconfirmed (%s, %j)', async (status, body) => {
     const r = await driveEdit(() => stubFailure(status, body))
     expect(r.targetValue).toBe(SENT_VALUE)
     expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
     expect(r.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
+    render(createElement(MessageBubble, { message: r.messages.at(-1)!, onChipClick: async () => {} }))
+    expect(screen.getByTestId('message-body-text').textContent).toBe("I couldn't confirm that your change reached the saved model. It's still on your canvas, but the model may hold a different number  -  ask me what the model currently has before you rely on the analysis.")
+    expect(screen.queryByText('The scenario changed while I was saving, so nothing was saved. Try again.')).toBeNull()
   })
 
   it("OPPOSITE TWIN: the untyped 500 a contended commit actually returns does NOT revert — but no longer passes in silence", async () => {

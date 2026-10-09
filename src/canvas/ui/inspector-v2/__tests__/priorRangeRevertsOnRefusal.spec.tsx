@@ -26,6 +26,14 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('prior_range_edit rollback', () => {
+  it('revision refusal renders only the exact notice after restoring the range', async () => {
+    sendSystemEvent.mockRejectedValue(new SystemEventSendError('server', { conflictCategory: 'revision_conflict' }))
+    edit()
+    await act(async () => {})
+    expect(range()).toEqual(before)
+    expect(screen.getByRole('alert').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(/this range was not recorded/)).toBeNull()
+  })
   it('restores the captured range and discloses a proven refusal', async () => {
     sendSystemEvent.mockRejectedValue(new SystemEventSendError('server', { reason: 'system_event_refused_no_write' }))
     edit()

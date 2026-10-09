@@ -721,7 +721,7 @@ export type V5ParseErrorKind = typeof V5_PARSE_ERROR_KIND
 
 export type V5ParseResult =
   | { kind: 'response'; response: OlumiResponse }
-  | { kind: 'boundary_error'; error: BoundaryError }
+  | { kind: 'boundary_error'; error: BoundaryError; http_status?: number }
   | {
       kind: 'parse_error'
       reason: string
@@ -795,6 +795,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     if (asError.success) {
       return {
         kind: 'boundary_error',
+        http_status: res.status,
         error:
           Object.keys(errorSidecars).length > 0
             ? attachAdditiveSidecar(asError.data, { ...errorSidecars })

@@ -3795,7 +3795,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' || outcome.kind === 'typed_error' && outcome.conflictCategory === 'revision_conflict' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -5299,7 +5299,9 @@ export function useConversation(): UseConversationReturn {
         const conflictEnvelope = target.kind === 'typed_error'
           ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
           : undefined
-        const revisionConflict = extractConflictCategory(conflictEnvelope) === 'revision_conflict'
+        const conflictEnvelopeSource = target.kind === 'typed_error' && !target.boundaryError ? 'raw' : 'parsed'
+        const conflictCategory = extractConflictCategory(conflictEnvelope, v5Result.kind === 'response' ? undefined : v5Result.http_status, conflictEnvelopeSource)
+        const revisionConflict = conflictCategory === 'revision_conflict'
 
         // CANVAS UNDO JOURNAL (Undo/Redo S2, dark): record this turn's own
         // versioned write — or another writer's — so ⌘Z can later restore the
@@ -5370,7 +5372,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(conflictEnvelope),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5395,7 +5397,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(conflictEnvelope),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5423,7 +5425,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(conflictEnvelope),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5477,7 +5479,7 @@ export function useConversation(): UseConversationReturn {
           if (target.kind === 'typed_error') {
             resolveFailedOptimisticFactorEdit(
               optimisticEdit,
-              extractConflictCategory(conflictEnvelope),
+              conflictCategory,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
@@ -6440,6 +6442,8 @@ export function useConversation(): UseConversationReturn {
               target.code,
               retryable,
               conflictEnvelope,
+              v5Result.kind === 'response' ? undefined : v5Result.http_status,
+              conflictEnvelopeSource,
             )
             const reason = extractV5ErrorReason(target.boundaryError)
             const reasonLayer =
@@ -6461,7 +6465,7 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
             ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
             : []
           // System turns get NO transcript bubble — the failure propagates to
@@ -6499,8 +6503,8 @@ export function useConversation(): UseConversationReturn {
               // generic copy.
               {
                 ...(typeof target.code === 'string' ? { code: target.code } : {}),
-                ...(conflictEnvelope
-                  ? { conflictCategory: extractConflictCategory(conflictEnvelope) }
+                ...(conflictEnvelope && (conflictEnvelopeSource === 'parsed' || conflictCategory)
+                  ? { conflictCategory }
                   : {}),
                 // ⭐ `details.reason`, carried for the same reason as the
                 // category: the producer states a no-write on THIS field for
