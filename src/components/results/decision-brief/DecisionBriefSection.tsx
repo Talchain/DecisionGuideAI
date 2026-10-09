@@ -16,12 +16,13 @@ interface BriefGroupProps {
   icon: typeof CircleDot
   expanded: boolean
   testId: string
+  emptyResult?: boolean
 }
 
 const PREVIEW_ITEMS = 1
 
-function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupProps) {
-  if (items.length === 0) return null
+function BriefGroup({ title, items, icon: Icon, expanded, testId, emptyResult }: BriefGroupProps) {
+  if (items.length === 0 && !emptyResult) return null
   const visible = expanded ? items : items.slice(0, PREVIEW_ITEMS)
   const hiddenCount = items.length - PREVIEW_ITEMS
 
@@ -32,7 +33,7 @@ function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupPr
         <span>{title}</span>
       </dt>
       <dd className="mt-1.5 min-w-0">
-        <ul className="space-y-1" aria-label={title}>
+        {emptyResult ? <p className={typography.panelBody}>No result yet to attribute these to.</p> : <ul className="space-y-1" aria-label={title}>
           {visible.map((item, index) => (
             <li
               key={`${index}-${item}`}
@@ -42,7 +43,7 @@ function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupPr
               <span className="min-w-0 break-words whitespace-pre-wrap">{item}</span>
             </li>
           ))}
-        </ul>
+        </ul>}
         {!expanded && hiddenCount > 0 && (
           <p className={`${typography.panelMeta} mt-1 text-text-light`} aria-hidden="true">
             +{hiddenCount} more
@@ -55,6 +56,7 @@ function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupPr
 
 export interface DecisionBriefSectionProps {
   brief: DecisionBriefViewModel
+  hasOptionResult?: boolean
   /**
    * ⚠ THE PERMISSION, CONSUMED — NEVER DERIVED. This is `hasLeadingOption` from
    * `deriveDecisionVerdict`, "the single boolean every surface must gate on
@@ -103,6 +105,7 @@ export interface DecisionBriefSectionProps {
 /** Store-free presentation, exported for focused and adversarial tests. */
 export function DecisionBriefSection({
   brief,
+  hasOptionResult = true,
   leaderClaimPermitted,
   estimatedInterventions,
   noValueLabels,
@@ -124,9 +127,9 @@ export function DecisionBriefSection({
    * parsed and contract-guarded, it is simply already on screen one column left.
    */
   const groups = [
-    { title: 'What matters', items: brief.topDrivers.map(driver =>
+    { title: 'What matters', emptyResult: !hasOptionResult && brief.topDrivers.length > 0, items: hasOptionResult ? brief.topDrivers.map(driver =>
       noValueLabels?.has(driver.label.trim()) ? `${driver.label} · ${DRIVER_LINE_COPY.noValueYet}` : driver.label,
-    ), icon: CircleDot, testId: 'decision-brief-drivers' },
+    ) : [], icon: CircleDot, testId: 'decision-brief-drivers' },
     /**
      * ⭐ TWO SOURCES, ONE QUESTION. This group asks "what did Olumi supply that
      * you did not?" and it now has two honest answers:
@@ -156,7 +159,7 @@ export function DecisionBriefSection({
       testId: 'decision-brief-defaulted',
     },
     { title: 'What could change', items: brief.whatWouldChange, icon: GitBranch, testId: 'decision-brief-change' },
-  ].filter(group => group.items.length > 0)
+  ].filter(group => group.items.length > 0 || group.emptyResult)
 
   // A brief whose ONLY content is a caveat the verdict does not permit has
   // nothing to show. Returning the shell would frame an empty card as a finding.
@@ -192,7 +195,7 @@ export function DecisionBriefSection({
             Behind this result
           </h3>
           <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>
-            Top drivers, the values Olumi assumed, and what could change.
+            {hasOptionResult ? 'Top drivers, the values Olumi assumed, and what could change.' : 'The values Olumi assumed, and what could change.'}
           </p>
         </div>
       </div>
@@ -238,11 +241,12 @@ export function DecisionBriefSection({
  * the existing leader/hero authority.
  */
 export interface DecisionBriefSectionContainerProps {
+  hasOptionResult?: boolean
   /** See `DecisionBriefSectionProps.leaderClaimPermitted` — passed straight through. */
   leaderClaimPermitted: boolean
 }
 
-export function DecisionBriefSectionContainer({ leaderClaimPermitted }: DecisionBriefSectionContainerProps) {
+export function DecisionBriefSectionContainer({ leaderClaimPermitted, hasOptionResult }: DecisionBriefSectionContainerProps) {
   const rawBrief = useCanvasStore(state => (
     (state.results.report as { decision_brief?: unknown } | null | undefined)?.decision_brief
   ))
@@ -276,6 +280,7 @@ export function DecisionBriefSectionContainer({ leaderClaimPermitted }: Decision
   return (
     <DecisionBriefSection
       brief={brief}
+      hasOptionResult={hasOptionResult}
       leaderClaimPermitted={leaderClaimPermitted}
       estimatedInterventions={estimatedInterventions}
       noValueLabels={noValueLabels}

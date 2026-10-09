@@ -1020,6 +1020,7 @@ export interface SensitivitySection {
 }
 
 export interface AnalysisNewViewModel {
+  critiqueRunContext?: import('../utils/humaniseCritique').CritiqueRunContext
   /**
    * "What's changed" — the producer's run-over-run consequence for the analysis
    * on screen, or `null` when there is none to show.

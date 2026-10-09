@@ -1,3 +1,4 @@
+import { critiqueRunContext } from './utils/critiqueRunContext'
 import { useSwitchFactorNodes } from '../../canvas/hooks/useSwitchFactorNodes'
 /**
  * useResultsSectionData Hook
@@ -2082,6 +2083,8 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
   const recommendation = useMemo<DecisionResultData>(() => {
     if (!hasCompletedFirstRun || !report) {
       return {
+        hasOptionResult: false,
+        rankedComparisonPopulation: 0,
         recommendedOption: null,
         allOptions: [],
         goalLabel,
@@ -2841,6 +2844,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
       // can report: both are rebuilt from the CURRENT option nodes, so a deletion
       // makes them say "this run ranked nothing" about a report that ranked two.
+      hasOptionResult: runAnalysedAny,
       rankedComparisonPopulation,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
@@ -4082,7 +4086,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
     const humanisedCritiques = plotCritiques.map(item => ({
       code: item.code,
-      ...humaniseCritique(item, nodeLabelMap),
+      ...humaniseCritique(item, nodeLabelMap, critiqueRunContext(winSharesAreWithheld, recommendation.rankedComparisonPopulation ?? 0)),
     }))
 
     return {
@@ -4105,6 +4109,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
       // P0.1: Humanised critiques for attention banner
       humanisedCritiques,
+      critiqueRunContext: critiqueRunContext(winSharesAreWithheld, recommendation.rankedComparisonPopulation ?? 0),
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
       // ⭐ THE PRODUCER'S SILENCE IS A THIRD STATE, AND IT USED TO BE
@@ -4675,7 +4680,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // decide from ONE adapted array. Listing it is a correctness dependency,
     // not lint appeasement: with a stale closure the CX5 suppression would be
     // computed from the previous run's flip evidence.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable, winSharesAreWithheld])
 
   /**
    * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.
