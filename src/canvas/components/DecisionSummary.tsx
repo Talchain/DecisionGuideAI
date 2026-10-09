@@ -1,3 +1,6 @@
+import { goalProbabilityDetails } from '../../components/results/utils/selectGoalProbability'
+import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 /**
  * DecisionSummary - Core decision synthesis card
  *
@@ -26,16 +29,12 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import {
-  selectGoalProbability,
-  type GoalProbabilityInput,
-} from '../../components/results/utils/selectGoalProbability'
+import { runViewOf, type OptionChanceCell } from '../runView/runView'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import { type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
-import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
 import { getPrecisionDisplay } from '../../lib/precisionDisplay'
@@ -61,25 +60,10 @@ export interface RankingData {
 }
 
 interface GoalProbabilityData {
-  /** Probability of achieving the goal (0-1) */
-  probability: number
-  /** Confidence in the estimate (0-1) */
+  /** RunView's words for this option, including a withheld cell. */
+  cell: OptionChanceCell
   confidence: number
-  /** Goal node label */
-  goalLabel: string
-  /** Probability this option wins vs others (0-1) */
   winProbability?: number
-  /** Success threshold (when provided by user) */
-  threshold?: number
-  /**
-   * ROADMAP 2.283 — the possessive gate, same basis and same register as the
-   * six surfaces #556 gated and the seventh (GoalNode) gated here.
-   * True ⇔ `selectGoalProbability(...).basis === 'joint_goal_substituted'`,
-   * i.e. the number is P(all constraints jointly satisfied) STANDING IN for an
-   * absent `probability_of_goal`, so "chance of reaching X for YOUR GOAL"
-   * names a question it does not answer.
-   */
-  isSubstitutedJoint: boolean
 }
 
 /** P0.5: Comparative delta between options */
@@ -160,6 +144,8 @@ export function DecisionSummary({
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
   const nodes = useCanvasStore((s) => s.nodes)
+  const scenarioId = useCanvasStore(state => state.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(state => state.scenarioId === scenarioId ? state.view : null)
   const edges = useCanvasStore((s) => s.edges)
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
   const goalThreshold = useCanvasStore((s) => s.goalThreshold)
@@ -280,42 +266,21 @@ export function DecisionSummary({
     // Updated to use store values for goal node info
     let goalProbability: GoalProbabilityData | null = null
     if (report.option_probabilities && outcomeNodeId) {
-      // Get goal node label from canvas
-      const goalNode = nodes.find(n => n.id === outcomeNodeId)
-      const goalLabel = (goalNode?.data as { label?: string })?.label || 'your goal'
-
       // Find the first option node to get its probability
       const optionNodesList = nodes.filter(n => (n.data as any)?.kind === 'option')
       const currentOptionId = optionNodesList[0]?.id
       if (currentOptionId && report.option_probabilities[currentOptionId]) {
         const prob = report.option_probabilities[currentOptionId]
-        // GOAL-PROBABILITY IDENTITY: read the chosen claim, never re-derive it.
-        // This site used to take `prob.goal_probability` with NO joint fallback
-        // — the exact shape #496 repaired elsewhere — so on a run whose goal
-        // threshold ISL auto-derived (goal_probability absent,
-        // probability_of_joint_goal present) this card rendered `NaN%` while
-        // OptionCards, the hero and GoalNode rendered the joint figure. One
-        // chooser, and it is not this file.
-        const decision = selectGoalProbability(prob as GoalProbabilityInput)
-        goalProbability =
-          decision.goalProbability !== null
-            ? {
-                probability: decision.goalProbability,
-                confidence: prob.confidence,
-                goalLabel,
-                winProbability: prob.win_probability,
-                threshold: goalThreshold ?? undefined,
-                // Read off the same decision the number came from — never
-                // re-derived, and never inferred from the value.
-                //
-                // ⭐ L62: reads the owner's published PERMISSION rather than a
-                // basis literal. Since the substitution is now withheld
-                // outright (no number on that basis), every number that
-                // reaches this branch earns the possessive and this is false —
-                // by construction, not by assertion.
-                isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
-              }
-            : null
+        const view = runViewOf(report, canonical)
+        const cell = view.chanceCellOf(currentOptionId, {
+          goalChanceHeroSays: view.goalChance !== null,
+          goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message,
+          goalCertaintyUnearned: goalProbabilityDetails(prob).goalCertaintyUnearned,
+          labelOf: id => (nodes.find(n => n.id === id)?.data as { label?: string } | undefined)?.label ?? null,
+        })
+        goalProbability = cell.kind === 'none' ? null : {
+          cell, confidence: prob.confidence, winProbability: prob.win_probability,
+        }
       }
     }
 
@@ -341,7 +306,7 @@ export function DecisionSummary({
       goalProbability,
       precisionDisplay, // P0.2: Precision-aware display
     }
-  }, [report, runMeta, baseline, goalDirection, nodes, outcomeNodeId, goalThreshold])
+  }, [report, canonical, runMeta, baseline, goalDirection, nodes, outcomeNodeId, goalThreshold])
 
   // Don't render if no results
   if (!summaryData) {
@@ -438,19 +403,8 @@ export function DecisionSummary({
         {summaryData.goalProbability && (
           <div className="space-y-1 mb-2">
             <p className={`${typography.bodySmall} text-ink-600`}>
-              {/* ROADMAP 2.283 — THE POSSESSIVE GATE. Under substitution BOTH
-                  permitted arms below name the user's goal ("… for {goal}",
-                  "achieving {goal}") over a number that is not a goal
-                  probability, so the whole sentence is replaced by the shared
-                  register's phrase form — the same wording seven sibling
-                  surfaces render for this basis. No copy invented here; the
-                  permitted arms are byte-identical to what they replaced. */}
-              {/* AIQ #72 5885116642: the register's model-run sentence on both arms — never "N% chance of reaching…". */}
-              {GOAL_ANCHOR_COPY.sentence(
-                wholePercentBelowCertain(summaryData.goalProbability.probability),
-                summaryData.goalProbability.isSubstitutedJoint === true,
-              )}
-              {summaryData.goalProbability.confidence < 0.7 && (
+              {summaryData.goalProbability.cell.text}
+              {summaryData.goalProbability.cell.kind === 'figure' && summaryData.goalProbability.confidence < 0.7 && (
                 <span className={`ml-2 ${typography.caption} text-banana-600`}>
                   (low confidence)
                 </span>

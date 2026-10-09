@@ -1,3 +1,4 @@
+import { runViewOf } from '../../runView/runView'
 /**
  * The decision brief builder, driven by SERVED scenario-graph reads (byte-for-byte captures already in this repo,
  * `canvas/hydrate/__tests__/fixtures/`), parsed by the REAL `fetchScenarioGraph` — never a hand-built read.
@@ -59,15 +60,10 @@ describe('buildDecisionBrief — a current Run (served 520aab46)', () => {
     expect(brief.version.shortVersion).toBe('45019418')
   })
 
-  it('gives each option its chance of meeting your goal, in this model, bound by option id', async () => {
+  it('an unlicensed saved Run keeps the once-only no-figure shape', async () => {
     const brief = buildDecisionBrief(await readOf(currentRead))
-
-    expect(brief.chances.map((c) => c.optionId)).toEqual(['raise_to_59', 'keep_49_price', 'raise_to_54'])
-    for (const c of brief.chances) {
-      if (c.chanceText !== null) expect(c.chanceText).toMatch(/^(About|Less than|More than) \d+(\.\d+)?% chance of meeting your goal, in this model$/)
-      else expect(c.withheldText).toBeTruthy()
-    }
-    expect(brief.chances.some((c) => c.chanceText !== null)).toBe(true)
+    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
     expect(brief.drivers.length).toBeGreaterThan(0)
   })
 
@@ -164,17 +160,79 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
     expect(decisionBriefToText(brief)).not.toMatch(/chance of meeting your goal/)
   })
 
-  it('CONTRAST: the same Run with the two withheld options taken out (not in the Run) → the earned figure is shown', async () => {
+  it('CONTRAST: taking out withheld options does not license the remaining raw figure', async () => {
     const body = JSON.parse(JSON.stringify(unearnedRead))
     const out = new Set(['raise_price_to_59', 'raise_price_to_54'])
     const enrichment = body.analysis_result.enrichment
     enrichment.option_comparison = enrichment.option_comparison.filter((o: { option_id: string }) => !out.has(o.option_id))
-    body.analysis_result.win_probabilities = { 'Keep current price': body.analysis_result.win_probabilities['Keep current price'] }
+    const probabilities: Record<string, number> = body.analysis_result.win_probabilities
+    for (const label of Object.keys(probabilities)) if (label !== 'Keep current price') delete probabilities[label]
     body.analysis_goal_certainty = body.analysis_goal_certainty.filter((g: { option_id: string }) => !out.has(g.option_id))
     const brief = buildDecisionBrief(await readOf(body))
     expect(brief.run.status).toBe('current')
-    expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/chance of meeting your goal, in this model$/)
-    for (const id of out) expect(brief.chances.find((c) => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
+    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+  })
+})
+
+describe('buildDecisionBrief — licensed complete-field controls', () => {
+  it('a complete licensed field retains every option in producer order with its card words', async () => {
+    const body = structuredClone(currentRead)
+    body.analysis_result.enrichment.inference_warnings.push({
+      code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
+      target: { comparator: 'at_least', value: 100, unit: 'GBP' },
+      option_ids: ['raise_to_59', 'keep_49_price', 'raise_to_54'],
+      pct_by_option: { raise_to_59: 17, keep_49_price: 18, raise_to_54: 19 },
+    } as never)
+    const read = await readOf(body)
+    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never))
+    const brief = buildDecisionBrief(read)
+    expect(brief.chances.map((c) => c.optionId)).toEqual(['raise_to_59', 'keep_49_price', 'raise_to_54'])
+    for (const c of brief.chances) {
+      const cell = view.chanceCellOf(c.optionId, { goalChanceHeroSays: true, labelOf: id => body.graph.nodes.find(n => n.id === id)?.label ?? null })
+      expect(c.chanceText).toBe(cell.text)
+      expect(c.withheldText).toBeNull()
+    }
+    expect(brief.chancesNote).toBeNull()
+  })
+
+  it('an earned licensed figure is not shown alone beside compared unearned options', async () => {
+    const body = structuredClone(unearnedRead)
+    body.analysis_result.enrichment.inference_warnings.push({
+      code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
+      target: { comparator: 'at_least', value: 100, unit: 'GBP' },
+      option_ids: ['keep_current_price', 'raise_price_to_59', 'raise_price_to_54'],
+      pct_by_option: { keep_current_price: 17 }, withheld_option_ids: ['raise_price_to_59', 'raise_price_to_54'],
+    } as never)
+    const read = await readOf(body)
+    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never))
+    expect(view.chanceOf('keep_current_price')).toMatchObject({ kind: 'figure', pct: 17 })
+    const brief = buildDecisionBrief(read)
+    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+    expect(brief.withheld.filter(w => w.id.startsWith('goal:certainty:'))).toHaveLength(2)
+  })
+
+  it('taken-out options do not suppress the remaining licensed option', async () => {
+    const body = structuredClone(unearnedRead)
+    const out = new Set(['raise_price_to_59', 'raise_price_to_54'])
+    body.analysis_result.enrichment.option_comparison = body.analysis_result.enrichment.option_comparison.filter(o => !out.has(o.option_id))
+    const probabilities: Record<string, number> = body.analysis_result.win_probabilities
+    for (const label of Object.keys(probabilities)) if (label !== 'Keep current price') delete probabilities[label]
+    body.analysis_goal_certainty = body.analysis_goal_certainty.filter(g => !out.has(g.option_id))
+    body.analysis_result.enrichment.inference_warnings.push({
+      code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
+      target: { comparator: 'at_least', value: 100, unit: 'GBP' },
+      option_ids: ['keep_current_price', 's1_control_option'], pct_by_option: { keep_current_price: 17, s1_control_option: 0 },
+    } as never)
+    const read = await readOf(body)
+    const report = mapV5AnalysisToReport(read.analysisResult as never)
+    const cell = runViewOf(report).chanceCellOf('keep_current_price', { goalChanceHeroSays: true, labelOf: id => body.graph.nodes.find(n => n.id === id)?.label ?? null })
+    const brief = buildDecisionBrief(read)
+    expect(cell.kind).toBe('figure')
+    expect(brief.chances.find(c => c.optionId === 'keep_current_price')?.chanceText).toBe(cell.text)
+    expect(brief.chances.find(c => c.optionId === 'keep_current_price')?.withheldText).toBeNull()
+    for (const id of out) expect(brief.chances.find(c => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
     expect(brief.chancesNote).toBeNull()
   })
 })
