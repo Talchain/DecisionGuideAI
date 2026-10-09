@@ -1240,7 +1240,7 @@ export const GoalNode = memo((props: NodeProps) => {
           />
         )}
         {showAchievementReadout && displayMetadata.achievementProbability === null && (
-          <p className={`${typography.panelMeta} text-text-light mt-0.5 m-0`}>
+          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
             {achievementReadout}
           </p>
         )}

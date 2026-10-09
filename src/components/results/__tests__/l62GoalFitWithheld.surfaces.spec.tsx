@@ -85,7 +85,7 @@ describe('L62 / Model tab goal card (buildGoalFitRows)', () => {
     })
   }
 
-  it('POSITIVE CONTROL: an honest goal probability still produces one row per option, bound by id', () => {
+  it('raw goal probabilities without a licence produce withheld rows, bound by id', () => {
     const honest = (L60_PRICING_OPTIONS as readonly ProducerOption[]).map((o, i) => ({
       ...o,
       probability_of_goal: 0.12 + i * 0.17,
@@ -94,15 +94,14 @@ describe('L62 / Model tab goal card (buildGoalFitRows)', () => {
 
     expect(rows).not.toBeNull()
     expect(rows).toHaveLength(honest.length)
-    for (const [i, o] of honest.entries()) {
+    for (const o of honest) {
       // IDENTITY-bound: the row for THIS option, found by id, carries THIS
       // option's probability. A `rows.find(r => r.probability === x)` would
       // pass on a builder that scrambled the pairing.
       const row = rows!.find((r) => r.id === o.id)
       expect(row, o.id).toBeDefined()
-      expect(row!.probability).toBe(0.12 + i * 0.17)
-      // And it is NOT flagged as a withheld/substituted voice: the possessive
-      // is earned here.
+      expect(row!.probability).toBeNull()
+      expect(row!.chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
       expect(row!.isSubstitutedJoint, o.id).toBe(false)
     }
   })

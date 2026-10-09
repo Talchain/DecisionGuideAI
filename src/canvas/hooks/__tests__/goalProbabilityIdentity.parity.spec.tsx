@@ -194,27 +194,29 @@ describe('goal-probability identity — the two consumers agree', () => {
     expect(decision.goalFitIsModelledBasis).toBe(false)
   })
 
-  it('the canvas consumer returns the SAME value as the results-panel selector', () => {
+  it('the canvas withholds the raw selector value without a chance licence', () => {
     const decision = selectGoalProbability(CONSTRAINED_RECORD)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
-    expect(result.current.achievementProbability).toBe(decision.goalProbability)
+    expect(decision.goalProbability).toBe(0.37)
+    expect(result.current.achievementProbability).toBeNull()
   })
 
-  it('the canvas consumer returns the SAME provenance caveat as the results-panel selector', () => {
+  it('the canvas withholds the display caveat beside an unlicensed figure', () => {
     const decision = selectGoalProbability(CONSTRAINED_RECORD)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
     expect(result.current.achievementProbabilityIsModelledBasis).toBe(
       decision.goalFitIsModelledBasis,
     )
-    expect(result.current.achievementProbabilityBaseCaveat).toBe(decision.goalFitBaseCaveat)
+    expect(decision.goalFitBaseCaveat).toBe('olumi_estimate')
+    expect(result.current.achievementProbabilityBaseCaveat).toBeNull()
   })
 
-  it('agrees on the control run too (the true goal quantity is present)', () => {
+  it('withholds the control run too when the true goal quantity has no licence', () => {
     useStore(GOAL_QUANTITY_RECORD)
     const decision = selectGoalProbability(GOAL_QUANTITY_RECORD)
     expect(decision.goalProbability).toBe(0.41)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
-    expect(result.current.achievementProbability).toBe(decision.goalProbability)
+    expect(result.current.achievementProbability).toBeNull()
     expect(result.current.achievementProbabilityIsModelledBasis).toBe(
       decision.goalFitIsModelledBasis,
     )
@@ -323,16 +325,15 @@ describe('goal-probability identity — the rendered canvas text matches the dec
   })
 
   // 29 Sep 2026 (AIQ 5882498938): the goal figure's caveat is its base (ISL #207); the joint modelled caveat never rides it.
-  it('GoalNode carries the provenance caveat the results panel carries', () => {
+  it('GoalNode shows no unlicensed figure or accompanying provenance caveat', () => {
     const decision = selectGoalProbability(CONSTRAINED_RECORD)
     const { container } = renderGoalNode()
-    expect(screen.getByTestId('goal-fit-base-caveat-node')).toHaveTextContent(
-      goalFitBaseCaveatCopy(decision.goalFitBaseCaveat) as string,
-    )
+    expect(screen.queryByTestId('goal-fit-base-caveat-node')).toBeNull()
+    expect(container.textContent ?? '').not.toContain(goalFitBaseCaveatCopy(decision.goalFitBaseCaveat) as string)
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
     expect(container.textContent ?? '').not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
-    // The node states the goal figure, never the joint one.
-    expect(container.textContent ?? '').toContain('37%')
+    // Neither raw figure is licensed for display in this fixture.
+    expect(container.textContent ?? '').not.toContain('37%')
     expect(container.textContent ?? '').not.toContain('62%')
   })
 

@@ -146,11 +146,16 @@ describe('option card headline is the Results chance cell', () => {
     else expect(caveat).toBeNull()
   })
 
-  it.each(['withheld', 'unlicensed', 'range'] as const)('%s: carries Results basis metadata but shows no figure caveat', kind => {
+  it.each(['withheld', 'unlicensed', 'range'] as const)('%s: retains licensed basis metadata but shows no figure caveat', kind => {
     seed(kind)
     setGoalBasis()
     const data = renderHook(() => useResultsSectionData()).result.current
-    expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBe('olumi_estimate')
+    if (kind === 'unlicensed') {
+      // No GOAL_CHANCE licence or canonical figure is installed by this fixture.
+      expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBeNull()
+    } else {
+      expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBe('olumi_estimate')
+    }
     card()
     expect(screen.queryByTestId(`goal-fit-base-caveat-option-node-${ID}`)).toBeNull()
     expect(screen.queryByTestId(`goal-fit-basis-caveat-option-node-${ID}`)).toBeNull()

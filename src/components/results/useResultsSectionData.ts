@@ -2301,7 +2301,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       const goalProbability = chance.kind === 'figure' ? chance.pct / 100 : null
       const details = goalProbabilityDetails(prob as GoalProbabilityInput)
       const goalFitIsModelledBasis = false
-      const goalFitBaseCaveat = goalProbability === null ? null : details.baseCaveat
+      // A licensed withholding retains its basis metadata without licensing a figure.
+      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence')
+        ? details.baseCaveat : null
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
