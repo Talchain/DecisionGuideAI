@@ -5,6 +5,7 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
+import type { OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import type { ProvisionalView } from './provisionalView'
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
@@ -23,6 +24,8 @@ export interface ConversationMessage {
   content: string
   blocks?: ConversationBlock[]
   actionChips?: ActionChip[]
+  /** Validated server refusal; controls retry affordances on this message. */
+  ownershipRefusal?: OwnershipRefusalReason
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
