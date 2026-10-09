@@ -9,7 +9,7 @@
  * new view without any extra writer).
  *
  * Chance cell text comes only from CEE's matching canonical READ or TURN projection.
- * Missing authority leaves the existing surface empty-cell behaviour.
+ * Eligible options without matching authority show the ACKed static absence face.
  *
  * Pure: no store reads. Formatters read only this view.
  */
@@ -19,6 +19,9 @@ import { readGoalChanceRange, type GoalChanceRange } from '../../components/resu
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
 import { goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
+
+/** CEE 1c's ACKed withheld face; DL 87114: static absence, never a derived reason. */
+export const CHANCE_NOT_SHOWN_YET = 'Chance not shown yet'
 
 export type OptionChance =
   /** CEE's licensed figure: `pct` is CEE's whole percent; `words` its display ("about 7%", "less than 1%"). */
@@ -40,6 +43,7 @@ export interface OptionChanceCellContext {
   readonly goalFiguresWithheldMessage?: string | null
   readonly goalCertaintyUnearned?: { readonly say: string | null } | null
   /** Legacy context retained for callers; canonical cell text does not depend on it. */
+  readonly hasGoalTarget?: boolean
   readonly notAnalysed?: boolean
   readonly notAnalysedMessage?: string | null
   readonly labelOf: (optionId: string) => string | null
@@ -109,10 +113,21 @@ export function licensedOptionChanceLines(...args: Parameters<typeof goalChanceO
   return goalChanceOptionLines(...args)
 }
 
-/** Chance cell text is exclusively the matching producer projection. */
-export function optionChanceCell(view: RunView, optionId: string, _ctx: OptionChanceCellContext): OptionChanceCell {
+/** Producer cell text, or the static DL 87114 absence state for an eligible held Run. */
+export function optionChanceCell(view: RunView, optionId: string, ctx: OptionChanceCellContext): OptionChanceCell {
   const canonical = canonicalByView.get(view)
-  if (!canonical || canonical.staleness.stale === null) return NO_CELL
+  if (!canonical) {
+    // Existing per-option Run classification: a licence or held goal figures, never a derived chance.
+    const hasTarget = ctx.hasGoalTarget ?? (view.goalChance !== null)
+    const eligible = view.chanceOf(optionId).kind !== 'none'
+      || view.goalChance?.optionIds.includes(optionId) === true
+      || (view.goalChanceRange !== null && Object.prototype.hasOwnProperty.call(view.goalChanceRange.rangeByOption, optionId))
+    if (hasTarget && ctx.notAnalysed !== true && eligible) {
+      return { kind: 'withheld', text: CHANCE_NOT_SHOWN_YET }
+    }
+    return NO_CELL
+  }
+  if (canonical.staleness.stale === null) return NO_CELL
   if (canonical.staleness.stale === true && canonical.run !== null) {
     return canonical.face_when_stale === undefined ? NO_CELL : { kind: 'withheld', text: canonical.face_when_stale }
   }

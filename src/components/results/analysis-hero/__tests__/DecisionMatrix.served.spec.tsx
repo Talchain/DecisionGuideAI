@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
+import { CHANCE_NOT_SHOWN_YET } from '../../../../canvas/runView/runView'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
@@ -157,9 +158,10 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     open()
     for (const id of QUOTED_ORDER) {
       const cell = screen.getByTestId(`decision-matrix-chance-${id}`).textContent!
-      expect(cell).toBe('Not shown.')
+      expect(cell).toBe(CHANCE_NOT_SHOWN_YET)
       expect(cell).not.toContain(TEST_RUN_AGAIN_COPY)
-      expect(cell).not.toMatch(/\d+(?:\.\d+)?%/)
+      expect(cell).not.toMatch(/\d+%/)
+      expect(cell).not.toContain('Why?')
     }
   })
 

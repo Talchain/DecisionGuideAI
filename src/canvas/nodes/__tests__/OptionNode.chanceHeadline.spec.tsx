@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../runView/runView'
 import { canonicalTestCellsOf } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -96,14 +97,10 @@ describe('option card headline is the Results chance cell', () => {
     const expected = matrixText()
     if (kind === 'figure') expect(expected.toLowerCase()).toContain(GOAL_ANCHOR_COPY.readout('41%', false).toLowerCase())
     if (kind === 'withheld') expect(expected).toContain(TEST_WITHHELD_FACE)
-    if (kind === 'unlicensed') expect(expected).toBe('Not shown.')
+    if (kind === 'unlicensed') expect(expected).toBe(CHANCE_NOT_SHOWN_YET)
     if (kind === 'range') expect(expected).toContain('chance of meeting your goal')
     const { container } = card()
-    if (kind === 'unlicensed') {
-      expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
-      expect(container.textContent).not.toContain(TEST_RUN_AGAIN_COPY)
-      return
-    }
+    if (kind === 'unlicensed') expect(container.textContent).not.toContain(TEST_RUN_AGAIN_COPY)
     const row = screen.getByTestId(`option-analysis-currency-${ID}`)
     expect(row.textContent).toContain(expected)
     expect(row.getAttribute('aria-label')).toContain(expected)

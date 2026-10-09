@@ -15,6 +15,7 @@ export function optionChanceCellFromResults(data: ResultsSectionDataReturn, opti
   const view = data.runView ?? { ...runViewOf(null), goalChance: data.goalChanceLicence ?? null, goalChanceRange: data.goalChanceRange ?? null }
   const context = {
     goalChanceHeroSays: goalChanceHeroSays(rec.goalThreshold, rec.allOptions, data.goalChanceLicence ?? null),
+    hasGoalTarget: rec.hasGoalTarget ?? rec.goalThreshold != null,
     goalFiguresWithheldMessage: rec.goalFiguresWithheldMessage,
     goalCertaintyUnearned: option?.goalCertaintyUnearned,
     notAnalysed: option?.notAnalysed,

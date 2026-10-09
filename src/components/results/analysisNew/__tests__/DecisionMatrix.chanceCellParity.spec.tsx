@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library
 import { useCanvasStore } from '../../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import * as runView from '../../../../canvas/runView/runView'
+import { CHANCE_NOT_SHOWN_YET } from '../../../../canvas/runView/runView'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { stripEncodingNotation } from '../../utils/cleanFactorLabel'
 import { goalChanceHeroSays, readGoalChanceLicence } from '../../utils/goalChanceLicence'
@@ -126,6 +127,7 @@ describe('DecisionMatrix chance cells share RunView authority over the served fi
     for (const option of rec.allOptions) {
       const cell = data.runView!.chanceCellOf(option.id, {
         goalChanceHeroSays: goalChanceHeroSays(rec.goalThreshold, rec.allOptions, data.goalChanceLicence ?? null),
+        hasGoalTarget: rec.hasGoalTarget ?? rec.goalThreshold != null,
         goalFiguresWithheldMessage: rec.goalFiguresWithheldMessage,
         goalCertaintyUnearned: option.goalCertaintyUnearned,
         notAnalysed: option.notAnalysed,
@@ -143,7 +145,7 @@ describe('DecisionMatrix chance cells share RunView authority over the served fi
     if (none) expect(sawNone).toBe(true)
   })
 
-  it.each(['point', 'stated-time range'] as const)('existing share-by-date %s fixture: has no client chance words without a supplied view', (kind) => {
+  it.each(['point', 'stated-time range'] as const)('licensed share-by-date %s fixture without a supplied view: the static absence face, never client chance words', (kind) => {
     const target = { comparator: 'at_least', value: 100, unit: '% of the feature launch', by_date: '2027-04-07' }
     const warnings = kind === 'point' ? [{
       code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['a', 'b'], pct_by_option: { a: 62, b: 41 }, target,
@@ -166,10 +168,12 @@ describe('DecisionMatrix chance cells share RunView authority over the served fi
     const labelOf = (id: string) => options.find((option) => option.id === id)?.label ?? null
     for (const option of options) {
       const cell = runView.optionChanceCell(view, option.id, {
-        goalChanceHeroSays: goalChanceHeroSays(100, options, licence), labelOf,
+        goalChanceHeroSays: goalChanceHeroSays(100, options, licence), hasGoalTarget: true, labelOf,
       })
       expect(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent).toBe(cell.text ?? 'Not shown.')
     }
-    expect(screen.getByTestId('decision-matrix-chance-a').querySelector('span')!.textContent).toBe('Not shown.')
+    const face = screen.getByTestId('decision-matrix-chance-a').querySelector('span')!.textContent
+    expect(face).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face).not.toMatch(/\d+%/)
   })
 })

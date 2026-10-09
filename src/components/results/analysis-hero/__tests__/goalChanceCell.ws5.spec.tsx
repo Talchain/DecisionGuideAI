@@ -5,7 +5,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
 import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../../../canvas/store'
-import { buildRunView } from '../../../../canvas/runView/runView'
+import { buildRunView, CHANCE_NOT_SHOWN_YET } from '../../../../canvas/runView/runView'
 const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
 
 import { chanceCellOf, withChanceReport } from './helpers/chanceCellOf'
@@ -39,9 +39,11 @@ function seed(kind: 'figure' | 'range' | 'withheld' | 'no-licence') {
     option_probabilities: Object.fromEntries(IDS.map(id => [id, { win_probability: 0.3, ...(kind === 'no-licence' ? { goal_probability: 0.41 } : {}) }])),
     inference_warnings: kind === 'no-licence' ? [] : [licence, ...(kind === 'range' ? [range] : [])],
   } }, ceeAnalysisReady: { ...s.ceeAnalysisReady, goal_threshold_raw: 1200000, goal_threshold_unit: '£' } } as never)
-  return withChanceReport(renderHook(() => useResultsSectionData()).result.current, useCanvasStore.getState().results.report)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  // This no-licence control deliberately has no canonical authority.
+  return kind === 'no-licence' ? data : withChanceReport(data, useCanvasStore.getState().results.report)
 }
-const ctx = (data: ReturnType<typeof seed>) => ({ goalChanceHeroSays: goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, data.goalChanceLicence ?? null),
+const ctx = (data: ReturnType<typeof seed>) => ({ hasGoalTarget: data.recommendation.hasGoalTarget ?? data.recommendation.goalThreshold != null, goalChanceHeroSays: goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, data.goalChanceLicence ?? null),
   labelOf: (id: string) => data.recommendation.allOptions.find(o => o.id === id)?.label ?? null,
   rangeLabelOf: data.goalChanceDriverNames!.labelOf })
 function parity(data: ReturnType<typeof seed>, expected?: string) {
@@ -79,18 +81,18 @@ describe('WS5 hero chance truth', () => {
     expect(m.rows.find(r => r.id === X)!.goal.readout).toContain(TEST_WITHHELD_FACE)
   })
   it('H3 figure parity', () => parity(seed('figure')))
-  it('goal figures without a licence keep the lens available with RunView’s Run-again cells', () => {
+  it('goal figures without a licence keep the lens available with the static absence face', () => {
     const data = seed('no-licence')
     const m = parity(data)
     for (const row of m.rows) {
       const cardCell = chanceCellOf(data, row.id)
-      expect(cardCell).toEqual({ kind: 'none', text: null })
-      expect(row.goal.readout).toBe(HERO_COPY.readout.missing)
+      expect(cardCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+      expect(row.goal.readout).toBe(CHANCE_NOT_SHOWN_YET)
       const node = useCanvasStore.getState().nodes.find(n => n.id === row.id)!
       const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.queryByTestId(`option-win-readout-${row.id}`)).toBeNull()
+      expect(screen.getByTestId(`option-win-readout-${row.id}`).textContent).toBe(CHANCE_NOT_SHOWN_YET)
       card.unmount()
     }
   })
