@@ -7,6 +7,22 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
+### `xlsx-0.20.3.tgz` (SheetJS, for "Add a document", ROADMAP 3.8)
+
+The ONE vendored tarball that is not `@talchain/schemas`. SheetJS stopped publishing to npm at 0.18.5 (which fails
+`pnpm audit`); 0.20.3 is distributed only from `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`. Vendored so the
+install no longer depends on that CDN and the bytes are pinned. Downloaded 8 Oct 2026; its unpacked contents are
+identical to the package previously installed from the CDN URL. **2,409,319 bytes.**
+
+```
+integrity (sha512) sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA==   (pnpm-lock.yaml)
+sha256             8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8   (the .sha256 sidecar, checked by check:vendor)
+```
+
+The file: allowlists in `scripts/validate-prepush.sh`, `scripts/pre-push-validate.sh` and the CI schema contract gate
+permit exactly `xlsx-<semver>.tgz` besides the schemas pin. Still outside `pnpm audit`: watch SheetJS advisories by hand.
+
+
 ### `talchain-schemas-0.81.0.tgz` ← **THE CURRENT PIN** (7 Oct 2026, Compare-chance chain: READER first; DL #87 6035414740)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from

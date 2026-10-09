@@ -168,7 +168,9 @@ jobs:
           set -euo pipefail
           echo "Checking schema dependency contract..."
 
-          ALLOWED_PIN_RE='"@talchain/schemas": "file:\./vendor/talchain-schemas-[0-9]+\.[0-9]+\.[0-9]+\.tgz"'
+          # The one other permitted file: pin is vendored SheetJS (not on npm
+          # past 0.18.5); check:vendor asserts its bytes against its .sha256.
+          ALLOWED_PIN_RE='"(@talchain/schemas": "file:\./vendor/talchain-schemas|xlsx": "file:\./vendor/xlsx)-[0-9]+\.[0-9]+\.[0-9]+\.tgz"'
 
           # 1. The ONLY file: reference permitted anywhere in package.json is
           #    the vendored @talchain/schemas pin (exact anchored shape above).
