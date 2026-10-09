@@ -1,5 +1,6 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
 import { askAiStage } from './askAi'
+import { createRefusedGraphRefresh } from './refusedGraphRefresh'
 import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
@@ -2609,6 +2610,8 @@ export class SystemEventSendError extends Error {
    * deferral queue asks it for exactly that (`flushDeferredSystemSends`).
    */
   readonly retryable?: boolean
+  /** Recovery wake-up after a carrier has completed its refusal rollback/copy. Never wire data. */
+  onRefusedGraphSettled?: () => void
   constructor(
     kind: 'transport' | 'server',
     options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean },
@@ -3237,6 +3240,23 @@ export function useConversation(): UseConversationReturn {
     })
   }, [])
 
+  const refusedGraphRefreshRef = useRef<ReturnType<typeof createRefusedGraphRefresh> | null>(null)
+  useEffect(() => {
+    const refresh = createRefusedGraphRefresh({
+      hasPendingTurn: () => inFlightRef.current || inFlightOptimisticFactorEditRef.current !== null ||
+        deferredSystemSendsRef.current.some(entry => entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          isModelChangingSystemEvent(entry.opts.systemEvent?.type)),
+      identity: () => withSessionReadTimeout(getSessionIdentity()),
+      onFailure: () => addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true,
+        content: "The latest state couldn't be refreshed.", timestamp: new Date() }),
+    })
+    refusedGraphRefreshRef.current = refresh
+    return () => {
+      refresh.dispose()
+      if (refusedGraphRefreshRef.current === refresh) refusedGraphRefreshRef.current = null
+    }
+  }, [addMessage])
+
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the lasting line. When the boot read took
   // elements off the canvas because the saved model lacks them, the hydration
   // path records a scenario-keyed notice (`reloadDifferenceStore`); this appends
@@ -3863,6 +3883,12 @@ export function useConversation(): UseConversationReturn {
       let notice: OptimisticFactorEditNoticeKey
 
       if (isProvenNoWriteConflict(conflictCategory)) {
+        // A newer queued edit may request the SAME number. Value equality alone
+        // cannot license A's rollback over that distinct optimistic gesture.
+        if (deferredSystemSendsRef.current.some(entry =>
+          entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          entry.opts.optimisticFactorEdit !== edit && entry.opts.optimisticFactorEdit?.nodeId === edit.nodeId,
+        )) return
         const revertOutcome = revertOptimisticFactorEdit(edit)
         // The copy promises the previous value is back. If the revert stood
         // down — the node is gone, or a newer edit moved the value on — that
@@ -4632,6 +4658,7 @@ export function useConversation(): UseConversationReturn {
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      const graphOpeningAtDispatch = refusedGraphRefreshRef.current?.captureOpening()
       const editNoteBeforeState = useCanvasStore.getState()
       const editNoteRevision = opts.editNoteRevision ?? currentManualEditRevision()
       // Factor/rename gestures are already optimistic; their existing intents carry the actual preimage.
@@ -6522,6 +6549,14 @@ export function useConversation(): UseConversationReturn {
                 retryable,
               },
             )
+            // U: only a proven 409 on an actual graph-writing event requests
+            // recovery. Existing rollback and refusal copy have already run.
+            if (v5Result.kind !== 'response' && v5Result.http_status === 409 &&
+              isModelChangingSystemEvent(systemEvent?.type) && isProvenNoWriteConflict(conflictCategory)) {
+              systemSendFailure.onRefusedGraphSettled = refusedGraphRefreshRef.current?.request(
+                systemSendFailure, graphOpeningAtDispatch,
+              )
+            }
           }
         }
 

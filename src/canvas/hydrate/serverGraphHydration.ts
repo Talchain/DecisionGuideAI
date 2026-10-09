@@ -106,6 +106,8 @@ export interface HydrateFromServerOptions {
    * Opt-in (recovery reads only): boot hydration keeps its existing foreign-answer handling unchanged.
    */
   requireServedScenario?: boolean
+  /** Refused-write recovery must reapply values even when the server identity is cached. */
+  reapplyServerGraph?: boolean
   /**
    * The token the CALLER got from `beginBootGraphRead` for this read. The boot
    * hook marks the read synchronously, before its identity await, so the
@@ -647,7 +649,7 @@ async function readAndMergeServerGraph(
   dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
 
   const stored = useCanvasStore.getState().serverGraphIdentity
-  if (isSameServerGraph(stored, result.identity)) {
+  if (opts.reapplyServerGraph !== true && isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the

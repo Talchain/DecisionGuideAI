@@ -11,7 +11,7 @@
  * then say that about a turn the user STOPPED. The category is the one fact
  * that tells the two apart, and the settlement dropped it.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   settleSystemEventSend,
   type SystemEventSendSettlement,
@@ -19,6 +19,11 @@ import {
 } from '../settleSystemEventSend'
 import { SystemEventSendError } from '../useConversation'
 import { fenceRefusalCopyForCategory } from '../../../v5/failureTypeRetryability'
+
+vi.mock('../../../lib/supabase', () => ({
+  getUserId: async () => null,
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 
 function settle(err: unknown): Promise<[SystemEventSendSettlement, SystemEventSendSettlementDetail]> {
   return new Promise((resolve) => {
@@ -61,5 +66,31 @@ describe('a refused conflict names its category', () => {
     const [s2, d2] = await settle(new SystemEventSendError('server', { conflictCategory: 'not_a_known_category' }))
     expect(s2).toBe('unverified')
     expect(d2.conflictCategory).toBeUndefined()
+  })
+})
+
+describe('S2 recovery follows the carrier settlement', () => {
+  it('S2 notifies once after the carrier rollback', async () => {
+    const order: string[] = []
+    const wake = vi.fn(() => { order.push('refresh') })
+    const error = Object.assign(new SystemEventSendError('server', { conflictCategory: 'revision_conflict' }), {
+      onRefusedGraphSettled: wake,
+    })
+    settleSystemEventSend(Promise.reject(error), () => {
+      order.push('revert')
+    })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(order).toEqual(['revert', 'refresh'])
+    expect(wake).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { reason: 'system_event_refused_no_write' },
+    { conflictCategory: 'unknown' },
+  ])('S2 declined/unknown does not notify recovery: %j', async options => {
+    const wake = vi.fn()
+    const error = Object.assign(new SystemEventSendError('server', options), { onRefusedGraphSettled: wake })
+    await settle(error)
+    expect(wake).not.toHaveBeenCalled()
   })
 })
