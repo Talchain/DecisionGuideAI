@@ -69,6 +69,10 @@ import { MessageBubble } from '../MessageBubble'
 import { render, screen, cleanup, renderHook, act, waitFor } from '@testing-library/react'
 import { markFactorEditInFlight, settleFactorEditInFlight, __resetPendingFactorEditsForTest } from '../pendingFactorEdit'
 import { markEdgeEditInFlight, settleEdgeEdit, __resetPendingEdgeEditsForTest } from '../pendingEdgeEdit'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { settleSystemEventSend } from '../settleSystemEventSend'
+import { createRefusedGraphRefresh } from '../refusedGraphRefresh'
+import { deliveryRegistersVersion } from '../../registration/editDeliveryHold'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -226,20 +230,23 @@ function untyped500() {
   }
 }
 
-function stubFailure(status: number, body: unknown) {
+function stubFailure(status: number, body: unknown, beforeRefusal?: () => void) {
   const fetchStub = vi.fn(async (url: string) => url.endsWith('/graph') ? s2Response({
     schema: 'scenario_graph.v1', scenario_id: SCENARIO_ID, graph_present: true,
     graph: { nodes: [
       { id: TARGET_ID, kind: 'factor', label: TARGET_ID, observed_state: PREV_OBSERVED, display_value: PREV_DISPLAY },
       { id: BYSTANDER_ID, kind: 'factor', label: BYSTANDER_ID, observed_state: { value: BYSTANDER_VALUE } },
     ], edges: [] },
-  }) : ({
+  }) : (() => {
+    beforeRefusal?.()
+    return {
     ok: false,
     status,
     headers: new Headers({ 'content-type': 'application/json' }),
     json: async () => body,
     text: async () => JSON.stringify(body),
-  } as unknown as Response))
+  } as unknown as Response
+  })())
   vi.stubGlobal('fetch', fetchStub)
   return fetchStub
 }
@@ -532,7 +539,10 @@ describe('factor_value_edit — an unconfirmed outcome KEEPS the value and says 
 
 describe('factor_value_edit 409 — the revert stands down rather than overwrite newer truth', () => {
   it('a value that has MOVED ON since dispatch is not reverted, and no "put it back" notice is shipped', async () => {
-    stubFailure(409, conflict409('rpc_cas_conflict'))
+    const fetchStub = stubFailure(409, conflict409('rpc_cas_conflict'), () => {
+      // The second carrier replaces A's pending register after A dispatches.
+      markFactorEditInFlight(TARGET_ID, 0.95)
+    })
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
       // The user re-edited to something else while the turn was in flight, so
@@ -560,6 +570,9 @@ describe('factor_value_edit 409 — the revert stands down rather than overwrite
     const obs = (useCanvasStore.getState().nodes.find((n) => n.id === TARGET_ID)!
       .data as Record<string, unknown>).observedState as Record<string, unknown>
     expect(obs.value).toBe(0.95)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+    expect(fetchStub.mock.calls.filter(([url]) => url.endsWith('/graph'))).toHaveLength(0)
+    expect(fetchStub).toHaveBeenCalledTimes(1)
 
     const notices = result.current.messages
       .filter((m) => m.role === 'assistant' && m.synthetic === true)
@@ -615,6 +628,17 @@ async function s2Refuse(hook: ReturnType<typeof renderHook<ReturnType<typeof use
 
 describe('S2 shown equals saved after a proven refusal', () => {
   beforeEach(s2Seed)
+  it('S2 idle recovery does not advance the UI delivery snapshot', () => {
+    const refresh = createRefusedGraphRefresh({ hasPendingTurn: () => false,
+      identity: async () => ({ userId: null, accessToken: null }), onFailure: vi.fn() })
+    try {
+      const before = deliveryRegistersVersion()
+      markFactorEditInFlight(TARGET_ID, 515)
+      expect(deliveryRegistersVersion()).toBe(before)
+      settleFactorEditInFlight(TARGET_ID, 515)
+      expect(deliveryRegistersVersion()).toBe(before)
+    } finally { refresh.dispose() }
+  })
   it.each([
     { type: 'factor_value_edit', payload: { target_id: TARGET_ID, value: 300, field: 'value' } },
     { type: 'edge_strength_edit', payload: { from: TARGET_ID, to: BYSTANDER_ID, magnitude: 0.4,
@@ -627,6 +651,83 @@ describe('S2 shown equals saved after a proven refusal', () => {
     await act(async () => { await hook.result.current.sendSystemEvent(event as never).catch(() => undefined) })
     await waitFor(() => expect(s2Value()).toBe(414))
     expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [503, { code: 'model_read_failed', details: { reason: 'model_read_failed' } }],
+    [500, untyped500()],
+  ])('S3 non-proven %s %j issues no graph read', async (status, body) => {
+    const get = s2Wire(() => s2Response(s2Graph()), body, status)
+    const hook = renderHook(() => useConversation())
+    // No optimistic register may mask an illegal recovery request on this raw carrier.
+    await act(async () => {
+      await hook.result.current.sendSystemEvent({ type: 'factor_value_edit',
+        payload: { target_id: TARGET_ID, value: 300, field: 'value' } } as never).catch(() => undefined)
+    })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(get).not.toHaveBeenCalled()
+    expect(s2Value()).toBe(300)
+    expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(false)
+  })
+
+  it('S3 prior_range_edit proven conflict recovers through the existing wire carrier', async () => {
+    const graph = s2Graph()
+    const get = s2Wire(() => s2Response({ ...graph, graph: { ...graph.graph,
+      nodes: graph.graph.nodes.map(n => ({ ...n, prior: { distribution: 'uniform', range_min: 10, range_max: 20 } })),
+    } }), { code: 'revision_conflict' })
+    const hook = renderHook(() => useConversation())
+    const settlement = vi.fn()
+    await act(async () => {
+      settleSystemEventSend(hook.result.current.sendSystemEvent({ type: 'prior_range_edit',
+        payload: { target_id: TARGET_ID, range_min: 1, range_max: 2, distribution: 'uniform' } } as never), settlement)
+    })
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data.prior)
+      .toMatchObject({ distribution: 'uniform', range_min: 10, range_max: 20 }))
+    expect(settlement).toHaveBeenCalledTimes(1)
+    expect(settlement).toHaveBeenCalledWith('refused', expect.objectContaining({ conflictCategory: 'revision_conflict' }))
+    const fetchStub = vi.mocked(fetch)
+    expect(fetchStub).toHaveBeenCalledTimes(2)
+    const turn = fetchStub.mock.calls.find(([url]) => !String(url).endsWith('/graph'))!
+    expect(JSON.parse(String(turn[1]?.body)).event).toEqual({ kind: 'prior_range_edit',
+      target_id: TARGET_ID, range_min: 1, range_max: 2, distribution: 'uniform' })
+    expect(hook.result.current.messages.some(m => m.content === REFRESH_FAILED)).toBe(false)
+  })
+
+  it('S3 a refusal burst during recovery serialises reads and renders the final winner', async () => {
+    let active = 0
+    let maximum = 0
+    const answers: Array<(response: Response) => void> = []
+    const get = s2Wire(() => {
+      active += 1
+      maximum = Math.max(maximum, active)
+      return new Promise<Response>(resolve => { answers.push(response => { active -= 1; resolve(response) }) })
+    })
+    const hook = renderHook(() => useConversation())
+    await s2Refuse(hook)
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+    for (const value of [515, 615]) {
+      await act(async () => {
+        useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === TARGET_ID ? {
+          ...n, data: { ...n.data, observedState: { value, unit: 'GBP' }, display_value: `${value} GBP` },
+        } : n) } as never)
+        await s2Send(hook, value)
+      })
+      expect(active).toBe(1)
+      expect(get).toHaveBeenCalledTimes(1)
+    }
+    await act(async () => { answers[0](s2Response(s2Graph(414))) })
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    expect(s2Value()).toBe(221) // The invalidated first answer was never applied.
+    await act(async () => { answers[1](s2Response(s2Graph(777))) })
+    await waitFor(() => expect(s2Value()).toBe(777))
+    expect(factorDisplayText(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data)).toBe('777')
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    expect(maximum).toBe(1)
+    expect(active).toBe(0)
+    expect(get).toHaveBeenCalledTimes(2)
+    const notices = hook.result.current.messages.filter(m => m.role === 'assistant' && m.synthetic).map(m => m.content)
+    expect(notices).toEqual([FENCE_SUPERSEDED_COPY, FENCE_SUPERSEDED_COPY, FENCE_SUPERSEDED_COPY])
   })
 
   it('S2 a network failure never requests recovery', async () => {
@@ -675,6 +776,8 @@ describe('S2 shown equals saved after a proven refusal', () => {
     await s2Refuse(hook)
     await waitFor(() => expect(s2Value()).toBe(414))
     expect(get).toHaveBeenCalledTimes(1)
+    const shown = factorDisplayText(useCanvasStore.getState().nodes.find(n => n.id === TARGET_ID)!.data)
+    expect(shown).toBe('414')
     expect(hook.result.current.messages.some(m => m.content.includes(REFRESH_FAILED))).toBe(false)
     const notice = _name === 'fence' ? FENCE_SUPERSEDED_COPY : 'The scenario changed while I was saving, so nothing was saved. Try again.'
     expect(hook.result.current.messages.some(m => m.content === notice)).toBe(true)

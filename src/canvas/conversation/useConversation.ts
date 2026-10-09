@@ -1,6 +1,6 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
 import { askAiStage } from './askAi'
-import { createRefusedGraphRefresh } from './refusedGraphRefresh'
+import { createRefusedGraphRefresh, isGraphRecoverySystemEvent } from './refusedGraphRefresh'
 import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
@@ -3245,7 +3245,7 @@ export function useConversation(): UseConversationReturn {
     const refresh = createRefusedGraphRefresh({
       hasPendingTurn: () => inFlightRef.current || inFlightOptimisticFactorEditRef.current !== null ||
         deferredSystemSendsRef.current.some(entry => entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
-          isModelChangingSystemEvent(entry.opts.systemEvent?.type)),
+          isGraphRecoverySystemEvent(entry.opts.systemEvent?.type)),
       identity: () => withSessionReadTimeout(getSessionIdentity()),
       onFailure: () => addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true,
         content: "The latest state couldn't be refreshed.", timestamp: new Date() }),
@@ -6552,7 +6552,7 @@ export function useConversation(): UseConversationReturn {
             // U: only a proven 409 on an actual graph-writing event requests
             // recovery. Existing rollback and refusal copy have already run.
             if (v5Result.kind !== 'response' && v5Result.http_status === 409 &&
-              isModelChangingSystemEvent(systemEvent?.type) && isProvenNoWriteConflict(conflictCategory)) {
+              isGraphRecoverySystemEvent(systemEvent?.type) && isProvenNoWriteConflict(conflictCategory)) {
               systemSendFailure.onRefusedGraphSettled = refusedGraphRefreshRef.current?.request(
                 systemSendFailure, graphOpeningAtDispatch,
               )

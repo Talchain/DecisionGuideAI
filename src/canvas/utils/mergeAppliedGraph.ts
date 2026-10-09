@@ -129,6 +129,7 @@
 
 import { CanonicalCommittedGraphReceiptSchema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../store'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { validateNodesBatch } from '../domain/nodes'
 import { logger } from '../../lib/logger'
 import { saveAutosave } from '../store/scenarios'
@@ -395,9 +396,40 @@ function sameValue(a: unknown, b: unknown): boolean {
  * mirror this repo keeps getting bitten by. There is ONE definition of the
  * overlay; its two callers differ only in the semantics around it.
  */
-export function overlayNode(existing: any, wireNode: any): any {
+export function overlayNode(existing: any, wireNode: any, opts?: { dropOmittedDisplay?: boolean }): any {
   const mapped = mapDraftNodeToCanvas(wireNode)
   const nextData = { ...(existing.data ?? {}), ...(mapped.data ?? {}) }
+  // Recovery takes the server's values. An omitted display string cannot keep
+  // describing the reverted local value; the real formatter must derive it.
+  // Ordinary overlays keep their existing omission rule, and server text wins.
+  if (opts?.dropOmittedDisplay) {
+    for (const key of ['display_value', 'displayValue']) {
+      if (!Object.prototype.hasOwnProperty.call(mapped.data ?? {}, key)) delete nextData[key]
+      // Both observed-state spellings can survive a legacy overlay. Keep only
+      // the display string carried by this server state, never a local cache.
+      for (const bag of ['observedState', 'observed_state']) {
+        const data = nextData[bag]
+        if (!data || typeof data !== 'object' || !Object.prototype.hasOwnProperty.call(data, key)) continue
+        nextData[bag] = { ...data }
+        if (Object.prototype.hasOwnProperty.call(mapped.data?.observedState ?? {}, key)) {
+          nextData[bag][key] = mapped.data.observedState[key]
+        } else {
+          delete nextData[bag][key]
+        }
+      }
+    }
+    // With a model value but no raw amount, the real formatter cannot invent
+    // a currency figure. Replace a discarded cache with the server's bare
+    // scalar instead: no fabricated raw_value or unit conversion.
+    const value = mapped.data?.observedState?.value
+    const hadDisplay = [existing.data, existing.data?.observedState, existing.data?.observed_state]
+      .some(data => typeof data?.display_value === 'string' || typeof data?.displayValue === 'string')
+    if (hadDisplay && typeof value === 'number' && Number.isFinite(value) &&
+      !Object.prototype.hasOwnProperty.call(mapped.data ?? {}, 'display_value') &&
+      factorDisplayText(mapped.data) === null) {
+      nextData.display_value = String(value)
+    }
+  }
   const nextType = mapped.type ?? existing.type
 
   if (nextType === existing.type && sameValue(existing.data, nextData)) {

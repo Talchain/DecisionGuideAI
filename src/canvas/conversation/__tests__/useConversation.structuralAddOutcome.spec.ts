@@ -139,6 +139,7 @@ function seedCanvasPostAdd(extra: Record<string, unknown> = {}) {
       { intent: addIntent(), scenarioId: SCENARIO_ID, status: 'in_flight' },
     ],
     pendingStructuralAdds: [],
+    pendingStructuralAddEdges: [],
     nodes: [
       {
         id: NEW_NODE_ID,
@@ -181,7 +182,12 @@ function stub409(category: string) {
   }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
+    vi.fn(async (url: string) => url.endsWith(`/scenarios/${SCENARIO_ID}/graph`) ? ({
+      ok: true, status: 200, json: async () => ({ schema: 'scenario_graph.v1',
+        scenario_id: SCENARIO_ID, graph_present: true, graph: { nodes: [
+          { id: SIBLING_ID, kind: 'factor', label: NEW_LABEL },
+        ], edges: [] } }),
+    } as Response) : ({
       ok: false,
       status: 409,
       headers: new Headers({ 'content-type': 'application/json' }),
@@ -256,6 +262,8 @@ async function driveAdd(seedExtra: Record<string, unknown> = {}) {
       .catch(() => undefined)
   })
 
+  // Include recovery settlement in the observation, not just the synchronous rollback.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
   const state = useCanvasStore.getState()
   return {
     hasNode: (id: string) => state.nodes.some((n) => n.id === id),
@@ -443,7 +451,12 @@ describe('structural_add — a 409 GRAPH_DIVERGED', () => {
 describe('structural_add — refused, but the removal must stand down', () => {
   it('revision refusal protects the newer link and renders only the exact notice', async () => {
     stub409('revision_conflict')
-    const r = await driveAdd({ edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] })
+    const r = await driveAdd({
+      // A newer connection is still queued, as in the real draw-link carrier.
+      edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }],
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
+    })
     expect(r.hasNode(NEW_NODE_ID)).toBe(true)
     expect(r.hasNode(SIBLING_ID)).toBe(true)
     expect(r.edges.map(e => e.id)).toEqual(['e1'])
@@ -462,6 +475,8 @@ describe('structural_add — refused, but the removal must stand down', () => {
     stub200({ carriesNode: false, graphHash: BASE_GRAPH_HASH, assistantText: '' })
     const { hasNode, notices } = await driveAdd({
       edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] as never,
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
     })
 
     expect(hasNode(NEW_NODE_ID)).toBe(true)
@@ -475,6 +490,8 @@ describe('structural_add — refused, but the removal must stand down', () => {
     stub409('turn_fence_stopped')
     const { hasNode, notices } = await driveAdd({
       edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] as never,
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
     })
 
     expect(hasNode(NEW_NODE_ID)).toBe(true)

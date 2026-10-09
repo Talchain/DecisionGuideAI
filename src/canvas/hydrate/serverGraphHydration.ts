@@ -669,7 +669,7 @@ async function readAndMergeServerGraph(
 
   // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
   const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
-  const merge = mergeServerGraphOnHydrate(result.graph)
+  const merge = mergeServerGraphOnHydrate(result.graph, { dropOmittedDisplay: opts.reapplyServerGraph === true })
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
   //

@@ -2,6 +2,14 @@ import { useCanvasStore } from '../store'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { editDeliveryHold, subscribeDeliveryRegisters } from '../registration/editDeliveryHold'
 import { pendingFactorEditValue } from './pendingFactorEdit'
+import { isModelChangingSystemEvent } from './types'
+
+/** CEE dispatch (815da42b, :1226/:2614) commits a manual prior range as mutatedGraph,
+ * except distribution_required's fact-only fallback. A proven CAS/fence refusal
+ * therefore needs graph recovery despite the older client freshness classification. */
+export function isGraphRecoverySystemEvent(type: string | undefined): boolean {
+  return isModelChangingSystemEvent(type) || type === 'prior_range_edit'
+}
 
 /** A particular continuous opening; A → B → A creates a different object. */
 interface GraphOpening { scenarioId: string | null }
@@ -22,6 +30,11 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
   let timer: ReturnType<typeof setTimeout> | undefined
   let controller: AbortController | undefined
   const seen = new WeakSet<object>()
+  let unsubscribeDelivery: (() => void) | undefined
+  const stopWatchingDelivery = () => {
+    unsubscribeDelivery?.()
+    unsubscribeDelivery = undefined
+  }
 
   const hasPending = () => {
     const state = useCanvasStore.getState()
@@ -60,6 +73,7 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
       })
       if (!ownsOpening() || generation !== atRead || hasPending()) return
       requested = false
+      stopWatchingDelivery()
       if (outcome !== 'merged') {
         useCanvasStore.getState().markAnalysisFreshnessDirty?.()
         opts.onFailure()
@@ -67,6 +81,7 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
     } catch {
       if (canApply()) {
         requested = false
+        stopWatchingDelivery()
         useCanvasStore.getState().markAnalysisFreshnessDirty?.()
         opts.onFailure()
       }
@@ -82,6 +97,7 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
     if (opening.scenarioId !== scenarioId) {
       opening = { scenarioId }
       requested = false
+      stopWatchingDelivery()
       controller?.abort()
     }
     // Even an edit that begins AND settles before the read answers invalidates
@@ -90,7 +106,6 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
     schedule()
   }
   const unsubscribeCanvas = useCanvasStore.subscribe(changed)
-  const unsubscribeDelivery = subscribeDeliveryRegisters(changed)
 
   return {
     captureOpening: () => opening,
@@ -99,6 +114,9 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
       if (!seen.has(error)) {
         seen.add(error)
         requested = true
+        // This UI subscription advances a shared external-store snapshot on
+        // register changes. Keep it absent until recovery actually needs it.
+        unsubscribeDelivery ??= subscribeDeliveryRegisters(changed)
         generation += 1
       }
       schedule()
@@ -112,7 +130,7 @@ export function createRefusedGraphRefresh(opts: RefusedGraphRefreshOptions) {
       if (timer !== undefined) clearTimeout(timer)
       controller?.abort()
       unsubscribeCanvas()
-      unsubscribeDelivery()
+      stopWatchingDelivery()
     },
   }
 }
