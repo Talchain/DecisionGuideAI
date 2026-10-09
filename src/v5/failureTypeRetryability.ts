@@ -129,7 +129,11 @@ const FENCE_CONFLICT_PREFIX = 'turn_fence_'
 const FENCE_GENERIC_COPY =
   "That change couldn't be saved, so nothing in your decision changed. Try it again in a moment."
 
+export const REVISION_CONFLICT_NOTICE = 'The scenario changed while I was saving, so nothing was saved. Try again.'
+
 const FENCE_REFUSAL_COPY: Record<string, string> = {
+  // CEE OLRV1 atomic rollback proves that nothing was written.
+  revision_conflict: REVISION_CONFLICT_NOTICE,
   turn_fence_stopped:
     "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.",
   turn_fence_superseded:
@@ -139,19 +143,25 @@ const FENCE_REFUSAL_COPY: Record<string, string> = {
 }
 
 /**
- * Read `details.conflict_category` off a BoundaryError. Fail closed: absent,
- * non-string, or empty → ''. (details is a Zod passthrough object, so the
- * field survives strict parsing when CEE sends it.)
+ * Read `details.conflict_category` from a parsed envelope. Raw bodies admit
+ * only CEE's exact revision-conflict code on HTTP 409; their unparsed
+ * `details.conflict_category` is never proof of a refusal.
  */
-export function extractConflictCategory(err: BoundaryError | undefined): string {
-  const category = (err?.details as { conflict_category?: unknown } | undefined)
-    ?.conflict_category
-  return typeof category === 'string' ? category : ''
+export function extractConflictCategory(err: unknown, httpStatus?: number, source: 'parsed' | 'raw' = 'parsed'): string {
+  if (!err || typeof err !== 'object' || Array.isArray(err)) return ''
+  const envelope = err as { code?: unknown; details?: unknown }
+  const details = envelope.details && typeof envelope.details === 'object' && !Array.isArray(envelope.details)
+    ? envelope.details as { code?: unknown; conflict_category?: unknown } : undefined
+  // CEE OLRV1 proves no-write only on HTTP 409, including schema-valid typed envelopes.
+  if (httpStatus === 409 && (envelope.code === 'revision_conflict' || details?.code === 'revision_conflict')) return 'revision_conflict'
+  if (source === 'raw') return ''
+  const category = details?.conflict_category
+  return typeof category === 'string' && (category !== 'revision_conflict' || httpStatus === 409) ? category : ''
 }
 
 /**
- * The same honest fence copy, read from a bare `details.conflict_category`
- * rather than the envelope — or null when the category is not fence-class.
+ * The same honest fence/revision copy, read from a bare conflict category
+ * rather than the envelope — or null for other categories.
  *
  * ⭐ ONE SOURCE OF THIS COPY. The optimistic writers (factor value edit,
  * structural delete / rename / add) hold `SystemEventSendError.conflictCategory`,
@@ -166,22 +176,23 @@ export function extractConflictCategory(err: BoundaryError | undefined): string 
  * verdict → the generic fence copy, never null.
  */
 export function fenceRefusalCopyForCategory(category: string | undefined | null): string | null {
+  // The existing per-category notice also serves the revision CAS refusal for every writer.
+  if (category === 'revision_conflict') return FENCE_REFUSAL_COPY.revision_conflict
   if (typeof category !== 'string' || !category.startsWith(FENCE_CONFLICT_PREFIX)) return null
   return FENCE_REFUSAL_COPY[category] ?? FENCE_GENERIC_COPY
 }
 
 /**
- * Honest copy for a fence-class GRAPH_DIVERGED, or null when the error is not
- * fence-class (no conflict_category, or a non-fence category) — callers fall
- * back to `resolveFailureBaseCopy` for those.
+ * Honest copy for a fence or revision refusal, or null for other categories
+ * — callers fall back to `resolveFailureBaseCopy` for those.
  */
-export function resolveFenceRefusalCopy(err: BoundaryError | undefined): string | null {
-  return fenceRefusalCopyForCategory(extractConflictCategory(err))
+export function resolveFenceRefusalCopy(err: unknown, httpStatus?: number, source: 'parsed' | 'raw' = 'parsed'): string | null {
+  return fenceRefusalCopyForCategory(extractConflictCategory(err, httpStatus, source))
 }
 
 /**
- * Base failure copy resolved WITH the error envelope in hand: fence-class
- * GRAPH_DIVERGED gets its honest write-refusal copy; everything else takes
+ * Base failure copy resolved WITH the error envelope in hand: revision and
+ * fence refusals get their honest write-refusal copy; everything else takes
  * the canonical `resolveFailureBaseCopy` path unchanged. Both live typed-
  * error surfaces (useConversation's V5 typed_error branch and
  * TypedErrorRenderer) resolve through here so they cannot drift.
@@ -189,10 +200,13 @@ export function resolveFenceRefusalCopy(err: BoundaryError | undefined): string 
 export function resolveFailureCopyForError(
   code: FailureTypeLiteral,
   showRetry: boolean,
-  err: BoundaryError | undefined,
+  err: unknown,
+  httpStatus?: number,
+  source: 'parsed' | 'raw' = 'parsed',
 ): string {
+  if (extractConflictCategory(err, httpStatus, source) === 'revision_conflict') return FENCE_REFUSAL_COPY.revision_conflict
   if (code === 'GRAPH_DIVERGED') {
-    const fenceCopy = resolveFenceRefusalCopy(err)
+    const fenceCopy = resolveFenceRefusalCopy(err, httpStatus, source)
     if (fenceCopy !== null) return fenceCopy
   }
   return resolveFailureBaseCopy(code, showRetry)

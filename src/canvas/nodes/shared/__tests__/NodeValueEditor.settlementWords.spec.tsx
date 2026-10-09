@@ -10,12 +10,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeValueEditor } from '../NodeValueEditor'
-import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 
 const BEFORE = 60000
 const COMMITTED = 70000
 
-type Settle = (s: SystemEventSendSettlement) => void
+type Settle = (s: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) => void
 
 /** An authority double that dispatches and hands back the settle channel. */
 function dispatchingAuthority() {
@@ -49,6 +49,15 @@ function commitTo(next: number) {
 const word = () => screen.queryByTestId('nve-settlement')
 
 describe('the settlement word after a dispatched commit', () => {
+  it('revision refusal renders only the exact notice on the card', () => {
+    const { onCommit, settles } = dispatchingAuthority()
+    renderEditor(onCommit)
+    commitTo(COMMITTED)
+    act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'revision_conflict' }))
+    expect(word()?.textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(word()?.getAttribute('role')).toBe('alert')
+    expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+  })
   it('shows "Saving…" while the send is in flight', () => {
     const { onCommit } = dispatchingAuthority()
     renderEditor(onCommit)

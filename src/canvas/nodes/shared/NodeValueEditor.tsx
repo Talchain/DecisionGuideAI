@@ -91,7 +91,7 @@ import {
   VALUE_NOT_ENCODABLE_COPY,
   type ValueCommitSettlementWord,
 } from '../../conversation/valueCommitSettlement'
-import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 
 /** What a typed entry admits to: the value to commit, or the sentence saying why not. */
 export type NodeValueEntryAdmission = { ok: true; value: number } | { ok: false; reason: string }
@@ -114,7 +114,7 @@ export interface NodeValueEditorProps {
    */
   onCommit: (
     value: number,
-    opts: { onSendSettled: (settlement: SystemEventSendSettlement) => void },
+    opts: { onSendSettled: (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) => void },
   ) => 'dispatched' | 'local_only' | 'not_encodable' | { refused: string }
   /**
    * ⭐ E1b — AN ENTRY NOT ON `value`'S OWN SCALE. An option target is typed in the factor's unit ("£80,000", "80k")
@@ -271,13 +271,13 @@ export function NodeValueEditor({
     const seq = ++commitSeqRef.current
     const beforeCommit = value
     const committedTo = admission.value
-    const onSendSettled = (s: SystemEventSendSettlement) => {
+    const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
       if (!mountedRef.current || seq !== commitSeqRef.current) return
       // The mapping is shared with the canvas context menu's Set value, which
       // proposes through the same writer — one reading of a settlement, not two.
       setSettlement(valueCommitSettlementWord(
         s, beforeCommit, committedTo,
-        () => (readCommittedValue ? readCommittedValue() : valueRef.current),
+        () => (readCommittedValue ? readCommittedValue() : valueRef.current), detail,
       ))
     }
     const outcome = onCommit(committedTo, { onSendSettled })

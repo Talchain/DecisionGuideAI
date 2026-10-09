@@ -460,6 +460,13 @@ describe('every refusal CEE #1859 can send says its own sentence, and moves noth
     expect(assistantTexts()).toEqual([])
   }
 
+  it('revision refusal renders only the exact notice on the target', async () => {
+    await refusedWith(409, { details: { code: 'revision_conflict' } })
+    expect(screen.getByTestId('goal-panel-target-outcome').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(/Not recorded — the model changed/)).toBeNull()
+    nothingMoved()
+  })
+
   it('⭐ 409 BASE_HASH_DIVERGED (stale base) → the model changed; the remedy is named', async () => {
     await refusedWith(409, STALE_BASE_409)
     expect(outcome()).toBe(
