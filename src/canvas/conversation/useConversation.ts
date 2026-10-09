@@ -3395,7 +3395,7 @@ export function useConversation(): UseConversationReturn {
         // categories carry a no-write guarantee.
         const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
         shouldRevert = provenNoWrite
-        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        notice = provenNoWrite ? (outcome.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'base_hash_diverged') : 'unconfirmed_server'
         fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         notice = 'unconfirmed_transport'
@@ -3795,7 +3795,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' || outcome.kind === 'typed_error' && outcome.conflictCategory === 'revision_conflict' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -5295,6 +5295,13 @@ export function useConversation(): UseConversationReturn {
         }
 
         const target = routeV5Response(v5Result)
+        // CEE's revision CAS can use error.v1 or additive code keys, retained as raw JSON by strict parsing.
+        const conflictEnvelope = target.kind === 'typed_error'
+          ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
+          : undefined
+        const conflictEnvelopeSource = target.kind === 'typed_error' && !target.boundaryError ? 'raw' : 'parsed'
+        const conflictCategory = extractConflictCategory(conflictEnvelope, v5Result.kind === 'response' ? undefined : v5Result.http_status, conflictEnvelopeSource)
+        const revisionConflict = conflictCategory === 'revision_conflict'
 
         // CANVAS UNDO JOURNAL (Undo/Redo S2, dark): record this turn's own
         // versioned write — or another writer's — so ⌘Z can later restore the
@@ -5365,7 +5372,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5390,7 +5397,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5418,7 +5425,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5472,7 +5479,7 @@ export function useConversation(): UseConversationReturn {
           if (target.kind === 'typed_error') {
             resolveFailedOptimisticFactorEdit(
               optimisticEdit,
-              extractConflictCategory(target.boundaryError),
+              conflictCategory,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
@@ -5551,7 +5558,7 @@ export function useConversation(): UseConversationReturn {
           const unverified =
             target.kind === 'typed_error' &&
             isUnverifiedDelivery({
-              hasBoundaryError: target.boundaryError !== undefined,
+              hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
               transportMeta: target.transportMeta,
               recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
               rawBody: target.rawBody,
@@ -6394,7 +6401,7 @@ export function useConversation(): UseConversationReturn {
           // zero CEE signal renders transport-honest copy instead, and
           // never invents a recovery suggestion.
           const transportFailure = isTransportFailure({
-            hasBoundaryError: target.boundaryError !== undefined,
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
@@ -6407,7 +6414,7 @@ export function useConversation(): UseConversationReturn {
           // transient, not about whether re-asking is safe; on this shape it
           // is overruled, and the copy says why instead.
           const deliveryUnverified = isUnverifiedDelivery({
-            hasBoundaryError: target.boundaryError !== undefined,
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
@@ -6434,7 +6441,9 @@ export function useConversation(): UseConversationReturn {
             const baseCopy = resolveFailureCopyForError(
               target.code,
               retryable,
-              target.boundaryError,
+              conflictEnvelope,
+              v5Result.kind === 'response' ? undefined : v5Result.http_status,
+              conflictEnvelopeSource,
             )
             const reason = extractV5ErrorReason(target.boundaryError)
             const reasonLayer =
@@ -6446,7 +6455,7 @@ export function useConversation(): UseConversationReturn {
                   // guidance, never "rephrase your message".
                   resolveV5ErrorGuidance(target.code, target.boundaryError)
                 : ''
-            content = [
+            content = revisionConflict ? baseCopy : [
               baseCopy,
               recovery.suggestion ?? '',
               reasonLayer,
@@ -6456,7 +6465,7 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
             ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
             : []
           // System turns get NO transcript bubble — the failure propagates to
@@ -6494,8 +6503,8 @@ export function useConversation(): UseConversationReturn {
               // generic copy.
               {
                 ...(typeof target.code === 'string' ? { code: target.code } : {}),
-                ...(target.boundaryError
-                  ? { conflictCategory: extractConflictCategory(target.boundaryError) }
+                ...(conflictEnvelope && (conflictEnvelopeSource === 'parsed' || conflictCategory)
+                  ? { conflictCategory }
                   : {}),
                 // ⭐ `details.reason`, carried for the same reason as the
                 // category: the producer states a no-write on THIS field for

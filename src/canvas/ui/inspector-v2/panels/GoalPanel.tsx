@@ -45,11 +45,9 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
-import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
-import { formatGoalProbability } from '../../../../components/results/utils/displayFloors'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -577,16 +575,9 @@ export const GoalPanel = memo(function GoalPanel({
     </p>
   )
 
-  const targetProbabilityLine = typeof probGoal === 'number' ? (
-    <p className={`${typography.panelBody} text-text-body mt-1`}>
-      {/* ROADMAP 2.282. Withheld arm: the shared register's
-          compact readout verbatim, with the existing
-          "current model" qualifier kept as a trailing clause —
-          the only adaptation is the joining comma, which the
-          register's own no-full-stop `phrase()` form is designed
-          to accept. Permitted arm byte-identical. */}
-      {/* Science ruling 4 (#87 6027792767): the shared register words this option’s chance of meeting the goal. */}
-      {GOAL_ANCHOR_COPY.sentence(formatGoalProbability(probGoal), goalFitSubstituted)}
+  const targetProbabilityLine = displayMetadata.achievementChanceCell?.text != null ? (
+    <p data-testid={identityWithheld !== null ? 'goal-probability-withheld-identity' : undefined} className={`${typography.panelBody} text-text-body mt-1`}>
+      {displayMetadata.achievementChanceCell.text}
       {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
       {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
         <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
@@ -1162,7 +1153,7 @@ export const GoalPanel = memo(function GoalPanel({
       {isResultsMode && (typeof probGoal === 'number' || (identityWithheld === null && certaintyUnearned === null && !perOptionOnly)) && (
         <InspectorMoreItems>
           <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-            {typeof probGoal === 'number' ? (
+            {typeof probGoal === 'number' || (displayMetadata.achievementChanceUnlicensed === true && typeof probJoint === 'number') ? (
             <>
             {scenarioCount != null && (
               <div className={`${typography.panelMeta} text-text-light`}>
@@ -1184,14 +1175,8 @@ export const GoalPanel = memo(function GoalPanel({
             )}
             {techMode && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                {goalFitSubstituted ? (
-                  <>System: probability_of_joint_goal (substituted for absent probability_of_goal): {probGoal.toFixed(2)}</>
-                ) : (
-                  <>
-                    System: probability_of_goal: {probGoal.toFixed(2)}
-                    {typeof probJoint === 'number' && ` · probability_of_joint_goal: ${probJoint.toFixed(2)}`}
-                  </>
-                )}
+                {displayMetadata.achievementChanceCell?.text}
+                {typeof probJoint === 'number' && ` · probability_of_joint_goal: ${probJoint.toFixed(2)}`}
               </div>
             )}
             </>

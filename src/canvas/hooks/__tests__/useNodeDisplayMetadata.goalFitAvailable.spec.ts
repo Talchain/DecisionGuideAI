@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ROADMAP 2.275 — the CONTAINER/POINTER gap behind the witnessed goal-node
  * contradiction, pinned by EXECUTING THE REAL HOOK.
@@ -79,7 +80,7 @@ const WITNESSED_REPORT = {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReport(report) } }))
 }
 
 beforeEach(() => {
@@ -274,7 +275,7 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
     })
     const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
 
-    expect(result.current.achievementProbability).toBe(0.0002)
+    expect(result.current.achievementProbability).toBe(0) // licensed whole percent, divided by 100
     expect(result.current.achievementProbability).not.toBe(0.0009) // never the joint (all-limits) figure
     // The modelled-basis caveat qualifies a displayed JOINT figure; the goal figure never carries it.
     expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)

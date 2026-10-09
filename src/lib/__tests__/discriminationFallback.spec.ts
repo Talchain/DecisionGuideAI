@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * Tests for Discrimination Fallback Module
  *
@@ -12,6 +13,11 @@ import {
   fromOptionProbabilities,
   type OutcomePrediction,
 } from '../discriminationFallback'
+
+// Existing synthetic conversion controls now supply the Run's test licence.
+const fromLicensedOptionProbabilities = (
+  options: Parameters<typeof fromOptionProbabilities>[0], labels: Parameters<typeof fromOptionProbabilities>[1] = {},
+) => fromOptionProbabilities(options, labels, licensedTestReport({ option_probabilities: options }))
 
 describe('analyzeDiscrimination', () => {
   describe('basic discrimination', () => {
@@ -182,7 +188,7 @@ describe('fromOptionProbabilities', () => {
       opt_2: 'Option B',
     }
 
-    const result = fromOptionProbabilities(optionProbs, labels)
+    const result = fromLicensedOptionProbabilities(optionProbs, labels)
 
     expect(result).toHaveLength(2)
     expect(result[0].value).toBe(80)
@@ -190,14 +196,14 @@ describe('fromOptionProbabilities', () => {
   })
 
   it('handles undefined input', () => {
-    expect(fromOptionProbabilities(undefined)).toEqual([])
+    expect(fromLicensedOptionProbabilities(undefined)).toEqual([])
   })
 
   it('uses ID as label when not provided', () => {
     const optionProbs = {
       opt_1: { goal_probability: 0.8 },
     }
-    const result = fromOptionProbabilities(optionProbs)
+    const result = fromLicensedOptionProbabilities(optionProbs)
     expect(result[0].optionLabel).toBe('opt_1')
   })
 
@@ -205,7 +211,7 @@ describe('fromOptionProbabilities', () => {
     const optionProbs = {
       opt_1: { goal_probability: 0.8, confidence: 0.9 },
     }
-    const result = fromOptionProbabilities(optionProbs)
+    const result = fromLicensedOptionProbabilities(optionProbs)
     expect(result[0].confidence).toBe(0.9)
   })
 
@@ -238,7 +244,7 @@ describe('fromOptionProbabilities', () => {
    * unchanged and still pinned by the sibling test below.
    */
   it('L62: drops options whose only figure is a withheld joint one — the verdict is not computed from a structural zero', () => {
-    const result = fromOptionProbabilities({
+    const result = fromLicensedOptionProbabilities({
       opt_1: { probability_of_joint_goal: 0.6 } as never,
       opt_2: { probability_of_joint_goal: 0.2 } as never,
     })
@@ -255,7 +261,7 @@ describe('fromOptionProbabilities', () => {
   it('POSITIVE CONTROL: a real goal_probability still ranks, by identity — the drop above is not a blanket one', () => {
     // Without this, deleting the body of `fromOptionProbabilities` would pass
     // the test above (trap 13).
-    const result = fromOptionProbabilities({
+    const result = fromLicensedOptionProbabilities({
       opt_1: { goal_probability: 0.6 } as never,
       opt_2: { goal_probability: 0.2 } as never,
     })
@@ -269,7 +275,7 @@ describe('fromOptionProbabilities', () => {
   })
 
   it('drops an option with no admissible number rather than contributing NaN', () => {
-    const result = fromOptionProbabilities({
+    const result = fromLicensedOptionProbabilities({
       opt_1: { goal_probability: 0.8 },
       opt_2: {} as never,
     })
@@ -278,7 +284,7 @@ describe('fromOptionProbabilities', () => {
   })
 
   it('is unchanged for a fully-specified input (behaviour-preservation pin)', () => {
-    const result = fromOptionProbabilities(
+    const result = fromLicensedOptionProbabilities(
       { opt_1: { goal_probability: 0.8, confidence: 0.9 }, opt_2: { goal_probability: 0.6 } },
       { opt_1: 'Option A', opt_2: 'Option B' },
     )

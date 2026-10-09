@@ -17,9 +17,10 @@ import { hasObservedData } from '../utils/observedStateHelpers'
 import { isSuppressedUnit } from '../utils/labelUtils'
 import { deriveDecisionVerdict, type DecisionVerdict } from '../../lib/decisionVerdict'
 import {
-  selectGoalProbability,
+  goalProbabilityDetails,
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
+import { runViewOf } from '../runView/runView'
 import { goalLevelFromIdentityCaveat } from '../../components/results/utils/goalLevelFromIdentity'
 import { readGoalFigureWithholds, withheldClaimsFor } from '../../components/results/utils/goalIdentityWithheld'
 import {
@@ -662,42 +663,33 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     ? robustness.recommendation_stability
     : null
 
-  // Goal probability (from winner)
-  //
-  // GOAL-PROBABILITY IDENTITY: read the owner's decision, never re-derive it.
-  // This file held a THIRD chooser — `probability_of_goal` with no fallback for
-  // `goal_probability`, and the joint figure taken straight off the wire — so a
-  // snapshot could record a different number from the one the panel and the
-  // canvas showed for the same run, and then outlive the run that produced it.
-  // `selectGoalProbability` accepts the wire spelling (see its registration
-  // header), so the whole option object goes to the owner as-is.
-  //
-  // ISL #207 — whose base the goal figure stands on is a fact about the RUN's enrichment, not the
-  // option, so it is read once from the response root (the same reader the V5 mapper uses for the
-  // live rows) and handed to the chooser beside the winner. The chooser returns the caveat; the
-  // snapshot keeps it, so a saved run never shows a bare figure the live row caveated.
+  // PERSIST residual: keep only the winner's RunView-licensed chance, as a whole
+  // percent (the unit this field always stored; compare deltas are pp).
+  // Snapshot chance fields have no production display reader; old raw copies
+  // remain readable but cannot confer a licence on a saved Run.
+  const winnerId = winner != null && typeof winner.option_id === 'string' ? winner.option_id : null
+  const chance = runViewOf(rawV2Response).chanceOf(winnerId ?? '')
+  const goalProbability = chance.kind === 'figure' ? chance.pct : null
+
+  // Preserve the independent joint channel and base-caveat metadata exactly.
+  // Raw goal-field presence below is ONLY the existing caveat's applicability,
+  // never a source for the stored chance.
   const goalLevelAuthor = goalLevelFromIdentityCaveat(rawV2Response)
-  // PLoT #416: the same reader as the V5 mapper, so a saved run never shows a figure the live row withheld.
-  // B3: the leader's own claim set, per option (a Run with no B2 keys withholds it exactly as before).
-  const winnerId = winner != null && typeof (winner as { option_id?: unknown }).option_id === 'string' ? (winner as { option_id: string }).option_id : null
   const snapshotWithholds = readGoalFigureWithholds(rawV2Response)
   const goalIdentityWithheld = snapshotWithholds.length > 0 &&
     (winnerId === null || withheldClaimsFor(snapshotWithholds, winnerId).has('goal_probability'))
-  const goalDecision = selectGoalProbability(
-    winner != null
-      ? ({
-          ...winner,
-          ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
-          ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
-        } as GoalProbabilityInput)
-      : undefined,
-  )
-  const goalProbability = goalDecision.goalProbability != null
-    ? Math.round(goalDecision.goalProbability * 100)
+  const winnerInput = winner as GoalProbabilityInput | undefined
+  const details = goalProbabilityDetails(winnerInput == null ? undefined : {
+    ...winnerInput,
+    ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
+  })
+  const jointGoalProbability = details.jointGoalProbability != null
+    ? Math.round(details.jointGoalProbability * 100)
     : null
-  const jointGoalProbability = goalDecision.jointGoalProbability != null
-    ? Math.round(goalDecision.jointGoalProbability * 100)
-    : null
+  const goalBaseCaveat = !goalIdentityWithheld && winnerInput?.goalIdentityWithheld !== true &&
+    winnerInput?.goalCertaintyUnearned === undefined &&
+    (typeof winnerInput?.goal_probability === 'number' || typeof winnerInput?.probability_of_goal === 'number')
+    ? details.baseCaveat : null
 
   // Seed
   //
@@ -802,7 +794,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
 
     goalProbability,
     jointGoalProbability,
-    goalBaseCaveat: goalDecision.goalFitBaseCaveat,
+    goalBaseCaveat,
 
     inferenceWarnings: extractInferenceWarnings(rawV2Response),
     conditionalWinners: extractConditionalWinners(rawV2Response),

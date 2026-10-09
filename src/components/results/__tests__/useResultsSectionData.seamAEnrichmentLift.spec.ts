@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * useResultsSectionData — Seam-A (live conversational) enrichment lift
  * (ROADMAP 1.6b, claim-integrity, shared-seam UI lane).
@@ -38,7 +39,7 @@ const OPTION_NODES = [
 ]
 
 function setStoreFromLiveSeamABlock(block: AnalysisResultBlock): void {
-  const report = mapV5AnalysisToReport(block, { seed: 42 })
+  const report = licensedTestReport(mapV5AnalysisToReport(block, { seed: 42 }))
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as any,
     runMeta: {} as any,

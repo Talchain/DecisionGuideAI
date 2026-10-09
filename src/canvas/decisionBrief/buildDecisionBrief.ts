@@ -1,3 +1,5 @@
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { runViewOf } from '../runView/runView'
 /**
  * ⭐ THE DECISION BRIEF — ONE PURE FUNCTION FROM THE SAVED READ TO WHAT THE BRIEF SAYS.
  *
@@ -10,7 +12,7 @@
  * Every figure and every source word comes from an owner that already exists, called here rather than respelled:
  *   · the result block → `mapV5AnalysisToReport` (the turn/poll legs' mapper), with the read's stored goal-certainty
  *     and option-participation facts, exactly as `applyScenarioAnalysisRead` calls it;
- *   · an option's goal figure → `selectGoalProbability` (the ONE chooser, with its withholds) → `formatGoalProbability`;
+ *   · an option's goal figure → RunView’s chance cell, including its withheld/range words;
  *   · goal target and its source → `resolveGoalTarget` / `goalTargetSourceMark` / `formatGoalTarget`;
  *   · a factor's level and its source → `factorValueSourceMark` (the card's rule chain);
  *   · limits → `selectStatedLimits` / `goalConstraintText`, and what the Run could say about them →
@@ -38,13 +40,11 @@ import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { selectStatedLimits } from '../../components/results/decision-overview/statedLimits'
 import { buildLimitVerdictView } from '../../components/results/analysisNew/limitVerdictView'
-import { selectGoalProbability, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
-import { formatGoalProbability } from '../../components/results/utils/displayFloors'
-import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { goalProbabilityDetails, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
+import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
-import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
 import type { DecisionRecord } from '../../components/results/modals'
 import {
   DECISION_POSITION_COPY,
@@ -68,6 +68,7 @@ export interface SavedScenarioRead {
   readonly graphHash: string | null
   readonly identity?: { readonly value: string; readonly projectionVersion: string } | null
   readonly analysisState: AnalysisStateV1 | null
+  readonly canonicalAnalysisView?: unknown
   readonly analysisResult: unknown
   readonly limitVerdicts?: unknown
   readonly goalCertainty?: unknown
@@ -406,9 +407,12 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
       option_probabilities?: Record<string, GoalProbabilityInput & { status?: OptionComputeStatus }>
       drivers?: { label?: unknown; nodeId?: unknown }[]
     }
-    // The Reasoning tab's population for the complete-field rule (below): options the Run returned whose computation
-    // produced a result. A taken-out option is not in it, so removing one never hides the others' figures.
+    // Keep the staging complete-field population: returned options with a usable computation.
+    // Taken-out or failed options do not suppress the compared options’ figures.
     let fieldIncomplete = false
+    const optionProbabilities = widened.option_probabilities
+    const view = runViewOf(report, parseCanonicalAnalysisView(read.canonicalAnalysisView))
+    const context = { goalChanceHeroSays: view.goalChance !== null, labelOf: (id: string) => byId.get(id)?.label ?? null }
 
     // Goal figures withheld for the whole Run (PLoT #416): one reason, in the producer's words.
     const identityWithheld = readGoalIdentityWithheld(report)
@@ -420,34 +424,26 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     }
 
     for (const opt of optionNodes) {
-      const selection = selectGoalProbability(widened.option_probabilities?.[opt.id])
-      const p = selection.goalProbability
-      if (p != null && Number.isFinite(p)) {
-        chances.push({
-          optionId: opt.id,
-          optionLabel: opt.label,
-          chanceText: `${GOAL_ANCHOR_COPY.readout(formatGoalProbability(p), !selection.mayUsePossessiveGoalFraming)}, in this model`,
-          caveat: goalFitBaseCaveatCopy(selection.goalFitBaseCaveat),
-          withheldText: null,
-        })
-        continue
-      }
-      const entry = widened.option_probabilities?.[opt.id]
-      if (isAnalysedOption(widened.option_probabilities, opt.id) && !optionComputationFailed(entry?.status)) {
+      const details = goalProbabilityDetails(optionProbabilities?.[opt.id])
+      const cell = view.chanceCellOf(opt.id, { ...context,
+        goalFiguresWithheldMessage: identityWithheld?.message, goalCertaintyUnearned: details.goalCertaintyUnearned,
+      })
+      const hasFigure = cell.kind === 'figure' || cell.kind === 'range'
+      const entry = optionProbabilities?.[opt.id]
+      if (!hasFigure && isAnalysedOption(optionProbabilities, opt.id) && !optionComputationFailed(entry?.status)) {
         fieldIncomplete = true
       }
-      const unearned = selection.goalCertaintyUnearned
-      // A Run-wide withholding is said ONCE (in `withheld`, above); the option row only says it has no figure.
-      const why = unearned ? (unearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK) : DECISION_BRIEF_COPY.noFigure
-      chances.push({ optionId: opt.id, optionLabel: opt.label, chanceText: null, caveat: null, withheldText: why })
-      if (unearned) withheld.push({ id: `goal:certainty:${opt.id}`, text: why, nodeId: opt.id })
+      chances.push({ optionId: opt.id, optionLabel: opt.label,
+        chanceText: cell.kind === 'figure' || cell.kind === 'range' ? cell.text : null,
+        caveat: cell.kind === 'figure' || cell.kind === 'range' ? goalFitBaseCaveatCopy(details.baseCaveat) : null,
+        withheldText: hasFigure ? null : cell.kind === 'withheld' ? cell.text : DECISION_BRIEF_COPY.noFigure,
+      })
+      if (details.goalCertaintyUnearned) withheld.push({ id: `goal:certainty:${opt.id}`,
+        text: details.goalCertaintyUnearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK, nodeId: opt.id })
     }
-    // ⭐ THE COMPLETE-FIELD RULE, as the Reasoning tab applies it (`buildAnalysisNewViewModel`, optionsComparison): a
-    // figure for SOME of the compared options is a ranking over a subset, read as one over the options. So when any
-    // option in the population has no figure, none is shown; each withheld option keeps its own reason above.
-    // And when no option has a figure, the brief says so ONCE (as the tab's single withheld message does), never a
-    // row per option repeating "no figure" over the reasons below.
-    if (fieldIncomplete || (chances.length > 0 && chances.every((c) => c.chanceText === null))) {
+    // A partial field would present a ranking over a subset as a ranking over the options.
+    // Preserve the once-only no-figure note; producer reasons stay in `withheld`.
+    if (fieldIncomplete || (chances.length > 0 && chances.every(c => c.chanceText === null))) {
       chances.length = 0
       chancesNote = DECISION_BRIEF_COPY.noChances
     }

@@ -58,6 +58,7 @@
  * same stale gate every other mutating member states. See
  * `optionInterventionEdit.ts` for the fuller reasoning; it applies verbatim.
  */
+import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
 import type { WireSystemEvent } from './types'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type {
@@ -141,6 +142,7 @@ export function goalTargetSettlementNotice(
     case 'sent':
       return null
     case 'refused':
+      if (detail.conflictCategory === 'revision_conflict') return REVISION_CONFLICT_NOTICE
       if (detail.refusal === 'declined') {
         return detail.reason !== undefined && isDisplaySafeReason(detail.reason)
           ? `${GOAL_TARGET_NOT_RECORDED_DECLINED} Reason given: ${detail.reason.trim()}`

@@ -67,13 +67,14 @@ describe('didValueCommitRevert', () => {
 })
 
 describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
-  it('the four words are four different sentences', () => {
+  it('the settlement words are different sentences', () => {
     const said = new Set(Object.values(VALUE_COMMIT_SETTLEMENT_COPY).map((c) => c.message))
-    expect(said.size).toBe(4)
+    expect(said.size).toBe(5)
   })
 
-  it('role=alert ONLY on not_applied — the one confirmed fact, never the two uncertain ones', () => {
+  it('role=alert on a confirmed refusal, never the uncertain states', () => {
     expect(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.role).toBe('alert')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.role).toBe('alert')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.saving.role).toBe('status')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.role).toBe('status')
   })

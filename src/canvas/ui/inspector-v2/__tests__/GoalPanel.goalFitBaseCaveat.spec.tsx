@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ISL #207 (AIQ #72 5877139338): the node inspector's goal chance is never
  * bare when the goal's level today was worked out from its inputs. Served
@@ -45,7 +46,7 @@ function report(author: 'olumi' | 'user' | 'dropped' | 'none') {
 }
 
 function seed(r: Record<string, unknown>) {
-  useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: r } } as never)
+  useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: licensedTestReport(r) } } as never)
 }
 const renderPanel = () => render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
 

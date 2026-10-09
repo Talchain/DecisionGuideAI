@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — THE BASIS IS CARRIED, NOT DISCARDED (ROADMAP 2.283).
  *
@@ -111,7 +112,7 @@ function reportFor(option: Record<string, unknown>, withPointer = true) {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReport(report) } }))
 }
 
 function renderForGoal() {

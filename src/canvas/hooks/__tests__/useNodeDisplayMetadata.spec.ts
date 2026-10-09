@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — integration path tests
  *
@@ -14,7 +15,7 @@ import { useNodeDisplayMetadata } from '../useNodeDisplayMetadata'
 // ---------------------------------------------------------------------------
 // Store mock — returns whatever state we pass in
 // ---------------------------------------------------------------------------
-const makeReport = (overrides: Record<string, unknown> = {}) => ({
+const makeReport = (overrides: Record<string, unknown> = {}) => licensedTestReport({
   schema: 'report.v1' as const,
   meta: { seed: 1, elapsed_ms: 100 },
   result: { mean: 0.7, p10: 0.5, p50: 0.7, p90: 0.9, critique: '' },

@@ -1,3 +1,5 @@
+import { RUN_AGAIN_FOR_CHANCE } from '../../../runView/runView'
+import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel: when NO option is put forward but the run carried every option's goal figure.
  *
@@ -62,13 +64,13 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('SERVED: says where the figures are, once beside the target, and never denies them', () => {
-    const { getByTestId, queryByTestId, container } = renderWith(SERVED)
-    expect(getByTestId('goal-probability-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
+  it('SERVED: raw unlicensed figures do not advertise available per-option chances', () => {
+    const { queryByTestId, container } = renderWith(SERVED)
+    expect(queryByTestId('goal-probability-per-option')).toBeNull()
     expect(queryByTestId('goal-impact-per-option')).toBeNull()
     const text = container.textContent ?? ''
-    expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
-    expect(text).not.toContain(GOAL_STRINGS.impactUnavailable)
+    expect(text).toContain(GOAL_CONSTRAINT_COPY.runForProbability)
+    expect(text).toContain(GOAL_STRINGS.impactUnavailable)
     // It never picks an option: no goal percentage on this panel.
     expect(text).not.toMatch(/\d+(\.\d+)?% chance of meeting your goal/)
   })
@@ -80,9 +82,16 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     expect(container.textContent ?? '').toContain(GOAL_CONSTRAINT_COPY.runForProbability)
   })
 
-  it('CONTROL: a recommended option shows its own figure, not the per-option line', () => {
+  it('CONTROL: a pointer cannot license the recommended option’s raw figure', () => {
     const { queryByTestId, container } = renderWith(RECOMMENDED)
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
-    expect(container.textContent ?? '').toContain('About 99% chance of meeting your goal')
+    expect(container.textContent ?? '').toContain(RUN_AGAIN_FOR_CHANCE)
   })
+  it('CONTRAST: an explicit test licence preserves the per-option availability signal without picking an option', () => {
+    const { getByTestId, container } = renderWith(licensedTestReport(SERVED))
+    expect(getByTestId('goal-probability-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
+    expect(container.textContent).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
+    expect(container.textContent).not.toMatch(/\d+(\.\d+)?% chance/)
+  })
+
 })

@@ -36,6 +36,7 @@ vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
   }
 })
 
+import { SystemEventSendError } from '../../../conversation/useConversation'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 
@@ -101,6 +102,20 @@ describe('a refused value edit is not shown as saved', () => {
     seed()
   })
   afterEach(() => cleanup())
+
+  it('revision refusal restores the field and renders only the exact notice', async () => {
+    sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
+      if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
+      throw new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
+    })
+    render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+    commit(String(ACCEPTED_RAW))
+    await flush()
+    expect(screen.getByTestId('factor-value-not-saved').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(valueInput().value).toBe(String(COMMITTED_RAW))
+    expect(screen.queryByText('Not sent to Olumi')).toBeNull()
+    expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+  })
 
   it('PRECONDITION: the real revert returns the store to the pre-edit value', async () => {
     serverRefuses()

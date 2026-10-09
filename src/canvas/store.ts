@@ -82,10 +82,7 @@ export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
 ] as const
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
-import {
-  selectGoalProbability,
-  type GoalProbabilityInput,
-} from '../components/results/utils/selectGoalProbability'
+import { runViewOf } from './runView/runView'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 // The "no analysis on screen" state, shared with the Supabase switch boundary in
@@ -227,7 +224,7 @@ import { useUIStore } from '../stores/uiStore'
 export interface OptionSnapshot {
   winProbability?: number
   outcomeMean?: number
-  goalProbability?: number
+  goalProbability?: number | null
 }
 
 export interface PreviousReportSnapshot {
@@ -5725,16 +5722,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const options: Record<string, OptionSnapshot> = {}
       // ReportV1.option_probabilities: Record<string, OptionProbability>
       const optionProbs = currentReport.option_probabilities
+      const previousRunView = runViewOf(currentReport)
       if (optionProbs) {
         for (const [optId, prob] of Object.entries(optionProbs)) {
+          const chance = previousRunView.chanceOf(optId)
           options[optId] = {
             winProbability: prob.win_probability,
-            // GOAL-PROBABILITY IDENTITY: the snapshot must hold the same number
-            // the surfaces showed, not a second derivation of it — a snapshot
-            // that disagrees with the panel it snapshotted is the same defect
-            // one run later. Read the owner's choice.
-            goalProbability:
-              selectGoalProbability(prob as GoalProbabilityInput).goalProbability ?? undefined,
+            // PERSIST residual: a client copy of this Run's licensed whole percent.
+            // An absent/withheld licence never falls back to the raw report figure.
+            goalProbability: chance.kind === 'figure' ? chance.pct / 100 : null,
           }
         }
       }
