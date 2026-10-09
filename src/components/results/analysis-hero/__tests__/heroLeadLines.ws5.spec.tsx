@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
@@ -8,7 +9,9 @@ import { useResultsSectionData } from '../../useResultsSectionData'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
 import { buildHeroModel } from '../buildHeroModel'
 import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
-import { OPTION_CHANCE_WITHHELD, buildRunView } from '../../../../canvas/runView/runView'
+import { buildRunView } from '../../../../canvas/runView/runView'
+const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
+
 import { OLUMI_PROPOSED_EXCLUDED_COPY } from '../../utils/notAnalysedCopy'
 import turn from './fixtures/p45-b1-0eba01bb-run2-turn.json'
 import bodies from '../../../../canvas/runView/__tests__/fixtures/cee-canonical-view-bodies-283b8a98.json'
@@ -26,7 +29,7 @@ function hydrate(envelope = turn) {
     ...snapshot, currentResultsHash: snapshot.results?.hash ?? null,
   } as unknown as V5ApplicatorStore)
   expect(useCanvasStore.getState().results.report).toBeTruthy()
-  return renderHook(() => useResultsSectionData()).result.current
+  return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
 }
 function mounted(data: ReturnType<typeof hydrate>) {
   const model = buildHeroModel(data)
@@ -35,8 +38,12 @@ function mounted(data: ReturnType<typeof hydrate>) {
   return screen.getByTestId('hero-subline')
 }
 describe('WS5 hero lead lines', () => {
-  it('L1-REAL untouched P45 B1 turn: labelled own cells and one separate placeholder message', () => {
+  it('L1 SELF-AUTHORED canonical cells over historical P45 B1 turn: labelled own cells and one separate placeholder message', () => {
     const data = hydrate()
+    // Self-authored positive cell: the Run-wide placeholder remains a separate message.
+    data.runView = withCanonicalTestCells({ ...data, recommendation: {
+      ...data.recommendation, goalFiguresWithheldMessage: null,
+    } }).runView
     const block = mounted(data)
     const lines = Array.from(block.querySelectorAll('p'))
     // A paragraph containing the old glued string is also a line, so this catches staging before the new layout.
@@ -58,7 +65,7 @@ describe('WS5 hero lead lines', () => {
     const report = useCanvasStore.getState().results.report!
     const canonical = { ...bodies.a_current, run: { ...bodies.a_current.run, run_id: 'same' }, options: [
       { option_id: 'carry_on_as_now', cell: { kind: 'figure', display: 'about 17%' }, main_driver: { kind: 'not_recorded' } },
-      { option_id: 'raise_pro_price_to_59', cell: { kind: 'withheld', face: OPTION_CHANCE_WITHHELD, why: turn.blocks[0].enrichment.inference_warnings.find(w => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')!.message }, main_driver: { kind: 'not_recorded' } },
+      { option_id: 'raise_pro_price_to_59', cell: { kind: 'withheld', face: TEST_WITHHELD_FACE, why: turn.blocks[0].enrichment.inference_warnings.find(w => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')!.message }, main_driver: { kind: 'not_recorded' } },
       { option_id: 'raise_pro_price_to_54', cell: { kind: 'withheld', face: OLUMI_PROPOSED_EXCLUDED_COPY }, main_driver: { kind: 'not_recorded' } },
     ] }
     data.runView = buildRunView({ ...report, run_id: 'same' }, canonical as never)
@@ -89,7 +96,7 @@ describe('WS5 hero lead lines', () => {
     if (source === 'canonical') {
       const canonical = { ...bodies.a_current, run: { ...bodies.a_current.run, run_id: 'same' }, options: [
         { option_id: 'carry_on_as_now', cell: { kind: 'figure', display: 'about 17%' }, main_driver: { kind: 'available', driver: claim } },
-        { option_id: 'raise_pro_price_to_59', cell: { kind: 'withheld', face: OPTION_CHANCE_WITHHELD }, main_driver: { kind: 'not_recorded' } },
+        { option_id: 'raise_pro_price_to_59', cell: { kind: 'withheld', face: TEST_WITHHELD_FACE }, main_driver: { kind: 'not_recorded' } },
         { option_id: 'raise_pro_price_to_54', cell: { kind: 'withheld', face: OLUMI_PROPOSED_EXCLUDED_COPY }, main_driver: { kind: 'not_recorded' } },
       ] }
       data.runView = buildRunView({ ...useCanvasStore.getState().results.report!, run_id: 'same' }, canonical as never)

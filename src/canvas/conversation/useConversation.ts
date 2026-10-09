@@ -5650,6 +5650,7 @@ export function useConversation(): UseConversationReturn {
             {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
+              turnScenarioId: scenarioIdAtDispatch,
               // Row 3b: a receipt for THIS turn's own factor edit applies only while
               // that edit still stands — the predicate the confirm above already reads.
               factorEditReceiptStands: (nodeId: string) =>

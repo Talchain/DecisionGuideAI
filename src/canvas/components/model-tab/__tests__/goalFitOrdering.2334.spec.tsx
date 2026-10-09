@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../runView/runView'
 /**
  * PC4 — THE MODEL TAB'S GOAL ROWS PRINTED THE SAME STRING FIVE TIMES
  * (ROADMAP 2.334).
@@ -91,8 +92,12 @@ describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', (
     expect(rows).toHaveLength(5)
     expect(rows?.map((r) => r.probability)).toEqual([null, null, null, null, null])
     expect(rows?.map((r) => r.chanceCell)).toEqual(WALK_QUINTET.map(() => ({
-      kind: 'withheld', text: 'Run the analysis again to see the chance.',
+      kind: 'withheld', text: CHANCE_NOT_SHOWN_YET,
     })))
+    for (const row of rows!) {
+      expect(row.chanceCell.text).not.toMatch(/\d+%/)
+      expect(row.chanceCell.text).not.toContain('Why?')
+    }
   })
 
   it('reads n_valid_samples off the producer entry onto every row', () => {

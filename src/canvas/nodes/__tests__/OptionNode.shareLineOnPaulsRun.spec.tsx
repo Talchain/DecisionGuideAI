@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ THE OPTION SHARE LINE AND THE LEFT-OUT OPTION, ON PAUL'S REAL RUN
  * (side-by-side DIFF 27 Sep, items 1 and 5; `mrr-90b8f080`).
@@ -107,6 +108,8 @@ const seed = (freshness: Freshness, opts: { stamp?: boolean; phase?: 'pre' | 'po
       ? { status: 'complete', hash: 'run-90b8', report: { ...report, ...(opts.stamp === false ? {} : { producer_leader_permission: RUN_STAMP }) } }
       : { status: 'idle', report: null },
   } as never)
+  // SELF-AUTHORED canonical faces isolate caption layout from this historical capture's absent view.
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState(), 'Chance not shown yet') as never)
 }
 
 const renderCard = (id: string) => {

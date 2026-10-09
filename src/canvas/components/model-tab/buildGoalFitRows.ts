@@ -98,7 +98,9 @@ export function buildGoalFitRows(
     const entry = optionProbabilities?.[node.id]
     const details = goalProbabilityDetails(entry as GoalProbabilityInput)
     const chance = view.chanceOf(node.id)
-    const chanceCell = view.chanceCellOf(node.id, context ?? { goalChanceHeroSays: view.goalChance !== null, labelOf: id => resolveCanvasLabel(id, optionLabels) })
+    // The legacy goal-fit builder receives target-backed rows; explicit caller context still gates targetless views.
+    // Preserve row/count/order metadata while withholding the unlicensed numeric figure.
+    const chanceCell = view.chanceCellOf(node.id, context ?? { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, labelOf: id => resolveCanvasLabel(id, optionLabels) })
     if (chanceCell.kind === 'none') continue
     // Read straight off the producer entry this row was scored from, so the
     // count and the probability cannot come from different options.

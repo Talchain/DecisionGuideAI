@@ -1,8 +1,10 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
+import { CHANCE_NOT_SHOWN_YET } from '../../../../canvas/runView/runView'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
@@ -11,7 +13,8 @@ import { DecisionMatrix, type DecisionMatrixProps } from '../../analysisNew/sect
 import { GOAL_FIGURES_WITHHELD_CODES } from '../../utils/goalIdentityWithheld'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { readGoalChanceRange } from '../../utils/goalChanceRange'
-import { RUN_AGAIN_FOR_CHANCE } from '../../../../canvas/runView/runView'
+const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
+
 import { goalChanceRangeLine } from '../goalChanceCopy'
 import { GoalChanceRangeLines } from '../GoalChanceRangeLines'
 import { buildHeroModel } from '../buildHeroModel'
@@ -45,7 +48,7 @@ function seedRange() {
   } } } as never)
   const data = renderHook(() => useResultsSectionData()).result.current
   expect(data.goalChanceRange).toEqual(readGoalChanceRange([RANGE]))
-  return data
+  return withCanonicalTestCells(data)
 }
 
 /** Adds real withhold records (S3's own codes, buildHeroModel.goalChanceRange.spec.tsx) to a seeded range Run. */
@@ -55,7 +58,7 @@ function withWarnings(extra: Array<Record<string, unknown>>) {
   useCanvasStore.setState({ results: { ...state.results, report: {
     ...source, inference_warnings: [...source.inference_warnings, ...extra],
   } } } as never)
-  return renderHook(() => useResultsSectionData()).result.current
+  return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
 }
 
 function propsFor(data: ReturnType<typeof useResultsSectionData>): DecisionMatrixProps {
@@ -84,7 +87,7 @@ function seedChance(withheldId?: string, pct = PCT, driverByOption: Record<strin
     results: { ...state.results, report: { ...source, option_probabilities: probabilities, inference_warnings: [...warnings, record] } },
     ceeAnalysisReady: { ...state.ceeAnalysisReady, goal_threshold_raw: 1200000, goal_threshold_unit: '£' },
   } as never)
-  return renderHook(() => useResultsSectionData()).result.current
+  return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
 }
 
 function open() { fireEvent.click(screen.getByTestId('decision-matrix-toggle')) }
@@ -120,7 +123,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
-  it('the served withheld capture keeps its producer words in every chance cell, never zero', () => {
+  it('a historical withheld capture without a canonical view leaves every chance cell empty, never zero', () => {
     const mapped = mapV5AnalysisToReport(withheldCapture.analysis_result as never, {} as never)
     useCanvasStore.setState({
       nodes: withheldCapture.nodes.map((n) => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, kind: n.kind } })),
@@ -131,13 +134,13 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     render(<DecisionMatrix {...propsFor(data)} />)
     open()
     for (const option of data.recommendation.allOptions) {
-      expect(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent).toBe(data.recommendation.goalFiguresWithheldMessage)
+      expect(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent).toBe('Not shown.')
     }
     expect(screen.getByRole('table').textContent).not.toMatch(/\d+(?:\.\d+)?%/)
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
-  it('RunView (DL ruling 1): a Run with goal figures but NO licence never shows the report figure; it says run again', () => {
+  it('a Run with goal figures and no canonical view never composes chance text from the report', () => {
     seedPaulRun(SERVED_STAMP)
     const state = useCanvasStore.getState()
     const source = state.results.report as unknown as Record<string, unknown>
@@ -155,8 +158,10 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     open()
     for (const id of QUOTED_ORDER) {
       const cell = screen.getByTestId(`decision-matrix-chance-${id}`).textContent!
-      expect(cell).toContain(RUN_AGAIN_FOR_CHANCE)
-      expect(cell).not.toMatch(/\d+(?:\.\d+)?%/)
+      expect(cell).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(cell).not.toContain(TEST_RUN_AGAIN_COPY)
+      expect(cell).not.toMatch(/\d+%/)
+      expect(cell).not.toContain('Why?')
     }
   })
 
@@ -353,13 +358,14 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(screen.queryByTestId('decision-matrix-horizon')).toBeNull()
   })
 
-  it('unresolved range labels never turn the range into a point estimate', () => {
+  it('unresolved local range labels preserve the supplied canonical face', () => {
     const data = seedRange()
     data.goalChanceDriverNames = { labelOf: () => null, unitOf: () => null }
     render(<DecisionMatrix {...propsFor(data)} />)
     open()
-    expect(screen.getByTestId('decision-matrix-chance-angel_bridge')).toHaveTextContent('Not shown.')
-    expect(screen.getByTestId('decision-matrix-chance-angel_bridge').textContent).not.toMatch(/\d+%/)
+    expect(screen.getByTestId('decision-matrix-chance-angel_bridge').querySelector('span')!.textContent)
+      .toBe('‘Angel bridge’: between less than 1% and 40% chance of meeting your goal, in this model.')
+    expect(screen.getByTestId('decision-matrix-chance-angel_bridge').textContent).not.toContain('about 41%')
   })
 
   it('the stamp uses Compare’s human-readable Run time; full hash and ISO time are data attributes only', () => {

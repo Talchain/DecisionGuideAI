@@ -369,6 +369,7 @@ export function useNodeDisplayMetadata(
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
   const nodes = useCanvasStore(state => state.nodes)
+  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const scenarioId = useCanvasStore(state => state.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(state => state.scenarioId === scenarioId ? state.view : null)
   // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
@@ -552,6 +553,7 @@ export function useNodeDisplayMetadata(
     let achievementChanceUnlicensed = false
     const view = runViewOf(report, canonical)
     const chanceContext = { goalChanceHeroSays: view.goalChance !== null,
+      ...(goalThreshold != null ? { hasGoalTarget: true } : {}),
       goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message, labelOf: (id: string) => {
       const label = (nodes?.find(n => n.id === id)?.data as { label?: string } | undefined)?.label
       return label ?? null
@@ -743,5 +745,5 @@ export function useNodeDisplayMetadata(
     // correct reasoning about a read that should not have been in this hook.
     // Graph levels participate in driver eligibility; currency remains a
     // separate gate that the render site reads on every render.
-  }, [isResultsMode, report, canonical, nodes, nodeId, nodeType, factorHoldsValue])
+  }, [isResultsMode, report, canonical, nodes, goalThreshold, nodeId, nodeType, factorHoldsValue])
 }

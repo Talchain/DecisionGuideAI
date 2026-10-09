@@ -152,3 +152,33 @@ describe('option cards never derive a second chance figure', () => {
     expect(offenders, 'Option cards must read the Results chance cell and caveats through the canvas provider.').toEqual([])
   })
 })
+
+const CLIENT_CELL_WORDS = /\b(?:OPTION_CHANCE_WITHHELD|RUN_AGAIN_FOR_CHANCE|licensedOptionChanceLines|goalChanceOptionLines)\b/g
+function clientCellWordHits(source: string): string[] {
+  const parsed = ts.createSourceFile('runView.ts', stripComments(source, 'runView.ts'), ts.ScriptTarget.Latest, true)
+  const hits: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && /ChanceCell/.test(node.name?.text ?? '') && node.body) {
+      hits.push(...[...node.body.getText(parsed).matchAll(CLIENT_CELL_WORDS)].map(hit => hit[0]))
+    } else if (ts.isPropertyAssignment(node) && node.name.getText(parsed) === 'chanceCellOf') {
+      hits.push(...[...node.initializer.getText(parsed).matchAll(CLIENT_CELL_WORDS)].map(hit => hit[0]))
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(parsed)
+  return hits
+}
+describe('S1 canonical cell words have no client fallback', () => {
+  it('CONTROL: catches a composer and both constants in cell functions, ignoring comments', () => {
+    expect(clientCellWordHits(`
+      function optionChanceCell() {
+        // goalChanceOptionLines(licence, labelOf)
+        return licensedOptionChanceLines(licence, labels) ?? OPTION_CHANCE_WITHHELD ?? RUN_AGAIN_FOR_CHANCE
+      }
+      const view = { chanceCellOf: () => goalChanceOptionLines(licence, labels) }
+    `)).toEqual(['licensedOptionChanceLines', 'OPTION_CHANCE_WITHHELD', 'RUN_AGAIN_FOR_CHANCE', 'goalChanceOptionLines'])
+  })
+  it('RunView cell functions never reference client chance words or licence-line composers', () => {
+    expect(clientCellWordHits(SOURCES.get(RUN_VIEW)!)).toEqual([])
+  })
+})

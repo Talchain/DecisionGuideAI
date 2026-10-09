@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
 /**
  * buildHeroModel — PURE mapper from the adapted Results Panel object
  * (`ResultsSectionDataReturn`) to the hero's display model.
@@ -772,7 +773,13 @@ export function buildHeroModel(
   // be a row here, by id, or the arm stands aside and the chain below speaks as before.
   // One gate, shared with the WinGauge's existence line (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row,
   // the target sayable), so the line under these chance lines is never also, or never instead, under the WinGauge's.
-  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null) ? (data.goalChanceLicence ?? null) : null
+  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null)
+    && options.some(option => {
+      const cell = optionChanceCellFromResults(data, option.id)
+      // DL 87114's absence face earns no licence headline or driver/reason disclosure.
+      return cell.kind !== 'none' && cell.text !== CHANCE_NOT_SHOWN_YET
+    })
+    ? (data.goalChanceLicence ?? null) : null
   const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
   const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
   const cellWordsOf = (id: string): string | null => {

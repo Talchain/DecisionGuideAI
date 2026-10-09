@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
@@ -33,6 +34,7 @@ function matrix(goalChanceRange: ReturnType<typeof range>, goalChanceLicence: Re
       goalThreshold: 100, allOptions: [{ id: 'a', label: 'Team A' }, { id: 'b', label: 'Team B' }],
     } }, comparison: { rows: [] }, optionOrder: ['a', 'b'], run: {}, isStale: false,
   } as unknown as DecisionMatrixProps
+  props.data = withCanonicalTestCells(props.data)
   render(<DecisionMatrix {...props} />)
   fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
 }
@@ -107,7 +109,7 @@ describe('share-by-date chance: the same words as CEE chat', () => {
   it('hero coverage recognises the stated-time figure without treating its endpoints as links', () => {
     const model = { lenses: ['goal'], rows: ['a', 'b'].map(id => ({ id, label: labels(id), goal: { value: null } })) } as unknown as HeroChartModel
     const data = { goalChanceRange: range(), goalChanceDriverNames: { labelOf: labels }, recommendation: { goalThreshold: 100, allOptions: ['a', 'b'].map(id => ({ id, label: labels(id) })) } } as unknown as ResultsSectionDataReturn
-    expect(withGoalOptionCoverage(model, data).goalOptionCoverage).toEqual({
+    expect(withGoalOptionCoverage(model, withCanonicalTestCells(data)).goalOptionCoverage).toEqual({
       hasFigures: true, withheldLines: [{ id: 'b', line: '‘Team B’: not shown yet in this model.' }],
     })
   })

@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * MC P0's disclosure for a KEPT leader on the leader's own card (DL fa027 ruling, e8 next row): the finding rests on a
  * deciding link whose figures Olumi supplied (`GOAL_FIGURES_OLUMI_SUPPLIED_LINK`, severity `info`). Science d5's words,
@@ -65,7 +66,8 @@ function withStore(admission: AnalysisAdmissionV1, warnings: unknown[], viewMode
     setHoveredOption: vi.fn(),
     viewMode,
   }
-  vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as never))
+  const installState = installCanonicalFixtureState(state)
+  vi.mocked(useCanvasStore).mockImplementation((selector) => selector(installState as never))
 }
 const metadata = (winRate: number) => ({
   sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false, achievementProbability: null,

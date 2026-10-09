@@ -274,6 +274,7 @@ export function DecisionSummary({
         const view = runViewOf(report, canonical)
         const cell = view.chanceCellOf(currentOptionId, {
           goalChanceHeroSays: view.goalChance !== null,
+          ...(goalThreshold != null ? { hasGoalTarget: true } : {}),
           goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message,
           goalCertaintyUnearned: goalProbabilityDetails(prob).goalCertaintyUnearned,
           labelOf: id => (nodes.find(n => n.id === id)?.data as { label?: string } | undefined)?.label ?? null,

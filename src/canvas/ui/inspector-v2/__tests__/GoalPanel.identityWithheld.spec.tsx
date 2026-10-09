@@ -1,4 +1,5 @@
-import { RUN_AGAIN_FOR_CHANCE } from '../../../runView/runView'
+const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
+
 /**
  * P(goal) WITHHELD for an unevaluated identity on the goal's path — the Canvas consumer of PLoT #416
  * (AIQ #72 5885033487 (2), ACK 5886183999; DL 5885276225: read the typed reason, never the reply text).
@@ -124,6 +125,6 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
   it('CONTROL: evaluated identity alone cannot license an older Run’s figure', () => {
     const { queryByTestId, container } = renderWith(EVALUATED)
     expect(queryByTestId('goal-probability-withheld-identity')).toBeNull()
-    expect(container.textContent ?? '').toContain(RUN_AGAIN_FOR_CHANCE)
+    expect(container.textContent ?? '').not.toContain(TEST_RUN_AGAIN_COPY)
   })
 })

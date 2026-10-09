@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * THE CANVAS CARD CARRIES NEITHER THE LEADER CLAIM NOR ITS ROBUSTNESS GRADE.
  *
@@ -132,8 +133,9 @@ const baseProps = {
 
 function renderOption(report: unknown, licensedChance = true) {
   const chanceReport = licensedChance ? withLicensedOptionChances(report as object, { [NODE_ID]: 41, [SIBLING_ID]: 29 }) : report
+  const state = installCanonicalFixtureState(makeStoreState(chanceReport))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(chanceReport)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
     <ReactFlowProvider><OptionChanceCellProvider>

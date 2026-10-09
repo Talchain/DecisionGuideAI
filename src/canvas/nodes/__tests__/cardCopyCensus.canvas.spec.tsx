@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
@@ -584,6 +585,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · post · standard': [
+    CHANCE_NOT_SHOWN_YET,
     'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, before the Results chance cell (WS5-1 #2704).
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
@@ -599,6 +601,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
+    CHANCE_NOT_SHOWN_YET,
     'Current model', // CAPTION
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
@@ -753,7 +756,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · pre · lod-line': [],
-  'option · post · lod-line': [],
+  'option · post · lod-line': [`Current model · ${CHANCE_NOT_SHOWN_YET}`], // DL 87114: the analysed no-view option stays visible.
   'factor · pre · lod-line': [],
   // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
   // now, so each has a reduced line — `Driver N of M ranked in this run`, which
@@ -1047,6 +1050,11 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // `?? []` default would pass for a bucket the pinned set forgot, which is
     // the drift this file exists to catch.
     expect(measured).toEqual(EXPECTED_CENSUS)
+    for (const id of OPTION_IDS) {
+      expect(chanceCells(id).text).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(chanceCells(id).text).not.toMatch(/\d+%/)
+      expect(chanceCells(id).text).not.toContain('Why?')
+    }
 
     // DISCRIMINATION. The assertion above is satisfied by two censuses that
     // agree on nothing: one where every bucket is empty because the collector

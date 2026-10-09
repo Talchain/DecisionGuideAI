@@ -89,6 +89,8 @@ export function findAnalysisHeroImports(content: string, importerFile: string): 
   for (const m of stripComments(content, importerFile).matchAll(SPEC_RE)) {
     const spec = m[1]
     const resolved = resolveSpec(spec, importerFile)
+    // S1: only tests may import this explicit canonical fixture builder; it mounts no hero.
+    if (importerFile.includes(sep + '__tests__' + sep) && resolved === join(MODULE_DIR, '__tests__', 'helpers', 'canonicalTestCells')) continue
     if ((resolved && isUnderModule(resolved)) || PATH_RE.test(spec)) offenders.push(spec)
   }
   return offenders
@@ -122,6 +124,8 @@ describe('Analysis hero inertness', () => {
 
   const MATRIX = join(SRC, 'components', 'results', 'analysisNew', 'sections', 'DecisionMatrix.tsx')
   it.each([
+    ['test helper importer', join(SRC, 'canvas', 'nodes', '__tests__', 'control.ts'), "import { canonicalTestCellsOf } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'", 0],
+    ['production helper importer', join(SRC, 'canvas', 'nodes', 'control.ts'), "import { canonicalTestCellsOf } from '../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'", 1],
     ['copy-only reader importing goalChanceCopy', MATRIX, "import { about } from '../../analysis-hero/goalChanceCopy'", 0],
     ['copy-only reader importing the hero container', MATRIX, "import { AnalysisHeroContainer } from '../../analysis-hero'", 1],
     ['copy-only reader importing a hero component', MATRIX, "import { HeroOptionRow } from '../../analysis-hero/HeroOptionRow'", 1],

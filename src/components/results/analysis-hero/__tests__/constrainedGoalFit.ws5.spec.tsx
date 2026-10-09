@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -43,7 +44,7 @@ function dataFor(allConstrained: boolean) {
   }] })
   data.goalChanceLicence = data.runView.goalChance
   expect(data.goalChanceLicence).not.toBeNull()
-  return data
+  return withCanonicalTestCells(data)
 }
 
 function assertRows(allConstrained: boolean) {
@@ -75,7 +76,7 @@ function assertRows(allConstrained: boolean) {
   }
   expect(model.rows.find(r => r.id === OPTION_A.id)!.goal.readout).toContain('73%')
   expect(model.rows.find(r => r.id === OPTION_B.id)!.goal.readout).toContain('49%')
-  return data
+  return withCanonicalTestCells(data)
 }
 
 afterEach(cleanup)

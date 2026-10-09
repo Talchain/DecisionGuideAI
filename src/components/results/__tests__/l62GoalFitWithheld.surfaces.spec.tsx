@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
 /**
  * L62 — the withheld state, at the surfaces the user actually reads.
  *
@@ -101,7 +102,9 @@ describe('L62 / Model tab goal card (buildGoalFitRows)', () => {
       const row = rows!.find((r) => r.id === o.id)
       expect(row, o.id).toBeDefined()
       expect(row!.probability).toBeNull()
-      expect(row!.chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
+      expect(row!.chanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+      expect(row!.chanceCell.text).not.toMatch(/\d+%/)
+      expect(row!.chanceCell.text).not.toContain('Why?')
       expect(row!.isSubstitutedJoint, o.id).toBe(false)
     }
   })

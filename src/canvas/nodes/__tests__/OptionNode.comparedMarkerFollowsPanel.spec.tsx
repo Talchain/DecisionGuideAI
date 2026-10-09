@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ THE OPTION MARKER SAYS "COMPARED" ONLY WHERE THE PANEL COUNTS THE OPTION AS COMPARED (R3 F5, #85 5930578606;
  * 52f8cd's F1b predicate, 5930666775; DL 5930585164: "fix the source, not the label").
@@ -73,8 +74,9 @@ const baseProps = {
 }
 
 function renderOption(report: unknown) {
+  const state = installCanonicalFixtureState(makeStoreState(report))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
     <ReactFlowProvider><OptionChanceCellProvider>

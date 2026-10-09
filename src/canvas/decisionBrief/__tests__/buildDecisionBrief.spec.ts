@@ -1,3 +1,5 @@
+import { canonicalBriefFixture } from './helpers/canonicalBriefFixture'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { runViewOf } from '../../runView/runView'
 /**
  * The decision brief builder, driven by SERVED scenario-graph reads (byte-for-byte captures already in this repo,
@@ -184,8 +186,8 @@ describe('buildDecisionBrief — licensed complete-field controls', () => {
       option_ids: ['raise_to_59', 'keep_49_price', 'raise_to_54'],
       pct_by_option: { raise_to_59: 17, keep_49_price: 18, raise_to_54: 19 },
     } as never)
-    const read = await readOf(body)
-    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never))
+    const read = await readOf({ ...body, canonical_analysis_view: canonicalBriefFixture(body) })
+    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never, { computedAt: (read.analysisState?.run_state as { computed_at?: string })?.computed_at }), parseCanonicalAnalysisView(read.canonicalAnalysisView))
     const brief = buildDecisionBrief(read)
     expect(brief.chances.map((c) => c.optionId)).toEqual(['raise_to_59', 'keep_49_price', 'raise_to_54'])
     for (const c of brief.chances) {
@@ -225,9 +227,9 @@ describe('buildDecisionBrief — licensed complete-field controls', () => {
       target: { comparator: 'at_least', value: 100, unit: 'GBP' },
       option_ids: ['keep_current_price', 's1_control_option'], pct_by_option: { keep_current_price: 17, s1_control_option: 0 },
     } as never)
-    const read = await readOf(body)
-    const report = mapV5AnalysisToReport(read.analysisResult as never)
-    const cell = runViewOf(report).chanceCellOf('keep_current_price', { goalChanceHeroSays: true, labelOf: id => body.graph.nodes.find(n => n.id === id)?.label ?? null })
+    const read = await readOf({ ...body, canonical_analysis_view: canonicalBriefFixture(body) })
+    const report = mapV5AnalysisToReport(read.analysisResult as never, { computedAt: (read.analysisState?.run_state as { computed_at?: string })?.computed_at })
+    const cell = runViewOf(report, parseCanonicalAnalysisView(read.canonicalAnalysisView)).chanceCellOf('keep_current_price', { goalChanceHeroSays: true, labelOf: id => body.graph.nodes.find(n => n.id === id)?.label ?? null })
     const brief = buildDecisionBrief(read)
     expect(cell.kind).toBe('figure')
     expect(brief.chances.find(c => c.optionId === 'keep_current_price')?.chanceText).toBe(cell.text)

@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalNode — THE POSSESSIVE GATE (ROADMAP 2.283).
@@ -134,8 +136,9 @@ const baseProps = {
 /** A USER-set target — UI-SEM-082 gates the whole block on it. */
 const USER_TARGET = { threshold_source: 'user', success_threshold: 6_000_000 }
 
-function renderGoalWith(option: Record<string, unknown>) {
-  storeState = makeStoreState(licensedTestReport(reportFor(option)))
+function renderGoalWith(option: Record<string, unknown>, withView = false) {
+  const state = makeStoreState(licensedTestReport(reportFor(option)))
+  storeState = withView ? installCanonicalFixtureState(state) : state
   return render(
     <ReactFlowProvider>
       <GoalNode
@@ -223,8 +226,11 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     const { container } = renderGoalWith(REAL_GOAL_OPTION)
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the possessive is
     // the Chance row's accessible name; the row shows the bare figure.
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('55%')
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(`55% ${POSSESSIVE}`)
+    const face = screen.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(CHANCE_NOT_SHOWN_YET)
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
@@ -234,9 +240,12 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // silence the goal figure, nor swap the joint (all-limits) figure in.
     const { container, unmount } = renderGoalWith(CONSTRAINED_OPTION)
     // Locked Canvas design (23 Sep 2026): read off the Chance row's accessible name.
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('30%')
+    const face = screen.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).not.toContain('42%')
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(`30% ${POSSESSIVE}`)
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(CHANCE_NOT_SHOWN_YET)
     expect(allAccessibleNames(container)).not.toContain('42%')
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
     unmount()
@@ -261,4 +270,15 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(names.split(GOAL_ANCHOR_COPY.phrase('< 1%', true)).length - 1).toBe(0)
     expect(names.split(POSSESSIVE).length - 1).toBe(0)
   })
+})
+
+it('view-bearing control: GoalNode retains the server figure and possessive voice, never the joint figure', () => {
+  for (const [option, pct] of [[REAL_GOAL_OPTION, 55], [CONSTRAINED_OPTION, 30]] as const) {
+    const { container, unmount } = renderGoalWith(option, true)
+    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain(`${pct}%`)
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(`${pct}% ${POSSESSIVE}`)
+    expect(allAccessibleNames(container)).not.toContain('42%')
+    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
+    unmount()
+  }
 })

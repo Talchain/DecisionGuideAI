@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
@@ -576,7 +577,10 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     const card = face('Raise the plan price')
     expect(within(card).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Current model')
     expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe(chanceCells('opt-raise').text)
-    expect(card.textContent).toContain('41%')
+    const chanceFace = within(card).getByTestId('option-win-readout-opt-raise')
+    expect(chanceFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(chanceFace.textContent).not.toMatch(/\d+%/)
+    expect(chanceFace.textContent).not.toContain('Why?')
     expect(card.textContent).not.toContain('of runs')
     expect(card.textContent).not.toMatch(/\bSupport\b/)
   })

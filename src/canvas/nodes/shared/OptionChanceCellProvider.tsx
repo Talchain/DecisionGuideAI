@@ -27,6 +27,7 @@ export function OptionChanceCellProvider({ children }: { children: ReactNode }) 
     const cells = new Map<string, CanvasOptionChanceCell>(rec.allOptions.map(option => [option.id, {
       ...optionChanceCell(view, option.id, {
         goalChanceHeroSays: heroSays,
+        hasGoalTarget: rec.hasGoalTarget ?? rec.goalThreshold != null,
         goalFiguresWithheldMessage: rec.goalFiguresWithheldMessage,
         goalCertaintyUnearned: option.goalCertaintyUnearned,
         notAnalysed: option.notAnalysed,

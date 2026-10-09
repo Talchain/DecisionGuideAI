@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { optionChanceFixture } from '../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐⭐ CURRENT-READ-v1 row 9 on the NON-CARD surfaces (AIQ #75 5912710392; the render-site survey at
@@ -126,9 +127,19 @@ describe('far-zoom card line — row 9', () => {
     }).text
   it('⭐ share withheld → the independent Results chance cell, never the share', () => {
     expect(line(true)).toBe(`Current model · ${chance.text}`)
-    expect(line(true)).toContain('41%')
+    expect(line(true)).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
+    expect(line(true)).not.toMatch(/\d+%/)
+    expect(line(true)).not.toContain('Why?')
     expect(line(true)).not.toContain('of runs')
     expect(line(true)).not.toContain('80%')
+  })
+  it('view-bearing control: row 9 preserves the caption and server figure when shares are withheld', () => {
+    const cell = optionChanceFixture({ bridge: 41, angel: 29 }, true)('bridge')
+    expect(cell.kind).toBe('figure')
+    expect(line(true, cell)).toBe(`Current model · ${cell.text}`)
+    expect(line(true, cell)).toContain('41%')
+    expect(line(true, cell)).not.toContain('80%')
+    expect(line(true, cell)).not.toContain('of runs')
   })
   it('CONTROL: share permitted → the same chance cell, still never the share', () => {
     expect(line(false)).toBe(`Current model · ${chance.text}`)

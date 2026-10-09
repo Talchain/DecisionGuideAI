@@ -1,3 +1,10 @@
+import { useCanonicalAnalysisViewStore } from '@/canvas/stores/canonicalAnalysisViewStore'
+import type { CanonicalAnalysisView } from '@/canvas/runView/canonicalAnalysisView'
+import served from '@/canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
+import { DecisionMatrix } from '../analysisNew/sections/DecisionMatrix'
+import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
+import { fireEvent, screen } from '@testing-library/react'
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
@@ -235,10 +242,11 @@ const LEADER_CLAIM_SELECTOR = '[data-testid^="leading-option-pill-"], [data-test
  * off a canvas that failed to render.
  */
 const chanceCells = optionChanceFixture({ [WINNER_ID]: 41, [RUNNER_UP_ID]: 29 })
-function readCanvas(): { claims: boolean; rendered: boolean; text: string } {
+function readCanvas(withView = false): { claims: boolean; rendered: boolean; text: string } {
+  const cells = withView ? optionChanceFixture({ [WINNER_ID]: 41, [RUNNER_UP_ID]: 29 }, true) : chanceCells
   const { container } = render(
     <ReactFlowProvider>
-      <CanvasOptionChanceContext.Provider value={chanceCells}>
+      <CanvasOptionChanceContext.Provider value={cells}>
       {OPTION_NODES.map(n => <OptionNode key={n.id} {...nodeProps(n.id)} />)}
       </CanvasOptionChanceContext.Provider>
     </ReactFlowProvider>,
@@ -246,8 +254,18 @@ function readCanvas(): { claims: boolean; rendered: boolean; text: string } {
   const text = container.textContent ?? ''
   const rendered = OPTION_NODES.every(n =>
     text.includes(n.data.label) &&
-    container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent === chanceCells(n.id).text,
-  ) && !text.includes('of runs') && text.includes('41%') && text.includes('29%') // distinct from the run shares
+    container.querySelector(`[data-testid="option-win-readout-${n.id}"]`)?.textContent === cells(n.id).text,
+  ) && !text.includes('of runs') // distinct from the run shares
+  for (const node of OPTION_NODES) {
+    const face = container.querySelector(`[data-testid="option-win-readout-${node.id}"]`)!
+    expect(face).not.toBeNull()
+    if (withView) expect(face.textContent).toBe(cells(node.id).text)
+    else {
+      expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(face.textContent).not.toMatch(/\d+%/)
+      expect(face.textContent).not.toContain('Why?')
+    }
+  }
   return {
     claims: LEADER_CLAIM_TEXT.test(text) || container.querySelector(LEADER_CLAIM_SELECTOR) !== null,
     rendered,
@@ -387,4 +405,41 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
       `The checks footer printed both verdict labels, or neither.\nSurface text: ${panel.text.slice(0, 400)}`,
     ).toBe(!panel.denies)
   })
+})
+
+it('view-bearing control: singleVerdict canvas quotes both server figures without a leader claim', () => {
+  setStore(CLEAR_RUN)
+  const canvas = readCanvas(true)
+  expect(canvas.rendered).toBe(true)
+  expect(canvas.claims).toBe(false)
+  expect(canvas.text).toContain('41%')
+  expect(canvas.text).toContain('29%')
+})
+
+it('view-bearing control: singleVerdict Results matrix quotes server figures and preserves its single verdict', () => {
+  setStore(CLEAR_RUN)
+  const cells = optionChanceFixture({ [WINNER_ID]: 41, [RUNNER_UP_ID]: 29 }, true)
+  const canonical: CanonicalAnalysisView = { ...served.canonical_analysis_view,
+    run: { run_id: 'synthetic-ui-fixture', graph_hash_at_run: null, computed_at: null },
+    options: OPTION_NODES.map(node => ({ option_id: node.id,
+      cell: { kind: 'figure', display: cells(node.id).text!, face: cells(node.id).text! },
+      main_driver: { kind: 'not_recorded' } })),
+  } as CanonicalAnalysisView
+  const state = useCanvasStore.getState()
+  useCanonicalAnalysisViewStore.getState().adopt('single-verdict-view', canonical)
+  useCanvasStore.setState({ currentScenarioId: 'single-verdict-view',
+    results: { ...state.results, report: { ...state.results.report!, run_id: 'synthetic-ui-fixture' } },
+  } as never)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
+  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={OPTION_NODES.map(n => n.id)} run={{}} isStale={false} />)
+  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
+  for (const node of OPTION_NODES) {
+    const face = screen.getByTestId(`decision-matrix-chance-${node.id}`).querySelector('span')!
+    expect(face.textContent).toBe(cells(node.id).text)
+    expect(face.textContent).toMatch(/(?:41|29)%/)
+  }
+  const panel = readPanel()
+  expect(panel.denies).toBe(false)
+  expect(panel.footerTicksWinner).toBe(true)
 })

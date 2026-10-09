@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel — THE POSSESSIVE GATE (ROADMAP 2.282), NOW OVER THE REAL SHAPE
@@ -288,8 +290,11 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const text = container.textContent ?? ''
 
     // Anatomy keeps one register sentence; dropping or duplicating it turns this count red.
-    expect(text).toContain('about 55% chance of meeting your goal, in this model.')
-    expect(text.split('about 55% chance of meeting your goal').length - 1).toBe(1)
+    const face = renderPanelFace(container)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
+    expect(text.split(CHANCE_NOT_SHOWN_YET).length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // The joint line is a genuinely DIFFERENT quantity here, so it stays.
     // 29 Sep 2026 (AIQ 5882498938 → 5885033487): "All your limits hold in N% of model runs".
@@ -302,7 +307,10 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    expect(text).toContain('about 30% chance of meeting your goal')
+    const face = renderPanelFace(container)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(text).not.toContain('About 42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
@@ -488,4 +496,25 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     const text = renderPanel().container.textContent ?? ''
     expect(text.split(JOINT_LINE).length - 1).toBe(1)
   })
+})
+
+function renderPanelFace(container: HTMLElement) {
+  const face = Array.from(container.querySelectorAll('p')).find(el => el.textContent === CHANCE_NOT_SHOWN_YET)
+  expect(face).toBeDefined()
+  return face!
+}
+it('view-bearing control: GoalPanel retains possessive wording once and keeps joint limits in their own row', () => {
+  vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
+  for (const [report, pct] of [[REAL_GOAL_REPORT, 55], [CONSTRAINED_REPORT, 30]] as const) {
+    setStore(report)
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
+    const { container, unmount } = renderPanel()
+    const text = container.textContent ?? ''
+    expect(text).toContain(`about ${pct}% chance of meeting your goal, in this model.`)
+    expect(text.split(`about ${pct}% chance of meeting your goal`).length - 1).toBe(1)
+    expect(text).not.toContain('42% chance of meeting your goal')
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
+    expect(text).toMatch(/All your limits hold in \d+% of model runs/)
+    unmount()
+  }
 })

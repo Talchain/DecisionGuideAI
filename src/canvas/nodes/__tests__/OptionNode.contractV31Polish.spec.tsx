@@ -25,7 +25,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { runViewOf } from '../../runView/runView'
+import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { typography } from '../../../styles/typography'
 import { changeRow, changeRowValueText } from './__helpers__/optionChangeRowText'
 import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
@@ -104,13 +104,14 @@ vi.mock('../shared/useOptionChanceCell', () => ({
   useOptionChanceCell: (id: string) => {
     const results = useCanvasStore(state => state.results)
     const nodes = useCanvasStore(state => state.nodes)
-    return runViewOf(results.report).chanceCellOf(id, {
+    const context = {
       goalChanceHeroSays: true,
-      labelOf: (nodeId) => {
+      labelOf: (nodeId: string) => {
         const label = nodes.find(node => node.id === nodeId)?.data.label
         return typeof label === 'string' ? label : null
       },
-    })
+    }
+    return canonicalFixtureRunView(results.report, context).chanceCellOf(id, context)
   },
 }))
 

@@ -18,7 +18,7 @@ describe('R6 canonical matching and figure authority', () => {
     const legacy = mapV5AnalysisToReport(p02.j.analysis_result as never)
     const body = { ...canonical, options: [{ option_id: X, cell: { kind: 'range', display: '20–60%', detail: {} }, main_driver: { kind: 'not_recorded' } }] }
     const view = buildRunView({ ...legacy, run_id: run.run_id }, body as never)
-    expect(buildRunView(legacy).chanceCellOf(X, ctx).text).toContain('5% and 37%')
+    expect(buildRunView(legacy).chanceCellOf(X, ctx)).toEqual({ kind: 'none', text: null })
     expect(view.chanceCellOf(X, ctx)).toEqual({ kind: 'range', text: '20–60%' })
   })
   it.each(['less than 1%', '<1%'])('R6-3b served b38d1c80 bound %s cannot become about 1%%', display => {

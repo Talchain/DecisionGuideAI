@@ -46,6 +46,9 @@ import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, merg
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from './responseParser'
+import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../canvas/state/storedRunDelta'
 import { hashEqualStaleReasonWords } from './hashEqualStaleReasonWords'
 import { recordAnalysisStaleReasonWords } from '../canvas/state/analysisStaleReasonWords'
@@ -804,6 +807,8 @@ export interface ApplyV5StateResult {
  * historical behaviour (no staleness gating).
  */
 export interface ApplyV5StateOptions {
+  /** Scenario captured at dispatch; canonical TURN views never cross this boundary. */
+  turnScenarioId?: string | null
   /** The `client_turn_id` that was stamped on the outgoing request. */
   turnClientId?: string | null
   /** The store's active turn id at apply time. When mismatched, drop writes. */
@@ -2377,6 +2382,15 @@ export function applyV5State(
         skip_reason: 'not_about_current_graph',
       })
     } else if (typeof store.resultsComplete === 'function') {
+      // The parser preserves undeclared top-level fields in its existing additive sidecar.
+      // Absence or invalid bytes retain the held READ/TURN view. Bind to dispatch AND current scenario.
+      const scenarioId = options?.turnScenarioId
+      if (scenarioId && scenarioId === store.currentScenarioId) {
+        const turnView = (response as { canonical_analysis_view?: unknown }).canonical_analysis_view
+          ?? (response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]?.canonical_analysis_view
+        const canonical = parseCanonicalAnalysisView(turnView)
+        if (canonical !== null) useCanonicalAnalysisViewStore.getState().adopt(scenarioId, canonical)
+      }
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
       const report = mapV5AnalysisToReport(analysisBlock, {
         computedAt: runComputedAtOf(response),

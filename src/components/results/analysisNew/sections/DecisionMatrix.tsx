@@ -67,8 +67,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const withheld = rec.goalFiguresWithheldMessage ?? null
     const rangeEntry = range?.rangeByOption[id]
     const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf, range?.target)
-    // ⭐ RunView PR 1: ONE source for the chance (CEE's licence, via the Run's view). The report's own figure is never
-    // shown; a Run with goal figures but no licence says RUN_AGAIN_FOR_CHANCE (DL ruling 1, 8 Oct).
+    // Numeric caveat gating uses the licence; chance cell text uses CEE's canonical view.
     const viewChance = data.runView?.chanceOf(id)
     const readout = rangeEntry !== undefined || option.notAnalysed === true ? null
       : viewChance?.kind === 'figure' ? viewChance.words : null

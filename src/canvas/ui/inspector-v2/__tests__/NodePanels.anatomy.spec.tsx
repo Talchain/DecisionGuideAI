@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../runView/runView'
 /** EDIT-UX slice 2: real Router → shell → every node panel. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -304,9 +305,12 @@ describe('specific node contracts', () => {
       robustness: { recommended_option_id: 'option', display_verdict: 'fragile' },
     } } } as never)
     open('goal')
-    const chances = screen.getAllByText('Run the analysis again to see the chance.')
+    const chances = screen.getAllByText(CHANCE_NOT_SHOWN_YET)
     expect(chances).toHaveLength(1)
     expect(chances[0]).toBeVisible()
+    expect(chances[0].textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(chances[0].textContent).not.toMatch(/\d+%/)
+    expect(chances[0].textContent).not.toContain('Why?')
     expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
