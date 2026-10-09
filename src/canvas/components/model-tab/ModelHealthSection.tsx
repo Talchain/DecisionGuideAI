@@ -86,6 +86,9 @@ export interface AuditTrailData {
  */
 export const MODELCARD_DISCUSS_LABEL = "Discuss the model's reliability with Olumi"
 
+// Fail safe: a surface that cannot know whether options were ranked never says they were ordered.
+export const MODELCARD_DEFAULT_CRITIQUE_CONTEXT: CritiqueRunContext = { hasRankedOptions: false }
+
 interface ModelHealthSectionProps {
   context?: CritiqueRunContext
   ceeQuality?: CeeQualityDimensions | null
@@ -182,7 +185,7 @@ function QualityRow({ label, score }: { label: string; score?: number }) {
 function ModelHealthSectionInner({
   ceeQuality,
   auditTrail,
-  context,
+  context = MODELCARD_DEFAULT_CRITIQUE_CONTEXT,
   factorCount,
   edgeCount,
   factorsToVerify,
