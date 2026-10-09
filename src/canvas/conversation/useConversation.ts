@@ -60,6 +60,7 @@ import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
 import { readGuidedSizing } from '../../v5/readGuidedSizing'
+import { OWNERSHIP_REFUSAL_COPY, ownershipRefusalRetryable, type OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -2369,6 +2370,8 @@ export interface SendFailureNotice {
   retryable: boolean
   /** The submitted input text, for restore-into-composer affordances. */
   inputText: string
+  /** Validated refusal shared by the transcript and first-use hero. */
+  ownershipRefusal?: OwnershipRefusalReason
 }
 
 /**
@@ -5597,7 +5600,7 @@ export function useConversation(): UseConversationReturn {
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
-              target.kind !== 'typed_error' || deliveryProvenByFrame
+              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame
                 ? 'sent'
                 : unverified
                   ? 'unconfirmed'
@@ -6421,7 +6424,9 @@ export function useConversation(): UseConversationReturn {
           // CeeTypedError-shaped bodies (via rawBody), plus the server
           // retryable marker. Fail closed on every field.
           const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
-          const retryable = resolveV5Retryable(target.code, recovery.retryable)
+          const retryable = target.ownershipRefusal !== undefined
+            ? ownershipRefusalRetryable(target.ownershipRefusal)
+            : resolveV5Retryable(target.code, recovery.retryable)
           // Transcript honesty (trust item #3): the rehearsal's 504s carry
           // NO CEE body — the proxy timeout JSON is not a server-processing
           // fault, and "Something went wrong on our side" was a false
@@ -6448,7 +6453,9 @@ export function useConversation(): UseConversationReturn {
             rawBody: target.rawBody,
           })
           let content: string
-          if (transportFailure && target.transportMeta) {
+          if (target.ownershipRefusal !== undefined) {
+            content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
+          } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
             // CEE-class — layered content, each layer display-honest:
@@ -6494,7 +6501,9 @@ export function useConversation(): UseConversationReturn {
               .join('\n\n')
           }
           const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
+                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
+                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
             : []
           // System turns get NO transcript bubble — the failure propagates to
           // the dispatcher instead (see SystemEventSendError). Gating here
@@ -6507,6 +6516,7 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               synthetic: true,
               content,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
               ...(deliveryUnverified ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
               timestamp: new Date(),
@@ -6519,6 +6529,7 @@ export function useConversation(): UseConversationReturn {
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
               inputText: inputForRestore,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
             })
           } else if (mode === 'system') {
             // inputForRestore is null for system turns; record the failure so

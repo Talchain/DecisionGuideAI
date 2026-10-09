@@ -22,6 +22,7 @@
  */
 
 import { memo } from 'react'
+import { ownershipRefusalRetryable } from '../../../v5/ownershipRefusalCopy'
 import { MessageBubble } from '../MessageBubble'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { MessageMenu } from './MessageMenu'
@@ -173,7 +174,7 @@ export const ChatMessage = memo(function ChatMessage({
         <MessageMenu
           role={message.role}
           content={message.content}
-          onRetry={message.role === 'assistant' ? onRetry : undefined}
+          onRetry={message.role === 'assistant' && (message.ownershipRefusal === undefined || ownershipRefusalRetryable(message.ownershipRefusal)) ? onRetry : undefined}
           /*
            * ⚠ THE OLD ROW'S GATE IS CARRIED OVER, NOT DROPPED. `FollowUpActions`
            * rendered only when the message was a non-synthetic, non-streaming
