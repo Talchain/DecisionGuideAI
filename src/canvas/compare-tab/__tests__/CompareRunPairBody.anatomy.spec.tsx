@@ -221,11 +221,10 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(vi.mocked(canvasLinkOfTarget).mock.calls.some(([target]) => target?.id === 'decoy')).toBe(false)
   })
 
-  it('keeps every producer input reachable in order beyond the two-row preview', () => {
+  it('keeps every producer input visible immediately in order', () => {
     const delta = runChangeDelta()
     mount(runChangeDelta({ input_changes: [delta.input_changes![0], { ...delta.input_changes![0], option_id: 'opt_49' }, { ...delta.input_changes![0], entity_id: 'other', label_after: 'Another input', option_id: 'opt_49' }] }))
-    expect(within(section('What changed in the model')).queryByText(/Another input/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'See all 3 recorded changes' }))
+    expect(screen.queryByRole('button', { name: 'See all 3 recorded changes' })).toBeNull()
     expect(within(section('What changed in the model')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
     expect(within(section('What changed in the model')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
   })

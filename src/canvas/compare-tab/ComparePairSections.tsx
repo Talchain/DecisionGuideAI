@@ -7,7 +7,7 @@ import { PanelIconButton } from '../../components/results/analysisNew/PanelIconB
 import { SectionShell } from '../../components/results/analysisNew/sections/SectionShell'
 import { useScienceExact, scienceQuantityText } from '../../components/science/ScienceQuantity'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
-import { INPUT_ROWS_SHOWN_FIRST, type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
+import { type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 import {
   inputRowText, MOVEMENT_SCOPE_TEXT, noiseQualifier, noPairsText, WHATS_CHANGED_TESTID,
   type InputRowFocus, type InputRowLight,
@@ -133,8 +133,8 @@ export function ComparePairSections({
   const ask = (): void => openAskOlumi({
     label: COMPARE_ASK_LABEL,
     context: `${resultHeadline}.${qualification ? ` ${qualification}` : ''} Previous run: ${delta.endpoints?.prior.run_id ?? 'not recorded'}. Latest run: ${delta.endpoints?.current.run_id ?? 'not recorded'}. ${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`,
-    // The draft quotes the rows the list shows before "See all", then counts the rest.
-    draft: compareAskDraft(rows.slice(0, INPUT_ROWS_SHOWN_FIRST), rows.length),
+    // Every recorded row is visible, so the draft quotes the same complete list.
+    draft: compareAskDraft(rows, rows.length),
   })
   // The run-share half: inline when it leads, behind Result details when goal chances lead.
   const shareResults = (
