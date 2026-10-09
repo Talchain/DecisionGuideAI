@@ -151,6 +151,8 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
     <li
       className={`-mx-2 px-2 py-3 rounded-md border-t border-panel-border first:border-t-0 ${light ? 'hover:bg-panel-hover focus-within:bg-panel-hover' : ''} ${selected ? 'ring-1 ring-inset ring-gray-400' : ''}`}
       data-testid={`${WHATS_CHANGED_TESTID}-input-row`}
+      data-entity-id={row.entityId}
+      data-option-id={row.optionId ?? undefined}
       data-kind={row.kind}
       data-change={row.change}
       data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}
