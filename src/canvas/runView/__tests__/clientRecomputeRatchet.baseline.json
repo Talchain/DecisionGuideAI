@@ -3,7 +3,11 @@
   "sanctioned": [
     "src/canvas/runView/runView.ts"
   ],
+  "residualClasses": {
+    "PERSIST": "PERSIST: last-result / AnalysisSnapshot store a client copy of the licensed chance; goes to 0 when snapshots store (revision, Run id) and read S1 typed records"
+  },
   "symbols": {
+    "PERSIST": ["licensedChanceCopy"],
     "CHANCE": [
       "selectGoalProbability",
       "formatGoalProbability",
@@ -73,6 +77,10 @@
     ]
   },
   "sites": [
+    {"class":"PERSIST","symbol":"licensedChanceCopy","file":"src/canvas/store.ts","call":0,"read":1,"def":0,"sanctioned":false},
+    {"class":"PERSIST","symbol":"licensedChanceCopy","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"goal_probability","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"probability_of_goal","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/decisionBrief/buildDecisionBrief.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/nodes/GoalNode.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/ui/inspector-v2/panels/GoalPanel.tsx","call":0,"read":0,"def":0,"sanctioned":false},
@@ -131,8 +139,8 @@
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/conversation/askAi.ts","call":1,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/decisionBrief/buildDecisionBrief.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/hooks/useNodeDisplayMetadata.ts","call":0,"read":0,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/store.ts","call":1,"read":0,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":1,"read":0,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/store.ts","call":0,"read":0,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/components/results/useResultsSectionData.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/components/results/utils/selectGoalProbability.ts","call":0,"read":0,"def":1,"sanctioned":false},
     {"class":"CHANCE","symbol":"selectGoalProbability","file":"src/lib/discriminationFallback.ts","call":0,"read":0,"def":0,"sanctioned":false},
