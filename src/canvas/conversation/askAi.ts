@@ -1,7 +1,7 @@
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
-import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import { runViewOf } from '../runView/runView'
 import { selectRunWithholdsFigures } from '../ui/inspector-v2/useAnalysisResults'
 import { bindAskTarget, clearAskTargetBinding } from '../ui/inspector-v2/askTargetBinding'
 import { revealOlumiSurface } from './revealOlumi'
@@ -55,8 +55,11 @@ export function askAiStage(state = useCanvasStore.getState()): AskStage {
   if (resultLeaderWithholdCause(state.results?.report?.producer_leader_permission) === 'unrequested_analysis_withheld') return 'drafted'
   if (!selectRunAffirmedCurrent(state)) return 'stale'
   if (selectRunWithholdsFigures(state)) return 'withheld'
-  const probabilities = (state.results?.report as { option_probabilities?: Record<string, Parameters<typeof selectGoalProbability>[0]> } | undefined)?.option_probabilities
-  if (probabilities && Object.values(probabilities).some(p => selectGoalProbability(p).goalProbability === null)) return 'withheld'
+  const report = state.results?.report
+  const probabilities = report?.option_probabilities
+  // Point licence only: range-only Runs keep the withheld question (askAi.spec 'range-only chances').
+  const view = runViewOf(report)
+  if (probabilities && Object.keys(probabilities).some(id => view.chanceOf(id).kind !== 'figure')) return 'withheld'
   return 'ran-current'
 }
 const labelOf = (node: { data?: unknown } | undefined): string | undefined => {
