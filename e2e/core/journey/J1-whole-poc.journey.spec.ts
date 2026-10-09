@@ -845,29 +845,58 @@ test.describe.serial('J1 · whole PoC', () => {
     J.fragile2 = (J.AR2.enrichment?.robustness?.fragile_edges ?? []) as Fragile[]
     writeEvidence('J6-rerun.json', { R1: J.R1, R2: J.R2, prior: ends?.prior?.run_id, prior_at: ends?.prior?.computed_at, current_at: ends?.current?.computed_at, R1at: J.R1at, R2at: J.R2at, autoPassAt: J.autoPassAt, fragile2: J.fragile2 })
 
-    await runAdvisory('J7-compare-run-delta', async () => {
-      await pageA.getByRole('tablist', { name: 'Outputs sections' }).getByRole('tab', { name: 'Compare' }).click()
-      // The pair renders, or the body says why not (CompareRunPairBody: -empty carries data-absence-reason).
-      const pair = pageA.getByTestId('compare-run-pair')
-      const empty = pageA.getByTestId('compare-run-pair-empty').or(pageA.getByTestId('compare-run-pair-run-on-record'))
-      await expect(pair.or(empty).first()).toBeVisible({ timeout: 30_000 })
-      if (await empty.count()) throw new Error(`Compare shows no pair: ${await empty.first().getAttribute('data-absence-reason') ?? await empty.first().getAttribute('data-run-on-record') ?? 'no reason given'}`)
-      // Identity: the edited link's input_changes rows, by entity_id, are the rows the tab lists.
-      const changes = (body.current_read?.run_delta?.input_changes ?? []) as any[]
-      const touched = J.j5Branch === 'option_intervention'
-        ? changes.filter((c) => JSON.stringify(c).includes(J.j5Option!.option) && JSON.stringify(c).includes(J.j5Option!.factor))
-        : changes.filter((c) => c?.link?.from === J.edited!.from_id && c?.link?.to === J.edited!.to_id)
-      if (!touched.length) throw new Error(`run_delta.input_changes does not name J5's edit (${J.j5Branch}; ${changes.length} rows)`)
-      const shown = await pair.locator('[data-testid$="-input-row"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entity-id')))
-      const missing = touched.map((c) => String(c.entity_id)).filter((id) => !shown.includes(id))
-      if (missing.length) throw new Error(`Compare does not list the edited link's change row(s) ${missing.join(', ')} (shown: ${shown.join(', ')})`)
-      // The run pair, when the headline carries the artefact (it does only under some verdict states).
-      const art = pair.locator('[data-compare-section="headline"][data-current-run-id]')
-      const runIds = (await art.count())
-        ? { prior: await art.getAttribute('data-prior-run-id'), current: await art.getAttribute('data-current-run-id') } : null
-      if (runIds && runIds.current !== J.R2) throw new Error(`Compare names current run ${runIds.current}, not R2 ${J.R2}`)
-      return { rows: changes.length, edited_rows: touched.length, shown: shown.length, run_ids: runIds ?? 'artefact not rendered' }
+    // J7 · Comparison acceptance row C1 (#87 6074054602; de #2725 gave each row its identity): Compare lists exactly what
+    // changed between R1 and R2, by identity, in the user's frame, without chances.
+    await pageA.getByRole('tablist', { name: 'Outputs sections' }).getByRole('tab', { name: 'Compare' }).click()
+    // C1.1 · the pair renders, never the empty / run-on-record body.
+    const pair = pageA.getByTestId('compare-run-pair')
+    const empty = pageA.getByTestId('compare-run-pair-empty').or(pageA.getByTestId('compare-run-pair-run-on-record'))
+    await expect(pair.or(empty).first(), '[J7] Compare renders neither a pair nor a reason').toBeVisible({ timeout: 30_000 })
+    expect(await empty.count(), `[J7] Compare shows no pair: ${await empty.first().getAttribute('data-absence-reason').catch(() => null) ?? 'no reason given'}`).toBe(0)
+    // C1.2 · EVERY run_delta.input_changes row has its row on the tab, by entity id (option settings included).
+    const changes = (body.current_read?.run_delta?.input_changes ?? []) as any[]
+    const touched = J.j5Branch === 'option_intervention'
+      ? changes.filter((c) => JSON.stringify(c).includes(J.j5Option!.option) && JSON.stringify(c).includes(J.j5Option!.factor))
+      : changes.filter((c) => c?.link?.from === J.edited!.from_id && c?.link?.to === J.edited!.to_id)
+    expect(touched.length, `[J7] run_delta.input_changes does not name J5's edit (${J.j5Branch}; ${changes.length} rows)`).toBeGreaterThan(0)
+    const shown = await pair.locator('[data-testid$="-input-row"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entity-id')))
+    expect(shown.filter((id) => id === null).length, `[J7] ${shown.length} Compare row(s), some without data-entity-id`).toBe(0)
+    expect(changes.map((c) => String(c.entity_id)).filter((id) => !shown.includes(id)), `[J7] Compare does not list these input_changes rows (shown: ${shown.join(', ')})`).toEqual([])
+    // C1.3 · J5's row says what changed in the user's words: the option, the factor, and the typed figure (never the
+    // model's internal value, e.g. 0.12 for "12%").
+    const rowTexts: string[] = []
+    for (const c of touched) {
+      const row = pair.locator(`[data-testid$="-input-row"][data-entity-id="${String(c.entity_id)}"]`).first()
+      const text = (await row.innerText()).replace(/\s+/g, ' ').trim()
+      rowTexts.push(text)
+      if (J.j5Branch === 'option_intervention') {
+        const oe = J.j5Option!
+        expect(text, `[J7] J5's Compare row does not name the option "${labelOf(J.G1!, oe.option)}"`).toContain(labelOf(J.G1!, oe.option))
+        expect(text, `[J7] J5's Compare row does not name the factor "${oe.factorLabel}"`).toContain(oe.factorLabel)
+        expect(text, `[J7] J5's Compare row does not show the typed figure ${oe.typedNumber}`).toMatch(new RegExp(`→\\D{0,3}${oe.typedNumber}\\b`))
+        if (oe.stored !== undefined && oe.stored !== oe.typedNumber) expect(text, `[J7] J5's Compare row shows the internal value ${oe.stored}`).not.toMatch(new RegExp(`(^|[^\\d.])${String(oe.stored).replace('.', '\\.')}(?![\\d])`))
+      }
+    }
+    // C1.4 · the pair's identities, whenever the headline carries them (only some verdict states render the artefact).
+    const art = pair.locator('[data-compare-section="headline"][data-current-run-id]')
+    const runIds = (await art.count())
+      ? { prior: await art.getAttribute('data-prior-run-id'), current: await art.getAttribute('data-current-run-id') } : null
+    if (runIds) {
+      expect(runIds.current, '[J7] Compare names a current run that is not R2').toBe(J.R2)
+      if (J.R1) expect(runIds.prior, '[J7] Compare names a prior run that is not R1').toBe(J.R1)
+    }
+    // C1.5 · never a ranking (hard), and (ADVISORY pending a DL ruling, #87) no chance section on the pair: today the pair
+    // carries "Chance of meeting your goal, in this model", which PLAN v2's "structural diff without chances" may forbid.
+    // Ranking words stay hard; the chance-section row is named and records the heading it found.
+    const pairText = (await pair.innerText()).replace(/\s+/g, ' ')
+    const ranking = pairText.match(/\b(winner|best option|recommend(?:ed|s)?)\b/i)
+    expect(ranking?.[0] ?? null, `[J7] the Compare pair uses ranking words: "${ranking?.[0]}"`).toBeNull()
+    await runAdvisory('J7-C1.5-no-chance-on-pair', async () => {
+      const chance = pairText.match(/[^.]{0,40}\bchance of\b[^.]{0,60}/i)
+      if (chance) throw new Error(`the Compare pair carries a chance section: "${chance[0].trim()}"`)
+      return { chance_words: 0 }
     })
+    writeEvidence('J7-compare.json', { rows: changes.length, edited_rows: touched.length, shown, row_texts: rowTexts, run_ids: runIds ?? 'artefact not rendered' })
   })
 
   test('J8 · fresh browser, same account: the model AND the verdict survive, by identity', async ({ browser }) => {
