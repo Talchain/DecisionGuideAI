@@ -253,7 +253,7 @@ export function InputChanges({ inputs, rowFocus, rowLight, frame, flush = false 
           const focus = rowFocus?.(row)
           const light = focus ? rowLight?.(row) ?? null : null
           return (
-            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-entity-id={row.entityId} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
+            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-entity-id={row.entityId} data-option-id={row.optionId ?? undefined} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
               {focus ? (
                 <button
                   type="button"
