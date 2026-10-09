@@ -102,9 +102,9 @@ describe('DL 87114: one option target frame survives reload', () => {
     mountAndRead('$98 → £59', '59')
   })
 
-  it('scale_frame precedes observed cap for a target without raw_value', () => {
+  it('cap ≠ scale_frame: the cap wins, as in CEE’s writer, so the UI shows CEE’s raw_value (0.295 × 400 = 118)', () => {
     seed(graph({ observedState: { value: 0, raw_value: 0, unit: '£', cap: 400 } }, 0.295))
-    mountAndRead('£0 → £59', '59')
+    mountAndRead('£0 → £118', '118')
   })
 
   it('CEE joined details retain a user-owned raw cell rather than losing it before the shared reader', () => {

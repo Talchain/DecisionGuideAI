@@ -85,11 +85,12 @@ export function optionEntryScaleOf(cap: unknown, scaleFrame: unknown): number | 
 
 /**
  * One display/entry frame for an option target. A user-owned raw cell defines
- * its own unit and raw/model scale; otherwise CEE's scale_frame wins, then cap.
+ * its own unit and raw/model scale; otherwise the cap, then CEE's scale_frame — the same
+ * order CEE's writer derives raw_value from (option-intervention-edit.ts, DL 87114), so the
+ * figure shown equals the raw_value CEE stores.
  * Keep the factor's model baseline for comparisons, but only carry its raw
  * anchor when it agrees with that frame. A conflicting anchor must not silently
  * override the selected scale in the denormaliser or hide the entry box.
- * `optionEntryScaleOf` retains its legacy cap-first contract for other callers.
  */
 export function resolveOptionTargetDisplayFrame(
   factorData: Record<string, unknown> | null | undefined,
@@ -106,7 +107,7 @@ export function resolveOptionTargetDisplayFrame(
   const userCell = source === 'user_specified' && raw !== null &&
     cellUnit !== undefined && !isSuppressedUnit(cellUnit) && unitKind !== 'none' && unitKind !== 'placeholder'
   const rawScale = userCell && value !== null && value !== 0 ? raw / value : undefined
-  const cap = optionEntryScaleOf(rawScale, optionEntryScaleOf(factorData?.scale_frame, unwrapInterventionValue(obs?.cap).value))
+  const cap = optionEntryScaleOf(rawScale, optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, factorData?.scale_frame))
   const unit = userCell ? cellUnit : factorUnit
   const observedValue = unwrapInterventionValue(obs?.value).value ?? undefined
   let observedRawValue = toFiniteNumber(obs?.raw_value) ?? unwrapInterventionValue(obs?.raw_value).value ?? undefined
