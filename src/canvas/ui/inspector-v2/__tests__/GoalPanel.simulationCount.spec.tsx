@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel — Impact "Based on N simulations" honesty.
@@ -63,10 +65,26 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     }
   }
 
+  it('view-bearing control: the server figure keeps the real simulation count and its omission gate', () => {
+    for (const meta of [{ n_samples: 5000 }, { seed: null }]) {
+      setStore(reportWithGoal(meta))
+      useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
+      const { getByText, queryByText, unmount } = renderPanel()
+      expect(getByText(/62% chance of meeting your goal/)).toBeTruthy()
+      if ('n_samples' in meta) expect(getByText('Based on 5,000 simulations')).toBeTruthy()
+      else expect(queryByText(/Based on .* simulations/)).toBeNull()
+      expect(queryByText('Based on 1,000 simulations')).toBeNull()
+      unmount()
+    }
+  })
+
   it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
     setStore(reportWithGoal({ n_samples: 5000 }))
     const { getByText, queryByText } = renderPanel()
-    expect(getByText(/about 62% chance of meeting your goal, in this model\./)).toBeTruthy()
+    const face = getByText(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(getByText('Based on 5,000 simulations')).toBeTruthy()
     // The old fabricated constant must never appear.
     expect(queryByText('Based on 1,000 simulations')).toBeNull()
@@ -77,7 +95,10 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     setStore(reportWithGoal({ seed: null }))
     const { getByText, queryByText } = renderPanel()
     // The probability itself still renders — only the count sentence is gated.
-    expect(getByText(/about 62% chance of meeting your goal, in this model\./)).toBeTruthy()
+    const face = getByText(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(queryByText(/Based on .* simulations/)).toBeNull()
   })
 })

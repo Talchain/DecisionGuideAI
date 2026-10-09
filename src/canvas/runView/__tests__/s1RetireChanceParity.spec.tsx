@@ -7,7 +7,7 @@ import b2Served from './fixtures/cee-1c-served-read-464abd0a.json'
 import b3 from '../../../components/results/analysisNew/__tests__/b3-captured-census-read.fixture.json'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { parseCanonicalAnalysisView } from '../canonicalAnalysisView'
-import { runViewOf } from '../runView'
+import { CHANCE_NOT_SHOWN_YET, runViewOf } from '../runView'
 import { useCanvasStore } from '../../store'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
@@ -65,10 +65,18 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
       // These served Runs have a partial chance field; staging suppresses the brief's full set.
       expect(brief.chances).toEqual([])
       expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-      const rows = buildGoalFitRows(options, report.option_probabilities, view, { goalChanceHeroSays: view.goalChance !== null, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
+      const rows = buildGoalFitRows(options, report.option_probabilities, view, { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
       if (canonical === null) {
-        expect(rows).toBeNull()
-        for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'none', text: null })
+        expect(rows).not.toBeNull()
+        expect(rows.length).toBeGreaterThan(0)
+        for (const option of options) {
+          const cell = optionChanceCellFromResults(data, option.id)
+          if (cell.kind === 'none') { expect(rows.find(row => row.id === option.id)).toBeUndefined(); continue }
+          expect(cell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+          expect(cell.text).not.toMatch(/\d+%/)
+          expect(cell.text).not.toContain('Why?')
+          expect(rows.find(row => row.id === option.id)?.chanceCell).toEqual(cell)
+        }
         return
       }
       expect(rows).not.toBeNull()
@@ -120,12 +128,17 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
   const { report, options, goal } = install(body)
   const data = renderHook(() => useResultsSectionData({ registerCanvasRows: false })).result.current
   const rows = buildGoalFitRows(options, report.option_probabilities, runViewOf(report))!
-  expect(rows).toBeNull()
+  expect(rows).not.toBeNull()
+  for (const row of rows) {
+    expect(row.chanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+    expect(row.chanceCell.text).not.toMatch(/\d+%/)
+    expect(row.chanceCell.text).not.toContain('Why?')
+  }
   expect(Object.values(report.option_probabilities ?? {}).some((row: any) => row.goal_probability === 0.734)).toBe(true)
   const brief = buildDecisionBrief({ graph: body.graph, graphHash: body.graph_hash, analysisState: body.analysis_state, analysisResult: body.analysis_result })
   expect(brief.chances).toEqual([])
   expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-  for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'none', text: null })
+  for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
   expect(data.recommendation.allOptions.every(row => row.goalProbability === null)).toBe(true)
   expect(fromOptionProbabilities(report.option_probabilities as never, {}, report)).toEqual([])
   for (const option of options) {
@@ -133,17 +146,29 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
     expect(metadata.achievementProbability).toBeNull()
     expect(metadata.goalFitAvailable).toBe(false)
-    expect(metadata.achievementChanceCell).toEqual({ kind: 'none', text: null })
+    expect(metadata.achievementChanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
     const summary = render(<DecisionSummary />)
+    const summaryFace = summary.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(summaryFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(summaryFace.textContent).not.toMatch(/\d+%/)
+    expect(summaryFace.textContent).not.toContain('Why?')
     expect(summary.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(summary.container.textContent).not.toContain('73%')
     summary.unmount()
     const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
+    const goalMountFace = goalMount.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(goalMountFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(goalMountFace.textContent).not.toMatch(/\d+%/)
+    expect(goalMountFace.textContent).not.toContain('Why?')
     expect(goalMount.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(goalMount.container.textContent).not.toContain('73%')
     goalMount.unmount()
     const panel = render(<GoalPanel {...({ nodeId: goal.id } as any)} />)
+    const panelFace = panel.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(panelFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(panelFace.textContent).not.toMatch(/\d+%/)
+    expect(panelFace.textContent).not.toContain('Why?')
     expect(panel.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(panel.container.textContent).not.toContain('73%')
     panel.unmount()
@@ -164,8 +189,14 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
   expect(view.chanceOf('c').kind).toBe('none')
   const nodes = ['a', 'b', 'c'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id } }))
   const rows = buildGoalFitRows(nodes, report.option_probabilities, view)!
-  expect(rows).toBeNull()
-  for (const id of ['a', 'b', 'c']) expect(view.chanceCellOf(id, { goalChanceHeroSays: true, labelOf: () => id })).toEqual({ kind: 'none', text: null })
+  expect(rows.map(row => row.id)).toEqual(['a', 'b'])
+  for (const id of ['a', 'b']) {
+    const cell = view.chanceCellOf(id, { goalChanceHeroSays: true, labelOf: () => id })
+    expect(cell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+    expect(cell.text).not.toMatch(/\d+%/)
+    expect(cell.text).not.toContain('Why?')
+  }
+  expect(view.chanceCellOf('c', { goalChanceHeroSays: true, labelOf: () => 'c' })).toEqual({ kind: 'none', text: null })
   expect(fromOptionProbabilities(report.option_probabilities, {}, report)).toEqual([
     { optionId: 'a', optionLabel: 'a', value: 17, confidence: 0.9 },
   ])

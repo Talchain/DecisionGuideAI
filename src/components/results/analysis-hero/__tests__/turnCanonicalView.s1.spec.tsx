@@ -1,3 +1,4 @@
+import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
@@ -171,5 +172,22 @@ it.each(['pre-run', 'no-goal-target', 'not-analysed'] as const)('A4: %s keeps th
       const { optionChanceCellFromResults } = await import('../../optionChanceCellFromResults')
       expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'none', text: null })
     }
+  }
+})
+
+it('G1: a matching stale canonical view renders exactly face_when_stale, never its chance figures', async () => {
+  await applyRealRead({ j: served })
+  const stale = parseCanonicalAnalysisView({ ...served.canonical_analysis_view, face_when_stale: 'Run the analysis again to see the chance.',
+    staleness: { ...served.canonical_analysis_view.staleness, stale: true } })
+  expect(stale).not.toBeNull()
+  if (stale === null) throw new Error('Expected a valid stale canonical view')
+  expect(stale.face_when_stale).toBe('Run the analysis again to see the chance.')
+  act(() => useCanonicalAnalysisViewStore.getState().adopt(served.scenario_id, stale))
+  const data = renderHook(() => useResultsSectionData()).result.current
+  for (const option of stale.options) {
+    const cell = data.runView!.chanceCellOf(option.option_id, { hasGoalTarget: true, goalChanceHeroSays: true, labelOf: () => null })
+    expect(cell).toEqual({ kind: 'withheld', text: stale.face_when_stale })
+    expect(cell.text).not.toMatch(/\d+%/)
+    expect(cell.text).not.toContain('Why?')
   }
 })

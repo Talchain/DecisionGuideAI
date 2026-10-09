@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ISL #207 (AIQ #72 5877139338): the node inspector's goal chance is never
@@ -79,7 +81,26 @@ describe('GoalPanel — the goal chance carries its base-caveat (served mapper p
   it.each(['user', 'none'] as const)('CONTROL: author %s → no base-caveat, the chance still shows', (author) => {
     seed(report(author))
     renderPanel()
-    expect(screen.getAllByText(/41%/).length).toBeGreaterThanOrEqual(1)
+    const face = screen.getByText(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(screen.queryAllByTestId(/^goal-fit-base-caveat-goal-panel-/)).toHaveLength(0)
   })
+})
+
+it('view-bearing control: the server figure keeps the authored base-caveat gate', () => {
+  vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as never)
+  for (const author of ['olumi', 'dropped', 'user', 'none'] as const) {
+    seed(report(author))
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
+    const { container, unmount } = renderPanel()
+    expect(container.textContent).toContain('41% chance of meeting your goal')
+    const sites = container.querySelectorAll('[data-testid^="goal-fit-base-caveat-goal-panel-"]')
+    if (author === 'olumi' || author === 'dropped') {
+      expect(sites.length).toBeGreaterThan(0)
+      for (const site of sites) expect(site.textContent).toBe(author === 'olumi' ? OLUMI_COPY : NEUTRAL_COPY)
+    } else expect(sites).toHaveLength(0)
+    unmount()
+  }
 })

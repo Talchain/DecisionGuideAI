@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
@@ -391,7 +392,10 @@ describe('wording parity with the option card', () => {
       .toMatch(new RegExp(`^${LAST_RUN_PREFIX}`))
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
       .toContain(chanceCells('opt_a').text)
-    expect(screen.getByTestId('option-win-readout-opt_a').textContent).toContain('41%')
+    const face = screen.getByTestId('option-win-readout-opt_a')
+    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(face.textContent).not.toMatch(/\d+%/)
+    expect(face.textContent).not.toContain('Why?')
     expect(container.textContent).not.toContain('of runs')
     // …and the retired pill does not come back carrying it (this card IS the
     // producer's named leader — the strongest case). Contrast: the row above.

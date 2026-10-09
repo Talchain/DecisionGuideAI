@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
@@ -240,7 +241,10 @@ const crownFor = (id: string) => screen.queryByTestId(`leading-option-pill-${id}
 function expectNoCrown(container: HTMLElement, id: string, label: string) {
   expect(screen.getByText(label)).toBeDefined()
   expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceCells(id).text)
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toContain('41%')
+  const face = screen.getByTestId(`option-win-readout-${id}`)
+  expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+  expect(face.textContent).not.toMatch(/\d+%/)
+  expect(face.textContent).not.toContain('Why?')
   expect(container.textContent ?? '').not.toContain('of runs')
   expect(crownFor(id)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()

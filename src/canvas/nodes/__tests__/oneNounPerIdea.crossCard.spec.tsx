@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ ONE NOUN PER IDEA — ASSERTED ACROSS TWO CARDS, FROM ONE REPORT.
  *
@@ -97,7 +99,7 @@ const NODES = [
 ]
 
 const CHANCE_REPORT = withLicensedOptionChances(PERMITTED_REPORT, { [LEADER_ID]: 41, [RUNNER_UP_ID]: 29 })
-const CHANCE = fixtureChanceText(CHANCE_REPORT, LEADER_ID, { [LEADER_ID]: LEADER_LABEL, [RUNNER_UP_ID]: RUNNER_UP_LABEL })!
+const CHANCE = CHANCE_NOT_SHOWN_YET
 
 const storeState = {
   nodes: NODES,
@@ -140,9 +142,10 @@ const baseProps = {
 }
 
 /** Both cards, one report, one render — as a user meets them on the board. */
-function renderBoard() {
+function renderBoard(withView = false) {
+  const state = withView ? installCanonicalFixtureState(storeState) : storeState
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...METADATA } as any)
-  vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(storeState as any))
+  vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(state as any))
   return render(
     <ReactFlowProvider><OptionChanceCellProvider>
       <DecisionNode
@@ -269,4 +272,15 @@ describe('one noun per idea — the option card speaks the register', () => {
     expect(src).not.toContain('Supported by')
     expect(src).not.toMatch(/label=["']Leads["']/)
   })
+})
+
+it('view-bearing control: the server figure has exactly one accessible carrier and no duplicate decision claim', () => {
+  renderBoard(true)
+  const expected = fixtureChanceText(CHANCE_REPORT, LEADER_ID, { [LEADER_ID]: LEADER_LABEL, [RUNNER_UP_ID]: RUNNER_UP_LABEL })!
+  expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent).toBe(expected)
+  expect(expected).toContain('41%')
+  const row = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
+  const carriers = [...document.querySelectorAll('[aria-label]')].filter(el => el.getAttribute('aria-label')?.includes(expected))
+  expect(carriers).toEqual([row])
+  expect(screen.queryByTestId(DECISION_ROW)).toBeNull()
 })

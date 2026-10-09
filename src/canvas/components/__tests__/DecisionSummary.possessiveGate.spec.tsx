@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * DecisionSummary — THE POSSESSIVE GATE (ROADMAP 2.283).
@@ -40,7 +42,7 @@ import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTest
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { DecisionSummary } from '../DecisionSummary'
 import { useCanvasStore } from '../../store'
 import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
@@ -123,6 +125,15 @@ function setStore(option: Record<string, unknown>) {
   } as any)
 }
 
+const absenceTextOf = () => {
+  const { container } = render(<DecisionSummary />)
+  const face = within(container).getByText(CHANCE_NOT_SHOWN_YET)
+  expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+  expect(face.textContent).not.toMatch(/\d+%/)
+  expect(face.textContent).not.toContain('Why?')
+  return container.textContent ?? ''
+}
+
 const textOf = () => render(<DecisionSummary />).container.textContent ?? ''
 
 beforeEach(() => {
@@ -148,7 +159,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     // just mean "nothing rendered".
     expect(textOf()).toBeDefined()
     setStore(REAL_GOAL_OPTION)
-    expect(textOf()).toContain('chance of meeting your goal')
+    expect(absenceTextOf()).toContain(CHANCE_NOT_SHOWN_YET)
   })
 
   /**
@@ -169,16 +180,16 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
 
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
     setStore(REAL_GOAL_OPTION)
-    const text = textOf()
-    expect(text).toContain(`about 55% chance of meeting your goal, in this model.`)
+    const text = absenceTextOf()
+    expect(text).toContain(CHANCE_NOT_SHOWN_YET)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
   // 29 Sep 2026 (AIQ 5882498938): was "joint_goal_constrained keeps the possessive" — now the GOAL figure on a constrained option does.
   it('positive control: the goal figure on a constrained option keeps the possessive — never the joint figure', () => {
     setStore(CONSTRAINED_OPTION)
-    const text = textOf()
-    expect(text).toContain(`about 30% chance of meeting your goal, in this model.`)
+    const text = absenceTextOf()
+    expect(text).toContain(CHANCE_NOT_SHOWN_YET)
     expect(text).not.toContain(`About 42% chance of meeting your goal.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
@@ -189,4 +200,16 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     expect(text).not.toContain('chance of achieving')
     expect(text).not.toContain('42%')
   })
+})
+
+it('view-bearing control: DecisionSummary retains possessive goal wording and never substitutes the joint figure', () => {
+  for (const [option, pct] of [[REAL_GOAL_OPTION, 55], [CONSTRAINED_OPTION, 30]] as const) {
+    setStore(option)
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
+    const { container, unmount } = render(<DecisionSummary />)
+    expect(container.textContent).toContain(`about ${pct}% chance of meeting your goal, in this model.`)
+    expect(container.textContent).not.toContain('42% chance')
+    expect(container.textContent).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
+    unmount()
+  }
 })

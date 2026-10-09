@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
 /**
  * THE `every`-QUANTIFIER FAMILY — one never-analysed option must not degrade
  * what the user sees about the options that WERE analysed.
@@ -131,7 +132,9 @@ describe('buildGoalFitRows — an unanalysed option does not blank the whole car
     })
     expect(rows?.map((row) => row.id)).toEqual([A])
     expect(rows?.[0].probability).toBeNull()
-    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
+    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+    expect(rows?.[0].chanceCell.text).not.toMatch(/\d+%/)
+    expect(rows?.[0].chanceCell.text).not.toContain('Why?')
   })
 
   it('a malformed entry grants no figure, and the unlicensed raw figure remains withheld', () => {
@@ -141,7 +144,9 @@ describe('buildGoalFitRows — an unanalysed option does not blank the whole car
     })
     expect(rows?.map((row) => row.id)).toEqual([A])
     expect(rows?.[0].probability).toBeNull()
-    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
+    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+    expect(rows?.[0].chanceCell.text).not.toMatch(/\d+%/)
+    expect(rows?.[0].chanceCell.text).not.toContain('Why?')
   })
 
   it('DOMAIN GUARD — a run that returned nothing for any option still returns null', () => {

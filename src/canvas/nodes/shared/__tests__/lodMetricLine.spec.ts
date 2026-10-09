@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { optionChanceFixture } from '../../../../../tests/helpers/optionChanceFixture'
 /**
  * `resolveLodMetricLine` — what a card still says below the legibility floor.
@@ -163,9 +164,23 @@ describe('the other three types, which rendered nothing at any zoom before', () 
     })
     // The exact chance words survive at far zoom; the share does not.
     expect(line).toBe(`Current model · ${chanceCells('Build').text}`)
-    expect(line).toContain('41%')
+    expect(line).toBe(`Current model · ${CHANCE_NOT_SHOWN_YET}`)
+    expect(line).not.toMatch(/\d+%/)
+    expect(line).not.toContain('Why?')
     expect(line).not.toContain('of runs')
     expect(line).not.toContain(METRIC_NOUN.support)
+  })
+
+  it('view-bearing control: the LOD line preserves its caption and the server figure, never the run share', () => {
+    const cell = optionChanceFixture({ Build: 41, Hire: 29 }, true)('Build')
+    expect(cell.kind).toBe('figure')
+    const line = resolveLodMetricLine({ nodeType: 'option', data: { label: 'Build' }, label: 'Build',
+      displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
+      facts: { optionResultCaption: 'Current model', optionChanceCell: cell } })
+    expect(line).toBe(`Current model · ${cell.text}`)
+    expect(line).toContain('41%')
+    expect(line).not.toContain('47%')
+    expect(line).not.toContain('of runs')
   })
 
   it('⛔ a Results chance with NO caption is withheld — never a bare figure', () => {
