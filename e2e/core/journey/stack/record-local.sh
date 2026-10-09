@@ -19,6 +19,8 @@
 # usage: record-local.sh            (from the DGAI checkout root)
 #   J1_RECORD_MODE=fill  keep the frozen set; replay every recorded call (CI timing) and record ONLY
 #                        calls it lacks, appended after the last file (DL-approved gap fills).
+#   J1_RECORD_MODE=replay  strict replay of the frozen set: a miss, drift or exhaustion is refused, never forwarded,
+#                        and the set is kept (DL 87114, 9 Oct: the zero-new-call proof).
 #   J1_TUPLE=pinned      check CEE/PLoT/ISL out at fixtures/j1/tuple.json (default: staging tips),
 #                        and leave tuple.json as it is.
 set -euo pipefail
@@ -49,7 +51,7 @@ rm -rf "$W"; mkdir -p "$W/logs" "$W/keys"
 # The local gh login's token is handed to the INSTALL commands only, as CI hands its job token.
 PKG_TOKEN="$(gh auth token)"
 REC_MODE="${J1_RECORD_MODE:-record}"; TUPLE="${J1_TUPLE:-tips}"
-case "$REC_MODE" in record|fill) ;; *) say "J1_RECORD_MODE must be record or fill"; exit 2 ;; esac
+case "$REC_MODE" in record|fill|replay) ;; *) say "J1_RECORD_MODE must be record, fill or replay"; exit 2 ;; esac
 for repo in olumi-assistants-service:cee plot-lite-service:plot Inference-Service-Layer:isl; do
   name="${repo%%:*}"; dir="${repo##*:}"
   if [ "$TUPLE" = pinned ]; then
@@ -68,7 +70,8 @@ say "tuple ui=$DGAI_SHA cee=$CEE_SHA plot=$PLOT_SHA isl=$ISL_SHA"
 node "$STACK/gen-tls-and-keys.mjs" "$W/keys"
 
 # ── LLM boundary, record mode, plain HTTP for the preload ──
-[ "$REC_MODE" = fill ] || rm -f "$FIX"/[0-9]*.json
+# Only a full record replaces the set; fill appends to it and replay only reads it.
+[ "$REC_MODE" != record ] || rm -f "$FIX"/[0-9]*.json
 # JOURNEY_LLM_MAX_CALLS: the DL's call budget for this record run (record 3: 15). Call 16 is refused.
 JOURNEY_LLM_MODE="$REC_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
 JOURNEY_LLM_MAX_CALLS="${J1_MAX_CALLS:-15}" JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &

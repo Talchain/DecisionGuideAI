@@ -23,7 +23,7 @@ import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '.
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
-import { optionEntryScaleOf, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
+import { resolveOptionTargetDisplayFrame, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -318,6 +318,7 @@ export const OptionPanel = memo(function OptionPanel({
       if (value == null && !linkedWithoutValues.includes(factorId)) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+      const displayFrame = resolveOptionTargetDisplayFrame(factorNode?.data, rawValue)
       // Defensive unwrap: observedState.value / .raw_value should be plain
       // numbers, but legacy/wrapped shapes ({ value: 0.5, unit: 'scale' })
       // would otherwise flow into InterventionRow as the baseline prop and
@@ -326,8 +327,8 @@ export const OptionPanel = memo(function OptionPanel({
       return [{
         factorId,
         factorLabel: resolveElementLabel(factorNode?.data),
-        baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
-        rawBaseline: unwrapInterventionValue(obs?.raw_value).value ?? undefined,
+        baseline: displayFrame.observedValue,
+        rawBaseline: displayFrame.observedRawValue,
         /*
          * ⚠ CARRIED SO THE ROW CAN DECLINE TO CLAIM, NEVER SO IT CAN DISPLAY.
          * `observed_state.baseline` is a real contract field whose ROLE AND
@@ -338,15 +339,8 @@ export const OptionPanel = memo(function OptionPanel({
          * It is never rendered — see `recordedBaseline` in InterventionRow.
          */
         recordedBaseline: unwrapInterventionValue(obs?.baseline).value ?? undefined,
-        unit: obs?.unit as string | undefined,
-        /*
-         * ⭐ THE FACTOR'S CAP, so the row can take the amount the CARD shows
-         * (`£80,000`) and convert it through the one raw→model rule — rather
-         * than showing `0.5` beside a card that says `£60k` and ignoring
-         * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
-         */
-        // …else CEE's node-level `scale_frame` (`optionEntryScaleOf`), the same reference the card's editor uses.
-        cap: optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, (factorNode?.data as Record<string, unknown> | undefined)?.scale_frame),
+        unit: displayFrame.unit,
+        cap: displayFrame.cap,
         value: value ?? undefined,
         displayValue: displayValue ?? undefined,
         /*
@@ -585,10 +579,7 @@ export const OptionPanel = memo(function OptionPanel({
         row.target !== '' &&
         target.value === iv.value &&
         resolveOptionTargetEntryFrame({
-          unit: iv.unit,
-          cap: iv.cap,
-          observedValue: iv.baseline,
-          observedRawValue: iv.rawBaseline,
+          ...resolveOptionTargetDisplayFrame(factorNode?.data, target),
         }).kind === 'user_units'
       out.set(iv.factorId, {
         reading,
