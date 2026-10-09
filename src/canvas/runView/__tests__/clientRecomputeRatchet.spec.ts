@@ -6,13 +6,15 @@ import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const SRC = join(process.cwd(), 'src')
 const RUN_VIEW = 'src/canvas/runView/runView.ts'
+const PERSIST_WRITERS = new Set(['src/canvas/store.ts', 'src/canvas/stores/analysisSnapshotFactory.ts'])
+const PERSIST_RESIDUAL = 'PERSIST: last-result / AnalysisSnapshot store a client copy of the licensed chance; goes to 0 when snapshots store (revision, Run id) and read S1 typed records'
 const KNOWN_CALLER = 'src/canvas/conversation/askAi.ts'
 const BASELINE_PATH = join(SRC, 'canvas/runView/__tests__/clientRecomputeRatchet.baseline.json')
 const EXCLUDED_DIRS = new Set(['__tests__', '__fixtures__', 'fixtures'])
 
 type Mode = 'call' | 'read' | 'both'
 type Kind = 'call' | 'read' | 'def'
-type RecomputeClass = 'CHANCE' | 'WITHHELD' | 'DRIVER' | 'STALENESS' | 'GOAL' | 'PROVENANCE'
+type RecomputeClass = 'CHANCE' | 'WITHHELD' | 'DRIVER' | 'STALENESS' | 'GOAL' | 'PROVENANCE' | 'PERSIST'
 interface Rule { readonly class: RecomputeClass; readonly symbol: string; readonly mode: Mode }
 interface Hit { readonly symbol: string; readonly kind: Kind; readonly start: number; readonly end: number }
 interface Row {
@@ -28,6 +30,7 @@ interface Baseline {
   readonly originStaging: string
   readonly sanctioned: readonly string[]
   readonly symbols: Readonly<Record<RecomputeClass, readonly string[]>>
+  readonly residualClasses: { readonly PERSIST: string }
   readonly sites: readonly Row[]
 }
 
@@ -35,6 +38,8 @@ interface Baseline {
 // named resolver at that surface. Keep even dead symbols: their zero is a ban
 // on resurrection. Definitions are inventoried separately, never in totals.
 const CATALOGUE: Record<RecomputeClass, readonly [string, Mode][]> = {
+  // A copy is counted as a residual read of authority, independently of the retired chooser.
+  PERSIST: [['licensedChanceCopy', 'read']],
   CHANCE: [
     ['selectGoalProbability', 'call'], ['formatGoalProbability', 'call'],
     ['selectGoalLeader', 'call'], ['goalChanceHeroArmOpen', 'call'], ['goalChanceHeroSays', 'call'],
@@ -153,6 +158,12 @@ function recomputeHits(source: string, file: string): Hit[] {
       target.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken) || ts.isDeleteExpression(target.parent)
   }
   const visit = (node: ts.Node): void => {
+    // These two stored goal fields remain client copies even after their chooser calls retire.
+    // Count named/shorthand assignments, so a raw-value mutant remains a counted residual.
+    if (PERSIST_WRITERS.has(file) &&
+      (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && nameOf(node.name) === 'goalProbability') {
+      add('licensedChanceCopy', 'read', node)
+    }
     // Entire type/declaration/import/export subtrees contain no runtime reads.
     if (ts.isTypeNode(node) || ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return
     if (ts.isCallExpression(node)) {
@@ -314,6 +325,7 @@ describe('WS5 client recompute census ratchet', () => {
   it('CONTROL: baseline records the complete symbol catalogue, unique rows and sanctioned owner', () => {
     expect(BASELINE.originStaging).toMatch(/^[a-f0-9]{40}$/)
     expect(BASELINE.symbols).toEqual(SYMBOLS)
+    expect(BASELINE.residualClasses.PERSIST).toBe(PERSIST_RESIDUAL)
     expect(BASELINE.sanctioned).toEqual([RUN_VIEW])
     expect(new Set(BASELINE.sites.map(rowKey)).size).toBe(BASELINE.sites.length)
     for (const row of BASELINE.sites) {
@@ -323,6 +335,29 @@ describe('WS5 client recompute census ratchet', () => {
       expect(Object.keys(row).sort()).toEqual(['call', 'class', 'def', 'file', 'read', 'sanctioned', 'symbol'])
       for (const count of [row.call, row.read, row.def]) expect(Number.isInteger(count) && count >= 0).toBe(true)
     }
+  })
+
+  it('PERSIST residual: both stored chance copies stay counted until snapshots read S1 typed records', () => {
+    const copies = CURRENT.filter(row => row.class === 'PERSIST')
+    expect(copies.map(row => [row.file, row.read])).toEqual([...PERSIST_WRITERS].map(file => [file, 1]))
+    expect(classTotals(CURRENT).PERSIST).toBe(2)
+    console.info(`${PERSIST_RESIDUAL}; copies=2`)
+    const file = 'src/canvas/store.ts'
+    const additional = new Map(SOURCES)
+    additional.set(file, `${additional.get(file)}\nconst planted = { goalProbability: chance.pct / 100 };`)
+    expect(ratchetViolations(census(additional), BASELINE.sites)[0]).toContain('licensedChanceCopy')
+    const rawMutant = new Map(SOURCES)
+    rawMutant.set(file, rawMutant.get(file)!.replace("chance.kind === 'figure' ? chance.pct / 100 : null", 'prob.goal_probability'))
+    expect(classTotals(census(rawMutant)).PERSIST).toBe(2)
+    const removed = new Map(SOURCES)
+    removed.set(file, removed.get(file)!.replace(/goalProbability: chance.kind === 'figure' \? chance.pct \/ 100 : null,/, ''))
+    expect(ratchetViolations(census(removed), BASELINE.sites).join('\n')).toContain('lower the baseline to 0 for licensedChanceCopy')
+  })
+
+  it('S1 PR-2a: only the held askAi chooser call remains', () => {
+    const callers = CURRENT.filter(row => row.symbol === 'selectGoalProbability' && row.call > 0)
+    expect(callers.map(row => [row.file, row.call])).toEqual([[KNOWN_CALLER, 1]])
+    console.info('selectGoalProbability production calls=1 (askAi); PERSIST copies=2')
   })
 
   it('MUTANT (a): an additional production call and a new caller file both fail', () => {
