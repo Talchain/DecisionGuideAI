@@ -107,7 +107,7 @@ function auditWith(
 function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings'], context?: { hasRankedOptions: boolean }) {
   return render(
     <DetailToggleContext.Provider value={{ showDetail: true }}>
-      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} context={context} />
+      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} {...(context ? { context } : {})} />
     </DetailToggleContext.Provider>,
   )
 }
@@ -129,7 +129,7 @@ describe('Model card audit trail — the ranking says what it ranked by', () => 
     expect(rows).toHaveLength(1)
 
     // Bound by IDENTITY — this code, resolved through the copy's owner.
-    const expected = describeAuditInferenceWarningCode('GOAL_DIRECTION_UNATTESTED')
+    const expected = describeAuditInferenceWarningCode('GOAL_DIRECTION_UNATTESTED', { hasRankedOptions: false })
 
     // ⭐ THE LOAD-BEARING ASSERTION. A row that renders SOME text passes a bare
     // `toContain` against the fallback too. This is the one that reds at
@@ -144,7 +144,8 @@ describe('Model card audit trail — the ranking says what it ranked by', () => 
   })
 
   it('states WHAT the ranking used, so the reader can judge whether it is their question', () => {
-    renderAudit([{ ...FOUNDER_WARNING }])
+    // This test pins ranked copy; the card cannot infer ranking when context is absent.
+    renderAudit([{ ...FOUNDER_WARNING }], { hasRankedOptions: true })
     const card = screen.getByTestId('model-health-section').textContent ?? ''
     // The two facts the producer states, bound as substance rather than as a
     // whole sentence another template could not supply.
@@ -189,5 +190,24 @@ it('all-unranked Model card makes no ordering claim', () => {
   // Production has no sanctioned fact source here; this tests the optional precomputed-fact contract.
   renderAudit([{ ...FOUNDER_WARNING }], { hasRankedOptions: false })
   const row = screen.getByTestId('audit-inference-warning-row')
+  expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
+})
+
+it('no-context Model card discloses the assumption without claiming ordering', () => {
+  renderAudit([{ ...FOUNDER_WARNING }])
+  const row = screen.getByTestId('audit-inference-warning-row')
+  expect(row).toHaveTextContent('GOAL_DIRECTION_UNATTESTED')
+  expect(row).toHaveTextContent('assumed a higher value is better for your goal')
+  expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
+})
+
+// The audit card resolves warnings by code only (auditInferenceWarnings.ts), so it has never shown the correctable
+// instruction; this row pins only that a correctable warning makes no ordering claim either.
+it('no-context correctable warning on the Model card makes no ordering claim', () => {
+  const correctableWarning = { ...FOUNDER_WARNING, goal_direction_correctable: true }
+  renderAudit([correctableWarning])
+  const row = screen.getByTestId('audit-inference-warning-row')
+  expect(row).toHaveTextContent('GOAL_DIRECTION_UNATTESTED')
+  expect(row).toHaveTextContent('assumed a higher value is better for your goal')
   expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
 })
