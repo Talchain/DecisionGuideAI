@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel — Impact "Based on N simulations" honesty.
  *
@@ -26,11 +27,11 @@ function setStore(report: Record<string, unknown>) {
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
     ...state,
-    nodes: [GOAL_NODE],
+    nodes: [GOAL_NODE, ...['opt_a', 's1_control_option'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id, kind: 'option' } }))],
     edges: [],
     goalThreshold: null,
     goalConstraints: null,
-    results: { status: 'complete', report },
+    results: { status: 'complete', report: licensedTestReport(report) },
   } as any)
 }
 
@@ -65,7 +66,7 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
   it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
     setStore(reportWithGoal({ n_samples: 5000 }))
     const { getByText, queryByText } = renderPanel()
-    expect(getByText('About 62% chance of meeting your goal.')).toBeTruthy()
+    expect(getByText(/about 62% chance of meeting your goal, in this model\./)).toBeTruthy()
     expect(getByText('Based on 5,000 simulations')).toBeTruthy()
     // The old fabricated constant must never appear.
     expect(queryByText('Based on 1,000 simulations')).toBeNull()
@@ -76,7 +77,7 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     setStore(reportWithGoal({ seed: null }))
     const { getByText, queryByText } = renderPanel()
     // The probability itself still renders — only the count sentence is gated.
-    expect(getByText('About 62% chance of meeting your goal.')).toBeTruthy()
+    expect(getByText(/about 62% chance of meeting your goal, in this model\./)).toBeTruthy()
     expect(queryByText(/Based on .* simulations/)).toBeNull()
   })
 })

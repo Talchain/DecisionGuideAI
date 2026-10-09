@@ -1,44 +1,12 @@
+import { runViewOf, type RunView, type OptionChanceCell, type OptionChanceCellContext } from '../../runView/runView'
 /**
  * buildGoalFitRows — per-option goal-fit rows for the Model tab's goal card
  * (journey-walk 2026-08-03 §10.4 tab-parity: goal probability rendered on the
  * Analysis tab only; the report data was already in ModelTabBody's hands).
  *
- * Discipline, matching the Analysis-tab surfaces exactly:
- *  · ONE chooser — every figure resolves through `selectGoalProbability`
- *    (the claim-ownership registered owner of goal_probability /
- *    probability_of_goal / probability_of_joint_goal). This module never
- *    reads those fields itself; it hands each `option_probabilities` entry
- *    to the owner and reads the decision.
- *  · Complete-field rule (the V7 goal lens / OptionCards "Hits target"
- *    gate): rows are returned ONLY when every ANALYSED option node has an
- *    admissible figure. A partial list would be a ranking over a subset
- *    presented as a ranking over the options — return null instead and render
- *    nothing.
- *  · Producer order preserved — rows follow the caller's option order; no
- *    re-sorting, no winner designation minted here.
- *
- * ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — TWO QUESTIONS WERE SHARING ONE
- * `return null`, AND THE ANSWER TO ONE OF THEM WAS WRONG.
- *
- * The loop used to `return null` — from the WHOLE builder, not the iteration —
- * on `!entry || typeof entry !== 'object'`. Two different facts arrive at that
- * line:
- *
- *   (a) **the option was never analysed** (CEE excluded it from the submission,
- *       so there is no entry). ONE such option blanked the entire goal-fit card
- *       for every option that WAS analysed.
- *   (b) **the entry is present and malformed.** A producer defect, and the
- *       complete-field rule above is exactly right about it.
- *
- * The complete-field rule was written for a THIRD case, on the line below: an
- * option that WAS analysed and carries no goal figure. It was never written for
- * "never analysed", and applying it there answers a question nobody asked
- * (CLAUDE.md trap 21). (a) now SKIPS; (b) and the analysed-but-no-figure case
- * keep `return null` unchanged.
- *
- * The domain guard matches the results hook's: a run that returned NOTHING for
- * ANY option is a whole-run producer gap, not a set of excluded options, and
- * still yields `null` rather than an empty card.
+ * Display comes from RunView's chance cell; numeric compatibility fields carry only the
+ * licence's whole-percent figure. The caller supplies the held view and label context.
+ * Producer order is preserved, without a local ranking or winner designation.
  */
 
 /**
@@ -69,17 +37,17 @@
 import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 import type { Node } from '@xyflow/react'
 import {
-  selectGoalProbability,
+  goalProbabilityDetails,
   type GoalProbabilityInput,
   type GoalFitBaseCaveat,
 } from '../../../components/results/utils/selectGoalProbability'
-import { isAnalysedOption } from '../../../components/results/utils/notAnalysedOptions'
 
 export interface GoalFitRow {
   id: string
   label: string
-  /** The chosen producer probability in [0,1] — see `selectGoalProbability`. */
-  probability: number
+  /** The licensed whole percent divided by 100; null when no figure is licensed. */
+  chanceCell: OptionChanceCell
+  probability: number | null
   /** Possessive gate: basis 'joint_goal_substituted' withholds "your goal". */
   isSubstitutedJoint: boolean
   /** Doctrine B: `GOAL_FIT_BASIS_CAVEAT_COPY` must render adjacent when true. */
@@ -119,27 +87,22 @@ function positiveIntegerOrNull(value: unknown): number | null {
 export function buildGoalFitRows(
   optionNodes: ReadonlyArray<Node>,
   optionProbabilities: Record<string, unknown> | null | undefined,
+  view: RunView = runViewOf({ option_probabilities: optionProbabilities }),
+  context?: OptionChanceCellContext,
 ): GoalFitRow[] | null {
-  if (!optionProbabilities || optionNodes.length === 0) return null
-  // THE DOMAIN GUARD (see the header). "No entry" only means "this option was
-  // excluded" when the run produced entries for other options; when it
-  // produced none at all, every option reads missing and the honest answer is
-  // still the whole-card null.
-  const analysedNodes = optionNodes.filter((node) => isAnalysedOption(optionProbabilities, node.id))
-  if (analysedNodes.length === 0) return null
+  if (optionNodes.length === 0) return null
   // ONE map for the whole build — the same policy the canonical outline uses.
   const optionLabels = buildCanvasLabelMap(optionNodes)
   const rows: GoalFitRow[] = []
-  for (const node of analysedNodes) {
-    const entry = optionProbabilities[node.id]
-    // Present but malformed — a producer defect, and the complete-field rule
-    // is right about it. Absence never reaches here; it was filtered above.
-    if (typeof entry !== 'object') return null
-    const decision = selectGoalProbability(entry as GoalProbabilityInput)
-    if (decision.goalProbability == null) return null
+  for (const node of optionNodes) {
+    const entry = optionProbabilities?.[node.id]
+    const details = goalProbabilityDetails(entry as GoalProbabilityInput)
+    const chance = view.chanceOf(node.id)
+    const chanceCell = view.chanceCellOf(node.id, context ?? { goalChanceHeroSays: view.goalChance !== null, labelOf: id => resolveCanvasLabel(id, optionLabels) })
+    if (chanceCell.kind === 'none') continue
     // Read straight off the producer entry this row was scored from, so the
     // count and the probability cannot come from different options.
-    const outcome = (entry as { outcome?: Record<string, unknown> }).outcome
+    const outcome = (entry as { outcome?: Record<string, unknown> } | null | undefined)?.outcome
     rows.push({
       id: node.id,
       // THE ONE id → label policy. This read was `… : node.id`, so an option
@@ -149,16 +112,13 @@ export function buildGoalFitRows(
       // as `ContestedEdgeCard`: this builder OUTLIVES the duplicate editor
       // (`ModelTabBody` owns it), so the leak would have become permanent.
       label: resolveCanvasLabel(node.id, optionLabels) ?? UNNAMED_ELEMENT_LABEL,
-      probability: decision.goalProbability,
-      // ⭐ L62: always false — the row only exists when a number survived line
-      // 75, and every surviving number earns the possessive now that the joint
-      // substitution is withheld at source. Read off the owner's permission,
-      // never a basis literal.
-      isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
-      modelledBasis: decision.goalFitIsModelledBasis,
-      baseCaveat: decision.goalFitBaseCaveat,
+      chanceCell,
+      probability: chance.kind === 'figure' ? chance.pct / 100 : null,
+      isSubstitutedJoint: false,
+      modelledBasis: false,
+      baseCaveat: chance.kind === 'figure' ? details.baseCaveat : null,
       nValidSamples: positiveIntegerOrNull(outcome?.n_valid_samples),
     })
   }
-  return rows
+  return rows.length > 0 ? rows : null
 }

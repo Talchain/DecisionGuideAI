@@ -144,7 +144,7 @@ describe('U3 — no Chance row when the run produced no goal chance (contract v3
 
   it('CONTRAST — a real goal chance still renders its ONE Chance row, and the target line survives', () => {
     mockStore(POST_RUN)
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34 } as never)
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34, achievementChanceCell: { kind: 'figure', text: 'About 34% chance of meeting your goal.' } } as never)
     renderGoal(WITH_TARGET)
     const row = screen.getByTestId('goal-achievement-metric-row')
     expect(row.textContent).toContain('Chance')

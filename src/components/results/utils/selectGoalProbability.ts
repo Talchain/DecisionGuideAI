@@ -302,11 +302,28 @@ export function basisWithholdsPossessive(
   return basis === 'joint_goal_withheld'
 }
 
+/** Limits and provenance metadata only; no goal figure is chosen here. */
+export function goalProbabilityDetails(prob: GoalProbabilityInput | null | undefined) {
+  const jointGoalProb =
+    typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
+  const goalFitBasisScoredFrom =
+    typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
+  const baseCaveat: GoalFitBaseCaveat | null =
+    prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
+
+  return {
+    jointGoalProbability: jointGoalProb,
+    jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    baseCaveat,
+    goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
+  }
+}
+
 export function selectGoalProbability(
   prob: GoalProbabilityInput | null | undefined,
 ): GoalProbabilitySelection {
-  const jointGoalProb =
-    typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
+  const details = goalProbabilityDetails(prob)
+  const jointGoalProb = details.jointGoalProbability
   // Both spellings of the SAME producer quantity (see the registration header):
   // the mapped `goal_probability` wins where a payload carries both, so every
   // existing caller — all of which hold post-mapper shapes — is unaffected.
@@ -318,10 +335,7 @@ export function selectGoalProbability(
         : typeof prob?.probability_of_goal === 'number'
           ? prob.probability_of_goal
           : null
-  const goalFitBasisScoredFrom =
-    typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
-  const baseCaveat: GoalFitBaseCaveat | null =
-    prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
+  const baseCaveat = details.baseCaveat
 
   // Honesty gate (UI-SEM-088, seam 1): while true, `probability_of_joint_goal`
   // can INVERT, so we NEVER substitute it — every surface falls back to the
@@ -352,7 +366,7 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
-      jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+      jointGoalIsModelledBasis: details.jointGoalIsModelledBasis,
       goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
       goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
       mayUsePossessiveGoalFraming: unconstrained != null,
@@ -414,8 +428,8 @@ export function selectGoalProbability(
     jointGoalProbability: jointGoalProb,
     basis,
     goalFitIsModelledBasis:
-      goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
-    jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+      goalProbabilityIsJoint && details.jointGoalIsModelledBasis,
+    jointGoalIsModelledBasis: details.jointGoalIsModelledBasis,
     goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',

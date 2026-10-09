@@ -6,7 +6,7 @@ import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const SRC = join(process.cwd(), 'src')
 const RUN_VIEW = 'src/canvas/runView/runView.ts'
-const KNOWN_CALLER = 'src/components/results/useResultsSectionData.ts'
+const KNOWN_CALLER = 'src/canvas/conversation/askAi.ts'
 const BASELINE_PATH = join(SRC, 'canvas/runView/__tests__/clientRecomputeRatchet.baseline.json')
 const EXCLUDED_DIRS = new Set(['__tests__', '__fixtures__', 'fixtures'])
 
