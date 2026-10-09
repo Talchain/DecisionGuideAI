@@ -2,11 +2,13 @@ import { createElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
-import { AnyNodeDataImportSchema, FactorNodeDataSchema } from '../../../domain/nodes'
+import { AnyNodeDataSchema, AnyNodeDataImportSchema, FactorNodeDataSchema, NodeTypeEnum } from '../../../domain/nodes'
+import { importSnapshot } from '../../../domain/migrations'
 import { classifyNodeProvenance } from '../../../domain/valueProvenance'
 import { NodeProvenanceMark } from '../../../nodes/shared/NodeProvenanceMark'
 import { factorValueSourceMark, ValueSourceMark } from '../../../nodes/shared/valueSourceMark'
 import { CanvasLegendPopover } from '../../CanvasLegendPopover'
+import { provenanceKey } from '../../provenanceKey'
 import { factorValueSourceLabel } from '../../../ui/inspector-v2/inspectorStrings'
 import { provenanceToPill } from '../provenanceUtils'
 import { buildEstimateRows } from '../../pre-analysis-v3/selectors/buildEstimateRows'
@@ -45,6 +47,27 @@ function expectNoOlumi(container: HTMLElement) {
 }
 
 describe('unverified brief provenance is disclosed without inventing authorship', () => {
+  it('accepts unknown provenance through both discriminated unions for every supported node type', () => {
+    for (const type of NodeTypeEnum.options) {
+      const data = { type, label: `Future ${type}`, provenance: 'future_provenance' }
+      expect(AnyNodeDataSchema.parse(data)).toMatchObject(data)
+      expect(AnyNodeDataImportSchema.parse(data)).toMatchObject(data)
+    }
+  })
+
+  it('keeps unknown-provenance nodes through snapshot import when only the node kind is recorded', () => {
+    const nodes = NodeTypeEnum.options.map(type => ({
+      id: type, type, position: { x: 0, y: 0 },
+      data: { kind: type, label: `Future ${type}`, provenance: 'future_provenance', source_quote: 'Recorded material' },
+    }))
+    const snapshot = importSnapshot({ version: 2, timestamp: 1, nodes, edges: [] })
+    expect(snapshot).not.toBeNull()
+    expect(snapshot!.nodes).toHaveLength(nodes.length)
+    for (const node of snapshot!.nodes) {
+      expect(node.data).toMatchObject({ ...nodes.find(n => n.id === node.id)!.data, type: node.type })
+    }
+  })
+
   it.each([undefined, 'cee_inference', 'brief_extraction', 'user_confirmed', 'user_assumption']) (
     'parses and renders the exact neutral copy even beside observed source %s', source => {
       const node = factor('unverified_brief', source)
@@ -114,13 +137,16 @@ describe('unverified brief provenance is disclosed without inventing authorship'
     expect(computeGraphFacts([aiRisk]).risksAllOlumi).toBe(true)
     expect(computeGraphFacts([aiRisk, nodes[1]]).risksAllOlumi).toBe(false)
     const futureRisk = { ...nodes[1], data: { ...nodes[1].data, provenance: 'future_provenance' } }
-    expect(projectAuthoredEntities([futureRisk], 'risk')[0].attribution).toEqual({ kind: 'unattributed' })
+    expect(projectAuthoredEntities([futureRisk], 'risk')[0].attribution).toEqual({ kind: 'person', displayName: 'You' })
     expect(computeGraphFacts([futureRisk]).risksAllOlumi).toBe(false)
   })
 
   it('includes the exact neutral words in the canvas legend', () => {
     render(<CanvasLegendPopover variant="controlled" open onOpenChange={vi.fn()} />)
     expect(screen.getAllByText(LABEL).length).toBeGreaterThan(0)
+    expect(provenanceKey([factor('unverified_brief')], []).values).toEqual([
+      expect.objectContaining({ kind: 'unverified_brief', label: LABEL }),
+    ])
   })
 
   it('keeps ai_inferred attributed to Olumi', () => {

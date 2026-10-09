@@ -82,7 +82,8 @@ export type AuthoredEntityKind = 'option' | 'risk'
  *
  * Olumi's own renders an `[Olumi]` pill; everything else — `from_brief`, a
  * user-created node with no stamp at all — renders unmarked. An unverified
- * brief binding or future stamp is explicitly unattributed. The asymmetry is the design: we mark what Olumi authored, we do not
+ * brief binding is explicitly unattributed; future stamps keep the unmarked
+ * person fallback. The asymmetry is the design: we mark what Olumi authored, we do not
  * badge the user's own words back at them.
  *
  * ⛔⛔ IT ASKS THE OWNER; IT DOES NOT DECIDE. This read `provenance ===
@@ -109,7 +110,7 @@ export function attributionOfNode(data: unknown): NodeAttribution {
   const provenance = (data as Record<string, unknown> | undefined)?.provenance
   if (typeof provenance === 'string') {
     const cls = classifyNodeProvenance(provenance)
-    if (!cls || cls.kind === 'unverified_brief') return { kind: 'unattributed' }
+    if (cls?.kind === 'unverified_brief') return { kind: 'unattributed' }
   }
   return mayClaimOlumiAuthorship(data)
     ? { kind: 'olumi' }

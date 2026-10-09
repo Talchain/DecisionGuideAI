@@ -249,7 +249,7 @@ export function factorValueSourceLabel(
     unknown: VALUE_SOURCE_MARK_LABEL.unknown,
     unverified_brief: VALUE_SOURCE_MARK_LABEL.unverified_brief,
   }
-  return words[factorValueSourceMark(data)?.kind ?? 'unknown']
+  return words[mark?.kind ?? 'unknown']
 }
 
 /** Extraction type user-facing labels */
