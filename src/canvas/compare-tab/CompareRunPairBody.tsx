@@ -153,7 +153,7 @@ export function CompareRunPairBody({
       ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
       <CompareNotice variant="notice" title={copy.title} body={copy.body}
-        data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} data-absence-reason={absenceReason ?? `run_on_record_${runOnRecordWithoutResult}`} />
+        data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} />
     )
   }
   if (view === null) {
@@ -162,7 +162,7 @@ export function CompareRunPairBody({
     const why = runDeltaSentence(null, { isStale: false, absenceReason })
     return (
       <CompareNotice title="No comparison yet" body={why ?? 'The two most recent runs of this model are compared here.'}
-        data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`} data-absence-reason={absenceReason ?? (delta ? 'incompatible_pair' : 'missing_pair')} />
+        data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`} data-absence-reason={why !== null ? absenceReason ?? undefined : undefined} />
     )
   }
   // Each row's link to the canvas, by the row's own ids: click focuses; hover / keyboard focus lights (DL 5939855664).
@@ -183,7 +183,7 @@ export function CompareRunPairBody({
   }
   const resultsAllowed = runIsCurrent && !winSharesWithheld
   return (
-    <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} data-absence-reason={runIsCurrent ? undefined : 'run_not_current'} aria-busy={analysing || undefined}>
+    <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} sizingPath={sizingPath} />

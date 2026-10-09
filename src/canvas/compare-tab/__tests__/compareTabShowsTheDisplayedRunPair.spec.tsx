@@ -117,7 +117,7 @@ describe('E1 · CEE\'s typed reason for no comparison is said here as Reasoning 
     render(<CompareRunPairBody responseHash="hash-A" />)
     const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
     expect(empty).toHaveTextContent('The two most recent runs of this model are compared here.')
-    expect(empty).toHaveAttribute('data-absence-reason', 'insufficient_runs')
+    expect(empty).not.toHaveAttribute('data-absence-reason')
   })
 })
 

@@ -125,11 +125,11 @@ describe('C1 Compare input rows, producer identities and values', () => {
     ['missing', (hash: string) => { useCanvasStore.setState({ runDelta: null }); return hash }],
     ['incompatible', () => 'superseded-response'],
     ['stale on record', () => undefined],
-  ])('a %s pair gives an absence reason and visible explanation', (name, arrange) => {
+  ])('a %s pair explains itself in words and mints no client absence token (C10a: only a producer-bound reason)', (name, arrange) => {
     const hash = arrange(seed())
     if (name === 'stale on record') useCanvasStore.setState({ runDelta: null })
     const { container } = render(<CompareRunPairBody responseHash={hash} runOnRecordWithoutResult={name === 'stale on record' ? 'stale' : null} />)
-    expect(container.querySelector('[data-absence-reason]')).not.toBeNull()
-    expect(container.textContent!.length).toBeGreaterThan(0)
+    expect(container.querySelector('[data-absence-reason]')).toBeNull()
+    expect(container.textContent!.trim().length).toBeGreaterThan(0)
   })
 })
