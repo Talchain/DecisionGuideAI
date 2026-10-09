@@ -1,4 +1,5 @@
-import { RUN_AGAIN_FOR_CHANCE } from '../../../runView/runView'
+const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
+
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel: when NO option is put forward but the run carried every option's goal figure.
@@ -85,7 +86,7 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
   it('CONTROL: a pointer cannot license the recommended option’s raw figure', () => {
     const { queryByTestId, container } = renderWith(RECOMMENDED)
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
-    expect(container.textContent ?? '').toContain(RUN_AGAIN_FOR_CHANCE)
+    expect(container.textContent ?? '').not.toContain(TEST_RUN_AGAIN_COPY)
   })
   it('CONTRAST: an explicit test licence preserves the per-option availability signal without picking an option', () => {
     const { getByTestId, container } = renderWith(licensedTestReport(SERVED))

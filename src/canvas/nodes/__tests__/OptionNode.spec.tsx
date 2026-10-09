@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { buildRunView } from '../../runView/runView'
+import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { changeRow } from './__helpers__/optionChangeRowText'
 import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
@@ -27,9 +27,10 @@ vi.mock('@xyflow/react', async () => {
 })
 
 // Isolate card anatomy with a licensed chance that differs from every mocked run share.
-const chanceView = buildRunView({ inference_warnings: [{ code: 'GOAL_CHANCE_LICENSED', severity: 'info',
+const chanceView = canonicalFixtureRunView({ inference_warnings: [{ code: 'GOAL_CHANCE_LICENSED', severity: 'info',
   message: 'licensed', form: 'each', option_ids: ['option-1', 'other'], pct_by_option: { 'option-1': 41, other: 20 },
-  withheld_option_ids: [], target: { comparator: 'at_least', value: 100, unit: '£' } }] })
+  withheld_option_ids: [], target: { comparator: 'at_least', value: 100, unit: '£' } }] },
+  { goalChanceHeroSays: true, labelOf: id => id === 'option-1' ? 'Hire 3 engineers' : 'Hold' })
 let chanceCellDetails: {
   goalFitBaseCaveat?: 'olumi_estimate' | 'from_inputs' | null
   goalFitIsModelledBasis?: boolean

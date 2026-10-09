@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, renderHook, screen } from '@testing-library/react'
@@ -49,6 +50,7 @@ function data(form: string, fields: Record<string, unknown> = {}) {
 }
 
 function chart(d: ReturnType<typeof data>): HeroChartModel {
+  Object.assign(d, withCanonicalTestCells(d))
   const m = buildHeroModel(d)
   expect(m.kind).toBe('chart')
   return m as HeroChartModel

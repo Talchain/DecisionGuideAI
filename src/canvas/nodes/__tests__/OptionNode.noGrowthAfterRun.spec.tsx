@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ A RUN NEVER GROWS AN OPTION CARD — the share line has ONE reserved slot.
  *
@@ -90,6 +91,7 @@ const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
       ...(goalOnly ? { producer_leader_permission: GOAL_ONLY_STAMP } : {}),
     } },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderCard = (id: string) => {

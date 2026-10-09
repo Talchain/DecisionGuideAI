@@ -1,4 +1,4 @@
-import { optionChanceCell, runViewOf } from '../../../runView/runView'
+import { canonicalFixtureRunView } from '../../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 
 /** Add an explicit chance licence without changing the fixture's comparative runs shares. */
 export function withLicensedOptionChances<T extends object>(report: T, percentages: Record<string, number>) {
@@ -22,7 +22,6 @@ export function withLicensedOptionChances<T extends object>(report: T, percentag
 
 /** Expected words come from the same RunView authority, with the fixture's Results label context. */
 export function fixtureChanceText(report: object, optionId: string, labels: Record<string, string>) {
-  return optionChanceCell(runViewOf(report), optionId, {
-    goalChanceHeroSays: true, labelOf: id => labels[id] ?? null,
-  }).text
+  const context = { goalChanceHeroSays: true, labelOf: (id: string) => labels[id] ?? null }
+  return canonicalFixtureRunView(report, context).chanceCellOf(optionId, context).text
 }

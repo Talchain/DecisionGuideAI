@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ DESIGN-GAP ROW 22 — THE THREE OPTION STATES OF VISUAL CONTRACT v3 §02:
  *   · baseline: "Reference for the other alternatives.";
@@ -105,6 +106,7 @@ const seed = (
     hasCompletedFirstRun: ran,
     results: ran ? { status: 'complete', hash: 'last-run', report: REPORT } : { status: 'idle', report: null },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderOption = (node: { id: string; data: Record<string, unknown> }) =>

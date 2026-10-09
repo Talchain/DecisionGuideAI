@@ -5,14 +5,11 @@
  * The client used to read the goal chance from two sources (CEE's licence via `readGoalChanceLicence`, and the report's
  * `option_probabilities` via `selectGoalProbability`), and every surface re-read the licence itself. This module is the
  * ONE production reader of the licence for a Run. Every surface takes the Run's view from `runViewOf(report)`, built once
- * per report and canonical READ projection (cached by identity, so an unchanged pair keeps its view; a new pair gets a
+ * per report and canonical READ/TURN projection (cached by identity, so an unchanged pair keeps its view; a new pair gets a
  * new view without any extra writer).
  *
- * Chance cells prefer CEE's canonical READ projection when it identifies the held Run. Otherwise they retain the
- * existing licence resolution (`pct_by_option`, CEE's whole-percent step). A Run with no licence record
- * but with goal figures in its report (a Run saved before the licence existed) is NOT shown from the report: it fails
- * closed, withheld with "Run the analysis again to see the chance." (DL ruling 1, 8 Oct: one source means one source; a
- * re-run produces the licence). A Run with no goal figures at all has no chance to show.
+ * Chance cell text comes only from CEE's matching canonical READ or TURN projection.
+ * Missing authority leaves the existing surface empty-cell behaviour.
  *
  * Pure: no store reads. Formatters read only this view.
  */
@@ -20,20 +17,14 @@ import type { CanonicalAnalysisView } from './canonicalAnalysisView'
 import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
-import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
-import { readGoalFigureWithholds, readGoalWithheldReasonFor } from '../../components/results/utils/goalIdentityWithheld'
+import { goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
-
-/** DL ruling 1 (8 Oct): the words for a Run that carries goal figures but no licence. */
-export const RUN_AGAIN_FOR_CHANCE = 'Run the analysis again to see the chance.'
-/** c6 (6 Oct): an option CEE withheld for its own path keeps its place and says so. */
-export const OPTION_CHANCE_WITHHELD = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
 
 export type OptionChance =
   /** CEE's licensed figure: `pct` is CEE's whole percent; `words` its display ("about 7%", "less than 1%"). */
   | { readonly kind: 'figure'; readonly pct: number; readonly words: string }
-  /** Not shown. `reason` is the sentence the surface says in its place. */
-  | { readonly kind: 'withheld'; readonly reason: string; readonly by: 'licence' | 'no_licence' }
+  /** Numeric projection records withholding, without composing display words. */
+  | { readonly kind: 'withheld'; readonly by: 'licence' | 'no_licence' }
   /** No goal chance on this Run for this option (no goal, no target, or not compared). */
   | { readonly kind: 'none' }
 
@@ -48,7 +39,7 @@ export interface OptionChanceCellContext {
   readonly goalChanceHeroSays: boolean
   readonly goalFiguresWithheldMessage?: string | null
   readonly goalCertaintyUnearned?: { readonly say: string | null } | null
-  /** Graph-derived comparison eligibility; preserves Results' fallback-figure gate. */
+  /** Legacy context retained for callers; canonical cell text does not depend on it. */
   readonly notAnalysed?: boolean
   readonly notAnalysedMessage?: string | null
   readonly labelOf: (optionId: string) => string | null
@@ -97,7 +88,6 @@ const EMPTY: RunView = {
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
 const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
-const scopedWithholdsByView = new WeakMap<RunView, { inference_warnings: unknown }>()
 
 /** Match the held report, never today's graph or its locally derived response hash. */
 function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView): boolean {
@@ -112,88 +102,31 @@ function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView): boo
 }
 
 /**
- * Existing whole-Run hero/block presentation, routed through the same licence authority.
- * Kept for those surfaces' quoted-option/driver wording; it does not select a card headline.
+ * Historical chat result-block presentation from persisted enrichment (DL: later).
+ * This wrapper is outside RunView cell resolution.
  */
 export function licensedOptionChanceLines(...args: Parameters<typeof goalChanceOptionLines>): ReturnType<typeof goalChanceOptionLines> {
   return goalChanceOptionLines(...args)
 }
 
-/** Compatibility for legacy hero projections that carry a parsed licence but no RunView. */
-export function licensedOptionHasFigure(licence: GoalChanceLicence, optionId: string): boolean {
-  return licence.optionIds.includes(optionId) && !licence.withheldOptionIds.includes(optionId)
-}
-
-/**
- * ONE chance-cell authority, replacing DecisionMatrix's former per-option resolution.
- * A valid range takes precedence even when its own cause sets a withheld sentence; unresolved range labels
- * fail closed. Then the Run/option withhold, licensed line, no-licence sentence and permitted fallback figure.
- * The small context surface is the seam for a future server-produced RunView; callers do not read wire figures.
- */
-export function optionChanceCell(view: RunView, optionId: string, ctx: OptionChanceCellContext): OptionChanceCell {
+/** Chance cell text is exclusively the matching producer projection. */
+export function optionChanceCell(view: RunView, optionId: string, _ctx: OptionChanceCellContext): OptionChanceCell {
   const canonical = canonicalByView.get(view)
-  if (canonical && canonical.staleness.stale !== null) {
-    if (canonical.staleness.stale === true && canonical.run !== null) {
-      return { kind: 'withheld', text: canonical.face_when_stale ?? RUN_AGAIN_FOR_CHANCE }
-    }
-    const cell = canonical.options.find(option => option.option_id === optionId)?.cell
-    if (cell?.kind === 'figure' || cell?.kind === 'range') {
-      // No face means no licensed sentence: retain only the server's display fragment.
-      return { kind: cell.kind, text: cell.face ?? cell.display }
-    }
-    if (cell?.kind === 'withheld') return { kind: 'withheld', text: cell.face ?? OPTION_CHANCE_WITHHELD,
-      ...(cell.why === undefined ? {} : { why: cell.why }) }
-    if (cell?.kind === 'none') return NO_CELL
+  if (!canonical || canonical.staleness.stale === null) return NO_CELL
+  if (canonical.staleness.stale === true && canonical.run !== null) {
+    return canonical.face_when_stale === undefined ? NO_CELL : { kind: 'withheld', text: canonical.face_when_stale }
   }
-  const cell = licensedChanceCell(view, optionId, ctx)
-  return cell.kind === 'none' && ctx.notAnalysedMessage
-    ? { kind: 'withheld', text: ctx.notAnalysedMessage } : cell
+  const cell = canonical.options.find(option => option.option_id === optionId)?.cell
+  if (cell?.kind === 'figure' || cell?.kind === 'range') {
+    // Historical projections without a face retain only the server's display fragment.
+    return { kind: cell.kind, text: cell.face ?? cell.display }
+  }
+  if (cell?.kind === 'withheld' && cell.face !== undefined) return { kind: 'withheld', text: cell.face,
+    ...(cell.why === undefined ? {} : { why: cell.why }) }
+  return NO_CELL
 }
 
-/** Whole-Run sentences use the same resolved cells as option rows and the matrix. */
-export function runViewOptionChanceLines(
-  view: RunView, labelOf: (id: string) => string | null, cellOf: (id: string) => OptionChanceCell, except: readonly string[] = [],
-  driverLines: Readonly<Record<string, string>> = {}, includeQuotedDrivers = false,
-): string[] | null {
-  return view.goalChance === null ? null : goalChanceOptionLines(view.goalChance, labelOf, except,
-    driverLines, includeQuotedDrivers, cellOf)
-}
-
-/** Existing resolution for paths without a matching canonical view. */
-function licensedChanceCell(view: RunView, optionId: string, ctx: OptionChanceCellContext): OptionChanceCell {
-  const range = view.goalChanceRange
-  const rangeEntry = range?.rangeByOption[optionId]
-  if (rangeEntry !== undefined) {
-    const labelOf = ctx.rangeLabelOf ?? ctx.labelOf
-    const line = goalChanceRangeLine(rangeEntry, labelOf(optionId), labelOf, range?.target)
-    if (line === null) return NO_CELL
-    // S3's link-range sentence ends here. Stated-time ranges have no separate driver clause.
-    const boundary = ' chance of meeting your goal, in this model. '
-    const index = line.indexOf(boundary)
-    return { kind: 'range', text: index === -1 ? line : line.slice(0, index + boundary.length - 1) }
-  }
-  const scopedSource = scopedWithholdsByView.get(view)
-  // On the licensed lead, placeholder messages have their own Run-wide line, not an option face.
-  const scoped = scopedSource && ctx.goalChanceHeroSays && view.goalChance !== null
-    ? { inference_warnings: (scopedSource.inference_warnings as unknown[]).filter(w => !isRec(w) || w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') }
-    : scopedSource
-  // An aggregate message about one option must never mask a different option's licensed cell.
-  const withheld = (scoped ? readGoalWithheldReasonFor(scoped, optionId) : ctx.goalFiguresWithheldMessage)
-    ?? ctx.goalCertaintyUnearned?.say ?? null
-  if (withheld !== null) return { kind: 'withheld', text: withheld }
-  const licence = ctx.goalChanceHeroSays ? view.goalChance : null
-  const chanceLines = licence === null ? null : licensedOptionChanceLines(licence, ctx.labelOf)
-  const chance = view.chanceOf(optionId)
-  if (licence !== null && chanceLines !== null && licence.optionIds.includes(optionId)) {
-    const text = chanceLines[licence.optionIds.indexOf(optionId)]
-    if (text !== undefined) return { kind: licensedOptionHasFigure(licence, optionId) ? 'figure' : 'withheld', text }
-  }
-  if (ctx.notAnalysed === true) return NO_CELL
-  if (chance.kind === 'withheld' && chance.by === 'no_licence') return { kind: 'withheld', text: chance.reason }
-  return chance.kind === 'figure' ? { kind: 'figure', text: chance.words } : NO_CELL
-}
-
-/** Build the view for one report and its scenario-bound READ projection. Pure; scenario selection belongs to Results. */
+/** Build the view for one report and its scenario-bound READ/TURN projection. Pure; scenario selection belongs to Results. */
 export function buildRunView(report: unknown, canonical: CanonicalAnalysisView | null = null): RunView {
   if (!isRec(report)) return EMPTY
   const warnings = report.inference_warnings
@@ -203,12 +136,12 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
   if (licence !== null) {
     for (const id of licence.optionIds) {
       chances.set(id, licence.withheldOptionIds.includes(id)
-        ? { kind: 'withheld', reason: OPTION_CHANCE_WITHHELD, by: 'licence' }
+        ? { kind: 'withheld', by: 'licence' }
         : { kind: 'figure', pct: licence.pctByOption[id] as number, words: goalProbabilityWords(`${licence.pctByOption[id]}%`) })
     }
   }
   const unlicensed = licence === null ? optionsWithGoalFigures(report) : new Set<string>()
-  for (const id of unlicensed) chances.set(id, { kind: 'withheld', reason: RUN_AGAIN_FOR_CHANCE, by: 'no_licence' })
+  for (const id of unlicensed) chances.set(id, { kind: 'withheld', by: 'no_licence' })
   const view: RunView = {
     goalChance: licence,
     goalChanceRange: range,
@@ -226,8 +159,6 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
   }
-  const holder = { inference_warnings: warnings }
-  if (readGoalFigureWithholds(holder).some(withhold => withhold.optionIds !== null)) scopedWithholdsByView.set(view, holder)
   if (canonical && matchesCanonicalRun(report, canonical)) canonicalByView.set(view, canonical)
   return view
 }

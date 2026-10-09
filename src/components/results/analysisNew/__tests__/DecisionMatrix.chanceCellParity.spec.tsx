@@ -143,7 +143,7 @@ describe('DecisionMatrix chance cells share RunView authority over the served fi
     if (none) expect(sawNone).toBe(true)
   })
 
-  it.each(['point', 'stated-time range'] as const)('existing share-by-date %s fixture: retains exact matrix words without a supplied view', (kind) => {
+  it.each(['point', 'stated-time range'] as const)('existing share-by-date %s fixture: has no client chance words without a supplied view', (kind) => {
     const target = { comparator: 'at_least', value: 100, unit: '% of the feature launch', by_date: '2027-04-07' }
     const warnings = kind === 'point' ? [{
       code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['a', 'b'], pct_by_option: { a: 62, b: 41 }, target,
@@ -170,8 +170,6 @@ describe('DecisionMatrix chance cells share RunView authority over the served fi
       })
       expect(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent).toBe(cell.text ?? 'Not shown.')
     }
-    expect(screen.getByTestId('decision-matrix-chance-a').querySelector('span')!.textContent).toBe(kind === 'point'
-      ? '‘Team A’: about 62% chance of launching by 7 April 2027, in this model.'
-      : '‘Team A’: between 23% and 90% chance of launching by 7 April 2027, in this model, from the slow end of your 3–6 months to the fast end.')
+    expect(screen.getByTestId('decision-matrix-chance-a').querySelector('span')!.textContent).toBe('Not shown.')
   })
 })

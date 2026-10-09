@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM: CURRENT-READ-v1 row 9 @ ebaed3b4 (AIQ #75 5912710392,
  * #77 5912643736 (b); P0 PARTNER 5912723630), replayed on the Run Paul actually saw.
@@ -73,6 +74,7 @@ const seed = (stamp: Record<string, unknown> | null, licensedChance = false) => 
     hasCompletedFirstRun: true,
     results: { status: 'complete', hash: 'run-4276', report: { ...chanceReport, ...(stamp ? { producer_leader_permission: stamp } : {}) } },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderCard = (id: string) => {

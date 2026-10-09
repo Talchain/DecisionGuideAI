@@ -36,7 +36,7 @@ const cases = [
 ] as const
 
 function install(body: any) {
-  const report = mapV5AnalysisToReport(body.analysis_result)
+  const report = mapV5AnalysisToReport(body.analysis_result, { computedAt: body.analysis_state?.run_state?.computed_at })
   const nodes = body.graph.nodes.map((n: any) => ({ id: n.id, type: n.kind ?? n.type, position: { x: 0, y: 0 }, data: { ...n, kind: n.kind ?? n.type } }))
   const goal = nodes.find((n: any) => n.type === 'goal')!
   const options = nodes.filter((n: any) => n.type === 'option')
@@ -66,6 +66,11 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
       expect(brief.chances).toEqual([])
       expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
       const rows = buildGoalFitRows(options, report.option_probabilities, view, { goalChanceHeroSays: view.goalChance !== null, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
+      if (canonical === null) {
+        expect(rows).toBeNull()
+        for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'none', text: null })
+        return
+      }
       expect(rows).not.toBeNull()
       expect(data.recommendation.allOptions.some(row => optionChanceCellFromResults(data, row.id).kind !== 'none')).toBe(true)
       for (const option of options) {
@@ -115,12 +120,12 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
   const { report, options, goal } = install(body)
   const data = renderHook(() => useResultsSectionData({ registerCanvasRows: false })).result.current
   const rows = buildGoalFitRows(options, report.option_probabilities, runViewOf(report))!
-  expect(rows.length).toBeGreaterThan(0)
+  expect(rows).toBeNull()
   expect(Object.values(report.option_probabilities ?? {}).some((row: any) => row.goal_probability === 0.734)).toBe(true)
   const brief = buildDecisionBrief({ graph: body.graph, graphHash: body.graph_hash, analysisState: body.analysis_state, analysisResult: body.analysis_result })
   expect(brief.chances).toEqual([])
   expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-  expect(rows.every(row => row.probability === null && row.chanceCell.kind === 'withheld')).toBe(true)
+  for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'none', text: null })
   expect(data.recommendation.allOptions.every(row => row.goalProbability === null)).toBe(true)
   expect(fromOptionProbabilities(report.option_probabilities as never, {}, report)).toEqual([])
   for (const option of options) {
@@ -128,18 +133,18 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
     expect(metadata.achievementProbability).toBeNull()
     expect(metadata.goalFitAvailable).toBe(false)
-    expect(metadata.achievementChanceCell?.text).not.toMatch(/\d+%/)
+    expect(metadata.achievementChanceCell).toEqual({ kind: 'none', text: null })
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
     const summary = render(<DecisionSummary />)
-    expect(summary.container.textContent).toContain(metadata.achievementChanceCell?.text)
+    expect(summary.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(summary.container.textContent).not.toContain('73%')
     summary.unmount()
     const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
-    expect(goalMount.container.textContent).toContain(metadata.achievementChanceCell?.text)
+    expect(goalMount.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(goalMount.container.textContent).not.toContain('73%')
     goalMount.unmount()
     const panel = render(<GoalPanel {...({ nodeId: goal.id } as any)} />)
-    expect(panel.container.textContent).toContain(metadata.achievementChanceCell?.text)
+    expect(panel.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(panel.container.textContent).not.toContain('73%')
     panel.unmount()
   }
@@ -159,9 +164,8 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
   expect(view.chanceOf('c').kind).toBe('none')
   const nodes = ['a', 'b', 'c'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id } }))
   const rows = buildGoalFitRows(nodes, report.option_probabilities, view)!
-  expect(rows.map(row => row.id)).toEqual(['a', 'b'])
-  expect(rows.map(row => row.probability)).toEqual([0.17, null])
-  expect(rows[1].chanceCell.kind).toBe('withheld')
+  expect(rows).toBeNull()
+  for (const id of ['a', 'b', 'c']) expect(view.chanceCellOf(id, { goalChanceHeroSays: true, labelOf: () => id })).toEqual({ kind: 'none', text: null })
   expect(fromOptionProbabilities(report.option_probabilities, {}, report)).toEqual([
     { optionId: 'a', optionLabel: 'a', value: 17, confidence: 0.9 },
   ])

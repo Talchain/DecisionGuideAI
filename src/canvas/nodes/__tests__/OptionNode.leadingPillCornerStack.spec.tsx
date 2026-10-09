@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * "Most supported" pill — RETIRED from the card; the corner stack keeps ONE
  * positioning authority for what remains.
@@ -206,8 +207,9 @@ function makeGuidanceItem(): GuidanceItem {
 }
 
 function renderOption(overrides: Record<string, unknown> = {}) {
+  const state = installCanonicalFixtureState(makeStoreState(overrides))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(overrides)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
     <ReactFlowProvider><OptionChanceCellProvider>

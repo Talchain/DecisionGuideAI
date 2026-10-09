@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ AN OPTION'S SHARE SAYS IT IS GOAL-ONLY WHEN THE LIMIT VERDICT WITHHOLDS THE
  * LEADER CLAIM (RC #63 5803875794, P0 #3(c); Paul's staging test 23 Sep).
@@ -86,11 +87,14 @@ const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) =>
   } as never)
 }
 
-const renderCard = () => render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
+const renderCard = () => {
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
   id={candidate.id} type="option" data={candidate.data as never} selected={false}
   isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
   dragging={false} zIndex={0} deletable selectable draggable
 /></OptionChanceCellProvider></ReactFlowProvider>)
+}
 
 const readout = () => screen.getByTestId('option-win-readout-candidate')
 const qualifier = () => screen.queryByTestId('option-share-goal-only-candidate')
