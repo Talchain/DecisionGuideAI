@@ -393,6 +393,8 @@ export type RobustnessDisplayVerdict = 'robust' | 'moderate' | 'fragile' | 'not_
  * This type describes the decision outcome data shape, not any UI component.
  */
 export interface DecisionResultData {
+  /** The existing runAnalysedAnyOption result, published by the results hook. */
+  hasOptionResult?: boolean
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
   goalLabel: string
@@ -1354,6 +1356,7 @@ export interface ConfidenceSectionData {
   /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only).
    *  `code` is the entry's identity anchor (Lane 3 Car 1: CritiqueWarningStrip
    *  binds by it — never by positional pairing). */
+  critiqueRunContext?: import('./utils/humaniseCritique').CritiqueRunContext
   humanisedCritiques?: Array<{ code?: string; title: string; description: string; displayText: string | null; suggestion?: string; factorId?: string }>
 
   // ==========================================================================

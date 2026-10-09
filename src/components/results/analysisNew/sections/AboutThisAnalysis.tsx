@@ -350,6 +350,7 @@ export function AboutThisAnalysis({
   foldedHasContent = false,
   testId = 'analysis-new-about',
 }: AboutThisAnalysisProps) {
+  const context = vm.critiqueRunContext
   const [open, setOpen] = useState(false)
   /*
    * Each detail row opens on its own. It was one-at-a-time, which hid a row the
@@ -451,7 +452,7 @@ export function AboutThisAnalysis({
     })),
     ...selectRestingStripEntries(vm.deeper.caveats).map((w, i) => ({
       key: `caveat:${i}`,
-      text: humaniseInferenceWarningTitle(w),
+      text: humaniseInferenceWarningTitle(w, undefined, context),
       gapCode: w.code,
       warningCode: w.code,
       warningSeverity: w.severity,

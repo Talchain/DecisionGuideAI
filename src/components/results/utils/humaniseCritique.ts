@@ -39,6 +39,15 @@ export const GOAL_DIRECTION_UNATTESTED_TITLE =
 /** The goal's target line can set 'at most' (`goalDirectionCorrectableByTarget`): CEE's correction, verbatim. */
 export const GOAL_DIRECTION_CORRECTABLE_TITLE =
   `${GOAL_DIRECTION_ASSUMED} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+export const GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE =
+  'In this model I’ve assumed a higher value is better for your goal.'
+export const GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE =
+  `${GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+
+export interface CritiqueRunContext {
+  hasRankedOptions: boolean
+}
+
 const GOAL_DIRECTION_UNATTESTED_DESCRIPTION =
   'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest in this model was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.'
 
@@ -1172,6 +1181,7 @@ export function codesRenderingUnresolvedLabel(): readonly string[] {
 export function humaniseCritique(
   item: UncertaintyItem,
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): HumanisedCritique {
   const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
@@ -1203,6 +1213,13 @@ export function humaniseCritique(
       ...(item.suggestion ? { suggestion: item.suggestion } : {}),
       factorId,
     }
+  }
+
+  if (item.code === 'GOAL_DIRECTION_UNATTESTED' && context?.hasRankedOptions === false) {
+    const title = item.goalDirectionCorrectable === true
+      ? GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE
+      : GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE
+    return { title, description: '', displayText: title, factorId }
   }
 
   // B′: the one code whose correction depends on the goal, carried on the item by the adapter (never by the producer).

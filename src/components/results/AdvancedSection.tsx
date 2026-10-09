@@ -1,3 +1,4 @@
+import type { CritiqueRunContext } from './utils/humaniseCritique'
 /**
  * AdvancedSection — Phase 4 Task 5
  *
@@ -63,6 +64,7 @@ export function translateFreshnessReason(
 }
 
 export interface AdvancedSectionProps {
+  context?: CritiqueRunContext
   /**
    * @deprecated Do NOT render. `recommendation_stability` is DEPRECATED and no
    * longer emitted by the producer (vendored 0.15.0 enrichment.js:250-262 — it
@@ -163,6 +165,7 @@ export function AdvancedSection({
   totalFactorCount,
   expertMode = false,
   inferenceWarnings,
+  context,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
@@ -222,7 +225,7 @@ export function AdvancedSection({
   // goal holds a deadline, and the Analysis hero shows its sentence above the fold. Letting it open this panel would
   // pop "Advanced and receipts" on every such Run, for a reason already on screen. It is still LISTED below.
   // The same holds for CEE's GOAL_CHANCE_RANGE (Science S3, DL #87 7 Oct): the hero's range lines say it.
-  const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
+  const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings, undefined, context)
     .some((w) => w.code !== GOAL_HORIZON_NOT_TESTED_CODE && w.code !== 'GOAL_CHANCE_RANGE')
 
   return (
@@ -388,7 +391,7 @@ export function AdvancedSection({
                 predicate rather than from a second copy of it.
                 Pinned by `inferenceWarnings.oneMountPerEntry.spec.tsx`. */}
             {(() => {
-              const relevant = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
+              const relevant = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings, undefined, context)
               if (relevant.length === 0) return null
               const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
               const hidden = relevant.length - visible.length

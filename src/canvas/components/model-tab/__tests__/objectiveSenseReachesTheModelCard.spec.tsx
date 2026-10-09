@@ -104,10 +104,10 @@ function auditWith(
   }
 }
 
-function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings']) {
+function renderAudit(inferenceWarnings: AuditTrailData['inferenceWarnings'], context?: { hasRankedOptions: boolean }) {
   return render(
     <DetailToggleContext.Provider value={{ showDetail: true }}>
-      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} />
+      <ModelHealthSection auditTrail={auditWith(inferenceWarnings)} context={context} />
     </DetailToggleContext.Provider>,
   )
 }
@@ -183,4 +183,11 @@ describe('Model card audit trail — the ranking says what it ranked by', () => 
     expect(rows).toHaveLength(1)
     expect(rows[0].textContent).toContain(GENERIC_FALLBACK)
   })
+})
+
+it('all-unranked Model card makes no ordering claim', () => {
+  // Production has no sanctioned fact source here; this tests the optional precomputed-fact contract.
+  renderAudit([{ ...FOUNDER_WARNING }], { hasRankedOptions: false })
+  const row = screen.getByTestId('audit-inference-warning-row')
+  expect(row).not.toHaveTextContent(/ordered|largest value|different question|scored highest/i)
 })
