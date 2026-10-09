@@ -308,6 +308,19 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('factor_value_edit 409 — a guaranteed no-write reverts and says so', () => {
+  it.each([
+    ['top-level code', { code: 'revision_conflict' }],
+    ['details.code', { details: { code: 'revision_conflict' } }],
+    ['executor envelope', { ...conflict409('revision_conflict'), code: 'revision_conflict', expected: 7, current: 8 }],
+    ['central mapper envelope', { schema: 'error.v1', code: 'revision_conflict', message: 'stale revision', expected: 7, current: 8, details: { code: 'revision_conflict', expected: 7, current: 8 } }],
+  ])('revision_conflict (%s) restores the value and shows the atomic no-write notice', async (_shape, body) => {
+    const r = await driveEdit(() => stubFailure(409, body))
+    expect(r.targetValue).toBe(SERVER_VALUE)
+    expect(r.targetDisplay).toBe(PREV_DISPLAY)
+    expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
+    expect(r.notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+  })
+
   it("'rpc_cas_conflict' puts the SERVER's value back on the named factor and renders the diverged notice", async () => {
     const r = await driveEdit(() => stubFailure(409, conflict409('rpc_cas_conflict')))
 
@@ -392,6 +405,17 @@ describe('factor_value_edit 409 — a guaranteed no-write reverts and says so', 
 // ---------------------------------------------------------------------------
 
 describe('factor_value_edit — an unconfirmed outcome KEEPS the value and says it cannot confirm', () => {
+  it.each([
+    [409, { code: 'some_future_conflict_category' }],
+    [409, { details: { code: 'some_future_conflict_category' } }],
+    [500, { code: 'revision_conflict' }],
+  ])('an unrecognised code or non-409 refusal stays unconfirmed (%s, %j)', async (status, body) => {
+    const r = await driveEdit(() => stubFailure(status, body))
+    expect(r.targetValue).toBe(SENT_VALUE)
+    expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
+    expect(r.notices).toEqual([OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server])
+  })
+
   it("OPPOSITE TWIN: the untyped 500 a contended commit actually returns does NOT revert — but no longer passes in silence", async () => {
     const r = await driveEdit(() => stubFailure(500, untyped500()))
 

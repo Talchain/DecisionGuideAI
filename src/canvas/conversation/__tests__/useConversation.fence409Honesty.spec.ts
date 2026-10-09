@@ -162,6 +162,21 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('fence 409 — the staleness banner must NOT render for a write-fence refusal', () => {
+  it.each([
+    ['top-level code', { code: 'revision_conflict' }],
+    ['details.code', { details: { code: 'revision_conflict' } }],
+  ])('revision_conflict (%s) keeps the failed user message visible with the exact notice', async (_shape, body) => {
+    stubFetchWith(409, body)
+    const { result } = renderHook(() => useConversation())
+    const input = 'Set Churn Trend to 80%'
+    await act(async () => { await result.current.sendMessage(input) })
+    const userMsg = result.current.messages.find((m) => m.role === 'user')
+    expect(userMsg?.content).toBe(input)
+    expect(userMsg?.deliveryState).toBe('failed')
+    expect(result.current.messages.at(-1)?.content).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(result.current.lastSendFailure?.inputText).toBe(input)
+  })
+
   it('turn_fence_unclaimed (the walk shape): no "decision has changed", no "re-run" instruction; says nothing was changed', async () => {
     stubFetchWith(409, fence409Body('unclaimed'))
     const { result } = renderHook(() => useConversation())

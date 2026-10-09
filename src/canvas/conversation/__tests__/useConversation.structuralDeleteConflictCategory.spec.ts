@@ -184,8 +184,7 @@ function conflict409(category: string) {
   }
 }
 
-function stub409(category: string) {
-  const body = conflict409(category)
+function stub409(category: string, body: unknown = conflict409(category)) {
   const fetchStub = vi.fn(async () => ({
     ok: false,
     status: 409,
@@ -202,8 +201,8 @@ function stub409(category: string) {
  * canvas that has ALREADY had the element optimistically removed (which is the
  * real pre-state: the store deletes synchronously and the drain sends after).
  */
-async function driveDelete(category: string) {
-  stub409(category)
+async function driveDelete(category: string, body?: unknown) {
+  stub409(category, body)
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
     // Post-optimistic-delete state: the option is gone, the goal remains.
@@ -255,6 +254,17 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('structural_delete 409 — a guaranteed no-write reverts and says so', () => {
+  it.each([
+    ['top-level code', { code: 'revision_conflict' }],
+    ['details.code', { details: { code: 'revision_conflict' } }],
+    ['conflict_category', conflict409('revision_conflict')],
+  ])('revision_conflict (%s) puts the node back and says nothing was saved', async (_shape, body) => {
+    const { nodeIds, notices } = await driveDelete('revision_conflict', body)
+    expect(nodeIds).toContain(DELETED_NODE_ID)
+    expect(nodeIds).toContain(SURVIVING_NODE.id)
+    expect(notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+  })
+
   it("'rpc_cas_conflict' (the atomic-CAS refusal) puts the element BACK and renders the diverged notice", async () => {
     const { nodeIds, notices } = await driveDelete('rpc_cas_conflict')
 
