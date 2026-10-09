@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel — THE POSSESSIVE GATE (ROADMAP 2.282), NOW OVER THE REAL SHAPE
  * (ROADMAP 2.296 item 5 / 2.282-C2).
@@ -195,11 +196,11 @@ function setStore(report: Record<string, unknown>) {
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
     ...state,
-    nodes: [GOAL_NODE],
+    nodes: [GOAL_NODE, ...[...Object.keys((report.option_probabilities as Record<string, unknown>) ?? {}), 's1_control_option'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id, kind: 'option' } }))],
     edges: [],
     goalThreshold: 0.8,
     goalConstraints: null,
-    results: { status: 'complete', report },
+    results: { status: 'complete', report: licensedTestReport(report) },
   } as any)
 }
 
@@ -287,8 +288,8 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const text = container.textContent ?? ''
 
     // Anatomy keeps one register sentence; dropping or duplicating it turns this count red.
-    expect(text).toContain('About 55% chance of meeting your goal.')
-    expect(text.split('About 55% chance of meeting your goal').length - 1).toBe(1)
+    expect(text).toContain('about 55% chance of meeting your goal, in this model.')
+    expect(text.split('about 55% chance of meeting your goal').length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // The joint line is a genuinely DIFFERENT quantity here, so it stays.
     // 29 Sep 2026 (AIQ 5882498938 → 5885033487): "All your limits hold in N% of model runs".
@@ -301,7 +302,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    expect(text).toContain('About 30% chance of meeting your goal')
+    expect(text).toContain('about 30% chance of meeting your goal')
     expect(text).not.toContain('About 42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })

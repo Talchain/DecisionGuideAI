@@ -58,8 +58,6 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
-import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
-import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
@@ -80,7 +78,6 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
 import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
 import { pressOffer } from '../conversation/actionBar/pressOffer'
@@ -603,57 +600,8 @@ export const GoalNode = memo((props: NodeProps) => {
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])
 
-  // THE POSSESSIVE GATE (ROADMAP 2.283) — the last live un-gated possessive
-  // surface in the estate.
-  //
-  // `basis === 'joint_goal_substituted'` means this number is P(all
-  // constraints jointly satisfied) STANDING IN for an absent
-  // `probability_of_goal`. "chance of reaching target" then names a question
-  // the number does not answer — witnessed on staging as a ~100x
-  // understatement rendered in the possessive voice (#556). Six sibling
-  // surfaces already withhold the possessive in this state; this node could
-  // not, because `useNodeDisplayMetadata` read the basis and discarded it.
-  // 2.283 forwards it; this is the consumer.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted`, NEVER to "the figure is joint".
-  // `joint_goal_constrained` is the user's own goal AND their own limits —
-  // the possessive is EARNED there and is untouched (the ROADMAP 1.49 case).
-  // The expression is byte-identical to `OptionNode`'s, deliberately.
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
-  // `selectGoalProbability` no longer substitutes the joint figure into the
-  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
-  // number, so this surface renders nothing to re-voice. The bases that still
-  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
-  // both EARN the possessive. The narrowing goes through the owner's exported
-  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
-  // rule instead of four copies of a literal.
-  const goalFitSubstituted =
-    displayMetadata.achievementProbability !== null &&
-    basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
-  // The readout, built ONCE above both arms so the withheld and permitted
-  // wordings can never show different numbers for the same run.
-  //
-  // ⭐ ROADMAP 2.333 — THE EXACT-ZERO DIVERGENCE, CLOSED.
-  // This was the node's own literal, and its sub-1% predicate carried a
-  // `> 0 &&` carve-out the dock surfaces do not have. The consequence was
-  // narrow and live: for an EXACT zero the carve-out fell through to
-  // `Math.round(0 * 100)`, so the canvas node said "0% chance of reaching
-  // target" while the option card beside it said "< 1%" about the same
-  // number. `displayFloors.ts` carried a standing correction recording this
-  // as the open, opposite convention.
-  //
-  // It now calls the goal register's shared formatter, so the canvas and the
-  // dock state one thing. Non-zero sub-1% values are unaffected — they read
-  // "< 1%" here exactly as they always did.
-  //
-  // No sample count is passed: `useNodeDisplayMetadata` carries the
-  // probability and its basis, not `n_valid_samples`, so this surface takes
-  // the floored fallback arm. That is the honest option — threading a count
-  // this hook does not hold would mean inventing one.
-  const achievementReadout =
-    displayMetadata.achievementProbability === null
-      ? null
-      : formatGoalProbability(displayMetadata.achievementProbability)
+  // Use the option card's complete chance cell, including withheld and range words.
+  const achievementReadout = displayMetadata.achievementChanceCell?.text ?? null
 
   /**
    * ⭐ ONE GATE FOR THE ACHIEVEMENT FIGURE, NAMED ONCE.
@@ -675,7 +623,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const showAchievementReadout =
     hasThreshold &&
     displayMetadata.isResultsMode &&
-    displayMetadata.achievementProbability !== null
+    achievementReadout !== null
 
   /**
    * The critical-probability predicate, also named once. It was written out
@@ -1084,7 +1032,7 @@ export const GoalNode = memo((props: NodeProps) => {
   )
   const achievementTitle = [
     // AIQ #72 5885116642: the register's model-run sentence on BOTH arms — never "chance of reaching target".
-    GOAL_ANCHOR_COPY.sentence(achievementReadout ?? '', goalFitSubstituted),
+    achievementReadout,
     displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
     goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
     hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
@@ -1280,7 +1228,7 @@ export const GoalNode = memo((props: NodeProps) => {
             {goalTodayLevelCopy(todayLevel)}
           </p>
         )}
-        {showAchievementReadout && (
+        {showAchievementReadout && displayMetadata.achievementProbability !== null && (
           <NodeMetricRow
             label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
             value={displayMetadata.achievementProbability}
@@ -1290,6 +1238,11 @@ export const GoalNode = memo((props: NodeProps) => {
             title={achievementTitle}
             phrase={achievementTitle}
           />
+        )}
+        {showAchievementReadout && displayMetadata.achievementProbability === null && (
+          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+            {achievementReadout}
+          </p>
         )}
         {/* ISL #207 (AIQ #72 5877139338): a chance measured from a goal level
             Olumi worked out is never shown bare. Visible on the resting card,

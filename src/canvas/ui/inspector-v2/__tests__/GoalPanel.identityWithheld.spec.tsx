@@ -1,3 +1,4 @@
+import { RUN_AGAIN_FOR_CHANCE } from '../../../runView/runView'
 /**
  * P(goal) WITHHELD for an unevaluated identity on the goal's path — the Canvas consumer of PLoT #416
  * (AIQ #72 5885033487 (2), ACK 5886183999; DL 5885276225: read the typed reason, never the reply text).
@@ -120,9 +121,9 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
   })
 
-  it('CONTROL: Paul’s evaluated identity shows the figure, and no withheld words', () => {
+  it('CONTROL: evaluated identity alone cannot license an older Run’s figure', () => {
     const { queryByTestId, container } = renderWith(EVALUATED)
     expect(queryByTestId('goal-probability-withheld-identity')).toBeNull()
-    expect(container.textContent ?? '').toContain('About 99% chance of meeting your goal')
+    expect(container.textContent ?? '').toContain(RUN_AGAIN_FOR_CHANCE)
   })
 })

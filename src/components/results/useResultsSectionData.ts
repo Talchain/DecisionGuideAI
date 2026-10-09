@@ -75,7 +75,7 @@ import { resultsGoalLabel } from './utils/resultsGoalLabel'
 import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
-import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { goalProbabilityDetails, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { resolveOptionInterventionCount } from '../../canvas/nodes/shared/optionInterventionCount'
@@ -2297,25 +2297,13 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
           }
         : undefined
 
-      // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
-      // fall back to goal_probability (unconstrained).
-      // Staging trust review: when ISL auto-derives the goal threshold as a
-      // constraint (constraint_probabilities.auto_goal_threshold), the run
-      // carries probability_of_joint_goal but NO goal_probability and NO
-      // constraint_analysis — the joint value IS the goal probability there,
-      // so it is the final fallback. Discarding it hid the run's most
-      // decision-relevant fact (every option at 0% chance of the target).
-      // ROADMAP 1.49: extracted to selectGoalProbability (utils/) so every
-      // surface (this hook, OptionNode's badge) shares one fallback chain
-      // instead of re-deriving it.
-      // GOAL-PROBABILITY IDENTITY: the selector owns the whole decision —
-      // which quantity may be shown, and with what provenance. The caveat
-      // flag was previously re-derived HERE from the selector's `isJoint`
-      // plus a local `goal_fit_basis` read, and the canvas hook derived the
-      // same pair independently; the two disagreed live. Read them, never
-      // re-derive them.
-      const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
-      const { goalProbability, goalFitIsModelledBasis, goalFitBaseCaveat } = goalDecision
+      const chance = runView.chanceOf(nodeId)
+      const goalProbability = chance.kind === 'figure' ? chance.pct / 100 : null
+      const details = goalProbabilityDetails(prob as GoalProbabilityInput)
+      const goalFitIsModelledBasis = false
+      // A licensed withholding retains its basis metadata without licensing a figure.
+      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence')
+        ? details.baseCaveat : null
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -2408,20 +2396,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         goalProbability,
         goalFitIsModelledBasis,
         goalFitBaseCaveat,
-        ...(goalDecision.goalCertaintyUnearned ? { goalCertaintyUnearned: goalDecision.goalCertaintyUnearned } : {}),
-        // Which quantity `goalProbability` actually IS, carried to the render
-        // layer so prose can name it honestly (see types.ts).
-        //
-        // ⭐ L62: reads the owner's published PERMISSION on a present number
-        // rather than testing a basis literal. Always false today — the
-        // substitution is withheld at source, so anything rendered here earns
-        // the possessive.
-        goalFitIsSubstitutedJoint:
-          goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
-        // ⭐ L62: "a goal number was WITHHELD" — distinct from "there is no
-        // goal number", which is also the no-target state. Forwarded from the
-        // owner, never re-derived.
-        goalFitWithheld: goalDecision.jointSubstitutionWithheld,
+        ...(details.goalCertaintyUnearned ? { goalCertaintyUnearned: details.goalCertaintyUnearned } : {}),
+        goalFitIsSubstitutedJoint: false,
+        goalFitWithheld: chance.kind === 'withheld' || (goalProbability === null && details.jointGoalProbability !== null),
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
         ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),
@@ -3033,7 +3010,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

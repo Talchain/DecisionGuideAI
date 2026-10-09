@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * useResultsSectionData — goalProbability collapse (T6 P0-3 + staging fix),
  * as seen THROUGH the UI-SEM-088 constraint honesty gate.
@@ -76,7 +77,7 @@ const OPTION_NODES = [
 ]
 
 function setStoreWithMappedReport(v2Response: V2RunResponse): void {
-  const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+  const report = licensedTestReport(mapV2ResponseToReportV1(v2Response, { seed: 42 }))
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as any,
     runMeta: {} as any,

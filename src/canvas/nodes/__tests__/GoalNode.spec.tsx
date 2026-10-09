@@ -145,7 +145,7 @@ describe('GoalNode', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
+      achievementProbability: 0.73, achievementChanceCell: { kind: 'figure', text: 'About 73% chance of meeting your goal.' },
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -156,12 +156,12 @@ describe('GoalNode', () => {
     // UI-SEM-082: the probability only renders with a user target set.
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — ONE Chance row;
-    // the sentence is its accessible name, the prose is off the face.
+    // the RunView cell words are displayed verbatim and also describe the row.
     const row = screen.getByTestId(ACHIEVEMENT_ROW)
     expect(row.textContent).toContain('Chance')
     expect(row.textContent).toContain('73%')
     expect(rowName(ACHIEVEMENT_ROW)).toMatch(/About 73.*% chance of meeting your goal/)
-    expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
+    expect(screen.getByText(/chance of meeting your goal/)).toBeVisible()
   })
 
   // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
@@ -172,7 +172,7 @@ describe('GoalNode', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
+      achievementProbability: 0.73, achievementChanceCell: { kind: 'figure', text: 'About 73% chance of meeting your goal.' },
       achievementProbabilityIsModelledBasis: true,
       stabilityPercentage: null,
       winRate: null,
@@ -194,7 +194,7 @@ describe('GoalNode', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
+      achievementProbability: 0.73, achievementChanceCell: { kind: 'figure', text: 'About 73% chance of meeting your goal.' },
       achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
@@ -896,7 +896,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
+      achievementProbability: 0.73, achievementChanceCell: { kind: 'figure', text: 'About 73% chance of meeting your goal.' },
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -930,7 +930,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.4,
+      achievementProbability: 0.4, achievementChanceCell: { kind: 'figure', text: 'About 40% chance of meeting your goal.' },
       achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
@@ -966,7 +966,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.05, // < 0.10 would trigger the guidance if ungated
+      achievementProbability: 0.05, achievementChanceCell: { kind: 'figure', text: 'About 5% chance of meeting your goal.' }, // < 0.10 would trigger the guidance if ungated
       achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
@@ -1001,7 +1001,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
-      achievementProbability: 0.4,
+      achievementProbability: 0.4, achievementChanceCell: { kind: 'figure', text: 'About 40% chance of meeting your goal.' },
       achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,

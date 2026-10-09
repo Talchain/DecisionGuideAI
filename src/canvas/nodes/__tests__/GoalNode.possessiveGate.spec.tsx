@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalNode — THE POSSESSIVE GATE (ROADMAP 2.283).
  *
@@ -96,7 +97,7 @@ const makeStoreState = (report: unknown) => ({
   lens: { _dimmedNodeIds: new Set() },
   goalThreshold: null,
   goalConstraints: [],
-  nodes: [],
+  nodes: [{ id: 'opt_a', data: { label: 'Option A' } }, { id: 's1_control_option', data: { label: 'Control' } }],
   edges: [],
   ceeAnalysisReady: null,
   viewMode: 'expert',
@@ -134,7 +135,7 @@ const baseProps = {
 const USER_TARGET = { threshold_source: 'user', success_threshold: 6_000_000 }
 
 function renderGoalWith(option: Record<string, unknown>) {
-  storeState = makeStoreState(reportFor(option))
+  storeState = makeStoreState(licensedTestReport(reportFor(option)))
   return render(
     <ReactFlowProvider>
       <GoalNode

@@ -770,19 +770,21 @@ describe('Goal — wide and shallow: target state + one Chance row; provenance c
     expect(within(card).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Is this the real goal?')
   })
 
-  it('ONE Chance row after a run; "Last run ·" only when the model CHANGED (ED 02:31Z) — cannot-confirm is unprefixed', () => {
+  it('raw metadata without a licensed goal chance renders no Chance row in either currency state', () => {
     setState({ phase: 'post', over: { nodes: NODES.map(n => n.id === 'goal-1' ? { ...n, data: { ...n.data, goal_threshold_raw: 100 } } : n) } })
     setMeta({ 'goal-1': { achievementProbability: 0.34, isResultsMode: true } })
     setCurrency('changed')
     const goalProps = { ...props('goal-1'), data: { type: 'goal', label: 'Grow net revenue', goal_threshold_raw: 100 } }
     render(<ReactFlowProvider><GoalCard {...goalProps} /></ReactFlowProvider>)
-    const row = within(face('Grow net revenue')).getByTestId('goal-achievement-metric-row')
-    expect(row.textContent).toContain('Last run · Chance')
+    // REPORT contains only win shares; this raw hook mock supplies no licensed chance cell.
+    expect(within(face('Grow net revenue')).queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(within(face('Grow net revenue')).queryByText(/34%/)).toBeNull()
     expect(within(face('Grow net revenue')).queryByText(/chance of reaching target/)).toBeNull()
     cleanup()
     setCurrency('cannot_confirm')
     render(<ReactFlowProvider><GoalCard {...goalProps} /></ReactFlowProvider>)
-    expect(within(face('Grow net revenue')).getByTestId('goal-achievement-metric-row').textContent).not.toContain('Last run')
+    expect(within(face('Grow net revenue')).queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(within(face('Grow net revenue')).queryByText(/34%/)).toBeNull()
   })
 })
 

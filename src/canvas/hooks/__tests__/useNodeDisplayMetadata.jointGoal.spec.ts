@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — the JOINT figure rides the SAME decision
  * (ROADMAP 2.296 item 5 / 2.282-C2).
@@ -64,7 +65,7 @@ function reportFor(option: Record<string, unknown>, withPointer = true) {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReport(report) } }))
 }
 
 function renderForGoal() {

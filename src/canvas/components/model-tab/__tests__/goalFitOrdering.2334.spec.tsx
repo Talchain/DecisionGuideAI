@@ -85,14 +85,14 @@ function walkReport(nValid: number | null = WALK_N) {
  */
 
 describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', () => {
-  it('positive control: the builder resolves the walk fixture to five complete rows', () => {
-    // The builder is complete-field gated — it returns null unless EVERY
-    // option carries an admissible figure. If the fixture stopped reaching
-    // that branch, the assertions below would run against `null`.
+  it('the walk fixture has no licence: five withheld rows carry no raw goal figures', () => {
     const rows = buildGoalFitRows(optionNodes(5), walkReport())
     expect(rows).not.toBeNull()
     expect(rows).toHaveLength(5)
-    expect(rows?.map((r) => r.probability)).toEqual([...WALK_QUINTET])
+    expect(rows?.map((r) => r.probability)).toEqual([null, null, null, null, null])
+    expect(rows?.map((r) => r.chanceCell)).toEqual(WALK_QUINTET.map(() => ({
+      kind: 'withheld', text: 'Run the analysis again to see the chance.',
+    })))
   })
 
   it('reads n_valid_samples off the producer entry onto every row', () => {

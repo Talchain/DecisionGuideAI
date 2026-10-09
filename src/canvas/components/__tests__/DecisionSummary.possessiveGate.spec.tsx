@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * DecisionSummary — THE POSSESSIVE GATE (ROADMAP 2.283).
  *
@@ -104,17 +105,18 @@ function setStore(option: Record<string, unknown>) {
     nodes: [
       { id: 'goal-1', type: 'goal', data: { label: GOAL_LABEL, kind: 'goal' }, position: { x: 0, y: 0 } },
       { id: 'opt-1', type: 'option', data: { label: 'Option A', kind: 'option' }, position: { x: 0, y: 0 } },
+      { id: 's1_control_option', type: 'option', data: { label: 'Control', kind: 'option' }, position: { x: 0, y: 0 } },
     ],
     edges: [],
     outcomeNodeId: 'goal-1',
     goalThreshold: null,
     results: {
       status: 'complete',
-      report: {
+      report: licensedTestReport({
         results: { likely: 65, conservative: 40, optimistic: 90, units: 'percent', unitSymbol: '%' },
         confidence: { level: 'medium', why: 'Test reason' },
         option_probabilities: { 'opt-1': option },
-      },
+      }),
     },
     runMeta: null,
     ceeAnalysisReady: null,
@@ -168,7 +170,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
     setStore(REAL_GOAL_OPTION)
     const text = textOf()
-    expect(text).toContain(`About 55% chance of meeting your goal.`)
+    expect(text).toContain(`about 55% chance of meeting your goal, in this model.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
@@ -176,7 +178,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('positive control: the goal figure on a constrained option keeps the possessive — never the joint figure', () => {
     setStore(CONSTRAINED_OPTION)
     const text = textOf()
-    expect(text).toContain(`About 30% chance of meeting your goal.`)
+    expect(text).toContain(`about 30% chance of meeting your goal, in this model.`)
     expect(text).not.toContain(`About 42% chance of meeting your goal.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })

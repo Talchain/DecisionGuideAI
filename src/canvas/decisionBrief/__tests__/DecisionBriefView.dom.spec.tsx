@@ -71,7 +71,14 @@ describe('DecisionBriefView', () => {
     expect(decisionBriefToHtml(brief)).toContain('The reasons are below.')
     // CONTRAST: a Run with figures shows its rows and no note.
     cleanup()
-    render(<DecisionBriefView brief={await briefOf(currentRead)} onShowNode={vi.fn()} />)
+    const licensed = structuredClone(currentRead)
+    licensed.analysis_result.enrichment.inference_warnings.push({
+      code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
+      target: { comparator: 'at_least', value: 100, unit: 'GBP' },
+      option_ids: ['raise_to_59', 'keep_49_price', 'raise_to_54'],
+      pct_by_option: { raise_to_59: 17, keep_49_price: 18, raise_to_54: 19 },
+    } as never)
+    render(<DecisionBriefView brief={await briefOf(licensed)} onShowNode={vi.fn()} />)
     expect(screen.getByTestId('brief-chances')).toBeTruthy()
     expect(screen.queryByTestId('brief-chances-note')).toBeNull()
   })

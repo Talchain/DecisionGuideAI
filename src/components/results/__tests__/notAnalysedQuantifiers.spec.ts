@@ -124,24 +124,24 @@ describe('buildGoalFitRows — an unanalysed option does not blank the whole car
     expect(rows!.map((r) => r.id)).toEqual([A, B])
   })
 
-  it('UNCHANGED — an ANALYSED option with no admissible figure still returns null', () => {
-    // The complete-field rule, which the original `return null` was written
-    // for. Separating the two questions must not delete this one.
+  it('an unlicensed raw figure produces only a withheld row; the option with no figure is omitted', () => {
     const rows = buildGoalFitRows([optionNode(A), optionNode(B)], {
       [A]: GOAL_ENTRY,
       [B]: { outcome: { n_valid_samples: 10000 } },
     })
-    expect(rows).toBeNull()
+    expect(rows?.map((row) => row.id)).toEqual([A])
+    expect(rows?.[0].probability).toBeNull()
+    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
   })
 
-  it('UNCHANGED — a present but MALFORMED entry still returns null', () => {
-    // A producer defect is not an exclusion, and must not be silently
-    // re-badged as one (trap 21 — the two questions, kept apart).
+  it('a malformed entry grants no figure, and the unlicensed raw figure remains withheld', () => {
     const rows = buildGoalFitRows([optionNode(A), optionNode(B)], {
       [A]: GOAL_ENTRY,
       [B]: 'not-an-object' as unknown as Record<string, unknown>,
     })
-    expect(rows).toBeNull()
+    expect(rows?.map((row) => row.id)).toEqual([A])
+    expect(rows?.[0].probability).toBeNull()
+    expect(rows?.[0].chanceCell).toEqual({ kind: 'withheld', text: 'Run the analysis again to see the chance.' })
   })
 
   it('DOMAIN GUARD — a run that returned nothing for any option still returns null', () => {

@@ -296,7 +296,7 @@ describe('specific node contracts', () => {
     expect(screen.getByTestId('risk-likelihood-row')).toBeVisible()
     expect(screen.getByTestId('risk-impact-row')).toBeVisible()
   })
-  it('after a Run the goal chance is stated once while its scientific formatter is preserved', () => {
+  it('after an unlicensed Run the withheld chance is stated once, with no raw figure', () => {
     seed(nodes.map(n => n.id === 'goal' ? { ...n, data: { ...n.data, goal_threshold_raw: 0.8 } } : n))
     useCanvasStore.setState({ goalThreshold: 0.8, results: { status: 'complete', report: {
       option_probabilities: { option: { win_probability: 0.62, probability_of_goal: 0.004, status: 'ok' } },
@@ -304,10 +304,10 @@ describe('specific node contracts', () => {
       robustness: { recommended_option_id: 'option', display_verdict: 'fragile' },
     } } } as never)
     open('goal')
-    const chances = screen.getAllByText(/chance of meeting your goal/)
+    const chances = screen.getAllByText('Run the analysis again to see the chance.')
     expect(chances).toHaveLength(1)
     expect(chances[0]).toBeVisible()
-    expect(chances[0]).toHaveTextContent('Less than 1% chance of meeting your goal.')
+    expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
   it('after a Run the option keeps its headline words and moves the duplicate explanation and comparison context', () => {
