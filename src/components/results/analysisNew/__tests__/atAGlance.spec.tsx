@@ -211,6 +211,28 @@ describe('could change if — a tipping point, gated on the honesty field', () =
 
   const ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_value: 2, flip_value: 3 }
 
+  it('shows the absence row only when designation is permitted', () => {
+    const permitted = glanceOf(makeData({ recommendation: {
+      ...PERMITTED,
+      flipThresholdsStatus: 'all_no_effect',
+    } }))
+    const withheld = glanceOf(makeData({ recommendation: {
+      leaderDesignationPermitted: false,
+      flipThresholdsStatus: 'all_no_effect',
+    } }))
+
+    expect(permitted.condition).toBeNull()
+    expect(permitted.conditionAbsence).toContain('No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.')
+    expect(permitted.comparativeClaim).toBe('condition')
+    expect(withheld.conditionAbsence).toBeNull()
+
+    render(<AtAGlance isRunning={false} reanalyseBlocked={false}
+      reanalyseBlockedReason={null} glance={permitted} part="reading" />)
+    expect(screen.getByTestId('analysis-new-glance-condition-absence')).toHaveTextContent(
+      'No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.',
+    )
+  })
+
   it('⛔ WITHHELD: the same computed row says NOTHING when the leader may not be named', () => {
     const withheld = glanceOf(
       makeData({

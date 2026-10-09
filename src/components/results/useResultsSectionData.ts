@@ -2887,6 +2887,10 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         rawFlipThresholdsStatusReason
           ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason,
       ),
+      // Carried as data for the ruled status-copy mapper; never rendered raw.
+      flipThresholdsStatusReason: rawFlipThresholdsStatusReason
+        ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason
+        ?? undefined,
       // Lane UI-W4 (producer consumption, PLoT #200): producer leader-
       // confidence band from decision_brief.headline_banded. Normalised
       // fail-closed at this trust boundary (unknown band tokens / missing

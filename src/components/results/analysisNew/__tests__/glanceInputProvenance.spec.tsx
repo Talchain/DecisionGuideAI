@@ -252,6 +252,8 @@ const glanceModel = (
   overrides: Partial<AtAGlanceModel> = {},
 ): AtAGlanceModel => ({
   headline: 'Raise price currently scores higher',
+  // SCI-04: no absence line on a run that licensed a designation and carries no flip status.
+  conditionAbsence: null,
   // This factory models a run that DID license a designation, so there is no
   // refusal to explain. Explicit rather than optional: the field is required on
   // `AtAGlance` so that a construction site which forgets it is a TS error at

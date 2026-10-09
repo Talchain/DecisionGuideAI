@@ -85,6 +85,7 @@ import type {
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { isLabelledZeroReason } from '../influenceScaleCopy'
+import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
 // ⚠ IMPORTED FROM ITS OWNER, NEVER RESTATED. `resolveNextCopy.ts` is "the ONE
 // spelling of the Resolve next register" by its own header; a second copy in
 // this surface's deck would be the mirror that drifts silently (trap 12).
@@ -2782,6 +2783,17 @@ function buildAtAGlance(
   // rendered at rest anyway. Same rule V2 applied to the sensitivity header and
   // the Challenge signals row (DATA-MAP truth risk 1).
   const condition = leaderDesignationPermitted(data.recommendation) === true ? glanceCondition(data) : null
+  const conditionAbsence = leaderDesignationPermitted(data.recommendation) === true
+    && condition === null
+    && (data.recommendation.flipThresholdsStatus === 'all_no_effect'
+      || data.recommendation.flipThresholdsStatus === 'unresolved')
+    ? flipThresholdStatusNote({
+        status: data.recommendation.flipThresholdsStatus,
+        hasUnresolved: data.recommendation.flipThresholdsHasUnresolved === true,
+        designationsWithheld: false,
+        reason: data.recommendation.flipThresholdsStatusReason,
+      })
+    : null
 
   /**
    * ⭐⭐ EVERY SET-DEPENDENT CLAIM THIS PANEL CAN MAKE, IN ONE PLACE, AND THE
@@ -2806,7 +2818,7 @@ function buildAtAGlance(
     /** The headline superlative, or the robustness ordering verdict. */
     order: Boolean(headline || verdictBlock),
     /** A flip threshold, which ISL derives over the candidate set. */
-    condition: condition !== null,
+    condition: condition !== null || conditionAbsence !== null,
   }
 
   // Precedence is the amount of the register each claim licenses, widest
@@ -2834,6 +2846,7 @@ function buildAtAGlance(
     drivers,
     influenceIsSetRelative: setRelative,
     condition,
+    conditionAbsence,
     inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedFigures),
     conditionalInputBasis: headline && analysisIdentityIsCurrent
       ? conditionalInputBasis(analysisNodes, rec.currentReadInputBasis !== undefined
@@ -4031,7 +4044,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, optionOrigin: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, conditionAbsence: null, inputProvenance: null, optionOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

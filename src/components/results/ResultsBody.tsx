@@ -891,7 +891,10 @@ export const ResultsBody = memo(function ResultsBody({
                 status: resultsSectionData.recommendation.flipThresholdsStatus,
                 hasUnresolved:
                   resultsSectionData.recommendation.flipThresholdsHasUnresolved === true,
-                designationsWithheld,
+                // ⛔ FAIL CLOSED for this note only (AIQ/Science #2630 6046857688): "which option had the highest
+                // average result" is a designation, so an unanswered permission gets the withheld words.
+                designationsWithheld: leaderDesignationPermitted(resultsSectionData.recommendation) !== true,
+                reason: resultsSectionData.recommendation.flipThresholdsStatusReason,
               })
               return note == null ? null : (
                 <p

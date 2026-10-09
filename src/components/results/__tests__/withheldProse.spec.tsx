@@ -102,37 +102,22 @@ describe('flipThresholdStatusNote', () => {
   const permitted = (status: string, hasUnresolved = false) =>
     flipThresholdStatusNote({ status, hasUnresolved, designationsWithheld: false })
 
-  it('ANTI-VACUITY: all three PERMITTED sentences carry the presupposition', () => {
-    expect(permitted('all_no_effect')).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(permitted('partial_no_effect')).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(permitted('partial_no_effect', true)).toMatch(LEADER_PRESUPPOSITION_RE)
+  it('W1 and W2 do not presuppose a designation in either verdict state', () => {
+    for (const s of [
+      permitted('all_no_effect'), permitted('partial_no_effect'),
+      permitted('partial_no_effect', true), withheld('all_no_effect'),
+      withheld('partial_no_effect'), withheld('partial_no_effect', true),
+    ]) expect(s).not.toMatch(LEADER_PRESUPPOSITION_RE)
   })
 
-  it('WITHHELD: none of the three sentences presupposes a leader', () => {
+  it('renders the ruled W1 and W2 text per verdict state (AIQ/Science #2630 6046857688)', () => {
+    expect(permitted('all_no_effect')).toBe('No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.')
+    expect(withheld('all_no_effect')).toBe('No turning point found in this run across the factor ranges Olumi could check.')
+    expect(permitted('partial_no_effect')).toBe('Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model.')
+    expect(withheld('partial_no_effect', true)).toBe('Some checked factors had no turning point within their current ranges, in this model. Others could not be checked.')
     for (const s of [withheld('all_no_effect'), withheld('partial_no_effect'), withheld('partial_no_effect', true)]) {
-      expect(s, `status note leaked a presupposition: "${s}"`).not.toMatch(LEADER_PRESUPPOSITION_RE)
+      expect(s).not.toMatch(/highest|top|best|winner|leader|ahead/i)
     }
-  })
-
-  it('WITHHELD DATA PRESERVED: each status still says what the producer found', () => {
-    expect(withheld('all_no_effect')).toContain('No single tested factor changed')
-    expect(withheld('partial_no_effect')).toContain('Some factors did not change')
-    expect(withheld('partial_no_effect', true)).toContain('others could not be resolved')
-    // The unresolved variant is still DISTINCT from the plain one — the two
-    // branches did not collapse into one sentence.
-    expect(withheld('partial_no_effect', true)).not.toBe(withheld('partial_no_effect'))
-  })
-
-  it('PERMITTED: all three sentences are byte-identical to today', () => {
-    expect(permitted('all_no_effect')).toBe(
-      'No single tested factor changed the leading option within the current range.',
-    )
-    expect(permitted('partial_no_effect')).toBe(
-      'Some factors did not change the leading option within the current range.',
-    )
-    expect(permitted('partial_no_effect', true)).toBe(
-      'Some factors did not change the leading option within the current range, and others could not be resolved.',
-    )
   })
 
   it('an unclassified status renders NO line, in either verdict state', () => {
