@@ -91,6 +91,18 @@ describe('canvas backfill keeps each cell\'s own provenance', () => {
     expect(ui.ai.source).toBe('cee_hypothesis')
   })
 
+  it('the OTHER backfill branch (an analysis_ready option with no usable cells, a canvas node with them) keeps each cell\'s own provenance too', () => {
+    const all = nodes()
+    const empty = { id: 'opt', label: 'Raise price', status: 'needs_user_mapping' as const, interventions: {} }
+    const out = reconcileOptionsWithCanvasNodes({ goal_node_id: 'goal_1', options: [empty] } as never, all, new Set(all.map(n => n.id)))
+    const option = out.find(o => o.id === 'opt')
+    expect(option?.label).toBe('Raise price')
+    expect(option?.interventions).toStrictEqual(reconciled().interventions)
+    expect(Object.keys(option?.interventions.bare ?? {})).not.toContain('source')
+    expect(option?.interventions.typed).toMatchObject({ value: 0.6, source: 'user_specified', reasoning: 'I set this' })
+    expect(option?.interventions.ai).toMatchObject({ value: 0.8, source: 'cee_hypothesis' })
+  })
+
   it('an analysis_ready option whose cells carry no source passes through unchanged (the contract allows it)', () => {
     const all = nodes()
     const ready = { id: 'opt', label: 'Raise price', status: 'ready' as const, interventions: { bare: { value: 0.4 }, typed: { value: 0.6, source: 'user_specified' as const } } }
