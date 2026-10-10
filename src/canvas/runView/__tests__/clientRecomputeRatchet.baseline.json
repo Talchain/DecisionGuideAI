@@ -3,6 +3,29 @@
   "sanctioned": [
     "src/canvas/runView/runView.ts"
   ],
+  "presentationLicences": [
+    {
+      "file": "src/canvas/nodes/FactorNode.tsx",
+      "symbol": "extractionType",
+      "owner": "FactorNode",
+      "read": 1,
+      "reason": "presentation of an existing marker; no value or authorship inference"
+    },
+    {
+      "file": "src/utils/formatFactorDisplayValue.ts",
+      "symbol": "extractionType",
+      "owner": "factorDisplayInputFromData",
+      "read": 1,
+      "reason": "presentation of an existing marker; no value or authorship inference"
+    },
+    {
+      "file": "src/utils/formatFactorDisplayValue.ts",
+      "symbol": "extractionType",
+      "owner": "formatFactorDisplayValue",
+      "read": 1,
+      "reason": "presentation of an existing marker; no value or authorship inference"
+    }
+  ],
   "residualClasses": {
     "PERSIST": "PERSIST: last-result / AnalysisSnapshot store a client copy of the licensed chance; goes to 0 when snapshots store (revision, Run id) and read S1 typed records"
   },
@@ -199,11 +222,13 @@
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/hooks/useModelReadiness.ts","call":0,"read":2,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/hooks/useScienceIcons.ts","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/nodes/DecisionNode.tsx","call":0,"read":1,"def":0,"sanctioned":false},
+    {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/nodes/FactorNode.tsx","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/nodes/shared/valueSourceMark.tsx","call":0,"read":4,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/registration/buildRegistrationGraph.ts","call":0,"read":2,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/ui/inspector-v2/editors/FactorControllableEditor.tsx","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/canvas/ui/inspector-v2/editors/FactorObservableEditor.tsx","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"extractionType","file":"src/components/shared/ScientificEditor.tsx","call":0,"read":2,"def":0,"sanctioned":false},
+    {"class":"PROVENANCE","symbol":"extractionType","file":"src/utils/formatFactorDisplayValue.ts","call":0,"read":2,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"factorValueSourceMark","file":"src/canvas/components/CanvasLegendPopover.tsx","call":1,"read":0,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"factorValueSourceMark","file":"src/canvas/components/hoverCard/NodeHoverCard.tsx","call":1,"read":0,"def":0,"sanctioned":false},
     {"class":"PROVENANCE","symbol":"factorValueSourceMark","file":"src/canvas/components/provenanceKey.ts","call":1,"read":0,"def":0,"sanctioned":false},
