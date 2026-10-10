@@ -31,7 +31,7 @@ import {
 } from '../../../utils/interventionValue'
 import { clampStrength } from '../../../canvas/domain/edges'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
-import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3, CEEOptionV3 } from '../../cee/types'
 import { logger } from '../../../lib/logger'
 
 // ============================================================================
@@ -315,11 +315,15 @@ function hasUsableInterventions(map: unknown): boolean {
 
 /**
  * Convert a raw `node.data.interventions` map into a `Record<string, CEEInterventionV3>`.
- * Tags entries with `source: 'cee_hypothesis'` (closest existing semantic — "best-guess
- * intervention from canvas/edge state", same label `synthesiseCeeAnalysisReady` uses).
- * The platform CEEInterventionV3 contract intentionally does NOT carry a UI-only
- * `canvas_fallback` source — observability lives in the always-on warning emitted by
- * `reconcileOptionsWithCanvasNodes`, not in a polluted contract enum.
+ * ⚠ AN EXISTING CELL KEEPS ITS OWN PROVENANCE; AN ABSENT ONE STAYS ABSENT. An object entry
+ * is carried over whole (its genuine `source`, `value_confidence`, `reasoning`, `target_match`
+ * and any other metadata), and a BARE NUMBER carries no provenance, so none is emitted. This
+ * used to stamp every entry `'cee_hypothesis'`, which every reader shows as "Estimated by
+ * Olumi": a figure the user typed (or the record never attributed) was re-labelled as the
+ * machine's on its way back to the run request. `CEEInterventionV3.source` is optional for
+ * exactly this reason; the honest readers render silence for it. The platform contract
+ * intentionally does NOT carry a UI-only `canvas_fallback` source — observability lives in
+ * the always-on warning emitted by `reconcileOptionsWithCanvasNodes`, not in a polluted enum.
  *
  * Mirrors the guards in extractOptionsFromNodes (skip self-targeting, skip stale
  * target IDs, drop null values, accept either bare numbers or objects with a `value` field).
@@ -358,10 +362,13 @@ function canvasInterventionsToCEE(
     const value = interventionNumericValue(rawValue)
     if (value === null) continue
 
+    const stored =
+      rawValue !== null && typeof rawValue === 'object' ? (rawValue as Partial<CEEInterventionV3>) : null
     out[targetId] = {
+      ...stored,
       value,
-      source: 'cee_hypothesis',
-      target_match: {
+      // The key is a validated node id, so an exact-id match is a fact of this lookup.
+      target_match: stored?.target_match ?? {
         node_id: targetId,
         match_type: 'exact_id',
         confidence: 'high',
@@ -600,18 +607,19 @@ export function reconcileOptionsWithCanvasNodesDetailed(
     }
 
     // PRIMARY metadata + FALLBACK interventions from node.data.interventions.
-    // Flatten complex `{value, unit, source}` shapes first so canvasInterventionsToCEE
-    // sees the canonical Record<string, number> form. This is the upstream guard for
-    // PLoT EMPTY_INTERVENTIONS — see flattenInterventions for the shape contract.
+    // The RAW map goes to canvasInterventionsToCEE, NOT a flattened one: flattening first
+    // threw away each cell's own `source`/`value_confidence`/`reasoning`/`target_match`
+    // before they could be carried over. The usability rule is the same one flatten used
+    // (`interventionNumericValue`, applied per cell inside the converter), so the set of
+    // targets that survive is unchanged — the upstream guard for PLoT EMPTY_INTERVENTIONS.
     const nodeData = (canvasNode.data as Record<string, unknown> | undefined) ?? {}
     // SITE B. The flatten below is what silently removed unusable entries before
     // any consumer — the pre-run gate included — could see them. Record first.
     recordUnusable(arOpt.id, nodeData.interventions, true)
-    const flatNodeInterventions = flattenInterventions(nodeData.interventions)
     const fallback = canvasInterventionsToCEE(
       arOpt.id,
       arOpt.label || arOpt.id,
-      flatNodeInterventions,
+      nodeData.interventions,
       validNodeIds,
       silent,
     )
@@ -630,12 +638,11 @@ export function reconcileOptionsWithCanvasNodesDetailed(
     const label = (nodeData.label as string | undefined) || node.id
     // SITE B, second branch — same silent removal as above. Record first.
     recordUnusable(node.id, nodeData.interventions, true)
-    // Flatten complex shapes before handing off to the CEE converter.
-    const flatNodeInterventions = flattenInterventions(nodeData.interventions)
+    // The raw map, so each cell keeps its own provenance (see the first branch above).
     const fallback = canvasInterventionsToCEE(
       node.id,
       label,
-      flatNodeInterventions,
+      nodeData.interventions,
       validNodeIds,
       silent,
     )
