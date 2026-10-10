@@ -43,6 +43,7 @@ import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import { typography } from '../../../../styles/typography'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
 import { runMethod } from '../runMethod'
+import { methodIsAvailable, METHOD_UNAVAILABLE_REASON } from '../../../../canvas/conversation/actionRegistry'
 
 export function MethodsYouCanRun({
   testId = 'analysis-new-methods-you-can-run',
@@ -92,6 +93,7 @@ export function MethodsYouCanRun({
         <li key={m.id}>
           <button
             type="button"
+            disabled={!methodIsAvailable(m.id)}
             onClick={() => runMethod(m)}
             /* ⚠ NOT AN `action()` TIER — unchanged, and the reason is unchanged:
                seven of them in a row would claim seven secondary acts on the
@@ -101,7 +103,7 @@ export function MethodsYouCanRun({
             data-testid={`${testId}-method`}
             data-method-id={m.id}
             data-raised={raised.has(m.id) ? 'true' : undefined}
-            title={m.description}
+            title={methodIsAvailable(m.id) ? m.description : METHOD_UNAVAILABLE_REASON}
           >
             <span className={typography.panelMeta}>{m.title}</span>
           </button>

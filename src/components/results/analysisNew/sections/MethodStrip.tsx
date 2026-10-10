@@ -67,6 +67,7 @@ import { useSelfToast } from '../../decision-overview/useSelfToast'
 import Tooltip from '../../../Tooltip'
 import { openBriefEdit } from '../briefEditStore'
 import { ACTION_FOCUS, icon } from '../panelSurfaces'
+import { methodIsAvailable, METHOD_UNAVAILABLE_REASON } from '../../../../canvas/conversation/actionRegistry'
 
 export type MethodGlyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
 type Glyph = MethodGlyph
@@ -313,6 +314,7 @@ export function MethodStrip({
   }, [open, close])
 
   const selectFromMenu = (id: string) => {
+    if (!methodIsAvailable(id)) return
     close(true)
     onSelectMethod(id)
   }
@@ -349,6 +351,7 @@ export function MethodStrip({
             key={id}
             Icon={methodIcon(id)}
             label={methodStripLabel(method, raised.has(id))}
+            unavailable={!methodIsAvailable(id)}
             onClick={() => onSelectMethod(id)}
             pressed={activeMethodId === id}
             /* ⛔ THE DOT MEANS "RAISED BY THIS RUN" AND NOTHING ELSE (#2066
@@ -389,6 +392,8 @@ export function MethodStrip({
                     key={m.id}
                     type="button"
                     role="menuitem"
+                    aria-disabled={methodIsAvailable(m.id) ? undefined : 'true'}
+                    title={methodIsAvailable(m.id) ? undefined : METHOD_UNAVAILABLE_REASON}
                     aria-current={activeMethodId === m.id ? 'true' : undefined}
                     onClick={() => selectFromMenu(m.id)}
                     className={itemClass(activeMethodId === m.id)}
@@ -462,6 +467,7 @@ interface StripButtonProps {
   marked?: boolean
   compact: boolean
   testId: string
+  unavailable?: boolean
 }
 
 /**
@@ -470,16 +476,18 @@ interface StripButtonProps {
  * ring and colour when pressed, and a 5px info dot top-right with a 2px panel
  * halo when marked.
  */
-function StripButton({ Icon, label, onClick, pressed, expanded, hasPopup, marked = false, compact, testId }: StripButtonProps) {
+function StripButton({ Icon, label, onClick, pressed, expanded, hasPopup, marked = false, compact, testId, unavailable = false }: StripButtonProps) {
   return (
-    <Tooltip asChild content={label}>
+    <Tooltip asChild content={unavailable ? `${label}. ${METHOD_UNAVAILABLE_REASON}` : label}>
       <button
         type="button"
         aria-label={label}
         aria-pressed={pressed}
         aria-expanded={expanded}
         aria-haspopup={hasPopup}
-        onClick={onClick}
+        aria-disabled={unavailable ? 'true' : undefined}
+        title={unavailable ? METHOD_UNAVAILABLE_REASON : undefined}
+        onClick={() => { if (!unavailable) onClick() }}
         data-testid={testId}
         className={`relative inline-flex shrink-0 items-center justify-center min-w-[24px] min-h-[24px] rounded-full ${
           compact ? 'size-[35px]' : 'size-9'
@@ -487,7 +495,7 @@ function StripButton({ Icon, label, onClick, pressed, expanded, hasPopup, marked
           pressed
             ? 'text-info ring-1 ring-inset ring-info'
             : 'text-text-light hover:bg-panel-hover hover:ring-1 hover:ring-inset hover:ring-panel-border'
-        } ${ACTION_FOCUS}`}
+        } ${unavailable ? 'opacity-40' : ''} ${ACTION_FOCUS}`}
       >
         <Icon className={icon('section')} aria-hidden={true} />
         {marked ? (

@@ -33,11 +33,11 @@ const SENDS: Readonly<Record<ActionId, Readonly<Record<AskStage, string>>>> = {
   opposite_case: { drafted: 'ask:method-opposite', 'ran-current': 'ask:method-opposite', stale: 'ask:method-opposite', withheld: 'ask:method-opposite' },
   outside_view: { drafted: 'ask:method-outside-view', 'ran-current': 'ask:method-outside-view', stale: 'ask:method-outside-view', withheld: 'ask:method-outside-view' },
   trade_offs: { drafted: 'ask:compare-options', 'ran-current': 'ask:compare-options', stale: 'ask:compare-options', withheld: 'ask:compare-options' },
-  bias_check: { drafted: 'ask:method-bias', 'ran-current': 'ask:method-bias', stale: 'ask:method-bias', withheld: 'ask:method-bias' },
+  bias_check: { drafted: 'act:bias_check', 'ran-current': 'act:bias_check', stale: 'act:bias_check', withheld: 'act:bias_check' },
 }
 
 /** ⚠ INTERIM: the actions with no typed CEE handler yet. Moving one to `typed` is a deliberate edit here. */
-const PROSE: readonly ActionId[] = ['reframe', 'opposite_case', 'outside_view', 'trade_offs', 'bias_check']
+const PROSE: readonly ActionId[] = ['reframe', 'opposite_case', 'outside_view', 'trade_offs']
 
 const setStage = (stage: AskStage) => {
   useCanvasStore.setState({
@@ -74,7 +74,7 @@ describe('the table is well formed', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('the PROSE (interim) rows are exactly the five methods with no typed CEE handler', () => {
+  it('the PROSE (interim) rows are exactly the four methods with no typed CEE handler', () => {
     expect(ACTION_IDS.filter((id) => ACTION_REGISTRY[id].handler.kind === 'prose').sort()).toEqual([...PROSE].sort())
   })
 
@@ -90,7 +90,7 @@ describe('the table is well formed', () => {
 describe('the chip id a press sends, by stage', () => {
   it.each(ACTION_IDS.flatMap((id) => STAGES.map((stage) => [id, stage] as const)))('%s at %s', (id, stage) => {
     expect(pressIdOf(id, stage)).toBe(SENDS[id][stage])
-    const typed = SENDS[id][stage].startsWith('agent-next-') ? SENDS[id][stage] : undefined
+    const typed = (SENDS[id][stage].startsWith('agent-next-') || SENDS[id][stage].startsWith('act:')) ? SENDS[id][stage] : undefined
     expect(typedPressIdOf(id, stage)).toBe(typed)
   })
 
@@ -146,7 +146,7 @@ describe('no typed press id is spelled outside the registry', () => {
   const stripComments = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ')
   const spelled = (): Array<readonly [string, string]> =>
     sourceFiles(SRC).flatMap((file) => {
-      const ids = stripComments(readFileSync(file, 'utf8')).match(/(['"`])agent-next-[a-z-]{1,40}\1/g) ?? []
+      const ids = stripComments(readFileSync(file, 'utf8')).match(/(['"`])(?:agent-next-[a-z-]{1,40}|act:[a-z_]{1,40})\1/g) ?? []
       return [...new Set(ids.map((quoted) => quoted.slice(1, -1)))].map((id) => [file.slice(SRC.length + 1), id] as const)
     })
 

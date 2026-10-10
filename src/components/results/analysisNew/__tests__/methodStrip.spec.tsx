@@ -196,11 +196,11 @@ describe('the strip', () => {
 })
 
 describe('selection', () => {
-  it('an icon press calls onSelectMethod with the catalogue id and does NOT open the drawer', () => {
+  it('an available icon press calls onSelectMethod with the catalogue id and does NOT open the drawer', () => {
     const { onSelectMethod } = draw({}, WIDE)
-    fireEvent.click(screen.getByTestId(`${TID}-method-outside_view`))
+    fireEvent.click(screen.getByTestId(`${TID}-method-pre_mortem`))
     expect(onSelectMethod).toHaveBeenCalledTimes(1)
-    expect(onSelectMethod).toHaveBeenCalledWith('outside_view')
+    expect(onSelectMethod).toHaveBeenCalledWith('pre_mortem')
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 
@@ -220,8 +220,8 @@ describe('selection', () => {
   it('an overflow method calls onSelectMethod, closes the menu and does NOT open the drawer', () => {
     const { onSelectMethod } = draw({}, WIDE)
     openMenu()
-    fireEvent.click(screen.getByTestId(`${TID}-menu-method-explore_tradeoffs`))
-    expect(onSelectMethod).toHaveBeenCalledWith('explore_tradeoffs')
+    fireEvent.click(screen.getByTestId(`${TID}-menu-method-review_bias`))
+    expect(onSelectMethod).toHaveBeenCalledWith('review_bias')
     expect(screen.queryByRole('menu')).toBeNull()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
     expect(document.activeElement).toBe(more())
@@ -231,7 +231,7 @@ describe('selection', () => {
     draw({ activeMethodId: 'review_bias' }, WIDE)
     openMenu()
     expect(screen.getByTestId(`${TID}-menu-method-review_bias`)).toHaveAttribute('aria-current', 'true')
-    expect(screen.getByTestId(`${TID}-menu-method-explore_tradeoffs`)).not.toHaveAttribute('aria-current')
+    expect(screen.getByTestId(`${TID}-menu-method-review_bias`)).not.toHaveAttribute('aria-current')
   })
 })
 

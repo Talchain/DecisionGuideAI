@@ -16,6 +16,7 @@ import { useGuidanceStore } from '../../stores/guidanceStore'
 import { ASK_BUSY_NOTICE } from '../askAi'
 import { revealOlumiSurface } from '../revealOlumi'
 import type { ActionBarRevision, ActionOffer } from './actionBarContract'
+import { actionIsAvailable, registeredPressId } from '../actionRegistry'
 
 export type PressOfferResult = 'sent' | 'busy' | 'refire' | 'disabled' | 'none'
 
@@ -23,7 +24,7 @@ const REFIRE_MS = 500
 const lastPress = new Map<string, number>()
 
 export function pressOffer(offer: ActionOffer, revision: ActionBarRevision): PressOfferResult {
-  if (!offer.enabled) return 'disabled'
+  if (!offer.enabled || !actionIsAvailable(offer.action_id)) return 'disabled'
   const state = useGuidanceStore.getState()
   const dispatch = state._dispatchAction
   if (!dispatch) return 'none'
@@ -39,7 +40,7 @@ export function pressOffer(offer: ActionOffer, revision: ActionBarRevision): Pre
   lastPress.set(offer.offer_key, now)
   try {
     dispatch({
-      id: offer.press_id,
+      id: registeredPressId(offer.action_id) ?? offer.press_id,
       label: offer.label,
       message: offer.user_line,
       parameters: { offer_key: offer.offer_key, revision },

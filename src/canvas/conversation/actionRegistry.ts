@@ -1,40 +1,18 @@
 /**
- * ⭐ S-B ACTION SYSTEM, SLICE 0 — THE ONE TABLE OF ACTIONS A PRESS CAN ASK OLUMI FOR.
+ * One local method → action → typed press mapping, shared by Reasoning and chat.
+ * CEE routes on chip.id; labels and prose are display/context, never a method selector.
  *
- * Keyed by action id. It is the single source of the press mapping: which chip
- * id a press sends, and whether CEE answers that id with a typed handler or the
- * press is, for now, an ordinary Agent turn. The served CEE lane routes on
- * `chip.id` and nothing else, so a press id spelled anywhere but here is a
- * second mapper that can drift (`noPressIdOutsideTheRegistry.spec` holds that).
+ * Existing capabilities verified in CEE staging source 5404dff6077f:
+ * src/orchestrator-v5/agent-lane/actions/{registry,handlers}.ts.
+ * Bias check is act:bias_check (a deterministic typed reply). Reframe, opposite
+ * case, outside view and trade-offs have no equivalent typed handler. Their
+ * prose question families remain available to ordinary Ask, but method controls
+ * are unavailable until CEE supplies the corresponding capability.
  *
- * WHO READS IT
- *   · `askAi` (every Ask door on the canvas, the inspector and the Reasoning
- *     tab) chooses its chip id here.
- *   · `pressAction` is the one press path for an action.
- *   · the Reasoning tab's methods (`runMethod`) and its four text presses.
- *
- * `handler.kind`
- *   · `typed`: CEE has its own handler for `press_id` and accepts it at
- *     `stages`. Outside those stages the press sends the plain ask.
- *   · `prose`: ⚠ INTERIM. No typed CEE handler exists yet, so the press is an
- *     ordinary Agent chip turn under `ask:<intent>`: Olumi's question is never
- *     taken as the person's own words and the change and Run tools stay
- *     withheld, but nothing checks the reply follows the method. Do not write
- *     "runs the protocol" on the strength of a `prose` row. When CEE's handler
- *     lands, the row becomes `typed` here and nowhere else changes.
- *
- * ⚠ `stages` IS `askAi`'S RULE, AND ONE SURFACE DOES NOT USE IT YET. The
- * Reasoning tab's four text presses are shown on any current Run and send
- * `press_id` there, including a Run that withholds its figures, where CEE
- * answers with its own typed limit. They read `press_id` from the row, so the id
- * has one source; the two stage rules become one when each handler's own
- * precondition replaces `stages` (slice 1's `enabled`).
- *
- * `ask` is the question family whose text is the visible user line. It is
- * display only: CEE never routes on it.
- *
- * This is the seed of the shared registry (labels, icons and the relevance
- * signal join it with the ActionBar); the ids are the ACTION-SYSTEM draft's.
+ * Generic Ask retains its existing stage rules. Explicit method presses keep
+ * the typed id and let CEE enforce its own preconditions, or reuse the current
+ * offer through pressOffer, including availability and offered revision.
+ * CEE-only actions keep their wire ids; this table covers the local methods.
  */
 import type { AskIntent, AskStage } from './askAiQuestions'
 
@@ -75,11 +53,33 @@ export const ACTION_REGISTRY = {
   opposite_case: { ask: 'method-opposite', method_id: 'consider_opposite', handler: { kind: 'prose' } },
   outside_view: { ask: 'method-outside-view', method_id: 'outside_view', handler: { kind: 'prose' } },
   trade_offs: { ask: 'compare-options', method_id: 'explore_tradeoffs', handler: { kind: 'prose' } },
-  bias_check: { ask: 'method-bias', method_id: 'review_bias', handler: { kind: 'prose' } },
+  // CEE staging actions/{registry,handlers}.ts: deterministic, evidence-grounded bias reply.
+  bias_check: { ask: 'method-bias', method_id: 'review_bias', handler: { kind: 'typed', press_id: 'act:bias_check', stages: ['drafted', 'ran-current', 'stale', 'withheld'] } },
 } as const satisfies Record<ActionId, ActionEntry>
 
 /** The same rows, read through the entry type (the const form exists so a typed row's `press_id` is checked at compile time). */
 const ENTRIES: Readonly<Record<ActionId, ActionEntry>> = ACTION_REGISTRY
+
+/** Existing unavailable treatment; a prose ask is not an implemented method. */
+export const METHOD_UNAVAILABLE_REASON = 'Coming soon'
+
+export function methodIsAvailable(methodId: string): boolean {
+  const action = actionOfMethod(methodId)
+  return action !== undefined && ENTRIES[action].handler.kind === 'typed'
+}
+
+/** CEE may add actions independently. Only locally registered methods are capability-gated here. */
+export function actionIsAvailable(actionId: string): boolean {
+  return !Object.prototype.hasOwnProperty.call(ENTRIES, actionId)
+    || ENTRIES[actionId as ActionId].handler.kind === 'typed'
+}
+
+/** Both action-bar surfaces and catalogue presses read the same typed mapping. */
+export function registeredPressId(actionId: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(ENTRIES, actionId)) return undefined
+  const { handler } = ENTRIES[actionId as ActionId]
+  return handler.kind === 'typed' ? handler.press_id : undefined
+}
 
 /** CEE's typed press id for this action at this stage, or `undefined` where it has none. */
 export function typedPressIdOf(actionId: ActionId, stage: AskStage): string | undefined {

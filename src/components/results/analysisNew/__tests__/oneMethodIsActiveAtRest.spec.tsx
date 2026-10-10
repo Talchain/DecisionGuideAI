@@ -93,18 +93,18 @@ describe('one method is active at rest — when the run names one', () => {
 
   it('a pick moves the active method and the card together, and pressing it again does NOT clear it', () => {
     drawBody(raisedDecision())
-    const reframe = screen.getByTestId(`${STRIP}-method-reframe_problem`)
+    const reframe = screen.getByTestId(`${STRIP}-method-different_option`)
     fireEvent.click(reframe)
-    expect(pressed()).toEqual(['reframe_problem'])
-    expect(screen.getByTestId(CARD)).toHaveAttribute('data-method-id', 'reframe_problem')
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
-    expect(pressed()).toEqual(['reframe_problem'])
+    expect(pressed()).toEqual(['different_option'])
+    expect(screen.getByTestId(CARD)).toHaveAttribute('data-method-id', 'different_option')
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-different_option`))
+    expect(pressed()).toEqual(['different_option'])
     expect(screen.getByTestId(CARD)).toHaveAttribute('data-source', 'method')
   })
 
   it('"Not useful right now" on a pick returns the card, and the strip, to the finding', () => {
     drawBody(raisedDecision())
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-different_option`))
     fireEvent.click(screen.getByTestId(`${CARD}-more`))
     fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
     expect(screen.getByTestId(CARD)).toHaveAttribute('data-source', 'intervention')
@@ -142,9 +142,9 @@ describe('one method is active at rest — when the run names one', () => {
 
   it('⛔ (#2066 review B2) a method the READER picked wears the ring, not the run\'s "raised" dot', () => {
     drawBody(raisedDecision())
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
-    expect(pressed()).toEqual(['reframe_problem'])
-    expect(screen.queryByTestId(`${STRIP}-method-reframe_problem-mark`), 'no provenance dot on a pick').toBeNull()
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-different_option`))
+    expect(pressed()).toEqual(['different_option'])
+    expect(screen.queryByTestId(`${STRIP}-method-different_option-mark`), 'no provenance dot on a pick').toBeNull()
     // CONTRAST: the method the run DID raise keeps its dot.
     expect(screen.getByTestId(`${STRIP}-method-pre_mortem-mark`)).toBeInTheDocument()
   })

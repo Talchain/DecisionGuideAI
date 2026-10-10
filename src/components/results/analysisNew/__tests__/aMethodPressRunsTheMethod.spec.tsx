@@ -1,20 +1,8 @@
 /**
- * ⭐ A REASONING METHOD PRESS RUNS THE METHOD (Paul, 7 Oct 2026: "The reasoning
- * tab already has a complete set of icons and a dropdown with what we call
- * reasoning methods. They don't seem to be working properly, so we actually
- * need to make them genuinely work.").
- *
- * THE SPEC: one press on a method — its icon on the strip, or its row in the
- * "All methods and actions" menu — sends ONE chip turn to Olumi and opens no
- * drawer. Before this, the press only swapped the Challenge card's heading
- * further down the panel and sent nothing; reaching Olumi took two more
- * presses (the card's ✦, then the drawer's Send).
- *
- * Bound by IDENTITY: catalogue ids read from `METHOD_CATALOGUE`, the strip's
- * own test ids, and the exact chip id each method sends. A method is an action
- * in `ACTION_REGISTRY` (S-B slice 0), which owns that id: the two methods CEE
- * has a typed handler for send its press id on a current Run; the other five
- * are PROSE rows (interim) and send `ask:<intent>`.
+ * Reasoning-tab method interaction contract. SYS9 changes the old interim prose
+ * expectation: supported methods send existing typed presses; unsupported ones
+ * stay visible but disabled. Selection/lifecycle checks use available methods.
+ * The real route/payload/parser/render witness is reasoningMethods.actionSpine.spec.tsx.
  */
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
@@ -25,7 +13,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision } from './analysisNewFixtures'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
-import { ACTION_REGISTRY, actionOfMethod } from '../../../../canvas/conversation/actionRegistry'
+import { ACTION_REGISTRY, actionOfMethod, methodIsAvailable } from '../../../../canvas/conversation/actionRegistry'
 import { parseActionBar, type ActionBarV1 } from '../../../../canvas/conversation/actionBar/actionBarContract'
 import { useActionBarStore } from '../../../../canvas/conversation/actionBar/actionBarStore'
 import { resetPressOfferClocks } from '../../../../canvas/conversation/actionBar/pressOffer'
@@ -62,7 +50,7 @@ const SENT_ID_ON_A_CURRENT_RUN: Readonly<Record<string, string>> = {
   outside_view: 'ask:method-outside-view',
   pre_mortem: 'agent-next-pre-mortem',
   explore_tradeoffs: 'ask:compare-options',
-  review_bias: 'ask:method-bias',
+  review_bias: 'act:bias_check',
 }
 
 /** The question each PROSE method asks (DL-approved register, Q15). */
@@ -157,6 +145,11 @@ describe('a method press on the Reasoning tab runs the method', () => {
   it.each(METHOD_IDS)('%s: one press sends ONE chip turn under its own id and opens no drawer', (id) => {
     mount()
     pressMethod(id)
+    if (!methodIsAvailable(id)) {
+      expect(dispatch).not.toHaveBeenCalled()
+      expect(useAskOlumiStore.getState().isOpen).toBe(false)
+      return
+    }
     expect(dispatch).toHaveBeenCalledTimes(1)
     const sent = dispatch.mock.calls[0][0] as { id: string; label: string; message: string; source: string }
     expect(sent.id).toBe(SENT_ID_ON_A_CURRENT_RUN[id])
@@ -170,24 +163,24 @@ describe('a method press on the Reasoning tab runs the method', () => {
 
   it('the pressed method is marked active on the strip, and a CONTRAST sibling is not', () => {
     mount()
-    pressMethod('outside_view')
-    expect(screen.getByTestId(`${STRIP}-method-outside_view`)).toHaveAttribute('aria-pressed', 'true')
+    pressMethod('pre_mortem')
+    expect(screen.getByTestId(`${STRIP}-method-pre_mortem`)).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId(`${STRIP}-method-reframe_problem`)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('⛔ CONTRAST — before a Run the pre-mortem sends its plain ask; a different option reaches CEE’s own handler at every stage', () => {
+  it('⛔ CONTRAST — before a Run the pre-mortem keeps its typed handler; a different option reaches CEE’s own handler at every stage', () => {
     seedModel(false)
     vi.mocked(selectRunAffirmedCurrent).mockReturnValue(false)
     mount({ isPreRun: true })
     pressMethod('pre_mortem')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     pressMethod('different_option')
-    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['ask:pre-mortem', 'agent-next-widen'])
+    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['agent-next-pre-mortem', 'agent-next-widen'])
   })
 
   it('the Challenge card’s ✦ on the picked method sends the same turn again, in one press', () => {
     mount()
-    pressMethod('outside_view')
+    pressMethod('pre_mortem')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-work-through'))
     expect(dispatch).toHaveBeenCalledTimes(2)
@@ -197,12 +190,12 @@ describe('a method press on the Reasoning tab runs the method', () => {
 
   it('a method picked from the Challenge card’s own menu runs too (the two menus cannot drift)', () => {
     mount()
-    pressMethod('outside_view')
+    pressMethod('pre_mortem')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-menu-method-review_bias'))
     expect(dispatch).toHaveBeenCalledTimes(2)
-    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('ask:method-bias')
+    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('act:bias_check')
   })
 })
 
@@ -210,10 +203,10 @@ describe('a method press is never dead and never doubles', () => {
   it('with no conversation mounted, the press opens the drawer with the method’s own draft', () => {
     useGuidanceStore.setState({ _dispatchAction: null } as never)
     mount()
-    pressMethod('outside_view')
+    pressMethod('pre_mortem')
     const drawer = useAskOlumiStore.getState()
     expect(drawer.isOpen).toBe(true)
-    expect(drawer.label).toBe(METHOD_CATALOGUE.find((m) => m.id === 'outside_view')!.title)
+    expect(drawer.label).toBe(METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!.title)
     expect(drawer.draft.trim()).not.toBe('')
   })
 
@@ -223,7 +216,7 @@ describe('a method press is never dead and never doubles', () => {
     const onToast = (e: Event) => toasts.push((e as CustomEvent<{ message: string }>).detail.message)
     window.addEventListener('topbar:show-toast', onToast)
     mount()
-    pressMethod('outside_view')
+    pressMethod('pre_mortem')
     window.removeEventListener('topbar:show-toast', onToast)
     expect(dispatch).not.toHaveBeenCalled()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
@@ -232,8 +225,8 @@ describe('a method press is never dead and never doubles', () => {
 
   it('a double press inside the refire window sends once', () => {
     mount()
-    pressMethod('outside_view')
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-outside_view`))
+    pressMethod('pre_mortem')
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-pre_mortem`))
     expect(dispatch).toHaveBeenCalledTimes(1)
   })
 })
@@ -342,7 +335,7 @@ describe('CEE’s action bar heads the Reasoning tab when the latest answer carr
 describe('every reasoning method the bar does not carry is in the bar’s ⋯, and one press runs it', () => {
   const SCENARIO = 'scn-reasoning-methods'
   const BAR = 'reasoning-action-bar'
-  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs', 'review_bias']
+  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs']
   const withheldRun = (): ActionBarV1 => parseActionBar(JSON.parse(readFileSync(
     join(__dirname, '../../../../canvas/conversation/actionBar/__tests__/fixtures/action-bar-v1-withheld-run.json'), 'utf8')))!
   const menuRows = () => {
@@ -357,12 +350,12 @@ describe('every reasoning method the bar does not carry is in the bar’s ⋯, a
   })
   afterEach(() => useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }))
 
-  it('PRECONDITION: the five are exactly the catalogue methods whose action has no typed handler', () => {
+  it('PRECONDITION: the four are exactly the catalogue methods whose action has no typed handler', () => {
     const prose = METHOD_CATALOGUE.filter((m) => ACTION_REGISTRY[actionOfMethod(m.id)!].handler.kind === 'prose').map((m) => m.id)
     expect(prose).toEqual(PROSE_METHODS)
   })
 
-  it('RED (served): with a bar, the five are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
+  it('RED (served): with a bar, the four are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
     mount()
     expect(screen.queryByTestId(STRIP), 'the strip is gone').toBeNull()
     const rows = menuRows()
@@ -371,15 +364,16 @@ describe('every reasoning method the bar does not carry is in the bar’s ⋯, a
     expect(rows).not.toContain(`${BAR}-menu-host-different_option`)
     expect(screen.getByTestId(`${BAR}-menu-group-host-methods`)).toHaveTextContent('Reasoning methods')
     // Methods before the tab's own workflow controls.
-    expect(rows.indexOf(`${BAR}-menu-host-review_bias`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
+    expect(rows.indexOf(`${BAR}-menu-host-explore_tradeoffs`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
   })
 
-  it.each(PROSE_METHODS)('%s: one press from the bar’s ⋯ sends ONE chip turn with the method’s own id, and opens no drawer', (id) => {
+  it.each(PROSE_METHODS)('%s: unsupported method is disabled and spends no turn', (id) => {
     mount()
     menuRows()
     fireEvent.click(screen.getByTestId(`${BAR}-menu-host-${id}`))
-    expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: SENT_ID_ON_A_CURRENT_RUN[id], source: 'chip' }))
+    expect(screen.getByTestId(`${BAR}-menu-host-${id}`)).toHaveAttribute('aria-disabled', 'true')
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${BAR}-notice`)).toHaveTextContent('Coming soon')
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })

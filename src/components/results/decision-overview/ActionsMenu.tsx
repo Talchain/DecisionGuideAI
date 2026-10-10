@@ -20,6 +20,7 @@ import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegist
 import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { runMethod } from '../analysisNew/runMethod'
+import { methodIsAvailable, METHOD_UNAVAILABLE_REASON } from '../../../canvas/conversation/actionRegistry'
 import {
   METHOD_CATALOGUE,
   GLOBAL_ACTIONS,
@@ -97,6 +98,7 @@ export function ActionsMenu() {
    * This function keeps only what is genuinely the MENU's: closing itself.
    */
   const runMethodAndClose = (method: MethodEntry) => {
+    if (!methodIsAvailable(method.id)) return
     close(true)
     runMethod(method)
   }
@@ -167,6 +169,8 @@ export function ActionsMenu() {
               key={m.id}
               type="button"
               role="menuitem"
+              aria-disabled={methodIsAvailable(m.id) ? undefined : 'true'}
+              title={methodIsAvailable(m.id) ? undefined : METHOD_UNAVAILABLE_REASON}
               onClick={() => runMethodAndClose(m)}
               className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
