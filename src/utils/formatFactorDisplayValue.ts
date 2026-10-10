@@ -225,6 +225,8 @@ value_source?: string | null
    * (scale/index/…), or null raw_value, display_value still wins.
    */
   display_value?: string | null
+  uncertainty_drivers?: readonly string[] | null
+  extractionType?: string | null
   /**
    * The producer's statement of what each value on this factor's scale MEANS.
    * Outranks `display_value` when the value matches a key exactly — see
@@ -321,6 +323,8 @@ function factorDisplayInputFromData(
       typeof data.pending_user_value === 'number' ? (data.pending_user_value as number) : null,
     category,
     display_value: displayValue,
+    uncertainty_drivers: observedState?.uncertainty_drivers as readonly string[] | null | undefined,
+    extractionType: observedState?.extractionType as string | null | undefined,
     // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
     // remaining keys verbatim), NOT inside observed_state.
     encoding_map: data.encoding_map,
@@ -724,6 +728,18 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // human-meaningful magnitude on its own — there's nothing "fresh and
   // real-world" about it the way £26,000 is — so display_value is the
   // safer choice when both are present.
+
+  // A verified approximate receipt keeps its existing words, not a sharpened raw point.
+  // Local/pending edits still use the fresh number; never parse number words here.
+  const approximateDisplay = [display_value, ...(input.uncertainty_drivers ?? [])]
+    .find(text => typeof text === 'string' && /^about\s+/i.test(text))
+  if (approximateDisplay
+    && input.value_source === 'brief_extraction'
+    && input.extractionType === 'explicit'
+    && input.pending_user_value == null
+    && !isDisplayValueContradicted(approximateDisplay.replace(/^about\s+/i, ''), input)) {
+    return approximateDisplay
+  }
 
   // Pattern 1: raw_value + unit → formatted display
   // Graph v2 fix: when unit is a generic placeholder (scale, index, score, …),
