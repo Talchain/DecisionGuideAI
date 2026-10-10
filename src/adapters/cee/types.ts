@@ -360,7 +360,14 @@ export interface CEEGoalConstraint {
  */
 export interface CEEInterventionV3 {
   value: number
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  /**
+   * HOW THIS VALUE WAS DETERMINED. ABSENT MEANS THE RECORD DOES NOT SAY, which is a
+   * legitimate state and is never defaulted: a reader renders silence for it and
+   * must not call it Olumi's estimate or the user's own (`UIInterventionValue.source`,
+   * `classifyInterventionProvenance(undefined) === null`). Optional so a producer
+   * that cannot attribute a figure is not forced to invent an attribution.
+   */
+  source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'
