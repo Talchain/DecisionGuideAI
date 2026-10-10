@@ -30,9 +30,10 @@ import { excludeNonModelNodes, fitFrameNodes, isGhostNode, GHOST_OPTION_NODE_ID 
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
 import { chooseWhatElse } from './chooseWhatElse'
 
+let viewportZoom = 1
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
-  return { ...actual, Handle: () => null }
+  return { ...actual, Handle: () => null, useViewport: () => ({ x: 0, y: 0, zoom: viewportZoom }) }
 })
 
 const RISK = GHOST_TIERS.find((t) => t.siblingType === 'risk')!
@@ -60,6 +61,7 @@ function captureAsks() {
 }
 
 beforeEach(() => {
+  viewportZoom = 1
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
   useCanvasStore.setState({ lodRung: 'quiet' } as never)
 })
@@ -154,6 +156,35 @@ describe('the prompt box is the row slot the layout reserved', () => {
       expect(door.className).toMatch(/(^|\s)rounded-full(\s|$)/)
       expect(door.textContent?.trim()).toBe('')
     }
+  })
+
+  it.each([0.65, 0.4])('both hit targets reach 24 screen CSS px at zoom %s without enlarging the painted slot', zoom => {
+    viewportZoom = zoom
+    mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
+    mountOption({ prompt: 'x' })
+    for (const door of [screen.getByRole('button', { name: RISK.label }), screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })]) {
+      const box = door.parentElement as HTMLElement
+      const target = door.querySelector<HTMLElement>('[data-row-end-hit-target]')
+      expect(target, 'the transparent hit overlay must be present').not.toBeNull()
+      expect(target!.className).toMatch(/(^|\s)absolute(\s|$)/)
+      expect(target!.className).toContain('w-full h-full')
+      // jsdom has no geometry: evaluate the actual inline minimum through the viewport transform.
+      expect(Math.max(Number.parseFloat(box.style.width), Number.parseFloat(target!.style.minWidth)) * zoom).toBeGreaterThanOrEqual(24)
+      expect(Math.max(Number.parseFloat(box.style.height), Number.parseFloat(target!.style.minHeight)) * zoom).toBeGreaterThanOrEqual(24)
+      expect(box.style.width).toBe('32px')
+      expect(box.style.height).toBe('32px')
+      expect(door.querySelector('svg')?.getAttribute('width')).toBe('12')
+      expect(door.querySelector('svg')?.getAttribute('height')).toBe('12')
+    }
+  })
+
+  it('the transparent overlay activates the same pre-fill action as the painted control', () => {
+    const asks = captureAsks()
+    mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
+    fireEvent.click(screen.getByRole('button', { name: RISK.label }).querySelector('[data-row-end-hit-target]')!)
+    chooseWhatElse('risk')
+    expect(asks.dispatched).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:risks', source: 'chip' }))
+    expect(asks.sent).toEqual([])
   })
 })
 

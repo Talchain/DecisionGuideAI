@@ -25,7 +25,8 @@
  * - SIZE (Paul, 1 Oct 2026: "Make the plus buttons on the right smaller. They're
  *   overbearing at the moment. They should be 50% smaller."): 32 flow units square
  *   with a 12px glyph, half the 30 Sep ruling's 64 / 24. ⚠ Paul's ruling, below
- *   §9.9's 44×44 touch target (21px at the 0.65 landing zoom); the PoC is pointer-first.
+ *   §9.9's 44×44 touch target. A transparent overlay now maintains a 24 CSS px
+ *   hit target at every zoom without changing this painted size or layout slot.
  *
  * It costs no layout width: the 160-unit tile it replaces took 184 units of every
  * row's budget, and those go to the cards (`ROW_BUDGET_W`). Behaviour is
@@ -33,11 +34,11 @@
  * and never sends, and the far rung hides the button without unmounting it.
  */
 import type { KeyboardEvent, MouseEvent } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useViewport } from '@xyflow/react'
 import { Plus } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
-import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES, MIN_TARGET_RENDERED_PX } from './canvasGlyphScale'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 export interface RowEndPromptIconProps {
@@ -51,6 +52,7 @@ export interface RowEndPromptIconProps {
 }
 
 export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEndPromptIconProps) {
+  const { zoom } = useViewport()
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -83,6 +85,13 @@ export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEnd
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info',
           ].join(' ')}
         >
+          {/* Absolute hit slop does not enter the measured node box. Use live zoom, not the capped glyph scale. */}
+          <span
+            aria-hidden="true"
+            data-row-end-hit-target=""
+            className="absolute left-1/2 top-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ minWidth: MIN_TARGET_RENDERED_PX / zoom, minHeight: MIN_TARGET_RENDERED_PX / zoom }}
+          />
           <Plus size={12} className={CANVAS_GLYPH_SIZE_CLASSES[12]} aria-hidden="true" />
         </div>
       </Tooltip>

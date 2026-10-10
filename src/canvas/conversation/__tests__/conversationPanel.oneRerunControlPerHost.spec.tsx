@@ -28,11 +28,11 @@ const APPROVED_REPLY: ConversationMessage = {
   actionChips: [{ id: 'agent-run-analysis', label: 'Run analysis', intent: 'primary', message: 'Run analysis', action_type: 'run_analysis' }],
 } as ConversationMessage
 
-function conversation(): UseConversationReturn {
+function conversation(reply: ConversationMessage = APPROVED_REPLY): UseConversationReturn {
   const patchStates = new Map<string, PatchBlockState>()
   const patchRejections = new Map<string, PatchRejectionInfo>()
   return {
-    messages: [APPROVED_REPLY],
+    messages: [reply],
     isThinking: false,
     longRunningHint: null,
     lastSendFailure: null,
@@ -52,10 +52,10 @@ function conversation(): UseConversationReturn {
   }
 }
 
-function draw(rerunHost?: RerunHost) {
+function draw(rerunHost?: RerunHost, reply: ConversationMessage = APPROVED_REPLY) {
   render(
     <ToastProvider>
-      <ConversationPanel conversation={conversation()} onCollapse={vi.fn()} onAttach={vi.fn()} hideComposer compact rerunHost={rerunHost} />
+      <ConversationPanel conversation={conversation(reply)} onCollapse={vi.fn()} onAttach={vi.fn()} hideComposer compact rerunHost={rerunHost} />
     </ToastProvider>,
   )
 }
@@ -116,5 +116,23 @@ describe('one rerun control per chat host, after a model change', () => {
     draw(undefined)
     expect(ownBar()).toBeNull()
     expect(pill()).toHaveTextContent(/^\s*Rerun\s*$/)
+  })
+
+  const promptOnlyReply = (label: string): ConversationMessage => ({
+    ...APPROVED_REPLY,
+    actionChips: [{ id: 'agent-run-analysis', label, intent: 'primary', prompt: label }],
+  })
+
+  it.each(['Re-analyse', 'Run again'])('prompt-only "%s" yields to the panel Re-analyse control', label => {
+    draw('floating', promptOnlyReply(label))
+    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Re-analyse')
+    expect(pill()).toBeNull()
+  })
+
+  it.each(['Re-analyse', 'Run again'])('prompt-only "%s" remains available when no host owns the control', label => {
+    draw(undefined, promptOnlyReply(label))
+    expect(ownBar()).toBeNull()
+    expect(pill()).toHaveTextContent(/^\s*Rerun\s*$/)
+    expect(pill()).toBeEnabled()
   })
 })

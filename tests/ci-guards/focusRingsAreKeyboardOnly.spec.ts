@@ -71,8 +71,15 @@ describe('⭐ a click shows no blue ring; the keyboard keeps its ring', () => {
     expect('focus-visible:ring-2 focus-visible:ring-info'.match(CLICK_SELECTION_RING)).toBeNull()
     expect(':focus-visible { outline: 2px solid var(--info); }'.match(CLICK_CSS_FOCUS)).toBeNull()
   })
-  it('text fields never ring or outline on focus (a click into one is :focus-visible)', () => {
+  it('text fields suppress pointer rings and restore the token outline only in keyboard modality', () => {
     const css = readFileSync(join(SRC, 'index.css'), 'utf8')
     expect(css).toMatch(/textarea:focus,[\s\S]{0,80}outline: none !important;\s*box-shadow: none !important;/)
+    const keyboardRule = /html\[data-input-modality="keyboard"\]\s+:is\(([\s\S]*?)\):focus-visible\s*\{([^}]+)\}/.exec(css)
+    expect(keyboardRule, 'keyboard modality must restore focus for every text-field kind').not.toBeNull()
+    for (const selector of ["input:not([type='checkbox']):not([type='radio']):not([type='range'])", 'textarea', 'select', "[contenteditable='true']"]) {
+      expect(keyboardRule![1]).toContain(selector)
+    }
+    expect(keyboardRule![2]).toMatch(/outline: 2px solid var\(--focus-color, var\(--info\)\) !important;/)
+    expect(keyboardRule![2]).toContain('outline-offset: 2px;')
   })
 })
