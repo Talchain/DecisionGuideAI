@@ -49,7 +49,7 @@ import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyObservedValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyNodeProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
@@ -60,10 +60,15 @@ import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
-  const currentValueOrigin = classifyObservedValueProvenance(observedState)
+  const userMaterialUnverified = observedState?.user_material_unverified === true || props.data?.provenance === 'unverified_brief'
+  const currentValueOrigin = userMaterialUnverified
+    ? classifyNodeProvenance('unverified_brief') : classifyObservedValueProvenance(observedState)
   // Derived once: the drivers that are actually evidence. See
   // `meaningfulUncertaintyDrivers` for why a placeholder is not one.
   const meaningfulDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
+    // A native value edit withdraws its old extraction marker; its approximation
+    // text is historical evidence, not a description of the newly typed value.
+    .filter(driver => observedState?.extractionType !== null || !/^about\s+/i.test(driver))
   const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
@@ -71,7 +76,8 @@ export const FactorNode = memo((props: NodeProps) => {
   // The counterfactual affordance's ONE sentence — rendered AND sent. Null when
   // the label is blank: no affordance rather than a degenerate question.
   const counterfactualQuestion = composeCounterfactualQuestion(cleanedLabel)
-  const cleanedData = cleanedLabel ? { ...props.data, label: cleanedLabel } : props.data
+  const cleanedData = { ...props.data, ...(cleanedLabel ? { label: cleanedLabel } : {}),
+    ...(userMaterialUnverified ? { provenance: 'unverified_brief' } : {}) }
 
   /**
    * ⭐ v3.1 (DESIGN-GAP-v31 row 6): the option whose targets this card marks is
@@ -301,7 +307,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * the source. The third, the reduced line, had no copy at all and printed
    * the number without the mark. One owner, three readers.
    */
-  const isInferred = factorValueIsUnconfirmedEstimate(props.data)
+  const isInferred = !userMaterialUnverified && factorValueIsUnconfirmedEstimate(props.data)
 
   // ⭐ ONE readout, two affordances. The on-graph editor and the read-only span
   // render the SAME recorded readout, so the card cannot show two different
@@ -339,7 +345,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
-  const valueSourceMark = factorValueSourceMark(props.data)
+  const valueSourceMark = factorValueSourceMark(cleanedData)
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -806,7 +812,7 @@ export const FactorNode = memo((props: NodeProps) => {
         state: {
           needsInput,
           isExternalCategory: nodeCategory === 'external',
-          isInferred,
+          isInferred: isInferred || userMaterialUnverified,
           /*
            * ⭐⭐ THE LICENCE AND THE RANK, READ FROM THEIR EXISTING OWNERS.
            *
@@ -819,7 +825,7 @@ export const FactorNode = memo((props: NodeProps) => {
            * decided here, which is what `influenceScaleCopy.ts:347-361`
            * requires.
            */
-          leadsInfluence: influenceRank !== null && displayMetadata.sensitivityRank === 1,
+          leadsInfluence: !userMaterialUnverified && influenceRank !== null && displayMetadata.sensitivityRank === 1,
         },
         context: {
           label: cleanedLabel,
@@ -827,7 +833,7 @@ export const FactorNode = memo((props: NodeProps) => {
           influencePhrase: influenceRank?.phrase,
         },
       }),
-    [needsInput, nodeCategory, isInferred, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
+    [needsInput, nodeCategory, isInferred, userMaterialUnverified, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
   )
 
 
