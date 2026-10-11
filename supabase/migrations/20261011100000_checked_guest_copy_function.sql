@@ -1,4 +1,4 @@
--- SOURCE PROPOSAL ONLY: DL reviews/applies; never applied by this lane.
+-- SOURCE PROPOSAL ONLY: DL applies to shared Supabase; this lane runs local tests only.
 -- ADDITIVE: public.copy_guest_scenario(uuid,uuid) is NEVER dropped or altered.
 -- Legacy two-argument callers remain unchecked by design; CEE NEVER calls them.
 -- Checked args are ALL required, no defaults; any SQL NULL -> 22023 before reads.
@@ -8,10 +8,16 @@
 -- Replay is recovery of the original destination identity (created:false), NOT
 -- attestation of the newly checked source. Same legacy advisory key/replay row.
 -- Prerequisite: public.scenarios.revision and its existing revision trigger.
+-- Checked function requires READ COMMITTED (25000 before any read/replay).
+-- Mixed legacy/checked one-copy guarantee also assumes legacy READ COMMITTED;
+-- legacy isolation is NOT changed/enforced here; other legacy isolation is unproved.
 -- DEPLOY: DB FIRST (additive: nothing existing changes), then CEE.
 -- ROLLBACK: CEE FIRST, then drop ONLY the new checked function.
 -- PRE-CHECK / POST-CHECK (DL runs live; this lane cannot):
--- SELECT p.oid, pg_catalog.pg_get_function_arguments(p.oid), p.proacl,
+-- SELECT p.oid, pg_catalog.pg_get_function_arguments(p.oid),
+--        p.proowner::pg_catalog.regrole AS owner_role, p.proacl,
+--        (SELECT pg_catalog.array_agg(a.grantee::pg_catalog.regrole::text ORDER BY a.grantee)
+--         FROM pg_catalog.aclexplode(p.proacl) a WHERE a.privilege_type='EXECUTE') AS direct_execute_grantees,
 --        pg_catalog.md5(p.prosrc), pg_catalog.pg_get_functiondef(p.oid)
 -- FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
 -- WHERE n.nspname='public' AND p.proname IN
@@ -19,7 +25,14 @@
 -- Legacy: exactly ONE uuid,uuid row; body md5 BEFORE/AFTER =
 -- 135dd0df039e3ad513eb289eff06bd50 (baseline 20261001222932), same OID/ACL.
 -- Checked: zero rows BEFORE; one uuid,uuid,jsonb,bigint row AFTER, no defaults,
--- SECURITY DEFINER, empty search_path, EXECUTE only owner + service_role.
+-- SECURITY DEFINER, empty search_path, owner postgres, direct EXECUTE postgres + service_role.
+-- POST-DEPLOY READINESS (DL runs HTTP before CEE rollout; catalog/NOTIFY is insufficient):
+-- service-role POST /rest/v1/rpc/copy_guest_scenario_checked, apikey + Bearer service key,
+-- four named args: p_source_scenario_id=<throwaway guest id confirmed absent>,
+-- p_user_id=<known auth user>, p_checked_source_graph={"nodes":[],"edges":[]},
+-- p_checked_source_revision=0. Expect typed CG404 (or deliberate NULL/user probe 22023),
+-- NOT PGRST202; stop CEE rollout until checked endpoint readiness is observed.
+-- Legacy function is untouched. NOTIFY reloads schema on commit; probe still required.
 
 BEGIN;
 CREATE FUNCTION public.copy_guest_scenario_checked(
@@ -45,6 +58,11 @@ BEGIN
     RAISE EXCEPTION 'copy_guest_scenario_checked: all arguments are required' USING ERRCODE = '22023';
   END IF;
   -- END_REQUIRED_CHECKED_ARGUMENTS
+  -- REQUIRED_READ_COMMITTED: snapshot after advisory-lock wait must see replay.
+  IF pg_catalog.current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'copy_guest_scenario_checked: requires READ COMMITTED' USING ERRCODE = '25000';
+  END IF;
+  -- END_REQUIRED_READ_COMMITTED
   IF p_source_scenario_id IS NULL THEN
     RAISE EXCEPTION 'copy_guest_scenario: p_source_scenario_id is required' USING ERRCODE = '22023';
   END IF;
@@ -87,9 +105,7 @@ BEGIN
     RAISE EXCEPTION 'copy_guest_scenario: checked source changed' USING ERRCODE = 'CG412';
   END IF;
   -- END_CHECKED_SOURCE_BINDING
-  IF v_owner IS NOT NULL THEN
-    RAISE EXCEPTION 'copy_guest_scenario: source is not a guest scenario' USING ERRCODE = 'CG409';
-  END IF;
+  -- Owned sources already refuse CG412 above; checked CG409 would be unreachable.
   IF v_graph IS NULL OR pg_catalog.jsonb_typeof(v_graph) <> 'object' THEN
     RAISE EXCEPTION 'copy_guest_scenario: source has no model to copy' USING ERRCODE = 'CG422';
   END IF;
@@ -105,7 +121,10 @@ BEGIN
 END;
 $function$;
 
+ALTER FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint) OWNER TO postgres;
+
 REVOKE ALL ON FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint) TO service_role;
 
+NOTIFY pgrst, 'reload schema';
 COMMIT;

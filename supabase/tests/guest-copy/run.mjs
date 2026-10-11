@@ -1,6 +1,7 @@
 // Dry run of copy_guest_scenario on PGlite (in-process Postgres). Never touches
 // Supabase. Usage: node run.mjs <migration.sql>
-// Every row binds to exact identities (ids, SQLSTATE + message, row tuples).
+// Success/replay/refusal rows bind the stated identities, errors and snapshots;
+// catalog/trigger/ACL rows assert their specific metadata or state claim.
 // Exits 1 if any row fails, or if no migration was applied.
 import { PGlite } from '@electric-sql/pglite'
 import fs from 'fs'
@@ -128,7 +129,7 @@ row('C9', 'a second user gets a separate copy; the first copy is unchanged', c9.
   && (await q(`select user_id from public.scenarios where id='${id9}'`))[0]?.user_id === OTHER && (await rowText(id1)) === mine, c9)
 
 // C10 hardening: SECURITY DEFINER, search_path='', EXECUTE for service_role only.
-const meta = (await q(`select p.prosecdef, p.proconfig, coalesce((select array_agg(distinct a.grantee::regrole::text order by a.grantee::regrole::text) from aclexplode(p.proacl) a where a.privilege_type='EXECUTE'), '{}') as exec
+const meta = (await q(`select p.proowner::regrole::text as owner_role, p.prosecdef, p.proconfig, coalesce((select array_agg(distinct a.grantee::regrole::text order by a.grantee::regrole::text) from aclexplode(p.proacl) a where a.privilege_type='EXECUTE'), '{}') as exec
   from pg_proc p where p.oid = 'public.copy_guest_scenario(uuid,uuid)'::regprocedure`))[0]
 row('C10', 'SECURITY DEFINER, search_path=\'\', EXECUTE = {postgres, service_role}', meta.prosecdef === true && JSON.stringify(meta.proconfig) === JSON.stringify(['search_path=""'])
   && JSON.stringify(meta.exec) === JSON.stringify(['postgres', 'service_role']), meta)
@@ -218,8 +219,8 @@ if (checked) {
   const legacyAfter = (await db.query("select oid::text, prosrc, proacl::text, pg_catalog.md5(prosrc) as md5 from pg_catalog.pg_proc where oid='public.copy_guest_scenario(uuid,uuid)'::regprocedure")).rows[0]
   const functions = await q(`select pg_catalog.pg_get_function_arguments(p.oid) as args, p.pronargdefaults from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='copy_guest_scenario_checked'`)
   row('C21', 'catalog: new checked name, four required args; legacy OID/body/ACL unchanged', canon(legacyAfter) === canon(legacyBefore) && legacyAfter.md5 === '135dd0df039e3ad513eb289eff06bd50' && functions.length === 1 && functions[0].args === 'p_source_scenario_id uuid, p_user_id uuid, p_checked_source_graph jsonb, p_checked_source_revision bigint' && functions[0].pronargdefaults === 0, { legacyAfter, functions })
-  const checkedMeta = (await q(`select p.prosecdef, p.proconfig, coalesce((select array_agg(distinct a.grantee::regrole::text order by a.grantee::regrole::text) from aclexplode(p.proacl) a where a.privilege_type='EXECUTE'), '{}') as exec from pg_proc p where p.oid='public.copy_guest_scenario_checked(uuid,uuid,jsonb,bigint)'::regprocedure`))[0]
-  row('C10checked', 'NEW checked SECURITY DEFINER, empty search_path, EXECUTE {postgres,service_role}', checkedMeta.prosecdef && canon(checkedMeta.proconfig) === canon(['search_path=""']) && canon(checkedMeta.exec) === canon(['postgres','service_role']), checkedMeta)
+  const checkedMeta = (await q(`select p.proowner::regrole::text as owner_role, p.prosecdef, p.proconfig, coalesce((select array_agg(distinct a.grantee::regrole::text order by a.grantee::regrole::text) from aclexplode(p.proacl) a where a.privilege_type='EXECUTE'), '{}') as exec from pg_proc p where p.oid='public.copy_guest_scenario_checked(uuid,uuid,jsonb,bigint)'::regprocedure`))[0]
+  row('C10checked', 'NEW checked owner postgres, SECURITY DEFINER, empty search_path, EXECUTE {postgres,service_role}', checkedMeta.owner_role === 'postgres' && checkedMeta.prosecdef && canon(checkedMeta.proconfig) === canon(['search_path=""']) && canon(checkedMeta.exec) === canon(['postgres','service_role']), checkedMeta)
   for (const role of ['anon','authenticated']) {
     const denied = await as(role, role === 'authenticated' ? ME : null, `select public.copy_guest_scenario_checked('${P}','${ME}','${JSON.stringify(pg)}',7)`)
     row(`C5checked-${role}`, 'NEW checked function permission denied', !denied.ok && denied.code === '42501', denied)
@@ -240,11 +241,31 @@ if (checked) {
   const V = U('b7')
   await db.exec(`insert into public.scenarios(id,graph,revision) values ('${V}','{"nodes":[],"edges":[],"x":1.0}',7)`)
   const valueEqual = await checkedCopy(V, ME, { nodes: [], edges: [], x: 1 }, 7)
-  const representation = valueEqual.ok ? (await q(`select graph::text as t from public.scenarios where id='${valueEqual.rows[0].r.scenario_id}'`))[0].t : ''
-  row('C23', 'disclosed JSON VALUE equality: checked 1 accepts stored 1.0, retains representation', valueEqual.ok && valueEqual.rows[0].r.created === true && representation.includes('1.0'), valueEqual)
+  const sourceGraphText = (await q(`select graph::text as graph_text from public.scenarios where id='${V}'`))[0].graph_text
+  const checkedGraphText = (await db.query('select $1::jsonb::text as graph_text', [JSON.stringify({ nodes: [], edges: [], x: 1 })])).rows[0].graph_text
+  const representedTuple = valueEqual.ok ? (await q(`select user_id,source_scenario_id,graph::text as graph_text from public.scenarios where id='${valueEqual.rows[0].r.scenario_id}'`))[0] : null
+  row('C23', 'JSON VALUE equality: full owner/source tuple + exact stored 1.0 representation, distinct checked 1 text', valueEqual.ok && valueEqual.rows[0].r.created === true && sourceGraphText !== checkedGraphText && canon(representedTuple) === canon({user_id:ME,source_scenario_id:V,graph_text:sourceGraphText}), { valueEqual, sourceGraphText, checkedGraphText, representedTuple })
+  const destinations = async () => q('select row_to_json(s)::text as row_text from public.scenarios s where source_scenario_id is not null order by id')
+  const replayCountBefore = await count('true'), destinationsBefore = await destinations()
   const legacyReplay = await copy(T, ME)
   const checkedReplay = await checkedCopy(GUEST, ME, { deliberately: 'different' }, 999)
-  row('C24', 'legacy/checked paths share replay identities; neither makes a new copy', legacyReplay.ok && legacyReplay.rows[0].r.scenario_id === shadow.rows?.[0]?.r.scenario_id && !legacyReplay.rows[0].r.created && checkedReplay.ok && checkedReplay.rows[0].r.scenario_id === id1 && !checkedReplay.rows[0].r.created, { legacyReplay, checkedReplay })
+  row('C24', 'legacy/checked replay identities/flags, zero new rows, every destination unchanged', legacyReplay.ok && legacyReplay.rows[0].r.scenario_id === shadow.rows?.[0]?.r.scenario_id && !legacyReplay.rows[0].r.created && checkedReplay.ok && checkedReplay.rows[0].r.scenario_id === id1 && !checkedReplay.rows[0].r.created && await count('true') === replayCountBefore && canon(await destinations()) === canon(destinationsBefore), { legacyReplay, checkedReplay })
+  const E = U('b8'), eg = await source(E), isolationCount = await count('true'), isolationSource = await rowText(E)
+  const inRepeatableRead = async (src, checkedGraph) => {
+    await db.exec('BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE service_role')
+    try {
+      const value = await db.query('select public.copy_guest_scenario_checked($1,$2,$3::jsonb,$4) as r', [src,ME,checkedGraph === null ? null : JSON.stringify(checkedGraph),7])
+      return {ok:true,rows:value.rows}
+    } catch (error) { return {ok:false,code:error.code,err:error.message} }
+    finally { await db.exec('ROLLBACK') }
+  }
+  const rr = [await inRepeatableRead(E,eg), await inRepeatableRead(GUEST,eg)]
+  row('C25', 'REPEATABLE READ fresh/replay -> 25000 before read/write, state unchanged', rr.every(out => !out.ok && out.code === '25000' && out.err === 'copy_guest_scenario_checked: requires READ COMMITTED') && await count('true') === isolationCount && await rowText(E) === isolationSource && canon(await destinations()) === canon(destinationsBefore), rr)
+  const rrNull = await inRepeatableRead(E,null)
+  row('C25null', 'NULL check precedes isolation guard (22023 in REPEATABLE READ)', !rrNull.ok && rrNull.code === '22023' && rrNull.err === 'copy_guest_scenario_checked: all arguments are required', rrNull)
+  const rc = await checkedCopy(E,ME,eg,7)
+  row('C25control', 'CONTROL READ COMMITTED succeeds with exact tuple', await matches(rc,E,ME,eg), rc)
+
 }
 
 await db.close()
@@ -259,11 +280,14 @@ if (!check.test(forward)) throw new Error('binding mutant injection point missin
 const block = forward.match(check)[0]
 const required = /  -- REQUIRED_CHECKED_ARGUMENTS[\s\S]*?  -- END_REQUIRED_CHECKED_ARGUMENTS\n/
 if (!required.test(forward)) throw new Error('NULL mutant injection point missing')
+const isolation = /  -- REQUIRED_READ_COMMITTED[\s\S]*?  -- END_REQUIRED_READ_COMMITTED\n/
+if (!isolation.test(forward)) throw new Error('isolation mutant injection point missing')
 const mutants = [
   ['EQUALITY_REMOVED', forward.replace('  IF v_graph IS DISTINCT FROM p_checked_source_graph\n     OR v_revision', '  IF v_revision'), ['C15eq']],
   ['REVOKE_REMOVED', forward.replace(/^REVOKE ALL[^\n]*\n/m, ''), ['C5checked-anon', 'C5checked-authenticated', 'C10checked']],
   ['CHECK_BEFORE_REPLAY', forward.replace(check, '').replace('  SELECT s.id INTO v_existing', `  SELECT s.user_id, s.graph, s.revision INTO v_owner, v_graph, v_revision FROM public.scenarios s WHERE s.id=p_source_scenario_id FOR SHARE;\n${block}  SELECT s.id INTO v_existing`), ['C17']],
   ['ANY_NULL_ACCEPTED', forward.replace(required, ''), ['C20']],
+  ['ISOLATION_GUARD_REMOVED', forward.replace(isolation, ''), ['C25']],
 ]
 for (const [name, mutant] of mutants) if (mutant === forward) throw new Error(`${name} did not mutate source`)
 
