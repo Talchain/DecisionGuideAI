@@ -214,7 +214,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     )
   })
 
-  it('network failure before any response: user message marked not delivered with connection copy', async () => {
+  it('network failure after dispatch (fetch called, no response): delivery unknown, never "not delivered"', async () => {
     const fetchStub = vi.fn(async () => {
       throw new TypeError('Failed to fetch')
     })
@@ -225,12 +225,15 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
       await result.current.sendMessage('offline brief')
     })
 
+    // The turn reached fetch (the cold draft tries the stream, then the buffered fallback): it was dispatched.
+    expect(fetchStub).toHaveBeenCalled()
     const userMsg = result.current.messages.find((m) => m.role === 'user')
-    expect(userMsg?.deliveryState).toBe('failed')
+    expect(userMsg?.deliveryState).toBe('unconfirmed')
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.role).toBe('assistant')
-    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
-    expect(result.current.lastSendFailure?.kind).toBe('not_sent')
+    expect(last.content).toBe("We couldn't confirm your message arrived. Check the conversation before sending it again.")
+    expect(assertsNonDelivery(last.content)).toBe(false)
+    expect(result.current.lastSendFailure?.kind).toBe('delivery_unknown')
   })
 
   it('CEE-class BoundaryError: #391 copy preserved AND the user message is now marked failed', async () => {

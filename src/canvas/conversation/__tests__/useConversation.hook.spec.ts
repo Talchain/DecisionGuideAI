@@ -315,10 +315,11 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 
     expect(result.current.isThinking).toBe(false)
     expect(result.current.longRunningHint).toBeNull()
-    // Last message should be a synthetic timeout error
+    // Last message should be a synthetic timeout notice. The request was
+    // dispatched and never answered, so delivery is unknown (Batch B amendment).
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(last.content).toBe("We couldn't confirm your message arrived. Check the conversation before sending it again.")
   })
 })
 

@@ -218,18 +218,22 @@ describe('acknowledged proxy timeout and exact server receipt', () => {
     unmount()
   })
 
-  it('CONTROL: deadline before any response is not delivered and never automatically resends', async () => {
+  it('CONTROL: deadline after dispatch with no response is delivery-unknown, reconciles on receipt, never auto-resends', async () => {
     vi.useFakeTimers()
     const pending = deferredFetch()
     const { result, unmount } = renderHook(() => useConversation())
     let send!: Promise<void>
     await act(async () => { send = result.current.sendMessage(C1B); await flushDispatch() })
+    const id = requestId(pending.fetchSpy)
     await act(async () => { await vi.advanceTimersByTimeAsync(TURN_WAIT_MS) })
-    expect(user(result.current.messages).deliveryState).toBe('failed')
+    expect(user(result.current.messages).deliveryState).toBe('unconfirmed')
     await act(async () => { pending.reject(new Error('late rejection')); await send })
-    expect(user(result.current.messages).deliveryState).toBe('failed')
+    expect(user(result.current.messages).deliveryState).toBe('unconfirmed')
     expect(result.current.messages.filter(m => m.content === NETWORK_AFTER_SEND_UNKNOWN_COPY)).toHaveLength(0)
-    expect(result.current.messages.at(-1)?.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(result.current.messages.at(-1)?.content).toBe("We couldn't confirm your message arrived. Check the conversation before sending it again.")
+    expect(assertsNonDelivery(result.current.messages.at(-1)!.content)).toBe(false)
+    await offer(id)
+    expect(user(result.current.messages).deliveryState).toBe('sent')
     await act(async () => { await vi.advanceTimersByTimeAsync(300_000) })
     expect(pending.fetchSpy).toHaveBeenCalledTimes(1)
     unmount()

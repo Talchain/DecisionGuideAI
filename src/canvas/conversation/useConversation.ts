@@ -40,7 +40,10 @@ import {
   formatRecoveryHints,
   isDisplaySafeReason,
 } from './ceeRecovery'
-import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } from './transportFailure'
+import {
+  buildTransportFailureCopy, classifyUnansweredSend, DELIVERY_UNKNOWN_COPY, isTransportFailure, isUnverifiedDelivery,
+  NOT_DELIVERED_COPY,
+} from './transportFailure'
 import { edgePairKey } from '../utils/graphIdentity'
 import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
@@ -255,8 +258,6 @@ import {
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
-
-const NOT_DELIVERED_COPY = "Your message wasn't sent — check your connection and try again."
 
 /**
  * What a signed-in user is told when a send arrives with no decision open.
@@ -2364,14 +2365,19 @@ function resolveUserTurnType(
  */
 export interface SendFailureNotice {
   /**
-   * 'not_sent':  no response acknowledged the send.
+   * 'not_sent':  proven never dispatched (offline before send, or a failure
+   *   before the fetch started).
+   * 'delivery_unknown': dispatched, but no response or acknowledgement
+   *   arrived (network error after dispatch, timeout, abort mid-flight). The
+   *   server may have received and applied it; a retry reuses the same
+   *   `turn_id`, which CEE deduplicates (recovery-notes/batchB-delivery.md).
    * 'rejected':  the server answered with a typed refusal, not HTTP 5xx.
    * 'transport': no CEE body reached the UI (e.g. proxy output) —
    *   the turn never produced a server outcome.
    * 'timeout':   the browser's own timer aborted the wait.
    * 'server':    an actual HTTP 5xx response.
    */
-  kind: 'not_sent' | 'transport' | 'timeout' | 'server' | 'rejected'
+  kind: 'not_sent' | 'delivery_unknown' | 'transport' | 'timeout' | 'server' | 'rejected'
   /** Whether the retry affordance is being offered for this failure. */
   retryable: boolean
   /** The submitted input text, for restore-into-composer affordances. */
@@ -4891,6 +4897,11 @@ export function useConversation(): UseConversationReturn {
       let streamedPreviewFingerprint: string | null = null
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
       let deliveryRequestId: string | undefined
+      // Delivery evidence, two separate facts (Batch B amendment). `requestStarted`: some transport in this send
+      // reached its dispatch boundary (`onRequestStarted`, just before `fetch`). `responseReceived`: HTTP headers came
+      // back. Dispatched without a response is UNKNOWN, never "not sent" (`classifyUnansweredSend`).
+      let requestStarted = false
+      const onRequestStarted = () => { requestStarted = true }
       let responseReceived = false
       /** What a failure report says about this turn (no user text; `turnLifecycle.reportTurnFailure`). */
       const turnReportBase = () => ({
@@ -5002,7 +5013,9 @@ export function useConversation(): UseConversationReturn {
           controller.abort()
           clearTimeout(longRunningTimerRef.current)
           clearInterval(elapsedIntervalRef.current)
-          turnFailure = responseReceived ? 'timeout' : 'not_sent'
+          // The timer is armed at dispatch and fires only while a transport call is pending, so with no response
+          // the request may have arrived: delivery unknown (b), never "not sent".
+          turnFailure = responseReceived ? 'timeout' : 'delivery_unknown'
           settleTurn(turnAttempt, turnFailure, turnReportBase())
           setLongRunningHint(null)
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
@@ -5023,22 +5036,24 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
           )
           if (mode === 'user' && !hidden && !streamedPreviewStanding) {
-            // An acknowledged response can still finish after our wait ends.
-            // Before acknowledgement, expose the not-delivered state and retry.
+            // Either way the server may still complete this turn after our wait ends, so the bubble stays
+            // unconfirmed. Before any response (b), "Try again" is offered: `retryLast` re-sends the SAME
+            // `turn_id`, which CEE deduplicates, so it cannot apply twice (recovery-notes/batchB-delivery.md).
             if (userBubbleIdForTurn) {
-              updateMessage(userBubbleIdForTurn, { deliveryState: responseReceived ? 'unconfirmed' : 'failed',
-                deliveryRequestId: responseReceived ? deliveryRequestId : undefined,
-                deliveryScenarioId: responseReceived ? scenarioIdAtDispatch : undefined })
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed',
+                deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch })
             }
             if (inputForRestore) {
-              setLastSendFailure({ kind: responseReceived ? 'timeout' : 'not_sent', retryable: !responseReceived, inputText: inputForRestore })
+              setLastSendFailure({ kind: responseReceived ? 'timeout' : 'delivery_unknown', retryable: !responseReceived, inputText: inputForRestore })
             }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: responseReceived ? WAIT_EXPIRY_UNKNOWN_COPY : NOT_DELIVERED_COPY,
+              content: responseReceived ? WAIT_EXPIRY_UNKNOWN_COPY : DELIVERY_UNKNOWN_COPY,
               synthetic: true,
-              ...(!responseReceived ? { actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }] } : { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch }),
+              ...(!responseReceived ? { actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }] } : {}),
+              deliveryRequestId,
+              deliveryScenarioId: scenarioIdAtDispatch,
               timestamp: new Date(),
             })
           }
@@ -5075,6 +5090,7 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            onRequestStarted,
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
             onResponseReceived: () => { responseReceived = true; dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
@@ -5096,6 +5112,7 @@ export function useConversation(): UseConversationReturn {
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
           v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers,
+            onRequestStarted,
             onResponseReceived: () => { responseReceived = true },
           })
         }
@@ -5562,22 +5579,30 @@ export function useConversation(): UseConversationReturn {
         // only typed_error leaves it failed. Resolved BEFORE rendering so
         // the marker and the outcome message land in the same commit.
         //
-        // With no response, label the send as not delivered. An acknowledged
-        // stream or proxy timeout retains the uncertain-outcome treatment:
-        // the server may still commit after the client stops waiting.
+        // With no response, the label follows dispatch evidence (Batch B
+        // amendment): (a) `not_sent` only on positive proof that nothing was
+        // dispatched; otherwise (b) `delivery_unknown`, because a dispatched
+        // request may have been received and applied. An acknowledged stream
+        // or proxy timeout retains the uncertain-outcome treatment below.
         const noResponse = target.kind === 'typed_error' && target.transportMeta?.network === true &&
           streamedUnsettledCause == null && !recoveredBeforeResend && !responseReceived
+        const unanswered = noResponse
+          ? classifyUnansweredSend({
+              requestStarted,
+              transportProvedNotStarted: target.transportMeta?.requestNotStarted === true,
+            })
+          : null
         const httpStatus = v5Result.kind !== 'response' && 'http_status' in v5Result ? v5Result.http_status : undefined
         const httpServerFailure = typeof httpStatus === 'number' && httpStatus >= 500 && httpStatus < 600
         if (userBubbleIdForTurn) {
-          const unverified = !noResponse &&
+          const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
             isUnverifiedDelivery({
               hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
               transportMeta: target.transportMeta,
               recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
               rawBody: target.rawBody,
-            })
+            }))
           // F1: a typed_error whose stream already delivered GRAPH_READY is
           // PROOF the server received and processed this message — a
           // "failed"/"unconfirmed" marker would assert something the held
@@ -5597,7 +5622,7 @@ export function useConversation(): UseConversationReturn {
 
         // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
         // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
-        if (target.kind === 'typed_error') turnFailure = noResponse ? 'not_sent' : httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected'
+        if (target.kind === 'typed_error') turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
         else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
@@ -6438,8 +6463,10 @@ export function useConversation(): UseConversationReturn {
             rawBody: target.rawBody,
           })
           let content: string
-          if (noResponse) {
+          if (unanswered === 'not_sent') {
             content = NOT_DELIVERED_COPY
+          } else if (unanswered === 'delivery_unknown') {
+            content = DELIVERY_UNKNOWN_COPY
           } else if (target.ownershipRefusal !== undefined) {
             content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
           } else if (transportFailure && target.transportMeta) {
@@ -6505,13 +6532,13 @@ export function useConversation(): UseConversationReturn {
               content,
               ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
-              ...(deliveryUnverified ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+              ...(deliveryUnverified || unanswered === 'delivery_unknown' ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
               timestamp: new Date(),
             })
           }
           if (inputForRestore) {
             setLastSendFailure({
-              kind: noResponse ? 'not_sent' : httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected',
+              kind: unanswered ?? (httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected'),
               // Copy-agrees-with-affordance: no retry is offered on the
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
@@ -6650,7 +6677,7 @@ export function useConversation(): UseConversationReturn {
         if (!isAbort && turnFailure === null) {
           turnFailure = (err as Error)?.name === 'SessionReadTimeoutError'
             ? 'session_timeout'
-            : responseReceived ? 'transport' : 'not_sent'
+            : responseReceived ? 'transport' : classifyUnansweredSend({ requestStarted })
         }
 
         // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
@@ -6705,26 +6732,31 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Preserve acknowledged-stream uncertainty; a failure before any
-          // response uses the not-delivered category and retry copy.
+          // Preserve acknowledged-stream uncertainty. With no response: (a)
+          // only when no transport reached its dispatch boundary, else (b).
+          // Both offer "Try again"; on (b) `retryLast` reuses the same turn_id.
+          const unanswered = responseReceived ? null : classifyUnansweredSend({ requestStarted })
+          const maybeArrived = unanswered !== 'not_sent'
           if (userBubbleIdForTurn) {
             updateMessage(userBubbleIdForTurn, {
-              deliveryState: responseReceived ? 'unconfirmed' : 'failed',
-              deliveryRequestId: responseReceived ? deliveryRequestId : undefined,
-              deliveryScenarioId: responseReceived ? scenarioIdAtDispatch : undefined,
+              deliveryState: maybeArrived ? 'unconfirmed' : 'failed',
+              deliveryRequestId: maybeArrived ? deliveryRequestId : undefined,
+              deliveryScenarioId: maybeArrived ? scenarioIdAtDispatch : undefined,
             })
           }
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             synthetic: true,
-            content: responseReceived ? buildTransportFailureCopy({ network: true }, false) : NOT_DELIVERED_COPY,
-            actionChips: responseReceived ? [] : [{ id: 'retry', label: 'Try again', intent: 'primary' }],
-            ...(responseReceived ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+            content: unanswered === null
+              ? buildTransportFailureCopy({ network: true }, false)
+              : unanswered === 'not_sent' ? NOT_DELIVERED_COPY : DELIVERY_UNKNOWN_COPY,
+            actionChips: unanswered === null ? [] : [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            ...(maybeArrived ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
             timestamp: new Date(),
           })
           if (inputForRestore) {
-            setLastSendFailure({ kind: responseReceived ? 'transport' : 'not_sent', retryable: !responseReceived, inputText: inputForRestore })
+            setLastSendFailure({ kind: unanswered ?? 'transport', retryable: unanswered !== null, inputText: inputForRestore })
           }
         }
         if (!isAbort && mode === 'system') {

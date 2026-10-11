@@ -21,8 +21,12 @@
  */
 import { captureTurnFailure } from '../../lib/monitoring'
 
-/** Why a turn failed. `not_sent`: no response acknowledged the send; `server`: HTTP 5xx; `rejected`: typed refusal. */
-export type TurnFailureKind = 'not_sent' | 'session_timeout' | 'transport' | 'server' | 'rejected' | 'timeout' | 'empty'
+/**
+ * Why a turn failed. `not_sent`: proven never dispatched; `delivery_unknown`: dispatched, nothing answered (the server
+ * may have applied it); `server`: HTTP 5xx; `rejected`: typed refusal; `timeout`: the wait expired after an HTTP answer.
+ */
+export type TurnFailureKind =
+  | 'not_sent' | 'delivery_unknown' | 'session_timeout' | 'transport' | 'server' | 'rejected' | 'timeout' | 'empty'
 
 export type TurnPhase = 'idle' | 'pending' | 'streaming' | 'complete' | 'failed' | 'stopped'
 
