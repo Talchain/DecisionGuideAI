@@ -1299,7 +1299,10 @@ async function capacityRun(page: Page, brief: string, label: string) {
 }
 
 // Separate tests outside the serial group: an old J2 expectation cannot skip these cases.
-test('J1 positive · level-target chance is the named option’s probability_of_goal, not its win share', async ({ page }) => {
+// ⏸ FIXME until Recovery Batch A (CLAUDE.md §7.3): the pinned 8 Oct recordings hold no calls for these briefs, and on the
+// deployed CEE (50530b5f) admission demotes a same-unit 1/1 definition to a placeholder (admit-model.ts:4364, link-effect.ts:514),
+// so goal figures are withheld. Batch A fixes admission, moves tuple.json to its candidate and re-records; then BOTH become live.
+test.fixme('J1 positive · level-target chance is the named option’s probability_of_goal, not its win share', async ({ page }) => {
   const { matrix, analysis, canonical, options } = await capacityRun(page, LEVEL_BRIEF, 'j1-level')
   const option = options[1] // Add one specialist, selected by exact label above, before reading any result values.
   const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)
@@ -1339,7 +1342,7 @@ test('J1 positive · level-target chance is the named option’s probability_of_
   assertBoundaryClean('j1-level end')
 })
 
-test('J1 refusal · no target means no chance, with a reason and an actionable next step', async ({ page }) => {
+test.fixme('J1 refusal · no target means no chance, with a reason and an actionable next step', async ({ page }) => {
   const { results, matrix, analysis, canonical, options } = await capacityRun(page, NO_TARGET_BRIEF, 'j1-no-target')
   for (const option of options) {
     const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)

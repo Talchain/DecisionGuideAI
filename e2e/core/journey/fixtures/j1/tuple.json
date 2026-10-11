@@ -1,7 +1,7 @@
 {
- "cee": "50530b5f3f9048ab8c348141f138dcf5d520e3f1",
+ "cee": "b33222d4047f82a995254ac81cf57ee6794d1479",
  "plot": "5a1c2032013e3525fff362051dc875e9dd7b5ba1",
  "isl": "87a031f73d8f43dacd3455626a15d274a2edb8d4",
- "ui": "448bda2e92ac177bc67852a2719905b293f9e648",
- "_note": "Deployed combination, 11 Oct 2026. Recordings still belong to tuple.pinned-20261008.json; DL must re-capture before replay acceptance."
+ "recorded_with_ui": "68a03f7f408455fe959565ff87a776afbe9308e8",
+ "recorded_at": "2026-10-08T23:40:35.513Z"
 }

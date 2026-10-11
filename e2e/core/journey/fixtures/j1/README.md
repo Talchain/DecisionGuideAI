@@ -1,3 +1,21 @@
+# J1 fixtures: Recovery Batch 0 note (DL, 11 Oct 2026)
+
+- **Which recordings:** `tuple.json` stays on the 8 Oct pin (CEE b33222d4), and the 26 recordings belong to it. Required J1 replays them unchanged.
+- **The deployed combination** (UI 448bda2e, CEE 50530b5f, PLoT 5a1c2032, ISL 87a031f7) boots under this harness. Recorded locally on 11 Oct: J0 and J1 passed.
+- **J2b fails there,** for two reasons:
+  - The AI drafted a different topology for the same brief.
+  - On that topology, admission demotes a same-unit 1/1 definition to a placeholder (`admit-model.ts:4364`, `link-effect.ts:514`, `admit-candidate.ts:263`), so goal figures are withheld.
+
+  The 7 leader-dependent enrichment keys are then absent. **The pin was deliberately NOT re-baselined.**
+- **Batch A will:**
+  - fix admission;
+  - move `tuple.json` to its candidate combination;
+  - re-record;
+  - turn the two new cases (`J1 positive`, `J1 refusal`, currently `test.fixme`) live.
+- **The 11 Oct recordings** are kept outside the repository as evidence: `~/olumi-work/recovery/b0/j1-new-recordings-20261011/`.
+
+---
+
 # Batch 0 J1 handoff (11 October 2026)
 
 `tuple.pinned-20261008.json` preserves the 8 October backend pin and recording provenance for regression comparison with the existing 26 exchanges.
