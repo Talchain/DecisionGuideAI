@@ -1262,6 +1262,9 @@ async function capacityRun(page: Page, brief: string, label: string) {
   // require every analysis_result after the click to be the same analysis (one hash), never two different runs.
   await expect.poll(() => captured.slice(start).filter(t => analysisResultOf(t.body) !== null).length,
     { timeout: 240_000, message: `[${label}] user Run returned no analysis_result` }).toBeGreaterThanOrEqual(1)
+  // Settle first (no turn request in flight for 5 s), THEN read every analysis_result: a late second result is checked too.
+  await expect.poll(() => pending.size === 0 && Date.now() - lastActivity >= 5_000,
+    { timeout: 180_000, message: `[${label}] Run turns never settled` }).toBe(true)
   const withResult = captured.slice(start).filter(t => analysisResultOf(t.body) !== null)
   const hashes = new Set(withResult.map(t => (analysisResultOf(t.body) as any)?.computed_against_hash))
   expect(hashes.size, `[${label}] the Run returned ${withResult.length} analysis_result turns on different hashes`).toBe(1)

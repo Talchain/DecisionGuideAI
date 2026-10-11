@@ -13,6 +13,8 @@
 -- what the migrations declare, never the live ACL: the hosted project has objects no
 -- migration creates (cee_prompt_observations, SPINE X7 out-of-band, owner Core Platform).
 -- The live ACL is Core Platform's read-only verify (X10).
+-- B2/A6 body checks compare this local DB with the supplied CEE 50530b5f deployed
+-- census. They do not query production; exact signatures make missing RPCs FAIL.
 WITH rpc(name) AS (VALUES
   ('append_turn_atomic_v2'), ('append_agent_answer_with_guidance'), ('append_turn_atomic_v3'),
   ('append_turn_atomic_v4'), ('append_turn_atomic_v5'), ('store_draft_graph'), ('ensure_scenario_exists'),
@@ -24,12 +26,33 @@ fn AS (
   FROM rpc r LEFT JOIN pg_proc p ON p.proname = r.name
     AND p.pronamespace = 'public'::regnamespace
 ),
+deployed(signature, expected_md5, expected_length) AS (VALUES
+  ('public.append_turn_atomic_v4(uuid,text,text,text,text,boolean,integer,integer,jsonb,jsonb,text,jsonb,jsonb,text,text,text,text,boolean,bigint)',
+   'e43eadabab6f416561497c35815d2860', 5386),
+  ('public.append_agent_answer_with_guidance(uuid,text,text,text,text,boolean,integer,integer,jsonb,jsonb,text,jsonb,jsonb,text,text,jsonb)',
+   'bb1b2328d1e665311d96fa78e42e23df', 4978),
+  ('public.append_agent_answer_with_offers(uuid,text,text,text,text,boolean,integer,integer,jsonb,jsonb,text,jsonb,jsonb,text,text,jsonb,jsonb,text)',
+   'ea9988e21459581bdf18097534a6e373', 3623),
+  ('public.append_agent_answer_if_latest(uuid,uuid,text,text,text,text,boolean,integer,integer,jsonb,jsonb,text,jsonb,jsonb,text,text,jsonb,jsonb,text)',
+   '7d038f624e222134c7ac58c8db79281e', 1994)
+),
 checks AS (
   -- A. CEE-called RPCs: every overload exists and service_role may EXECUTE it (CEE calls as service_role).
   SELECT 'REQUIRED' AS class, 'rpc ' || name || '(' || coalesce(args, '') || ') exists + service_role EXECUTE' AS check_name,
          CASE WHEN oid IS NOT NULL AND has_function_privilege('service_role', oid, 'EXECUTE') THEN 'PASS' ELSE 'FAIL' END AS verdict,
          CASE WHEN oid IS NULL THEN 'MISSING' ELSE 'secdef=' || prosecdef END AS detail
   FROM fn
+  UNION ALL
+  -- Exact post-migration bodies: a named RPC existing is insufficient for J1.
+  SELECT 'REQUIRED', 'deployed body ' || d.signature,
+         CASE WHEN md5(p.prosrc) = d.expected_md5 AND length(p.prosrc) = d.expected_length
+              THEN 'PASS' ELSE 'FAIL' END,
+         'expected md5=' || d.expected_md5 || ' length=' || d.expected_length
+           || '; actual md5=' || coalesce(md5(p.prosrc), 'MISSING')
+           || ' length=' || coalesce(length(p.prosrc)::text, 'MISSING')
+  FROM deployed d LEFT JOIN pg_proc p ON p.oid = to_regprocedure(d.signature)
+  -- Only functions a pre-shim prepared for B2/A6 (an older pinned tuple has no such migration and no mark).
+  WHERE obj_description(to_regprocedure(d.signature), 'pg_proc') = 'j1:deployed-parity'
   UNION ALL
   -- C. anon must not EXECUTE a CEE-only RPC that takes a scenario id. is_scenario_member is
   -- not CEE-only (RLS policies call it as the querying role), so it is reported, not asserted.

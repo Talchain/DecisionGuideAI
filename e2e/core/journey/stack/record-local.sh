@@ -121,6 +121,15 @@ J1_PSQL="docker exec -i supabase_db_j1-journey psql -U postgres -d postgres" \
   bash "$STACK/apply-migrations.sh" "$W/merged/migrations" "$W/logs/MIGRATION-REPORT.tsv"
 eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=' | sed 's/^/SB_/')"
 cd "$DGAI"
+# J1_MIGRATIONS_ONLY=1: prove the schema seam for this tuple (migrations + schema-assert.sql) with no services and
+# no provider calls, then tear down. Recovery Batch 0: X7 must be listed and every REQUIRED row PASS.
+if [ "${J1_MIGRATIONS_ONLY:-0}" = 1 ]; then
+  docker exec -i supabase_db_j1-journey psql -U postgres -d postgres -X -A -F $'\t' -v ON_ERROR_STOP=1 \
+    -f - < "$STACK/schema-assert.sql" > "$W/logs/schema-assert.tsv" 2>&1 || say "schema-assert.sql did not run cleanly"
+  say "schema-assert REQUIRED rows not PASS: $(grep -c $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | tr -d ' ') required, $(grep $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | grep -vc $'\tPASS\t' | tr -d ' ') not PASS"
+  say "migrations-only: report $W/logs/MIGRATION-REPORT.tsv, assert $W/logs/schema-assert.tsv"
+  exit 0
+fi
 
 # ── ISL ──
 (cd "$W/isl" && poetry config virtualenvs.in-project true --local && poetry install --only main --no-root -q) > "$W/logs/isl-install.log" 2>&1
@@ -150,12 +159,17 @@ def get(p):
     return json.load(urllib.request.urlopen(r, timeout=30))
 def every(p):
     # Render pages at 100 and cee-staging has ~126 env vars: follow the cursor or the key can be missed.
+    # Bounded: at most 20 pages, and the cursor must move, or the read fails closed (no key, nothing printed).
+    import urllib.parse
     out, cursor = [], None
-    while True:
-        page = get(p + ('&cursor=' + cursor if cursor else ''))
+    for _ in range(20):
+        page = get(p + ('&cursor=' + urllib.parse.quote(cursor, safe='') if cursor else ''))
         out += page
         if len(page) < 100: return out
-        cursor = page[-1]['cursor']
+        nxt = page[-1].get('cursor')
+        if not nxt or nxt == cursor: raise SystemExit(1)
+        cursor = nxt
+    raise SystemExit(1)
 sid = [s['service']['id'] for s in every('/services?limit=100') if s['service']['name'] == 'cee-staging'][0]
 print([e['envVar']['value'] for e in every('/services/%s/env-vars?limit=100' % sid) if e['envVar']['key'] == 'OPENAI_API_KEY'][0], end='')
 PY
