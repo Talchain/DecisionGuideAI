@@ -1258,9 +1258,14 @@ async function capacityRun(page: Page, brief: string, label: string) {
   await expect(run).toBeEnabled({ timeout: 180_000 })
   const start = captured.length
   await run.click()
+  // The Run can return the run turn and a follow-up turn that both carry analysis_result: bind the FIRST, and
+  // require every analysis_result after the click to be the same analysis (one hash), never two different runs.
   await expect.poll(() => captured.slice(start).filter(t => analysisResultOf(t.body) !== null).length,
-    { timeout: 240_000, message: `[${label}] user Run returned no analysis_result` }).toBe(1)
-  const turn = captured.slice(start).find(t => analysisResultOf(t.body) !== null)!
+    { timeout: 240_000, message: `[${label}] user Run returned no analysis_result` }).toBeGreaterThanOrEqual(1)
+  const withResult = captured.slice(start).filter(t => analysisResultOf(t.body) !== null)
+  const hashes = new Set(withResult.map(t => (analysisResultOf(t.body) as any)?.computed_against_hash))
+  expect(hashes.size, `[${label}] the Run returned ${withResult.length} analysis_result turns on different hashes`).toBe(1)
+  const turn = withResult[0]
   expect(turn.status).toBe(200)
   const analysis = analysisResultOf(turn.body)!
   const after = await storedRead(scenarioId!, account.user)
