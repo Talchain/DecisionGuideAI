@@ -19,6 +19,7 @@ create table public.scenarios(
   scenario_schema_version integer not null default 1,
   stage text not null default 'frame' check (stage = any (array['frame','ideate','evaluate','decide','optimise'])),
   graph jsonb,
+  revision bigint not null default 0, -- existing shared CEE schema; no production DDL here
   framing jsonb,
   analysis_status text not null default 'none' check (analysis_status = any (array['none','running','ready','failed'])),
   analysis jsonb,

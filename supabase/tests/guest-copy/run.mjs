@@ -7,9 +7,15 @@ import fs from 'fs'
 
 const migrations = process.argv.slice(2)
 if (migrations.length === 0) { console.error('no migration given'); process.exit(2) }
+const baseline = fs.readFileSync(new URL('../../migrations/20261001222932_copy_guest_scenario_20261001.sql', import.meta.url), 'utf8')
+const forward = migrations.map(m => fs.readFileSync(m, 'utf8')).join('\n')
+if (!forward.includes('p_checked_source_graph')) throw new Error('expected checked migration')
+async function runVariant(name, applied, checked) {
+console.log(`\nVARIANT ${name}`)
 const db = new PGlite()
 await db.exec(fs.readFileSync(new URL('setup.sql', import.meta.url), 'utf8'))
-for (const m of migrations) await db.exec(fs.readFileSync(m, 'utf8'))
+await db.exec(baseline)
+if (applied) await db.exec(applied)
 
 const U = n => `00000000-0000-0000-0000-0000000000${n}`
 const ME = U('0a'), OTHER = U('0b'), GHOST = U('0c')            // GHOST: not an auth user
@@ -67,7 +73,7 @@ const cols = (await q(`select column_name from information_schema.columns where 
 const got = id1 ? (await q(`select ${cols.join(',')} from public.scenarios where id = '${id1}'`))[0] : null
 // DL condition 1: graph + title, the owner, the provenance link; every other column at its never-run default.
 const want = {
-  user_id: ME, title: 'Hire a second engineer?', scenario_schema_version: 1, stage: 'frame',
+  revision: 0, user_id: ME, title: 'Hire a second engineer?', scenario_schema_version: 1, stage: 'frame',
   graph: { nodes: [{ id: 'goal', kind: 'goal', label: 'Ship faster' }], edges: [] }, framing: null,
   analysis_status: 'none', analysis: null, analysis_error: null, analysis_provenance: null, events: [], event_seq: 0, brief: null,
   last_turn_nonce: 0, is_pinned: false, is_archived: false, source_scenario_id: GUEST, latest_analysis_summary: null, brief_text: null,
@@ -122,7 +128,7 @@ row('C9', 'a second user gets a separate copy; the first copy is unchanged', c9.
 
 // C10 hardening: SECURITY DEFINER, search_path='', EXECUTE for service_role only.
 const meta = (await q(`select p.prosecdef, p.proconfig, coalesce((select array_agg(distinct a.grantee::regrole::text order by a.grantee::regrole::text) from aclexplode(p.proacl) a where a.privilege_type='EXECUTE'), '{}') as exec
-  from pg_proc p where p.oid = 'public.copy_guest_scenario(uuid,uuid)'::regprocedure`))[0]
+  from pg_proc p where p.oid = 'public.copy_guest_scenario(${checked ? 'uuid,uuid,jsonb,bigint' : 'uuid,uuid'})'::regprocedure`))[0]
 row('C10', 'SECURITY DEFINER, search_path=\'\', EXECUTE = {postgres, service_role}', meta.prosecdef === true && JSON.stringify(meta.proconfig) === JSON.stringify(['search_path=""'])
   && JSON.stringify(meta.exec) === JSON.stringify(['postgres', 'service_role']), meta)
 
@@ -143,6 +149,83 @@ row('C11', 'a TEMP `scenarios` does not shadow public.scenarios (replay of C9 re
 
 row('C12', 'exactly the expected rows were written (3 copies + C11b\'s source + its copy)', (await count('true')) === total0 + 5, { total0, now: await count('true') })
 
-const failed = results.filter(r => !r.pass).length
-console.log(`\n${results.length - failed}/${results.length} rows pass`)
-if (results.length === 0 || failed > 0) process.exit(1)
+if (checked) {
+  const checkedCopy = (src, user, graph, revision) => as('service_role', null,
+    `select public.copy_guest_scenario('${src}','${user}', '${JSON.stringify(graph).replaceAll("'", "''")}'::jsonb, ${revision}) as r`)
+  const source = async (id, revision = 7) => {
+    const graph = { nodes: [{ id: 'goal', kind: 'goal', label: 'Exact checked words' }], edges: [] }
+    await db.query(`insert into public.scenarios(id,user_id,title,graph,revision) values ($1,null,'Checked',$2,$3)`, [id, graph, revision])
+    return graph
+  }
+  const S = U('b1'), M = U('b2'), R = U('b3'), O = U('b4')
+  const graph = await source(S)
+  const c14 = await checkedCopy(S, ME, graph, 7)
+  const checkedId = c14.rows?.[0]?.r.scenario_id
+  const copiedGraph = checkedId ? (await q(`select graph from public.scenarios where id='${checkedId}'`))[0].graph : null
+  row('C14', 'checked==copied success (created:true), exact jsonb bytes', c14.ok && c14.rows[0].r.created && canon(copiedGraph) === canon(graph), c14)
+  const movedGraph = await source(M)
+  await db.query(`update public.scenarios set graph=$1 where id=$2`, [{ ...movedGraph, words: 'moved' }, M])
+  const before15 = await rowText(M), n15 = await count('true')
+  const c15 = await checkedCopy(M, ME, movedGraph, 7)
+  row('C15', 'MOVED_SOURCE CG412; zero rows written; whole source unchanged', !c15.ok && c15.code === 'CG412' && c15.err === 'copy_guest_scenario: checked source changed' && await count('true') === n15 && await rowText(M) === before15, c15)
+  const c15c = await checkedCopy(M, ME, JSON.parse(before15).graph, 7)
+  row('C15control', 'CONTROL latest checked graph succeeds', c15c.ok && c15c.rows[0].r.created === true, c15c)
+  const revGraph = await source(R)
+  await db.query(`update public.scenarios set revision=8 where id=$1`, [R])
+  const before16 = await rowText(R), n16 = await count('true')
+  const c16 = await checkedCopy(R, ME, revGraph, 7)
+  row('C16', 'revision moved CG412; zero rows; source unchanged', !c16.ok && c16.code === 'CG412' && await count('true') === n16 && await rowText(R) === before16, c16)
+  const c16c = await checkedCopy(R, ME, revGraph, 8)
+  row('C16control', 'CONTROL latest revision succeeds', c16c.ok && c16c.rows[0].r.created === true, c16c)
+  await db.query(`update public.scenarios set graph=$1,revision=8,user_id=$2 where id=$3`, [{ changed: true }, OTHER, S])
+  const originalCopy = await rowText(checkedId), n17 = await count('true')
+  const c17 = await checkedCopy(S, ME, graph, 7)
+  row('C17', 'REPLAY_AFTER_MOVE returns original copy created:false before binding, zero new rows', c17.ok && c17.rows[0].r.scenario_id === checkedId && c17.rows[0].r.created === false && await count('true') === n17 && await rowText(checkedId) === originalCopy, c17)
+  const ownerGraph = await source(O)
+  await db.query(`update public.scenarios set user_id=$1 where id=$2`, [OTHER, O])
+  const n18 = await count('true'), ownedBefore = await rowText(O)
+  const c18 = await checkedCopy(O, ME, ownerGraph, 7)
+  row('C18', 'guest status moved CG412; no writes, source unchanged', !c18.ok && c18.code === 'CG412' && await count('true') === n18 && await rowText(O) === ownedBefore, c18)
+  await db.query(`update public.scenarios set user_id=null where id=$1`, [O])
+  const c18c = await checkedCopy(O, ME, ownerGraph, 7)
+  row('C18control', 'CONTROL guest status restored succeeds', c18c.ok && c18c.rows[0].r.created === true, c18c)
+  const otherCopy = await checkedCopy(O, OTHER, ownerGraph, 7)
+  row('C19', 'second checked user independent, first copy unchanged', otherCopy.ok && otherCopy.rows[0].r.created === true && otherCopy.rows[0].r.scenario_id !== c18c.rows[0].r.scenario_id && (await q(`select user_id from public.scenarios where id='${otherCopy.rows[0].r.scenario_id}'`))[0].user_id === OTHER, otherCopy)
+  const P = U('b5'), pg = await source(P), n20 = await count('true')
+  const partial = await as('service_role', null, `select public.copy_guest_scenario('${P}','${ME}','${JSON.stringify(pg)}'::jsonb,NULL)`)
+  row('C20', 'partial checked binding refused, never unchecked', !partial.ok && partial.code === 'CG412' && await count('true') === n20, partial)
+  const functions = await q(`select pg_catalog.pg_get_function_arguments(p.oid) as args from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='copy_guest_scenario'`)
+  row('C21', 'exactly one signature with optional trailing defaults; legacy two-arg resolution preserved', functions.length === 1 && functions[0].args === 'p_source_scenario_id uuid, p_user_id uuid, p_checked_source_graph jsonb DEFAULT NULL::jsonb, p_checked_source_revision bigint DEFAULT NULL::bigint', functions)
+  // Real SQL statement rollback: fail during destination insert, then retry.
+  await db.exec(`create function public.fail_copy_insert() returns trigger language plpgsql as $$ begin if NEW.source_scenario_id is not null then raise exception 'injected insert failure' using errcode='XX000'; end if; return NEW; end $$;
+    create trigger fail_copy before insert on public.scenarios for each row execute function public.fail_copy_insert();`)
+  const fail = await checkedCopy(P, ME, pg, 7)
+  row('C22', 'failed SQL insert persists no half-state', !fail.ok && fail.code === 'XX000' && await count('true') === n20, fail)
+  await db.exec('drop trigger fail_copy on public.scenarios')
+  const retry = await checkedCopy(P, ME, pg, 7)
+  row('C22control', 'CONTROL retry after rollback succeeds and reloads exact graph', retry.ok && retry.rows[0].r.created === true && canon((await q(`select graph from public.scenarios where id='${retry.rows[0].r.scenario_id}'`))[0].graph) === canon(pg), retry)
+}
+await db.close()
+const failed = results.filter(r => !r.pass)
+console.log(`${name}: ${results.length - failed.length}/${results.length} rows pass`)
+return { results, failed }
+}
+const before = await runVariant('BASELINE', '', false)
+const after = await runVariant('CHECKED', forward, true)
+const check = /  -- CHECKED_SOURCE_BINDING[\s\S]*?  -- END_CHECKED_SOURCE_BINDING\n/
+if (!check.test(forward)) throw new Error('binding mutant injection point missing')
+const block = forward.match(check)[0]
+const mutants = [
+  ['EQUALITY_REMOVED', forward.replace('       OR v_graph IS DISTINCT FROM p_checked_source_graph\n', ''), ['C15']],
+  ['REVOKE_REMOVED', forward.replace(/^REVOKE ALL[^\n]*\n/m, ''), ['C5', 'C5b', 'C10']],
+  ['CHECK_BEFORE_REPLAY', forward.replace(check, '').replace('  SELECT s.id INTO v_existing', `  SELECT s.user_id, s.graph, s.revision INTO v_owner, v_graph, v_revision FROM public.scenarios s WHERE s.id=p_source_scenario_id FOR SHARE;\n${block}  SELECT s.id INTO v_existing`), ['C17']],
+]
+let controlsGreen = true
+for (const [name, mutant, expected] of mutants) {
+  const run = await runVariant(name, mutant, true)
+  const red = expected.every(id => run.failed.some(r => r.id === id))
+  console.log(`${red ? 'PASS' : 'FAIL'} MUTANT ${name}: named rows RED = ${expected.join(',')}`)
+  controlsGreen &&= red
+}
+console.log(`SUMMARY old=${before.results.length} checked=${after.results.length} mutants=${mutants.length}`)
+if (before.failed.length || after.failed.length || !controlsGreen) process.exit(1)
