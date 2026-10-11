@@ -12,7 +12,7 @@ import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuth
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
-import { edgeProvenance } from '../../../../canvas/domain/edgeProvenance'
+import { edgeProvenanceMark, isUnsizedRelationship } from '../../../../canvas/domain/edgeProvenance'
 
 /**
  * ⭐ 8 Oct 2026 (Paul: the zone was a wall of "X to Y · Accept starting strength · Edit", repeated under every option;
@@ -34,7 +34,7 @@ export const UNSIZED_LINK_COPY = {
   unverified: 'Not confirmed yet. Check the link before re-running.',
   cannotHere: "Olumi can't accept this one here. Use Edit to set it.",
   notCurrent: 'This analysis may be out of date. Re-run to see what is still unsized.',
-  noEstimate: "There's no Olumi estimate for this link yet — give your own figure or ask Olumi to estimate it.",
+  noEstimate: "Olumi hasn't estimated this link yet. Give a figure, or ask Olumi to estimate it.",
   alreadySized: 'This link has a strength now.',
 } as const
 
@@ -43,9 +43,10 @@ export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized
   const s = useCanvasStore.getState()
   if (!selectRunAffirmedCurrent(s)) return 'not_current'
   const edge = s.edges.find((e) => e.id === edgeId)
-  const kind = edgeProvenance(edge?.data as Record<string, unknown> | undefined)?.kind
-  if (kind === 'placeholder') return 'no_olumi_estimate'
-  if (kind !== 'olumi_estimate') return 'already_sized'
+  const data = edge?.data as Record<string, unknown> | undefined
+  // Batch A: a placeholder has no Olumi estimate to accept; only a genuine Olumi estimate (mark 'ai') may be accepted.
+  if (isUnsizedRelationship(data)) return 'no_olumi_estimate'
+  if (edgeProvenanceMark(data) !== 'ai') return 'already_sized'
   return null
 }
 
@@ -54,7 +55,7 @@ type RowState = 'idle' | 'sending' | 'sent' | 'not_recorded' | 'unverified' | 'c
 /** One link's actions. Exported so a test can drive the click handler itself (the container's render gate would unmount it). */
 export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; toLabel: string }; testId: string }) {
   const authority = useModelEditAuthority(null, link.edgeId)
-  const canAccept = useCanvasStore((s) => edgeProvenance(s.edges.find((e) => e.id === link.edgeId)?.data)?.kind === 'olumi_estimate')
+  const canAccept = useCanvasStore((s) => edgeProvenanceMark(s.edges.find((e) => e.id === link.edgeId)?.data) === 'ai')
   const [state, setState] = useState<RowState>('idle')
   const note =
     state === 'sending' ? UNSIZED_LINK_COPY.sending
