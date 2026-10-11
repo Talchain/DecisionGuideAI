@@ -11,7 +11,7 @@ node run.mjs ../../migrations/20261011100000_checked_guest_copy_function.sql
 
 | Row | Claim |
 |---|---|
-| C1, C1b | The owner copy is a new row owned by the caller. It carries `graph` and `title` only (DL condition 1). C1 reads EVERY column, so anything else copied by mistake turns it red: every other column is at its never-run default (stage `frame`, status `none`, hash anchor NULL). No turns, no facts. |
+| C1, C1b | The owner copy is a new row owned by the caller. It carries `graph` and `title` only (DL condition 1). C1 reads every column EXCEPT `id`, `created_at` and `updated_at` (the id is asserted separately by the returned identity; the shipped INSERT omits both timestamps), so any other column copied by mistake turns it red: every other column is at its never-run default (stage `frame`, status `none`, hash anchor NULL). No turns, no facts. |
 | C2, C2b | The guest original is byte-unchanged (whole row), and its turns and facts stay unowned. |
 | C3 | A second call returns the same copy id (`created: false`), and there is one row. |
 | C4 | An owned source is refused (`CG409`) and nothing is written. It runs in the same suite as the guest-source success C1 (DL condition 4). |
