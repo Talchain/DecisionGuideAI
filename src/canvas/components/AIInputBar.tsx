@@ -99,7 +99,7 @@ export interface AIInputBarProps {
    */
   /**
    * One extra control drawn INSIDE the box, above send (overlay layout only —
-   * the hero surfaces). The first-use composer puts its "Upload a document"
+   * the hero surfaces). The first-use composer puts its "Add a document"
    * paperclip here. Omitted ⇒ nothing is drawn. Hidden while generating.
    */
   inBoxAction?: ReactNode

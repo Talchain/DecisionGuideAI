@@ -110,13 +110,13 @@ const type = (slot: string, value: string) =>
 const box = () => screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
 
 describe('FirstUseComposer — "Structure it"', () => {
-  it('"Upload a document" is an icon inside the brief box, with its feedback under it (ROADMAP 3.8)', () => {
+  it('"Add a document" is an icon inside the brief box, with its feedback under it (ROADMAP 3.8)', () => {
     render(<FirstUseComposer />, { wrapper: Wrapper })
     const box = screen.getByTestId('first-use-input-bar')
     const trigger = screen.getByTestId('brief-document-trigger')
     expect(box.contains(trigger)).toBe(true)
     expect(box.contains(screen.getByTestId('brief-document-upload'))).toBe(false)
-    expect(screen.getByLabelText('Upload a document')).toBeTruthy()
+    expect(screen.getByLabelText('Add a document')).toBeTruthy()
   })
 
   it('a view-only user sees neither the upload icon nor its feedback', async () => {

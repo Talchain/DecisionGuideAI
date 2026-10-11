@@ -44,19 +44,21 @@ describe('check:vendor — orphaned tarballs', () => {
     expect(runGate().code).toBe(0)
   })
 
-  it('vendor/ holds exactly one tarball, and it is the pinned one', () => {
+  it('vendor/ holds exactly the pinned tarballs: the schemas pin and SheetJS', () => {
     // The state 2.666 restores, asserted directly so a future re-import of a
-    // stale tarball fails here even if someone weakens the script.
-    const tarballs = readdirSync(VENDOR).filter((f) => f.endsWith('.tgz'))
-    expect(tarballs).toHaveLength(1)
+    // stale tarball fails here even if someone weakens the script. SheetJS is
+    // the one other vendored package (ROADMAP 3.8; not on npm past 0.18.5).
+    const tarballs = readdirSync(VENDOR).filter((f) => f.endsWith('.tgz')).sort()
     const pkg = JSON.parse(
       execFileSync(process.execPath, ['-e', 'process.stdout.write(require("fs").readFileSync("package.json","utf8"))'], {
         cwd: REPO_ROOT,
       }).toString(),
     )
     const pinned = String(pkg.dependencies['@talchain/schemas']).match(/vendor\/(.+\.tgz)$/)?.[1]
+    const xlsx = String(pkg.dependencies.xlsx).match(/^file:\.\/vendor\/(xlsx-\d+\.\d+\.\d+\.tgz)$/)?.[1]
     expect(pinned).toBeDefined()
-    expect(tarballs[0]).toBe(pinned)
+    expect(xlsx).toBeDefined()
+    expect(tarballs).toEqual([pinned, xlsx].sort())
   })
 
   it('FAILS when a tarball matching no pin is present', () => {

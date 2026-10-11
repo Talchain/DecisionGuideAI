@@ -65,7 +65,16 @@ function recoveryBlock(expected, actual) {
  * in step. Anything in `vendor/` that is not the pinned tarball, its `.sha256`
  * sidecar, or documentation is an orphan.
  */
+// SheetJS is the one other vendored tarball (not on npm past 0.18.5). Its name
+// is derived from package.json the same way, and its bytes are checked below.
+const xlsxMatch = (pkg.dependencies?.xlsx ?? '').match(/^file:\.\/vendor\/(xlsx-\d+\.\d+\.\d+\.tgz)$/)
+const XLSX_TARBALL_NAME = xlsxMatch ? xlsxMatch[1] : null
+
 const PERMITTED = new Set([TARBALL_NAME, `${TARBALL_NAME}.sha256`, 'README.md'])
+if (XLSX_TARBALL_NAME) {
+  PERMITTED.add(XLSX_TARBALL_NAME)
+  PERMITTED.add(`${XLSX_TARBALL_NAME}.sha256`)
+}
 
 async function checkForOrphans() {
   const entries = await readdir(resolve(REPO_ROOT, 'vendor'))
@@ -82,6 +91,19 @@ async function checkForOrphans() {
         ...orphans.map((o) => `  git rm vendor/${o}`),
       ].join('\n'),
     )
+  }
+}
+
+async function checkXlsx(name) {
+  const path = resolve(REPO_ROOT, 'vendor', name)
+  if (!existsSync(path) || !existsSync(`${path}.sha256`)) {
+    fail(`[check-vendor-sha] Missing vendor/${name} or its .sha256 manifest`)
+  }
+  const expected = (await readFile(`${path}.sha256`, 'utf8')).trim().split(/\s+/)[0]?.toLowerCase() ?? ''
+  if (!/^[0-9a-f]{64}$/.test(expected)) fail(`[check-vendor-sha] Malformed manifest: vendor/${name}.sha256`)
+  const actual = createHash('sha256').update(await readFile(path)).digest('hex')
+  if (actual !== expected) {
+    fail(`SHA mismatch for vendor/${name}\n  expected: ${expected}\n  actual:   ${actual}\nRecovery: git checkout -- vendor/${name} && pnpm install`)
   }
 }
 
@@ -108,6 +130,8 @@ async function main() {
   if (actual !== expected) {
     fail(recoveryBlock(expected, actual))
   }
+
+  if (XLSX_TARBALL_NAME) await checkXlsx(XLSX_TARBALL_NAME)
   // Success — silent to keep dev boot quiet.
 }
 
