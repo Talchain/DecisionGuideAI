@@ -129,10 +129,16 @@ cd "$DGAI"
 # no provider calls, then tear down. Recovery Batch 0: X7 must be listed and every REQUIRED row PASS.
 # It exits before the LLM boundary starts, so it never reads, writes or deletes anything in fixtures/j1/.
 if [ "$MIGRATIONS_ONLY" = 1 ]; then
+  ASSERT_RC=0
   docker exec -i supabase_db_j1-journey psql -U postgres -d postgres -X -A -F $'\t' -v ON_ERROR_STOP=1 \
-    -f - < "$STACK/schema-assert.sql" > "$W/logs/schema-assert.tsv" 2>&1 || say "schema-assert.sql did not run cleanly"
-  say "schema-assert REQUIRED rows not PASS: $(grep -c $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | tr -d ' ') required, $(grep $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | grep -vc $'\tPASS\t' | tr -d ' ') not PASS"
+    -f - < "$STACK/schema-assert.sql" > "$W/logs/schema-assert.tsv" 2>&1 || { ASSERT_RC=1; say "schema-assert.sql did not run cleanly"; }
+  # `grep -c` exits 1 on a zero count; under `set -euo pipefail` that would abort, so count without failing.
+  REQ_N=$( { grep -c $'^REQUIRED\t' "$W/logs/schema-assert.tsv" || true; } | tr -d ' ')
+  REQ_BAD=$( { grep $'^REQUIRED\t' "$W/logs/schema-assert.tsv" || true; } | { grep -vc $'\tPASS\t' || true; } | tr -d ' ')
+  say "schema-assert REQUIRED rows not PASS: $REQ_N required, $REQ_BAD not PASS"
   say "migrations-only: report $W/logs/MIGRATION-REPORT.tsv, assert $W/logs/schema-assert.tsv"
+  # Fail closed (Batch 0 check N1/N2 follow-up): a script error, zero REQUIRED rows, or any REQUIRED row not PASS.
+  if [ "$ASSERT_RC" != 0 ] || [ "${REQ_N:-0}" -eq 0 ] || [ "${REQ_BAD:-1}" -ne 0 ]; then exit 1; fi
   exit 0
 fi
 
