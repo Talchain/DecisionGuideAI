@@ -318,7 +318,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     // Last message should be a synthetic timeout error
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toMatch(/taking longer than expected/)
+    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
   })
 })
 
@@ -2777,7 +2777,7 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
 // `x-cee-request-id` / `x-correlation-id` header (turnAuthHeaders.ts emits only
 // `X-User-Id` + `Authorization`). Reusing `client_turn_id` buys nothing —
 // CEE never reads `payload.turn_id` as a dedupe key.
-describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', () => {
+describe('acknowledged response — wait expiry keeps delivery uncertain (V5 path)', () => {
   const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 
   beforeEach(() => {
@@ -2785,9 +2785,12 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     useCanvasStore.setState({ currentScenarioId: SCENARIO_ID })
   })
 
-  /** Drive a turn that never resolves, then run the wait out. */
+  /** The server acknowledges HTTP headers, then the response body stalls. */
   const expireTheWait = async () => {
-    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    mockCallV5Turn.mockImplementation((_payload, opts) => {
+      opts.onResponseReceived?.()
+      return new Promise(() => {})
+    })
     const { result } = renderHook(() => useConversation())
     await act(async () => {
       result.current.sendMessage('add three options and a risk for each')
@@ -2909,7 +2912,7 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     expect(mockCallV5Turn).not.toHaveBeenCalled()
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toMatch(/didn['’]t reach the server/i)
+    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
     expect(last.content).not.toBe(WAIT_EXPIRY_UNKNOWN_COPY)
 
     // And advancing time cannot ADD a second, contradictory bubble — the

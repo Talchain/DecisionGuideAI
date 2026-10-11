@@ -57,6 +57,7 @@ import {
   edgeValueSource,
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
@@ -443,9 +444,10 @@ export const EdgePanel = memo(function EdgePanel({
    * their bounded-number fallback for that same reason. Display formatting
    * never changes the stored magnitude or the confirmation payload.
    */
-  // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
+  // An unstated direction remains unknown, including old unstamped defaults.
   const weight = edge?.data?.weight ?? 0.5
-  const direction = edge?.data?.direction ?? 'positive'
+  const statedDirection = resolveEdgeDirectionDisplay(edge?.data as Record<string, unknown> | undefined)
+  const direction = statedDirection.show ? statedDirection.direction : edge?.data?.serverStrength?.effect_direction
   const signedValue = direction === 'negative' ? -weight : weight
   const beliefExists = edge?.data?.beliefExists ?? EDGE_CONSTRAINTS.beliefExists.default
   // Pixel fallback for the advanced slider only. Facts use the provenance
@@ -917,7 +919,9 @@ export const EdgePanel = memo(function EdgePanel({
   // 2026): a receipt on a pair the server holds is stale, and this add-control
   // would send a second `structural_add_edge` for it. Same reader as the
   // on-link word and the capture retry (`utils/canvasOnlyLink.ts`).
-  const awaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs)
+  const pendingEdgeAdds = useCanvasStore(s => s.pendingStructuralAddEdges)
+  const awaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs) ||
+    (!edge?.data?.serverStrength && pendingEdgeAdds.some(intent => intent.edgeId === edgeId))
 
   /**
    * States the strength for a link that has never reached the model, with the
@@ -950,8 +954,6 @@ export const EdgePanel = memo(function EdgePanel({
       useCanvasStore.getState().updateEdgeData(edgeId, {
         weight: Math.abs(v),
         weightSource: 'user',
-        direction: v >= 0 ? 'positive' : 'negative',
-        directionSource: 'user',
       } as never)
     },
     [edgeId],
@@ -1088,6 +1090,30 @@ export const EdgePanel = memo(function EdgePanel({
                 >
                   {INLINE_LABELS.strengthQuestionForSave}
                 </p>
+                <p className={`${typography.panelBody} text-text-body`}>
+                  {`Does ${sourceLabel} help or hurt ${targetLabel}?`}
+                </p>
+                <div role="group" aria-label="Effect direction" className="flex gap-1 mb-2">
+                  {(['positive', 'negative'] as const).map(choice => (
+                    <button key={choice} type="button" aria-pressed={direction === choice}
+                      className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors
+                        ${direction === choice
+                          ? 'border-primary text-primary'
+                          : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'}`}
+                      onClick={() => useCanvasStore.getState().updateEdge(edgeId, {
+                        data: { direction: choice, directionSource: 'user' } as never,
+                      })}>
+                      {choice === 'positive' ? 'Helps' : 'Hurts'}
+                    </button>
+                  ))}
+                </div>
+                <p role="status" className={`${typography.panelMeta} text-text-light`}>
+                  {direction === undefined
+                    ? 'Not saved — choose whether this link helps or hurts.'
+                    : pendingEdgeAdds.some(intent => intent.edgeId === edgeId)
+                      ? 'Not saved — waiting to send your reviewed link.'
+                      : 'Direction chosen. Choose a strength to send this link.'}
+                </p>
                 {/* ⛔ `unset` DERIVED FROM THE PROVENANCE GATE, never from the
                     branch we are already inside. Asking the gate keeps this
                     honest if the branch's condition ever changes: it is the same
@@ -1096,6 +1122,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <StrengthBandButtons
                   value={signedValue}
                   onChange={handleStateStrengthForSave}
+                  directionUnset={direction === undefined}
                   unset={!resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined).show}
                   technicalDetails={techMode}
                 />

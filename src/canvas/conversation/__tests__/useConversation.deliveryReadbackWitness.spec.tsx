@@ -1,10 +1,8 @@
 /**
- * W4 C1b: WITNESS.md + founder-evening-2/ROWS.jsonl record the text below,
- * a 192-second wait, the false non-delivery UI, and a server user row at
- * 19:14:12 with no assistant row. There is NO captured native exception or
- * C1b HTTP body. The rejection below is a synthetic transport seam, not a
- * claimed captured TypeError; the readback ID is taken from the real request
- * header, not invented as a witnessed ID. Adapter/parser/router are real.
+ * Exact request-id reconciliation after an acknowledged proxy timeout.
+ * Recovery Batch B labels pre-response failures as not delivered; these
+ * readback tests use an actual HTTP 504, whose processing outcome is unknown.
+ * All responses and server readbacks are synthetic local fixtures.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
@@ -111,8 +109,8 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('W4 witnessed rejection and exact server receipt', () => {
-  it('RED: 192 s then rejection stays unknown; same-scenario receipt and later reply reconcile once', async () => {
+describe('acknowledged proxy timeout and exact server receipt', () => {
+  it('RED: 192 s then HTTP 504 stays unknown; same-scenario receipt and later reply reconcile once', async () => {
     // Model elapsed wall time while browser deadline callbacks are suspended.
     // No 192-second threshold or native-error heuristic is part of production.
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -124,13 +122,12 @@ describe('W4 witnessed rejection and exact server receipt', () => {
     expect(pending.fetchSpy).toHaveBeenCalledTimes(1)
     const id = requestId(pending.fetchSpy)
     vi.setSystemTime(Date.now() + 192_000)
-    await act(async () => { pending.reject(new Error('response not received')); await send })
+    await act(async () => { pending.resolve(response(504, { code: 'PROXY_UPSTREAM_TIMEOUT' })); await send })
     expect(user(result.current.messages).deliveryState).toBe('unconfirmed')
     expect(user(result.current.messages).deliveryRequestId).toBe(id)
     const notice = result.current.messages.at(-1)!
     expect(assertsNonDelivery(notice.content)).toBe(false)
     expect(assertsDeliveryUnknown(notice.content)).toBe(true)
-    expect(notice.content).not.toMatch(/reload/i)
     expect(notice.actionChips ?? []).toEqual([])
     expect(result.current.lastSendFailure?.retryable).toBe(false)
 
@@ -160,7 +157,7 @@ describe('W4 witnessed rejection and exact server receipt', () => {
     let send!: Promise<void>
     await act(async () => { send = first.result.current.sendMessage(C1B); await flushDispatch() })
     const id = requestId(pending.fetchSpy)
-    await act(async () => { pending.reject(new Error('response not received')); await send })
+    await act(async () => { pending.resolve(response(504, { code: 'PROXY_UPSTREAM_TIMEOUT' })); await send })
     expect(loadTranscript(SCENARIO)?.messages.find(m => m.role === 'user')?.deliveryState).toBe('unconfirmed')
     first.unmount()
     function earlierPageLoad() {
@@ -193,7 +190,7 @@ describe('W4 witnessed rejection and exact server receipt', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(user(result.current.messages).deliveryState).toBe('failed')
     const notice = result.current.messages.at(-1)!
-    expect(assertsNonDelivery(notice.content)).toBe(true)
+    expect(notice.content).toBe("Your message wasn't sent — check your connection and try again.")
     expect(notice.actionChips?.map(c => c.id)).toEqual(['retry'])
     expect(result.current.lastSendFailure?.retryable).toBe(true)
     unmount()
@@ -221,20 +218,18 @@ describe('W4 witnessed rejection and exact server receipt', () => {
     unmount()
   })
 
-  it('CONTROL: deadline abort then late rejection cannot claim failure or resend; readback still confirms receipt', async () => {
+  it('CONTROL: deadline before any response is not delivered and never automatically resends', async () => {
     vi.useFakeTimers()
     const pending = deferredFetch()
     const { result, unmount } = renderHook(() => useConversation())
     let send!: Promise<void>
     await act(async () => { send = result.current.sendMessage(C1B); await flushDispatch() })
-    const id = requestId(pending.fetchSpy)
     await act(async () => { await vi.advanceTimersByTimeAsync(TURN_WAIT_MS) })
-    expect(user(result.current.messages).deliveryState).toBe('unconfirmed')
+    expect(user(result.current.messages).deliveryState).toBe('failed')
     await act(async () => { pending.reject(new Error('late rejection')); await send })
-    expect(user(result.current.messages).deliveryState).toBe('unconfirmed')
+    expect(user(result.current.messages).deliveryState).toBe('failed')
     expect(result.current.messages.filter(m => m.content === NETWORK_AFTER_SEND_UNKNOWN_COPY)).toHaveLength(0)
-    await offer(id)
-    expect(user(result.current.messages).deliveryState).toBe('sent')
+    expect(result.current.messages.at(-1)?.content).toBe("Your message wasn't sent — check your connection and try again.")
     await act(async () => { await vi.advanceTimersByTimeAsync(300_000) })
     expect(pending.fetchSpy).toHaveBeenCalledTimes(1)
     unmount()

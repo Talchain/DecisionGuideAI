@@ -167,3 +167,17 @@ describe('StrengthBandButtons', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 })
+
+
+it('unknown direction discloses magnitudes on touch and never infers a negative sign', () => {
+  const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList)
+  const onChange = vi.fn()
+  try {
+    const { getByTestId } = render(<StrengthBandButtons value={-0.3} directionUnset onChange={onChange} />)
+    expect(getByTestId('strength-preset-consequence').textContent).toBe(
+      'Each preset sets magnitude, in order: 0.10, 0.30, 0.55, 0.85; direction still needed.',
+    )
+    fireEvent.click(getByTestId('strength-band-strong'))
+    expect(onChange).toHaveBeenCalledWith(0.55)
+  } finally { media.mockRestore() }
+})

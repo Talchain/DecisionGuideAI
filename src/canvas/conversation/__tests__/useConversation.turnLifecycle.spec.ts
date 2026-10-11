@@ -80,6 +80,7 @@ vi.mock('../../../flags', async (importOriginal) => ({
 
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { edgePairKey } from '../../utils/graphIdentity'
 import { useDraftStore } from '../../stores/draftStore'
 import {
   setPersistenceSessionActive,
@@ -223,7 +224,7 @@ describe('the turn lifecycle', () => {
     // The live turn's own 175 s wait still fires.
     await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
     expect(result.current.isThinking, 'the live turn lost its wait timer and spins forever').toBe(false)
-    expect(captured.map((c) => c.message)).toContain('Chat turn failed: timeout')
+    expect(captured.map((c) => c.message)).toContain('Chat turn failed: not_sent')
   })
 
   it('(6) buddy r2 P1-3: a retry reusing the client turn id is not ended by the old attempt\'s late exit', async () => {
@@ -247,4 +248,71 @@ describe('the turn lifecycle', () => {
     expect(result.current.isThinking, 'the old attempt ended the live retry').toBe(true)
     expect(captured.map((c) => c.message), 'a superseded attempt is not this turn\'s failure').not.toContain('Chat turn failed: session_timeout')
   })
+})
+
+
+describe('send failure labels follow delivery evidence', () => {
+  it.each([
+    ['network', { kind: 'parse_error', reason: 'network error: Failed to fetch' }],
+    ['offline', { kind: 'parse_error', reason: 'offline before dispatch', requestNotStarted: true }],
+    ['abort', new DOMException('The operation was aborted', 'AbortError')],
+  ])('%s before any response is not delivered, including Sentry', async (_name, failure) => {
+    if (_name === 'abort') mockCallV5Turn.mockRejectedValueOnce(failure)
+    else mockCallV5Turn.mockResolvedValueOnce(failure)
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['not_sent'])
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('failed')
+    expect(result.current.messages.some(m => m.content === "Your message wasn't sent — check your connection and try again.")).toBe(true)
+  })
+
+  it('an actual HTTP 503 is a server failure', async () => {
+    mockCallV5Turn.mockResolvedValueOnce({ kind: 'parse_error', reason: 'unavailable', http_status: 503, raw: 'Unavailable' })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['server'])
+    expect(result.current.lastSendFailure?.kind).toBe('server')
+  })
+})
+
+
+it('drops an older positive add queued before the negative review reached the model', async () => {
+  const first = controllable()
+  let persistedMean = -0.55
+  mockCallV5Turn.mockImplementationOnce(() => first.promise).mockImplementationOnce(payload => {
+    // Simulate the stale write actually landing, not merely a failed attempt.
+    const event = payload.event
+    persistedMean = event.effect_direction === 'negative' ? -event.magnitude : event.magnitude
+    return ok('Older add applied')
+  })
+  const { result } = renderHook(() => useConversation())
+  let sending: Promise<unknown>
+  await act(async () => { sending = result.current.sendMessage('review this link'); await new Promise(r => setTimeout(r, 0)) })
+  await act(async () => { await result.current.sendSystemEvent({ type: 'structural_add_edge', payload: {
+    from: 'marketing', to: 'revenue', magnitude: 0.55, effect_direction: 'positive', base_graph_hash: 'old',
+  } }) })
+  expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  await act(async () => {
+    useCanvasStore.setState({ lastAuthoritativeGraph: { nodeIds: ['marketing', 'revenue'], edgePairs: [edgePairKey('marketing', 'revenue')] },
+      edges: [{ id: 'reviewed', source: 'marketing', target: 'revenue', data: { weight: 0.55, direction: 'negative', directionSource: 'user', serverStrength: { mean: -0.55, effect_direction: 'negative' } } }] } as never)
+    first.resolve(ok('Reviewed: hurts, strong'))
+    await sending!
+    await new Promise(r => setTimeout(r, 0))
+  })
+  expect(persistedMean).toBe(-0.55)
+  expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().edges[0].data).toMatchObject({ direction: 'negative', directionSource: 'user' })
+})
+
+it('a timeout after HTTP acknowledgement keeps delivery uncertain', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  mockCallV5Turn.mockImplementation((_payload, opts) => {
+    opts.onResponseReceived?.()
+    return new Promise(() => {})
+  })
+  const { result } = renderHook(() => useConversation())
+  await act(async () => { void result.current.sendMessage('hello'); await vi.advanceTimersByTimeAsync(0) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
+  expect(captured.map(c => c.tags.turn_failure)).toEqual(['timeout'])
+  expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('unconfirmed')
 })

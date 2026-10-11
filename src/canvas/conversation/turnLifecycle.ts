@@ -21,8 +21,8 @@
  */
 import { captureTurnFailure } from '../../lib/monitoring'
 
-/** Why a turn failed. `not_sent`: the request never left the browser; `session_timeout`: the session read hung. */
-export type TurnFailureKind = 'not_sent' | 'session_timeout' | 'transport' | 'server' | 'timeout' | 'empty'
+/** Why a turn failed. `not_sent`: no response acknowledged the send; `server`: HTTP 5xx; `rejected`: typed refusal. */
+export type TurnFailureKind = 'not_sent' | 'session_timeout' | 'transport' | 'server' | 'rejected' | 'timeout' | 'empty'
 
 export type TurnPhase = 'idle' | 'pending' | 'streaming' | 'complete' | 'failed' | 'stopped'
 

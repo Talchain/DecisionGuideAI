@@ -168,6 +168,15 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
     expect(notice.querySelector('[role="alert"]')).toBeNull()
   })
 
+  it('a message with no response is labelled not delivered with the connection copy', () => {
+    failureMockState.lastSendFailure = {
+      kind: 'not_sent', retryable: true, inputText: 'hello',
+    }
+    messagesMockState.messages = [{ id: 'u1', role: 'user' }]
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.getByText("Your message wasn't sent — check your connection and try again.")).toBeTruthy()
+  })
+
   it('server-class failure still gets a notice (the hero must never fail silently)', () => {
     failureMockState.lastSendFailure = {
       kind: 'server',
