@@ -30,9 +30,10 @@ import { excludeNonModelNodes, fitFrameNodes, isGhostNode, GHOST_OPTION_NODE_ID 
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
 import { chooseWhatElse } from './chooseWhatElse'
 
+let viewportZoom = 1
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
-  return { ...actual, Handle: () => null }
+  return { ...actual, Handle: () => null, useViewport: () => ({ x: 0, y: 0, zoom: viewportZoom }) }
 })
 
 const RISK = GHOST_TIERS.find((t) => t.siblingType === 'risk')!
@@ -60,6 +61,7 @@ function captureAsks() {
 }
 
 beforeEach(() => {
+  viewportZoom = 1
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
   useCanvasStore.setState({ lodRung: 'quiet' } as never)
 })
@@ -154,6 +156,33 @@ describe('the prompt box is the row slot the layout reserved', () => {
       expect(door.className).toMatch(/(^|\s)rounded-full(\s|$)/)
       expect(door.textContent?.trim()).toBe('')
     }
+  })
+
+  it.each([0.65, 0.4])('both hit targets reach 24 screen CSS px at zoom %s without enlarging the painted slot', zoom => {
+    viewportZoom = zoom
+    mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
+    mountOption({ prompt: 'x' })
+    for (const door of [screen.getByRole('button', { name: RISK.label }), screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })]) {
+      const box = door.parentElement as HTMLElement
+      // jsdom has no geometry or pseudo-elements: the slop is the `::before` of `.row-end-hit`, sized by this variable.
+      expect(door.className).toContain('row-end-hit')
+      const grow = Number.parseFloat(door.style.getPropertyValue('--row-end-hit-grow'))
+      expect(Number.isFinite(grow)).toBe(true)
+      expect((Number.parseFloat(box.style.width) + 2 * grow) * zoom).toBeGreaterThanOrEqual(24)
+      expect((Number.parseFloat(box.style.height) + 2 * grow) * zoom).toBeGreaterThanOrEqual(24)
+      expect(box.style.width).toBe('32px')
+      expect(box.style.height).toBe('32px')
+      expect(door.querySelector('svg')?.getAttribute('width')).toBe('12')
+      expect(door.querySelector('svg')?.getAttribute('height')).toBe('12')
+      // No child element was added: the door is still only its glyph.
+      expect(door.querySelector('span')).toBeNull()
+    }
+  })
+
+  it('at zoom 1 the slot already exceeds the minimum, so there is no slop', () => {
+    viewportZoom = 1
+    mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
+    expect(Number.parseFloat(screen.getByRole('button', { name: RISK.label }).style.getPropertyValue('--row-end-hit-grow'))).toBe(0)
   })
 })
 

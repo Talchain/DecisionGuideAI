@@ -25,7 +25,8 @@
  * - SIZE (Paul, 1 Oct 2026: "Make the plus buttons on the right smaller. They're
  *   overbearing at the moment. They should be 50% smaller."): 32 flow units square
  *   with a 12px glyph, half the 30 Sep ruling's 64 / 24. ⚠ Paul's ruling, below
- *   §9.9's 44×44 touch target (21px at the 0.65 landing zoom); the PoC is pointer-first.
+ *   §9.9's 44×44 touch target. A transparent overlay now maintains a 24 CSS px
+ *   hit target at every zoom without changing this painted size or layout slot.
  *
  * It costs no layout width: the 160-unit tile it replaces took 184 units of every
  * row's budget, and those go to the cards (`ROW_BUDGET_W`). Behaviour is
@@ -33,11 +34,11 @@
  * and never sends, and the far rung hides the button without unmounting it.
  */
 import type { KeyboardEvent, MouseEvent } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useViewport } from '@xyflow/react'
 import { Plus } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
-import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES, MIN_TARGET_RENDERED_PX } from './canvasGlyphScale'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 export interface RowEndPromptIconProps {
@@ -51,6 +52,9 @@ export interface RowEndPromptIconProps {
 }
 
 export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEndPromptIconProps) {
+  const { zoom } = useViewport()
+  // Flow units to grow on each side so the live-zoom target is at least MIN_TARGET_RENDERED_PX (0 once the slot already is).
+  const hitGrow = Math.max(0, (MIN_TARGET_RENDERED_PX / zoom - Math.min(ROW_PROMPT_W, ROW_PROMPT_H)) / 2)
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -75,9 +79,11 @@ export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEnd
           onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e)}
           onKeyDown={onKeyDown}
           // The far rung hides the control ITSELF as well as its box (the prompts' far-rung contract).
-          style={hidden ? { visibility: 'hidden' } : undefined}
+          // `--row-end-hit-grow` sizes the transparent `::before` hit slop (index.css `.row-end-hit`): the painted
+          // slot, glyph and measured node box are unchanged, and the slop reaches MIN_TARGET_RENDERED_PX at this zoom.
+          style={{ ...(hidden ? { visibility: 'hidden' as const } : {}), ['--row-end-hit-grow' as string]: `${hitGrow}px` }}
           className={[
-            'absolute inset-0 flex items-center justify-center rounded-full cursor-pointer',
+            'row-end-hit absolute inset-0 flex items-center justify-center rounded-full cursor-pointer',
             'bg-panel border border-text-light text-text-light shadow-1',
             'hover:bg-panel-hover hover:text-text-body transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info',

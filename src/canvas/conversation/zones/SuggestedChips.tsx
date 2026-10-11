@@ -65,11 +65,11 @@ const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
  * Run-analysis affordance detection. `action_type` is the primary key;
  * the fallback regex catches V4-legacy or prompt-only chips where the
  * `action_type` field is absent. Tolerant of "Run analysis", "Rerun
- * analysis", "Run the analysis", "Rerun the analysis", with or without a
+ * analysis", "Run the analysis", "Rerun the analysis", "Re-analyse" and "Run again", with or without a
  * trailing period. Conservative enough to NOT match conversational chips
  * like "Explain the analysis" or "What was the analysis?".
  */
-const RUN_ANALYSIS_RE = /^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i
+const RUN_ANALYSIS_RE = /^(?:(?:run|rerun)\s+(?:the\s+)?analysis|re-analyse|run\s+again)\.?$/i
 
 function normForMatch(s: string | undefined): string {
   return (s ?? '').trim()
