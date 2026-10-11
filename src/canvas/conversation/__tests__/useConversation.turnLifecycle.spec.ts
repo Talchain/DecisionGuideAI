@@ -253,7 +253,7 @@ describe('the turn lifecycle', () => {
 
 // Recovery Batch B amendment (PL, accepted by the DL, 12 Oct): three outcomes, decided by dispatch evidence.
 // A request that was dispatched but never answered may still have been received and applied by the server.
-const NOT_DELIVERED = "Your message wasn't sent — check your connection and try again."
+const NOT_DELIVERED = "Your message wasn't sent. Check your connection and try again."
 const DELIVERY_UNKNOWN = "We couldn't confirm your message arrived. Check the conversation before sending it again."
 
 /** The transport reached its own dispatch boundary (`onRequestStarted`, just before `fetch`), then `then` settles it. */
