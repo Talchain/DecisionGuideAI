@@ -69,6 +69,14 @@
     outline-offset: 2px;
   }
 
+  /* Row-end '+' controls: a transparent hit slop that grows with the live zoom (RowEndPromptIcon sets the variable). */
+  .row-end-hit::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--row-end-hit-grow, 0px) * -1);
+    border-radius: 9999px;
+  }
+
   ::selection {
     @apply bg-info-light;
   }

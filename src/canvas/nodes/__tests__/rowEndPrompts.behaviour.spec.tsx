@@ -164,27 +164,25 @@ describe('the prompt box is the row slot the layout reserved', () => {
     mountOption({ prompt: 'x' })
     for (const door of [screen.getByRole('button', { name: RISK.label }), screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })]) {
       const box = door.parentElement as HTMLElement
-      const target = door.querySelector<HTMLElement>('[data-row-end-hit-target]')
-      expect(target, 'the transparent hit overlay must be present').not.toBeNull()
-      expect(target!.className).toMatch(/(^|\s)absolute(\s|$)/)
-      expect(target!.className).toContain('w-full h-full')
-      // jsdom has no geometry: evaluate the actual inline minimum through the viewport transform.
-      expect(Math.max(Number.parseFloat(box.style.width), Number.parseFloat(target!.style.minWidth)) * zoom).toBeGreaterThanOrEqual(24)
-      expect(Math.max(Number.parseFloat(box.style.height), Number.parseFloat(target!.style.minHeight)) * zoom).toBeGreaterThanOrEqual(24)
+      // jsdom has no geometry or pseudo-elements: the slop is the `::before` of `.row-end-hit`, sized by this variable.
+      expect(door.className).toContain('row-end-hit')
+      const grow = Number.parseFloat(door.style.getPropertyValue('--row-end-hit-grow'))
+      expect(Number.isFinite(grow)).toBe(true)
+      expect((Number.parseFloat(box.style.width) + 2 * grow) * zoom).toBeGreaterThanOrEqual(24)
+      expect((Number.parseFloat(box.style.height) + 2 * grow) * zoom).toBeGreaterThanOrEqual(24)
       expect(box.style.width).toBe('32px')
       expect(box.style.height).toBe('32px')
       expect(door.querySelector('svg')?.getAttribute('width')).toBe('12')
       expect(door.querySelector('svg')?.getAttribute('height')).toBe('12')
+      // No child element was added: the door is still only its glyph.
+      expect(door.querySelector('span')).toBeNull()
     }
   })
 
-  it('the transparent overlay activates the same pre-fill action as the painted control', () => {
-    const asks = captureAsks()
+  it('at zoom 1 the slot already exceeds the minimum, so there is no slop', () => {
+    viewportZoom = 1
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
-    fireEvent.click(screen.getByRole('button', { name: RISK.label }).querySelector('[data-row-end-hit-target]')!)
-    chooseWhatElse('risk')
-    expect(asks.dispatched).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:risks', source: 'chip' }))
-    expect(asks.sent).toEqual([])
+    expect(Number.parseFloat(screen.getByRole('button', { name: RISK.label }).style.getPropertyValue('--row-end-hit-grow'))).toBe(0)
   })
 })
 
