@@ -70,6 +70,9 @@
   }
 
   /* Row-end '+' controls: a transparent hit slop that grows with the live zoom (RowEndPromptIcon sets the variable). */
+  .row-end-hit {
+    --row-end-hit-grow: 0px; /* default: no slop; the component's inline style sets the live-zoom growth */
+  }
   .row-end-hit::before {
     content: '';
     position: absolute;
