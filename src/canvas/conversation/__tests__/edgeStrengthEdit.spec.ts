@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Edge } from '@xyflow/react'
 
-import { buildEdgeStrengthEditEvent } from '../edgeStrengthEdit'
+import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../edgeStrengthEdit'
 
 /**
  * An edge whose strength AND direction both come from a named source, so both
@@ -212,5 +212,18 @@ describe('buildEdgeStrengthEditEvent', () => {
       'magnitude',
       'to',
     ])
+  })
+})
+
+
+describe('Batch A confirmation sizing', () => {
+  it('refuses the placeholder tuple without refusing a genuine estimate of the same size', () => {
+    const estimate = producerEdge({ weightSource: 'cee' })
+    expect(buildEdgeStrengthConfirmEvent({ edge: estimate })).toEqual({
+      type: 'edge_strength_edit',
+      payload: { from: 'fac_price', to: 'goal_revenue', magnitude: 0.4, direction_intent: 'preserve',
+        expected: { mean: 0.4, effect_direction: 'positive' }, intent: 'confirm_current' },
+    })
+    expect(buildEdgeStrengthConfirmEvent({ edge: producerEdge({ weightSource: 'cee', strengthPlaceholder: 0.4 }) })).toBeNull()
   })
 })

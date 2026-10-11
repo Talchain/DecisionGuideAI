@@ -1,11 +1,6 @@
 /**
- * B3c · DL [R2] (5930827933): an option withheld on the placeholder path shows its acceptable unsized links (B2
- * `acceptable_links`) with "Accept starting strength" (the canvas's own `confirm_current` path) and "Edit" (the link's
- * strength editor). Served run `0303ef5` plus a PLACEHOLDER_PATH warning on one option.
- *
- * #2408 CR (CODEX_CLI_OVERFLOW): the action exists only while it can still be true. These rows cover the Run being
- * current (render + click), the edge still being a placeholder (same edge before/after sizing, render + click), and
- * accepted-Olumi vs user-stated provenance never reading the same way.
+ * Results keeps the give-figure editor for a placeholder. Only a genuine Olumi
+ * estimate can be accepted; both render and click-time gates bind the edge id.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, afterEach, vi } from 'vitest'
@@ -48,8 +43,8 @@ const WARNING = {
 }
 
 const PLACEHOLDER = { strength_mean: 0.5, weightSource: 'cee', strengthPlaceholder: 0.5 }
-/** After Accept: CEE sized it as Olumi's estimate (no placeholder label on the wire, so none on the edge). */
-const ACCEPTED_OLUMI = { strength_mean: 0.5, weightSource: 'cee' }
+/** A sized estimate has no live placeholder marker. */
+const OLUMI_ESTIMATE = { strength_mean: 0.5, weightSource: 'cee' }
 /** After Edit: the person stated it (`weightSource: 'user'` outranks the stale placeholder key). */
 const USER_STATED = { strength_mean: 0.7, weightSource: 'user', strengthPlaceholder: 0.5 }
 
@@ -95,7 +90,7 @@ describe('B3c · the hook resolves the producer\'s acceptable links to canvas ed
     expect(byId.keep_49_price.unsizedLinks).toBeUndefined()
   })
 
-  it('the Reasoning tab shows "1 relationship Olumi drafted isn\'t sized yet" with both actions on that option only', () => {
+  it('the Reasoning tab shows "1 relationship Olumi drafted isn\'t sized yet" with only the give-figure action on that option', () => {
     seed()
     const data = renderHook(() => useResultsSectionData()).result.current
     render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="b3c" />)
@@ -105,19 +100,20 @@ describe('B3c · the hook resolves the producer\'s acceptable links to canvas ed
     expect(screen.queryByTestId(`${T}-e_price_mrr-accept`)).toBeNull()
     fireEvent.click(screen.getByTestId(`${T}-toggle`))
     expect(screen.getByTestId(`${T}-e_price_mrr`)).toHaveTextContent('‘Price’ affects ‘MRR’')
-    expect(screen.getByTestId(`${T}-e_price_mrr-accept`)).toHaveTextContent('Accept')
-    expect(screen.getByTestId(`${T}-e_price_mrr-accept`)).toHaveAccessibleName("Accept Olumi's starting strength for ‘Price’ affects ‘MRR’")
+    expect(screen.queryByTestId(`${T}-e_price_mrr-accept`)).toBeNull()
+    expect(screen.queryByRole('button', { name: "Accept Olumi's starting strength for ‘Price’ affects ‘MRR’" })).toBeNull()
+    expect(screen.getByTestId(`${T}-e_price_mrr-edit`)).toHaveAccessibleName("Edit how strongly ‘Price’ affects ‘MRR’")
     expect(screen.getByTestId(`${T}-e_price_mrr-edit`)).toHaveTextContent('Edit')
     expect(screen.queryByTestId('analysis-new-options-unsized-keep_49_price')).toBeNull()
   })
 })
 
 describe('B3c · the offer exists only while it can still be true (#2408 CR)', () => {
-  it('⛔ the SAME edge before and after sizing: offered as a placeholder; gone once accepted; gone once user-stated', () => {
+  it('⛔ the SAME edge before and after sizing: listed for editing as a placeholder; gone once estimated; gone once user-stated', () => {
     seed({ edgeData: PLACEHOLDER })
     expect(optionById()[HELD].unsizedLinks?.map((l) => l.edgeId)).toEqual(['e_price_mrr'])
     cleanup()
-    seed({ edgeData: ACCEPTED_OLUMI })
+    seed({ edgeData: OLUMI_ESTIMATE })
     expect(optionById()[HELD].unsizedLinks).toBeUndefined()
     cleanup()
     seed({ edgeData: USER_STATED })
@@ -126,7 +122,7 @@ describe('B3c · the offer exists only while it can still be true (#2408 CR)', (
 
   it('accepted-Olumi vs user-stated provenance never read the same way', () => {
     const kept = { ...WARNING, withheld_claims: ['goal_probability', 'joint_probability', 'win_share'] }
-    seed({ edgeData: ACCEPTED_OLUMI, warning: { ...kept, rests_on_accepted_olumi: [HELD] } })
+    seed({ edgeData: OLUMI_ESTIMATE, warning: { ...kept, rests_on_accepted_olumi: [HELD] } })
     const accepted = optionById()[HELD]
     cleanup()
     seed({ edgeData: USER_STATED, warning: kept })
@@ -195,7 +191,7 @@ describe('B3c · ONE composed currency gates the offer (#2408 delta CR)', () => 
 })
 
 describe('B3c · the actions reuse the canvas paths and claim no more than the send settled', () => {
-  async function drawWithMocks(outcome: string) {
+  async function drawWithMocks(outcome: string, edgeData = OLUMI_ESTIMATE) {
     vi.resetModules()
     vi.doMock('../../../canvas/hooks/useModelEditAuthority', () => ({
       useModelEditAuthority: () => ({ proposeEdgeStrengthConfirmation: (id: string, o: unknown) => { confirm(id, o); return outcome } }),
@@ -206,7 +202,7 @@ describe('B3c · the actions reuse the canvas paths and claim no more than the s
       analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
       analysisFreshnessDirty: false,
       importPendingServerRegistration: false,
-      edges: [{ id: 'e1', source: 'fac_price', target: 'out1', data: PLACEHOLDER }],
+      edges: [{ id: 'e1', source: 'fac_price', target: 'out1', data: edgeData }],
     } as never)
     const { UnsizedLinkActions } = await import('../analysisNew/sections/UnsizedLinkActions')
     render(<UnsizedLinkActions links={[{ edgeId: 'e1', fromLabel: 'Price', toLabel: 'MRR' }]} testId="u" />)
@@ -215,8 +211,9 @@ describe('B3c · the actions reuse the canvas paths and claim no more than the s
     return store
   }
 
-  it('Accept sends the confirm for that edge; "sent" says re-run, never "recorded"', async () => {
+  it('A genuine Olumi estimate offers Accept and sends the confirm for that edge; "sent" says re-run, never "recorded"', async () => {
     await drawWithMocks('dispatched')
+    expect(screen.getByTestId('u-e1-accept')).toHaveAccessibleName("Accept Olumi's starting strength for ‘Price’ affects ‘MRR’")
     fireEvent.click(screen.getByTestId('u-e1-accept'))
     expect(confirm).toHaveBeenCalledTimes(1)
     expect(confirm.mock.calls[0][0]).toBe('e1')
@@ -254,17 +251,24 @@ describe('B3c · the actions reuse the canvas paths and claim no more than the s
     expect(screen.getByTestId('r-e1-note')).toHaveTextContent('This analysis may be out of date.')
   })
 
-  it('⛔ CLICK TIME: a link sized after render (Edit / acceptance landed) sends nothing; CONTRAST the placeholder sends', async () => {
-    const store = await drawWithMocks('dispatched')
-    store.setState({ edges: [{ id: 'e1', source: 'fac_price', target: 'out1', data: USER_STATED }] } as never)
-    fireEvent.click(screen.getByTestId('u-e1-accept'))
+  it('placeholder has no Accept and keeps the exact give-figure control', async () => {
+    await drawWithMocks('dispatched', PLACEHOLDER)
+    expect(screen.queryByTestId('u-e1-accept')).toBeNull()
+    expect(screen.queryByRole('button', { name: "Accept Olumi's starting strength for ‘Price’ affects ‘MRR’" })).toBeNull()
+    expect(screen.getByTestId('u-e1-edit')).toHaveAccessibleName("Edit how strongly ‘Price’ affects ‘MRR’")
+    fireEvent.click(screen.getByTestId('u-e1-edit'))
+    expect(openEditor).toHaveBeenCalledWith('e1')
     expect(confirm).not.toHaveBeenCalled()
-    expect(screen.getByTestId('u-e1-note')).toHaveTextContent('This link has a strength now.')
-    store.setState({ edges: [{ id: 'e1', source: 'fac_price', target: 'out1', data: PLACEHOLDER }] } as never)
-    cleanup()
-    await drawWithMocks('dispatched')
-    fireEvent.click(screen.getByTestId('u-e1-accept'))
-    expect(confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('click-time guard refuses a placeholder even after an estimate was rendered', async () => {
+    const store = await drawWithMocks('dispatched')
+    const { clickTimeRefusal } = await import('../analysisNew/sections/UnsizedLinkActions')
+    expect(clickTimeRefusal('e1')).toBeNull()
+    act(() => store.setState({ edges: [{ id: 'e1', source: 'fac_price', target: 'out1', data: PLACEHOLDER }] } as never))
+    expect(clickTimeRefusal('e1')).toBe('no_olumi_estimate')
+    expect(screen.queryByTestId('u-e1-accept')).toBeNull()
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('Edit opens that link\'s strength editor', async () => {
