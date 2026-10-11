@@ -8,6 +8,7 @@ import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import type { SendFailureNotice } from '../conversation/useConversation'
+import { DELIVERY_UNKNOWN_COPY, NOT_DELIVERED_COPY } from '../conversation/transportFailure'
 import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelState'
 import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -89,7 +90,9 @@ function heroFailureCopy(failure: SendFailureNotice): string {
   if (failure.ownershipRefusal !== undefined) return OWNERSHIP_REFUSAL_COPY[failure.ownershipRefusal]
   switch (failure.kind) {
     case 'not_sent':
-      return "Your message wasn't sent — check your connection and try again."
+      return NOT_DELIVERED_COPY
+    case 'delivery_unknown':
+      return DELIVERY_UNKNOWN_COPY
     case 'rejected':
       return "Your message couldn't be processed. Your text is back in the box above. Check the conversation for details."
     case 'transport':
