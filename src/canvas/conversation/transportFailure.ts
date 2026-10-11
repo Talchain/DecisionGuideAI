@@ -129,7 +129,7 @@ export function classifyUnansweredSend(evidence: {
 }
 
 /** (a) Confirmed not sent. */
-export const NOT_DELIVERED_COPY = "Your message wasn't sent — check your connection and try again."
+export const NOT_DELIVERED_COPY = "Your message wasn't sent. Check your connection and try again."
 
 /** (b) Dispatched, no response or acknowledgement. */
 export const DELIVERY_UNKNOWN_COPY =

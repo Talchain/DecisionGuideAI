@@ -190,7 +190,7 @@ describe('acknowledged proxy timeout and exact server receipt', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(user(result.current.messages).deliveryState).toBe('failed')
     const notice = result.current.messages.at(-1)!
-    expect(notice.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(notice.content).toBe("Your message wasn't sent. Check your connection and try again.")
     expect(notice.actionChips?.map(c => c.id)).toEqual(['retry'])
     expect(result.current.lastSendFailure?.retryable).toBe(true)
     unmount()

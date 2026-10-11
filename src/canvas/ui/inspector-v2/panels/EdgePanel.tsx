@@ -1109,9 +1109,9 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
                 <p role="status" className={`${typography.panelMeta} text-text-light`}>
                   {direction === undefined
-                    ? 'Not saved — choose whether this link helps or hurts.'
+                    ? 'Not saved. Choose whether this link helps or hurts.'
                     : pendingEdgeAdds.some(intent => intent.edgeId === edgeId)
-                      ? 'Not saved — waiting to send your reviewed link.'
+                      ? 'Not saved yet. Waiting to send your reviewed link.'
                       : 'Direction chosen. Choose a strength to send this link.'}
                 </p>
                 {/* ⛔ `unset` DERIVED FROM THE PROVENANCE GATE, never from the

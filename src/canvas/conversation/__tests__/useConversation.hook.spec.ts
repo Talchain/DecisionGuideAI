@@ -2913,7 +2913,7 @@ describe('acknowledged response — wait expiry keeps delivery uncertain (V5 pat
     expect(mockCallV5Turn).not.toHaveBeenCalled()
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(last.content).toBe("Your message wasn't sent. Check your connection and try again.")
     expect(last.content).not.toBe(WAIT_EXPIRY_UNKNOWN_COPY)
 
     // And advancing time cannot ADD a second, contradictory bubble — the

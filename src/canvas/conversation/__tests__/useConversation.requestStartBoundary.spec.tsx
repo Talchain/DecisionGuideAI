@@ -27,7 +27,7 @@ vi.mock('../../../v5/eligibility', async importOriginal => ({
 }))
 
 const SID = '8bc39f9f-5636-45dd-952d-a084ea75dd82'
-const NOT_DELIVERED = "Your message wasn't sent — check your connection and try again."
+const NOT_DELIVERED = "Your message wasn't sent. Check your connection and try again."
 const DELIVERY_UNKNOWN = "We couldn't confirm your message arrived. Check the conversation before sending it again."
 const INPUT = 'We fit 16 small-update equivalents per sprint.'
 beforeEach(() => {
