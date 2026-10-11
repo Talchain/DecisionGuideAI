@@ -2,16 +2,16 @@ This is a dry run of `copy_guest_scenario` on PGlite (Postgres running in-proces
 
 - `setup.sql` mirrors the live `scenarios` table (columns, defaults, CHECK constraints, self-FK, trigger; read 1 Oct 2026) and Supabase's default ACL, which grants EXECUTE on every new public function to anon, authenticated and service_role. So a migration that forgot its REVOKE would be callable here, as it would be live.
 - The guest fixture is shaped like what the guest turn path leaves: a graph, the brief, the CAS hash, a Run (analysis columns, CEE's analysis brief, events, a model version) and turn + fact rows.
-- Every row binds to exact ids, SQLSTATE + message, or whole-row tuples. The script exits 1 if any row fails or no migration is given.
+- Success/replay/refusal rows pin the stated ids, error codes/messages or snapshots; metadata/trigger/ACL rows pin those specific claims. The script exits 1 if an acceptance row or named mutant control fails, or no migration is given.
 
 ```bash
-cd supabase/tests/guest-copy && npm i --no-save @electric-sql/pglite@0.2
-node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   # 18/18
+cd supabase/tests/guest-copy
+node run.mjs ../../migrations/20261011100000_checked_guest_copy_function.sql
 ```
 
 | Row | Claim |
 |---|---|
-| C1, C1b | The owner copy is a new row owned by the caller. It carries `graph` and `title` only (DL condition 1). C1 reads EVERY column, so anything else copied by mistake turns it red: every other column is at its never-run default (stage `frame`, status `none`, hash anchor NULL). No turns, no facts. |
+| C1, C1b | The owner copy is a new row owned by the caller. It carries `graph` and `title` only (DL condition 1). C1 reads every column EXCEPT `id`, `created_at` and `updated_at` (the id is asserted separately by the returned identity; the shipped INSERT omits both timestamps), so any other column copied by mistake turns it red: every other column is at its never-run default (stage `frame`, status `none`, hash anchor NULL). No turns, no facts. |
 | C2, C2b | The guest original is byte-unchanged (whole row), and its turns and facts stay unowned. |
 | C3 | A second call returns the same copy id (`created: false`), and there is one row. |
 | C4 | An owned source is refused (`CG409`) and nothing is written. It runs in the same suite as the guest-source success C1 (DL condition 4). |
@@ -23,25 +23,65 @@ node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   
 | C13, C13b | A source graph over the 1 MiB cap is refused (`CG413`) and nothing is written; just under the cap copies (DL condition 3). |
 | C12 | Exactly the expected rows were written in the whole run (3 copies + C11b's source + its copy). |
 
-Mutants, each applied to the migration on its own:
+The runner applies setup + unchanged legacy baseline, then the additive checked migration.
+The 18 legacy rows run before and after; new rows cover the required-argument checked
+function, destination tuples, real trigger-driven revision changes, recovery replay,
+JSON value equality (stored 1.0 may equal checked 1), ACLs, TEMP shadow and SQL rollback.
+`scenarios_bump_revision()` is verbatim CEE 20261008190000; its trigger is verbatim
+20261008160000 (the later migration only replaces the function).
+Mutants are independent: equality removed -> C15eq RED; REVOKE removed -> checked
+C5/C10 RED; comparison before replay -> C17 RED; NULL preflight removed -> C20 RED;
+isolation guard removed -> C25 RED.
+Legacy C5/C10 remain green when only the checked function's REVOKE is removed.
+Deploy DB first (nothing existing changes), then CEE; rollback CEE first, then drop
+only the checked function. Legacy callers stay unchecked; CEE must never call them.
+Catalog/sequential evidence is not PostgREST rollout or multi-session race proof.
 
-| Mutant | Rows it turns RED |
-|---|---|
-| Owned-source check removed | C4, C12 |
-| Idempotent lookup removed | C3, C11, C12 |
-| REVOKE removed | C5, C5b, C10 |
-| Claim instead of copy (ownership moves) | C2, C9, C11, C12 |
-| `search_path = public` | C10 |
-| auth-user check removed | C6, C12 |
-| size cap removed | C13, C12 |
-| the hash anchor copied | C1 |
-| bare `scenarios` in the source SELECT + `search_path = public` | C10, C11b, C12 |
+**Isolation and grants.** The new checked function rejects non-READ-COMMITTED
+transactions with SQLSTATE `25000`, immediately after the NULL preflight and before
+any auth read, advisory lock or replay lookup. Legacy isolation is unchanged;
+its callers must use READ COMMITTED for the mixed-call one-copy guarantee. Other
+legacy isolation remains unproved. The checked function owner is assigned to
+`postgres` inside the migration; C10checked asserts owner, SECURITY DEFINER,
+empty search_path and direct EXECUTE grantees `{postgres,service_role}`. Direct
+ACL membership does not rule out inherited-role/superuser access.
+C23 asserts destination owner/source and EXACT graph text equal to stored `1.0`,
+while the checked `1` has different text. C24 brackets both replay calls with total
+row counts and before/after whole-row snapshots of every destination.
 
-**Race (`race.mjs`, real Postgres).** PGlite has one connection, so concurrency runs on `embedded-postgres`. 8 sessions call the function at once, each in its own open transaction, with a `pg_sleep(0.3)` injected between the idempotent lookup and the INSERT to hold the window open. The control variant removes the advisory lock.
+**PostgREST readiness (DL only).** Forward and rollback notify
+`pgrst, 'reload schema'` inside their transaction. Notification/catalog shape
+is NOT readiness proof. Apply DB first; before CEE rollout, use a service-role
+HTTP POST to `/rest/v1/rpc/copy_guest_scenario_checked` with apikey and Bearer
+service-role headers and all four named args:
+```json
+{"p_source_scenario_id":"<throwaway guest id confirmed absent>","p_user_id":"<known auth user>","p_checked_source_graph":{"nodes":[],"edges":[]},"p_checked_source_revision":0}
+```
+Use a genuine UUID formerly belonging to a throwaway guest and confirmed deleted;
+expect typed `CG404`, or `22023` from a deliberate NULL/unknown-auth-user probe,
+NOT `PGRST202`. Do not roll out CEE until this is observed. Live probe is UNRUN
+by this lane. Legacy function is untouched. Rollback CEE first, then drop only
+checked, then verify cache reload; rollback SQL has exactly one BEGIN.
+
+**Race (`race.mjs`, local real Postgres).** Uses installed `embedded-postgres`
+17.6.0-beta.15 + `pg`, a disposable loopback cluster and fresh DB per scenario.
+No Supabase URL/key is read. It widens BOTH legacy/checked bodies' own
+lookup->insert gap using the existing `pg_sleep(0.3)` injection, only in test DBs.
+A leader is observed inside that gap before seven other prepared sessions start:
+8 checked, and 4 legacy + 4 checked in each first-arrival order. Shipped variants
+must have one id / one created:true / one destination. Removing ONLY checked's
+advisory lock must create multiple destinations, including in both mixed orders.
+Real `pg_blocking_pids` observations gate graph UPDATE and claim
+(`SELECT FOR UPDATE` + owner UPDATE) races in both commit orders: writer-first
+must refuse `CG412` without insertion; copy-first copies the checked guest graph
+before the writer can commit. Thus an old guest copy can coexist with a later
+claim; it is not a copy performed after a claim-first commit. REPEATABLE READ
+must refuse `25000` with zero destinations. The script fails on missing lock-wait
+observations or wrong tuples/counts; all connections/cluster/throwaway data are
+cleaned in finally blocks. This is local concurrency evidence, not live rollout
+or PostgREST readiness proof.
 
 ```bash
-npm i --no-save embedded-postgres@17.6.0-beta.15 pg
-node race.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql
-# AS SHIPPED    {"ids":1,"created":1,"rows":1}
-# LOCK REMOVED  {"ids":8,"created":8,"rows":8}
+cd supabase/tests/guest-copy
+node race.mjs ../../migrations/20261011100000_checked_guest_copy_function.sql
 ```
