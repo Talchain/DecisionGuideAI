@@ -148,8 +148,16 @@ key = [l.split('=', 1)[1].strip().strip('"\'') for l in open('/Users/paulslee/.o
 def get(p):
     r = urllib.request.Request('https://api.render.com/v1' + p, headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'})
     return json.load(urllib.request.urlopen(r, timeout=30))
-sid = [s['service']['id'] for s in get('/services?limit=100') if s['service']['name'] == 'cee-staging'][0]
-print([e['envVar']['value'] for e in get('/services/%s/env-vars?limit=100' % sid) if e['envVar']['key'] == 'OPENAI_API_KEY'][0], end='')
+def every(p):
+    # Render pages at 100 and cee-staging has ~126 env vars: follow the cursor or the key can be missed.
+    out, cursor = [], None
+    while True:
+        page = get(p + ('&cursor=' + cursor if cursor else ''))
+        out += page
+        if len(page) < 100: return out
+        cursor = page[-1]['cursor']
+sid = [s['service']['id'] for s in every('/services?limit=100') if s['service']['name'] == 'cee-staging'][0]
+print([e['envVar']['value'] for e in every('/services/%s/env-vars?limit=100' % sid) if e['envVar']['key'] == 'OPENAI_API_KEY'][0], end='')
 PY
 OPENAI_KEY="$(python3 "$W/openai-key.py")"
 rm -f "$W/openai-key.py"

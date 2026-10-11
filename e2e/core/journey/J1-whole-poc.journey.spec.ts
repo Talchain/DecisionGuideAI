@@ -1191,3 +1191,173 @@ test.describe.serial('J1 · whole PoC', () => {
     writeEvidence('J13-deep-link.json', { S, C })
   })
 })
+
+// Batch 0: independent of the original serial journey and its frozen expectations.
+// A weekly capacity is a level, not an accumulated quantity or a deadline claim.
+const CAPACITY_FACTS =
+  'We are comparing two staffing options, labelled exactly "Keep current staffing" and "Add one specialist". ' +
+  'Use the exact goal label "Weekly support capacity". Our existing team resolves 80 tickets per week. ' +
+  'Keep current staffing adds no specialist. Add one specialist adds one specialist. ' +
+  'Each additional specialist resolves about 20 tickets per week, between 10 and 30. ' +
+  'Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. '
+const LEVEL_BRIEF = CAPACITY_FACTS +
+  'Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.'
+const NO_TARGET_BRIEF = CAPACITY_FACTS +
+  'Goal: improve weekly support capacity. We have not set a numeric success target. Do not invent a target.'
+
+async function capacityRun(page: Page, brief: string, label: string) {
+  const captured = captureTurns(page)
+  const pending = new Set<Request>()
+  let lastActivity = Date.now()
+  page.on('request', r => { if (TURN_URL.test(r.url())) { pending.add(r); lastActivity = Date.now() } })
+  const finished = (r: Request) => { if (pending.delete(r)) lastActivity = Date.now() }
+  page.on('requestfinished', finished)
+  page.on('requestfailed', finished)
+  await installWireInterceptor(page)
+  const account = await mintAndInject(page, label)
+  await enterAuthenticated(page)
+  await submitBrief(page, brief)
+  await waitForDraftTurnComplete(page, { timeoutMs: 420_000 })
+  // Let the draft's automatic analysis/narration settle before binding the user Run.
+  await expect.poll(() => pending.size === 0 && Date.now() - lastActivity >= 5_000,
+    { timeout: 180_000, message: `[${label}] draft turns never settled` }).toBe(true)
+  assertBoundaryClean(`${label} draft`)
+  const scenarioId = scenarioIdFromUrl(page.url())
+  expect(scenarioId, `[${label}] draft has no scenario id`).not.toBeNull()
+  const before = await storedRead(scenarioId!, account.user)
+  expect(before.status).toBe(200)
+  const graph = before.body!.graph as Record<string, any>
+  const goals = graph.nodes.filter((n: any) => n.kind === 'goal' && n.label === 'Weekly support capacity')
+  expect(goals, `[${label}] exact goal label missing or ambiguous`).toHaveLength(1)
+  const goal = goals[0]
+  const namedOptions = ['Keep current staffing', 'Add one specialist'].map(optionLabel => {
+    const matches = graph.nodes.filter((n: any) => n.kind === 'option' && n.label === optionLabel)
+    expect(matches, `[${label}] exact option label ${optionLabel} missing or ambiguous`).toHaveLength(1)
+    return matches[0]
+  })
+  const options: Record<string, any>[] = label === 'j1-no-target' ? graph.nodes.filter((n: any) => n.kind === 'option') : namedOptions
+  // Select target carriers by the captured goal id, never by a numeric value.
+  const ownLimits = (graph.goal_constraints ?? []).filter((r: any) => r.node_id === goal.id && !r.deadline_metadata)
+  if (label === 'j1-level') {
+    const target = goal.goal_threshold_raw != null
+      ? { value: goal.goal_threshold_raw, frame: goal.goal_threshold_frame, operator: goal.goal_direction }
+      : ownLimits[0]
+    expect(target, '[j1-level] stated level target was not retained').toBeTruthy()
+    expect(target.value).toBe(100)
+    expect(target.frame ?? target.value_frame).toBe('level')
+    expect(target.operator ?? ownLimits[0]?.operator).toBe('>=')
+  } else {
+    expect(goal.goal_threshold_raw ?? null, '[j1-no-target] invented raw target').toBeNull()
+    expect(goal.goal_threshold ?? null, '[j1-no-target] invented normalised target').toBeNull()
+    expect(ownLimits, '[j1-no-target] invented target constraint').toEqual([])
+  }
+  await openDockTab(page, 'Analysis')
+  const run = page.getByTestId('results-analysis-footer-action')
+    .or(page.getByTestId('pre-analysis-v3-analyse')).or(page.getByTestId('sticky-footer-action')).first()
+  await expect(run).toBeVisible({ timeout: 180_000 })
+  await expect(run).toBeEnabled({ timeout: 180_000 })
+  const start = captured.length
+  await run.click()
+  await expect.poll(() => captured.slice(start).filter(t => analysisResultOf(t.body) !== null).length,
+    { timeout: 240_000, message: `[${label}] user Run returned no analysis_result` }).toBe(1)
+  const turn = captured.slice(start).find(t => analysisResultOf(t.body) !== null)!
+  expect(turn.status).toBe(200)
+  const analysis = analysisResultOf(turn.body)!
+  const after = await storedRead(scenarioId!, account.user)
+  expect(after.status).toBe(200)
+  const held = after.body!
+  expect(held.graph_hash, `[${label}] Run changed the graph`).toBe(before.body!.graph_hash)
+  expect(held.analysis_state?.run_state?.kind).toBe('complete_current')
+  expect(analysis.computed_against_hash).toMatch(HASH)
+  expect(analysis.computed_against_hash).toBe(held.current_read?.computed_against_hash)
+  expect(analysis.computed_against_hash).toBe(held.current_read?.current_analysis_hash)
+  const results = page.getByTestId('results-body-stale-wrapper')
+  await expect(results).toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+  await expect(results).not.toHaveAttribute('aria-busy', 'true')
+  const matrix = results.getByTestId('decision-matrix')
+  await expect(matrix).toBeVisible()
+  if (await matrix.getAttribute('data-section-open') !== 'true') await matrix.getByTestId('decision-matrix-toggle').click()
+  const stamp = matrix.getByTestId('decision-matrix-stamp')
+  expect(held.analysis_state?.run_state?.computed_at).toBeTruthy()
+  await expect(stamp).toHaveAttribute('data-computed-at', held.analysis_state.run_state.computed_at)
+  for (const option of options) {
+    await expect(matrix.getByTestId(`decision-matrix-row-${option.id}`).getByRole('rowheader')).toHaveText(option.label)
+  }
+  const canonical = held.canonical_analysis_view
+  expect(canonical?.run?.graph_hash_at_run).toBe(analysis.computed_against_hash)
+  expect(canonical?.run?.computed_at).toBe(held.analysis_state.run_state.computed_at)
+  expect(canonical.run.run_id).toBeTruthy()
+  await expect(stamp).toHaveAttribute('data-run-id', canonical.run.run_id)
+  writeEvidence(`${label}-run.json`, { scenarioId, graph, analysis, canonical, computedAt: held.analysis_state.run_state.computed_at })
+  assertBoundaryClean(`${label} Run`)
+  return { results, matrix, analysis, canonical, goal, options }
+}
+
+// Separate tests outside the serial group: an old J2 expectation cannot skip these cases.
+test('J1 positive · level-target chance is the named option’s probability_of_goal, not its win share', async ({ page }) => {
+  const { matrix, analysis, canonical, options } = await capacityRun(page, LEVEL_BRIEF, 'j1-level')
+  const option = options[1] // Add one specialist, selected by exact label above, before reading any result values.
+  const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)
+  expect(rows, '[j1-level] Run must contain exactly the named option').toHaveLength(1)
+  const { probability_of_goal: probability, win_probability: winShare } = rows[0]
+  expect(typeof probability).toBe('number')
+  expect(Number.isFinite(probability)).toBe(true)
+  expect(probability).toBeGreaterThanOrEqual(0)
+  expect(probability).toBeLessThanOrEqual(1)
+  expect(typeof winShare).toBe('number')
+  expect(Number.isFinite(winShare)).toBe(true)
+  expect(probability, '[j1-level] this named option must distinguish goal chance from win share').not.toBe(winShare)
+  await expect(matrix.getByRole('columnheader', { name: 'Chance of meeting your goal, in this model', exact: true })).toBeVisible()
+  const cell = matrix.getByTestId(`decision-matrix-chance-${option.id}`)
+  const face = cell.locator(':scope > span').first()
+  await expect(face).toBeVisible()
+  const cells = canonical.options.filter((r: any) => r.option_id === option.id)
+  expect(cells).toHaveLength(1)
+  const point = cells[0].cell
+  // Numeric point only: neither an inequality, a range nor an absence can pass.
+  expect(point.kind).toBe('figure')
+  expect(point.display).toMatch(/^(?:about )?\d+(?:\.\d+)?%$/i)
+  await expect(face).toHaveText(point.face ?? point.display)
+  const faceText = await face.innerText()
+  expect(faceText).toContain(point.display)
+  const displayed = Number(faceText.match(/(?:about )?(\d+(?:\.\d+)?)%/i)![1])
+  const licences = (analysis.enrichment?.inference_warnings ?? []).filter((w: any) => w.code === 'GOAL_CHANCE_LICENSED')
+  expect(licences).toHaveLength(1)
+  const rounding = licences[0].display_rounding_by_option?.[option.id] ?? 'whole'
+  expect(['whole', 'nearest_5']).toContain(rounding)
+  // Compare the raw payload at the display's declared precision; do not use the UI formatter as the oracle.
+  const displayedPercent = (p: number) => rounding === 'whole' ? Math.round(p * 100)
+    : p > 0 && p < 1 ? Math.max(5, Math.min(95, Math.round(p * 20) * 5)) : p * 100
+  expect(displayed, '[j1-level] visible chance differs from this option’s probability_of_goal').toBe(displayedPercent(probability))
+  expect(displayed, '[j1-level] visible chance is the option’s win share').not.toBe(displayedPercent(winShare))
+  writeEvidence('j1-level-chance.json', { optionId: option.id, optionLabel: option.label, probability, winShare, rounding, displayed, dom: await cell.innerText() })
+  assertBoundaryClean('j1-level end')
+})
+
+test('J1 refusal · no target means no chance, with a reason and an actionable next step', async ({ page }) => {
+  const { results, matrix, analysis, canonical, options } = await capacityRun(page, NO_TARGET_BRIEF, 'j1-no-target')
+  for (const option of options) {
+    const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].probability_of_goal, `[j1-no-target] ${option.id} has a goal chance without a target`).toBeUndefined()
+    const cells = canonical.options.filter((r: any) => r.option_id === option.id)
+    expect(cells).toHaveLength(1)
+    expect(['none', 'withheld']).toContain(cells[0].cell.kind)
+    const cell = matrix.getByTestId(`decision-matrix-chance-${option.id}`)
+    await expect(cell).toBeVisible()
+    await expect(cell).not.toContainText(/\d+(?:\.\d+)?\s*%/)
+  }
+  // Open the goal lens by identity, not by finding text that happens to mention a target.
+  await results.getByTestId('hero-lens-tab-goal').click()
+  const reason = results.getByTestId('hero-lens-unavailable')
+  const next = results.getByTestId('hero-define-success')
+  await expect(reason).toBeVisible()
+  await expect(reason).toContainText('Set a success target to unlock Goal fit.')
+  await expect(next).toBeVisible()
+  await expect(next).toBeEnabled()
+  await expect(next).toHaveText('Define success')
+  await expect(results.getByTestId('hero-chart-rows')).toHaveCount(0)
+  await expect(results.getByTestId('goal-chance-range-lines')).toHaveCount(0)
+  writeEvidence('j1-no-target-refusal.json', { optionIds: options.map(o => o.id), reason: await reason.innerText(), nextStep: await next.innerText(), matrix: await matrix.innerText() })
+  assertBoundaryClean('j1-no-target end')
+})
