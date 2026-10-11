@@ -1,26 +1,30 @@
 -- SOURCE PROPOSAL ONLY: DL reviews/applies; never applied by this lane.
--- Checked atomic guest copy; same transaction, same replay key and owner.
--- Legacy callers with both trailing NULLs are unchecked by design. The CEE
--- controlled door ALWAYS supplies both. CG412 = checked source graph/revision/
--- guest status changed (or incomplete binding); CEE maps it to existing 409.
+-- ADDITIVE: public.copy_guest_scenario(uuid,uuid) is NEVER dropped or altered.
+-- Legacy two-argument callers remain unchecked by design; CEE NEVER calls them.
+-- Checked args are ALL required, no defaults; any SQL NULL -> 22023 before reads.
+-- CG412 = locked graph/revision/guest status differs; CEE uses existing 409.
+-- Equal JSON VALUE; stored representation of an equal value is copied.
+-- Identity hashes are value-based; JS cannot emit 1.0, so text equality is wrong.
+-- Replay is recovery of the original destination identity (created:false), NOT
+-- attestation of the newly checked source. Same legacy advisory key/replay row.
 -- Prerequisite: public.scenarios.revision and its existing revision trigger.
--- No table, trigger, RLS or data changes. Legacy API/defaults/refusals preserved.
--- DROP+CREATE in one transaction avoids an ambiguous PostgREST overload.
--- DEPLOY: DB migration FIRST, then CEE; rollback CEE first, then DB.
--- PRE-CHECK (DL runs live; this lane cannot):
--- SELECT pg_catalog.pg_get_functiondef(p.oid), p.proacl,
---        pg_catalog.pg_get_function_arguments(p.oid)
+-- DEPLOY: DB FIRST (additive: nothing existing changes), then CEE.
+-- ROLLBACK: CEE FIRST, then drop ONLY the new checked function.
+-- PRE-CHECK / POST-CHECK (DL runs live; this lane cannot):
+-- SELECT p.oid, pg_catalog.pg_get_function_arguments(p.oid), p.proacl,
+--        pg_catalog.md5(p.prosrc), pg_catalog.pg_get_functiondef(p.oid)
 -- FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
--- WHERE n.nspname='public' AND p.proname='copy_guest_scenario';
--- Expected exactly ONE row: p_source_scenario_id uuid, p_user_id uuid;
--- body = 20261001222932_copy_guest_scenario_20261001.sql. Otherwise STOP.
+-- WHERE n.nspname='public' AND p.proname IN
+--   ('copy_guest_scenario','copy_guest_scenario_checked');
+-- Legacy: exactly ONE uuid,uuid row; body md5 BEFORE/AFTER =
+-- 135dd0df039e3ad513eb289eff06bd50 (baseline 20261001222932), same OID/ACL.
+-- Checked: zero rows BEFORE; one uuid,uuid,jsonb,bigint row AFTER, no defaults,
+-- SECURITY DEFINER, empty search_path, EXECUTE only owner + service_role.
 
 BEGIN;
-DROP FUNCTION public.copy_guest_scenario(uuid, uuid);
-
-CREATE FUNCTION public.copy_guest_scenario(
+CREATE FUNCTION public.copy_guest_scenario_checked(
   p_source_scenario_id uuid, p_user_id uuid,
-  p_checked_source_graph jsonb DEFAULT NULL, p_checked_source_revision bigint DEFAULT NULL
+  p_checked_source_graph jsonb, p_checked_source_revision bigint
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -35,6 +39,12 @@ DECLARE
   v_revision   bigint;
   v_new        uuid;
 BEGIN
+  -- REQUIRED_CHECKED_ARGUMENTS: reject every NULL before reads or replay.
+  IF p_source_scenario_id IS NULL OR p_user_id IS NULL
+     OR p_checked_source_graph IS NULL OR p_checked_source_revision IS NULL THEN
+    RAISE EXCEPTION 'copy_guest_scenario_checked: all arguments are required' USING ERRCODE = '22023';
+  END IF;
+  -- END_REQUIRED_CHECKED_ARGUMENTS
   IF p_source_scenario_id IS NULL THEN
     RAISE EXCEPTION 'copy_guest_scenario: p_source_scenario_id is required' USING ERRCODE = '22023';
   END IF;
@@ -70,15 +80,11 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'copy_guest_scenario: source not found' USING ERRCODE = 'CG404';
   END IF;
-  -- CHECKED_SOURCE_BINDING: replay has already returned; this locked state is
-  -- the only state an INSERT below can copy. A partial binding is never legacy.
-  IF p_checked_source_graph IS NOT NULL OR p_checked_source_revision IS NOT NULL THEN
-    IF p_checked_source_graph IS NULL OR p_checked_source_revision IS NULL
-       OR v_graph IS DISTINCT FROM p_checked_source_graph
-       OR v_revision IS DISTINCT FROM p_checked_source_revision
-       OR v_owner IS NOT NULL THEN
-      RAISE EXCEPTION 'copy_guest_scenario: checked source changed' USING ERRCODE = 'CG412';
-    END IF;
+  -- CHECKED_SOURCE_BINDING: replay has already returned; compare locked values.
+  IF v_graph IS DISTINCT FROM p_checked_source_graph
+     OR v_revision IS DISTINCT FROM p_checked_source_revision
+     OR v_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'copy_guest_scenario: checked source changed' USING ERRCODE = 'CG412';
   END IF;
   -- END_CHECKED_SOURCE_BINDING
   IF v_owner IS NOT NULL THEN
@@ -99,7 +105,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.copy_guest_scenario(uuid, uuid, jsonb, bigint) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.copy_guest_scenario(uuid, uuid, jsonb, bigint) TO service_role;
+REVOKE ALL ON FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint) TO service_role;
 
 COMMIT;

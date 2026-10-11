@@ -46,3 +46,27 @@ create trigger scenarios_updated_at before update on public.scenarios for each r
 -- The turn/fact tables a Run lives in (only the columns these rows read).
 create table public.v5_conversation_turns(id uuid primary key default gen_random_uuid(), scenario_id uuid not null, user_id uuid);
 create table public.v5_handler_facts(id uuid primary key default gen_random_uuid(), scenario_id uuid not null, user_id uuid, v5_conversation_turn_id uuid not null references public.v5_conversation_turns(id));
+
+-- Verbatim function from CEE 20261008190000_phase2_c_revision_drop_brief.sql.
+CREATE OR REPLACE FUNCTION public.scenarios_bump_revision()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.graph IS DISTINCT FROM OLD.graph OR NEW.brief_text IS DISTINCT FROM OLD.brief_text
+     OR NEW.framing IS DISTINCT FROM OLD.framing OR NEW.stage IS DISTINCT FROM OLD.stage
+     OR NEW.current_model_version_id IS DISTINCT FROM OLD.current_model_version_id THEN
+    NEW.revision := OLD.revision + 1;
+  ELSE
+    NEW.revision := OLD.revision;   -- pins revision: no writer can set it directly
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Verbatim trigger from CEE 20261008160000_phase2_c_scenario_revision.sql
+-- (the 190000 migration replaces only the function, not its trigger).
+CREATE TRIGGER scenarios_bump_revision
+BEFORE UPDATE ON public.scenarios
+FOR EACH ROW EXECUTE FUNCTION public.scenarios_bump_revision();

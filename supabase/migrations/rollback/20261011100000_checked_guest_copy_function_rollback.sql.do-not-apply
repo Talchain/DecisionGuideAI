@@ -1,0 +1,30 @@
+-- SOURCE PROPOSAL ONLY: DL reviews/applies; never applied by this lane.
+-- ADDITIVE: public.copy_guest_scenario(uuid,uuid) is NEVER dropped or altered.
+-- Legacy two-argument callers remain unchecked by design; CEE NEVER calls them.
+-- Checked args are ALL required, no defaults; any SQL NULL -> 22023 before reads.
+-- CG412 = locked graph/revision/guest status differs; CEE uses existing 409.
+-- Equal JSON VALUE; stored representation of an equal value is copied.
+-- Identity hashes are value-based; JS cannot emit 1.0, so text equality is wrong.
+-- Replay is recovery of the original destination identity (created:false), NOT
+-- attestation of the newly checked source. Same legacy advisory key/replay row.
+-- Prerequisite: public.scenarios.revision and its existing revision trigger.
+-- DEPLOY: DB FIRST (additive: nothing existing changes), then CEE.
+-- ROLLBACK: CEE FIRST, then drop ONLY the new checked function.
+-- PRE-CHECK / POST-CHECK (DL runs live; this lane cannot):
+-- SELECT p.oid, pg_catalog.pg_get_function_arguments(p.oid), p.proacl,
+--        pg_catalog.md5(p.prosrc), pg_catalog.pg_get_functiondef(p.oid)
+-- FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+-- WHERE n.nspname='public' AND p.proname IN
+--   ('copy_guest_scenario','copy_guest_scenario_checked');
+-- Legacy: exactly ONE uuid,uuid row; body md5 BEFORE/AFTER =
+-- 135dd0df039e3ad513eb289eff06bd50 (baseline 20261001222932), same OID/ACL.
+-- Checked: zero rows BEFORE; one uuid,uuid,jsonb,bigint row AFTER, no defaults,
+-- SECURITY DEFINER, empty search_path, EXECUTE only owner + service_role.
+
+BEGIN;
+-- Rollback pre-check: one checked row exists. After rollback it is absent;
+-- the same legacy row/body/OID/ACL remains. Initial deployment pre-check above
+-- requires zero checked rows BEFORE forward migration.
+BEGIN;
+DROP FUNCTION public.copy_guest_scenario_checked(uuid, uuid, jsonb, bigint);
+COMMIT;

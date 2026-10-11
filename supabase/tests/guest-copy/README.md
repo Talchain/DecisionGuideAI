@@ -5,8 +5,8 @@ This is a dry run of `copy_guest_scenario` on PGlite (Postgres running in-proces
 - Every row binds to exact ids, SQLSTATE + message, or whole-row tuples. The script exits 1 if any row fails or no migration is given.
 
 ```bash
-cd supabase/tests/guest-copy && npm i --no-save @electric-sql/pglite@0.2
-node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   # 18/18
+cd supabase/tests/guest-copy
+node run.mjs ../../migrations/20261011100000_checked_guest_copy_function.sql
 ```
 
 | Row | Claim |
@@ -23,19 +23,18 @@ node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   
 | C13, C13b | A source graph over the 1 MiB cap is refused (`CG413`) and nothing is written; just under the cap copies (DL condition 3). |
 | C12 | Exactly the expected rows were written in the whole run (3 copies + C11b's source + its copy). |
 
-Mutants, each applied to the migration on its own:
-
-| Mutant | Rows it turns RED |
-|---|---|
-| Owned-source check removed | C4, C12 |
-| Idempotent lookup removed | C3, C11, C12 |
-| REVOKE removed | C5, C5b, C10 |
-| Claim instead of copy (ownership moves) | C2, C9, C11, C12 |
-| `search_path = public` | C10 |
-| auth-user check removed | C6, C12 |
-| size cap removed | C13, C12 |
-| the hash anchor copied | C1 |
-| bare `scenarios` in the source SELECT + `search_path = public` | C10, C11b, C12 |
+The runner applies setup + unchanged legacy baseline, then the additive checked migration.
+The 18 legacy rows run before and after; new rows cover the required-argument checked
+function, destination tuples, real trigger-driven revision changes, recovery replay,
+JSON value equality (stored 1.0 may equal checked 1), ACLs, TEMP shadow and SQL rollback.
+`scenarios_bump_revision()` is verbatim CEE 20261008190000; its trigger is verbatim
+20261008160000 (the later migration only replaces the function).
+Mutants are independent: equality removed -> C15eq RED; REVOKE removed -> checked
+C5/C10 RED; comparison before replay -> C17 RED; NULL preflight removed -> C20 RED.
+Legacy C5/C10 remain green when only the checked function's REVOKE is removed.
+Deploy DB first (nothing existing changes), then CEE; rollback CEE first, then drop
+only the checked function. Legacy callers stay unchecked; CEE must never call them.
+Catalog/sequential evidence is not PostgREST rollout or multi-session race proof.
 
 **Race (`race.mjs`, real Postgres).** PGlite has one connection, so concurrency runs on `embedded-postgres`. 8 sessions call the function at once, each in its own open transaction, with a `pg_sleep(0.3)` injected between the idempotent lookup and the INSERT to hold the window open. The control variant removes the advisory lock.
 
