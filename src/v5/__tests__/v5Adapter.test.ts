@@ -448,3 +448,24 @@ describe('callV5Turn — endpoint resolution', () => {
     expect(__internals.resolveEndpoint()).toBe('https://cee.test/proxy/v5/turn');
   });
 });
+
+it('acknowledges HTTP headers before waiting for the body', async () => {
+  vi.stubEnv('VITE_V5_ENDPOINT', 'https://cee.test/proxy/v5/turn')
+  let release!: (text: string) => void
+  const body = new Promise<string>(resolve => { release = resolve })
+  const response = new Response('', { status: 503, headers: { 'content-type': 'application/json' } })
+  vi.spyOn(response, 'text').mockImplementation(() => body)
+  const acknowledged = vi.fn()
+  const sending = callV5Turn(validPayload, {
+    fetchImpl: vi.fn(async () => response), onResponseReceived: acknowledged,
+  })
+  try {
+    await vi.waitFor(() => expect(response.text).toHaveBeenCalledOnce())
+    expect(acknowledged).toHaveBeenCalledOnce()
+  } finally {
+    release(JSON.stringify({ code: 'UNAVAILABLE' }))
+    await sending
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  }
+})

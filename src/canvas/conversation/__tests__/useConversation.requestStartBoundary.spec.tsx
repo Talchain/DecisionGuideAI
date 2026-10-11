@@ -4,7 +4,7 @@ import { act, renderHook } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useServerConversationTurnsStore } from '../../stores/serverConversationTurnsStore'
-import { assertsDeliveryUnknown, assertsNonDelivery } from '../deliveryUnknown'
+import { assertsNonDelivery } from '../deliveryUnknown'
 import { loadTranscript, __resetTranscriptTombstonesForTests } from '../utils/transcriptStore'
 import * as adapter from '../../../v5/v5Adapter'
 import * as parser from '../../../v5/responseParser'
@@ -63,24 +63,24 @@ describe('Round 4 request start boundary', () => {
     expect(user.deliveryRequestId).toBeUndefined()
     expect(loadTranscript(SID)?.messages.some(m => m.id === user.id) ?? false).toBe(false)
     const notice = result.current.messages.at(-1)!
-    expect(assertsNonDelivery(notice.content)).toBe(true)
+    expect(notice.content).toBe("Your message wasn't sent — check your connection and try again.")
     expect(notice.actionChips?.map(c => c.id)).toEqual(['retry'])
     expect(result.current.lastSendFailure?.retryable).toBe(true)
     unmount()
   })
 
-  it('CONTROL: the same native rejection from an invoked fetch stays unconfirmed', async () => {
+  it('CONTROL: an invoked fetch that returns no response is also not delivered', async () => {
     const fetchSpy = vi.fn(async () => { throw new TypeError('Failed to fetch') })
     vi.stubGlobal('fetch', fetchSpy)
     const { result, unmount } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage(INPUT) })
     const user = result.current.messages.find(m => m.role === 'user')!
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(user.deliveryState).toBe('unconfirmed')
-    expect(loadTranscript(SID)?.messages.find(m => m.id === user.id)?.deliveryState).toBe('unconfirmed')
-    expect(assertsDeliveryUnknown(result.current.messages.at(-1)!.content)).toBe(true)
-    expect(result.current.messages.at(-1)!.actionChips ?? []).toEqual([])
-    expect(result.current.lastSendFailure?.retryable).toBe(false)
+    expect(user.deliveryState).toBe('failed')
+    expect(loadTranscript(SID)?.messages.some(m => m.id === user.id) ?? false).toBe(false)
+    expect(result.current.messages.at(-1)!.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(result.current.messages.at(-1)!.actionChips?.map(c => c.id)).toEqual(['retry'])
+    expect(result.current.lastSendFailure?.retryable).toBe(true)
     unmount()
   })
 

@@ -196,7 +196,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     expect((result.current.lastSendFailure?.inputText ?? null)).toBe('coffee subscription brief')
   })
 
-  it('504 proxy timeout: structured lastSendFailure fires with transport class (point-of-failure surfaces consume this)', async () => {
+  it('504 proxy timeout: structured lastSendFailure records the actual HTTP server error (point-of-failure surfaces consume this)', async () => {
     stubFetchWith(504, PROXY_504_BODY)
     const { result } = renderHook(() => useConversation())
     await act(async () => {
@@ -205,7 +205,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
 
     expect(result.current.lastSendFailure).toEqual(
       expect.objectContaining({
-        kind: 'transport',
+        kind: 'server',
         // 2.665: copy-agrees-with-affordance — no retry is offered on an
         // unverified delivery, so none is advertised.
         retryable: false,
@@ -214,7 +214,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     )
   })
 
-  it('network failure (fetch throws): user message marked unconfirmed, transport-honest copy', async () => {
+  it('network failure before any response: user message marked not delivered with connection copy', async () => {
     const fetchStub = vi.fn(async () => {
       throw new TypeError('Failed to fetch')
     })
@@ -226,12 +226,11 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     })
 
     const userMsg = result.current.messages.find((m) => m.role === 'user')
-    expect(userMsg?.deliveryState).toBe('unconfirmed')
+    expect(userMsg?.deliveryState).toBe('failed')
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.role).toBe('assistant')
-    expect(assertsDeliveryUnknown(last.content)).toBe(true)
-    expect(last.content).not.toContain('Something went wrong on our side')
-    expect(result.current.lastSendFailure?.kind).toBe('transport')
+    expect(last.content).toBe("Your message wasn't sent — check your connection and try again.")
+    expect(result.current.lastSendFailure?.kind).toBe('not_sent')
   })
 
   it('CEE-class BoundaryError: #391 copy preserved AND the user message is now marked failed', async () => {
