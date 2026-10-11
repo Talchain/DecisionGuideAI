@@ -637,7 +637,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  */
 export const USER_EDGE_DEFAULTS: EdgeData = {
   weight: 0.3,            // Moderate starting strength (encourages calibration)
-  direction: 'positive',  // Default positive causal direction
+  // Direction is absent until explicitly reviewed; drawing makes no sign claim.
   style: 'solid',
   curvature: 0.15,
   pathType: 'bezier',

@@ -235,7 +235,7 @@ describe('fence 409 — the staleness banner must NOT render for a write-fence r
     })
     const userMsg = result.current.messages.find((m) => m.role === 'user')
     expect(userMsg?.deliveryState).toBe('failed')
-    expect(result.current.lastSendFailure?.kind).toBe('server')
+    expect(result.current.lastSendFailure?.kind).toBe('rejected')
   })
 })
 
