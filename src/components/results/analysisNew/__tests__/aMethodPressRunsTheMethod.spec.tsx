@@ -12,9 +12,9 @@
  *
  * Bound by IDENTITY: catalogue ids read from `METHOD_CATALOGUE`, the strip's
  * own test ids, and the exact chip id each method sends. A method is an action
- * in `ACTION_REGISTRY` (S-B slice 0), which owns that id: the two methods CEE
- * has a typed handler for send its press id on a current Run; the other five
- * are PROSE rows (interim) and send `ask:<intent>`.
+ * in `ACTION_REGISTRY` (S-B slice 0), which owns that id: the typed methods
+ * send CEE's press id, including bias check; the other four remain PROSE rows
+ * (INTERIM ordinary Agent turns) and send `ask:<intent>`.
  */
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
@@ -62,7 +62,7 @@ const SENT_ID_ON_A_CURRENT_RUN: Readonly<Record<string, string>> = {
   outside_view: 'ask:method-outside-view',
   pre_mortem: 'agent-next-pre-mortem',
   explore_tradeoffs: 'ask:compare-options',
-  review_bias: 'ask:method-bias',
+  review_bias: 'act:bias_check',
 }
 
 /** The question each PROSE method asks (DL-approved register, Q15). */
@@ -175,14 +175,14 @@ describe('a method press on the Reasoning tab runs the method', () => {
     expect(screen.getByTestId(`${STRIP}-method-reframe_problem`)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('⛔ CONTRAST — before a Run the pre-mortem sends its plain ask; a different option reaches CEE’s own handler at every stage', () => {
+  it('⛔ CONTRAST — before a Run the pre-mortem keeps its typed handler; a different option reaches CEE’s own handler at every stage', () => {
     seedModel(false)
     vi.mocked(selectRunAffirmedCurrent).mockReturnValue(false)
     mount({ isPreRun: true })
     pressMethod('pre_mortem')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     pressMethod('different_option')
-    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['ask:pre-mortem', 'agent-next-widen'])
+    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['agent-next-pre-mortem', 'agent-next-widen'])
   })
 
   it('the Challenge card’s ✦ on the picked method sends the same turn again, in one press', () => {
@@ -202,7 +202,7 @@ describe('a method press on the Reasoning tab runs the method', () => {
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-menu-method-review_bias'))
     expect(dispatch).toHaveBeenCalledTimes(2)
-    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('ask:method-bias')
+    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('act:bias_check')
   })
 })
 
@@ -342,7 +342,7 @@ describe('CEE’s action bar heads the Reasoning tab when the latest answer carr
 describe('every reasoning method the bar does not carry is in the bar’s ⋯, and one press runs it', () => {
   const SCENARIO = 'scn-reasoning-methods'
   const BAR = 'reasoning-action-bar'
-  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs', 'review_bias']
+  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs']
   const withheldRun = (): ActionBarV1 => parseActionBar(JSON.parse(readFileSync(
     join(__dirname, '../../../../canvas/conversation/actionBar/__tests__/fixtures/action-bar-v1-withheld-run.json'), 'utf8')))!
   const menuRows = () => {
@@ -357,12 +357,12 @@ describe('every reasoning method the bar does not carry is in the bar’s ⋯, a
   })
   afterEach(() => useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }))
 
-  it('PRECONDITION: the five are exactly the catalogue methods whose action has no typed handler', () => {
+  it('PRECONDITION: the four are exactly the catalogue methods whose action has no typed handler', () => {
     const prose = METHOD_CATALOGUE.filter((m) => ACTION_REGISTRY[actionOfMethod(m.id)!].handler.kind === 'prose').map((m) => m.id)
     expect(prose).toEqual(PROSE_METHODS)
   })
 
-  it('RED (served): with a bar, the five are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
+  it('RED (served): with a bar, the four are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
     mount()
     expect(screen.queryByTestId(STRIP), 'the strip is gone').toBeNull()
     const rows = menuRows()
@@ -371,7 +371,7 @@ describe('every reasoning method the bar does not carry is in the bar’s ⋯, a
     expect(rows).not.toContain(`${BAR}-menu-host-different_option`)
     expect(screen.getByTestId(`${BAR}-menu-group-host-methods`)).toHaveTextContent('Reasoning methods')
     // Methods before the tab's own workflow controls.
-    expect(rows.indexOf(`${BAR}-menu-host-review_bias`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
+    expect(rows.indexOf(`${BAR}-menu-host-explore_tradeoffs`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
   })
 
   it.each(PROSE_METHODS)('%s: one press from the bar’s ⋯ sends ONE chip turn with the method’s own id, and opens no drawer', (id) => {

@@ -16,6 +16,7 @@ import { useGuidanceStore } from '../../stores/guidanceStore'
 import { ASK_BUSY_NOTICE } from '../askAi'
 import { revealOlumiSurface } from '../revealOlumi'
 import type { ActionBarRevision, ActionOffer } from './actionBarContract'
+import { registeredPressId } from '../actionRegistry'
 
 export type PressOfferResult = 'sent' | 'busy' | 'refire' | 'disabled' | 'none'
 
@@ -39,7 +40,7 @@ export function pressOffer(offer: ActionOffer, revision: ActionBarRevision): Pre
   lastPress.set(offer.offer_key, now)
   try {
     dispatch({
-      id: offer.press_id,
+      id: registeredPressId(offer.action_id) ?? offer.press_id,
       label: offer.label,
       message: offer.user_line,
       parameters: { offer_key: offer.offer_key, revision },
