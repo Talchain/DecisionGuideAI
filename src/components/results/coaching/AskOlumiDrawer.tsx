@@ -55,8 +55,7 @@ export function AskOlumiDrawer() {
 
   const dispatchAction = useGuidanceStore((s) => s._dispatchAction)
   const sendMessage = useGuidanceStore((s) => s._sendMessage)
-  // A retained typed method cannot be downgraded to the free-text sender while the conversation mounts.
-  const canSend = dispatchAction !== null || (sendMessage !== null && !parameters?.chip_id)
+  const canSend = dispatchAction !== null || sendMessage !== null
   // ACCOUNTS viewer mode (PANEL 5951237365): the drawer sends a turn, which only the
   // owner may; a viewer gets the same neutral notice as the composer.
   const isViewer = useIsViewer()

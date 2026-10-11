@@ -1,13 +1,14 @@
 /**
  * One local method → action → typed press mapping, shared by Reasoning and chat.
- * CEE routes on chip.id; labels and prose are display/context, never a method selector.
+ * Typed rows select CEE handlers through chip.id; labels supply display/context.
  *
  * Existing capabilities verified in CEE staging source 5404dff6077f:
  * src/orchestrator-v5/agent-lane/actions/{registry,handlers}.ts.
  * Bias check is act:bias_check (a deterministic typed reply). Reframe, opposite
  * case, outside view and trade-offs have no equivalent typed handler. Their
- * prose question families remain available to ordinary Ask, but method controls
- * are unavailable until CEE supplies the corresponding capability.
+ * prose rows remain INTERIM: a press sends the existing question family as an
+ * ordinary Agent chip turn under ask:<intent>. These are available controls,
+ * not implemented reasoning protocols. Do not describe them as running one.
  *
  * Generic Ask retains its existing stage rules. Explicit method presses keep
  * the typed id and let CEE enforce its own preconditions, or reuse the current
@@ -60,18 +61,14 @@ export const ACTION_REGISTRY = {
 /** The same rows, read through the entry type (the const form exists so a typed row's `press_id` is checked at compile time). */
 const ENTRIES: Readonly<Record<ActionId, ActionEntry>> = ACTION_REGISTRY
 
-/** Existing unavailable treatment; a prose ask is not an implemented method. */
-export const METHOD_UNAVAILABLE_REASON = 'Coming soon'
-
+/** Both typed handlers and interim prose turns are available method presses. */
 export function methodIsAvailable(methodId: string): boolean {
-  const action = actionOfMethod(methodId)
-  return action !== undefined && ENTRIES[action].handler.kind === 'typed'
+  return actionOfMethod(methodId) !== undefined
 }
 
-/** CEE may add actions independently. Only locally registered methods are capability-gated here. */
-export function actionIsAvailable(actionId: string): boolean {
-  return !Object.prototype.hasOwnProperty.call(ENTRIES, actionId)
-    || ENTRIES[actionId as ActionId].handler.kind === 'typed'
+/** All registered rows are available; CEE-only actions retain their existing behaviour. */
+export function actionIsAvailable(_actionId: string): boolean {
+  return true
 }
 
 /** Both action-bar surfaces and catalogue presses read the same typed mapping. */

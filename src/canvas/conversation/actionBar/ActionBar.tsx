@@ -32,7 +32,6 @@ import type { ActionBarV1, ActionOffer } from './actionBarContract'
 import { useActionBarStore } from './actionBarStore'
 import { BiasRiskRow } from './BiasRiskRow'
 import { pressOffer } from './pressOffer'
-import { actionIsAvailable, METHOD_UNAVAILABLE_REASON } from '../actionRegistry'
 
 export type ActionBarSurface = 'chat' | 'reasoning'
 
@@ -73,7 +72,6 @@ export interface ActionBarHostItem {
   label: string
   Icon: ActionGlyph
   onSelect: () => void
-  disabledReason?: string
 }
 
 /** One labelled group of host controls in the ⋯ menu. */
@@ -109,19 +107,15 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   const type = typeScale ?? CHAT_TYPE
 
   const { pills, icons, menu } = useMemo(() => {
-    const capability = (offer: ActionOffer): ActionOffer => actionIsAvailable(offer.action_id)
-      ? offer : { ...offer, enabled: false, disabled_reason: METHOD_UNAVAILABLE_REASON }
-    const priority = bar.priority.map(capability)
-    const standard = bar.standard.map(capability)
-    const live = priority.filter((offer) => !dismissed.includes(offer.offer_key))
-    const hidden = priority.filter((offer) => dismissed.includes(offer.offer_key))
+    const live = bar.priority.filter((offer) => !dismissed.includes(offer.offer_key))
+    const hidden = bar.priority.filter((offer) => dismissed.includes(offer.offer_key))
     const pillCount = compact ? 1 : 2
     const iconCount = compact ? COMPACT_ICONS : bar.standard.length
     return {
       pills: live.slice(0, pillCount),
-      icons: standard.slice(0, iconCount),
+      icons: bar.standard.slice(0, iconCount),
       // Nothing CEE offered is lost to the layout: what does not fit, or was hidden, is in the menu.
-      menu: [...live.slice(pillCount), ...hidden, ...standard.slice(iconCount), ...bar.more.map(capability)],
+      menu: [...live.slice(pillCount), ...hidden, ...bar.standard.slice(iconCount), ...bar.more],
     }
   }, [bar, compact, dismissed])
 
@@ -311,18 +305,12 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                         key={item.id}
                         type="button"
                         role="menuitem"
-                        aria-disabled={item.disabledReason ? 'true' : undefined}
-                        title={item.disabledReason}
                         onClick={() => {
-                          if (item.disabledReason) {
-                            setNotice(`${item.label}: ${item.disabledReason}`)
-                            return
-                          }
                           close(true)
                           item.onSelect()
                         }}
                         data-testid={`${testId}-menu-host-${item.id}`}
-                        className={`flex w-full min-h-[34px] items-center gap-2 rounded-sm px-2 py-2 text-left ${type.body} ${item.disabledReason ? 'text-text-light opacity-40' : 'text-text-body hover:bg-panel-hover'} focus-visible:bg-panel-hover ${ACTION_FOCUS}`}
+                        className={`flex w-full min-h-[34px] items-center gap-2 rounded-sm px-2 py-2 text-left ${type.body} text-text-body hover:bg-panel-hover focus-visible:bg-panel-hover ${ACTION_FOCUS}`}
                       >
                         <item.Icon className={`${icon('row')} shrink-0 text-text-light`} aria-hidden={true} />
                         {item.label}

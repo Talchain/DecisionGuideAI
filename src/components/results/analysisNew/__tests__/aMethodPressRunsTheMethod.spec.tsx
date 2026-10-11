@@ -1,8 +1,20 @@
 /**
- * Reasoning-tab method interaction contract. SYS9 changes the old interim prose
- * expectation: supported methods send existing typed presses; unsupported ones
- * stay visible but disabled. Selection/lifecycle checks use available methods.
- * The real route/payload/parser/render witness is reasoningMethods.actionSpine.spec.tsx.
+ * ⭐ A REASONING METHOD PRESS RUNS THE METHOD (Paul, 7 Oct 2026: "The reasoning
+ * tab already has a complete set of icons and a dropdown with what we call
+ * reasoning methods. They don't seem to be working properly, so we actually
+ * need to make them genuinely work.").
+ *
+ * THE SPEC: one press on a method — its icon on the strip, or its row in the
+ * "All methods and actions" menu — sends ONE chip turn to Olumi and opens no
+ * drawer. Before this, the press only swapped the Challenge card's heading
+ * further down the panel and sent nothing; reaching Olumi took two more
+ * presses (the card's ✦, then the drawer's Send).
+ *
+ * Bound by IDENTITY: catalogue ids read from `METHOD_CATALOGUE`, the strip's
+ * own test ids, and the exact chip id each method sends. A method is an action
+ * in `ACTION_REGISTRY` (S-B slice 0), which owns that id: the typed methods
+ * send CEE's press id, including bias check; the other four remain PROSE rows
+ * (INTERIM ordinary Agent turns) and send `ask:<intent>`.
  */
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
@@ -13,7 +25,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision } from './analysisNewFixtures'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
-import { ACTION_REGISTRY, actionOfMethod, methodIsAvailable } from '../../../../canvas/conversation/actionRegistry'
+import { ACTION_REGISTRY, actionOfMethod } from '../../../../canvas/conversation/actionRegistry'
 import { parseActionBar, type ActionBarV1 } from '../../../../canvas/conversation/actionBar/actionBarContract'
 import { useActionBarStore } from '../../../../canvas/conversation/actionBar/actionBarStore'
 import { resetPressOfferClocks } from '../../../../canvas/conversation/actionBar/pressOffer'
@@ -145,11 +157,6 @@ describe('a method press on the Reasoning tab runs the method', () => {
   it.each(METHOD_IDS)('%s: one press sends ONE chip turn under its own id and opens no drawer', (id) => {
     mount()
     pressMethod(id)
-    if (!methodIsAvailable(id)) {
-      expect(dispatch).not.toHaveBeenCalled()
-      expect(useAskOlumiStore.getState().isOpen).toBe(false)
-      return
-    }
     expect(dispatch).toHaveBeenCalledTimes(1)
     const sent = dispatch.mock.calls[0][0] as { id: string; label: string; message: string; source: string }
     expect(sent.id).toBe(SENT_ID_ON_A_CURRENT_RUN[id])
@@ -163,8 +170,8 @@ describe('a method press on the Reasoning tab runs the method', () => {
 
   it('the pressed method is marked active on the strip, and a CONTRAST sibling is not', () => {
     mount()
-    pressMethod('pre_mortem')
-    expect(screen.getByTestId(`${STRIP}-method-pre_mortem`)).toHaveAttribute('aria-pressed', 'true')
+    pressMethod('outside_view')
+    expect(screen.getByTestId(`${STRIP}-method-outside_view`)).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId(`${STRIP}-method-reframe_problem`)).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -180,7 +187,7 @@ describe('a method press on the Reasoning tab runs the method', () => {
 
   it('the Challenge card’s ✦ on the picked method sends the same turn again, in one press', () => {
     mount()
-    pressMethod('pre_mortem')
+    pressMethod('outside_view')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-work-through'))
     expect(dispatch).toHaveBeenCalledTimes(2)
@@ -190,7 +197,7 @@ describe('a method press on the Reasoning tab runs the method', () => {
 
   it('a method picked from the Challenge card’s own menu runs too (the two menus cannot drift)', () => {
     mount()
-    pressMethod('pre_mortem')
+    pressMethod('outside_view')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-menu-method-review_bias'))
@@ -203,10 +210,10 @@ describe('a method press is never dead and never doubles', () => {
   it('with no conversation mounted, the press opens the drawer with the method’s own draft', () => {
     useGuidanceStore.setState({ _dispatchAction: null } as never)
     mount()
-    pressMethod('pre_mortem')
+    pressMethod('outside_view')
     const drawer = useAskOlumiStore.getState()
     expect(drawer.isOpen).toBe(true)
-    expect(drawer.label).toBe(METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!.title)
+    expect(drawer.label).toBe(METHOD_CATALOGUE.find((m) => m.id === 'outside_view')!.title)
     expect(drawer.draft.trim()).not.toBe('')
   })
 
@@ -216,7 +223,7 @@ describe('a method press is never dead and never doubles', () => {
     const onToast = (e: Event) => toasts.push((e as CustomEvent<{ message: string }>).detail.message)
     window.addEventListener('topbar:show-toast', onToast)
     mount()
-    pressMethod('pre_mortem')
+    pressMethod('outside_view')
     window.removeEventListener('topbar:show-toast', onToast)
     expect(dispatch).not.toHaveBeenCalled()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
@@ -225,8 +232,8 @@ describe('a method press is never dead and never doubles', () => {
 
   it('a double press inside the refire window sends once', () => {
     mount()
-    pressMethod('pre_mortem')
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-pre_mortem`))
+    pressMethod('outside_view')
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-outside_view`))
     expect(dispatch).toHaveBeenCalledTimes(1)
   })
 })
@@ -367,13 +374,12 @@ describe('every reasoning method the bar does not carry is in the bar’s ⋯, a
     expect(rows.indexOf(`${BAR}-menu-host-explore_tradeoffs`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
   })
 
-  it.each(PROSE_METHODS)('%s: unsupported method is disabled and spends no turn', (id) => {
+  it.each(PROSE_METHODS)('%s: one press from the bar’s ⋯ sends ONE chip turn with the method’s own id, and opens no drawer', (id) => {
     mount()
     menuRows()
     fireEvent.click(screen.getByTestId(`${BAR}-menu-host-${id}`))
-    expect(screen.getByTestId(`${BAR}-menu-host-${id}`)).toHaveAttribute('aria-disabled', 'true')
-    expect(dispatch).not.toHaveBeenCalled()
-    expect(screen.getByTestId(`${BAR}-notice`)).toHaveTextContent('Coming soon')
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: SENT_ID_ON_A_CURRENT_RUN[id], source: 'chip' }))
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })

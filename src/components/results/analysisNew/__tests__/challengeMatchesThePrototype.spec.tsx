@@ -215,7 +215,7 @@ describe('the footer acts', () => {
     draw({ intervention: viaVm(FLIP) })
     expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Ask Olumi to guide this method')
     cleanup()
-    draw({ intervention: viaVm(FLIP), methodId: 'pre_mortem' })
+    draw({ intervention: viaVm(FLIP), methodId: 'outside_view' })
     expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Ask Olumi to guide this method')
     cleanup()
     // Slice D-4 (27 Sep): with no method, the recommendation's own act names
@@ -264,9 +264,9 @@ describe('the ⋯ "Question options" menu', () => {
     const { onSelectMethod } = draw({ intervention: viaVm(FLIP) })
     fireEvent.click(screen.getByTestId(`${TID}-more`))
     expect(screen.getByTestId(`${TID}-menu-method-different_option`)).toHaveAttribute('aria-current', 'true')
-    expect(screen.getByTestId(`${TID}-menu-method-pre_mortem`)).not.toHaveAttribute('aria-current')
-    fireEvent.click(screen.getByTestId(`${TID}-menu-method-pre_mortem`))
-    expect(onSelectMethod).toHaveBeenCalledWith('pre_mortem')
+    expect(screen.getByTestId(`${TID}-menu-method-outside_view`)).not.toHaveAttribute('aria-current')
+    fireEvent.click(screen.getByTestId(`${TID}-menu-method-outside_view`))
+    expect(onSelectMethod).toHaveBeenCalledWith('outside_view')
     expect(screen.queryByTestId(`${TID}-menu`)).toBeNull()
   })
 

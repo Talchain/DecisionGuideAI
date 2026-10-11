@@ -10,7 +10,8 @@ import { ActionBar } from '../actionBar/ActionBar'
 import { pressOffer, resetPressOfferClocks } from '../actionBar/pressOffer'
 import { type ActionBarV1, type ActionOffer } from '../actionBar/actionBarContract'
 import { useActionBarStore } from '../actionBar/actionBarStore'
-import { ACTION_REGISTRY, ACTION_IDS, actionOfMethod, registeredPressId, methodIsAvailable, type ActionId } from '../actionRegistry'
+import { ACTION_REGISTRY, ACTION_IDS, actionOfMethod, registeredPressId, methodIsAvailable, actionIsAvailable, type ActionId } from '../actionRegistry'
+import { buildAskAiQuestion } from '../askAi'
 import { pressAction } from '../pressAction'
 import { MethodStrip } from '../../../components/results/analysisNew/sections/MethodStrip'
 import { ReasoningActionBar } from '../../../components/results/analysisNew/sections/ReasoningActionBar'
@@ -29,7 +30,11 @@ import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSessi
 const SID = '561548c3-acd6-4488-b088-399c7cc15631'
 const REVISION = { graph_hash: '0123456789abcdef', run_key: 'run-1' }
 const SUPPORTED = ['review', 'what_changes', 'strengthen', 'pre_mortem', 'more_options', 'bias_check'] as const
-const UNSUPPORTED = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs'] as const
+const PROSE = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs'] as const
+const PROSE_IDS: Record<typeof PROSE[number], string> = {
+  reframe_problem: 'ask:method-reframe', consider_opposite: 'ask:method-opposite',
+  outside_view: 'ask:method-outside-view', explore_tradeoffs: 'ask:compare-options',
+}
 const WIRE_IDS: Record<typeof SUPPORTED[number], string> = {
   review: 'agent-next-review-decision', what_changes: 'agent-next-what-would-change',
   strengthen: 'agent-next-strengthen', pre_mortem: 'agent-next-pre-mortem', more_options: 'agent-next-widen', bias_check: 'act:bias_check',
@@ -45,7 +50,8 @@ function Harness({ bar }: { bar?: ActionBarV1 }) {
   </>
 }
 function offer(action: ActionId, index = 1): ActionOffer {
-  return { action_id: action, press_id: registeredPressId(action)!, label: action, user_line: `Invoke ${action}.`, icon: 'ClipboardList',
+  return { action_id: action, press_id: registeredPressId(action) ?? `ask:${ACTION_REGISTRY[action].ask}`,
+    label: action, user_line: buildAskAiQuestion({ intent: ACTION_REGISTRY[action].ask }).question, icon: 'ClipboardList',
     group: 'method', enabled: true, why_now: 'A current model is available.', offer_key: index.toString(16).padStart(16, '0') }
 }
 function barOf(offers: ActionOffer[]): ActionBarV1 {
@@ -76,7 +82,7 @@ beforeEach(() => {
     if (url === '/bff/cee/graph-readiness') return new Response('{}', { status: 503 })
     if (url !== 'https://cee.test/proxy/v5/turn') throw new Error(`Unexpected fetch: ${url}`)
     const id = JSON.parse(init.body as string).chip.id
-    return new Response(JSON.stringify({ response_version: 2, assistant_text: `Answered typed method ${id}.`,
+    return new Response(JSON.stringify({ response_version: 2, assistant_text: `Answered method ${id}.`,
       blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame' }), { status: 200 })
   })
   vi.stubGlobal('fetch', fetchSpy)
@@ -84,14 +90,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }) })
 
 describe('SYS9 method registry and action spine', () => {
-  it('guard: every catalogue method maps to exactly one existing action and every available method has an existing typed press', () => {
+  it('guard: every catalogue method maps to exactly one existing, available action with its typed or interim prose press', () => {
     const mapped = METHOD_CATALOGUE.map(m => actionOfMethod(m.id))
     expect(new Set(mapped).size).toBe(METHOD_CATALOGUE.length)
     for (const [i, id] of mapped.entries()) {
       expect(ACTION_IDS).toContain(id)
-      const available = methodIsAvailable(METHOD_CATALOGUE[i].id)
-      expect(available).toBe(ACTION_REGISTRY[id!].handler.kind === 'typed')
-      if (available) expect(registeredPressId(id!)).toBe(WIRE_IDS[id! as keyof typeof WIRE_IDS])
+      expect(methodIsAvailable(METHOD_CATALOGUE[i].id)).toBe(true)
+      expect(actionIsAvailable(id!)).toBe(true)
+      if (ACTION_REGISTRY[id!].handler.kind === 'typed') expect(registeredPressId(id!)).toBe(WIRE_IDS[id! as keyof typeof WIRE_IDS])
+      else expect(registeredPressId(id!)).toBeUndefined()
     }
   })
   it.each(SUPPORTED)('%s: Reasoning and chat use the existing typed route and render the reply', async action => {
@@ -107,7 +114,7 @@ describe('SYS9 method registry and action spine', () => {
       expect(sent.chip).toEqual({ id: WIRE_IDS[action], parameters: { offer_key: o.offer_key, revision: REVISION } })
       expect(sent.source).toBe('chip')
       expect(sent.scenario_id).toBe(SID)
-      expect(screen.getAllByText(`Answered typed method ${WIRE_IDS[action]}.`).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(`Answered method ${WIRE_IDS[action]}.`).length).toBeGreaterThan(0)
       resetPressOfferClocks(); fetchSpy.mockClear()
     }
   })
@@ -119,26 +126,60 @@ describe('SYS9 method registry and action spine', () => {
     await waitFor(() => expect(conversation.isThinking).toBe(false))
     const id = WIRE_IDS[actionOfMethod(methodId)! as keyof typeof WIRE_IDS]
     expect(request().chip).toEqual({ id })
-    expect(screen.getByText(`Answered typed method ${id}.`)).toBeInTheDocument()
+    expect(screen.getByText(`Answered method ${id}.`)).toBeInTheDocument()
   })
-  it.each(UNSUPPORTED)('%s: unavailable on both Reasoning doors and direct invocation sends nothing', async methodId => {
+  it.each(PROSE)('%s: enabled strip, Reasoning overflow and chat presses send the same interim prose family and render its reply', async methodId => {
+    const action = actionOfMethod(methodId)!
+    const o = offer(action)
+    const expectedQuestion = buildAskAiQuestion({ intent: ACTION_REGISTRY[action].ask }).question
+    for (const surface of ['strip', 'strip-menu', 'reasoning', 'chat'] as const) {
+      const bar = barOf(surface === 'chat' ? [o] : [])
+      useActionBarStore.getState().setBar(SID, bar)
+      render(<Harness bar={surface.startsWith('strip') ? undefined : bar} />)
+      let control: HTMLElement | null = null
+      if (surface === 'strip') control = screen.queryByTestId(`analysis-new-method-strip-method-${methodId}`)
+      if (surface === 'strip-menu' || (surface === 'strip' && !control)) {
+        fireEvent.click(screen.getByTestId('analysis-new-method-strip-more'))
+        control = screen.getByTestId(`analysis-new-method-strip-menu-method-${methodId}`)
+      } else if (surface === 'reasoning') {
+        fireEvent.click(screen.getByTestId('reasoning-action-bar-more'))
+        control = screen.getByTestId(`reasoning-action-bar-menu-host-${methodId}`)
+      } else if (surface === 'chat') control = screen.getByTestId(`action-bar-icon-${action}`)
+      expect(control).toBeEnabled()
+      expect(control).not.toHaveAttribute('aria-disabled', 'true')
+      await act(async () => { fireEvent.click(control!) })
+      await waitFor(() => expect(conversation.isThinking).toBe(false))
+      const sent = request()
+      expect(fetchSpy.mock.calls.filter(([url]) => url === 'https://cee.test/proxy/v5/turn')).toHaveLength(1)
+      expect(sent.chip.id).toBe(PROSE_IDS[methodId])
+      expect(sent.chip.id).not.toMatch(/^(agent-next-|act:)/)
+      expect(sent.chip).not.toHaveProperty('action_type')
+      expect(sent.chip).not.toHaveProperty('intent')
+      expect(sent.message).toBe(expectedQuestion)
+      expect(sent.source).toBe('chip')
+      expect(sent.scenario_id).toBe(SID)
+      // Only an actual CEE offer carries its existing identity metadata.
+      expect(sent.chip).toEqual(surface === 'chat'
+        ? { id: PROSE_IDS[methodId], parameters: { offer_key: o.offer_key, revision: REVISION } }
+        : { id: PROSE_IDS[methodId] })
+      expect(screen.getByText(`Answered method ${PROSE_IDS[methodId]}.`)).toBeInTheDocument()
+      expect(useAskOlumiStore.getState().isOpen).toBe(false)
+      cleanup(); resetPressOfferClocks(); fetchSpy.mockClear()
+    }
+  })
+  it('CONTRAST: a prose press carries the base ask identity; a typed press carries the CEE handler identity', async () => {
     render(<Harness />)
-    const icon = screen.queryByTestId(`analysis-new-method-strip-method-${methodId}`)
-    if (icon) { expect(icon).toHaveAttribute('aria-disabled', 'true'); fireEvent.click(icon) }
-    fireEvent.click(screen.getByTestId('analysis-new-method-strip-more'))
-    const row = screen.getByTestId(`analysis-new-method-strip-menu-method-${methodId}`)
-    expect(row).toHaveAttribute('aria-disabled', 'true'); expect(row).toHaveAttribute('title', 'Coming soon')
-    fireEvent.click(row)
-    expect(runMethod(METHOD_CATALOGUE.find(m => m.id === methodId)!)).toBe('unavailable')
-    expect(fetchSpy).not.toHaveBeenCalled()
-    cleanup()
-    const bar = barOf([])
-    render(<Harness bar={bar} />)
-    fireEvent.click(screen.getByTestId('reasoning-action-bar-more'))
-    const host = screen.getByTestId(`reasoning-action-bar-menu-host-${methodId}`)
-    expect(host).toHaveAttribute('aria-disabled', 'true'); fireEvent.click(host)
-    expect(screen.getByTestId('reasoning-action-bar-notice')).toHaveTextContent('Coming soon')
-    expect(fetchSpy).not.toHaveBeenCalled()
+    const shapes = []
+    for (const methodId of ['outside_view', 'pre_mortem']) {
+      await act(async () => { fireEvent.click(screen.getByTestId(`analysis-new-method-strip-method-${methodId}`)) })
+      await waitFor(() => expect(conversation.isThinking).toBe(false))
+      shapes.push(request().chip)
+      fetchSpy.mockClear()
+    }
+    // Base askAi also sends chip.id. Prose has no typed selector, not an absent generic chip identity.
+    expect(shapes).toEqual([{ id: PROSE_IDS.outside_view }, { id: WIRE_IDS.pre_mortem }])
+    expect(registeredPressId('outside_view')).toBeUndefined()
+    expect(registeredPressId('pre_mortem')).toBe(WIRE_IDS.pre_mortem)
   })
   it('catalogue and chat share offer identity, disabled state, scenario isolation and double-press clock', async () => {
     const o = offer('pre_mortem'); const bar = barOf([o])
@@ -161,14 +202,16 @@ describe('SYS9 method registry and action spine', () => {
     const last = JSON.parse(fetchSpy.mock.calls.filter(([url]) => url === 'https://cee.test/proxy/v5/turn').at(-1)![1].body)
     expect(last.chip).not.toHaveProperty('parameters')
   })
-  it('a temporarily unmounted conversation keeps the drawer method typed and cannot use the free-text fallback', () => {
+  it.each(['pre_mortem', 'outside_view', 'unregistered'])('%s: an unmounted conversation retains the base drawer and free-text fallback', methodId => {
     const freeText = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: freeText })
-    expect(runMethod(METHOD_CATALOGUE.find(m => m.id === 'pre_mortem')!)).toBe('drawer')
-    expect(useAskOlumiStore.getState().parameters).toEqual({ method_id: 'pre_mortem', chip_id: WIRE_IDS.pre_mortem })
+    const method = METHOD_CATALOGUE.find(m => m.id === methodId)
+      ?? { ...METHOD_CATALOGUE.find(m => m.id === 'pre_mortem')!, id: methodId }
+    expect(runMethod(method)).toBe('drawer')
+    expect(useAskOlumiStore.getState().parameters).toEqual({ method_id: methodId })
     render(<AskOlumiDrawer />)
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(freeText).not.toHaveBeenCalled()
+    expect(freeText).toHaveBeenCalledWith(method.prompt)
   })
 })

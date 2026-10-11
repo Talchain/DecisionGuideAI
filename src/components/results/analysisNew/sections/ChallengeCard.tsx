@@ -68,7 +68,6 @@ import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
-import { methodIsAvailable, METHOD_UNAVAILABLE_REASON } from '../../../../canvas/conversation/actionRegistry'
 import {
   METHOD_MENU_GLYPH_CLASS,
   METHOD_MENU_POPOVER_CLASS,
@@ -150,23 +149,19 @@ function MenuRow({
   onClick,
   current = false,
   testId,
-  unavailable = false,
 }: {
   Glyph: MethodGlyph
   label: string
   onClick: () => void
   current?: boolean
   testId: string
-  unavailable?: boolean
 }): JSX.Element {
   return (
     <button
       type="button"
       role="menuitem"
-      aria-disabled={unavailable ? 'true' : undefined}
-      title={unavailable ? METHOD_UNAVAILABLE_REASON : undefined}
       aria-current={current ? 'true' : undefined}
-      onClick={() => { if (!unavailable) onClick() }}
+      onClick={onClick}
       className={methodMenuRowClass(current)}
       data-testid={testId}
     >
@@ -469,8 +464,7 @@ export function ChallengeCard({
         <div className="flex shrink-0 items-center gap-1">
           <PanelIconButton
             ai
-            label={shown.kind === 'method' && !methodIsAvailable(shown.method.id) ? METHOD_UNAVAILABLE_REASON : aiLabel}
-            disabled={shown.kind === 'method' && !methodIsAvailable(shown.method.id)}
+            label={aiLabel}
             onClick={run}
             testId={`${testId}-work-through`}
           />
@@ -522,7 +516,6 @@ export function ChallengeCard({
                         key={m.id}
                         Glyph={methodIcon(m.id)}
                         label={m.title}
-                        unavailable={!methodIsAvailable(m.id)}
                         current={shownMethod?.id === m.id}
                         onClick={() => {
                           setMenuFor(null)
