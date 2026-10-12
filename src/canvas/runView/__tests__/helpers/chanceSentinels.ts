@@ -159,6 +159,8 @@ export const DRIVER_NONE_REASON = 'No main driver is recorded for a chance that 
 
 /** UI-composed chance phrases that must not appear where served words exist. */
 export const GENERIC_CHANCE_PHRASES = [/chance of meeting your goal/i, /\byour goal\b/i, /chance of meeting (?:the|this) goal/i]
+/** UI-composed labels a surface has set beside a chance (DL 12 Oct: a label beside a chance is CEE's served words or none). */
+export const UI_CHANCE_LABELS = [/\bHits target\b/i]
 
 const outcome = (mean: number) => ({ mean, std: 2, p10: mean - 3, p50: mean, p90: mean + 3, n_samples: 10000, n_valid_samples: 10000, validity_ratio: 1 })
 const entry = (id: string, extra: Rec) => ({ id, option_id: id, label: LABEL[id as keyof typeof LABEL], option_label: LABEL[id as keyof typeof LABEL], status: 'computed', ...extra })

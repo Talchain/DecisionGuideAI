@@ -255,7 +255,9 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     expect(container.querySelectorAll('[data-testid^="option-card-"]').length).toBeGreaterThan(0)
   })
 
-  it('positive control: a REAL probability_of_goal KEEPS the possessive "Hits target" label and renders no withheld caption', () => {
+  // #2747 re-scope 2 (U0 rewrite, DL 12 Oct): the card's own "Hits target" label is gone (only CEE's served words may label
+  // a chance); the honest arm now pins the goal readout, still with no withheld caption.
+  it('positive control: a REAL probability_of_goal draws its goal readout with no UI label and no withheld caption', () => {
     // 0.55 is the honest answer the witness derived for the leading option
     // once the frame is stamped ("is the uplift >= £2M?").
     const options = toOptionResults(withRealGoalProbability(0.55))
@@ -264,7 +266,8 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     const { container } = renderCards(options)
     const text = container.textContent ?? ''
 
-    expect(text).toContain(POSSESSIVE_BAR_LABEL)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toMatch(/\d%/)
+    expect(text).not.toContain(POSSESSIVE_BAR_LABEL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.label(true))
     expect(container.querySelectorAll('[data-testid^="goal-fit-substituted-label-"]'))
       .toHaveLength(0)
@@ -285,17 +288,19 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]')).toHaveLength(0)
   })
 
-  it('L62: the withheld run shows NEITHER voice, and the honest run shows exactly the possessive one', () => {
+  // #2747 re-scope 2 (U0 rewrite): no run shows the card's possessive voice in C (its label and badge are gone); the honest
+  // run is told apart by its goal readout instead.
+  it('L62: the withheld run shows NEITHER voice, and the honest run draws its readout with no voice', () => {
     // 2.282 pinned `possessive === !withheld` — exactly one voice per render.
     // Under L62 the withheld run has zero of both, so the XOR no longer holds
     // and asserting it would be false. Each arm is pinned explicitly instead,
     // which is strictly stronger: the XOR was satisfiable by a card rendering
     // the WRONG single voice.
     const cases = [
-      { options: toOptionResults(WITNESSED_PRODUCER_OPTIONS), expectPossessive: false },
-      { options: toOptionResults(withRealGoalProbability(0.055)), expectPossessive: true },
+      { options: toOptionResults(WITNESSED_PRODUCER_OPTIONS), expectReadout: false },
+      { options: toOptionResults(withRealGoalProbability(0.055)), expectReadout: true },
     ]
-    for (const { options, expectPossessive } of cases) {
+    for (const { options, expectReadout } of cases) {
       const { container, unmount } = renderCards(options)
       const text = container.textContent ?? ''
       const possessive = text.includes(POSSESSIVE_BADGE_TAIL) || text.includes(POSSESSIVE_BAR_LABEL)
@@ -303,7 +308,8 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
         text.includes(GOAL_ANCHOR_COPY.label(true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('< 1%', true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('6%', true))
-      expect(possessive).toBe(expectPossessive)
+      expect(possessive).toBe(false)
+      expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]') !== null).toBe(expectReadout)
       // The withheld VOICE is retired outright: it existed only to caption a
       // substituted number, and there is no longer such a number.
       expect(withheldVoice).toBe(false)

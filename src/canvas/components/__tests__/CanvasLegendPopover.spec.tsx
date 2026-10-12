@@ -413,7 +413,9 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     }
   })
 
-  it('POST-RUN: explains the four captions a reader meets on a card', () => {
+  // #2747 re-scope 2 (U0): in C no canvas card captions the run share ("Current model") or a goal chance ("Chance"), so
+  // the key explains neither (their rows left the register); the other captions are still named explicitly.
+  it('POST-RUN: explains the captions a reader meets on a card, and not the two C removed', () => {
     // Named explicitly as well as derived — so deleting a noun from the
     // register cannot make the derived test above pass by iterating less.
     //
@@ -425,26 +427,18 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     setBoard('complete', { numberedNodes: true })
     open()
     const text = screen.getByRole('dialog').textContent ?? ''
-    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
-    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    const removedInC = new Set<string>([CURRENT_MODEL_NOUN, METRIC_NOUN.chance])
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN }).filter(noun => !removedInC.has(noun))
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length - removedInC.size)
     for (const noun of canvasCaptions) {
       expect(text, `"${noun}" is captioned on a card but absent from the key`).toContain(noun)
     }
-    // The noun the key explains IS the caption the option card prints (one
-    // noun per idea, across the key and the card)…
+    // The removed markings are not promised (each row's noun is its own element).
+    expect(screen.queryByText(CURRENT_MODEL_NOUN)).toBeNull()
+    expect(screen.queryByText(METRIC_NOUN.chance)).toBeNull()
+    expect(text).not.toMatch(/of runs/)
+    // The copy register's own word is unchanged (trap 12d), for the panel-owned surfaces that still read it.
     expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
-    // …and the literal, so the register changing its own word is noticed (trap 12d).
-    expect(text).toContain('Current model')
-    // ED decision 2's second half: the explanation ON SCREEN says it is
-    // conditional on the model and its assumptions, in the run-share verb (DL
-    // #87 6004906342) — the property, read from the row the key renders.
-    // ⛔ No recommend stem, not even negated (J1 ruling).
-    const currentModelRow = METRIC_LEGEND_ROWS.find(r => r.noun === CURRENT_MODEL_NOUN)!
-    expect(text).toContain(currentModelRow.gloss)
-    expect(currentModelRow.gloss).toMatch(/\bmodel\b/)
-    expect(currentModelRow.gloss).toMatch(/\bassumptions?\b/)
-    expect(currentModelRow.gloss).toMatch(/the share of runs that supported this option/)
-    expect(currentModelRow.gloss).not.toMatch(/recommend/i)
   })
 
   it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
@@ -478,8 +472,10 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     // Discrimination: the popover HAS text and the live noun IS there, so the
     // absences above are not passing on an empty container.
     expect(text.length).toBeGreaterThan(200)
-    expect(text).toContain(CURRENT_MODEL_NOUN)
-    expect(screen.getByText(CURRENT_MODEL_NOUN)).toBeInTheDocument()
+    // #2747 re-scope 2: the live noun used here was "Current model", whose row left the register in C; Influence is a
+    // post-run noun the key still explains.
+    expect(text).toContain(METRIC_NOUN.influence)
+    expect(screen.getByText(METRIC_NOUN.influence)).toBeInTheDocument()
     // …and the retired-word probe can fire on GLUED text, the shape it meets.
     expect(RETIRED_SUPPORT.test(`Olumi suggested this${METRIC_NOUN.support}: on option cards`)).toBe(true)
   })
@@ -540,7 +536,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   it('POSITIVE CONTROL: there are phase-gated rows, and an ordinal row, to assert', () => {
     // Every loop below iterates one of these. An empty list satisfies them all
     // in silence (trap 13).
-    expect(PHASE_GATED.length).toBe(4)
+    // #2747 re-scope 2: 2, not 4 — the Current model and Chance rows left the register in C.
+    expect(PHASE_GATED.length).toBe(2)
     expect(METRIC_LEGEND_ROWS.some(r => r.noun === ORDINAL_NOUN)).toBe(true)
   })
 
@@ -549,7 +546,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
    * reports too, so each phase-gated noun is asserted ABSENT pre-run and PRESENT
    * post-run, from the same reader.
    */
-  it('⭐ the four phase-gated nouns are absent pre-run and present post-run', () => {
+  it('⭐ the phase-gated nouns are absent pre-run and present post-run', () => {
     const pre = openBoard('idle')
     for (const noun of PHASE_GATED) {
       expect(pre, `pre-run, the key still promises "${noun}" — the shipped defect`).not.toContain(noun)
@@ -792,11 +789,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    // WS5-1 #2704: Current model survives as the caption preceding the Results chance cell.
-    // Bind to the caption RENDERED as a JSX child (`>{resultCaption}<`). A prop pass
-    // (`resultCaption={resultCaption}`) is not a render; it kept this row green with the caption deleted (#2704 r3 mutant).
-    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: />\s*\{resultCaption\}\s*</ },
-    { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
+    // #2747 re-scope 2: the Current model (option card run share) and Chance (goal card) entries left with their legend
+    // rows — no card renders either marking in C.
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls
     // `influenceBasisNoun(provenance)`, which returns 'Relative influence' for

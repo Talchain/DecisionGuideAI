@@ -155,7 +155,9 @@ describe('OptionCards', () => {
       expect(screen.getByTestId('option-card-option-2').textContent).not.toContain('35%')
     })
 
-    it('shows "Hits target" when hasGoalThreshold is true', () => {
+    // #2747 re-scope 2 (U0 rewrite, DL 12 Oct): the goal row keeps its readouts but no UI label ("Hits target"): only CEE's
+    // served words may label a chance (none are passed here, so no caption).
+    it('draws the goal row when hasGoalThreshold is true, with no UI label', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -164,8 +166,8 @@ describe('OptionCards', () => {
         />
       )
 
-      const hitsTargetLabels = screen.getAllByText('Hits target')
-      expect(hitsTargetLabels).toHaveLength(2)
+      expect(screen.queryAllByText('Hits target')).toHaveLength(0)
+      expect(screen.getAllByTestId(/^goal-readout-/)).toHaveLength(2)
       expect(screen.getByText('75%')).toBeInTheDocument()
       expect(screen.getByText('55%')).toBeInTheDocument()
     })
@@ -450,7 +452,8 @@ describe('OptionCards', () => {
       expect(screen.queryByText('Hits target')).not.toBeInTheDocument()
     })
 
-    it('shows "Hits target" when hasGoalThreshold and ALL options have goalProbability', () => {
+    // #2747 re-scope 2 (U0 rewrite): the goal row is found by its readout (the UI label is gone).
+    it('draws the goal row when hasGoalThreshold and ALL options have goalProbability', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -460,7 +463,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getAllByText('Hits target')).toHaveLength(2)
+      expect(screen.getAllByTestId(/^goal-readout-/)).toHaveLength(2)
     })
 
     it('hides "Hits target" when only SOME options have goalProbability', () => {

@@ -77,7 +77,7 @@ import { buildSnapshotFromV5Analysis } from '../../stores/v5RunSnapshotFactory'
 import { renderTimelineSummary } from '../../journey/renderTimelineSummary'
 import { useCanvasStore } from '../../store'
 import {
-  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_DISPLAY, LOW_FACE, FACE_B_SAME, GENERIC_CHANCE_PHRASES, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
+  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_DISPLAY, LOW_FACE, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
 } from './helpers/chanceSentinels'
 import { openEveryDisclosure, readSurface } from './helpers/sentinelScan'
@@ -95,6 +95,8 @@ interface Surface {
   readonly minText?: number
   /** Elements a form must draw (by test id): the branch the form exists to reach is on the screen, so it is censused. */
   readonly reaches?: Partial<Readonly<Record<Form, readonly string[]>>>
+  /** [test id, words]: the element must say CEE's served words itself (bound to the element, not the whole surface). */
+  readonly saysWithin?: Partial<Readonly<Record<Form, ReadonlyArray<readonly [string, string]>>>>
 }
 
 // ─── the deployed flags, derived ───
@@ -145,6 +147,8 @@ const SURFACES: readonly Surface[] = [
       agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_LINE] },
     // Every option's figure passes the gate, so each Results card draws its goal row (and, before C, a low-chance badge).
     reaches: { agreeing_low: [`goal-readout-${A}`, `goal-readout-${B}`] },
+    // Each card's goal row is captioned by CEE's own face for that option (DL 12 Oct), on the card itself.
+    saysWithin: { agreeing_low: [[`option-card-${A}`, LOW_FACE[A]], [`option-card-${B}`, LOW_FACE[B]]] },
   },
   {
     name: 'Reasoning tab (AnalysisNewTabBody: decision matrix, options comparison, glance, commitment, model strip)', u0: false,
@@ -393,9 +397,15 @@ for (const form of ['withheld', 'licensed', 'same_bounds', 'agreeing_low', 'no_w
           const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null)
             .map(m => said.slice(Math.max(0, m.index - 50), m.index + 40))
           expect.soft(generic, `a UI-composed chance phrase: ${generic.join(' ; ')}`).toEqual([])
+          const labels = UI_CHANCE_LABELS.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null)
+            .map(m => said.slice(Math.max(0, m.index - 40), m.index + 40))
+          expect.soft(labels, `a UI-composed label beside a chance (only CEE's served words may label it): ${labels.join(' ; ')}`).toEqual([])
         }
         for (const words of surface.says?.[form] ?? []) expect.soft(text, 'CEE\'s served words, verbatim').toContain(words)
         for (const id of surface.reaches?.[form] ?? []) expect.soft(root.querySelector(`[data-testid="${id}"]`), `the form's branch is drawn: ${id}`).not.toBeNull()
+        for (const [id, words] of surface.saysWithin?.[form] ?? []) {
+          expect.soft(root.querySelector(`[data-testid="${id}"]`)?.textContent ?? '', `${id} says CEE's served words itself`).toContain(words)
+        }
         if (surface.u0 && form === 'licensed') expect.soft(text).toContain(DISPLAY_A.replace('about ', ''))
         // A figure the gate passed is said in CEE's words: "about 6%" appears only inside CEE's served face, never in a
         // chance sentence the UI worded itself (the low-chance badge's "About 6% chance of …", without "in this model" or

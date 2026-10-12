@@ -465,8 +465,11 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     // The exact sentence the withheld arm must NOT produce. If this ever stops
     // rendering, the arm below is passing because the product went quiet.
     expect(text).toContain(`${ALT_LABEL} becomes the most-supported option instead`)
-    expect(text).toContain(`Above: ${ALT_LABEL} (61%)`)
-    expect(text).toContain(`Below: ${LOW_BUCKET_LABEL} (55%)`)
+    // #2747 re-scope 2 (DL ruling (A)): each side's win share ("(61%)", "(55%)") is not said in C; the names stay under the
+    // leader licence.
+    expect(text).toContain(`Above: ${ALT_LABEL}`)
+    expect(text).toContain(`Below: ${LOW_BUCKET_LABEL}`)
+    expect(text).not.toMatch(/\(\d+%\)/)
     expect(card.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('high-alt')
   })
 
@@ -521,28 +524,9 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     expect(text).not.toContain('Below:')
   })
 
-  it('SCOPED: a probability that never had a label is UNTOUCHED', () => {
-    // The opposite-direction twin, and the reason the suppression is written
-    // against `labelSuppressed` rather than against `mayNameLeader`. Where the
-    // producer sent no `winner_label`, there was never a subject to lose — that
-    // side must render exactly as it does today, or the fix has quietly become
-    // a blanket ban on percentages (the over-suppression this component
-    // refuses).
-    const d = WITHHELD() as unknown as { confidence: Record<string, unknown> }
-    d.confidence.conditionalWinners = [
-      {
-        factor_label: FACTOR_LABEL,
-        factor_id: FACTOR_ID,
-        split_value: SPLIT_VALUE,
-        winner_flips: true,
-        high_bucket: { winner_id: 'opt_b', win_probability: 0.61 },
-        low_bucket: { winner_id: 'opt_a', win_probability: 0.55 },
-      },
-    ]
-    const { text } = cardOf(d as unknown as ResultsSectionDataReturn)
-    expect(text).toContain('Above: 61%')
-    expect(text).toContain('Below: 55%')
-  })
+  // #2747 re-scope 2 (pre-accepted): row deleted — "SCOPED: a probability that never had a label is UNTOUCHED". Its only
+  // subject was the bucket win share ("Above: 61%"), which C does not say on any arm (DL ruling (A)). Census row:
+  // conditional-scenario cards.
 
   it('WITHHELD: the composed panel states the withholding and SURFACE D agrees with it', () => {
     // §5's arm, re-asserted now that the card actually mounts on it. This is

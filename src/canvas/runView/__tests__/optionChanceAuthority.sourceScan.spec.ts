@@ -119,9 +119,13 @@ describe('the RunView is the option chance display authority', () => {
 })
 
 describe('option card headlines never use the supporting share of runs', () => {
-  it('CONTROL: sees the existing share call in OutcomePanel.tsx', () => {
-    expect(SOURCES.has(OUTCOME_PANEL)).toBe(true)
-    expect(SOURCES.get(OUTCOME_PANEL)).toMatch(SHARE_CALL)
+  // #2747 re-scope 2: OutcomePanel's share call (the control's subject) is deleted — no surface shows a win share in C, so
+  // no production share call is left to see. The control is planted instead (as #2718 did for the selector below), so
+  // retiring production calls cannot make it stale; the scan still reads the real, non-empty OutcomePanel source.
+  it('CONTROL: sees a planted share call, and the scan reads real sources', () => {
+    expect('const line = OPTION_RESULT_COPY.share(formatted)').toMatch(SHARE_CALL)
+    expect('const line = OPTION_RESULT_COPY.label').not.toMatch(SHARE_CALL)
+    expect(SOURCES.get(OUTCOME_PANEL)?.length ?? 0).toBeGreaterThan(1000)
   })
 
   it.each(OPTION_CARD_FILES)('%s has no share headline call or sharePrefix/shareUnit render', file => {

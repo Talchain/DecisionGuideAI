@@ -691,6 +691,12 @@ export const ResultsBody = memo(function ResultsBody({
               stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+              // #2747 re-scope 2 (U2, DL ruling 12 Oct): each card's goal row is captioned only by CEE's words for that
+              // option's chance, its current canonical figure cell (face, else display), the reader the range lines use.
+              goalFaceOf={(id) => {
+                const cell = resultsSectionData.runView?.servedCellOf(id) ?? null
+                return cell?.kind === 'figure' ? cell.face ?? cell.display : null
+              }}
               // F3: the SAME derivation the filter disclaimer and the lens
               // sentences above use — threaded, never re-derived downstream.
               hasGoalNumbers={lensRunHasGoalNumbers}

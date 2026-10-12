@@ -119,7 +119,7 @@ const SCOPE_FILES = [
   // files other lanes are actively holding, and this guard's job is not to
   // arbitrate their copy mid-flight.
   'src/components/results/modals/HowComputedModal.tsx',
-  'src/components/results/WinGauge.tsx',
+  // `src/components/results/WinGauge.tsx` left this list in #2747 re-scope 2: the gauge is deleted (no win share in C).
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
   'src/components/results/utils/winnerChipCopy.ts',

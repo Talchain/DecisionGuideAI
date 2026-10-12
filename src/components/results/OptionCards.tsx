@@ -3,7 +3,7 @@
  *
  * - Ordinal colour marker + option name + win percentage text (D17: "#N of M" prefix removed)
  * - 1-2 line contextual description (story headline or fallback)
- * - "Hits target" stat row: horizontal bar + percentage (conditional on target set).
+ * - Goal stat row: CEE's served face as its caption, then bar + percentage (conditional on target set; no UI label).
  *   ROADMAP 2.282: that possessive wording is WITHHELD when the number is a
  *   substituted joint figure (`goalFitIsSubstitutedJoint`) — see the possessive
  *   gate in `OptionCard`.
@@ -22,7 +22,6 @@ import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import {
   COMPARATIVE_COPY,
-  GOAL_ANCHOR_COPY,
   LENS_COPY,
   deriveComparisonScope,
   runHasGoalNumbers,
@@ -171,6 +170,11 @@ export interface OptionCardsProps {
   outcomeUnitSymbol?: string
   /** True when option magnitudes are normalised 0-1 scores, not user units. */
   isNormalised?: boolean
+  /**
+   * #2747 re-scope 2 (U2, DL ruling 12 Oct): CEE's served words for an option's goal chance (its current canonical cell's
+   * face, verbatim), the only caption the card's goal row may carry; null when none is served (no caption).
+   */
+  goalFaceOf?: (optionId: string) => string | null
 }
 
 /** Fallback description when no story headline is available */
@@ -548,6 +552,7 @@ function OptionCard({
   outcomeUnitSymbol,
   isNormalised,
   winSharesWithheld = false,
+  goalFace = null,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -556,6 +561,8 @@ function OptionCard({
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
    */
   winSharesWithheld?: boolean
+  /** CEE's served words for this option's goal chance (see OptionCardsProps.goalFaceOf); null = no caption. */
+  goalFace?: string | null
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -645,36 +652,8 @@ function OptionCard({
     ? undefined
     : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // THE POSSESSIVE GATE (ROADMAP 2.282) — this card was the one unwired
-  // consumer of a mitigation six sibling surfaces already honour.
-  //
-  // `selectGoalProbability` publishes `basis`. When it is
-  // ⚠ L62 (2026-08-04): the basis named below was renamed
-  // `'joint_goal_withheld'` AND now carries no number at all, so this card
-  // renders no goal figure in that state and the branch is unreachable. The
-  // paragraph is kept as the record of what it guarded. On the basis
-  // `'joint_goal_withheld'` the number in `option.goalProbability` is
-  // P(all constraints jointly satisfied) STANDING IN for an absent
-  // `probability_of_goal` — it answers a DIFFERENT question from the one
-  // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is
-  // false. `useResultsSectionData` carries that decision here as
-  // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
-  // site (types.ts states the rule; `WinGauge`, `RangeVisualization`,
-  // and `buildHeroModel` all read it the same way; `buildV7Headline` and the
-  // V7 lens group did too, until the V7 retirement deleted them).
-  //
-  // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
-  // rendered "Hits target" / "< 1% likely to reach target" over the joint
-  // figure while the V7 goal lens BESIDE IT (since deleted) rendered the
-  // withheld wording for the same number — two contradictory claims about one
-  // value in one render.
-  // The withheld number is 0.0054 (answers "is the uplift >= £6M?") where the
-  // user asked "is the uplift >= £2M?" (~0.55).
-  //
-  // This is a COPY switch, never a value transform: the bar length, the
-  // percentage readout and the leader colour are all untouched.
-  const goalFitSubstituted = option.goalFitIsSubstitutedJoint === true
+  // THE POSSESSIVE GATE (ROADMAP 2.282) is gone with the card's own goal wording (#2747 re-scope 2): the goal row's only
+  // words are CEE's served face (`goalFace`), so there is no UI phrase left to switch.
 
   // ───────────────────────────────────────────────────────────────────────
   // ⭐ ONE READOUT PER REGISTER PER CARD (ROADMAP 2.333) — N11
@@ -825,21 +804,18 @@ function OptionCard({
       {/* Stat rows */}
       {hasGoalThreshold && (
         <div className="space-y-1.5">
-          {/* ROADMAP 2.282 — the withheld arm of the goal-row caption. The
-              register string is 45 characters, so it is hoisted to a
-              full-width line above the bar instead of the StatBar's 72px
-              column; `WinGauge`'s goal block renders the SAME register string
-              in the SAME shape (`win-gauge-goal-heading`), so this is the
-              established layout for this copy, not a new one. Rendered only
-              when the basis is substituted — the permitted arm keeps the
-              card's shipped inline "Hits target" label unchanged. */}
+          {/* #2747 re-scope 2 (U2, DL ruling 12 Oct): the goal row says what its figure is a chance OF only in CEE's
+              served words, the option's current canonical cell face verbatim (figure, chance words, "in this model",
+              the provisional clause); with none served, no caption. The UI's own "Hits target" label is gone: a UI
+              phrase beside a chance reads as certainty. (The substituted-joint caption went with it: no producer path
+              sets `goalFitIsSubstitutedJoint` in C.) */}
           {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view */}
-          {goalFitSubstituted && option.goalProbability != null && (
+          {goalFace !== null && option.goalProbability != null && (
             <p
               className={`${typography.panelMeta} text-text-light`}
-              data-testid={`goal-fit-substituted-label-${option.id}`}
+              data-testid={`goal-chance-face-${option.id}`}
             >
-              {GOAL_ANCHOR_COPY.label(goalFitSubstituted)}
+              {goalFace}
             </p>
           )}
           <StatBar
@@ -848,11 +824,8 @@ function OptionCard({
             // The card's one goal readout (N11); the low-goal badge that restated it went in #2747 re-scope 2.
             readout={goalReadout}
             testId={`goal-readout-${option.id}`}
-            // The possessive "Hits target" names the user's OWN target, which
-            // a substituted joint figure does not answer — so that arm is
-            // withheld and the caption above carries the honest name instead.
-            // `null` omits the column rather than emptying it (see StatBar).
-            label={goalFitSubstituted ? null : 'Hits target'}
+            // No UI label beside the chance (#2747 re-scope 2): the caption above is CEE's words. `null` omits the column.
+            label={null}
             // ROADMAP 1.267: the bar length stays (it is the goal
             // probability); only the leader COLOUR is withheld.
             isLeader={isWinner && !designationsWithheld}
@@ -1119,6 +1092,7 @@ export function OptionCards({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  goalFaceOf,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1466,6 +1440,7 @@ export function OptionCards({
             // #2747 re-scope 2 (DL ruling (A)): no card shows a win share in C, permitted or not (no header figure, no fill
             // bar). CEE serves no wording or Run authority for it. The leader entitlement above is unchanged.
             winSharesWithheld
+            goalFace={goalFaceOf?.(option.id) ?? null}
           />
         )
       })}
