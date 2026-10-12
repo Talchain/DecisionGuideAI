@@ -32,6 +32,36 @@ export const STATED_RANGE_YOURS = '(your range)'
 const USER_AUTHORED_RANGE_KINDS: ReadonlySet<ValueProvenanceKind> = new Set<ValueProvenanceKind>(['edited'])
 
 export function resolveFactorStatedRangeOnCard(data: unknown): string | null {
+  const stored = readStoredRange(data)
+  if (stored === null) return null
+  const provenance = classifyObservedValueProvenance(stored.range)
+  if (provenance === null || !USER_AUTHORED_RANGE_KINDS.has(provenance.kind)) return null
+  const body = formatStoredRange(stored)
+  return body === null ? null : `${body} ${STATED_RANGE_YOURS}`
+}
+
+/**
+ * ⭐ THE STORED BOUNDS, SAID NEUTRALLY: "Range: 20%–30% of monthly team capacity" — or `null`.
+ *
+ * DL ruling (12 Oct, after run 5; AIE #94 6132247742): the canvas card shows a factor's stored `observed_state.range`
+ * whatever its `source`, with NO attribution. The record cannot yet prove whose range it is: CEE stamps a confirmed
+ * third-party range `user_override` (independent check round 2, #2748), so "your range" waits for CEE's attribution fix,
+ * and a range with no human evidence is not thereby Olumi's, so there is no Olumi label either. The words are the card's
+ * existing "Range: …" (the prior-range line's own prefix), through the value line's formatter and the shared joiner.
+ * The card shows this line only when its prior-range line is not shown, so one card never states two ranges.
+ */
+export function resolveFactorStoredRangeLine(data: unknown): string | null {
+  const stored = readStoredRange(data)
+  const body = stored === null ? null : formatStoredRange(stored)
+  return body === null ? null : `${STORED_RANGE_PREFIX} ${body}`
+}
+
+export const STORED_RANGE_PREFIX = 'Range:'
+
+interface StoredRange { d: Record<string, unknown>; obs: Record<string, unknown>; range: object; low: number; high: number }
+
+/** The node's `observedState.range` with two finite ends, or `null`. Reads no source. */
+function readStoredRange(data: unknown): StoredRange | null {
   if (data === null || typeof data !== 'object') return null
   const d = data as Record<string, unknown>
   const obs = d.observedState
@@ -40,21 +70,23 @@ export function resolveFactorStatedRangeOnCard(data: unknown): string | null {
   if (range === null || typeof range !== 'object') return null
   const { low, high } = range as { low?: unknown; high?: unknown }
   if (typeof low !== 'number' || typeof high !== 'number' || !Number.isFinite(low) || !Number.isFinite(high)) return null
-  const provenance = classifyObservedValueProvenance(range)
-  if (provenance === null || !USER_AUTHORED_RANGE_KINDS.has(provenance.kind)) return null
+  return { d, obs: obs as Record<string, unknown>, range, low, high }
+}
 
+/** Both ends in the value line's own words (`factorDisplayParts` / `factorDisplayText`), joined by the shared joiner. */
+function formatStoredRange({ d, obs, low, high }: StoredRange): string | null {
   // The node's own data with the end as its raw value: no authored display string and no pending keystroke may stand in.
   const at = (end: number) => ({
     ...d, display_value: undefined, pending_user_value: undefined,
-    observedState: { ...(obs as Record<string, unknown>), raw_value: end },
+    observedState: { ...obs, raw_value: end },
   })
   const lo = factorDisplayParts(at(low))
   const hi = factorDisplayParts(at(high))
   if (lo !== null && hi !== null && lo.unit === hi.unit && lo.attached === hi.attached) {
     // The unit is placed by the shared joiner (the formatter's own spacing), never composed here.
-    return `${joinFactorDisplayParts({ ...lo, figure: `${lo.figure}–${hi.figure}`, restates: undefined })} ${STATED_RANGE_YOURS}`
+    return joinFactorDisplayParts({ ...lo, figure: `${lo.figure}–${hi.figure}`, restates: undefined })
   }
   const loText = factorDisplayText(at(low))
   const hiText = factorDisplayText(at(high))
-  return loText !== null && hiText !== null ? `${loText} to ${hiText} ${STATED_RANGE_YOURS}` : null
+  return loText !== null && hiText !== null ? `${loText} to ${hiText}` : null
 }
