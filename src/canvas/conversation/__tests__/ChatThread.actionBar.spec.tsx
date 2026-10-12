@@ -77,30 +77,8 @@ describe('the action bar in chat', () => {
     expect(screen.queryByTestId('chat-action-bar')).toBeNull()
   })
 
-  it('with a bar: it sits under the reply, the chip already on it is not drawn twice, and the approval stays a chip', () => {
-    useActionBarStore.getState().setBar(SCENARIO, BAR)
-    renderThread([msg({ role: 'user', content: 'q' }), msg({ actionChips: [ON_BAR, NOT_ON_BAR] })])
-    expect(screen.getByTestId('chat-action-bar')).toHaveAttribute('data-surface', 'chat')
-    expect(screen.queryByTestId(`suggested-chip-${ON_BAR.id}`)).toBeNull()
-    expect(screen.getByTestId(`suggested-chip-${NOT_ON_BAR.id}`)).toBeInTheDocument()
-    expect(screen.getByTestId('chat-action-bar-icon-review')).toBeInTheDocument()
-  })
 
-  it('a reply with no chips of its own still gets the bar, and a press on it sends CEE’s press id', () => {
-    useActionBarStore.getState().setBar(SCENARIO, BAR)
-    renderThread([msg({ role: 'user', content: 'q' }), msg({})])
-    fireEvent.click(screen.getByTestId('chat-action-bar-icon-review'))
-    expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'agent-next-review-decision', source: 'chip', parameters: { offer_key: BAR.standard[0]!.offer_key, revision: BAR.revision },
-    }))
-  })
 
-  it('only the LATEST reply carries the bar', () => {
-    useActionBarStore.getState().setBar(SCENARIO, BAR)
-    renderThread([msg({ role: 'user', content: 'q1' }), msg({ content: 'First reply.' }), msg({ role: 'user', content: 'q2' }), msg({ content: 'Second reply.' })])
-    expect(screen.getAllByTestId('chat-action-bar')).toHaveLength(1)
-  })
 
   it('a bar that belongs to another scenario is not drawn here', () => {
     useActionBarStore.getState().setBar('another-scenario', BAR)

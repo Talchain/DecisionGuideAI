@@ -402,7 +402,7 @@ const FLAGS_CONFIG = {
   compactCoachingLines: {
     envKey: 'VITE_FEATURE_COMPACT_COACHING_LINES',
     storageKey: 'feature.compactCoachingLines',
-    defaultValue: true,
+    defaultValue: false,
   },
   // Login 3.4 UI half: when ON, no guest user is minted (lib/poc.ts
   // isGuestAuth) and unauthenticated visitors land on LoginPage via the

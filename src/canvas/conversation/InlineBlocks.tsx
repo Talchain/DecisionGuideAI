@@ -4,32 +4,7 @@
  * Supports all ConversationBlock types. Unknown block_type values render
  * a neutral fallback card — never crash.
  *
- * ## Exposure is governed by ONE layer: messageComposition.ts (PX-B, 15 Aug)
- *
- * Paul's ruling: headline → at most 3 prioritised coaching points → clear next
- * action(s) → expandable supporting detail. `composeMessage` partitions the
- * turn's blocks into `pinned | points | detail`; this component renders the
- * first two at top level in PRODUCER ORDER and the third inside ONE disclosure.
- *
- * ⚠ THIS REPLACES THE THREE OVERLAPPING BUDGETS that used to decide visibility
- * here — the legacy per-turn budget (`MAX_VISIBLE_BLOCKS_PER_TURN` = 4), the
- * phase-3 pacing group (`PHASE3_DEFAULT_EXPANDED` = 6, ROADMAP 2.211-②) and the
- * bias-signal set exempt from both (2 more). Together they could expose TWELVE
- * bordered cards under the prose on the phase-3 counts this repo measured live
- * (8, 8, 8, 11, 13, 14 per analysis turn — phase3Pacing.ts). That stack is the
- * "panels-within-panels" defect the ruling names.
- *
- * What is CARRIED FORWARD rather than lost:
- *   · graph patches / proposals stay top-level (they carry consent) — now via
- *     the composition's `pinned` class instead of a budget exemption.
- *   · the ROADMAP 2.242 lens-companion reservation — now inside the 3-point cap.
- * What is DELIBERATELY SUPERSEDED: the default-expanded count of 6, and the
- * bias-signal double exemption (bias coaching is a point candidate like any
- * other coaching card, in producer order — one cap, not three).
- *
- * Nothing is dropped: every demoted block renders through its OWN existing
- * renderer, byte-for-byte, inside the disclosure. `assertTotalPartition` is the
- * executable form of that guarantee.
+ * AI-first: render all composed blocks in producer order without prose deduplication.
  */
 
 import { useState, useCallback, useMemo, memo, useRef } from 'react'
@@ -70,11 +45,8 @@ import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPa
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
 import { CoachingLine, isCollapsibleCardBlock, planCoachingLines } from './CoachingLine'
 import {
-  collectBlockProseSurface,
   composeMessage,
-  dedupeRenderedText,
   turnDeliversNarrativeAsTypedCard,
-  withSuppressedProse,
 } from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
@@ -239,236 +211,21 @@ export const InlineBlocks = memo(function InlineBlocks({
   onProposalConfirm,
   onHeldProposalSettle,
   assistantTextWordCount = 0,
-  alreadyRendered,
   isLatestAssistantTurn = false,
   consentPending = false,
 }: InlineBlocksProps) {
-  /** One disclosure, one piece of state — replaces the two independent toggles. */
-  const [detailExpanded, setDetailExpanded] = useState(false)
-
-  // THE composition. Pure; the message/store still holds every block.
+  // AI-first: retain structural composition and consent ownership, with every tier visible.
   const composition = useMemo(() => composeMessage(blocks, null, { consentPending }), [blocks, consentPending])
-
-  /**
-   * Top-level entries in PRODUCER ORDER. Pinned and points are merged and
-   * re-sorted by source index rather than concatenated, so a patch that arrived
-   * after a coaching card still renders after it — reading order is the
-   * producer's, never the class order.
-   */
-  const topLevel = useMemo(
-    () => [...composition.pinned, ...composition.points].sort((a, b) => a.index - b.index),
+  const visibleTopLevel = useMemo(
+    () => [...composition.pinned, ...composition.points, ...composition.detail].sort((a, b) => a.index - b.index),
     [composition],
   )
-  const detail = composition.detail
-
-  // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
-
-  /**
-   * ONE RENDER AUTHORITY, applied to the prose-bearing block family.
-   *
-   * Walks the entries in RENDER order (top level in producer order, then the
-   * disclosure) and gives each `commentary` block the remainder of its own text
-   * after removing whole segments an earlier surface already rendered. Only
-   * `commentary` participates: it is the one block type that carries free prose
-   * the producer also emits through `assistant_text`, and a typed card's copy is
-   * structural — withholding a line of it would change what the card means.
-   *
-   * Computed over the FULL entry list rather than per-render-position, so a
-   * block's text does not change when the disclosure opens: opening it must
-   * reveal what was demoted, never re-write it (invariant 1's byte-preserving
-   * demotion guarantee).
-   */
-  const { commentaryTextOverrides, proseOverriddenBlocks, emptiedBlocks } = useMemo(() => {
-    const order = [
-      ...[...composition.pinned, ...composition.points].sort((a, b) => a.index - b.index),
-      ...composition.detail,
-    ]
-    const seen: string[] = [...(alreadyRendered ?? [])]
-    const overrides = new Map<number, string>()
-    const cloned = new Map<number, ConversationBlock>()
-    const emptied = new Set<number>()
-
-    for (const entry of order) {
-      const block = blocks[entry.index]
-
-      /**
-       * `commentary` keeps its OWN ratified path, unchanged. It is pinned, so
-       * it never reaches the disclosure this lane is fixing, and its "never
-       * empties a block" rule is pinned by an existing spec. Re-deciding it
-       * here would put two mechanisms on one seam.
-       */
-      if (block.type === 'commentary') {
-        const text = (block as CommentaryBlockType).text ?? ''
-        const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
-        // Suppression may remove PART of a block, never the whole of it. A
-        // commentary whose every paragraph was already rendered above keeps its
-        // original text: an empty card with a live "More" toggle is a worse
-        // artefact than the duplicate, and silently deleting a block would breach
-        // the composition's own no-drop guarantee (invariant 1) from the text
-        // side. The suppression is a de-duplicator, not a censor.
-        const useOverride = suppressedCount > 0 && survived.trim().length > 0
-        if (useOverride) overrides.set(entry.index, survived)
-        seen.push(useOverride ? survived : text)
-        continue
-      }
-
-      /**
-       * ⚠⚠ THE FIX. This used to be `if (block.type !== 'commentary') continue`
-       * — and `commentary` is in PINNED_BLOCK_TYPES, so it can NEVER land in
-       * `detail`. Every block behind "Show N more" was therefore STRUCTURALLY
-       * INELIGIBLE for suppression: the walk included `composition.detail`
-       * only to `continue` past all of it. That is the whole defect; the
-       * composition and the render path were never the problem.
-       *
-       * Per FIELD, so a card that repeats one of its paragraphs keeps the
-       * others and keeps its title. Applied in RENDER order across every tier,
-       * with no tier-conditional predicate — a rule that behaved differently
-       * inside the disclosure would be a second authority wearing one name.
-       */
-      const surface = collectBlockProseSurface(block)
-      if (surface.fields.length === 0) continue
-
-      const survivedFields = new Map<string, string>()
-      /**
-       * ⚠ HELD BACK UNTIL THE WHOLE BLOCK IS DECIDED, and the reason is
-       * invariant 4(b): a segment is withheld only against a surface ABOVE it,
-       * and repetition WITHIN one surface is the producer's and always
-       * survives. A card is one surface. Pushing field 1 into `seen` before
-       * field 2 of the SAME card is read would suppress a `v5_evidence` whose
-       * gap and impact genuinely say the same thing — blanking one of its
-       * paragraphs for no reader benefit, against the stated rule.
-       *
-       * Not observed in this repo's 12 live captures (25 multi-field blocks,
-       * 0 intra-block repeats), so this is the invariant governing rather than
-       * a measured defect — which is exactly when it is cheapest to get right.
-       */
-      const pending: string[] = []
-      let anySuppressed = false
-      let anySurvivingText = false
-      for (const { field, text } of surface.fields) {
-        const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
-        if (suppressedCount > 0) {
-          anySuppressed = true
-          survivedFields.set(field, survived)
-        }
-        const effective = suppressedCount > 0 ? survived : text
-        if (effective.trim().length > 0) anySurvivingText = true
-        // Accumulated even when nothing was suppressed: a block's prose is
-        // what makes a LATER repeat of it a duplicate. This is the direction
-        // that fixes the witnessed pairs, and it is why top-level cards must
-        // take part in the walk even though they are never demoted.
-        pending.push(effective)
-      }
-      for (const text of pending) seen.push(text)
-      if (!anySuppressed) continue
-
-      /**
-       * The honest empty result. A block whose prose is ALL it has and whose
-       * every paragraph the user has already read renders nothing — not a
-       * bordered shell around three empty paragraphs. Nothing is lost: by
-       * construction every removed segment was rendered somewhere above.
-       *
-       * Any block that keeps a title, a table or a list is NOT emptied, and
-       * is never dropped — those carry content the user has not seen.
-       */
-      if (surface.proseIsSoleContent && !anySurvivingText) {
-        emptied.add(entry.index)
-        continue
-      }
-      cloned.set(entry.index, withSuppressedProse(block, survivedFields))
-    }
-
-    return {
-      commentaryTextOverrides: overrides,
-      proseOverriddenBlocks: cloned,
-      emptiedBlocks: emptied,
-    }
-  }, [composition, blocks, alreadyRendered])
-
-  /**
-   * WHAT WILL ACTUALLY RENDER. An emptied block is removed from its tier here,
-   * at the ONE place that already knows it was emptied — so the disclosure's
-   * count, its accessible name and the sr-only summary all describe what
-   * opening it really reveals. A "Show 1 more" that reveals nothing is the
-   * empty shell one level up.
-   */
-  const visibleTopLevel = useMemo(
-    () => (emptiedBlocks.size === 0 ? topLevel : topLevel.filter((e) => !emptiedBlocks.has(e.index))),
-    [topLevel, emptiedBlocks],
-  )
-  const visibleDetail = useMemo(
-    () => (emptiedBlocks.size === 0 ? detail : detail.filter((e) => !emptiedBlocks.has(e.index))),
-    [detail, emptiedBlocks],
-  )
-  const hasDetail = visibleDetail.length > 0
-
-  /**
-   * THE visibility rule — one predicate, every consumer. A block is hidden iff
-   * it is in the detail class and the disclosure is closed. Previously this was
-   * a disjunction over two budgets that could (and did) disagree.
-   */
-  /**
-   * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). Computed ONCE per
-   * turn, because the analysis-result card cannot see its siblings and must
-   * not guess. See `turnDeliversNarrativeAsTypedCard`.
-   *
-   * Block presence decides the CHANNEL; the card's body is then read to
-   * confirm it carries the narrative in full. This line used to read
-   * "never a string comparison" — it now is one, deliberately. Not
-   * de-duplication: a repeated sentence is never suppressed for repeating.
-   * The question is only whether the card DELIVERS the paragraph, because a
-   * card whose body the contract caps at 300 chars can carry a prefix of an
-   * uncapped `narrative_summary`, and withholding the complete copy in
-   * favour of that prefix deletes the tail.
-   *
-   * ⚠⚠ COMPUTED OVER `topLevel`, NOT OVER `blocks`, AND THE DIFFERENCE IS A
-   * DELETED PARAGRAPH. The first version of this passed the whole `blocks`
-   * array, so a narrative card DEMOTED into the closed disclosure still
-   * suppressed the untyped copy: the analysis card withheld the paragraph and
-   * the disclosure hid the card, so the narrative was NOWHERE. Proven by
-   * execution on real producer bytes, changing only the card's ORDER —
-   * narrative 1st among candidates renders once; narrative 4th rendered ZERO
-   * times. Real turns carry 9–17 point candidates against `MAX_POINTS`, so
-   * 6–14 are demoted on every analysis turn; only CEE's `priority_rank: 10`
-   * (the minimum in all 8 captures) kept the narrative top-level. That is a
-   * PRODUCER-OWNED FACT mirrored nowhere in the UI — a re-rank upstream would
-   * have deleted the paragraph with no UI signal. Reading `topLevel` removes
-   * the dependency on it rather than mirroring it.
-   *
-   * This is exactly what the C13 comment twenty lines below warns against:
-   * gate on a card being CURRENTLY RENDERED, never on mere presence.
-   *
-   * ⚠ Deliberately NOT gated on `isBlockHidden`: `topLevel` membership is
-   * stable with respect to `detailExpanded`, so the paragraph cannot appear
-   * or vanish as the user opens the disclosure.
-   */
   const narrativeDeliveredByTypedCard = useMemo(
-    () => turnDeliversNarrativeAsTypedCard(visibleTopLevel.map((e) => blocks[e.index])),
+    () => turnDeliversNarrativeAsTypedCard(visibleTopLevel.map(e => blocks[e.index])),
     [visibleTopLevel, blocks],
   )
-
-  const detailIndices = useMemo(() => new Set(visibleDetail.map((e) => e.index)), [visibleDetail])
-  const isBlockHidden = useCallback(
-    (i: number) => !detailExpanded && detailIndices.has(i),
-    [detailExpanded, detailIndices],
-  )
-
-  // C13: the graph-vocabulary legend gates on a phase-3 card being
-  // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
-  // cards hidden inside the closed disclosure explains vocabulary the user
-  // cannot see).
-  const phase3Rendered = blocks.some(
-    (b, i) => isPhase3CardBlock(b) && !isBlockHidden(i) && !emptiedBlocks.has(i),
-  )
-
-  // C11: citations can point at demoted content. Handed to the commentary
-  // renderer only while the disclosure is actually closed, so a genuinely
-  // dangling citation stays a no-op.
-  const revealHiddenBlocks = useCallback(() => {
-    setDetailExpanded(true)
-  }, [])
-  const hasCollapsedContent = hasDetail && !detailExpanded
+  const phase3Rendered = visibleTopLevel.some(e => isPhase3CardBlock(blocks[e.index]))
 
   // Citation targets are numbered 1-based PER TURN, so in a thread with
   // several assistant turns on screen every turn carries its own
@@ -478,26 +235,10 @@ export const InlineBlocks = memo(function InlineBlocks({
   // this container only, so a citation lands in its own turn or nowhere.
   const blockContainerRef = useRef<HTMLDivElement>(null)
 
-  /**
-   * Render one composed entry through its OWN existing renderer. Identical for
-   * a top-level entry and a demoted one — that sameness IS the byte-preserving
-   * demotion guarantee: a block does not change when it moves tier, only where
-   * it sits. Two render paths here would be two places for them to drift.
-   */
-  /*
-   * The list-level line plan. Built from the RESOLVED blocks — the same
-   * `proseOverriddenBlocks.get(index) ?? blocks[index]` each entry renders — so
-   * a title the override changed is the title the plan groups on. Keyed by
-   * object identity, which is why the resolved list is materialised once here
-   * rather than recomputed per entry.
-   */
-  const linePlan = useMemo(() => {
-    const resolved = blocks.map((b, i) => proseOverriddenBlocks.get(i) ?? b)
-    return planCoachingLines(resolved, { consentPending })
-  }, [blocks, proseOverriddenBlocks, consentPending])
+  const linePlan = useMemo(() => planCoachingLines(blocks, { consentPending }), [blocks, consentPending])
 
   const renderEntry = (index: number) => {
-    const block = proseOverriddenBlocks.get(index) ?? blocks[index]
+    const block = blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
     /**
      * COMPACT LINE. The block's own renderer is unchanged and simply moves
@@ -570,10 +311,8 @@ export const InlineBlocks = memo(function InlineBlocks({
           onProposalConfirm={onProposalConfirm}
           onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={assistantTextWordCount}
-          commentaryTextOverride={commentaryTextOverrides.get(index)}
           narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
           isLatestAssistantTurn={isLatestAssistantTurn}
-          onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
         />
         </MaybeCoachingLine>
@@ -583,48 +322,7 @@ export const InlineBlocks = memo(function InlineBlocks({
 
   return (
     <div className={styles.blockContainer} ref={blockContainerRef} data-testid="block-container">
-      {hasDetail && (
-        // Static sr-only summary of the demoted count. Deliberately NOT a live
-        // region (C4): the toggle's accessible name already carries the count,
-        // and revealed cards entering ChatThread's role=log announce their own
-        // addition — a nested role=status here replayed the text on unhide and
-        // double-announced every toggle.
-        <span className="sr-only">
-          {detailExpanded
-            ? `Showing all ${visibleTopLevel.length + visibleDetail.length} supporting items`
-            : `${visibleDetail.length} more supporting item${visibleDetail.length !== 1 ? 's' : ''} available`}
-        </span>
-      )}
-
-      {visibleTopLevel.map((e) => renderEntry(e.index))}
-
-      {hasDetail && (
-        <>
-          <button
-            type="button"
-            className={styles.inlineDisclosureToggle}
-            onClick={() => setDetailExpanded((v) => !v)}
-            aria-expanded={detailExpanded}
-            data-testid="block-detail-toggle"
-            aria-label={
-              detailExpanded
-                ? 'Hide supporting detail'
-                : `Show ${visibleDetail.length} more supporting item${visibleDetail.length !== 1 ? 's' : ''}`
-            }
-          >
-            {detailExpanded ? (
-              <><ChevronUp size={12} aria-hidden="true" /> Show less</>
-            ) : (
-              <><ChevronDown size={12} aria-hidden="true" /> Show {visibleDetail.length} more</>
-            )}
-          </button>
-          {detailExpanded && (
-            <div className={styles.blockDetailBody} data-testid="block-detail-body">
-              {visibleDetail.map((e) => renderEntry(e.index))}
-            </div>
-          )}
-        </>
-      )}
+      {visibleTopLevel.map(e => renderEntry(e.index))}
 
       {/* F16: graph-vocabulary legend affordance near the phase-3 cards —
           only when at least one is currently rendered (C13). */}
@@ -792,7 +490,7 @@ function BlockRenderer({
         <V5AnalysisResultBlock
           block={block}
           narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
-          summaryBehindDisclosure={assistantTextWordCount > 0}
+          summaryBehindDisclosure={false}
         />
       )
 
@@ -962,7 +660,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   // Default collapsed UNLESS assistant_text is thin (< 20 words), meaning the
   // commentary IS the essential finding and must default to expanded.
   // ---------------------------------------------------------------------------
-  const defaultExpanded = assistantTextWordCount < 20
+  const defaultExpanded = true
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // title is already a plain string; fallback uses plainTextPreview to decode entities

@@ -161,24 +161,17 @@ describe('§3 the blocked Run keeps its one producer action', () => {
   })
 })
 
-describe('§4 the concise view lights up the moment the producer sends `_answer_shape`', () => {
-  it('headline + ≤3 bullets on the face, detail behind "Show more" — the free text is replaced, not truncated', async () => {
+describe('U1: assistant_text is authoritative even with an answer sidecar', () => {
+  it('renders the full reply through parser, router, mapping and ChatThread with _answer_shape present', async () => {
     const body = wireBody(runComplete as Wire)
-    body._answer_shape = {
-      headline: 'This run does not establish whether you should raise Pro to £59, because it could not test the stated churn limit.',
-      bullets: [
-        '£59-at-release ranked highest in 83% of simulated runs on the MRR-only scale.',
-        'The churn limit (< 4%) was unscored, so compliance is unknown.',
-        'It rests on adopted assumptions: 3% churn, 250 Pro subscribers, £49 MRR each.',
-        'A fourth bullet the UI must not show on the face.',
-      ],
-      detail: String(body.assistant_text),
-    }
-    renderThread(await messageFrom(body))
-    expect(screen.getByTestId('answer-headline').textContent).toMatch(/^This run does not establish/)
-    expect(screen.getByTestId('answer-bullets').querySelectorAll('li')).toHaveLength(3)
-    expect(screen.queryByTestId('answer-detail')).toBeNull()
-    fireEvent.click(screen.getByTestId('answer-show-more'))
-    expect(screen.getByTestId('answer-detail').textContent).toContain('define the churn constraint')
+    body._answer_shape = { headline: 'A shortened headline', bullets: ['A shortened point'], detail: 'Hidden detail' }
+    const message = await messageFrom(body)
+    expect(message.answerShape).toBeDefined()
+    renderThread(message)
+    const bodyText = screen.getByTestId('message-body-text').textContent ?? ''
+    const plain = (text: string) => text.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim()
+    expect(plain(bodyText)).toBe(plain(String(body.assistant_text)))
+    expect(screen.queryByTestId('answer-show-more')).toBeNull()
+    expect(screen.queryByTestId('message-show-more')).toBeNull()
   })
 })

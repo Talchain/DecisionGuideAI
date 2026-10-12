@@ -161,49 +161,12 @@ describe('splitServerOpenQuestions — fails open', () => {
 })
 
 describe('MessageBubble — the served first reply at rest', () => {
-  it.each(BUILDS)('%s: the body is everything but the questions; they are closed behind a toggle', (build) => {
-    const text = served.replies[build].assistant_text
-    const split = splitServerOpenQuestions(text)!
-    render(<MessageBubble message={makeMsg({ content: text })} onChipClick={noop} />)
 
-    const body = screen.getByTestId('message-body-text')
-    expect(body.textContent).not.toContain(M)
-    expect(body.textContent).not.toContain(split.questions.slice(0, 40))
-    expect(body.textContent).toContain('The model was saved as version 1.')
-    // Identity, not a count: the body renders exactly what stays at rest. The
-    // markdown list becomes <li>s, so compare with whitespace and "- " dropped (the
-    // renderer also shows an em dash as a hyphen).
-    expect(bare(body.textContent ?? '')).toBe(bare(split.atRest))
 
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain('Questions this model does not answer yet')
-    expect(screen.queryByTestId('message-open-questions')).toBeNull()
-
-    fireEvent.click(toggle)
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    // On demand, and verbatim: the producer's words, whole.
-    expect(screen.getByTestId('message-open-questions').textContent).toBe(split.questions)
-  })
-
-  it('e39f6e0: the caveat and its ask are on the face of the reply, not under the toggle', () => {
-    render(<MessageBubble message={makeMsg({ content: served.replies.e39f6e0.assistant_text })} onChipClick={noop} />)
-    expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(HELD_AS_CONTEXT))
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.getByTestId('message-open-questions').textContent).not.toContain('fixed context')
-  })
 })
 
 describe('B3 host placement on the mounted chat face', () => {
-  it.each(b3Placement.cases)('keeps captured $source obligation outside the closed toggle: $line', ({ text, line, question }) => {
-    render(<MessageBubble message={makeMsg({ content: text })} onChipClick={noop} />)
-    expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(line))
-    expect(screen.getByTestId('message-show-open-questions').getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.getByTestId('message-open-questions').textContent).toContain(question)
-    expect(screen.getByTestId('message-open-questions').textContent).not.toContain(line)
-    expect(text.split(line)).toHaveLength(2)
-  })
+
 })
 
 describe('MessageBubble — fails open to today\'s render (controls)', () => {
@@ -256,31 +219,8 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
     expect(served2054.assistant_text).toMatch(/Ask me for the other 11\.$/)
   })
 
-  it('DL 5851835121: collapsed by default, and the toggle carries the count', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain('13 questions this model does not answer yet')
-    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
-  })
 
-  it('RED (served): opening the panel then "View all" shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    revealAll()
-    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
-    expect(items).toEqual(LIST)
-    expect(screen.getByTestId('message-open-questions').textContent).not.toMatch(/Ask me for the other/)
-  })
 
-  it('CONTRAST: a turn without the list keeps the questions its reply carried, as before', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text })} onChipClick={noop} />)
-    expect(screen.getByTestId('message-show-open-questions').textContent).toContain('Questions this model does not answer yet')
-    expect(screen.getByTestId('message-show-open-questions').textContent).not.toMatch(/\d+ questions?/)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
-    expect(screen.getByTestId('message-open-questions').textContent).toMatch(/Ask me for the other 11\./)
-  })
 
   it('reads the list from the parser sidecar; drops what is not a non-empty string; never invents one', () => {
     const withSidecar = (agent: unknown) => {
@@ -312,26 +252,7 @@ describe('open questions on a structured (answer-shape) reply', () => {
     expect(LIST.length).toBeGreaterThan(2)
   })
 
-  it('RED (served): the counted toggle mounts under the structured answer, collapsed, and opens to every item verbatim', () => {
-    render(<MessageBubble message={shaped()} onChipClick={noop} />)
-    expect(screen.getByTestId('message-answer-structured')).toBeTruthy()
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain(`${LIST.length} questions this model does not answer yet`)
-    fireEvent.click(toggle)
-    revealAll()
-    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
-    expect(items).toEqual(LIST)
-  })
 
-  it('the questions leave "Show more": the detail keeps its arithmetic and loses the marker', () => {
-    render(<MessageBubble message={shaped()} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('answer-show-more'))
-    const detail = screen.getByTestId('answer-detail').textContent ?? ''
-    expect(detail).toContain('This is arithmetic on these figures')
-    expect(detail).not.toContain(SERVER_OPEN_QUESTIONS_MARKER)
-    expect(detail).not.toMatch(/Ask me for the other/)
-  })
 
   it('CONTRAST: a structured reply whose detail has no marker keeps its detail and gets no toggle', () => {
     const plain = { ...servedShaped.answer_shape, detail: 'Only arithmetic here.' }
@@ -349,43 +270,7 @@ describe('P47: one question first, then 3 more, then all; each question can be t
   const LIST = served2054.open_questions
   const items = () => [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
 
-  it('opens on the first question only, then 4, then all 13, in the producer\'s order', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(items()).toEqual(LIST.slice(0, 1))
-    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('Show 3 more')
-    fireEvent.click(screen.getByTestId('message-open-questions-more'))
-    expect(items()).toEqual(LIST.slice(0, 4))
-    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('View all')
-    fireEvent.click(screen.getByTestId('message-open-questions-more'))
-    expect(items()).toEqual(LIST)
-    expect(screen.queryByTestId('message-open-questions-more')).toBeNull()
-  })
 
-  it('a list of 3 goes straight from 1 to all ("View all"); a list of 1 has no more-button', () => {
-    const { unmount } = render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST.slice(0, 3) })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.getByTestId('message-open-questions-more').textContent).toBe('View all')
-    unmount()
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST.slice(0, 1) })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(items()).toEqual(LIST.slice(0, 1))
-    expect(screen.queryByTestId('message-open-questions-more')).toBeNull()
-  })
 
-  it('pressing a question sends ITS words, once; CONTRAST: with no send route it is plain text, not a dead button', () => {
-    const sent: string[] = []
-    const { unmount } = render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} onArtefactMessage={(t) => sent.push(t)} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    fireEvent.click(screen.getByTestId('message-open-questions-more'))
-    const presses = screen.getAllByTestId('message-open-question-discuss')
-    expect(presses).toHaveLength(4)
-    fireEvent.click(presses[2])
-    expect(sent).toEqual([LIST[2]])
-    unmount()
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.queryByTestId('message-open-question-discuss')).toBeNull()
-    expect(items()).toEqual(LIST.slice(0, 1))
-  })
+
 })

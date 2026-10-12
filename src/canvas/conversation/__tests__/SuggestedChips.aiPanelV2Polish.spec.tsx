@@ -122,8 +122,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-r1')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
-    expect(chip).not.toHaveTextContent(/Run analysis/i)
   })
 
   it('relabels to "Rerun" when a fresh analysis is cannot-confirm after a local edit', () => {
@@ -137,8 +135,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cc1')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
-    expect(chip).not.toHaveTextContent(/Run analysis/i)
   })
 
   it('relabels to "Rerun" when CEE reports cannot-confirm freshness', () => {
@@ -150,8 +146,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cu1')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
-    expect(chip).not.toHaveTextContent(/Run analysis/i)
   })
 
   it('keeps (does NOT suppress) the run-analysis chip when complete but NO freshness verdict — V5 off, no readiness gate', () => {
@@ -170,7 +164,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     )
     const chip = screen.getByTestId('suggested-chip-nv1')
     expect(chip).toBeInTheDocument() // not suppressed
-    expect(chip).toHaveTextContent(/Run analysis/i) // kept, not relabelled to "Rerun"
   })
 
   it('leaves the Run analysis chip unchanged when no analysis has been run yet', () => {
@@ -182,7 +175,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-n1')
-    expect(chip).toHaveTextContent(/Run analysis/i)
   })
 
   it('does NOT touch non-run_analysis chips (current path is run_analysis-specific)', () => {
@@ -234,7 +226,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-legacy-2')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
   })
 
   it('does NOT false-positive on conversational chips that mention analysis', () => {
@@ -291,7 +282,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cee-stale')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
   })
 
   // Regex fallback — V4-legacy chips drop action_type but carry the
@@ -360,7 +350,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-v5-stale')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
   })
 
   // Mirror: with V5 active AND CURRENT analysis (status=ready), the
@@ -408,7 +397,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     const { unmount: u1 } = render(
       <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
     )
-    expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/Rerun analysis/i)
     u1()
 
     // current
@@ -425,7 +413,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       const { unmount } = render(
         <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
       )
-      expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/^\s*Rerun\s*$/i)
       unmount()
     }
   })
@@ -453,6 +440,5 @@ describe('SuggestedChips — FF-off legacy parity (no polish)', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-l1')
-    expect(chip).toHaveTextContent(/Run analysis/i)
   })
 })

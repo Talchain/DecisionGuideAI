@@ -4,12 +4,7 @@
  * Renders user messages (right-aligned, info bg) and assistant messages
  * (left-aligned, panel bg) with optional inline blocks and action chips.
  *
- * Progressive disclosure: long assistant text (>CLAMP_CHAR_THRESHOLD=3000
- * chars, no blocks, not synthetic) is clamped at a natural paragraph or
- * sentence boundary with a "Show more" toggle. The threshold is a SAFETY
- * NET for outlier responses — ordinary assistant turns render in full
- * (see the round-3 UX correction; the prior 600-char threshold was found
- * to cut typical responses too aggressively).
+ * The AI reply renders in full, without UI prose filtering or folding.
  *
  * Streaming: when `message.isStreaming` is true, text renders incrementally
  * with a blinking cursor. Provisional tool-backed turns render at reduced
@@ -20,9 +15,7 @@ import { memo, useState, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { ICON_DENSE, ICON_STROKE } from './panelIcons'
 import { safeRichText } from '../utils/safeRichText'
-import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { GroundedOnNotice } from './GroundedOnNotice'
-import { ModelBuildingNoticesNotice } from './ModelBuildingNoticesNotice'
 import { InlineBlocks } from './InlineBlocks'
 import type { HeldProposalSettlement } from '../../v5/blocks/V5HeldProposalBlock'
 import { AlertCircle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
@@ -33,27 +26,13 @@ import { useCanvasStore } from '../store'
 import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
-import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
-import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
 import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
-import { OpenQuestionList } from './OpenQuestionList'
-import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
+import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
 import { AiChangeUndoButton } from '../undo/AiChangeUndoButton'
-
-/** Safety net: extract text from raw JSON blobs that CEE's fallback parser may produce. */
-function extractFromRawJson(content: string): string {
-  const trimmed = content.trim()
-  if (!trimmed.startsWith('{') || !trimmed.includes('"text"')) return content
-  try {
-    const parsed = JSON.parse(trimmed)
-    if (typeof parsed.text === 'string' && parsed.text.trim()) return parsed.text
-  } catch { /* not valid JSON — fall through */ }
-  return "I have a response but it didn't render correctly. Try asking again."
-}
 
 /** Replace internal factor IDs (fac_xxx) with human-readable labels. */
 function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string {
@@ -170,11 +149,7 @@ interface MessageBubbleProps {
   onRetryFailedSend?: () => void
   /** L-42: only the newest assistant turn's card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
-  /**
-   * Run-3 judge U2: the status headline and bullets an EARLIER reply in this reply's model state already drew
-   * (`statusDrawnBefore`). Added to the answer's priors so the repeat is not drawn twice in one state.
-   */
-  sameStateDrawn?: readonly string[]
+
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -190,104 +165,14 @@ export const MessageBubble = memo(function MessageBubble({
   compact = false,
   onRetryFailedSend,
   isLatestAssistantTurn = false,
-  sameStateDrawn,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const isStreaming = message.isStreaming === true
 
-  // ── HOOKS FIRST ────────────────────────────────────────────────────────────
-  // These three memos are declared BEFORE every early return in this component.
-  //
-  // That placement is load-bearing, not style: this file already carries three
-  // rules-of-hooks exceptions (hooks declared BELOW the sentinel /
-  // non-conversational / chip-initiated early returns), and the repo's ratchet
-  // says of them — correctly — "this file had an exception for its EXISTING
-  // violations, not a licence to add more. Each one is a render-time crash."
-  // A message that flips across one of those early returns between renders
-  // would change its hook count. So the render-authority memos sit above all of
-  // them. The pre-existing three are REPORTED, not fixed here: hoisting them is
-  // a separate, mechanical change and this lane's scope rule forbids
-  // "while we're here" work.
-  /**
-   * Slice C5: Olumi's provisional view, typed (`_agent.provisional_view`), rendered verbatim as its own labelled
-   * block on the face of a settled assistant reply, whatever shape the reply took. Thin UI: the producer's prose
-   * is never parsed or edited here (provisionalView.ts).
-   */
   const provisional = !isUser && !isStreaming && !message.stoppedByUser ? message.provisionalView : undefined
   const [provisionalWhyShown, setProvisionalWhyShown] = useState(false)
-  const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
-    ? message.content
-    : extractFromRawJson(message.content)
-
-  /**
-   * ONE RENDER AUTHORITY (L-16 / NEW-9) — tier 0 for this turn.
-   *
-   * The consent / answer cards this turn will render below the prose. The prose
-   * body then withholds any whole segment one of them already states, so the
-   * plan behind a [Confirm these changes] control is read ONCE, on the control.
-   *
-   * Never applied to a user bubble (the user's own words are never withheld)
-   * and never while streaming (the card has not arrived, so "already rendered"
-   * is not yet a true statement about anything).
-   */
-  const consentSurfaceText = useMemo(
-    () => (isUser || isStreaming
-      ? []
-      : collectConsentSurfaceText(message.blocks, patchBlockStates, message.id)),
-    [isUser, isStreaming, message.blocks, patchBlockStates, message.id],
-  )
-  const dedupedBody = useMemo(
-    () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
-    [rawDisplayContent, consentSurfaceText],
-  )
-  /** The structured answer's priors: tier 0, then what an earlier reply in this model state drew (run-3 judge U2). */
-  const answerPriors = useMemo(
-    () => (sameStateDrawn && sameStateDrawn.length > 0 ? [...consentSurfaceText, ...sameStateDrawn] : consentSurfaceText),
-    [consentSurfaceText, sameStateDrawn],
-  )
-  /**
-   * Detail on demand: the build's open questions, split off the reply at the
-   * producer's exact marker and shown VERBATIM behind a closed toggle
-   * (serverOpenQuestions.ts). Settled assistant free-text turns only — never
-   * the user's own words, never mid-stream or stopped, never when AnswerBody
-   * owns the body. `null` → the reply renders exactly as before.
-   */
-  const openQuestions = useMemo(
-    () => (isUser || isStreaming || message.stoppedByUser
-      ? null
-      // Structured replies carry the producer's marker inside `detail` (served CEE 3c4d9cc, 27 Sep): split THAT,
-      // so the questions leave "Show more" and sit behind the same counted toggle as a free-text reply's.
-      : message.answerShape
-        ? splitServerOpenQuestions(message.answerShape.detail ?? '')
-        : splitServerOpenQuestions(dedupedBody.text)),
-    [isUser, isStreaming, message.stoppedByUser, message.answerShape, dedupedBody.text],
-  )
-  const [openQuestionsShown, setOpenQuestionsShown] = useState(false)
-  const displayContent = openQuestions && !message.answerShape ? openQuestions.atRest : dedupedBody.text
-  /** The structured answer with its questions moved to the toggle; unchanged when there are none. */
-  const answerForBody = useMemo(
-    () => (message.answerShape && openQuestions ? { ...message.answerShape, detail: openQuestions.atRest } : message.answerShape),
-    [message.answerShape, openQuestions],
-  )
-  /**
-   * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
-   * body, whichever body this turn actually renders.
-   *
-   * ⚠ The two modes render DIFFERENT text and this must follow, not assume. In
-   * structured mode `AnswerBody` OWNS the body and `displayContent` is never
-   * rendered at all, so feeding it here suppressed blocks against text nobody
-   * could see (adversarial-review finding). The structured branch therefore
-   * feeds what `resolveAnswerBodyText` says will show — and DELIBERATELY OMITS
-   * `detail`, which sits behind the Show-more toggle: a block is not a duplicate
-   * of something the user has to click to reveal.
-   */
-  const renderedAboveBlocks = useMemo(() => {
-    if (!isUser && !isStreaming && message.answerShape) {
-      const shown = resolveAnswerBodyText(message.answerShape, answerPriors)
-      return [...answerPriors, shown.headline, ...shown.bullets]
-    }
-    return [...consentSurfaceText, displayContent]
-  }, [isUser, isStreaming, message.answerShape, answerPriors, consentSurfaceText, displayContent])
+  // AI-first: assistant_text owns the reply, including repeated and structured-answer prose.
+  const displayContent = message.content
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -331,12 +216,6 @@ export const MessageBubble = memo(function MessageBubble({
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
 
-  // Suppress stock acknowledgement messages (Task 5: DS v5 compliance)
-  // Only suppress when there are no blocks to render — blocks (e.g. graph_patch)
-  // must survive even when the accompanying text is non-conversational.
-  // Never suppress streaming messages — empty content during streaming is normal.
-  if (!isUser && !message.isStreaming && isNonConversationalContent(message.content) && (!message.blocks || message.blocks.length === 0)) return null
-
   // Chip-initiated user messages render as a compact pill, not a full bubble
   if (isUser && message.chipInitiated) {
     return (
@@ -352,32 +231,6 @@ export const MessageBubble = memo(function MessageBubble({
 
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
-
-  // P0-1: Safety net — extract text from raw JSON blobs (CEE fallback parser).
-  // Only apply after streaming completes — partial JSON during streaming would flash fallback.
-  // N3 (T6): skip the JSON-extraction safety net on user-stopped messages. The
-  // partial content may be an incomplete JSON fragment that JSON.parse would
-  // reject, causing extractFromRawJson to return its "didn't render correctly"
-  // placeholder — confusing alongside the "Response stopped." indicator. The
-  // user chose to stop mid-stream; show whatever partial they had.
-
-  // F1 (answer-shape progressive disclosure): when a well-formed answer-shape
-  // sidecar is present on a settled assistant turn, the structured view
-  // (headline + ≤3 bullets + Show-more detail) OWNS the body in place of the
-  // free-text render. Absent / malformed / streaming / user → falls through to
-  // the free-text render below, byte-for-byte unchanged (no regression).
-  const showStructuredAnswer = !isUser && !isStreaming && Boolean(message.answerShape)
-
-  // Progressive disclosure (free-text path): truncate at natural boundaries
-  // (paragraph / sentence). Suppressed when the structured answer view owns the
-  // body — its own Show-more governs disclosure there.
-  const canTruncate = !isUser
-    && !isStreaming
-    && !message.synthetic
-    && !showStructuredAnswer
-    && (!message.blocks || message.blocks.length === 0)
-  const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
-  const [expanded, setExpanded] = useState(false)
 
   // ROADMAP 1.42: Show-reasoning progressive disclosure — collapsed by default.
   const [reasoningExpanded, setReasoningExpanded] = useState(false)
@@ -452,36 +305,17 @@ export const MessageBubble = memo(function MessageBubble({
           {message.restoredTag}
         </span>
       )}
-      {showStructuredAnswer && message.answerShape ? (
+      {(displayContent.trim().length > 0 || isStreaming) && (
         <div
           className={bodyClassName}
-          data-testid="message-answer-structured"
-        >
-          <AnswerBody
-            answer={answerForBody ?? message.answerShape}
-            compact={compact}
-            alreadyRendered={answerPriors}
-          />
-        </div>
-      ) : (
-        // The body element is omitted entirely when every one of its segments
-        // was already stated by a consent card above (NEW-9). An empty
-        // <div> would still render the prose's margins and read as a gap the
-        // user cannot account for.
-        (displayContent.trim().length > 0 || isStreaming) && (
-          <div
-            className={bodyClassName}
-            data-streaming={isStreaming || undefined}
-            data-body-segments-withheld={dedupedBody.suppressedCount || undefined}
-            data-testid="message-body-text"
-            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li, span; span.md-gap is the paragraph gap)
-            dangerouslySetInnerHTML={{
-              __html: safeRichText(
-                truncatedContent && !expanded ? truncatedContent : displayContent,
-              ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
-            }}
-          />
-        )
+          data-streaming={isStreaming || undefined}
+          data-testid="message-body-text"
+          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
+          dangerouslySetInnerHTML={{
+            __html: safeRichText(displayContent)
+              + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+          }}
+        />
       )}
       {hasToolLoading && (
         <div className={styles.toolLoadingState} data-testid="tool-loading-state">
@@ -504,18 +338,6 @@ export const MessageBubble = memo(function MessageBubble({
         >
           Response stopped.
         </div>
-      )}
-      {truncatedContent && (
-        <button
-          type="button"
-          className={styles.inlineDisclosureToggle}
-          onClick={() => setExpanded(v => !v)}
-          data-testid="message-show-more"
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Show less of this message' : 'Show more of this message'}
-        >
-          {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
-        </button>
       )}
       {/* Slice C5: Olumi's PROVISIONAL view — its reading when the analysis cannot put an option forward, in the
         * reasoning panel's quieter register so it never reads as the analysis's result. The view and the one step
@@ -563,32 +385,6 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         </div>
       )}
-      {/* The build's open questions, on demand and verbatim. Plain text via a
-        * text node, like the reasoning panel below. */}
-      {openQuestions && (
-        <>
-          <button
-            type="button"
-            className={styles.inlineDisclosureToggle}
-            onClick={() => setOpenQuestionsShown(v => !v)}
-            data-testid="message-show-open-questions"
-            aria-expanded={openQuestionsShown}
-          >
-            {openQuestionsShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {openQuestionsToggleLabel(message.openQuestionList?.length)}
-          </button>
-          {openQuestionsShown && (
-            <div className={styles.reasoningPanel} data-testid="message-open-questions">
-              {/* The producer's whole list when it sent one (CEE #2054), every item verbatim; otherwise the
-                  questions the reply itself carried, as before. */}
-              {message.openQuestionList && message.openQuestionList.length > 0 ? (
-                <OpenQuestionList questions={message.openQuestionList} onDiscuss={onArtefactMessage} />
-              ) : (
-                <p className={styles.reasoningPanelBody}>{openQuestions.questions}</p>
-              )}
-            </div>
-          )}
-        </>
-      )}
       {/* ROADMAP 1.42: Show-reasoning progressive disclosure — Paul ruled
         * VERBATIM-with-label. Collapsed by default; renders nothing when
         * reasoning is absent (sporadic CEE field) or the flag is off
@@ -626,19 +422,6 @@ export const MessageBubble = memo(function MessageBubble({
       {!isUser && message.groundedSelection && (
         <GroundedOnNotice groundedSelection={message.groundedSelection} />
       )}
-      {/* What Olumi had to leave out of the model it drafted on THIS turn.
-        * NO FLAG (CEE emits `model_building_notices` unconditionally, and it is
-        * a declared 0.48.0 contract field), and the condition is the PAYLOAD'S
-        * OWN PRESENCE: with no attestation `message.modelBuildingNotices` is
-        * undefined and nothing renders. The contract cannot encode zero, so
-        * absence is SILENCE, not a clean bill of health — rendering a zero here
-        * would report an omission that never happened, and rendering
-        * reassurance would claim a completeness the field cannot evidence.
-        * Assistant-only: an omission is a fact about a MODEL OLUMI BUILT, and
-        * the user's own bubble never carries one. */}
-      {!isUser && message.modelBuildingNotices && (
-        <ModelBuildingNoticesNotice notices={message.modelBuildingNotices} />
-      )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
       )}
@@ -655,11 +438,7 @@ export const MessageBubble = memo(function MessageBubble({
           onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
           consentPending={turnOfferedConsent(message)}
-          // ONE RENDER AUTHORITY: tier 0 (consent cards) then tier 2 (the prose
-          // body as it was ACTUALLY rendered, post-suppression) — so a
-          // commentary block inside the disclosure does not repeat a paragraph
-          // the user has already read further up the same message (item 7).
-          alreadyRendered={renderedAboveBlocks}
+          alreadyRendered={[]}
           isLatestAssistantTurn={isLatestAssistantTurn}
         />
       )}

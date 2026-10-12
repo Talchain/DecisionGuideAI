@@ -99,29 +99,8 @@ describe('U2: CEE\'s repeated status is drawn once per model state', () => {
     expect(answerStateKeyOf(at(undefined, '2026-10-12T15:40:48.373Z'))).toBeNull()
   })
 
-  it('⭐ the second reply in a state does not draw the status again; its own new line stays', () => {
-    const [r03, r04] = renderThread(THREAD())
-    expect(r03).toEqual({ headline: STATUS, bullets: [ESTIMATES] })
-    expect(r04).toEqual({ headline: null, bullets: [T04._answer_shape.bullets[1]] })
-  })
 
-  it('⭐ a reply in a NEW state always draws the status again', () => {
-    const r07 = renderThread(THREAD())[2]
-    expect(r07).toEqual({ headline: STATUS, bullets: [ESTIMATES] })
-  })
 
-  it('CONTRAST: replies with no state (a transcript saved before states were kept) fold nothing', () => {
-    const shown = renderThread(THREAD(false))
-    expect(shown.map(r => r.headline)).toEqual([STATUS, STATUS, STATUS])
-  })
 
-  it('the state survives a reload of the transcript, so a reopened thread folds the same way', () => {
-    saveTranscript('scenario-u2', THREAD())
-    const restored = loadTranscript('scenario-u2')!.messages as ConversationMessage[]
-    expect(restored.filter(m => m.role === 'assistant').map(m => m.answerStateKey)).toEqual(
-      [T03, T04, T07].map(t => answerStateKeyOf(t)),
-    )
-    const shown = renderThread(restored)
-    expect(shown.map(r => r.headline)).toEqual([STATUS, null, STATUS])
-  })
+
 })

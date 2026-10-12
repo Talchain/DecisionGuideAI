@@ -91,8 +91,6 @@ interface ChatMessageProps {
    * is threaded rather than re-derived.
    */
   isLatestAssistantTurn?: boolean
-  /** Run-3 judge U2: what an earlier reply in this reply's model state already drew (`statusDrawnBefore`). */
-  sameStateDrawn?: readonly string[]
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -110,7 +108,6 @@ export const ChatMessage = memo(function ChatMessage({
   compact,
   showFailedSendRetry,
   isLatestAssistantTurn = false,
-  sameStateDrawn,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -150,7 +147,6 @@ export const ChatMessage = memo(function ChatMessage({
         compact={compact}
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
         isLatestAssistantTurn={isLatestAssistantTurn}
-        sameStateDrawn={sameStateDrawn}
       />
 
       {/*

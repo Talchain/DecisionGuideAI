@@ -131,7 +131,7 @@ import {
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
 import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
-import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
 import { extractProvisionalViewSidecar } from './provisionalView'
@@ -6240,7 +6240,7 @@ export function useConversation(): UseConversationReturn {
           // the store synchronously above. Gated on the flag + a non-empty
           // coaching summary; the block is local-only (no CEE/wire/parser change).
           const receipt = maybeBuildModelReceiptBlock({
-            enabled: isPreAnalysisEnrichedEnabled(),
+            enabled: false,
             isDraftTurn: draftAppliedThisTurn,
             store: useCanvasStore.getState(),
           })

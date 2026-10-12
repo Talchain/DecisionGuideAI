@@ -41,36 +41,7 @@ function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMess
 }
 
 describe('prose vs consent card', () => {
-  it('withholds the prose paragraph the consent card already states', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          content: `Here is what I would change.\n${PLAN}\nNothing moves until you confirm.`,
-          blocks: [heldBlock(PLAN)],
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const body = screen.getByTestId('message-body-text')
-    expect(body.textContent).toContain('Here is what I would change.')
-    expect(body.textContent).toContain('Nothing moves until you confirm.')
-    // The plan is stated ONCE, and it is stated on the control the user
-    // consents through.
-    expect(body.textContent).not.toContain(PLAN)
-    expect(screen.getByTestId('v5-held-proposal-summary').textContent).toContain(PLAN)
-    expect(body.getAttribute('data-body-segments-withheld')).toBe('1')
-  })
 
-  it('omits the body element entirely when the card already said all of it', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({ content: PLAN, blocks: [heldBlock(PLAN)] })}
-        onChipClick={noop}
-      />,
-    )
-    expect(screen.queryByTestId('message-body-text')).toBeNull()
-    expect(screen.getByTestId('v5-held-proposal-summary').textContent).toContain(PLAN)
-  })
 
   it('OPPOSITE TWIN — prose that does NOT repeat the card is untouched', () => {
     const prose = 'I have drafted a plan you should look over before confirming.'
@@ -115,31 +86,8 @@ describe('answer shape vs consent card', () => {
     detail: 'The long tail of the explanation.',
   }
 
-  it('withholds an answer headline the consent card already states', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({ content: 'ignored', answerShape: answer, blocks: [heldBlock(PLAN)] })}
-        onChipClick={noop}
-      />,
-    )
-    expect(screen.queryByTestId('answer-headline')).toBeNull()
-    expect(screen.getByTestId('answer-bullets').textContent).toContain('A supporting point.')
-    expect(screen.getByTestId('v5-held-proposal-summary').textContent).toContain(PLAN)
-  })
 
-  it('OPPOSITE TWIN — an answer headline nothing else states still renders', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          content: 'ignored',
-          answerShape: answer,
-          blocks: [heldBlock('A completely different plan.')],
-        })}
-        onChipClick={noop}
-      />,
-    )
-    expect(screen.getByTestId('answer-headline').textContent).toContain(PLAN)
-  })
+
 })
 
 describe('the collector is fed only what the turn ACTUALLY renders', () => {
@@ -187,72 +135,14 @@ describe('the collector is fed only what the turn ACTUALLY renders', () => {
     expect(screen.getByTestId('block-container').textContent).toContain(UNRENDERED)
   })
 
-  it('A3 twin — a block IS suppressed against the headline AnswerBody really shows', () => {
-    const HEAD = 'The leading option has not changed.'
-    render(
-      <MessageBubble
-        message={makeMsg({
-          content: 'ignored free text',
-          answerShape: { headline: HEAD, bullets: [], detail: 'Some detail.' },
-          blocks: [{ type: 'commentary', text: `${HEAD}\nExtra context.` } as ConversationBlock],
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const container = screen.getByTestId('block-container')
-    expect(container.textContent).toContain('Extra context.')
-    expect(container.textContent).not.toContain(HEAD)
-  })
+
 })
 
 describe('duplicate sentence inside one disclosure (L-16, item 7)', () => {
   const ONLY_ONE_RUN =
     'There is only one analysis run so far, so there is nothing to compare yet.'
 
-  it('renders a commentary paragraph once when the prose already said it', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          content: `${ONLY_ONE_RUN}\nRun the analysis again after a change.`,
-          blocks: [
-            {
-              type: 'commentary',
-              text: `${ONLY_ONE_RUN}\nHere is the extra context.`,
-            } as ConversationBlock,
-          ],
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const container = screen.getByTestId('block-container')
-    expect(container.textContent).toContain('Here is the extra context.')
-    expect(container.textContent).not.toContain(ONLY_ONE_RUN)
-    // and the prose kept it — the higher tier is never the one withheld
-    expect(screen.getByTestId('message-body-text').textContent).toContain(ONLY_ONE_RUN)
-  })
 
-  it('a commentary paragraph repeated by a LATER commentary block renders once', () => {
-    // Item 7, at the level it actually occurs: ACROSS blocks. Within one block's
-    // own text nothing is de-duplicated — that is the producer's repetition.
-    render(
-      <MessageBubble
-        message={makeMsg({
-          content: 'Short lead-in.',
-          blocks: [
-            { type: 'commentary', text: `${ONLY_ONE_RUN}\nFirst extra.` } as ConversationBlock,
-            { type: 'commentary', text: `${ONLY_ONE_RUN}\nSecond extra.` } as ConversationBlock,
-          ],
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const container = screen.getByTestId('block-container')
-    expect(container.textContent).toContain('First extra.')
-    expect(container.textContent).toContain('Second extra.')
-    // Exactly one occurrence across the whole turn.
-    const occurrences = (container.textContent ?? '').split(ONLY_ONE_RUN).length - 1
-    expect(occurrences).toBe(1)
-  })
 
   it('NEVER empties a block: a wholly-duplicate commentary keeps its own text', () => {
     // Suppression removes PART of a block, never the whole of it. An empty card

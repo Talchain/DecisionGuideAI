@@ -152,16 +152,6 @@ function isConsentChip(chip: ActionChip): boolean {
   return typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
 }
 
-/** CEE's pre-mortem plan pick (#2480 choose_plan), by identity (its id prefix), never by label or message. */
-function isPlanPickChip(chip: ActionChip): boolean {
-  return typeof chip.id === 'string' && chip.id.startsWith(PLAN_PICK_CHIP_PREFIX)
-}
-
-/** CEE's per-item widening Add (#2744 S-C), by identity (its id prefix), never by label or message. */
-function isWidenAddChip(chip: ActionChip): boolean {
-  return typeof chip.id === 'string' && chip.id.startsWith(WIDEN_ADD_CHIP_PREFIX)
-}
-
 /**
  * ⭐ A CHIP WHOSE CLICK IS THE DECISION SHOWS ITS `detail` BEFORE THE CLICK: the research control (what leaves
  * Olumi, CEE #2042) and the consent chip (what the click writes: the whole option name and every factor it also
@@ -426,19 +416,9 @@ export function SuggestedChips({
     }
   }
 
-  // aiPanelV2: apply the product rule to run-analysis affordances.
-  // `runAnalysisPolish` was computed once upstream — the V5 filter and
-  // this map step both consume the same value so they cannot diverge.
-  // Detection covers both V2 chips (action_type === 'run_analysis') and
-  // legacy prompt-style chips matched by the canonical regex.
+  // Preserve the AI's labels; the Run eligibility gates above remain authoritative.
   const polished = aiPanelV2On
-    ? supported
-        .filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
-        .map((c) =>
-          isRunAnalysisAffordance(c) && runAnalysisPolish === 'relabel-rerun'
-            ? { ...c, label: 'Rerun' }
-            : c,
-        )
+    ? supported.filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
     : supported
 
   // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render
@@ -468,7 +448,7 @@ export function SuggestedChips({
     .sort((a, b) => (guidedPress.get(a.id)?.order ?? 0) - (guidedPress.get(b.id)?.order ?? 0))
     .map((c) => ({ ...c, parameters: { ...guidedPress.get(c.id)?.press.parameters } }))
   const others = renderable.filter((c) => !isGuided(c))
-  const othersShown = others.some((c) => isPlanPickChip(c) || isWidenAddChip(c)) ? others : others.slice(0, 3)
+  const othersShown = others
   const visibleNow = [...guided, ...othersShown]
   const guidedProgressLineNow = guided.length > 0 ? guidedSizing?.progressLine : undefined
 
@@ -599,12 +579,7 @@ export function SuggestedChips({
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
-          const roleLabel = chip.role
-            ? chip.role.charAt(0).toUpperCase() + chip.role.slice(1)
-            : null
-          const baseLabel = roleLabel
-            ? `${roleLabel}: ${chip.label}`
-            : chip.label
+          const baseLabel = chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary
