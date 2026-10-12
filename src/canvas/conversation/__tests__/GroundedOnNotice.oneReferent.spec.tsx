@@ -102,33 +102,26 @@ function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMess
 }
 
 /**
- * Render a notice that carries BOTH halves — a nameable selected element AND an
- * unresolved disclosure — and hand back the two paragraphs separately, because
- * the property under test is a relation BETWEEN them.
+ * Render a notice for a selection with a nameable element AND an unresolved state. AI-first subtract (DL, 12 Oct;
+ * friction N4): the elements line is REMOVED, so only the disclosure renders; this hands it back and pins that the
+ * selected element is not named.
  */
-function renderBothSentences(unresolved: Exclude<GroundedUnresolved, 'none'>) {
+function renderDisclosure(unresolved: Exclude<GroundedUnresolved, 'none'>) {
   const groundedSelection: GroundedSelection = { element_ids: [RUNWAY_ID], unresolved }
   const { unmount } = render(
     <MessageBubble message={makeMsg({ groundedSelection })} onChipClick={noop} />,
   )
 
   const notice = screen.getByTestId('grounded-on-notice')
-  const elementsLine = screen.getByTestId('grounded-on-elements')
   const disclosureLine = screen.getByTestId('grounded-on-unresolved')
-
-  // PRECONDITION, PINNED IN-TEST (trap 13b): this payload really does render
-  // both paragraphs, inside ONE container. Without this the cross-sentence
-  // assertions below could hold on a notice that rendered only one of them.
-  expect(notice).toContainElement(elementsLine)
   expect(notice).toContainElement(disclosureLine)
-  expect((elementsLine.textContent ?? '').length).toBeGreaterThan(0)
   expect((disclosureLine.textContent ?? '').length).toBeGreaterThan(0)
+  // The removed elements line stays removed: no "You had …", and the selected element is not named.
+  expect(screen.queryByTestId('grounded-on-elements')).toBeNull()
+  expect((notice.textContent ?? '').toLowerCase()).not.toContain('you had')
+  expect(screen.queryByText(RUNWAY_LABEL)).toBeNull()
 
-  return {
-    elements: (elementsLine.textContent ?? '').toLowerCase(),
-    disclosure: (disclosureLine.textContent ?? '').toLowerCase(),
-    unmount,
-  }
+  return { disclosure: (disclosureLine.textContent ?? '').toLowerCase(), unmount }
 }
 
 beforeEach(() => {
@@ -139,29 +132,14 @@ describe('grounding notice — ⭐⭐ the two sentences name ONE referent', () =
   it.each(['not_in_model', 'could_not_check'] as const)(
     'THE CONTRADICTION: with unresolved="%s", the disclosure is about the SELECTION, not the question',
     (unresolved) => {
-      const { elements, disclosure } = renderBothSentences(unresolved)
-
-      // POSITIVE HALF — the element is still named, bound by canonical id.
-      // Deleting the elements line REDs here rather than satisfying the ban.
-      const named = screen.getAllByTestId('grounded-on-element')
-      expect(named).toHaveLength(1)
-      expect(named[0].getAttribute('data-element-id')).toBe(RUNWAY_ID)
-
-      // The first sentence's referent, restated so this case is self-contained:
-      // it is about what the user SELECTED.
-      expect(elements).toContain('select')
-
-      // ⭐ THE PROPERTY — the second sentence names the SAME referent…
-      expect(
-        disclosure,
-        `the disclosure must name the SELECTION, as the line above it does (unresolved="${unresolved}")`,
-      ).toContain('select')
-
+      const { disclosure } = renderDisclosure(unresolved)
+      // ⭐ THE PROPERTY — the disclosure names the SELECTION (the producer's field)…
+      expect(disclosure, `the disclosure must name the SELECTION (unresolved="${unresolved}")`).toContain('select')
       // …and never re-attributes the producer's field to the question.
       for (const referent of QUESTION_REFERENTS) {
         expect(
           disclosure,
-          `the disclosure contradicts the line above it by naming the question (found "${referent}", unresolved="${unresolved}")`,
+          `the disclosure names the question (found "${referent}", unresolved="${unresolved}")`,
         ).not.toContain(referent)
       }
     },
@@ -170,10 +148,10 @@ describe('grounding notice — ⭐⭐ the two sentences name ONE referent', () =
   it('⭐ the two disclosure states STILL do not collapse — the referent fix changes nothing else', () => {
     // The fix is a referent swap and must stay one. If closing the
     // contradiction ever tempts someone to merge the two sentences, this REDs.
-    const first = renderBothSentences('not_in_model')
+    const first = renderDisclosure('not_in_model')
     const notInModel = first.disclosure
     first.unmount()
-    const couldNotCheck = renderBothSentences('could_not_check').disclosure
+    const couldNotCheck = renderDisclosure('could_not_check').disclosure
 
     expect(notInModel).not.toBe(couldNotCheck)
     // `not_in_model` still ASSERTS the absence — the graph was read.
@@ -188,38 +166,8 @@ describe('grounding notice — ⭐⭐ the two sentences name ONE referent', () =
     }
   })
 
-  it('DISCRIMINATING PAIR: a DIFFERENT selected element is named, and the disclosure is unchanged by it', () => {
-    // Same answer, same canvas, same unresolved state — only the selected id
-    // differs. An implementation that named a fixed element passes the case
-    // above and FAILS here; and the cross-sentence property is a property of
-    // the SENTENCE, not of one fixture, so it is re-asserted on this payload.
-    render(
-      <MessageBubble
-        message={makeMsg({
-          groundedSelection: { element_ids: [HEADCOUNT_ID], unresolved: 'not_in_model' },
-        })}
-        onChipClick={noop}
-      />,
-    )
-
-    const ids = screen
-      .getAllByTestId('grounded-on-element')
-      .map((el) => el.getAttribute('data-element-id'))
-    expect(ids).toEqual([HEADCOUNT_ID])
-    expect(ids).not.toContain(RUNWAY_ID)
-    expect(screen.queryByText(RUNWAY_LABEL)).toBeNull()
-
-    const disclosure = (
-      screen.getByTestId('grounded-on-unresolved').textContent ?? ''
-    ).toLowerCase()
-    expect(disclosure).toContain('select')
-    for (const referent of QUESTION_REFERENTS) {
-      expect(disclosure, `question referent "${referent}" leaked on the second payload`).not.toContain(
-        referent,
-      )
-    }
-  })
-
+  // AI-first subtract (DL, 12 Oct; friction N4): the named DISCRIMINATING PAIR row pinned the removed elements line and
+  // went with it.
   it('the disclosure alone — no nameable element — is still about the selection', () => {
     // The producer can legitimately send an empty `element_ids` with a
     // disclosure (nothing resolved). There is no first sentence to be
