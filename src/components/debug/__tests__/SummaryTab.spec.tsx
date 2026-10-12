@@ -237,3 +237,37 @@ describe('SummaryTab review status badge', () => {
     expect(completeElements.length).toBeGreaterThan(0)
   })
 })
+
+// =============================================================================
+// #2747 C (last check, blocking 1): no win-share figure on this tab
+// =============================================================================
+
+describe('SummaryTab leading option: no win-share figure (ruling A)', () => {
+  it('names the leader and the close-race rival, with no figure derived from win_probability', () => {
+    // The hook rescales win_probability to 0–100: CEE's 0.9973 arrives here as 99.73 and once read "100% confidence".
+    const data = makeDebugData({
+      services: {
+        cee: { name: 'CEE', status: 200, success: true, duration_ms: 60000, endpoint: '/bff/cee/draft-graph' },
+        plot: null,
+        isl: null,
+      },
+      winningOption: {
+        id: 'opt_alder', label: 'Alder plan', win_probability: 99.73, is_close_race: true,
+        runner_up: { id: 'opt_birch', label: 'Birch plan', win_probability: 0.27 },
+      },
+    })
+    const { container } = render(<SummaryTab data={data} />)
+    const text = container.textContent ?? ''
+    // Identity: the leader is still named on both rows, and the close-race tooltip names the rival.
+    expect(screen.getByText('Leading option: Alder plan')).toBeInTheDocument()
+    const kpi = screen.getByTitle('Close race vs Birch plan')
+    expect(kpi.textContent).toContain('Alder plan')
+    // CONTRAST: the probe sees % text on this tab (the CEE budget row, 60 s of 120 s).
+    expect(screen.getByTestId('timeout-budget-section').textContent).toContain('50%')
+    // TARGET: no rounding of the win share anywhere on the tab, nor the old wording.
+    for (const banned of ['100%', '99.73', '99.7', '% confidence', '(0%)', 'at 0%', '(100']) {
+      expect(text).not.toContain(banned)
+    }
+    expect(kpi.getAttribute('title')).not.toMatch(/\d/)
+  })
+})

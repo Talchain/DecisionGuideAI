@@ -19,8 +19,8 @@ const wire = (extra: Record<string, unknown>) => [{
 }]
 
 describe('spread note: CEE decides, the reader reads it by shape', () => {
-  it('CONTROL: the reader carries the note for the named option', () => {
-    expect(readGoalChanceLicence(wire({ spread_note_by_option: { raise: WITH } }))!.spreadNoteOptionIds).toEqual(['raise'])
+  it('CONTROL: the reader carries CEE\'s sentence verbatim for the named option', () => {
+    expect(readGoalChanceLicence(wire({ spread_note_by_option: { raise: WITH } }))!.spreadNoteByOption).toEqual({ raise: WITH })
   })
   it.each([
     ['another form', { form: 'similar', similar_option_ids: ['raise', 'hold'], spread_note_by_option: { raise: WITH } }],
@@ -31,13 +31,13 @@ describe('spread note: CEE decides, the reader reads it by shape', () => {
   ])('nothing for %s', (_why, extra) => {
     const licence = readGoalChanceLicence(wire(extra as Record<string, unknown>))
     expect(licence).not.toBeNull()
-    expect(licence!.spreadNoteOptionIds ?? []).toEqual([])
+    expect(licence!.spreadNoteByOption ?? {}).toEqual({})
   })
   it('a withheld option never carries it', () => {
     const licence = readGoalChanceLicence(wire({
       withheld_option_ids: ['trial'], pct_by_option: { raise: 62, hold: 41 }, spread_note_by_option: { trial: WITH },
     }))
     expect(licence).not.toBeNull()
-    expect(licence!.spreadNoteOptionIds ?? []).toEqual([])
+    expect(licence!.spreadNoteByOption ?? {}).toEqual({})
   })
 })

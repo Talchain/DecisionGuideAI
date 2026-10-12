@@ -113,11 +113,11 @@ export interface GoalChanceLicence {
   readonly horizonLine?: string | null
   /**
    * ⭐ Science 393023 (1), CEE #2775: the quoted options whose chance comes from a wider spread while their typical result
-   * falls short (CEE `spread_note_by_option`, decided on the threshold the Run sent, with the reversal half). The UI only
-   * words it, after that option's chance. Read only on `each`, only on a quoted option, only as one of CEE's two exact
+   * falls short (CEE `spread_note_by_option`, decided on the threshold the Run sent, with the reversal half), each with
+   * CEE's served sentence verbatim. Read only on `each`, only on a quoted option, only as one of CEE's two exact
    * sentences; one malformed entry silences the whole Run, as in CEE. Absent or empty when CEE wrote none.
    */
-  readonly spreadNoteOptionIds?: readonly string[]
+  readonly spreadNoteByOption?: Readonly<Record<string, string>>
   /**
    * ⭐ Science 393023 B19, CEE #2787: each quoted option's goal-relative shortfall sentence (`shortfall_note_by_option`),
    * read only on `each`, only on a quoted option, only as one of CEE's two exact templates; one malformed entry silences
@@ -127,8 +127,9 @@ export interface GoalChanceLicence {
 }
 
 /**
- * CEE `goal-chance-licence.ts` SPREAD_NOTE_WITHOUT_DOWNSIDE, byte for byte: the one a card says after the option's chance
- * (as staging did), because a card carries no downside for CEE's other sentence's "(see its downside)" to point at.
+ * CEE `goal-chance-licence.ts` SPREAD_NOTE_WITHOUT_DOWNSIDE, byte for byte: the only served sentence a card may say after
+ * the option's chance. A card carries no downside, so where CEE served the other sentence ("(see its downside)") the card
+ * says nothing for that note; it never substitutes this one (#2747 C, last check, blocking 2).
  */
 export const CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE =
   'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
@@ -138,11 +139,11 @@ const CEE_SPREAD_NOTES: ReadonlySet<string> = new Set([
   CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE,
 ])
 
-function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): string[] {
-  if (form !== 'each' || !isRec(v)) return []
+function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): Record<string, string> {
+  if (form !== 'each' || !isRec(v)) return {}
   const entries = Object.entries(v)
-  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && typeof note === 'string' && CEE_SPREAD_NOTES.has(note))) return []
-  return quotedIds.filter((id) => id in v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && typeof note === 'string' && CEE_SPREAD_NOTES.has(note))) return {}
+  return Object.fromEntries(entries) as Record<string, string>
 }
 
 /** CEE `goal-chance-licence.ts` SHORTFALL_TEMPLATE / TYPICAL_SHORTFALL_TEMPLATE; group 1 is the option's label. */
@@ -242,7 +243,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
     horizonLine: readGoalChanceHorizonLine(r),
-    spreadNoteOptionIds: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
+    spreadNoteByOption: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
     shortfallNoteByOption: shortfallNotesOf(r.shortfall_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
   }
 }

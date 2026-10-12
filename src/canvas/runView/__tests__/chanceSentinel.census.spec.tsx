@@ -106,6 +106,7 @@ import {
   DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState,
 } from './helpers/chanceSentinels'
 import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
+import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
 import { chanceReaderComponents, componentNamesOf, payloadChanceFields, productionModules, sourceFiles, textBuilderFiles } from './helpers/censusDerivation'
 
 type Form = SentinelForm
@@ -467,6 +468,31 @@ describe('SERVED VERBATIM (round 2, DL): the restored Results range row says CEE
   })
 })
 
+describe('SERVED VERBATIM (last check, blocking 2): the chat card says CEE\'s spread sentence as served, or nothing', () => {
+  // CEE's other spread sentence, byte for byte (CEE goal-chance-licence.ts SPREAD_NOTE_WITH_DOWNSIDE). The card has no downside.
+  const SPREAD_NOTE_WITH = 'Its typical result falls short of your target: this chance comes from its wider spread, which also widens how far short it could fall (see its downside).'
+  const servedAs = (note: string) => JSON.parse(JSON.stringify(chatBlock()).split(JSON.stringify(SPREAD_NOTE)).join(JSON.stringify(note))) as V5AnalysisResultBlockType
+  const licenceOf = (block: V5AnalysisResultBlockType) =>
+    readGoalChanceLicence(((block as unknown as Rec).enrichment as Rec).inference_warnings as Rec[])
+  const chancesOf = (block: V5AnalysisResultBlockType) =>
+    render(<V5AnalysisResultBlock block={block} />).container.querySelector('[data-testid="v5-analysis-result-goal-chances"]')?.textContent ?? ''
+
+  it('CEE\'s without-downside sentence is said after A\'s chance, verbatim; the "see its downside" one says nothing, never swapped', () => {
+    seedSentinel('licensed')
+    // CONTROL: the served without-downside sentence follows A's face, then CEE's shortfall sentence.
+    expect(chancesOf(chatBlock())).toContain(`${FACE_A} ${SPREAD_NOTE} ${SHORTFALL_A}`)
+    cleanup()
+    const withDownside = servedAs(SPREAD_NOTE_WITH)
+    // Non-vacuity: the reader carries CEE's "see its downside" sentence for A (so the card, not the reader, is what drops it).
+    expect(licenceOf(withDownside)?.spreadNoteByOption).toEqual({ [A]: SPREAD_NOTE_WITH })
+    const text = chancesOf(withDownside)
+    expect(text, 'A\'s face, then straight to CEE\'s shortfall sentence').toContain(`${FACE_A} ${SHORTFALL_A}`)
+    for (const composed of [SPREAD_NOTE_WITH, SPREAD_NOTE, 'see its downside', 'wider spread', 'could fall further short']) {
+      expect(text).not.toContain(composed)
+    }
+  })
+})
+
 describe('CONTROLS: the sentinel Run is what the census says it is', () => {
   it('every sentinel is unique, and each of its renderings is caught', () => {
     const pcts = SENTINELS.map(s => s.pct)
@@ -689,7 +715,7 @@ const productionSources = (): Array<[string, string]> => [...productionModules()
 const NOT_RENDERED_HELPER_ONLY = 'never rendered: production imports only its helpers (no `<Name` JSX of it in a production file; checked below)'
 const SURFACE_DISPOSITION: Readonly<Record<string, SurfaceDisposition>> = {
   'src/components/debug/PayloadLabTab.tsx': { excluded: DEBUG_ONLY },
-  'src/components/debug/tabs/SummaryTab.tsx': { excluded: DEBUG_ONLY },
+  // Last check, blocking 1: SummaryTab no longer reads win_probability (its "N% confidence" is removed), so it is no reader.
   'src/components/results/RangeVisualization.tsx': { excluded: NOT_RENDERED_HELPER_ONLY },
 }
 

@@ -408,12 +408,14 @@ function V5AnalysisResultBlockImpl({
       if (codes.length > 0 && codes.every(code => code === 'goal_joint_not_shown')) return null
       if (cell.why !== undefined) return cell.why
     }
-    // #2747 re-scope 2 round 2 (DL, restoring what staging said): after the option's chance, CEE's own notes on it — the
-    // spread sentence where CEE flagged it (`spread_note_by_option`, CEE's without-downside sentence), then CEE's
+    // #2747 re-scope 2 round 2 (DL, restoring what staging said): after the option's chance, CEE's own notes on it — CEE's
+    // served spread sentence verbatim, only when it is the without-downside one (this card has no downside for "see its
+    // downside" to point at, so that sentence says nothing here and is never swapped; last check, blocking 2), then CEE's
     // shortfall sentence verbatim, only when it names THIS option's label (identity, not position). No UI words.
+    const spread = goalChanceLicence?.spreadNoteByOption?.[id]
     const shortfall = goalChanceLicence?.shortfallNoteByOption?.[id]
     const notes = [
-      ...(goalChanceLicence?.spreadNoteOptionIds?.includes(id) === true ? [CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE] : []),
+      ...(spread !== undefined && spread === CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE ? [spread] : []),
       ...(shortfall !== undefined && label !== null && shortfallNoteLabel(shortfall) === label ? [shortfall] : []),
     ]
     const after = notes.length > 0 ? ` ${notes.join(' ')}` : ''

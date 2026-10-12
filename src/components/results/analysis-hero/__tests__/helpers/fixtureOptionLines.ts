@@ -43,7 +43,7 @@ function estimateLinkAttribution(licence: GoalChanceLicence, optionId?: string):
  * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
  * `includeQuotedDrivers` keeps a named driver's line for a quoted option, without repeating its headline percentage.
  */
-/** The spread note as the card says it (CEE decides where it applies; `spreadNoteOptionIds`). */
+/** The spread note as the card says it: CEE's served without-downside sentence (`spreadNoteByOption`), verbatim. */
 export const FIXTURE_SPREAD_NOTE =
   'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
 
@@ -95,7 +95,8 @@ export function fixtureOptionLines(
       : share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
     // card never says "see its downside", because a downside is not always beside this line.
-    const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${FIXTURE_SPREAD_NOTE}` : ''
+    const served = licence.spreadNoteByOption?.[id]
+    const spread = served === FIXTURE_SPREAD_NOTE ? ` ${served}` : ''
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''

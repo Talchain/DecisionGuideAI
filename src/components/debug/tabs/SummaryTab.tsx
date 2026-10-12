@@ -503,12 +503,12 @@ export function SummaryTab({
           {data.winningOption && (
             <KpiCard
               label="Leading option"
-              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
-              value={`${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`}
+              // #2747 C (last check, blocking 1): no win-share figure on this tab; the hook rescales win_probability to 0–100,
+              // so 0.9973 read as "(100%)" here. The export bundle keeps the raw value.
+              value={data.winningOption.label || data.winningOption.id || 'Unknown'}
               status={data.winningOption.is_close_race ? 'warn' : 'ok'}
               tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
-                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
-                ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
+                ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'}`
                 : 'Clear leading option'}
               compact
             />
@@ -561,16 +561,8 @@ export function SummaryTab({
             <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
               Leading option: {data.winningOption.label}
             </div>
-            <div style={{ fontSize: 13, color: '#475569' }}>
-              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export */}
-              {data.winningOption.win_probability.toFixed(0)}% confidence
-              {data.winningOption.is_close_race && data.winningOption.runner_up && (
-                <span style={{ color: '#64748b' }}>
-                  {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export */}
-                  {' '}vs {data.winningOption.runner_up.label} at {data.winningOption.runner_up.win_probability.toFixed(0)}%
-                </span>
-              )}
-            </div>
+            {/* #2747 C (last check, blocking 1): the "N% confidence" / "vs X at N%" line is removed (a win share, rescaled
+                to 0–100 and rounded: 0.9973 read "100% confidence"). */}
           </div>
         </div>
       )}
