@@ -14,7 +14,8 @@
 -- migration creates (cee_prompt_observations, SPINE X7 out-of-band, owner Core Platform).
 -- The live ACL is Core Platform's read-only verify (X10).
 -- B2/A6 body checks compare this local DB with the supplied CEE 50530b5f deployed
--- census. They do not query production; exact signatures make missing RPCs FAIL.
+-- census. They do not query production. A body row runs only for a function the pre-shim
+-- marked `j1:deployed-parity`, so a separate REQUIRED row counts them (see `parity_expected`).
 WITH rpc(name) AS (VALUES
   ('append_turn_atomic_v2'), ('append_agent_answer_with_guidance'), ('append_turn_atomic_v3'),
   ('append_turn_atomic_v4'), ('append_turn_atomic_v5'), ('store_draft_graph'), ('ensure_scenario_exists'),
@@ -36,6 +37,22 @@ deployed(signature, expected_md5, expected_length) AS (VALUES
   ('public.append_agent_answer_if_latest(uuid,uuid,text,text,text,text,boolean,integer,integer,jsonb,jsonb,text,jsonb,jsonb,text,text,jsonb,jsonb,text)',
    '7d038f624e222134c7ac58c8db79281e', 1994)
 ),
+-- Exact post-migration bodies, only for functions a pre-shim prepared for B2/A6 (an older pinned tuple has no such
+-- migration and no mark). A function that is dropped, re-created or re-commented loses the mark and its row with it.
+parity AS (
+  SELECT d.signature, d.expected_md5, d.expected_length, md5(p.prosrc) AS actual_md5, length(p.prosrc) AS actual_length
+  FROM deployed d LEFT JOIN pg_proc p ON p.oid = to_regprocedure(d.signature)
+  WHERE obj_description(to_regprocedure(d.signature), 'pg_proc') = 'j1:deployed-parity'
+),
+-- Whether this tuple carries B2 (20261009160000) and A6 (20261010010000). apply-migrations.sh records the version of
+-- every merged repo file it applied, OK or PARTIAL, in the CLI ledger (pre-shims are never recorded). Both present:
+-- the shims ran and all 4 body rows must be checked. Otherwise none is expected: a tuple with only one of them gets a
+-- partial set, and this row FAILS on it rather than passing a partial parity.
+parity_expected AS (
+  SELECT bool_or(version = '20261009160000') IS TRUE AS b2, bool_or(version = '20261010010000') IS TRUE AS a6,
+         (SELECT count(*) FROM parity) AS checked
+  FROM supabase_migrations.schema_migrations
+),
 checks AS (
   -- A. CEE-called RPCs: every overload exists and service_role may EXECUTE it (CEE calls as service_role).
   SELECT 'REQUIRED' AS class, 'rpc ' || name || '(' || coalesce(args, '') || ') exists + service_role EXECUTE' AS check_name,
@@ -44,15 +61,21 @@ checks AS (
   FROM fn
   UNION ALL
   -- Exact post-migration bodies: a named RPC existing is insufficient for J1.
-  SELECT 'REQUIRED', 'deployed body ' || d.signature,
-         CASE WHEN md5(p.prosrc) = d.expected_md5 AND length(p.prosrc) = d.expected_length
+  SELECT 'REQUIRED', 'deployed body ' || signature,
+         CASE WHEN actual_md5 = expected_md5 AND actual_length = expected_length
               THEN 'PASS' ELSE 'FAIL' END,
-         'expected md5=' || d.expected_md5 || ' length=' || d.expected_length
-           || '; actual md5=' || coalesce(md5(p.prosrc), 'MISSING')
-           || ' length=' || coalesce(length(p.prosrc)::text, 'MISSING')
-  FROM deployed d LEFT JOIN pg_proc p ON p.oid = to_regprocedure(d.signature)
-  -- Only functions a pre-shim prepared for B2/A6 (an older pinned tuple has no such migration and no mark).
-  WHERE obj_description(to_regprocedure(d.signature), 'pg_proc') = 'j1:deployed-parity'
+         'expected md5=' || expected_md5 || ' length=' || expected_length
+           || '; actual md5=' || coalesce(actual_md5, 'MISSING')
+           || ' length=' || coalesce(actual_length::text, 'MISSING')
+  FROM parity
+  UNION ALL
+  -- How many body rows ran: 4 when the tuple carries B2 and A6, else 0. A body row that silently dropped out of the
+  -- table (see `parity`) turns this row red.
+  SELECT 'REQUIRED', 'deployed body rows checked (4 with B2+A6 in the tuple, else 0)',
+         CASE WHEN checked = CASE WHEN b2 AND a6 THEN 4 ELSE 0 END THEN 'PASS' ELSE 'FAIL' END,
+         'expected=' || CASE WHEN b2 AND a6 THEN 4 ELSE 0 END || ' checked=' || checked
+           || ' b2_20261009160000=' || b2 || ' a6_20261010010000=' || a6
+  FROM parity_expected
   UNION ALL
   -- C. anon must not EXECUTE a CEE-only RPC that takes a scenario id. is_scenario_member is
   -- not CEE-only (RLS policies call it as the querying role), so it is reported, not asserted.
