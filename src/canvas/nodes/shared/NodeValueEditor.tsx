@@ -71,9 +71,11 @@
  *   refused → "Not saved"          (the server certified it wrote nothing)
  *   refused on a MOVED base → "Checking the saved model…", then "Saved" if the
  *                                  saved model holds the value, "Not saved" if it
- *                                  holds another, "Could not confirm" if it cannot
- *                                  be read (`awaitSavedModelRead`: after a lost
- *                                  reply the model often already holds this edit)
+ *                                  still holds the old one, the revision notice if
+ *                                  another change got in first, "Could not confirm"
+ *                                  if it cannot be read (`awaitSavedModelRead`: after
+ *                                  a lost reply the model often already holds this
+ *                                  edit; `revision_conflict` included, capacity row 6)
  *   sent + reverted → "Not saved"  (a 200 that wrote nothing)
  *   sent + kept → no word          (the card already shows the saved value)
  *   unverified → "Could not confirm"
@@ -300,6 +302,7 @@ export function NodeValueEditor({
           baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
           readBase: () => useCanvasStore.getState().lastServerGraphHash,
           subscribe: listener => useCanvasStore.subscribe(listener),
+          beforeCommit,
           committedTo,
           readNow,
           onWord: word => { if (isCurrent()) setSettlement(word) },

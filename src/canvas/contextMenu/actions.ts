@@ -787,6 +787,7 @@ function proposeFromMenu(
           baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
           readBase: () => useCanvasStore.getState().lastServerGraphHash,
           subscribe: listener => useCanvasStore.subscribe(listener),
+          beforeCommit: before,
           committedTo: typedValue,
           readNow: () => fieldSeed(nodeId),
           onWord: word => showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word)),

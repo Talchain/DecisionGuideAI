@@ -272,6 +272,7 @@ describe('Set value ▸ Best / Worst case ride the card writer, keyed to this no
 describe('with the REAL writer — the wire event is the card\'s wire event', () => {
   it.each([false, true])('revision refusal reaches the menu toast through the real authority with only the exact notice (deferred=%s)', async deferred => {
     toast.live = true
+    useCanvasStore.setState({ lastServerGraphHash: 'revision-3' })
     const refusal = new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
     if (deferred) conversation.send.mockResolvedValue(SEND_DEFERRED)
     else conversation.send.mockRejectedValue(refusal)
@@ -283,8 +284,20 @@ describe('with the REAL writer — the wire event is the card\'s wire event', ()
       expect(options.onDeferredSettled).toEqual(expect.any(Function))
       await act(async () => { options.onDeferredSettled(Promise.reject(refusal)) })
     }
+    // Batch R3 (capacity run 2, row 6): a revision race is a moved base, so the menu reads the saved model before it
+    // speaks; here the read shows a third value (another change got in first), so the notice is the true reason.
+    expect(screen.queryByRole('alert')).toBeNull()
+    await act(async () => {
+      useCanvasStore.setState(s => ({
+        lastServerGraphHash: 'revision-4',
+        nodes: s.nodes.map(n => (n.id === ADOPTION_ID
+          ? { ...n, data: { ...n.data, observedState: { value: 0.7, raw_value: 0.7 } } } : n)),
+      }) as never)
+      await new Promise(resolve => setTimeout(resolve, 5))
+    })
     expect(screen.getByRole('alert').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
     expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+    useCanvasStore.setState({ lastServerGraphHash: null })
   })
   beforeEach(() => {
     writer.mode = 'real'
@@ -347,11 +360,13 @@ describe('a refusal is shown where the user acted, in the card\'s words', () => 
     expect(refusal?.textContent, 'the card says the same sentence').toBe(settlementModule.VALUE_NOT_ENCODABLE_COPY)
   })
 
-  it('a server refusal after dispatch → "Not saved", the card\'s settlement word', async () => {
+  it('a server refusal after dispatch → "Not saved", the card\'s settlement word, with no reply claimed', async () => {
+    // Batch R3: a refused send gets no reply, so the word is `refused`, never "Olumi's reply says why".
     writer.settle = 'refused'
     openMenu(ADOPTION_ID)
     await clickSetValue(/^Best case/)
-    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message, 'warning')
+    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.refused.message, 'warning')
+    expect(toast.spy).not.toHaveBeenCalledWith(expect.stringMatching(/reply/), expect.anything())
   })
 
   it('sent, but the value reads unchanged → "Not saved" — the card\'s own revert rule', async () => {

@@ -12,6 +12,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeValueEditor } from '../NodeValueEditor'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 import { SAVED_MODEL_READ_TIMEOUT_MS } from '../../../conversation/valueCommitSettlement'
+import { useCanvasStore } from '../../../store'
 
 const BEFORE = 60000
 const COMMITTED = 70000
@@ -50,14 +51,25 @@ function commitTo(next: number) {
 const word = () => screen.queryByTestId('nve-settlement')
 
 describe('the settlement word after a dispatched commit', () => {
-  it('revision refusal renders only the exact notice on the card', () => {
+  it('revision refusal reads the saved model, then renders only the exact notice when another change got in first', async () => {
+    // Batch R3 (capacity run 2, row 6): a revision race is a moved base, so the card reads the saved model before it
+    // speaks; the notice is said only once that read shows a third value.
+    const baseAtStart = useCanvasStore.getState().lastServerGraphHash
+    let held: number | null = BEFORE
     const { onCommit, settles } = dispatchingAuthority()
-    renderEditor(onCommit)
+    renderEditor(onCommit, () => held)
     commitTo(COMMITTED)
     act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'revision_conflict' }))
+    expect(word()?.textContent).toBe('Checking the saved model…')
+    held = 80000
+    await act(async () => {
+      useCanvasStore.setState({ lastServerGraphHash: 'revision-4' } as never)
+      await new Promise(resolve => setTimeout(resolve, 5))
+    })
     expect(word()?.textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
     expect(word()?.getAttribute('role')).toBe('alert')
     expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+    act(() => { useCanvasStore.setState({ lastServerGraphHash: baseAtStart } as never) })
   })
   it('shows "Saving…" while the send is in flight', () => {
     const { onCommit } = dispatchingAuthority()

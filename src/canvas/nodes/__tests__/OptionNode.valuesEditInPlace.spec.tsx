@@ -10,6 +10,7 @@ import { OptionNode } from '../OptionNode'
 import { OPTION_INTERVENTION_NEEDS_FRESH_BASE } from '../../ui/inspector-v2/shared/optionInterventionCopy'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
 import { SystemEventSendError } from '../../conversation/useConversation'
+import { REVISION_CONFLICT_NOTICE } from '../../../v5/failureTypeRetryability'
 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual('@xyflow/react')), Handle: () => null }))
 vi.mock('../shared/NodePopover', () => ({ NodePopover: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
@@ -186,11 +187,21 @@ describe('a retry refused on a moved base reads the saved model before it speaks
     expect(screen.queryByText(/^Not saved\./)).toBeNull()
   })
 
-  it('NEGATIVE: a genuine refusal (the saved model holds another value) still says "Not saved"', async () => {
+  it('NEGATIVE: a genuine refusal (the saved model holds a third value) says nothing was saved, and why', async () => {
+    // Batch R3 (capacity run 2, row 6): another change got in first, so "kept its previous value" would be false; and a
+    // refused send has no reply, so nothing may point at one.
     renderServed()
     await retryRefusedOnTheMovedBase()
     await savedModelRead(servedOption({ unit: 'specialists', value: 0.5, source: 'user_specified', target_match: MATCH }), '49b9f3a7cbaf5338')
-    expect(word()).toMatch(/^Not saved\./)
+    expect(word()).toBe(REVISION_CONFLICT_NOTICE)
+    expect(word()).not.toMatch(/kept its previous value|reply/)
+  })
+
+  it('NEGATIVE: a genuine refusal (the saved model still holds the old value) says "Not saved", with no reply claimed', async () => {
+    renderServed()
+    await retryRefusedOnTheMovedBase()
+    await savedModelRead(BEFORE, '49b9f3a7cbaf5338')
+    expect(word()).toBe('Not saved. The model kept its previous value.')
   })
 })
 

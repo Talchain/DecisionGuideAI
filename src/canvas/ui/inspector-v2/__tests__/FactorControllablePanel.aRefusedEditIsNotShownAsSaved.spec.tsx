@@ -103,18 +103,37 @@ describe('a refused value edit is not shown as saved', () => {
   })
   afterEach(() => cleanup())
 
-  it('revision refusal restores the field and renders only the exact notice', async () => {
-    sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
-      if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
-      throw new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
-    })
-    render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
-    commit(String(ACCEPTED_RAW))
-    await flush()
-    expect(screen.getByTestId('factor-value-not-saved').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
-    expect(valueInput().value).toBe(String(COMMITTED_RAW))
-    expect(screen.queryByText('Not sent to Olumi')).toBeNull()
-    expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+  it('revision refusal reads the saved model, then shows what it holds and only the exact notice', async () => {
+    // Batch R3 (capacity run 2, row 6): a revision race is a moved base. The panel reads the saved model before it
+    // speaks; here another change got in first (90,000), so the notice is the true reason and the field shows 90,000.
+    const OTHER_RAW = 90000
+    useCanvasStore.setState({ lastServerGraphHash: 'revision-3' } as any)
+    try {
+      sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
+        if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
+        throw new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
+      })
+      render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+      commit(String(ACCEPTED_RAW))
+      await flush()
+      expect(screen.getByTestId('factor-value-saved-model').textContent).toBe('Checking the saved model…')
+      await act(async () => {
+        useCanvasStore.setState({
+          nodes: useCanvasStore.getState().nodes.map(n => ({
+            ...n, data: { ...n.data, observedState: { value: OTHER_RAW / CAP, raw_value: OTHER_RAW, cap: CAP, unit: '£' } },
+          })),
+          lastServerGraphHash: 'revision-4',
+        } as any)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
+      expect(screen.getByTestId('factor-value-not-saved').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+      expect(valueInput().value).toBe(String(OTHER_RAW))
+      expect(screen.queryByText('Not sent to Olumi')).toBeNull()
+      expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+      expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    } finally {
+      useCanvasStore.setState({ lastServerGraphHash: null } as any)
+    }
   })
 
   it('RED on 3e3e798: refused on a MOVED base, the saved model holds the value → "Saved", never "Not saved"', async () => {
@@ -171,6 +190,20 @@ describe('a refused value edit is not shown as saved', () => {
     expect(alert.getAttribute('role')).toBe('alert')
     expect(alert.textContent).toMatch(/^Not saved\./)
     expect(screen.queryByText('Sent to Olumi')).toBeNull()
+  })
+
+  it('a send the server REFUSED (declined, no reply) says "Not saved" and claims no reply', async () => {
+    // Batch R3: a refused system event gets no transcript bubble, so "Olumi's reply says why" would point at nothing.
+    // The 200 that wrote nothing (above) keeps that clause: there the reply came.
+    sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
+      if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
+      throw new SystemEventSendError('server', { reason: 'system_event_refused_no_write', retryable: false })
+    })
+    render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+    commit(String(REFUSED_RAW))
+    await flush()
+    expect(screen.getByTestId('factor-value-not-saved').textContent).toBe('Not saved. The model kept its previous value.')
+    expect(valueInput().value).toBe(String(COMMITTED_RAW))
   })
 
   it('CONTRAST — an accepted edit keeps the typed value, says "Sent to Olumi", and raises no alert', async () => {
