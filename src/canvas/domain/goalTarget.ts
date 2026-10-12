@@ -122,13 +122,18 @@ export interface ResolvedGoalTarget {
  */
 /**
  * ⭐ IS THE PRINTED TARGET THE FIGURE CEE STAMPED AS THE BRIEF'S? `threshold_source: 'brief_extraction'` (CEE
- * `holdStatedGoalAttributes`: the brief writes this figure in the goal's unit) — AND the frame prints that figure
- * itself: a level, or an absolute change ("up £85,000/month"). A RELATIVE change is not: its £ figure ("£36,000 / month
- * or less") comes from Olumi's reading of today's level, so "From your brief" must never sit on it (AIQ 5900578934,
- * cut-costs). Conservative there: "Source not recorded", never a false authorship.
+ * `holdStatedGoalAttributes`: the brief writes this figure in the goal's unit), and every surface prints that figure
+ * itself: a level, an absolute change ("up £85,000/month") or a RELATIVE change ("up 10% from today").
+ *
+ * Recovery Batch C, SYS3 L5 (#94 6115410093): this used to refuse every `change_rel` target (AIQ 5900578934, cut-costs),
+ * because a relative target was then printed as a £ figure read off Olumi's estimate of today ("£36,000 / month or
+ * less"). Since R1 S4-core `formatGoalTarget` says a relative target only as the change ("down 20% from today", never
+ * raw × cap), so the printed percentage IS the figure the brief wrote, and served hiring showed "Source not recorded"
+ * beside Paul's own "up 10% from today". Olumi's reading of today, when the chance rests on it, is disclosed by the
+ * Run's own licence words, not by this mark. A frame this UI cannot read still credits nothing.
  */
 export function goalTargetStampedFromBrief(data: GoalTargetSource | null | undefined): boolean {
-  return data?.threshold_source === 'brief_extraction' && data.goal_threshold_frame !== 'change_rel'
+  return data?.threshold_source === 'brief_extraction' && !goalTargetFrameIsUnread(data.goal_threshold_frame)
 }
 
 export function resolveGoalTarget(
