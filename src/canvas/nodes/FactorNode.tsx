@@ -9,7 +9,6 @@ import { ConstraintBadge } from './ConstraintBadge'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
-import { resolveFactorStatedRangeOnCard } from './shared/factorStatedRange'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -280,9 +279,6 @@ export const FactorNode = memo((props: NodeProps) => {
   // A bare 0–1 range ("Range: 0.2 to 0.6") is KEPT there (review F2, #2085):
   // its origin is unrecorded and may be the person's inspector edit, so it
   // shows with its `no source` mark (see `resolveFactorPriorRangeOnCard`).
-  // Run-4 judge B3 (DL 12 Oct): the range the USER stated, which CEE keeps beside the value it derived ("20%–30% of
-  // monthly team capacity (your range)" beside "25% …"). `null` unless the range's own source is theirs.
-  const statedRangeText = useMemo(() => resolveFactorStatedRangeOnCard(props.data), [props.data])
   const priorRangeDisplay = useMemo(
     () => resolveFactorPriorRangeOnCard({
       data: props.data as Record<string, unknown> | undefined,
@@ -1467,11 +1463,6 @@ export const FactorNode = memo((props: NodeProps) => {
                 as its `trailing`. Detailed: a flex row drops the whitespace
                 between its items and keeps its 6px `gap-x-1.5`. */}
             {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
-          </div>
-        )}
-        {statedRangeText !== null && (
-          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`} data-testid={`factor-stated-range-${props.id}`}>
-            {statedRangeText}
           </div>
         )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
