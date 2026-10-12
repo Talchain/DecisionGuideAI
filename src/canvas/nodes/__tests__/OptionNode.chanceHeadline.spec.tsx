@@ -82,34 +82,41 @@ function setGoalBasis() {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); resetPaulRun(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 /**
- * #2747 re-scope 2 (U0): the canvas option card shows NO chance in C, whatever the Run holds — the journey path reads
- * chances on the Results hero (CEE's cells) and the chat analysis card only. The card keeps its pre-run settings and every
- * negative: no share of runs, no chance words, no figure caveat (a caveat qualifies a figure the card does not show).
- * Interim limit; the restore trigger is the chance's own served string and Run licence on the canvas (post-C).
+ * Post-C UI item 1 (DL, 12 Oct): the canvas option card says CEE's served cell for its option, verbatim (`servedCellOf`:
+ * its face, else its display; a withheld cell's own face) — and nothing of its own. Where CEE serves no cell (no licence,
+ * no target) it says no chance at all, never the UI's "Chance not shown yet". Every negative stays: no share of runs, no
+ * UI chance words, no figure caveat of the UI's own. (In C the card showed no chance; #2747 re-scope 2, U0.)
  */
-describe('option card shows no chance in C (the Results hero says it)', () => {
-  it.each(['figure', 'withheld', 'unlicensed', 'range', 'none'] as const)('%s: no chance readout, face or accessible chance; settings remain', kind => {
+describe('option card says CEE\'s served cell, verbatim, and nothing of its own', () => {
+  it.each(['figure', 'withheld', 'unlicensed', 'range', 'none'] as const)('%s: the readout is CEE\'s served string, or nothing; settings remain', kind => {
     seed(kind)
-    if (kind === 'figure' || kind === 'range') {
-      // CONTROL: the Run DOES hold a chance cell for this option, so the card's silence is not a missing fixture.
-      const data = renderHook(() => useResultsSectionData()).result.current
-      expect(data.runView!.chanceCellOf(ID, { goalChanceHeroSays: true, labelOf: () => 'option' }).kind).not.toBe('none')
-    }
+    const data = renderHook(() => useResultsSectionData()).result.current
+    const cell = data.runView?.servedCellOf(ID) ?? null
+    const served = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.face ?? cell.display
+      : cell?.kind === 'withheld' ? cell.face ?? null : null
+    // CONTROL: the Run holds a served cell exactly where CEE licensed one (so a silent card is never a missing fixture).
+    expect(served !== null, `a served cell for ${kind}`).toBe(kind === 'figure' || kind === 'withheld' || kind === 'range')
     const { container } = card()
-    expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
-    expect(screen.queryByTestId(`option-win-readout-${ID}`)).toBeNull()
+    const readout = screen.queryByTestId(`option-win-readout-${ID}`)
+    if (served === null) {
+      expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
+      expect(readout).toBeNull()
+    } else {
+      expect(readout?.textContent).toBe(served)
+    }
     expect(container.querySelector(`[data-testid^="option-change-row-${ID}-"]`)).not.toBeNull()
     for (const said of [container.textContent ?? '', ...[...container.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label') ?? '')]) {
-      expect(said).not.toContain('of runs')
-      expect(said).not.toContain('chance of meeting your goal')
-      expect(said).not.toContain('41%')
-      expect(said).not.toContain(TEST_WITHHELD_FACE)
-      expect(said).not.toContain(TEST_RUN_AGAIN_COPY)
-      expect(said).not.toContain(CHANCE_NOT_SHOWN_YET)
+      const unserved = served === null ? said : said.split(served).join(' ')
+      expect(unserved).not.toContain('of runs')
+      expect(unserved).not.toContain('chance of meeting your goal')
+      expect(unserved).not.toContain('41%')
+      expect(unserved).not.toContain(TEST_WITHHELD_FACE)
+      expect(unserved).not.toContain(TEST_RUN_AGAIN_COPY)
+      expect(unserved).not.toContain(CHANCE_NOT_SHOWN_YET)
     }
   })
 
-  it.each(['figure', 'withheld', 'unlicensed', 'range'] as const)('%s: no figure caveat is drawn beside a figure the card does not show', kind => {
+  it.each(['figure', 'withheld', 'unlicensed', 'range'] as const)('%s: no figure caveat of the UI\'s own is drawn (CEE\'s face carries its own qualifiers)', kind => {
     seed(kind)
     setGoalBasis()
     const projection = renderHook(() => useResultsSectionData())
