@@ -158,7 +158,7 @@ export function computeSuccessState(
   // ⛔ AIQ 5880974047: a frame this UI cannot read — the figure's meaning is unknown, so no measure is claimed.
   if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return unset
   const sayTarget = (n: number): string =>
-    (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame) : null) ?? formatWithUnit(n, unit)
+    (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame, (data as { quantity_frame?: unknown }).quantity_frame) : null) ?? formatWithUnit(n, unit)
 
   /**
    * ⭐⭐ EXISTENCE IS DECIDED NON-NUMERICALLY; THE NUMBER STAYS STRICT. This

@@ -327,12 +327,12 @@ export const GoalPanel = memo(function GoalPanel({
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame) ?? String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? String(resolvedTarget.raw)
   })()
   /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
   const changeBound = resolvedTarget?.frame != null
     ? formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
-      (node?.data as GoalTargetSource | undefined)?.goal_direction)
+      (node?.data as GoalTargetSource | undefined)?.goal_direction, resolvedTarget.quantityFrame)
     : null
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
@@ -622,7 +622,7 @@ export const GoalPanel = memo(function GoalPanel({
     const raw = typeof summaryTarget.raw === 'number' ? summaryTarget.raw : Number(summaryTarget.raw)
     return Number.isNaN(raw)
       ? String(summaryTarget.raw)
-      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame) ?? String(summaryTarget.raw)
+      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? String(summaryTarget.raw)
   })()
   const summaryTargetDisplay = summaryNodeTargetDisplay
     ?? (summaryStoreTarget != null ? String(summaryStoreTarget) : null)
@@ -635,6 +635,7 @@ export const GoalPanel = memo(function GoalPanel({
       summaryTarget.unit,
       summaryTarget.frame,
       goalTargetComparator(node.data as GoalTargetSource, goalConstraints, nodeId),
+      summaryTarget.quantityFrame,
     )
     : null
   const summarySentence = summaryTargetDisplay === null

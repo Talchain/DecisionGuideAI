@@ -763,8 +763,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       const figureText = target
         // R1 S4-core (MG 5879952291): a change target is said as the change ("down 15% from today"), never the
         // fraction beside the metric's unit ("-0.15 GBP/month").
-        ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame) !== null
-          ? formatGoalTarget(target.raw, target.unit, target.frame)
+        ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame) !== null
+          ? formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame)
           : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
           ? formatValueWithUnit(target.raw, target.unit)
           // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.

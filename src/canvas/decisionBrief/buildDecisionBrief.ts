@@ -358,7 +358,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     const targetText = (() => {
       if (target == null) return null
       const n = typeof target.raw === 'number' ? target.raw : Number(target.raw)
-      const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame) ?? String(target.raw)
+      const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame, target.quantityFrame) ?? String(target.raw)
       // SD-1: a goal that holds a ceiling says so, from its own `goal_direction` (the one source).
       const bound = heldTargetBoundWords(data)
       return bound === null ? figure : `${bound} ${figure}`

@@ -38,7 +38,7 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import {
-  canCaptureGoalTarget, goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget,
+  canCaptureGoalTarget, goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget,
   statedGoalTargetRaw, statedTargetNumber, type GoalHeldComparator, type GoalTargetSource, type ResolvedGoalTarget,
 } from './goalTarget'
 
@@ -246,7 +246,8 @@ export function resolveGoalTargetWithOwnRow(
     unit: typeof row.unit === 'string' ? row.unit : undefined,
     // The row says nothing about who set it in the attestation sense `source` licenses ("Set by you").
     source: 'unrecorded',
-    ...(changeFrame === null ? {} : { frame: changeFrame }),
+    ...(changeFrame === null ? {} : { frame: changeFrame,
+      ...(goalQuantityFrameOf(data?.quantity_frame) === null ? {} : { quantityFrame: goalQuantityFrameOf(data?.quantity_frame)! }) }),
     bound,
   }
 }

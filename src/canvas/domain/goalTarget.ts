@@ -36,6 +36,18 @@ export interface GoalTargetSource {
   goal_threshold_frame?: unknown
   /** `@talchain/schemas` 0.61.0: the goal node's HELD COMPARATOR — read only through `goalHeldComparatorOf`. */
   goal_direction?: unknown
+  /** What the goal's value MEASURES (`NodeV3.quantity_frame`) — read only through `goalQuantityFrameOf`. */
+  quantity_frame?: unknown
+}
+
+/**
+ * Recovery Batch C (C CEE round 1, item 1): what the goal's value MEASURES. A `change_abs` target in `%` on a LEVEL
+ * quantity (capacity at 75%) is a change in PERCENTAGE POINTS (+10 → 85%); on a quantity that is itself a change in % of
+ * today (hiring's productivity) it is a percentage of today. Anything else is `null`: said as before.
+ */
+export type GoalQuantityFrame = 'level' | 'change'
+export function goalQuantityFrameOf(value: unknown): GoalQuantityFrame | null {
+  return value === 'level' || value === 'change' ? value : null
 }
 
 /**
@@ -109,6 +121,8 @@ export interface ResolvedGoalTarget {
    * object it did before. Say `raw` through `formatGoalTarget(raw, unit, frame)`; test it with `frame != null`.
    */
   frame?: GoalTargetChangeFrame
+  /** With a change `frame` only: what the goal's value measures (`goalQuantityFrameOf`), for saying its size. */
+  quantityFrame?: GoalQuantityFrame
 }
 
 /**
@@ -143,7 +157,8 @@ export function resolveGoalTarget(
   if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
   const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
-  const frame = changeFrame === null ? {} : { frame: changeFrame }
+  const quantityFrame = goalQuantityFrameOf(data.quantity_frame)
+  const frame = changeFrame === null ? {} : { frame: changeFrame, ...(quantityFrame === null ? {} : { quantityFrame }) }
 
   const userSet =
     data.threshold_source === 'user' &&

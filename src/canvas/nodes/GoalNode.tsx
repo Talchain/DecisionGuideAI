@@ -691,12 +691,13 @@ export const GoalNode = memo((props: NodeProps) => {
   // SD-1 (DL 0df0e1, 6 Oct): a goal that HOLDS a ceiling says "at most" before its figure, from the node's own
   // `goal_direction` (`heldTargetBoundWords`, the one source) — at every zoom and in the in-place readout alike.
   const heldBound = heldTargetBoundWords(props.data as GoalTargetSource)
+  const quantityFrame = (props.data as GoalTargetSource | undefined)?.quantity_frame
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
+    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame) ?? String(thresholdRaw)
     return heldBound === null ? figure : `${heldBound} ${figure}`
-  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, heldBound])
+  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, quantityFrame, heldBound])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
