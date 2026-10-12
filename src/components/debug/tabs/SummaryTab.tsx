@@ -256,7 +256,6 @@ export function SummaryTab({
   data,
   onNavigateToDataFlow,
   onNavigateToPipeline,
-  onNavigateToRaw,
 }: SummaryTabProps) {
   // Build pipeline steps from CEE observability
   const ceePipelineSteps = useMemo(() => buildCEEPipelineSteps(data), [data])
@@ -499,32 +498,6 @@ export function SummaryTab({
             tooltip="Click to view data flow"
             compact
           />
-          {/* Winner card - only show when there's a winning option */}
-          {data.winningOption && (
-            <KpiCard
-              label="Leading option"
-              // #2747 C (last check, blocking 1): no win-share figure on this tab; the hook rescales win_probability to 0–100,
-              // so 0.9973 read as "(100%)" here. The export bundle keeps the raw value.
-              value={data.winningOption.label || data.winningOption.id || 'Unknown'}
-              status={data.winningOption.is_close_race ? 'warn' : 'ok'}
-              tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
-                ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'}`
-                : 'Clear leading option'}
-              compact
-            />
-          )}
-          <KpiCard
-            label="Robustness"
-            value={data.robustness.context_label}
-            status={
-              data.robustness.status === 'pass' ? 'ok' :
-              data.robustness.status === 'warn' ? 'warn' :
-              data.robustness.status === 'fail' ? 'error' : 'neutral'
-            }
-            onClick={onNavigateToRaw}
-            tooltip={data.robustness.description}
-            compact
-          />
           <KpiCard
             label="Issues"
             value={issueCount > 0 ? String(issueCount) : 'None'}
@@ -552,20 +525,6 @@ export function SummaryTab({
           )}
         </div>
       </div>
-
-      {/* Row 2: Winning Option (if available) */}
-      {data.winningOption && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Result</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-              Leading option: {data.winningOption.label}
-            </div>
-            {/* #2747 C (last check, blocking 1): the "N% confidence" / "vs X at N%" line is removed (a win share, rescaled
-                to 0–100 and rounded: 0.9973 read "100% confidence"). */}
-          </div>
-        </div>
-      )}
 
       {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
