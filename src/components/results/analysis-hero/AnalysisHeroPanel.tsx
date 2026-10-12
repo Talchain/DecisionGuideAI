@@ -48,7 +48,6 @@ import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionR
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
-import { TechnicalDisclosure } from '../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { ComparisonScopeNote } from '../ComparisonScopeNote'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
