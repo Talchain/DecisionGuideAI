@@ -96,6 +96,7 @@
  */
 
 import { goalConstraintText, goalConstraintTextUsesQuote } from '../../utils/goalConstraintText'
+import { isGoalTargetRow } from '../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../../ui/inspector-v2/shared/GoalConstraintProvenance'
 import { DataBar } from '../../ui/shared/DataBar'
 import { typography } from '../../../styles/typography'
@@ -221,12 +222,15 @@ export function GoalConstraintsSection({
   const reportConstraints = useCanvasStore(
     s => (s.results?.report as { goal_constraints?: unknown } | null | undefined)?.goal_constraints,
   )
-  const effectiveConstraints: readonly DisplayGoalConstraint[] | null | undefined =
+  const carriedConstraints: readonly DisplayGoalConstraint[] | null | undefined =
     Array.isArray(constraints) && constraints.length > 0
       ? constraints
       : Array.isArray(reportConstraints) && reportConstraints.length > 0
         ? (reportConstraints as readonly DisplayGoalConstraint[])
         : constraints
+  // Recovery Batch C: one of the goal's TARGETS (CEE `role: 'goal_target'`) is not a limit, so it is never listed under
+  // "Limits"; the goal card states it as a target.
+  const effectiveConstraints = carriedConstraints?.filter(c => !isGoalTargetRow(c))
 
   // Absence is absence. A model with no recorded limit renders exactly as it
   // did before this component existed.
