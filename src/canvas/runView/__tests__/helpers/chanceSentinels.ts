@@ -133,6 +133,12 @@ export const CHANCE_WORDS = 'chance of ‘Productivity’ being at least 10% hig
 export const PROVISIONAL = 'using Olumi’s estimates for 1 starting value (see Check estimates)'
 export const FACE_A = `‘Alder plan’: about 64% ${CHANCE_WORDS}, in this model, ${PROVISIONAL}.`
 export const DISPLAY_A = 'about 64%'
+/**
+ * #2747 re-scope 2 round 2 (DL, restoring what staging said): CEE's own notes on A's chance, on the licence record, byte
+ * for byte in CEE's shapes — its without-downside spread sentence and a shortfall sentence naming A's label.
+ */
+export const SPREAD_NOTE = 'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
+export const SHORTFALL_A = 'In its worst 1 in 20 runs of this model, ‘Alder plan’ falls short of your target by 2 points or more.'
 export const DISPLAY_B = 'between about 18% and 26%'
 export const FACE_B = `‘Birch plan’: between about 18% and 26% ${CHANCE_WORDS}, in this model, depending on how strongly ‘Ramp-up time’ affects ‘Productivity’.`
 export const SQ_FACE = 'No change, by assumption'
@@ -256,6 +262,7 @@ export function sentinelBlock(form: SentinelForm = 'licensed'): Rec {
     ...(form === 'no_words' || form === 'boundary' ? {} : { chance_words: CHANCE_WORDS }), notes: NOTES,
     ...(agreeing ? {} : { status_quo: { option_id: SQ, line: SQ_LINE } }),
     user_link_existence: { links: 2, one_in: ONE_IN },
+    ...(form === 'boundary' ? {} : { spread_note_by_option: { [A]: SPREAD_NOTE }, shortfall_note_by_option: { [A]: SHORTFALL_A } }),
     driver_by_option: { [A]: { kind: 'factor_value', factor_id: 'ramp_up', side: 'high', cut_value: 4, cut_unit: 'months',
       pct_if_side: RAW.driver_pct_if_side, authored_by: 'olumi' } },
     targets: { joint: { status: 'licensed', words: JOINT_WORDS }, per_target: [
@@ -405,6 +412,21 @@ export function seedSentinel(form: SentinelForm): string {
   } as never)
   const view = parseCanonicalAnalysisView(sentinelCanonical(form))
   if (view === null) throw new Error(`sentinel canonical view (${form}) did not parse`)
+  useCanonicalAnalysisViewStore.getState().adopt(SCENARIO, view)
+  return hash
+}
+
+/**
+ * Round 2 (DL, restoring staging's range row): the one state where a Results card draws a figure row AND a served RANGE row —
+ * the agreeing figures of form (d), except B, whose current canonical cell is a range with the licence range's own bounds.
+ */
+export function seedServedRangeState(): string {
+  const hash = seedSentinel('agreeing_low')
+  const canonical = sentinelCanonical('agreeing_low') as Rec & { options: Rec[] }
+  const options = canonical.options.map(o => o.option_id === B
+    ? { ...o, cell: { kind: 'range', display: DISPLAY_B_SAME, face: FACE_B_SAME, detail: { range: DISPLAY_B_SAME } } } : o)
+  const view = parseCanonicalAnalysisView({ ...canonical, options })
+  if (view === null) throw new Error('served-range canonical view did not parse')
   useCanonicalAnalysisViewStore.getState().adopt(SCENARIO, view)
   return hash
 }

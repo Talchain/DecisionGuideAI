@@ -66,6 +66,7 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 import { chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
+import { CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE, shortfallNoteLabel } from '../../components/results/utils/goalChanceLicence'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 
 export interface V5AnalysisResultBlockProps {
@@ -407,8 +408,17 @@ function V5AnalysisResultBlockImpl({
       if (codes.length > 0 && codes.every(code => code === 'goal_joint_not_shown')) return null
       if (cell.why !== undefined) return cell.why
     }
-    if (cell.text.startsWith('‘')) return cell.text
-    return label === null || label.trim() === '' ? null : `‘${label}’: ${cell.text}`
+    // #2747 re-scope 2 round 2 (DL, restoring what staging said): after the option's chance, CEE's own notes on it — the
+    // spread sentence where CEE flagged it (`spread_note_by_option`, CEE's without-downside sentence), then CEE's
+    // shortfall sentence verbatim, only when it names THIS option's label (identity, not position). No UI words.
+    const shortfall = goalChanceLicence?.shortfallNoteByOption?.[id]
+    const notes = [
+      ...(goalChanceLicence?.spreadNoteOptionIds?.includes(id) === true ? [CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE] : []),
+      ...(shortfall !== undefined && label !== null && shortfallNoteLabel(shortfall) === label ? [shortfall] : []),
+    ]
+    const after = notes.length > 0 ? ` ${notes.join(' ')}` : ''
+    if (cell.text.startsWith('‘')) return `${cell.text}${after}`
+    return label === null || label.trim() === '' ? null : `‘${label}’: ${cell.text}${after}`
   }
   // A card not bound to the scenario's CURRENT canonical Run (an older Run, unknown identity, no view) says no option line.
   const cellLines = goalChanceLicence === null || !blockRunView.boundToCurrentCanonical() ? []

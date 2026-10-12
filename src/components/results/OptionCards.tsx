@@ -177,10 +177,15 @@ export interface OptionCardsProps {
   goalCellOf?: (optionId: string) => ServedGoalCell | null
 }
 
-/** CEE's served figure cell for one option, as the card says it: the display string and, when served, the face. */
+/** CEE's served figure (or range) cell for one option, as the card says it: the display string and, when served, the face. */
 export interface ServedGoalCell {
   readonly display: string
   readonly face: string | null
+  /**
+   * #2747 re-scope 2 round 2 (DL, restoring what staging showed): a RANGE cell ("between about 18% and 26%") is said too,
+   * as CEE's display verbatim, with no bar (a range has no point to draw). Absent = a figure cell.
+   */
+  readonly kind?: 'figure' | 'range'
 }
 
 /** Fallback description when no story headline is available */
@@ -805,7 +810,7 @@ function OptionCard({
               phrase beside a chance reads as certainty. (The substituted-joint caption went with it: no producer path
               sets `goalFitIsSubstitutedJoint` in C.) */}
           {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view */}
-          {goalCell !== null && goalCell.face !== null && option.goalProbability != null && (
+          {goalCell !== null && goalCell.face !== null && (option.goalProbability != null || goalCell.kind === 'range') && (
             <p
               className={`${typography.panelMeta} text-text-light`}
               data-testid={`goal-chance-face-${option.id}`}
@@ -813,7 +818,7 @@ function OptionCard({
               {goalCell.face}
             </p>
           )}
-          {goalCell !== null && <StatBar
+          {goalCell !== null && goalCell.kind !== 'range' && <StatBar
             // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
             value={option.goalProbability}
             // The card's one goal readout (N11): CEE's served display, verbatim (round 2, rule C).
@@ -827,6 +832,12 @@ function OptionCard({
             color="info"
             neutralised={neutralised}
           />}
+          {/* #2747 re-scope 2 round 2 (DL): a served RANGE cell says CEE's display, verbatim; no bar, no UI rounding. */}
+          {goalCell !== null && goalCell.kind === 'range' && (
+            <p className={`${typography.panelMeta} text-text-body tabular-nums text-right`} data-testid={`goal-readout-${option.id}`}>
+              {goalCell.display}
+            </p>
+          )}
           {/* #2747 re-scope 2 (U2): no low-goal badge in C. It restated the readout above in a chance sentence the UI
               composed ("About N% chance of meeting your goal", or of the Run's chance words without CEE's "in this
               model" and provisional clause), on a threshold the UI chose. CEE's served cell says the chance. */}
@@ -1142,9 +1153,11 @@ export function OptionCards({
   // that WERE scored, caused by one that was not. Same defect class as
   // `sortOptionsForDisplay`'s `allHaveWinProb` and
   // `determineWinnerSelection`'s coverage check.
+  // #2747 re-scope 2 round 2 (DL): an option whose served cell is a RANGE has no point figure, but its row is said (CEE's
+  // range display, verbatim), so it counts as covered here rather than deleting every card's goal row.
   const allGoalProbability =
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
-    analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null)
+    analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null || goalCellOf?.(o.id)?.kind === 'range')
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // V14.2: Sort by win probability descending (same order as WinGauge segments).

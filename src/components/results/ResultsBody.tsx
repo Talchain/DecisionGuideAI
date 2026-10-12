@@ -44,6 +44,7 @@ import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import { DecisionBriefSectionContainer } from './decision-brief'
+import { optionChanceCellFromResults } from './optionChanceCellFromResults'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -694,10 +695,13 @@ export const ResultsBody = memo(function ResultsBody({
               // #2747 re-scope 2 (U2, DL ruling 12 Oct): each card's goal row is captioned only by CEE's words for that
               // option's chance, its current canonical figure cell (face, else display), the reader the range lines use.
               // #2747 re-scope 2 round 2 (rule C): the card's goal row says CEE's served figure cell verbatim (display +
-              // face); no served figure cell, no goal row.
+              // face); no served figure cell, no goal row. A served RANGE cell is said too (DL, restoring staging's row),
+              // verbatim, when the hero's own gated cell for that option is the range (the range lines' authority).
               goalCellOf={(id) => {
                 const cell = resultsSectionData.runView?.servedCellOf(id) ?? null
-                return cell?.kind === 'figure' ? { display: cell.display, face: cell.face ?? null } : null
+                if (cell?.kind === 'figure') return { kind: 'figure', display: cell.display, face: cell.face ?? null }
+                return cell?.kind === 'range' && optionChanceCellFromResults(resultsSectionData, id).kind === 'range'
+                  ? { kind: 'range', display: cell.display, face: cell.face ?? null } : null
               }}
               // F3: the SAME derivation the filter disclaimer and the lens
               // sentences above use — threaded, never re-derived downstream.

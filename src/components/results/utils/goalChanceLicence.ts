@@ -126,10 +126,16 @@ export interface GoalChanceLicence {
   readonly shortfallNoteByOption?: Readonly<Record<string, string>>
 }
 
+/**
+ * CEE `goal-chance-licence.ts` SPREAD_NOTE_WITHOUT_DOWNSIDE, byte for byte: the one a card says after the option's chance
+ * (as staging did), because a card carries no downside for CEE's other sentence's "(see its downside)" to point at.
+ */
+export const CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE =
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
 /** CEE `goal-chance-licence.ts` SPREAD_NOTE_WITH_DOWNSIDE / _WITHOUT_DOWNSIDE, byte for byte: the only notes read. */
 const CEE_SPREAD_NOTES: ReadonlySet<string> = new Set([
   'Its typical result falls short of your target: this chance comes from its wider spread, which also widens how far short it could fall (see its downside).',
-  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.',
+  CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE,
 ])
 
 function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): string[] {

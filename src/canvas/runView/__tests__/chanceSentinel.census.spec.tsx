@@ -100,9 +100,10 @@ import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import {
-  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
+  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, SPREAD_NOTE, SHORTFALL_A, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
   BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
+  DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState,
 } from './helpers/chanceSentinels'
 import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
 import { chanceReaderComponents, componentNamesOf, payloadChanceFields, productionModules, sourceFiles, textBuilderFiles } from './helpers/censusDerivation'
@@ -192,6 +193,15 @@ const FACES_OF: Readonly<Record<Form, readonly string[]>> = {
   boundary: [BOUNDARY_FACE[A], BOUNDARY_FACE[B], BOUNDARY_FACE[SQ]],
 }
 
+/**
+ * Round 2 (DL, restoring what staging said): on the chat card, CEE's own notes on A's chance follow A's served face in A's
+ * own line — its spread sentence, then its shortfall sentence naming A — verbatim (bound by contiguity to A's face).
+ */
+const notesAfter = (face: string) => [['v5-analysis-result-goal-chances', `${face} ${SPREAD_NOTE} ${SHORTFALL_A}`]] as const
+const CEE_NOTES_AFTER_A: Partial<Readonly<Record<Form, ReadonlyArray<readonly [string, string]>>>> = {
+  licensed: notesAfter(FACE_A), same_bounds: notesAfter(FACE_A), no_words: notesAfter(FACE_A), agreeing_low: notesAfter(LOW_FACE[A]),
+}
+
 const SURFACES: readonly Surface[] = [
   {
     name: 'Analysis tab (ResultsBody: hero, option cards, range lines, goal block)', u0: true,
@@ -205,6 +215,7 @@ const SURFACES: readonly Surface[] = [
     saysWithin: { agreeing_low: [[`option-card-${A}`, LOW_FACE[A]], [`option-card-${B}`, LOW_FACE[B]]],
       boundary: [[`goal-readout-${A}`, BOUNDARY_DISPLAY[A]], [`goal-readout-${B}`, BOUNDARY_DISPLAY[B]],
         [`option-card-${B}`, BOUNDARY_FACE[B]]] },
+    // Round 2 (DL): a card's served RANGE row is pinned by its own row below ("SERVED VERBATIM"), in the one state that draws it.
   },
   {
     // Expert mode is the person's own toggle: each card adds its range bar (OptionRangeBar) and its expert detail.
@@ -223,11 +234,13 @@ const SURFACES: readonly Surface[] = [
     name: 'chat analysis card (V5AnalysisResultBlock)', u0: true,
     mount: () => render(<V5AnalysisResultBlock block={chatBlock()} />).container,
     says: FACES_OF,
+    saysWithin: CEE_NOTES_AFTER_A,
   },
   {
     name: 'chat analysis card, the Run names a leader (V5AnalysisResultBlock)', u0: true,
     mount: () => render(<V5AnalysisResultBlock block={chatBlock(A)} />).container,
     says: FACES_OF,
+    saysWithin: CEE_NOTES_AFTER_A,
   },
   {
     name: 'chat comparison card (V5ComparisonBlock)', u0: false, minText: 10,
@@ -438,6 +451,20 @@ afterEach(() => {
   resetSentinel()
   useComparisonStore.getState().resetComparison()
   localStorage.clear()
+})
+
+describe('SERVED VERBATIM (round 2, DL): the restored Results range row says CEE\'s words and nothing else', () => {
+  it('a Results card says a served RANGE cell verbatim (display + face), with no bar, beside the figure rows', () => {
+    seedServedRangeState()
+    const root = render(<ResultsBody resultsSectionData={sectionData()} tornadoData={TORNADO} onSendMessage={() => {}} expertMode={false} />).container
+    expect(root.querySelector(`[data-testid="goal-readout-${A}"]`)?.textContent, 'the figure rows draw (the reach)').toBe(LOW_DISPLAY[A])
+    expect(root.querySelector(`[data-testid="goal-readout-${B}"]`)?.textContent, 'B says CEE\'s range display itself').toBe(DISPLAY_B_SAME)
+    const cardB = root.querySelector(`[data-testid="option-card-${B}"]`)
+    expect(cardB?.textContent ?? '', 'B\'s card is captioned by CEE\'s face').toContain(FACE_B_SAME)
+    // Nothing on B's card but CEE's words carries a chance figure (no UI rounding of the range, no bar readout).
+    const rest = (cardB?.textContent ?? '').split(FACE_B_SAME).join(' ').split(DISPLAY_B_SAME).join(' ')
+    expect(rest.match(/\d+(?:\.\d+)?\s?%/g) ?? []).toEqual([])
+  })
 })
 
 describe('CONTROLS: the sentinel Run is what the census says it is', () => {
