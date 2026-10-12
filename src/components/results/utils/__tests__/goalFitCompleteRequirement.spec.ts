@@ -27,9 +27,11 @@ for (const [index, fixture] of [run1, run2].entries()) {
       expect(read(rows)?.message).toBe(target.message)
     })
 
-    it('CONTROL: target-only and placeholder-only reads are unchanged', () => {
+    it('CONTROL: a target-only read is unchanged; a placeholder-only read says CEE\'s own safe words', () => {
       expect(read([target])?.message).toBe(target.message)
-      expect(read([placeholder])?.message).toBe(GOAL_IDENTITY_WITHHELD_FALLBACK)
+      // Recovery Batch E (DL 12 Oct): a licensed reason is said verbatim WHATEVER ITS OPENING. The served placeholder
+      // words are display-safe but do not open "Not shown.", so they used to fall back to the generic box.
+      expect(read([placeholder])?.message).toBe(placeholder.message)
       const safePlaceholder = { ...placeholder, message: 'Not shown. A link needs a size.' }
       expect(read([safePlaceholder])?.message).toBe(safePlaceholder.message)
     })
@@ -58,7 +60,6 @@ for (const [index, fixture] of [run1, run2].entries()) {
     it.each([
       undefined,
       '',
-      'A link needs a size.',
       `Not shown. ${'x'.repeat(390)}`,
       'Not shown. receptionist_headcount needs a size.',
       'Not shown. <link> needs a size.',
@@ -66,6 +67,10 @@ for (const [index, fixture] of [run1, run2].entries()) {
       'Not shown. [link] needs a size.',
     ])('CONTROL: unsafe/missing target message %j retains the neutral fallback', (message) => {
       expect(read([placeholder, { ...target, message }])?.message).toBe(GOAL_IDENTITY_WITHHELD_FALLBACK)
+    })
+
+    it('a safe target message that does not open "Not shown." is said verbatim (Batch E: whatever the opening)', () => {
+      expect(read([placeholder, { ...target, message: 'A link needs a size.' }])?.message).toBe('A link needs a size.')
     })
 
     it('CONTROL: a separate unsafe reason still withholds the entire explanation', () => {

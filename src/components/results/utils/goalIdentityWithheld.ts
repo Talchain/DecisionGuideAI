@@ -98,7 +98,10 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
   // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
-  const allSafe = words.every((raw) => raw.startsWith('Not shown.') && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
+  // ⭐ Recovery Batch E (DL 12 Oct): a reason CEE licenses is said verbatim WHATEVER ITS OPENING. Ruling 12's period-end
+  // sentence ("The chance of reaching … isn’t shown: …") says "isn’t shown" itself and is never prefixed "Not shown.",
+  // and an opening rule here sent it to the generic box. Display safety still decides; the per-option reader is unchanged.
+  const allSafe = words.every((raw) => raw.length > 0 && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
 }
 

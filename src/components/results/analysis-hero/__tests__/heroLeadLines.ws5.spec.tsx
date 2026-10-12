@@ -1,7 +1,7 @@
 import { canonicalTestCellsOf, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { applyV5State, type V5ApplicatorStore } from '../../../../v5/applyV5State'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -94,8 +94,8 @@ describe('WS5 hero lead lines', () => {
       expect(line!.textContent).not.toContain(option.id === 'carry_on_as_now' ? 'This comparison turns on' : 'about 17%')
     }
     const withheld = block.querySelector('[data-option-id="raise_pro_price_to_59"]')!
-    expect(withheld.textContent).not.toContain('Roughly how much')
-    fireEvent.click(withheld.querySelector('button')!)
+    // Run-3 judge C5: CEE's specific withheld reason is said on the line, verbatim; nothing is folded behind "Why?".
+    expect(withheld.querySelector('button')).toBeNull()
     expect(withheld.textContent).toContain(canonical.options[1].cell.why)
     console.info('L2', block.textContent)
   })

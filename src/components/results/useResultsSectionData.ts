@@ -121,7 +121,7 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalFigureWithholds, readGoalIdentityWithheld, sharedServedWithheldWhy } from './utils/goalIdentityWithheld'
+import { readGoalFigureWithholds, readGoalIdentityWithheld, sharedServedWithheldWhy } from './utils/goalIdentityWithheld'
 import { isUnsizedRelationship } from '../../canvas/domain/edgeProvenance'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
@@ -2929,7 +2929,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       // CEE's served cells may carry the same reason, verbatim, and then they speak instead (label, don't hide).
       goalFiguresWithheldMessage: (() => {
         const read = readGoalIdentityWithheld(report)?.message ?? null
-        return read === GOAL_IDENTITY_WITHHELD_FALLBACK && servedWithheldWhy !== null ? servedWithheldWhy : read
+        // Batch E: the reader now keeps CEE's warning words whatever their opening, so the current Run's one served why
+        // speaks first whenever the figures are withheld (it was only the fallback's replacement).
+        return read !== null && servedWithheldWhy !== null ? servedWithheldWhy : read
       })(),
       servedWithheldWhy,
       goalHoldsTodayLevel: (() => {
