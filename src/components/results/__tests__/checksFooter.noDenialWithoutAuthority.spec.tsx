@@ -47,6 +47,21 @@
  *
  * The third row is the one that was broken. The first two are the controls
  * that stop the fix being "delete the denial", which would lose a true claim.
+ *
+ * ── Run-4 judge (DL 12 Oct, the class) ─────────────────────────────────────
+ * The assert row ("one option was supported by more runs than any other") was
+ * a leader claim from a win share, and the silence row's words ("…: not
+ * assessed") went with it. Both are removed and nothing replaces them: in those
+ * states the row is NOT DRAWN. The triple is now
+ *
+ *   producer signal present, not a tie, shares apart → row absent
+ *   producer signal present, IS a tie                → "no option … clearly more runs" (deny)
+ *   NO producer signal (`unknown`)                   → row absent           (silence)
+ *   permitted leader, shares within 10 pts           → "similar shares of runs"
+ *
+ * The tie denial is still the only denial, and absence is always read beside a
+ * contrast control (the footer and its robustness row rendered in the same
+ * render), so "absent" cannot come from a blind probe.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -175,7 +190,17 @@ function setStore(nearTie: Signal, shares?: Shares): void {
  * `T1ChecksFooter` consumes, so a green result cannot come from a fixture that
  * quietly stopped reproducing the state under test.
  */
-function readWinnerCheck(): { label: string; separation: string; gapPp: number | null; permitted: boolean | undefined } {
+type WinnerProbe = {
+  /** The row's text, or `null` when the row is not drawn (the two states the Run-4 judge removed). */
+  label: string | null
+  /** The whole "What we checked" footer's text — for negatives that must hold whether or not the row is drawn. */
+  footerText: string
+  separation: string
+  gapPp: number | null
+  permitted: boolean | undefined
+}
+
+function probeWinnerCheck(): WinnerProbe {
   const { result } = renderHook(() => useResultsSectionData())
   const separation = result.current.recommendation.verdict?.separation ?? '<no verdict>'
   const gapPp = result.current.recommendation.verdict?.gapPp ?? null
@@ -186,9 +211,28 @@ function readWinnerCheck(): { label: string; separation: string; gapPp: number |
       tornadoData={{ rows: [], expectedOutcome: null }}
     />,
   )
-  const el = container.querySelector('[data-testid="checks-winner"]')
-  if (!el) throw new Error('checks-winner did not render — the probe is blind, not the product silent')
-  return { label: (el.textContent ?? '').replace(/\s+/g, ' ').trim(), separation, gapPp, permitted }
+  // CONTRAST CONTROL: the footer and its robustness row render in this same render, so a missing leader row is the
+  // product's absence, not a blind probe.
+  const footer = container.querySelector('[data-testid="t1-checks-footer"]')
+  if (!footer) throw new Error('t1-checks-footer did not render — the probe is blind, not the product silent')
+  if (!footer.querySelector('[data-testid="checks-robust"]')) {
+    throw new Error('checks-robust did not render — the contrast control is blind')
+  }
+  const el = footer.querySelector('[data-testid="checks-winner"]')
+  return {
+    label: el ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : null,
+    footerText: (footer.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    separation,
+    gapPp,
+    permitted,
+  }
+}
+
+/** For the states where the row MUST render: a missing row is a blind probe, never a pass. */
+function readWinnerCheck(): Omit<WinnerProbe, 'label'> & { label: string } {
+  const probe = probeWinnerCheck()
+  if (probe.label == null) throw new Error('checks-winner did not render — the probe is blind, not the product silent')
+  return { ...probe, label: probe.label }
 }
 
 describe('checks-winner: no denial without authority', () => {
@@ -203,13 +247,19 @@ describe('checks-winner: no denial without authority', () => {
     document.body.innerHTML = ''
   })
 
-  it('producer says NOT a tie → the check ASSERTS a leading option', () => {
+  it('producer says NOT a tie, shares apart → the leader row is NOT DRAWN (no leader claim from a win share)', () => {
     setStore({ isTie: false })
-    const { label, separation } = readWinnerCheck()
+    const { label, footerText, separation, permitted } = probeWinnerCheck()
     expect(separation).toBe('clear')
-    expect(label).toBe('In this model, one option was supported by more runs than any other')
+    expect(permitted).toBe(true)
+    // Run-4 judge (DL 12 Oct, the class): "one option was supported by more runs than any other" is removed; nothing
+    // replaces it.
+    expect(label).toBeNull()
+    expect(footerText).not.toMatch(/more runs than any other/i)
     // J4 (Acceptance cut-4 prod; DL #87): a win-share leader is a share of runs, never a chance — no "most likely".
-    expect(label).not.toMatch(/most likely|chance/i)
+    expect(footerText).not.toMatch(/most likely|\bchance\b/i)
+    // …and no denial either: the producer said NOT a tie.
+    expect(footerText).not.toMatch(/no option was supported by clearly more runs/i)
   })
 
   /**
@@ -228,12 +278,15 @@ describe('checks-winner: no denial without authority', () => {
     expect(label).not.toMatch(/more runs than any other|most likely|chance|\b(best|lead\w*|ahead|winner)\b/i)
   })
 
-  it('J4 boundary: exactly 10 pts apart → the comparative stands (the producer\u2019s own near-tie line)', () => {
+  it('J4 boundary: exactly 10 pts apart → not similar shares (the producer\u2019s own near-tie line), so the row is not drawn', () => {
     setStore({ isTie: false }, [0.55, 0.45])
-    const { label, gapPp, permitted } = readWinnerCheck()
+    const { label, footerText, gapPp, permitted } = probeWinnerCheck()
     expect(permitted).toBe(true)
     expect(gapPp).toBe(10)
-    expect(label).toBe('In this model, one option was supported by more runs than any other')
+    // Run-4 judge (DL 12 Oct, the class): the comparative that stood here is removed; nothing replaces it. The boundary
+    // stays pinned: a 10-pt gap is NOT "similar shares" (that label here would draw the row → RED).
+    expect(label).toBeNull()
+    expect(footerText).not.toMatch(/more runs than any other|similar shares of runs/i)
   })
 
   it('producer says IS a tie → the check DENIES a leading option', () => {
@@ -245,27 +298,40 @@ describe('checks-winner: no denial without authority', () => {
 
   it('producer sent NO signal → the check makes NO claim in either direction', () => {
     setStore(null)
-    const { label, separation } = readWinnerCheck()
+    const { label, footerText, separation } = probeWinnerCheck()
     // Precondition: this really is the no-authority state, not a tie.
     expect(separation).toBe('unknown')
 
+    // Run-4 judge (DL 12 Oct, the class): the "…: not assessed" row is removed; nothing replaces it. Silence is now the
+    // row's absence.
+    expect(label).toBeNull()
     expect(
-      label,
-      `"No clear leader" is a DENIAL. decisionVerdict.ts: "'unknown' licenses silence, never a denial." Read: ${label}`,
+      footerText,
+      `"No clear leader" is a DENIAL. decisionVerdict.ts: "'unknown' licenses silence, never a denial." Read: ${footerText}`,
     ).not.toMatch(/no option was supported by clearly more runs|no option is clearly most likely/i)
-    expect(label).not.toMatch(/one option was supported by more runs than any other/i)
+    expect(footerText).not.toMatch(/one option was supported by more runs than any other/i)
   })
 
-  it('the three separations produce three DIFFERENT labels — the probe discriminates', () => {
+  it('the separations produce DIFFERENT outcomes — the probe discriminates (tie denies, unknown is silent)', () => {
     setStore({ isTie: false })
-    const clear = readWinnerCheck().label
+    const clear = probeWinnerCheck().label
     document.body.innerHTML = ''
     setStore({ isTie: true })
-    const tied = readWinnerCheck().label
+    const tied = probeWinnerCheck().label
     document.body.innerHTML = ''
     setStore(null)
-    const unknown = readWinnerCheck().label
+    const unknown = probeWinnerCheck().label
+    document.body.innerHTML = ''
+    setStore({ isTie: false }, [0.47, 0.43])
+    const similar = probeWinnerCheck().label
 
-    expect(new Set([clear, tied, unknown]).size, `clear="${clear}" tied="${tied}" unknown="${unknown}"`).toBe(3)
+    // Run-4 judge (DL 12 Oct, the class): the clear-leader and undetermined rows are removed; nothing replaces them.
+    // The tie denial and the similar-shares fact still render, and differ, so a blanket change in either direction REDs.
+    expect({ clear, tied, unknown, similar }).toEqual({
+      clear: null,
+      tied: 'In this model, no option was supported by clearly more runs than the others',
+      unknown: null,
+      similar: 'In this model, the options were supported by similar shares of runs',
+    })
   })
 })

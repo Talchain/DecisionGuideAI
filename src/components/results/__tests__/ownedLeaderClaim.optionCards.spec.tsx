@@ -28,7 +28,7 @@
  * jsdom cannot prove visibility and nothing here claims it does.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult } from '../types'
 
@@ -135,6 +135,10 @@ describe('OptionCards — withheld leader claim', () => {
     // Existing copy, not invented: this is already the module's phrasing for
     // an option that does not hold a lead.
     expect(screen.getAllByText('What would make this better supported?').length).toBeGreaterThan(0)
+    // Twin of the permitted row below: on a withheld turn the leading option's own card keeps that chip.
+    expect(
+      within(screen.getByTestId(`option-card-${WINNER_ID}`)).getByRole('button', { name: 'What would make this better supported?' }),
+    ).toBeDefined()
   })
 })
 
@@ -169,11 +173,17 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     expect(screen.getByTestId(`leading-option-downside-${WINNER_ID}`)).toBeDefined()
   })
 
-  it('keeps the leader chip copy', () => {
+  // Run-4 judge (DL 12 Oct, the class): the leader chip ("Why did the most runs in this model support this?" / "What does
+  // this rest on in this model?") is removed; nothing replaces it. Was 'keeps the leader chip copy'.
+  it('draws no leader chip even when permitted; the non-leader card keeps its own chip', () => {
     const { container } = renderCards(true)
-    // `fair` tier + stability 0.5 is the softened branch, i.e. the exact
-    // combination that produces the softened chip.
-    expect(container.textContent ?? '').toMatch(/What does this rest on in this model\?/)
+    const leader = screen.getByTestId(`option-card-${WINNER_ID}`)
+    expect(within(leader).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/What does this rest on in this model\?|most runs in this model support/)
+    // Over-suppression control: the non-leader card keeps its forward-looking chip.
+    expect(
+      within(screen.getByTestId(`option-card-${RUNNER_UP_ID}`)).getByRole('button', { name: 'What would make this better supported?' }),
+    ).toBeDefined()
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {

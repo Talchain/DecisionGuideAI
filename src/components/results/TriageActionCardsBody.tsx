@@ -470,11 +470,12 @@ function T1FlipRiskCallout({
             {"'s effect on "}{toLabelDisplay} is weakest, {switchPct}% of them support{' '}
             <strong>{altWinnerLabelDisplay}</strong>
           </>
-        ) : mayNameLeader ? (
+        ) : mayNameLeader && attestsNoFlip ? (
+          // Run-4 judge (DL 12 Oct, the class): the non-attested arm ("… {alt} could be supported by the most runs
+          // instead") was a leader claim from a win share. It now takes the neutral sentence below; no new words.
           <>
             In this model, if <strong>{fromLabelDisplay}</strong> shifts,{' '}
-            {attestsNoFlip ? 'more runs could support ' : ''}<strong>{altWinnerLabelDisplay}</strong>
-            {attestsNoFlip ? '' : ' could be supported by the most runs instead'}
+            more runs could support <strong>{altWinnerLabelDisplay}</strong>
           </>
         ) : (
           <>
@@ -898,17 +899,17 @@ function T1ChecksFooter({
   // these two labels.
   // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
   // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
-  // J4 (DL, 6 Oct): "more runs than any other" is true at a 0.1-pt gap, so within 10 pts of the next run share the
-  // row says the shares were similar instead (`runSharesSimilar`, the same rule as `ANALYSIS_NEW_COPY.checks`).
-  const winnerOkLabel = runSharesSimilar(verdict)
-    ? 'In this model, the options were supported by similar shares of runs'
-    : 'In this model, one option was supported by more runs than any other'
+  // J4 (DL, 6 Oct): within 10 pts of the next run share the row says the shares were similar (`runSharesSimilar`, the
+  // same rule as `ANALYSIS_NEW_COPY.checks`).
+  const similarSharesLabel = 'In this model, the options were supported by similar shares of runs'
   // RT-17 (red team #87 6008162592; Science d5 #87 6008176400): the run-share check never speaks of a goal chance.
   const winnerNotOkLabel = 'In this model, no option was supported by clearly more runs than the others'
-  // States the check could not be determined. It is NOT a third verdict about
-  // the options — it is the absence of one, which is why it must not read like
-  // "No clear leader" (a finding) nor like "Has leading option".
-  const winnerUndeterminedLabel = 'Which option most runs supported, in this model: not assessed'
+  // ⭐ RUN-4 JUDGE, DL RULING (12 Oct, the class): the row's two other states said "In this model, one option was
+  // supported by more runs than any other" (a leader claim from a win share) and "Which option most runs supported, in
+  // this model: not assessed". Both are removed with no words in their place: in those states the row is not drawn.
+  // It keeps the two states that name no leader: similar shares, and the producer's own tie denial.
+  const similarShares = withheldSimilarShares || (hasWinner && runSharesSimilar(verdict))
+  const winnerCheckShown = similarShares || (!hasWinner && !winnerUndetermined)
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -924,19 +925,15 @@ function T1ChecksFooter({
         What we checked
       </p>
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
-        <ChecksGlyph
-          ok={hasWinner || withheldSimilarShares}
-          unknown={winnerUndetermined && !withheldSimilarShares}
-          okLabel={withheldSimilarShares ? 'In this model, the options were supported by similar shares of runs' : winnerOkLabel}
-          notOkLabel={winnerUndetermined ? winnerUndeterminedLabel : winnerNotOkLabel}
-          title={
-            winnerUndetermined && !withheldSimilarShares
-              ? 'This run did not carry a leader verdict, so the analysis makes no claim either way.'
-              : undefined
-          }
-          dataTestid="checks-winner"
-          neutral
-        />
+        {winnerCheckShown && (
+          <ChecksGlyph
+            ok={similarShares}
+            okLabel={similarSharesLabel}
+            notOkLabel={winnerNotOkLabel}
+            dataTestid="checks-winner"
+            neutral
+          />
+        )}
         <ChecksGlyph
           ok={robustOk}
           unknown={!robustKnown}

@@ -55,19 +55,15 @@ const UI_COPY: string[] = [
   HERO_COPY.headline.goalWithLimits(L, N),
   // #2747 re-scope 2 round 2: headline.goalOnly / headline.noneOnTrack / caption.goalOnly / detail.goalFitJointBasis are
   // deleted (the UI's own goal-chance sentences; rule C), so they leave this corpus.
-  HERO_COPY.headline.mostLikelyStrongest(L, N),
-  HERO_COPY.headline.slightlyAhead(L),
+  // Run-4 judge (DL 12 Oct, the class): headline.mostLikelyStrongest / slightlyAhead and subline.highestOutcome / aligned /
+  // closeOnOutcome / overlapAdvisory are deleted (leader claims from a win share), so they leave this corpus.
   HERO_COPY.headline.noClearLeader,
   HERO_COPY.headline.outcomeLeader(L, V),
   HERO_COPY.headline.noneOnTrackWithLimits,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
-  HERO_COPY.subline.highestOutcome(L, V),
-  HERO_COPY.subline.aligned(L),
-  HERO_COPY.subline.closeOnOutcome(L),
   HERO_COPY.subline.outcomesClose,
   HERO_COPY.subline.compareTop,
-  HERO_COPY.subline.overlapAdvisory,
   HERO_COPY.labelFallback,
   HERO_COPY.factorFallback,
   ...Object.values(HERO_COPY.axis).flatMap((a) => [a.left, a.mid, a.right]),

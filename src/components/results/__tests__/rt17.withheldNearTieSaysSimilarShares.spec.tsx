@@ -11,6 +11,8 @@
  *     may be shown (`analysisClaimPolicy(rec).mayShowComparativeFigures`) AND the top two are within 10 pts;
  *   · a withheld gap of 10 or more stays "not assessed";
  *   · the check's labels never speak of a goal chance ("most likely").
+ * Run-4 judge (DL 12 Oct, the class): the footer's "not assessed" words are removed and nothing replaces them — in that
+ * state the triage footer's leader row is NOT DRAWN. The Analysis surface keeps its `leader_not_assessed` code.
  * The withheld SEMANTICS stay: `checks.leaderWithheld` is still true, so the withhold cause and the commitment
  * block's bullet still fire.
  *
@@ -26,7 +28,6 @@ import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { PermittedAnalysisMode } from '../../../adapters/cee/types'
 
 const SIMILAR = 'In this model, the options were supported by similar shares of runs'
-const NOT_ASSESSED = 'Which option most runs supported, in this model: not assessed'
 
 /** A withheld leader (CEE stripped the near-tie identity): separation unknown, the gap still measured. */
 const withheld = (gapPp: number, mode: PermittedAnalysisMode) => {
@@ -37,6 +38,12 @@ const withheld = (gapPp: number, mode: PermittedAnalysisMode) => {
 const footer = (data: ReturnType<typeof withheld>): string => {
   render(<TriageActionCardsBody data={data} useV17Copy onFocusNode={() => {}} />)
   return (screen.getByTestId('checks-winner').textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+/** The removed states: the footer itself renders (positive control), the leader row inside it does not. */
+const footerLeaderRowAbsent = (data: ReturnType<typeof withheld>): void => {
+  render(<TriageActionCardsBody data={data} useV17Copy onFocusNode={() => {}} />)
+  expect(screen.getByTestId('t1-checks-footer')).toBeTruthy()
+  expect(screen.queryByTestId('checks-winner')).toBeNull()
 }
 const checks = (data: ReturnType<typeof withheld>) =>
   buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false }).checks
@@ -55,22 +62,28 @@ describe('RT-17: a withheld near tie, figures licensed, 1 pt apart', () => {
 describe("RT-17 twins (d5's mutants)", () => {
   it('a withheld gap of 10 or more stays not assessed — the similar line is never said of a separated run', () => {
     const data = withheld(12, 'quantified_provisional')
-    expect(footer(data)).toContain(NOT_ASSESSED)
+    // Run-4 judge (DL 12 Oct, the class): the footer's "not assessed" row is removed; nothing replaces it.
+    footerLeaderRowAbsent(data)
     expect(checks(data).items.find((i) => i.id === 'leader')?.code).toBe('leader_not_assessed')
   })
   it('figures NOT licensed (exploratory) → not assessed, even 1 pt apart', () => {
     const data = withheld(1, 'exploratory')
-    expect(footer(data)).toContain(NOT_ASSESSED)
+    // Run-4 judge (DL 12 Oct, the class): the footer's "not assessed" row is removed; nothing replaces it.
+    footerLeaderRowAbsent(data)
     expect(checks(data).items.find((i) => i.id === 'leader')?.code).toBe('leader_not_assessed')
   })
 })
 
 describe('RT-17: the leader check never speaks of a goal chance', () => {
+  it('withheld near tie', () => {
+    expect(footer(withheld(1, 'quantified_provisional'))).not.toMatch(/most likely|\bchance\b|\blikely\b/i)
+  })
+  // Run-4 judge (DL 12 Oct, the class): in these two states the row is removed; nothing replaces it, so no row can
+  // speak of a goal chance.
   it.each([
-    ['withheld near tie', withheld(1, 'quantified_provisional')],
     ['withheld, separated', withheld(12, 'quantified_provisional')],
     ['withheld, figures refused', withheld(1, 'exploratory')],
   ] as const)('%s', (_n, data) => {
-    expect(footer(data)).not.toMatch(/most likely|\bchance\b|\blikely\b/i)
+    footerLeaderRowAbsent(data)
   })
 })

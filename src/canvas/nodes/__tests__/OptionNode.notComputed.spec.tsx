@@ -271,14 +271,15 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
       </OptionChanceCellProvider></ReactFlowProvider>,
     )
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed for every option, so this is now a regression
+    // guard only (see the flipped control below).
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the same 3pp gap DOES render the close-call line for a COMPUTED option', () => {
-    // Without this, the assertion above would pass if the close-call line were
-    // simply unreachable in this harness — an absence proven by an instrument
-    // that can never show a presence (CLAUDE.md trap 13). Same fixture, same
-    // gap, same leader; only `status` differs.
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. This was the positive control
+  // for the row above ("DOES render the close-call line for a COMPUTED option"); it now pins the line's absence on the
+  // COMPUTED option too, with the card itself on screen.
+  it('the same 3pp gap renders NO close-call line for a COMPUTED option either (the line is removed)', () => {
     useCanvasStore.setState({
       nodes: [
         { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
@@ -302,9 +303,12 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
       </OptionChanceCellProvider></ReactFlowProvider>,
     )
-    expect(screen.getByText(/Close to the option most runs supported/i)).toBeInTheDocument()
-    // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
-    // now — the identical computed fixture in Standard carries no such line.
+    // The computed card renders and is not read as not-computed, so the absence is the line's, not the card's.
+    expect(screen.getByText('Hold the current plan')).toBeInTheDocument()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    // Standard: the identical computed fixture carries no such line either.
     unmount()
     useCanvasStore.setState({ viewMode: 'standard' } as never)
     render(

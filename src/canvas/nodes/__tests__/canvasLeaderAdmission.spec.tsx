@@ -415,11 +415,15 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
   }
   const CLOSE_NODES = [OPTION_NODES[0], OPTION_NODES[1]]
 
-  it('ARM B — permitted: the close-call line renders (over-suppression control)', () => {
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. The gap is still computed and
+  // still offers the close-call question chip, so the over-suppression control binds to that chip instead.
+  it('ARM B — permitted: no close-call line, but the close-call chip renders (over-suppression control)', () => {
     withStore(ADMISSION_PERMITTED, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Close to the option most runs supported/)).toBeDefined()
+    expect(screen.queryByText(/Close to the option most runs supported/)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
   })
 
   it('⭐ ARM C — refused: no close-call line', () => {
@@ -427,6 +431,8 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
     expect(screen.queryByText(/Close to the option most runs supported/)).toBeNull()
+    // Twin of ARM B: the gap is not computed on a refused run, so no close-call chip either.
+    expect(screen.queryByText('What would need to be true for this?')).toBeNull()
   })
 })
 

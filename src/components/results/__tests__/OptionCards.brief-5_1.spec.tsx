@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult } from '../types'
 import { formatOptionLabelForCard } from '../utils/cleanFactorLabel'
@@ -120,61 +120,65 @@ describe('OptionCards — Brief 5.1 Task 7 card integration', () => {
 })
 
 describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
+  // Run-4 judge (DL 12 Oct, the class): the leading option's chip ("Why did the most runs in this model support this?" /
+  // "What does this rest on in this model?") is removed; nothing replaces it. No tier or stability brings it back.
+  function expectLeaderDrawsNoChip(id: string) {
+    const card = screen.getByTestId(`option-card-${id}`)
+    expect(within(card).queryByRole('button', { name: /better supported|most runs|rest on|come out best/i })).toBeNull()
+    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
+    expect(screen.queryByText('What does this rest on in this model?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
+  }
+
   it('non-winner (non-baseline) renders "What would make this better supported?"', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
-    // Brief 5.4 Phase 7: winner chip is tier-driven. Pass strong tier to assert the
-    // definitive "Why does this come out best in this model?" label; non-winner
-    // label is tier-invariant.
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="strong" />)
 
-    // Winner renders the strong-tier chip; non-winner always uses the forward-looking copy.
-    expect(screen.getByText('Why did the most runs in this model support this?')).toBeInTheDocument()
-    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
+    // The leader draws no chip; the non-winner keeps the forward-looking chip, on its own card.
+    expectLeaderDrawsNoChip('opt-a')
+    expect(
+      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'What would make this better supported?' })).toHaveLength(1)
   })
 
-  it('Brief 5.5 §2.7: fair tier with high stability (≥0.85) renders definitive copy (stability override)', () => {
-    // Brief 5.5 §2.7 lock: soft phrasing requires tier ∈ {needs_work, fair}
-    // AND stability < 0.85. With high stability, fair tier overrides to definitive.
+  it('Brief 5.5 §2.7 (retired by run-4): fair tier with high stability (≥0.85) — the leader still draws no chip', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
-    expect(screen.getByText('Why did the most runs in this model support this?')).toBeInTheDocument()
-    expect(screen.queryByText('What does this rest on in this model?')).not.toBeInTheDocument()
-    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
+    expectLeaderDrawsNoChip('opt-a')
+    expect(
+      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
+    ).toBeInTheDocument()
   })
 
-  it('Brief 5.5 §2.7: fair tier with low stability (<0.85) renders soft chip copy', () => {
-    // Brief 5.5 §2.7 lock (new): fair + low stability softens the chip where
-    // the Brief 5.4 version left it definitive. Readiness is not consulted.
+  it('Brief 5.5 §2.7 (retired by run-4): fair tier with low stability (<0.85) — the leader still draws no chip', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.75} />)
 
-    expect(screen.getByText('What does this rest on in this model?')).toBeInTheDocument()
-    expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
-    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
+    expectLeaderDrawsNoChip('opt-a')
   })
 
-  it('Brief 5.4 QA P4: winner chip hedges for needs_work tier without stability (absent = weak)', () => {
+  it('Brief 5.4 QA P4 (retired by run-4): needs_work tier without stability — the leader still draws no chip', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
-    // needs_work + absent stability → evidenceIsWeak AND stabilityIsWeak → hedged
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="needs_work" />)
 
-    expect(screen.getByText('What does this rest on in this model?')).toBeInTheDocument()
-    expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
-    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
-    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
+    expectLeaderDrawsNoChip('opt-a')
+    expect(
+      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
+    ).toBeInTheDocument()
   })
 
   it('baseline non-winner renders "What would make this better supported?" — no "Why does this lose?"', () => {

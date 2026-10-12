@@ -80,8 +80,17 @@ beforeEach(() => {
   useGuidanceStore.setState({ _sendMessage: null, _dispatchAction: null })
 })
 
-describe('OptionCards winner chip — prefill, never auto-send', () => {
-  it('clicking "Why does this come out best in this model?" opens the drawer prefilled and dispatches nothing', () => {
+// Run-4 judge (DL 12 Oct, the class): the leading option's chip ("Why did the most runs in this model support this?") is
+// removed; nothing replaces it. The prefill contract is now pinned on the chip that remains, on Option B's card.
+describe('OptionCards option chip — prefill, never auto-send', () => {
+  it('the leading option draws no chip at all', () => {
+    render(<OptionCards options={mockOptions} winnerId="option-1" onSendMessage={vi.fn()} />)
+    const leader = screen.getByTestId('option-card-option-1')
+    expect(within(leader).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
+    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
+  })
+
+  it('clicking "What would make this better supported?" opens the drawer prefilled and dispatches nothing', () => {
     const onSendMessage = vi.fn()
     render(
       <>
@@ -90,8 +99,10 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
       </>,
     )
 
-    // The winner chip on Option A.
-    fireEvent.click(screen.getByText('Why did the most runs in this model support this?'))
+    // The chip on Option B.
+    fireEvent.click(
+      within(screen.getByTestId('option-card-option-2')).getByRole('button', { name: 'What would make this better supported?' }),
+    )
 
     // No auto-send: the threaded send path is never touched.
     expect(onSendMessage).not.toHaveBeenCalled()
@@ -99,8 +110,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
     // The drawer is open with the prompt prefilled into the editable composer.
     const draft = screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement
     expect(draft).toBeInTheDocument()
-    expect(draft.value).toMatch(/Option A/)
-    expect(draft.value).toMatch(/Why did the most runs in this model support "Option A"\?/)
+    expect(draft.value).toBe('What would make "Option B" better supported instead? What changes would be needed?')
 
     // Composer is focused for immediate editing.
     expect(document.activeElement).toBe(draft)
@@ -117,13 +127,15 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
       </>,
     )
 
-    fireEvent.click(screen.getByText('Why did the most runs in this model support this?'))
+    fireEvent.click(
+      within(screen.getByTestId('option-card-option-2')).getByRole('button', { name: 'What would make this better supported?' }),
+    )
     expect(send).not.toHaveBeenCalled() // nothing sent on prefill
 
     const drawer = screen.getByTestId('ask-olumi-drawer')
     fireEvent.click(within(drawer).getByText('Send'))
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send.mock.calls[0][0]).toMatch(/Option A/)
+    expect(send.mock.calls[0][0]).toMatch(/Option B/)
   })
 })
 

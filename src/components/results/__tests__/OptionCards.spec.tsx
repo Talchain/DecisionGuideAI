@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult, HingeInfo } from '../types'
 
@@ -819,7 +819,7 @@ describe('Wave 2: identity-anchored stable number chips', () => {
 })
 
 describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
-  it('canonical leader keeps the downside sentence + leader CTA; the lens card gets neither', () => {
+  it('canonical leader keeps the downside sentence; the lens card gets no leader semantics', () => {
     // Canonical leader A carries the downside flag; the cautious lens crowns B.
     render(
       <OptionCards
@@ -838,8 +838,16 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     // Union, never replace: the retired leader words AND the model-relative ones that replaced them (principle audit).
     expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best|most runs supported this option/i)
     expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model|runs in this model support/i)
-    // Canonical card: keeps the leader predicates even without the crown styling.
-    expect(canonicalCard.textContent).toMatch(/the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside/)
-    expect(canonicalCard.textContent).toMatch(/runs in this model support|rest on in this model/i)
+    expect(screen.queryByTestId('leading-option-downside-option-2')).toBeNull()
+    // The lens card keeps the non-leader chip: the lens did not make it the leader.
+    expect(within(lensCard).getByRole('button', { name: 'What would make this better supported?' })).toBeInTheDocument()
+    // Canonical card: keeps the downside sentence even without the crown styling.
+    expect(screen.getByTestId('leading-option-downside-option-1')).toHaveTextContent(
+      "In this model, the lower range of this option's simulated outcomes includes meaningful downside.",
+    )
+    // Run-4 judge (DL 12 Oct, the class): the leader clause of the downside line and the leader CTA are removed; nothing
+    // replaces them.
+    expect(canonicalCard.textContent).not.toMatch(/most runs supported this option|runs in this model support|rest on in this model/i)
+    expect(within(canonicalCard).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
   })
 })

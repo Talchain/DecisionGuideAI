@@ -110,9 +110,12 @@ describe('OptionCards — display-honesty (C) leading-option downside qualificat
 
     const note = screen.getByTestId('leading-option-downside-a')
     expect(note).toBeInTheDocument()
-    expect(note.textContent).toContain(
-      'In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.',
+    // Run-4 judge (DL 12 Oct, the class): the leader clause ("the most runs supported this option, but …") is removed;
+    // nothing replaces it. The downside fact stays.
+    expect(note.textContent).toBe(
+      "In this model, the lower range of this option's simulated outcomes includes meaningful downside.",
     )
+    expect(note.textContent).not.toMatch(/most runs/i)
   })
 
   it('does not render the qualification sentence when the flag is false', () => {

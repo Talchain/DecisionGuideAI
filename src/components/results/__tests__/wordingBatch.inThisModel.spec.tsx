@@ -49,9 +49,14 @@ describe('RT-13 · the flip-risk callout says the conditional with its condition
     expect(text).not.toMatch(/\(\d+% probability\)/)
     expect(text.match(/\d+%/g)).toEqual(['57%'])
   })
-  it('not measured: no figure, still in this model', () => {
-    expect(calloutText(withEdge(PERMITTED(), { switchProbability: undefined })))
-      .toContain(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could be supported by the most runs instead.`)
+  it('not measured: no figure, and the neutral sentence (names no option)', () => {
+    const text = calloutText(withEdge(PERMITTED(), { switchProbability: undefined }))
+    // Run-4 judge (DL 12 Oct, the class): "{alt} could be supported by the most runs instead" is removed; nothing
+    // replaces it. The arm takes the existing neutral sentence.
+    expect(text).toContain(`If ${FACTOR_LABEL} shifts, the result could change.`)
+    expect(text).not.toContain(ALT_LABEL)
+    expect(text).not.toMatch(/most runs/i)
+    expect(text).not.toMatch(/\d+%/)
   })
   it('withheld: unchanged, and it names no option', () => {
     const text = calloutText(withEdge(WITHHELD()))
@@ -64,7 +69,6 @@ describe('SCAN · no sentence that names an option drops "in this model"', () =>
   // Thunks: the callout renders inside each row, never at collection time.
   const naming: Array<[string, string, () => string]> = [
     ['callout measured', ALT_LABEL, () => calloutText(withEdge(PERMITTED()))],
-    ['callout not measured', ALT_LABEL, () => calloutText(withEdge(PERMITTED(), { switchProbability: undefined }))],
   ]
 
   it.each(naming)('%s', (_where, label, build) => {
@@ -72,6 +76,14 @@ describe('SCAN · no sentence that names an option drops "in this model"', () =>
     // Anti-vacuity: the arm really names the option, or the scan below proves nothing about it.
     expect(carrying.length).toBeGreaterThan(0)
     for (const s of carrying) expect(s, s).toMatch(/in this model/i)
+  })
+
+  it('callout not measured: names no option, so no sentence can drop "in this model"', () => {
+    // Run-4 judge (DL 12 Oct, the class): this arm's naming sentence ("{alt} could be supported by the most runs
+    // instead") is removed; nothing replaces it. Bound by identity: the option label is absent from the callout.
+    const text = calloutText(withEdge(PERMITTED(), { switchProbability: undefined }))
+    expect(sentences(text).filter((s) => s.includes(ALT_LABEL))).toEqual([])
+    expect(text).toContain(`If ${FACTOR_LABEL} shifts, the result could change.`)
   })
 
   it('CONTROL: the scan catches the retired wording', () => {

@@ -1,22 +1,12 @@
 /**
- * winnerChipCopy — unit tests (Brief 5.5 §2.7 lock).
+ * winnerChipCopy — unit tests.
  *
- * Covers the tier × stability copy contract via the shared
- * shouldSoftenPhrasing helper imported by winnerChipLabel.
+ * Run-4 judge, DL ruling (12 Oct, the class): the leading option's chip ("Why did the most runs in this model support
+ * this?", and the tier-softened "What does this rest on in this model?" whose message asked the same) was a leader
+ * claim from a win share. It is removed with no replacement: `winnerChipLabel` returns `null` for the leading option on
+ * a turn that designates one, and the card draws no chip. The tier × stability arms went with it.
  *
- * Softening gate (Brief 5.5 §2.7):
- *   Hedged copy ("What does this rest on in this model?") fires ONLY when BOTH:
- *     1. confidenceTier ∈ {'needs_work', 'fair'}
- *     2. recommendationStability < 0.85  (null/undefined treated as weak)
- *   coachingReadiness is NOT a softening trigger (spec correction — the
- *   Brief 5.4 version could soften a strong tier via weak readiness; the
- *   corrected spec disallows that).
- *
- * All strong / unknown / undefined tiers, and fair / needs_work with
- * stability ≥ 0.85, render the definitive copy.
- *
- * Non-winner chip is always forward-looking and tier-invariant.
- * Prompt copy embeds the option label verbatim and is tier-invariant.
+ * Every other card keeps its forward-looking chip; its label and message stay one question.
  *
  * Complements OptionCards.brief-5_1.spec.tsx (integration).
  */
@@ -24,178 +14,63 @@
 import { describe, it, expect } from 'vitest'
 import { winnerChipLabel, winnerChipPrompt } from '../winnerChipCopy'
 
-// ---------------------------------------------------------------------------
-// winnerChipLabel — winner copy (definitive paths)
-// ---------------------------------------------------------------------------
-
-describe('winnerChipLabel — winner copy (definitive paths)', () => {
-  it('returns the definitive copy for strong tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'strong')).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'strong', 0.50)).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'strong', 0.95)).toBe('Why did the most runs in this model support this?')
+describe('winnerChipLabel — the leading option has no chip', () => {
+  it('⭐ returns null for the leading option on a turn that designates one (was "Why did the most runs …?")', () => {
+    expect(winnerChipLabel(true)).toBeNull()
+    expect(winnerChipLabel(true, true)).toBeNull()
+    expect(winnerChipLabel(true, undefined)).toBeNull()
   })
 
-  it('returns the definitive copy for unknown tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'unknown')).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'unknown', 0.50)).toBe('Why did the most runs in this model support this?')
-  })
-
-  it('returns the definitive copy when tier is undefined (defensive default)', () => {
-    expect(winnerChipLabel(true, undefined)).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, undefined, 0.50)).toBe('Why did the most runs in this model support this?')
-  })
-
-  it('returns the definitive copy for fair tier when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.85)).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'fair', 0.95)).toBe('Why did the most runs in this model support this?')
-  })
-
-  it('returns the definitive copy for needs_work when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.85)).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'needs_work', 0.90)).toBe('Why did the most runs in this model support this?')
-    expect(winnerChipLabel(true, 'needs_work', 1.00)).toBe('Why did the most runs in this model support this?')
+  it('a withheld turn designates no leader, so its front-runner keeps the forward-looking chip (ROADMAP 1.223)', () => {
+    expect(winnerChipLabel(true, false)).toBe('What would make this better supported?')
   })
 })
-
-// ---------------------------------------------------------------------------
-// winnerChipLabel — winner copy (soft paths: tier × stability)
-// ---------------------------------------------------------------------------
-
-describe('winnerChipLabel — winner copy (soft paths)', () => {
-  it('returns the hedged copy for needs_work when stability is absent', () => {
-    expect(winnerChipLabel(true, 'needs_work')).toBe('What does this rest on in this model?')
-    expect(winnerChipLabel(true, 'needs_work', undefined)).toBe('What does this rest on in this model?')
-  })
-
-  it('returns the hedged copy for needs_work when stability < 0.85', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.84)).toBe('What does this rest on in this model?')
-    expect(winnerChipLabel(true, 'needs_work', 0.70)).toBe('What does this rest on in this model?')
-    expect(winnerChipLabel(true, 'needs_work', 0.00)).toBe('What does this rest on in this model?')
-  })
-
-  it('returns the hedged copy for fair when stability is absent (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair')).toBe('What does this rest on in this model?')
-  })
-
-  it('returns the hedged copy for fair when stability < 0.85 (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.84)).toBe('What does this rest on in this model?')
-    expect(winnerChipLabel(true, 'fair', 0.50)).toBe('What does this rest on in this model?')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// winnerChipLabel — non-winner (tier-invariant, stability-invariant)
-// ---------------------------------------------------------------------------
 
 describe('winnerChipLabel — non-winner (always forward-looking)', () => {
-  it.each(['strong', 'fair', 'needs_work', 'unknown', undefined] as const)(
-    'returns the forward-looking copy regardless of tier (%s)',
-    (tier) => {
-      expect(winnerChipLabel(false, tier)).toBe('What would make this better supported?')
-      expect(winnerChipLabel(false, tier, 0.50)).toBe('What would make this better supported?')
-      expect(winnerChipLabel(false, tier, 0.95)).toBe('What would make this better supported?')
-    },
-  )
+  it.each([true, false, undefined] as const)('returns the forward-looking copy (hasLeadingOption %s)', hasLeadingOption => {
+    expect(winnerChipLabel(false, hasLeadingOption)).toBe('What would make this better supported?')
+  })
 })
 
-// ---------------------------------------------------------------------------
-// winnerChipPrompt — tier-invariant label-embedding
-// ---------------------------------------------------------------------------
-
 describe('winnerChipPrompt', () => {
-  it('builds a winner prompt that quotes the option label', () => {
-    expect(winnerChipPrompt(true, 'Option A')).toBe(
-      'Why did the most runs in this model support "Option A"? Which assumptions does that rest on, and what would have to be true for it not to?',
-    )
-  })
-
-  it('builds a non-winner prompt that quotes the option label', () => {
-    expect(winnerChipPrompt(false, 'Option B')).toBe(
+  it('builds the forward-looking prompt that quotes the option label', () => {
+    expect(winnerChipPrompt('Option B')).toBe(
       'What would make "Option B" better supported instead? What changes would be needed?',
     )
   })
 
   it('embeds label text verbatim (no escaping) — UI responsibility to sanitise upstream', () => {
-    expect(winnerChipPrompt(true, 'Plan - v2')).toContain('"Plan - v2"')
-    expect(winnerChipPrompt(false, 'Plan - v2')).toContain('"Plan - v2"')
+    expect(winnerChipPrompt('Plan - v2')).toContain('"Plan - v2"')
   })
 })
 
-// ---------------------------------------------------------------------------
-// Structural guards on the register itself (added 8 Sep 2026 with the
-// no-contest re-frame of the definitive arm)
-// ---------------------------------------------------------------------------
-
 describe('winnerChipCopy — structural guards', () => {
   /**
-   * ⛔ THE ANTI-COLLAPSE GUARD, and it is the reason this block exists.
-   *
-   * Every "definitive path" assertion above compares a returned string to a
-   * literal. If a later edit gave both winner arms the SAME wording — which is
-   * the tempting shape, because the two are near-synonyms — all 12 definitive
-   * assertions AND all 7 hedged assertions would keep passing against a
-   * function that had stopped consulting `shouldSoftenPhrasing` at all. The
-   * softening gate (the 0.85 boundary, the stability override, the
-   * tier membership) would be entirely untested, and the suite would read
-   * green for the wrong reason.
-   *
-   * This is CLAUDE.md trap 13b: a guard whose discrimination depends on a fact
-   * nothing pins. The fact is "the two arms are different strings", so it is
-   * pinned here rather than left as a property of whatever wording is current.
+   * ⭐ THE LABEL AND THE MESSAGE ARE ONE VOICE — pinned because they came apart once (#1281: the label said "better
+   * supported" while the message still said "lead instead"). A future edit to either function alone REDs here.
    */
-  it('keeps the two winner arms as DISTINCT strings, or the softening gate is untested', () => {
-    const hedged = winnerChipLabel(true, 'needs_work', 0.5)
-    const definitive = winnerChipLabel(true, 'strong', 0.95)
-    expect(hedged).not.toBe(definitive)
+  it('the label and the prompt share their wording', () => {
+    expect(winnerChipLabel(false)).toContain('better supported')
+    expect(winnerChipPrompt('Option B')).toContain('better supported')
   })
 
   /**
-   * ⭐ THE LABEL AND THE MESSAGE ARE ONE VOICE — pinned because they came apart
-   * once and nothing noticed.
-   *
-   * #1281 moved `winnerChipLabel`'s non-winner arm to "better supported" and
-   * left `winnerChipPrompt`'s non-winner arm saying "lead instead", so the chip
-   * offered one question and sent another. Both directions are asserted: the
-   * winner pair share "come out best in this model" (principle audit, 5 Oct), the non-winner pair share
-   * "better supported". A future edit to either function alone REDs here.
+   * ⭐ THE RULINGS, asserted over every reachable combination: Paul's "There's never a winner", and the run-4 judge's
+   * no leader claim from a win share. The enumeration is the full cross-product, so a string added later is covered the
+   * day it arrives.
    */
-  it('the winner label and the winner prompt share their noun phrase', () => {
-    expect(winnerChipLabel(true, 'strong', 0.95)).toContain('the most runs in this model support')
-    expect(winnerChipPrompt(true, 'Option A')).toContain('the most runs in this model support')
-  })
-
-  it('the non-winner label and the non-winner prompt share their wording', () => {
-    expect(winnerChipLabel(false, 'strong')).toContain('better supported')
-    expect(winnerChipPrompt(false, 'Option B')).toContain('better supported')
-  })
-
-  /**
-   * ⭐ THE RULING ITSELF, asserted over every reachable combination rather than
-   * over the arms this session happened to change. Paul, on a ruling he notes
-   * he has given numerous times: "There's never a winner."
-   *
-   * The enumeration is the full cross-product the two exported functions can
-   * produce, so a SIXTH string added to either function is covered the day it
-   * arrives — not the day someone remembers to extend a list.
-   */
-  it('no reachable chip string frames the decision as a contest', () => {
+  it('no reachable chip string frames a contest or claims a leader from a win share', () => {
     const RACE = /\bwinners?\b|\bleaders?\b|\bleads?\b|\bahead\b|\bbeats?\b|\boutperform/i
-    const tiers = ['strong', 'fair', 'needs_work', 'unknown', undefined] as const
+    const LEADER_WORDS = /more runs than any other|most runs|ahead of|out on top|than any other option/i
     const strings: string[] = []
-    for (const tier of tiers) {
-      for (const stability of [undefined, 0.0, 0.84, 0.85, 0.95]) {
-        for (const isWinner of [true, false]) {
-          for (const hasLeadingOption of [true, false, undefined]) {
-            strings.push(winnerChipLabel(isWinner, tier, stability, hasLeadingOption))
-            strings.push(winnerChipPrompt(isWinner, 'Option A', hasLeadingOption))
-          }
-        }
+    for (const isWinner of [true, false]) {
+      for (const hasLeadingOption of [true, false, undefined]) {
+        const label = winnerChipLabel(isWinner, hasLeadingOption)
+        if (label !== null) strings.push(label, winnerChipPrompt('Option A'))
       }
     }
-    // Positive control on the corpus itself: an empty or tiny enumeration would
-    // pass this test by testing almost nothing (CLAUDE.md trap 13).
-    expect(strings.length).toBe(300)
-    expect(new Set(strings).size).toBeGreaterThan(1)
-    expect(strings.filter((s) => RACE.test(s))).toEqual([])
+    // Positive control on the corpus: four of the six combinations draw a chip (the leading option's two do not).
+    expect(strings.length).toBe(8)
+    expect(strings.filter(s => RACE.test(s) || LEADER_WORDS.test(s))).toEqual([])
   })
 })

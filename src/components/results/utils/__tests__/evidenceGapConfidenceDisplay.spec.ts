@@ -37,22 +37,26 @@ describe('resolveEvidenceGapConfidenceDisplay', () => {
 describe('evidenceGapGenericText — the sentence F6 was about', () => {
   it('POSITIVE CONTROL: states the figure when there is one', () => {
     const text = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(35))
-    expect(text).toBe("Olumi's confidence in this factor is 35%. Firming it up could change which option the most runs support in this model.")
+    // Run-4 judge (DL 12 Oct, the class): the "Firming it up could change which option the most runs support" clause is
+    // removed; nothing replaces it.
+    expect(text).toBe("Olumi's confidence in this factor is 35%.")
+    expect(text).not.toMatch(/most runs/i)
   })
 
   it('DROPS the confidence clause when the producer sent nothing — never prints 0%', () => {
     const text = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(null))
     expect(text).not.toContain('0%')
     expect(text).not.toContain('confidence')
-    // NON-VACUOUS: the row keeps a real sentence — the gap itself is a genuine
-    // producer finding, only the number is missing.
-    expect(text).toBe('Firming up this factor could change which option the most runs support in this model.')
+    // Run-4 judge (DL 12 Oct, the class): the "Firming up this factor could change which option the most runs support"
+    // sentence is removed; nothing replaces it. With no figure to state the body is empty and the card keeps its title
+    // (the gap itself, a genuine producer finding).
+    expect(text).toBe('')
   })
 
   it('a real 0 and a missing value produce DIFFERENT sentences (the whole point)', () => {
     const realZero = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(0))
     const missing = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(null))
-    expect(realZero).toBe("Olumi's confidence in this factor is 0%. Firming it up could change which option the most runs support in this model.")
+    expect(realZero).toBe("Olumi's confidence in this factor is 0%.")
     expect(realZero).not.toBe(missing)
   })
 })

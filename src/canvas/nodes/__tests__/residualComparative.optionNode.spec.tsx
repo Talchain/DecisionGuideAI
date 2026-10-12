@@ -221,16 +221,22 @@ describe('OptionNode — the close-call marker (was "Close call: within N percen
     // matching once the colon-and-number form is retired, so it would pass by
     // testing nothing.
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    // Twin of PERMITTED: the gap is not computed on a withheld turn, so no close-call chip either.
+    expect(screen.queryByText('What would need to be true for this?')).toBeNull()
   })
 
-  it('PERMITTED: the line renders (over-suppression control)', () => {
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. The gap is still computed and
+  // still offers the close-call question chip, so the over-suppression control binds to that chip instead.
+  it('PERMITTED: no close-call line, but the close-call chip renders (over-suppression control)', () => {
     withStore(CLOSE_CALL_PERMITTED, CLOSE_CALL_NODES)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
     // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
     // The withheld-turn ENTITLEMENT this describe block exists to pin is
     // unchanged; only the quantity has gone. The percentage-point gap between
     // two win frequencies is retired from every user-facing surface.
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 })

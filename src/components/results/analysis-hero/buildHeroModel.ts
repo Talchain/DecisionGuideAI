@@ -646,34 +646,6 @@ export function buildHeroModel(
           : 'none'
   }
 
-  // Signal (3): the top-two rendered outcome rows' p10-p90 ranges intersect
-  // (inclusive — touching ranges count). Drives ONLY the state-A overlap
-  // advisory sentence; false whenever either range is missing.
-  const topTwoRangesOverlap =
-    outcomeLeaderRow != null &&
-    outcomeRunnerUpRow != null &&
-    outcomeLeaderRow.outcome.p10 != null &&
-    outcomeLeaderRow.outcome.p90 != null &&
-    outcomeRunnerUpRow.outcome.p10 != null &&
-    outcomeRunnerUpRow.outcome.p90 != null &&
-    Math.max(outcomeLeaderRow.outcome.p10, outcomeRunnerUpRow.outcome.p10) <=
-      Math.min(outcomeLeaderRow.outcome.p90, outcomeRunnerUpRow.outcome.p90)
-
-  // Signal (2): the top-two expected outcomes are genuinely close — the
-  // centres differ by no more than 15% of the larger magnitude. Range-
-  // independent by design (closeness of expectations is a different fact
-  // from overlapping uncertainty), and the ONLY gate on naming a runner-up
-  // as "close on expected outcome".
-  const outcomeGapSmall =
-    outcomeLeaderRow?.outcome.centre != null &&
-    outcomeRunnerUpRow?.outcome.centre != null &&
-    outcomeLeaderRow.outcome.centre - outcomeRunnerUpRow.outcome.centre <=
-      OUTCOME_CLOSE_RATIO *
-        Math.max(
-          Math.abs(outcomeLeaderRow.outcome.centre),
-          Math.abs(outcomeRunnerUpRow.outcome.centre),
-        )
-
   // UI-SEM-070: readout-tie coherence gate. When the top-two outcome rows
   // render the SAME readout string, the chart literally shows no strongest
   // option (the reported staging run displayed "100" on all four), so the
@@ -812,25 +784,12 @@ export function buildHeroModel(
     // Withheld now falls to `noLeader`: SILENCE, not a denial. `noClearLeader`
     // stays reserved for the producer's TIE call, because asserting "No option is
     // clearly ahead" on a withheld turn would swap one unearned claim for another.
-    headline =
-      leaderBand === 'strong' && !designationsWithheld
-        ? HERO_COPY.headline.mostLikelyStrongest(
-            safeLabel(headlineRow),
-            // null, NOT the missing glyph: the sentence drops its magnitude
-            // clause rather than printing '—' where a quantity should be.
-            //
-            // Read straight off the ROW. This used to come from a
-            // `winReadoutById` side-table populated by a mutation inside the
-            // row `.map()` — a second store of a value the row already
-            // carries, written in one place and read in another, which is the
-            // shape every drift defect in this file has taken.
-            headlineRow.comparativeReadout ?? null,
-          )
-        : leaderBand === 'ahead' && !designationsWithheld
-          ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
-          : leaderBand === 'none'
-            ? HERO_COPY.headline.noClearLeader
-            : HERO_COPY.headline.noLeader
+    //
+    // ⭐ RUN-4 JUDGE, DL RULING (12 Oct, the class): the 'strong' and 'ahead' arms named the leader from a win share ("In
+    // this model, X was supported by more runs than any other option." / "… slightly more runs supported X."). Ruling A
+    // and the guiding principle allow no leader claim, and CEE sends none. Both arms now take the neutral headline, the
+    // same SILENCE a withheld turn takes; no words replace them. 'none' keeps the producer's tie denial.
+    headline = leaderBand === 'none' ? HERO_COPY.headline.noClearLeader : HERO_COPY.headline.noLeader
   } else if (sharedVerdict?.separation === 'tied') {
     // ⭐ R7 (DL #70 5859773247): the producer's TIE call names no option, so it
     // needs no headline row. Since a UI sort no longer names a leader, a tie
@@ -998,7 +957,10 @@ export function buildHeroModel(
   // No goal claim is headlined in C (round 2, above), so every claimed row is the analysis leader's.
   const bandedNoGoalClaim =
     rows.length > 1 && headlineRow != null
-  if (bandedNoGoalClaim && (leaderBand === 'none' || leaderBand === null)) {
+  if (bandedNoGoalClaim) {
+    // ⭐ Run-4 judge (DL 12 Oct, the class): EVERY band takes this line now. The 'strong' / 'ahead' sublines described
+    // the named leader ("<leader> has the highest expected outcome", "<runner-up> is close on expected outcome", "…'s
+    // expected outcome points the same way") and the headline no longer names one, so they went with it.
     // State C: no leader was claimed, so no divergence exists to state —
     // the companion line points at the comparison without risking a name.
     // `null` (no owned claim, ROADMAP 1.223) joins this branch: the tension
@@ -1007,12 +969,6 @@ export function buildHeroModel(
     // withheld turn it simply relocates the leader claim one line down.
     subline = HERO_COPY.subline.compareTop
   } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
-    // The row the headline actually names: the goal-fit crown when one
-    // exists (UI-SEM-072 — may differ from the recommendation), else the
-    // analysis leader. The tension/aligned subline must describe the
-    // headlined row, or it would state a divergence about an option the
-    // headline never mentioned.
-    const claimedRow = headlineRow
     if (topOutcomesReadoutTied) {
       // UI-SEM-070: the top-two options render the SAME readout, so no outcome
       // winner is claimable in ANY branch — no-option-on-track, aligned or
@@ -1041,38 +997,6 @@ export function buildHeroModel(
       // SUBSTITUTES rather than deletes: the sweep proved the surface
       // renders, so an empty subline would be its own regression.
       subline = HERO_COPY.subline.compareTop
-    } else if (claimedRow) {
-      // Aligned case per band (producer band or UI-SEM-060 fallback —
-      // whichever sourced leaderBand above): state B names the runner-up as
-      // close ONLY when the expected-outcome gap is genuinely small (never
-      // from range overlap); state A states the outcome fact plainly.
-      // goalLeaderRow-headlined runs keep the plain aligned/divergence pair
-      // — the goal claim is not an outcome claim. Diverged leaders keep the
-      // persistent divergence line in every band. (The banded branches only
-      // fire on bandedNoGoalClaim, which implies claimedRow === headlineRow.)
-      const alignedLeaders = claimedRow.id === outcomeLeaderRow.id
-      if (!alignedLeaders) {
-        subline = HERO_COPY.subline.highestOutcome(
-          safeLabel(outcomeLeaderRow),
-          outcomeLeaderRow.outcome.readout,
-        )
-      } else if (
-        bandedNoGoalClaim &&
-        leaderBand === 'ahead' &&
-        outcomeGapSmall &&
-        outcomeRunnerUpRow
-      ) {
-        subline = HERO_COPY.subline.closeOnOutcome(safeLabel(outcomeRunnerUpRow))
-      } else if (bandedNoGoalClaim && leaderBand === 'strong') {
-        subline = HERO_COPY.subline.highestOutcome(safeLabel(claimedRow), claimedRow.outcome.readout)
-      } else {
-        subline = HERO_COPY.subline.aligned(safeLabel(claimedRow))
-      }
-      // State-A overlap advisory: overlap is disclosed as uncertainty about
-      // the RANGES — appended, never a downgrade of the leader claim.
-      if (bandedNoGoalClaim && leaderBand === 'strong' && topTwoRangesOverlap) {
-        subline = `${subline} ${HERO_COPY.subline.overlapAdvisory}`
-      }
     }
   }
   // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option.

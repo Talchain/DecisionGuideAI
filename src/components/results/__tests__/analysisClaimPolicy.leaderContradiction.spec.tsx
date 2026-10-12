@@ -141,6 +141,14 @@ function allText(root: Element): string {
  *
  * The exclusion is scoped by IDENTITY (`t1-checks-footer`), and §0 asserts the
  * footer's own content directly, so nothing inside it goes unexamined.
+ *
+ * Run-4 judge (DL 12 Oct, the class): the footer's leader row no longer states
+ * the withholding ("…: not assessed") or the affirmative ("…more runs than any
+ * other"); both are removed and nothing replaces them — in those states the row
+ * is NOT DRAWN. So the withheld state is now pinned by the panel's own leader
+ * authority (`leaderClaimWithheld` on the very object rendered) plus the row's
+ * absence, and the footer is ALSO swept for leader claims (it no longer carries
+ * a withholding string the matcher would catch).
  */
 function renderPanel(data: ResultsSectionDataReturn): { footer: string; prose: string } {
   const { container } = render(
@@ -157,21 +165,43 @@ function renderPanel(data: ResultsSectionDataReturn): { footer: string; prose: s
   return { footer: allText(footerEl!), prose: allText(clone) }
 }
 
+/**
+ * The footer's leader row is NOT DRAWN (the two states the Run-4 judge removed). Read beside a CONTRAST CONTROL in the
+ * same render — the footer and its robustness row are present — so an absence cannot come from a blind probe.
+ * Returns the whole footer's text for the negatives that used to read the row.
+ */
+function expectLeaderRowAbsent(container: Element): string {
+  const footerEl = container.querySelector('[data-testid="t1-checks-footer"]')
+  expect(footerEl, 'the checks footer never rendered — the absence below would be vacuous').not.toBeNull()
+  expect(footerEl!.querySelector('[data-testid="checks-robust"]'), 'contrast control: the robustness row').not.toBeNull()
+  expect(footerEl!.querySelector('[data-testid="checks-winner"]')).toBeNull()
+  return allText(footerEl!)
+}
+
 // ── §0 PRECONDITION PINS ────────────────────────────────────────────────────
 
 describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states', () => {
-  it('the withheld fixture is the state that renders "Leading option not assessed"', () => {
-    // Bound to the FOOTER, not to a boolean I set myself: the withholding the
-    // user saw and the prose under test must come from one render.
-    render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
-    expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('Which option most runs supported, in this model: not assessed')
+  it('the withheld fixture is the withheld state, and the footer draws no leader row', () => {
+    // Bound to the panel's OWN leader authority on the very object rendered, not to a boolean I set myself: the
+    // withholding and the prose under test must come from one render.
+    const data = WITHHELD()
+    expect(leaderClaimWithheld(data.recommendation)).toBe(true)
+    const { container } = render(<TriageActionCardsBody data={data} useV17Copy onFocusNode={() => {}} />)
+    // Run-4 judge (DL 12 Oct, the class): the "…: not assessed" row is removed; nothing replaces it.
+    expect(expectLeaderRowAbsent(container)).not.toMatch(/most runs supported|more runs than any other/i)
   })
 
-  it('the permitted fixture renders the AFFIRMATIVE footer — the two arms really differ', () => {
-    render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
-    expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('In this model, one option was supported by more runs than any other')
+  it('the permitted fixture is the licensed state — the two arms really differ', () => {
+    const data = PERMITTED()
+    // The arms differ at the authority the panel reads (the withheld twin above is `true`)…
+    expect(leaderClaimWithheld(data.recommendation)).toBe(false)
+    const { container } = render(<TriageActionCardsBody data={data} useV17Copy onFocusNode={() => {}} />)
+    // …and on screen, in the callout's licensed arm (§3 pins it in full).
+    expect(screen.getByTestId('t1-flip-risk-callout').textContent ?? '')
+      .toContain('In this model, in the quarter of simulated futures where')
+    // Run-4 judge (DL 12 Oct, the class): the affirmative "one option was supported by more runs than any other" is
+    // removed; nothing replaces it.
+    expect(expectLeaderRowAbsent(container)).not.toMatch(/more runs than any other/i)
   })
 
   it('the matcher is not vacuous — it matches the two witnessed sentences verbatim', () => {
@@ -368,10 +398,16 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
    * deployment does not render). This one asserts the CONTRADICTION itself: the
    * withholding string and the leader claim, in one composed render.
    */
-  it('WITHHELD: the panel states the withholding and makes NO leader claim anywhere', () => {
-    const { footer, prose } = renderPanel(WITHHELD())
-    expect(footer, 'the withholding must be on screen, or this arm proves nothing')
-      .toContain('Which option most runs supported, in this model: not assessed')
+  it('WITHHELD: the panel is in the withheld state and makes NO leader claim anywhere', () => {
+    const data = WITHHELD()
+    // The state must be the withheld one, or this arm proves nothing — pinned at the authority the panel reads.
+    expect(leaderClaimWithheld(data.recommendation)).toBe(true)
+    const { footer, prose } = renderPanel(data)
+    // Run-4 judge (DL 12 Oct, the class): the footer's "…: not assessed" withholding row is removed; nothing replaces
+    // it. With no withholding string left in the footer, the footer is swept too.
+    expect(screen.queryByTestId('checks-winner')).toBeNull()
+    expect(footer).toContain('What we checked')
+    expect(footer).not.toMatch(LEADER_CLAIM_RE)
     expect(prose).not.toMatch(LEADER_CLAIM_RE)
   })
 
@@ -380,7 +416,10 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
     expect(prose).toContain('In this model, in the quarter of simulated futures where')
     expect(prose).toContain(`57% of them support ${ALT_LABEL}`)
     expect(prose).toContain('the most-supported option could change')
-    expect(footer).toContain('In this model, one option was supported by more runs than any other')
+    // Run-4 judge (DL 12 Oct, the class): the footer's "one option was supported by more runs than any other" is
+    // removed; nothing replaces it.
+    expect(screen.queryByTestId('checks-winner')).toBeNull()
+    expect(footer).not.toContain('more runs than any other')
   })
 
   it('WITHHELD: the panel is not silent — every finding still reaches the user', () => {
@@ -531,8 +570,12 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
   it('WITHHELD: the composed panel states the withholding and SURFACE D agrees with it', () => {
     // §5's arm, re-asserted now that the card actually mounts on it. This is
     // the arm that was green for two wrong reasons before.
-    const { footer, prose } = renderPanel(WITHHELD())
-    expect(footer).toContain('Which option most runs supported, in this model: not assessed')
+    const data = WITHHELD()
+    expect(leaderClaimWithheld(data.recommendation)).toBe(true)
+    const { footer, prose } = renderPanel(data)
+    // Run-4 judge (DL 12 Oct, the class): the footer's "…: not assessed" row is removed; nothing replaces it.
+    expect(screen.queryByTestId('checks-winner')).toBeNull()
+    expect(footer).not.toMatch(LEADER_CLAIM_RE)
     expect(prose).toContain('Conditional scenarios')
     expect(prose).not.toMatch(LEADER_CLAIM_RE)
     expect(prose).not.toContain(ALT_LABEL)
@@ -581,10 +624,11 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     expect(analysisClaimPolicy(rec).mayShowComparativeFigures).toBe(true)
   })
 
-  it('MODE-WITHHELD: the footer states silence, never the denial', () => {
-    render(<TriageActionCardsBody data={modeWithheld()} useV17Copy onFocusNode={() => {}} />)
-    const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('Which option most runs supported, in this model: not assessed')
+  it('MODE-WITHHELD: the footer is silent, never the denial', () => {
+    const { container } = render(<TriageActionCardsBody data={modeWithheld()} useV17Copy onFocusNode={() => {}} />)
+    // Run-4 judge (DL 12 Oct, the class): the "…: not assessed" row is removed; nothing replaces it. Silence is now the
+    // row's absence.
+    const t = expectLeaderRowAbsent(container)
     expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
     expect(t).not.toContain('In this model, one option was supported by more runs than any other')
   })
@@ -605,19 +649,22 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     expect(t).not.toContain('Which option most runs supported, in this model: not assessed')
   })
 
-  it('ANTI-VACUITY: a fully licensed run still reads "Has leading option"', () => {
-    render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
-    const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('In this model, one option was supported by more runs than any other')
-    expect(t).not.toContain('Which option most runs supported, in this model: not assessed')
+  it('a fully licensed, separated run draws NO leader row — and no denial', () => {
+    const { container } = render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
+    // Run-4 judge (DL 12 Oct, the class): the affirmative "one option was supported by more runs than any other" is
+    // removed; nothing replaces it. (The presence control for this footer row is the tie-denial twin above.)
+    const t = expectLeaderRowAbsent(container)
+    expect(t).not.toContain('In this model, one option was supported by more runs than any other')
+    expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
   })
 
-  it('UNCHANGED: the witnessed unknown-separation run reads exactly as before', () => {
+  it('UNCHANGED: the witnessed unknown-separation run makes no claim either way', () => {
     // The `'unknown'` disjunct is kept verbatim; this pins that the widening
     // did not move the state it was already right about.
-    render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
-    expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('Which option most runs supported, in this model: not assessed')
+    const { container } = render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
+    // Run-4 judge (DL 12 Oct, the class): the "…: not assessed" row is removed; nothing replaces it.
+    const t = expectLeaderRowAbsent(container)
+    expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
   })
 
   /**
@@ -644,10 +691,11 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
    * that reaches them.
    */
   it('DEPLOYED POSTURE: the footer withholds with useV17Copy absent', () => {
-    render(<TriageActionCardsBody data={modeWithheld()} onFocusNode={() => {}} />)
-    const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('Which option most runs supported, in this model: not assessed')
+    const { container } = render(<TriageActionCardsBody data={modeWithheld()} onFocusNode={() => {}} />)
+    // Run-4 judge (DL 12 Oct, the class): the "…: not assessed" row is removed; nothing replaces it.
+    const t = expectLeaderRowAbsent(container)
     expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
+    expect(t).not.toContain('In this model, one option was supported by more runs than any other')
   })
 
   it('DEPLOYED POSTURE: SURFACE D still names no option with useV17Copy absent', () => {

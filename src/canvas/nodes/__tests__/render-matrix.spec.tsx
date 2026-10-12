@@ -560,6 +560,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
   // ABSENCE on the Standard face and its behaviour where it now lives, in
   // Detailed, on the SAME fixture — so the window (1pp in, sub-percent in,
   // 10pp out, leader never, pre-analysis never) stays pinned.
+  //
+  // Run-4 judge (DL 12 Oct, the class): the close-call LINE ("Close to the option most runs supported in this model") is
+  // removed; nothing replaces it. The gap is still computed and still offers the "What would need to be true for this?"
+  // chip, so the window's inner edge is now pinned by that chip.
   const renderCloseCallIn = (view: ViewMode, state: MatrixState) => {
     cleanup()
     applyStore({ ...state, viewMode: view })
@@ -604,7 +608,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard post non-leader, gap 3pp: shows the qualitative close-call marker and keeps "Held back by:" line', () => {
+  it('Standard post non-leader, gap 3pp: no close-call line (removed); the close-call chip and "Held back by:" stay', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -620,18 +624,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): Standard face carries neither line.
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
     expect(screen.queryByText(/Held back by:/)).toBeNull()
-    // …Detailed does, on the same fixture.
+    // …Detailed carries "Held back by:", on the same fixture.
     renderCloseCallIn('expert', closeCallTopology(3))
-    // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
-    // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
-    // the banned statistic and is gone. The node already states this option's
-    // own win probability directly above.
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. The window still fires,
+    // seen through its chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
     expect(screen.getByText(/Held back by:/)).toBeDefined()
   })
 
-  it('Standard post non-leader, gap 1pp: the marker still fires at the narrow end of the window', () => {
+  it('Standard post non-leader, gap 1pp: the close-call chip still fires at the narrow end of the window (no line)', () => {
     applyStore(closeCallTopology(1))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -650,7 +654,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
     // worth pinning is that a 1pp gap is still INSIDE the close-call window.
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. Inside-the-window is now
+    // seen through the close-call chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -694,7 +701,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
     renderCloseCallIn('expert', subPercent)
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. Inside-the-window is now
+    // seen through the close-call chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 

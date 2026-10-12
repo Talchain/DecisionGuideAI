@@ -71,7 +71,6 @@ describe('HERO_COPY — the comparative register exists once', () => {
     const all = [
       HERO_COPY.detail.winChance(N),
       HERO_COPY.detail.goalFit(N),
-      HERO_COPY.headline.mostLikelyStrongest('Option A', N),
     ].join(' ').toLowerCase()
     for (const retired of ['strongest option overall', 'strongest overall', 'win probability']) {
       expect(all).not.toContain(retired)
@@ -85,24 +84,18 @@ describe('HERO_COPY — the no-target action is not duplicated', () => {
   })
 })
 
-describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholder', () => {
-  /**
-   * REGRESSION PIN for a defect this change introduced and an existing
-   * readout-tie spec caught: with no comparative probability for the leader,
-   * the builder passed the missing-value glyph INTO the sentence, producing
-   * "supported in — of simulated scenarios". A placeholder rendered
-   * where a quantity belongs is exactly the dishonesty this whole re-anchoring
-   * exists to remove.
-   */
-  it('drops the magnitude clause rather than printing a placeholder', () => {
-    const sentence = HERO_COPY.headline.mostLikelyStrongest('Option A', null)
-    expect(sentence).toBe(`In this model, Option A ${COMPARATIVE_COPY.modelLeaderNoMagnitude}.`)
-    expect(sentence).not.toContain(HERO_COPY.readout.missing)
-    expect(sentence).not.toMatch(/came out ahead in\s/)
+describe('HERO_COPY.headline — no leader claim from a win share (run-4 judge, DL 12 Oct, the class)', () => {
+  // `mostLikelyStrongest` ("In this model, X was supported by more runs than any other option." / "… by N of runs.") and
+  // `slightlyAhead` are deleted; their bands take `noLeader`. Nothing replaces them.
+  it('the leader arms are gone from the register', () => {
+    expect(HERO_COPY.headline).not.toHaveProperty('mostLikelyStrongest')
+    expect(HERO_COPY.headline).not.toHaveProperty('slightlyAhead')
+    expect(COMPARATIVE_COPY).not.toHaveProperty('modelLeaderNoMagnitude')
+    expect(COMPARATIVE_COPY).not.toHaveProperty('modelLeaderClause')
   })
 
-  it('carries the magnitude when there is one', () => {
-    expect(HERO_COPY.headline.mostLikelyStrongest('Option A', N)).toContain(N)
+  it('CONTROL: the neutral headline those bands now take still exists', () => {
+    expect(HERO_COPY.headline.noLeader).toBe('Here is how your options compare.')
   })
 })
 
