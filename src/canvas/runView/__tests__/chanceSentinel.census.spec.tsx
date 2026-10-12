@@ -103,7 +103,7 @@ import {
   A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, SPREAD_NOTE, SHORTFALL_A, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
   BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
-  DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState,
+  DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState, WITHHELD_FACE, SQ_FACE,
 } from './helpers/chanceSentinels'
 import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
@@ -194,6 +194,13 @@ const FACES_OF: Readonly<Record<Form, readonly string[]>> = {
   boundary: [BOUNDARY_FACE[A], BOUNDARY_FACE[B], BOUNDARY_FACE[SQ]],
 }
 
+/** What a canvas option card says per form: CEE's served cell face for each option (a withheld cell's own face). */
+const CARD_FACES_OF: Readonly<Record<Form, readonly string[]>> = {
+  withheld: [WITHHELD_FACE, SQ_FACE], licensed: [FACE_A, FACE_B, SQ_FACE], same_bounds: [FACE_A, FACE_B_SAME, SQ_FACE],
+  agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_FACE],
+  boundary: [BOUNDARY_FACE[A], BOUNDARY_FACE[B], BOUNDARY_FACE[SQ]],
+}
+
 /**
  * Round 2 (DL, restoring what staging said): on the chat card, CEE's own notes on A's chance follow A's served face in A's
  * own line — its spread sentence, then its shortfall sentence naming A — verbatim (bound by contiguity to A's face).
@@ -254,10 +261,13 @@ const SURFACES: readonly Surface[] = [
       options: [A, B].map((id, i) => ({ id, label: label(id), rank: i + 1, probability: win(id) })) } as never]} />).container,
   },
   {
-    name: 'canvas option cards (OptionNode ×3)', u0: false, minText: 10,
+    // Post-C UI item 1 (DL, 12 Oct): each card says CEE's served cell for its option, verbatim (`servedCellOf`), and nothing
+    // of its own; so the row reads as a served-cell surface, with CEE's faces as the positive control.
+    name: 'canvas option cards (OptionNode ×3)', u0: true, minText: 10,
     mount: () => render(<ReactFlowProvider><OptionChanceCellProvider>
       {[A, B, SQ].map(id => <OptionNode key={id} {...nodeProps<ComponentProps<typeof OptionNode>>(id, 'option')} />)}
     </OptionChanceCellProvider></ReactFlowProvider>).container,
+    says: CARD_FACES_OF,
   },
   {
     name: 'canvas goal card (GoalNode)', u0: false, minText: 10,
@@ -359,7 +369,10 @@ const SURFACES: readonly Surface[] = [
   {
     // Round 2 (B): Detailed view draws each card's second layer inline (the goal card's "Decision stability N%", which the
     // Standard view's retired popover never shows); the person switches to it with the canvas view toggle.
-    name: 'canvas cards, Detailed view (OptionNode ×3, GoalNode, DecisionNode, OutcomeNode)', u0: false, minText: 10,
+    // Post-C UI item 1: the option cards say CEE's served cells here too; the goal, decision and outcome cards still say no
+    // chance (each comes back one surface at a time, with its own census row).
+    name: 'canvas cards, Detailed view (OptionNode ×3, GoalNode, DecisionNode, OutcomeNode)', u0: true, minText: 10,
+    says: CARD_FACES_OF,
     mount: () => {
       detailed()
       return render(<ReactFlowProvider><OptionChanceCellProvider>
