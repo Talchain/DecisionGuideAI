@@ -117,6 +117,39 @@ describe('a refused value edit is not shown as saved', () => {
     expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
   })
 
+  it('RED on 3e3e798: refused on a MOVED base, the saved model holds the value → "Saved", never "Not saved"', async () => {
+    // Recovery Batch B (served capacity row 7a, the card's twin): the served 409 envelope, after the real revert.
+    useCanvasStore.setState({ lastServerGraphHash: 'f246477dd0d5eabf' } as any)
+    try {
+      sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
+        if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
+        throw new SystemEventSendError('server', {
+          code: 'GRAPH_DIVERGED', conflictCategory: 'stale_base_graph_hash', reason: 'graph_write_conflict', retryable: false,
+        })
+      })
+      render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+      commit(String(ACCEPTED_RAW))
+      await flush()
+      expect(screen.getByTestId('factor-value-saved-model').textContent).toBe('Checking the saved model…')
+      // The canonical re-read lands the stored graph and its base.
+      await act(async () => {
+        useCanvasStore.setState({
+          nodes: useCanvasStore.getState().nodes.map(n => ({
+            ...n, data: { ...n.data, observedState: { value: ACCEPTED_RAW / CAP, raw_value: ACCEPTED_RAW, cap: CAP, unit: '£' } },
+          })),
+          lastServerGraphHash: '909617df4d06d742',
+        } as any)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
+      expect(screen.getByTestId('factor-value-saved-model').textContent).toBe('Saved. The model holds this value.')
+      expect(screen.queryByTestId('factor-value-not-saved')).toBeNull()
+      expect(valueInput().value).toBe(String(ACCEPTED_RAW))
+      expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    } finally {
+      useCanvasStore.setState({ lastServerGraphHash: null } as any)
+    }
+  })
+
   it('PRECONDITION: the real revert returns the store to the pre-edit value', async () => {
     serverRefuses()
     render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)

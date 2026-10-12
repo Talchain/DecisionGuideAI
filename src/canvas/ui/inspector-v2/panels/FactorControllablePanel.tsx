@@ -60,7 +60,9 @@ import {
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 import {
+  awaitSavedModelRead,
   didValueCommitRevert,
+  needsSavedModelRead,
   VALUE_COMMIT_SETTLEMENT_COPY,
 } from '../../../conversation/valueCommitSettlement'
 import { USER_VALUE_STAMP, isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
@@ -142,7 +144,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    */
   // ⚠ THIS STATE DRIVES THE TRANSIENT NOTICE COPY ONLY ("Sending…", "Sent",
   // "Not sent", "not applied") — never the provenance pill. See below.
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | 'revision_conflict' | 'unconfirmed' | null>(null)
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | 'revision_conflict' | 'unconfirmed' | 'checking' | 'saved' | null>(null)
   /**
    * ⚠⚠ A4b: the window during which the context pill must not read `source` —
    * the edit has moved the value locally but has not yet earned (or been
@@ -173,6 +175,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   /** Always the factor on screen, so a late resolution can tell it moved. */
   const shownNodeIdRef = useRef(nodeId)
   shownNodeIdRef.current = nodeId
+  /** Cancels a pending read of the saved model (`awaitSavedModelRead`); a new commit or an unmount retires it. */
+  const cancelSavedReadRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => { cancelSavedReadRef.current?.() }, [])
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   /**
@@ -472,6 +477,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // what the dispatcher actually returns, and only a genuine dispatch or a
       // deferral — which the deferral buffer WILL flush — is allowed to say
       // "Sent to Olumi".
+      cancelSavedReadRef.current?.()
+      cancelSavedReadRef.current = null
       const commitSeq = ++valueCommitSeqRef.current
       const commitNodeId = nodeId
       const seedAfterWrite = resolveValueInputSeed(
@@ -484,9 +491,30 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         if (settlement === 'blocked') return setValueCommitOutcome('local_only')
         if (settlement === 'unverified') return setValueCommitOutcome('unconfirmed')
         if (settlement === 'queued') return
-        const seedNow = resolveValueInputSeed(
+        const readSeed = () => resolveValueInputSeed(
           useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
         ).seed
+        // ⭐ The card's moved-base rule (`needsSavedModelRead`, recovery Batch B): after a lost reply the model often
+        // already holds this value, so read the saved model before saying "Not saved".
+        if (needsSavedModelRead(settlement, detail)) {
+          setValueCommitOutcome('checking')
+          cancelSavedReadRef.current = awaitSavedModelRead({
+            baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
+            readBase: () => useCanvasStore.getState().lastServerGraphHash,
+            subscribe: listener => useCanvasStore.subscribe(listener),
+            committedTo: seedAfterWrite,
+            readNow: readSeed,
+            onWord: word => {
+              if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
+              setValueCommitOutcome(word)
+              // The field shows what the model holds now.
+              const seedRead = readSeed()
+              if (!valueFieldFocusedRef.current) setDraftValue(seedRead != null ? String(seedRead) : '')
+            },
+          })
+          return
+        }
+        const seedNow = readSeed()
         const reverted = didValueCommitRevert(seedBeforeWrite, seedAfterWrite, seedNow)
         setValueCommitOutcome(settlement === 'refused'
           ? detail.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'not_applied'
@@ -865,6 +893,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               </p>
             ) : valueCommitOutcome === 'unconfirmed' ? (
               <p role="status" data-testid="factor-value-unconfirmed">{VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.message}</p>
+            ) : valueCommitOutcome === 'checking' || valueCommitOutcome === 'saved' ? (
+              <p role="status" data-testid="factor-value-saved-model">{VALUE_COMMIT_SETTLEMENT_COPY[valueCommitOutcome].message}</p>
             ) : valueCommitOutcome === 'sending' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
             ) : valueCommitOutcome === 'local_only' ? (
