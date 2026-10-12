@@ -92,6 +92,22 @@ vi.mock('../../../lib/supabase', () => ({
 
 vi.mock('../../../services/scenarioService', () => ({ loadScenario: async () => null }))
 
+/**
+ * B UI (SYS1 lever 2, capacity 001307): a stream LOST to a dropped socket or silence now reads the saved model before
+ * any re-send (`streamCloseReadback.ts`). These rows are about what follows when nothing is saved yet, so that read
+ * answers `absent` and its ~5 s wait resolves at once. The read-first path itself is pinned in
+ * `useConversation.draftRecovery.spec.ts` and `useConversation.streamLossReadback.spec.ts`.
+ */
+const mockFetchScenarioGraph = vi.fn(async (..._args: unknown[]) => ({ status: 'absent' as const, requestId: 'req-nothing-saved-yet' }))
+vi.mock('../streamCloseReadback', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../streamCloseReadback')>()),
+  waitBeforeStreamCloseReadback: async () => {},
+}))
+vi.mock('../../../adapters/cee/scenarioGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../adapters/cee/scenarioGraph')>()),
+  fetchScenarioGraph: (...args: unknown[]) => mockFetchScenarioGraph(...args),
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures — the live 29 Jul wire shape, reduced
 // ---------------------------------------------------------------------------

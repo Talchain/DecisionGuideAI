@@ -227,6 +227,13 @@ function controllableStream() {
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 const BRIEF = 'Should we build or buy a billing system for our new SaaS product?'
 
+/**
+ * B UI (SYS1 lever 2, capacity 001307): a stream LOST to a dropped socket or silence now reads the saved model BEFORE any
+ * re-send, as a server close does. Rows whose subject is the path AFTER the re-send open with this answer to that first
+ * read: the draft is not saved yet, so the brief is sent again and the existing recovery read follows.
+ */
+const NOTHING_SAVED_YET: ScenarioGraphResult = { status: 'absent', requestId: 'req-nothing-saved-yet' }
+
 /** CEE's decline prose — the buffered fallback on a committed scenario. */
 const DECLINE_RESPONSE = {
   kind: 'response' as const,
@@ -349,7 +356,8 @@ describe('normal start loses every usable preview before the draft commits', () 
     expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === LOAD_SAVED_MODEL_CHIP_ID)).toBe(false)
     expect(useCanvasStore.getState().nodes).toEqual([])
     expect(useCanvasStore.getState().analysisStateV1).toBeNull()
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // B UI: read before the re-send (the stream was lost), and again after it.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
 
     await act(async () => { await result.current.retryLast() })
     expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
@@ -358,7 +366,7 @@ describe('normal start loses every usable preview before the draft commits', () 
   })
 
   it('still recovers a canonical graph even when the graphless fallback carries only plain text', async () => {
-    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET).mockResolvedValue(serverGraphResult())
     const { result, sent } = await startMissingPreview(DECLINE_RESPONSE.response)
     await act(async () => { await sent })
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
@@ -456,8 +464,8 @@ describe('normal start loses every usable preview before the draft commits', () 
     expect(useCanvasStore.getState().analysisStateV1).toBeNull()
     expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     expect(mockOpenStream).toHaveBeenCalledTimes(1)
-    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
-    expect(mockCallV5Turn.mock.calls[0][0]).toEqual(mockOpenStream.mock.calls[0][0])
+    // B UI: the lost stream reads first and finds the committed graph, so the brief is never sent again.
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(0)
     expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
     expect(result.current.messages.map(m => m.content)).not.toContain(nativeGraphlessFallback.assistant_text)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
@@ -465,7 +473,8 @@ describe('normal start loses every usable preview before the draft commits', () 
 
   it.each(['notReadable', 'unavailable', 'unusable', 'absent'] as const)(
     '%s leaves an honest, visible read-only retry which loads the same scenario', async status => {
-      mockFetchScenarioGraph.mockResolvedValueOnce(status === 'absent' ? { status, requestId: null } : { status })
+      mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET)
+        .mockResolvedValueOnce(status === 'absent' ? { status, requestId: null } : { status })
         .mockResolvedValueOnce(serverGraphResult())
       const { result, sent } = await startMissingPreview()
       await act(async () => { await sent })
@@ -481,7 +490,7 @@ describe('normal start loses every usable preview before the draft commits', () 
       const row = render(createElement(ActionChipRow, { chips: notice.actionChips!, onChipClick: result.current.sendChip }))
       fireEvent.click(row.getByRole('button', { name: 'Try loading model' }))
       await waitFor(() => expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_GRAPH.nodes.length))
-      expect(mockFetchScenarioGraph.mock.calls.map(([id]) => id)).toEqual([SCENARIO, SCENARIO])
+      expect(mockFetchScenarioGraph.mock.calls.map(([id]) => id)).toEqual([SCENARIO, SCENARIO, SCENARIO])
       expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
       expect(mockOpenStream).toHaveBeenCalledTimes(1)
       expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
@@ -493,7 +502,9 @@ describe('normal start loses every usable preview before the draft commits', () 
   it.each(['different', 'closed', 'away-and-back', 'cancelled', 'unmounted', 'user-edit', 'new-turn'] as const)(
     'refuses a late graph after %s, without writing graph identity or a recovered notice', async change => {
       let finishRead!: (result: ScenarioGraphResult) => void
-      mockFetchScenarioGraph.mockImplementation(() => new Promise(resolve => { finishRead = resolve }))
+      // B UI: the late read is the one before the re-send; any read after it finds nothing saved.
+      mockFetchScenarioGraph.mockImplementationOnce(() => new Promise(resolve => { finishRead = resolve }))
+        .mockResolvedValue(NOTHING_SAVED_YET)
       const { result, sent, unmount } = await startMissingPreview()
       await waitFor(() => expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1))
       await act(async () => {
@@ -522,7 +533,7 @@ describe('normal start loses every usable preview before the draft commits', () 
 
   it('the existing Retry action also reads only, and duplicate clicks cannot race a recovery', async () => {
     let finishRead!: (result: ScenarioGraphResult) => void
-    mockFetchScenarioGraph.mockResolvedValueOnce({ status: 'notReadable' })
+    mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET).mockResolvedValueOnce({ status: 'notReadable' })
       .mockImplementationOnce(() => new Promise(resolve => { finishRead = resolve }))
     const { result, sent } = await startMissingPreview()
     await act(async () => { await sent })
@@ -531,7 +542,7 @@ describe('normal start loses every usable preview before the draft commits', () 
       retry = result.current.retryLast()
       await result.current.retryLast()
     })
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(3)
     await act(async () => { finishRead(serverGraphResult()); await retry })
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
@@ -540,12 +551,13 @@ describe('normal start loses every usable preview before the draft commits', () 
 
 describe('stream loss + fallback decline — the server HOLDS the draft', () => {
   it('recovers the committed draft in-session: server values land, phase settles, gate opens, no start-new-draft chip', async () => {
-    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    // B UI: the read before the re-send finds nothing saved yet; the decline follows, then the recovery read.
+    mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET).mockResolvedValue(serverGraphResult())
     const result = await driveStreamLossDecline()
 
-    // The read was attempted, once, for THIS scenario (identity, not luck).
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
-    expect(mockFetchScenarioGraph.mock.calls[0][0]).toBe(SCENARIO)
+    // Read before the re-send and once after it, both for THIS scenario (identity, not luck).
+    expect(mockFetchScenarioGraph.mock.calls.map(([id]) => id)).toEqual([SCENARIO, SCENARIO])
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
 
     // The SERVER's values are on the canvas, through the one ingestion
     // authority. Identity-bound discriminating pair: two different edges,
@@ -573,7 +585,8 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
     const result = await driveStreamLossDecline()
 
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // B UI: read before the re-send (the stream was lost), and again after it.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
 
     // Nothing recovered: the preview's zeroed values are untouched.
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
@@ -608,8 +621,8 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     const result = await driveStreamLossDecline()
 
     // The read WAS attempted — this test is about the outcome mapping, not
-    // about skipping the fetch (M1 owns that direction).
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // about skipping the fetch (M1 owns that direction). B UI: before the re-send and after it.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
 
     // Nothing merged: the preview's zeroed values are untouched.
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
@@ -803,11 +816,12 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
   }
 
   it('recovers the persisted graph when the fallback returns a network parse_error', async () => {
-    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    // B UI: the read before the re-send finds nothing saved yet; this row's subject is the read after it.
+    mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET).mockResolvedValue(serverGraphResult())
     const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
 
-    // The read was attempted, exactly once (bounded, no loop).
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // Read before the re-send and once after it (bounded, no loop).
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
     // Identity-bound (trap 19): this exact edge, from the SERVER's committed
     // values — not "some edge with weight 1".
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
@@ -820,10 +834,11 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
   })
 
   it('recovers the persisted graph when the fallback returns a boundary_error', async () => {
-    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    mockFetchScenarioGraph.mockResolvedValueOnce(NOTHING_SAVED_YET).mockResolvedValue(serverGraphResult())
     const result = await driveTruncatedBeforeGraphReady(BOUNDARY_ERROR)
 
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
     expect(result.current.messages.map((m) => m.content)).toContain(
       DRAFT_DELIVERY_RECOVERED_NOTICE,
@@ -842,7 +857,8 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
     const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
 
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    // B UI: read before the re-send (the stream was lost), and again after it.
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
     // Nothing invented on the canvas.
     expect(useCanvasStore.getState().nodes).toEqual([])
     const contents = result.current.messages.map((m) => m.content)
@@ -853,14 +869,14 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     expect(result.current.messages.some((m) => m.role === 'assistant' && m.synthetic)).toBe(true)
   })
 
-  it('an absent server graph is not a recovery either, and is read only once', async () => {
+  it('an absent server graph is not a recovery either, and is read once before the re-send and once after, never more', async () => {
     // `requestId` is part of the producer's `absent` variant
     // (`scenarioGraph.ts`: `return { status: 'absent', requestId }`), not
     // optional — carried here so the fixture matches the wire shape.
     mockFetchScenarioGraph.mockResolvedValue({ status: 'absent', requestId: 'req-absent-1' })
     const result = await driveTruncatedBeforeGraphReady(NETWORK_PARSE_ERROR)
 
-    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
     expect(useCanvasStore.getState().nodes).toEqual([])
     expect(result.current.messages.map((m) => m.content)).not.toContain(
       DRAFT_DELIVERY_RECOVERED_NOTICE,
@@ -1097,7 +1113,8 @@ describe('stream closes without a final turn: the saved model is read before any
     expect(runGate().allowed).toBe(false)
   })
 
-  it('CONTRAST: preview + DROPPED socket keeps today\'s path — re-send first', async () => {
+  // B UI (SYS1 lever 2; DL 12 Oct): was "CONTRAST: preview + DROPPED socket keeps today's path — re-send first".
+  it('RED (B UI): preview + DROPPED socket reads the saved model first, as a close does → server values land with NO re-send', async () => {
     let resendsAtRead = -1
     mockFetchScenarioGraph.mockImplementation(async () => {
       resendsAtRead = mockCallV5Turn.mock.calls.length
@@ -1105,13 +1122,13 @@ describe('stream closes without a final turn: the saved model is read before any
     })
     const result = await driveClosedAfterDrafting('fail', { withPreview: true })
 
-    expect(resendsAtRead).toBe(1)
-    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(resendsAtRead).toBe(0)
+    expect(mockCallV5Turn, 'no buffered re-send of the whole brief').toHaveBeenCalledTimes(0)
     expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
     expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
     expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0.5)
-    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
-    expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
   })
 
   // ⛔ P44 draft-stall (DL forensics 8 Oct): a late read must still own this turn's settling preview.
@@ -1149,13 +1166,24 @@ describe('stream closes without a final turn: the saved model is read before any
     },
   )
 
-  it('CONTRAST: a DROPPED socket (transport) keeps today\'s path — the buffered fallback runs first, then its recovery read', async () => {
+  // B UI (SYS1 lever 2; DL 12 Oct): was "CONTRAST: a DROPPED socket (transport) keeps today's path".
+  it('RED (B UI): a DROPPED socket (transport) reads the saved model first → it lands with NO re-send', async () => {
     mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
     const result = await driveClosedAfterDrafting('fail')
 
-    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockCallV5Turn, 'no buffered re-send of the whole brief').toHaveBeenCalledTimes(0)
     expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
     expect(result.current.messages.map((m) => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+  })
+
+  it('CONTRAST (B UI): a DROPPED socket with nothing saved yet still re-sends once after its read, and claims nothing', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(NOTHING_SAVED_YET)
+    const result = await driveClosedAfterDrafting('fail')
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(result.current.messages.map((m) => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
   })
 
   it('CONTRAST: nothing saved yet → today\'s fallback still re-sends once, and nothing is claimed', async () => {
