@@ -4807,11 +4807,15 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
   // selector) — one order per question, which is the point.
   const optionIds = recommendation.allOptions.map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
+  // ⭐ RUN-3 JUDGE U7: both canvas rows are read again when a layout lands. The drafted graph sits stacked at {0,0}
+  // until then, so a registration or a seat that ran first read no row at all, and only a reopen (laid out first) read
+  // the saved model's row. `layoutVersion` moves on product layouts only, never on a person's drag.
+  const layoutVersion = useCanvasStore((s) => s.layoutVersion)
   useEffect(() => {
     if (!registerCanvasRows || optionIds.length === 0) return
     useCanvasStore.getState().registerOptionNumbering(optionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
-  }, [registerCanvasRows, optionIdsKey])
+  }, [registerCanvasRows, optionIdsKey, layoutVersion])
 
   // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
   //
@@ -4863,7 +4867,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     if (!registerCanvasRows || determinedFactorOrder.length < 2) return
     useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
-  }, [registerCanvasRows, determinedFactorOrderKey])
+  }, [registerCanvasRows, determinedFactorOrderKey, layoutVersion])
 
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return
