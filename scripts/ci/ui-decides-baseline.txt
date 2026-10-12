@@ -38,7 +38,7 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1151
+src/canvas/contextMenu/actions.ts:1166
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
@@ -218,4 +218,8 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #
 # 8 Oct 2026 (Canvas, 'Ask AI' -> 'Ask Olumi' copy): `contextMenu/actions.ts:1139` -> `1137` is a pure
 #    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
+#    re-derived with the scanner, not hand-picked.
+#
+# 12 Oct 2026 (recovery Batch B, the moved-base saved-model read in `proposeFromMenu`): `contextMenu/actions.ts:1151`
+#    -> `1166` is a pure +15 line shift from the read added above this site. Same site, same code;
 #    re-derived with the scanner, not hand-picked.
