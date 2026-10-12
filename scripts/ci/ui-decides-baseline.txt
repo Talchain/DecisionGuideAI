@@ -59,9 +59,9 @@ src/canvas/utils/limitsStatus.ts:51
 src/components/results/TornadoChart.tsx:673
 src/components/results/TornadoChart.tsx:690
 src/hooks/useCEEDraft.ts:101
-src/lib/stability.ts:110
-src/lib/stability.ts:123
-src/lib/stability.ts:136
+src/lib/stability.ts:108
+src/lib/stability.ts:119
+src/lib/stability.ts:130
 src/types/constraints.ts:78
 #
 # -- INHERITED, AND NEWLY VISIBLE ON 24 Sep 2026 (#1921), for the same reason

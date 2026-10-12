@@ -19,7 +19,7 @@
  * card's value line uses, on the node's own data with only `raw_value` swapped for the end. No number is formatted here.
  */
 import { classifyObservedValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
-import { factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { factorDisplayParts, factorDisplayText, joinFactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
 
 export const STATED_RANGE_YOURS = '(your range)'
 
@@ -45,8 +45,9 @@ export function resolveFactorStatedRangeOnCard(data: unknown): string | null {
   })
   const lo = factorDisplayParts(at(low))
   const hi = factorDisplayParts(at(high))
-  if (lo !== null && hi !== null && lo.unit === hi.unit) {
-    return `${lo.figure}–${hi.figure}${lo.unit ? ` ${lo.unit}` : ''} ${STATED_RANGE_YOURS}`
+  if (lo !== null && hi !== null && lo.unit === hi.unit && lo.attached === hi.attached) {
+    // The unit is placed by the shared joiner (the formatter's own spacing), never composed here.
+    return `${joinFactorDisplayParts({ ...lo, figure: `${lo.figure}–${hi.figure}`, restates: undefined })} ${STATED_RANGE_YOURS}`
   }
   const loText = factorDisplayText(at(low))
   const hiText = factorDisplayText(at(high))
