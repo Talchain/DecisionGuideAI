@@ -302,7 +302,9 @@ it.each([
   ['goal_target_realistic', 'goal', 'Is the target for ‘Capacity’ realistic, and what evidence would help me judge it?'],
   ['risk_what_reduces', 'risk', 'What could reduce ‘Capacity’, and what would need to change in this model?'],
   ['risk_add_mitigation', 'risk', 'What factors or actions could reduce ‘Capacity’?'],
-  ['option_what_would_change', 'option', 'What would need to change for another option to be better supported than Capacity?'],
+  // Run-4 judge (DL 12 Oct, the class): option_what_would_change ("… better supported than …") is removed; nothing
+  // replaces it. The row is rebound to the surviving close-call chip; the removed ids are pinned absent below.
+  ['option_what_would_change_close_call', 'option', 'What would need to be true for Capacity to be the better choice?'],
   ['decision_compare_options', 'decision', 'How do the options compare in what they gain, give up and depend on?'],
   ['option_risks_of_inaction', 'option', 'What risks does keeping ‘Capacity’ as it is carry, and what could make them worse?'],
 ] as const)('%s sends the question promised by its own label', (chipId, kind, expected) => {
@@ -313,6 +315,14 @@ it.each([
   expect(dispatch).toHaveBeenCalledTimes(1)
   expect(dispatch.mock.calls[0][0].message).toBe(expected)
   expect(takeAskTargetBinding(expected)?.nodeIds).toEqual(new Set(['a']))
+})
+it('the removed run-share chips map to no Ask intent, so no "better supported" question can be sent', () => {
+  // Run-4 judge (DL 12 Oct, the class): option_what_would_change and option_what_would_make_lead are removed; nothing
+  // replaces them.
+  expect(COACHING_ASK_INTENTS).not.toHaveProperty('option_what_would_change')
+  expect(COACHING_ASK_INTENTS).not.toHaveProperty('option_what_would_make_lead')
+  // Contrast control: the surviving option chips still map.
+  expect(COACHING_ASK_INTENTS).toMatchObject({ option_what_would_change_close_call: 'close-call', option_counter_case: 'counter-case', option_why_lead: 'option' })
 })
 it('a stale non-option challenge omits the misplaced suffix and keeps risk/outcome wording', () => {
   useCanvasStore.setState({ hasCompletedFirstRun: true } as never)

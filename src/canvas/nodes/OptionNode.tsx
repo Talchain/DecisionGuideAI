@@ -2846,13 +2846,10 @@ export const OptionNode = memo((props: NodeProps) => {
             model") was a leader claim from a win share, and is removed; nothing replaces it. `closeCallGapPp` still
             feeds the card's display metadata (`closeCallGapIsSet`). */}
 
-        {/* "Held back by:" reason (not the most-supported option, post-analysis
-            -- includes status quo) */}
-        {isDetailed && isPostAnalysis && !isRecommended && behindReason && (
-          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Held back by: {behindReason}
-          </p>
-        )}
+        {/* Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by: <reason>" line is removed. It placed this option
+            behind the most-supported one (its reason is the leader's difference from it), so it was run-share comparison
+            with no other fact; nothing replaces it. `behindReason` still keeps the standard view's differentiator from
+            doubling up (unchanged). */}
 
         {/* Status-quo bias coaching lives on the header ScienceIcon now — one
             bias-coaching surface per node (bias-coaching slice, proposal

@@ -6,6 +6,8 @@
  *   when the Baseline pill renders (hasBaselinePill === true).
  * - Non-winner chip copy unified to "What would make this better supported?" — no
  *   longer renders the earlier baseline-specific "Why does this lose?".
+ *   Run-4 judge (DL 12 Oct, the class): that chip is now removed on every card too;
+ *   nothing replaces it. The rows below pin its absence by card.
  * - formatOptionLabelForCard helper itself: stripping rules + idempotence.
  */
 
@@ -129,20 +131,27 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     expect(screen.queryByText('What does this rest on in this model?')).not.toBeInTheDocument()
     expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
   }
+  // Run-4 judge (DL 12 Oct, the class): the non-winner chip "What would make this better supported?" is removed; nothing replaces it.
+  // Bound to the card by testid; the card's label is the presence control.
+  function expectCardDrawsNoChip(id: string, label: string) {
+    const card = screen.getByTestId(`option-card-${id}`)
+    expect(within(card).getByText(label)).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+  }
 
-  it('non-winner (non-baseline) renders "What would make this better supported?"', () => {
+  it('non-winner (non-baseline) draws no "What would make this better supported?" chip either', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="strong" />)
 
-    // The leader draws no chip; the non-winner keeps the forward-looking chip, on its own card.
+    // Run-4 judge (DL 12 Oct, the class): neither card draws a chat chip; nothing replaces it. The list's
+    // "What if I tried a different approach?" link still renders.
     expectLeaderDrawsNoChip('opt-a')
-    expect(
-      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
-    ).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'What would make this better supported?' })).toHaveLength(1)
+    expectCardDrawsNoChip('opt-b', 'Option B')
+    expect(screen.queryAllByRole('button', { name: 'What would make this better supported?' })).toHaveLength(0)
+    expect(screen.getByTestId('option-cards-different-approach')).toHaveTextContent('What if I tried a different approach?')
   })
 
   it('Brief 5.5 §2.7 (retired by run-4): fair tier with high stability (≥0.85) — the leader still draws no chip', () => {
@@ -153,9 +162,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
     expectLeaderDrawsNoChip('opt-a')
-    expect(
-      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
-    ).toBeInTheDocument()
+    expectCardDrawsNoChip('opt-b', 'Option B')
   })
 
   it('Brief 5.5 §2.7 (retired by run-4): fair tier with low stability (<0.85) — the leader still draws no chip', () => {
@@ -176,12 +183,10 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="needs_work" />)
 
     expectLeaderDrawsNoChip('opt-a')
-    expect(
-      within(screen.getByTestId('option-card-opt-b')).getByRole('button', { name: 'What would make this better supported?' }),
-    ).toBeInTheDocument()
+    expectCardDrawsNoChip('opt-b', 'Option B')
   })
 
-  it('baseline non-winner renders "What would make this better supported?" — no "Why does this lose?"', () => {
+  it('baseline non-winner draws no chip — no "Why does this lose?" and no "What would make this better supported?"', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1 }),
       makeOption({
@@ -195,8 +200,8 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} />)
 
     expect(screen.queryByText(/Why does this lose\?/)).not.toBeInTheDocument()
-    expect(
-      screen.getAllByRole('button', { name: 'What would make this better supported?' }),
-    ).toHaveLength(1)
+    // Run-4 judge (DL 12 Oct, the class): "What would make this better supported?" is removed; nothing replaces it.
+    expectCardDrawsNoChip('opt-sq', 'Stay put')
+    expect(screen.queryAllByRole('button', { name: 'What would make this better supported?' })).toHaveLength(0)
   })
 })

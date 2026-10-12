@@ -21,31 +21,26 @@ import type { ConditionalWinner } from '../types'
 const CONTEST = /\b(lead|leads|leading|led|leader|ahead|winner|wins?|best|beats?|overtake)\b/i
 
 describe('stability classification: the most-supported option, never who leads', () => {
-  const EXPECTED: ReadonlyArray<readonly [number, string, string | null]> = [
-    [0.9, 'The most-supported option was the same in nearly every scenario we sampled. Individual estimates can still be off.', null],
-    [0.75, 'The most-supported option was the same in most of the scenarios we sampled.',
-      'The most-supported option was the same in most of the scenarios we sampled. A few edge cases could change it.'],
-    [0.5, 'The most-supported option changed across the scenarios we sampled. Review key inputs.',
-      'The most-supported option changed across the scenarios we sampled. Small changes could change it again.'],
-    [0.2, 'The most-supported option changed often across the scenarios we sampled. Treat as directional.',
-      'The most-supported option changed often across the scenarios we sampled. Consider strengthening key assumptions before committing.'],
-  ]
-
-  it.each(EXPECTED)('stability %s → exact lines', (stability, expanded, coaching) => {
+  // Run-4 judge (DL 12 Oct, the class): `heroExpandedText` and `coaching` ("The most-supported option was the same /
+  // changed …") are removed from the classification; nothing replaces them. The exact-line rows became "the field is
+  // gone" rows, one per level.
+  it.each([0.9, 0.75, 0.5, 0.2])('stability %s → no heroExpandedText and no coaching field', (stability) => {
     const c = getStabilityClassification(stability)
     expect(c, 'PRECONDITION: a classification exists').not.toBeNull()
-    expect(c!.heroExpandedText).toBe(expanded)
-    expect(c!.coaching).toBe(coaching)
+    expect('heroExpandedText' in c!).toBe(false)
+    expect('coaching' in c!).toBe(false)
   })
 
   it('SCAN: no level says who leads (every served text field, every level)', () => {
     const fields: string[] = []
     for (const s of [0.9, 0.75, 0.5, 0.2]) {
       const c = getStabilityClassification(s)!
-      fields.push(c.heroExpandedText, c.heroShortText, ...(c.coaching ? [c.coaching] : []))
+      // Run-4 judge (DL 12 Oct, the class): heroExpandedText / coaching are gone; the remaining text fields are scanned.
+      fields.push(c.heroLabel, c.heroShortText, c.badgeLabel)
     }
-    expect(fields.length, 'magnitude: the scan read every level').toBeGreaterThanOrEqual(11)
+    expect(fields.length, 'magnitude: the scan read every level').toBeGreaterThanOrEqual(12)
     for (const f of fields) expect(f, f).not.toMatch(CONTEST)
+    for (const f of fields) expect(f, f).not.toMatch(/most[- ]supported|more runs|most runs/i)
   })
 
   it('POSITIVE CONTROL: the lines served before are caught by the same scan', () => {
@@ -68,11 +63,14 @@ describe('conditional-winner cards: the header help names no contest', () => {
     low_bucket: { winner_id: 'opt_hold', winner_label: 'Hold position', runner_up_id: 'opt_expand', runner_up_label: 'Expand into Europe', win_probability: 0.6 },
   }
 
-  it('v17 copy: "Factors that change the most-supported option when they shift"', () => {
+  it('v17 copy: "Factors that change the result when they shift" (no most-supported option)', () => {
     const { container } = render(<ConditionalWinnerCards winners={[row]} recommendedOptionId="opt_expand" useV17Copy />)
     const cards = container.querySelector('[data-testid="conditional-winner-cards"]')
     expect(cards, 'PRECONDITION: the cards render').not.toBeNull()
-    expect(cards!.textContent).toContain('Factors that change the most-supported option when they shift')
+    // Run-4 judge (DL 12 Oct, the class): "Factors that change the most-supported option when they shift" is removed;
+    // every run takes the neutral header.
+    expect(cards!.textContent).not.toContain('Factors that change the most-supported option when they shift')
+    expect(cards!.textContent).toContain('Factors that change the result when they shift')
     expect(cards!.textContent).not.toContain('which option leads')
   })
 })

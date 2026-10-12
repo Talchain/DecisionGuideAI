@@ -52,6 +52,11 @@
  * still not trusted as identity. Every assertion here keys on the dispatched
  * `parameters.chip_id`, the chip's stable wire identity, and the discrimination
  * test below proves the pin can tell the two apart.
+ *
+ * Run-4 judge (DL 12 Oct, the class): the leader's contrastive chip
+ * (`option_what_would_change`, "What would make another option better supported?") is removed; nothing replaces it.
+ * The leader rows below now pin its absence and bind to the leader's surviving chips (`option_why_lead`,
+ * `option_counter_case`).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -218,31 +223,41 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
     )
   })
 
-  it('composes a CONTRASTIVE flip question, presupposing no verdict about the leader', () => {
+  it('offers no "better supported" flip chip on the leader; its surviving chip asks what the option rests on', () => {
     renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would make another option better supported?')
+    // Run-4 judge (DL 12 Oct, the class): "What would make another option better supported?" is removed; nothing
+    // replaces it.
+    expect(screen.queryByRole('button', { name: 'What would make another option better supported?' })).toBeNull()
+    const dispatched = clickChipsAndCollect('What does this rest on?')
 
     // Precondition pin (trap 13b third face): the fixture must actually have
-    // reproduced the leader branch. Without this, the copy assertion below could
-    // pass by never having rendered the chip at all.
-    expect(Object.keys(dispatched)).toContain('option_what_would_change')
+    // reproduced the leader branch. Without this, the absence above could
+    // pass by never having rendered the leader's chips at all.
+    expect(Object.keys(dispatched)).toContain('option_why_lead')
+    expect(Object.keys(dispatched)).not.toContain('option_what_would_change')
 
-    const chip = dispatched['option_what_would_change']
-    expect(chip.message).toBe(
-      `What would need to change for another option to be better supported than ${OPTION_LABEL}?`
-    )
+    const chip = dispatched['option_why_lead']
+    expect(chip.message).toBe(`What does ${OPTION_LABEL} rest on?`)
   })
 
   it('never sends a crowning verdict — "best choice"/"best option" cannot reach the transcript', () => {
-    renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would make another option better supported?')
-
-    expect(Object.keys(dispatched)).toContain('option_what_would_change')
-    const chip = dispatched['option_what_would_change']
-    // The banned register, on the message the USER is shown as having sent.
-    expect(chip.message).not.toMatch(/best (choice|option|bet|pick)/i)
-    expect(chip.message).not.toMatch(/\brecommend/i)
-    expect(chip.message).not.toMatch(/\bwinner\b/i)
+    // Run-4 judge (DL 12 Oct, the class): bound to the leader's surviving chips; the removed
+    // `option_what_would_change` chip has nothing to send.
+    for (const [label, id] of [
+      ['What does this rest on?', 'option_why_lead'],
+      ['What would make this wrong?', 'option_counter_case'],
+    ] as const) {
+      const { unmount } = renderPostAnalysisOption('option-1', 0.72)
+      const dispatched = clickChipsAndCollect(label)
+      expect(Object.keys(dispatched)).toContain(id)
+      const chip = dispatched[id]
+      // The banned register, on the message the USER is shown as having sent.
+      expect(chip.message).not.toMatch(/best (choice|option|bet|pick)/i)
+      expect(chip.message).not.toMatch(/\brecommend/i)
+      expect(chip.message).not.toMatch(/\bwinner\b/i)
+      expect(chip.message).not.toMatch(/better supported|more runs/i)
+      unmount()
+    }
   })
 
   /**
@@ -273,7 +288,9 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
    * rendered (positive twin), so the absence cannot pass on an empty card.
    */
   it.each([
-    ['leader', 'option-1', 0.72, 'What would make another option better supported?', 'option_what_would_change'],
+    // Run-4 judge (DL 12 Oct, the class): the leader's "What would make another option better supported?" chip is
+    // removed; the leader row binds to its surviving chip.
+    ['leader', 'option-1', 0.72, 'What does this rest on?', 'option_why_lead'],
     ['close-call non-leader', 'option-2', 0.7, 'What would need to be true for this?', 'option_what_would_change_close_call'],
   ] as const)('the %s card never offers the Reasoning-tab label "What would change this?"', (_case, nodeId, winRate, ownLabel, ownId) => {
     renderPostAnalysisOption(nodeId, winRate)

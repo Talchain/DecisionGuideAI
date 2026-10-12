@@ -111,12 +111,11 @@ const UI_COPY: string[] = [
   HERO_COPY.evidence.heading,
   HERO_COPY.evidence.subtitle,
   HERO_COPY.evidence.driversNote,
-  // ROADMAP 1.267: the three flip-risk strings are now verdict-dependent, so
-  // BOTH branches are swept. A withheld-run sentence is user-facing copy and
-  // is held to the identical hygiene rules — listing only the permitted branch
-  // would leave half the shipped strings unchecked.
-  HERO_COPY.evidence.flipRisksNote(false),
-  HERO_COPY.evidence.flipRisksNote(true),
+  // ROADMAP 1.267: the three flip-risk strings were verdict-dependent, so BOTH
+  // branches were swept. Run-4 judge (DL 12 Oct, the class): the permitted
+  // branch ("… the most-supported option …") is removed and every run takes the
+  // withheld wording, so each string now has ONE shipped form and is swept once.
+  HERO_COPY.evidence.flipRisksNote,
   HERO_COPY.evidence.switchMeta('48%'),
   HERO_COPY.evidence.driversTab,
   HERO_COPY.evidence.flipRisksTab,
@@ -126,12 +125,9 @@ const UI_COPY: string[] = [
   // The `est.` provenance tag and its accessible name (ported from V7).
   HERO_COPY.evidence.estimateTag,
   HERO_COPY.evidence.estimateTagAria,
-  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', false),
-  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', true),
-  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', false),
-  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', true),
-  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', false),
-  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', true),
+  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers'),
+  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000'),
+  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%'),
   HERO_COPY.evidence.tradeOffGain,
   HERO_COPY.evidence.tradeOffGiveUp,
   HERO_COPY.evidence.tradeOffDependsOn,

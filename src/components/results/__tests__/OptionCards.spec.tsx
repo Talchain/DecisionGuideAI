@@ -581,7 +581,7 @@ describe('OptionCards', () => {
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
-    it('runner-up: matched alternate winner shows overtake description', () => {
+    it('runner-up: matched alternate winner shows no overtake description (the line is removed)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -592,8 +592,13 @@ describe('OptionCards', () => {
         />
       )
 
-      // Option B is runnerId AND matches hinge.alternativeWinnerLabel
-      expect(screen.getByText('If Customer churn shifts, more runs would support this option in this model')).toBeInTheDocument()
+      // Option B is runnerId AND matches hinge.alternativeWinnerLabel.
+      // Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model" is removed; nothing
+      // replaces it. Bound to the runner-up's own card; its label is the presence control.
+      const runnerUpCard = screen.getByTestId('option-card-option-2')
+      expect(within(runnerUpCard).getByText('Option B')).toBeInTheDocument()
+      expect(runnerUpCard.textContent).not.toMatch(/more runs would support/i)
+      expect(screen.queryByText('If Customer churn shifts, more runs would support this option in this model')).toBeNull()
     })
 
     it('runner-up: unmatched alternate winner shows generic runner-up', () => {
@@ -839,8 +844,10 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best|most runs supported this option/i)
     expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model|runs in this model support/i)
     expect(screen.queryByTestId('leading-option-downside-option-2')).toBeNull()
-    // The lens card keeps the non-leader chip: the lens did not make it the leader.
-    expect(within(lensCard).getByRole('button', { name: 'What would make this better supported?' })).toBeInTheDocument()
+    // Run-4 judge (DL 12 Oct, the class): the non-leader chip "What would make this better supported?" is removed on every card; nothing
+    // replaces it. The lens card draws no chip at all (and no leader CTA); the list's own link still renders.
+    expect(within(lensCard).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+    expect(screen.getByTestId('option-cards-different-approach')).toBeInTheDocument()
     // Canonical card: keeps the downside sentence even without the crown styling.
     expect(screen.getByTestId('leading-option-downside-option-1')).toHaveTextContent(
       "In this model, the lower range of this option's simulated outcomes includes meaningful downside.",

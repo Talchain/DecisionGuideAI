@@ -84,6 +84,15 @@ import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixtu
  * panel denies, and is absent otherwise; and no surface in the panel asserts a
  * leader. Absence is always read beside a same-render contrast control (the
  * footer and its robustness row).
+ *
+ * Run-4 judge, round 2 (DL 12 Oct, the class): the footer's tie denial ("no
+ * option was supported by clearly more runs than the others") is run-share
+ * comparison wording too; it is removed and nothing replaces it. The footer's
+ * leader row is now NOT DRAWN in ANY state, so the footer states no verdict and
+ * cannot contradict the panel. What the matrix pins now: the canvas never
+ * claims, the footer never draws the row, and nothing in the panel asserts a
+ * leader. The panel's own denial (the hero's, on a tied run) still renders, and
+ * the positive control reads it in the same render as the row's absence.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -282,7 +291,7 @@ function readCanvas(withView = false): { claims: boolean; rendered: boolean; tex
 }
 
 
-/** The footer's tie denial — the one leader-row state these runs can still draw. */
+/** The footer's tie denial — removed with the rest of the leader row (Run-4 judge, round 2). */
 const DENIAL_LABEL = 'In this model, no option was supported by clearly more runs than the others'
 /** The removed words (Run-4 judge, DL 12 Oct): no surface in the panel may say them. */
 const REMOVED_LEADER_RE = /one option was supported by more runs than any other|which option most runs supported/i
@@ -375,7 +384,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     expect(readPanel().denies).toBe(true)
   })
 
-  it('POSITIVE CONTROL: the checks-footer probe can see both states', () => {
+  it('POSITIVE CONTROL: the checks-footer probe reads a live render in both states, and the row is absent in both', () => {
     setStore(CLEAR_RUN)
     const clear = readPanel()
     // Run-4 judge (DL 12 Oct, the class): the clear-leader row ("one option was supported by more runs than any other")
@@ -384,8 +393,13 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     expect(clear.assertsLeader).toBe(false)
     document.body.innerHTML = ''
     setStore(TIED_RUN)
-    // The same probe SEES the row in the state still drawn, so the null above is not a blind probe.
-    expect(readPanel().leaderRow).toBe(DENIAL_LABEL)
+    const tied = readPanel()
+    // Rebound control: in the SAME render the probe sees the panel's own denial (and `readPanel` pinned the footer and
+    // its robustness row), so the null below is the product's absence, not a blind probe.
+    expect(tied.denies).toBe(true)
+    // Run-4 judge (DL 12 Oct, the class): the footer's tie denial is removed; nothing replaces it.
+    expect(tied.leaderRow).toBeNull()
+    expect(tied.text).not.toContain(DENIAL_LABEL)
   })
 
   // ── The invariant, over the whole matrix ────────────────────────────────
@@ -401,7 +415,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     { label: 'narrow lead just over the gap threshold', s: { winnerWin: 0.56, runnerUpWin: 0.44, stability: 0.75, isTie: false } },
   ]
 
-  it.each(MATRIX)('$label — the canvas makes no leader claim; the panel states exactly one verdict', ({ s }) => {
+  it.each(MATRIX)('$label — the canvas makes no leader claim; the footer draws no leader row; nothing asserts a leader', ({ s }) => {
     setStore(s)
     const canvas = readCanvas()
     document.body.innerHTML = ''
@@ -417,15 +431,16 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
       canvas.claims,
       `The canvas card named a leader (ED #63 5799353114 decision 1). Panel denied: ${panel.denies}.\nCanvas text: ${canvas.text.slice(0, 400)}`,
     ).toBe(false)
-    // The checks footer AGREES with the panel: its row carries the tie denial exactly when the panel denies, and is
-    // absent otherwise. (This replaces the deleted panel's headline-vs-footer comparison; see the file header for why
-    // it is not reconstructed.)
-    // Run-4 judge (DL 12 Oct, the class): the affirmative row that used to render on the non-denying rows is removed;
-    // nothing replaces it — so no surface in the panel asserts a leader.
+    // The checks footer cannot disagree with the panel: it used to carry the tie denial exactly when the panel denied.
+    // (That replaced the deleted panel's headline-vs-footer comparison; see the file header for why it is not
+    // reconstructed.)
+    // Run-4 judge (DL 12 Oct, the class): the affirmative row AND the tie denial are removed; nothing replaces them —
+    // so the footer draws no leader row on any row of the matrix, and no surface in the panel asserts a leader.
     expect(
       panel.leaderRow,
-      `The checks footer disagreed with the panel's denial (${panel.denies}).\nSurface text: ${panel.text.slice(0, 400)}`,
-    ).toBe(panel.denies ? DENIAL_LABEL : null)
+      `The checks footer drew a leader row (panel denied: ${panel.denies}).\nSurface text: ${panel.text.slice(0, 400)}`,
+    ).toBeNull()
+    expect(panel.text).not.toContain(DENIAL_LABEL)
     expect(panel.assertsLeader, `The panel asserted a leader.\nSurface text: ${panel.text.slice(0, 400)}`).toBe(false)
   })
 })

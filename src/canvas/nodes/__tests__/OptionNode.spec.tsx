@@ -2025,7 +2025,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
-  it('keeps "Held back by:" when the reason differs from the other non-leading option', () => {
+  it('renders no "Held back by:" line even when the reason differs from the other non-leading option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
     const report = {
       // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
@@ -2049,13 +2049,17 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Option A' })
-    expect(screen.getByText(/Held back by: fewer key changes/)).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Option A').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
+    expect(screen.queryByText(/fewer key changes/)).toBeNull()
   })
 
   // P0-2 (external review 2026-07-14): the loser's "Held back by:" top factor must be
   // ranked via the SHARED policy off CERTIFIED factor_sensitivity — not off the
   // untyped enrichment passthrough, and not by a chain that omits `sensitivity`.
-  it('ranks the "Held back by:" factor off certified factor_sensitivity via the shared policy, not enrichment', () => {
+  it('renders no "Held back by:" factor line, and never names the untyped enrichment factor', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
     const report = {
       // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
@@ -2093,17 +2097,18 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Option A' })
-    // Names certA (certified, sensitivity-ranked #1). RED before the fix:
-    // enrichment ranked first → enrX, which the winner doesn't intervene on →
-    // "Held back by: fewer key changes".
-    expect(screen.getByText(/Held back by: no budget added/i)).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Option A').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
+    expect(screen.queryByText(/no budget added/i)).toBeNull()
     expect(screen.queryByText(/marketing/i)).toBeNull()
   })
 
   // Graph audit 29 Sep: the "<factor> lower" arm fired whenever the two options set the top factor to DIFFERENT
   // values, so an option that set it HIGHER than the leader was described as lower. The direction is read, never assumed.
   for (const [mine, word] of [[0.9, 'higher'], [0.2, 'lower']] as const) {
-    it(`"Held back by:" states the direction this option actually sets the top factor (${mine} vs the leader's 0.5 → ${word})`, () => {
+    it(`renders no "Held back by:" direction line for the top factor (${mine} vs the leader's 0.5 → ${word})`, () => {
       vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2) as never)
       const report = {
         robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
@@ -2123,7 +2128,11 @@ describe('OptionNode — display coherence (audit §8)', () => {
         }) as any)
       )
       renderOption({ label: 'Option A' })
-      expect(screen.getByText(new RegExp(`^Held back by: budget ${word}$`, 'i'))).toBeDefined()
+      // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+      // The card itself renders (its label), so the absence is not an empty render.
+      expect(screen.getAllByText('Option A').length).toBeGreaterThan(0)
+      expect(screen.queryByText(/Held back by:/)).toBeNull()
+      expect(screen.queryByText(new RegExp(`budget ${word}`, 'i'))).toBeNull()
     })
   }
 

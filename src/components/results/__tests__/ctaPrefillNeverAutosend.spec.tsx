@@ -81,7 +81,9 @@ beforeEach(() => {
 })
 
 // Run-4 judge (DL 12 Oct, the class): the leading option's chip ("Why did the most runs in this model support this?") is
-// removed; nothing replaces it. The prefill contract is now pinned on the chip that remains, on Option B's card.
+// removed; nothing replaces it. Round 2 removes the card's chat chip on EVERY card ("What would make this better
+// supported?" included), so the prefill / no-autosend contract is now pinned on the list's "What if I tried a different
+// approach?" link (option-cards-different-approach), which still prefills the Ask-Olumi drawer.
 describe('OptionCards option chip — prefill, never auto-send', () => {
   it('the leading option draws no chip at all', () => {
     render(<OptionCards options={mockOptions} winnerId="option-1" onSendMessage={vi.fn()} />)
@@ -90,7 +92,7 @@ describe('OptionCards option chip — prefill, never auto-send', () => {
     expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
   })
 
-  it('clicking "What would make this better supported?" opens the drawer prefilled and dispatches nothing', () => {
+  it('Option B draws no chip either; the "different approach" link opens the drawer prefilled and dispatches nothing', () => {
     const onSendMessage = vi.fn()
     render(
       <>
@@ -99,10 +101,12 @@ describe('OptionCards option chip — prefill, never auto-send', () => {
       </>,
     )
 
-    // The chip on Option B.
-    fireEvent.click(
-      within(screen.getByTestId('option-card-option-2')).getByRole('button', { name: 'What would make this better supported?' }),
-    )
+    // Run-4 judge (DL 12 Oct, the class): "What would make this better supported?" is removed from Option B's card; nothing replaces it.
+    const optionB = screen.getByTestId('option-card-option-2')
+    expect(within(optionB).getByText('Option B')).toBeInTheDocument()
+    expect(within(optionB).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+
+    fireEvent.click(screen.getByTestId('option-cards-different-approach'))
 
     // No auto-send: the threaded send path is never touched.
     expect(onSendMessage).not.toHaveBeenCalled()
@@ -110,7 +114,7 @@ describe('OptionCards option chip — prefill, never auto-send', () => {
     // The drawer is open with the prompt prefilled into the editable composer.
     const draft = screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement
     expect(draft).toBeInTheDocument()
-    expect(draft.value).toBe('What would make "Option B" better supported instead? What changes would be needed?')
+    expect(draft.value).toBe('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')
 
     // Composer is focused for immediate editing.
     expect(document.activeElement).toBe(draft)
@@ -127,15 +131,14 @@ describe('OptionCards option chip — prefill, never auto-send', () => {
       </>,
     )
 
-    fireEvent.click(
-      within(screen.getByTestId('option-card-option-2')).getByRole('button', { name: 'What would make this better supported?' }),
-    )
+    // Run-4 judge (DL 12 Oct, the class): rebound from the removed card chip to the "different approach" link.
+    fireEvent.click(screen.getByTestId('option-cards-different-approach'))
     expect(send).not.toHaveBeenCalled() // nothing sent on prefill
 
     const drawer = screen.getByTestId('ask-olumi-drawer')
     fireEvent.click(within(drawer).getByText('Send'))
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send.mock.calls[0][0]).toMatch(/Option B/)
+    expect(send.mock.calls[0][0]).toMatch(/different approach/i)
   })
 })
 

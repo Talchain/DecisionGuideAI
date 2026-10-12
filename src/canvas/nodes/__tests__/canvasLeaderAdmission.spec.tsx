@@ -370,11 +370,14 @@ describe('OptionNode crown — retired (ED #63 5799353114 decision 1) in every Q
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('OptionNode "Held back by:" — a leader claim in inverse form', () => {
-  it('ARM B — permitted: the runner-up keeps its reason (over-suppression control)', () => {
+  it('ARM B — permitted: the runner-up carries no "Held back by:" line either (the line is removed)', () => {
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
     withStore(ADMISSION_PERMITTED)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(WIN_RUNNER_UP))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Held back by:/)).toBeDefined()
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getByText(RUNNER_UP_LABEL)).toBeDefined()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   it('⭐ ARM C — refused: the runner-up carries no "Held back by:" line', () => {

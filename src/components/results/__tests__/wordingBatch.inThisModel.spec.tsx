@@ -7,6 +7,11 @@
  * label and fails if any sentence carrying that label drops "in this model". Compare's sentences are bound in
  * `canvas/compare-tab/__tests__/CompareRunPairBody.anatomy.spec.tsx`; the Analysis headline's in
  * `analysis-hero/__tests__/wordingBatch.heroInThisModel.spec.ts` (only that folder may import the hero).
+ *
+ * Run-4 judge (DL 12 Oct, the class): the callout's measured arm ("In this model, in the quarter of simulated futures
+ * where … N% of them support {alt}.") is removed on every run and nothing replaces it, so the callout names no option on
+ * any arm. Its RT-13 rows and its SCAN row now pin that absence by identity (the option label, the share), each beside
+ * the neutral sentence that still renders.
  */
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -38,16 +43,22 @@ const calloutText = (data: ResultsSectionDataReturn): string => {
 const sentences = (text: string): string[] => text.split(/(?<=\.)\s+/).filter(Boolean)
 
 describe('RT-13 · the flip-risk callout says the conditional with its condition', () => {
-  it('measured: the share is printed only with the quarter it is conditional on', () => {
-    expect(calloutText(withEdge(PERMITTED()))).toContain(
+  it('measured: the conditional share is not said — the callout says the finding alone', () => {
+    const text = calloutText(withEdge(PERMITTED()))
+    // Run-4 judge (DL 12 Oct, the class): the conditional share sentence is removed; nothing replaces it.
+    expect(text).not.toContain(
       `In this model, in the quarter of simulated futures where ${FACTOR_LABEL}'s effect on ${TARGET} is weakest, ` +
         `57% of them support ${ALT_LABEL}.`,
     )
+    expect(text).not.toContain(ALT_LABEL)
+    expect(text).not.toContain('57%')
+    expect(text).toContain(`If ${FACTOR_LABEL} shifts, the result could change.`)
   })
   it('never the bare figure', () => {
     const text = calloutText(withEdge(PERMITTED()))
     expect(text).not.toMatch(/\(\d+% probability\)/)
-    expect(text.match(/\d+%/g)).toEqual(['57%'])
+    // Run-4 judge (DL 12 Oct, the class): the conditional "57%" is removed with its sentence; nothing replaces it.
+    expect(text.match(/\d+%/g)).toBeNull()
   })
   it('not measured: no figure, and the neutral sentence (names no option)', () => {
     const text = calloutText(withEdge(PERMITTED(), { switchProbability: undefined }))
@@ -66,16 +77,12 @@ describe('RT-13 · the flip-risk callout says the conditional with its condition
 })
 
 describe('SCAN · no sentence that names an option drops "in this model"', () => {
-  // Thunks: the callout renders inside each row, never at collection time.
-  const naming: Array<[string, string, () => string]> = [
-    ['callout measured', ALT_LABEL, () => calloutText(withEdge(PERMITTED()))],
-  ]
-
-  it.each(naming)('%s', (_where, label, build) => {
-    const carrying = sentences(build()).filter((s) => s.includes(label))
-    // Anti-vacuity: the arm really names the option, or the scan below proves nothing about it.
-    expect(carrying.length).toBeGreaterThan(0)
-    for (const s of carrying) expect(s, s).toMatch(/in this model/i)
+  it('callout measured: names no option, so no sentence can drop "in this model"', () => {
+    // Run-4 judge (DL 12 Oct, the class): this arm's naming sentence ("… N% of them support {alt}.") is removed;
+    // nothing replaces it. Bound by identity: the option label is absent from the callout.
+    const text = calloutText(withEdge(PERMITTED()))
+    expect(sentences(text).filter((s) => s.includes(ALT_LABEL))).toEqual([])
+    expect(text).toContain(`If ${FACTOR_LABEL} shifts, the result could change.`)
   })
 
   it('callout not measured: names no option, so no sentence can drop "in this model"', () => {

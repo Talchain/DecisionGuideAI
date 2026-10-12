@@ -4,19 +4,27 @@
  * guiding principle: a win share is supporting detail, never a leader and never beside the goal chance as one. The UI
  * composed these lines; CEE sends none. They are removed, and no words replace them.
  *
+ * DL ruling 2 (12 Oct), as refined: close the WHOLE class on the RESULT surfaces (the Results hero, option cards, chips,
+ * the canvas result cues), with the wider pattern (`supported by … runs`, `most(-)supported`, `more runs`, `better
+ * supported`, `runs would/could support`). A line whose only content was the comparison goes; a line with another fact
+ * keeps that fact. REASONING surfaces (the Reasoning tab, Compare, "what would change" and sensitivity lines) may keep
+ * share of runs as supporting detail, never beside the goal chance as if it were the chance — so they are NOT in the
+ * census, and a contrast pins that the Reasoning tab's supporting-detail line still renders.
+ *
  * Two envelopes, rendered through the mounted surfaces (ResultsBody, which holds the hero, the option cards and their
- * chips; and the canvas option card in both views):
+ * chips; and the canvas option and factor cards in both views):
  *   1. SERVED: run-4 capacity's server read (live/runs/2026-10-12T172858Z/capacity/reads/02-04-before-reopen.json,
  *      UI 616bbf21, CEE a770ce49; graph 3ce5cf5f, leader_licence 'permitted'), through the real read applier.
  *   2. CONSTRUCTED (self-authored, not wire): the same read with every option given a win share and no goal-chance
  *      licence, so every leader arm that a win share opens is reached (hero strong / slight bands, winner, runner-up
  *      near a tie, the other non-winner).
  *
- * CONTRAST: the per-option goal chance CEE served still renders verbatim on the hero.
+ * CONTRASTS: the per-option goal chance CEE served still renders verbatim on the hero; the Reasoning tab (every section
+ * opened) still renders its run-share supporting detail, so the census's silence on Results is not a blind probe.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, renderHook } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import served from './fixtures/run4-capacity-served-read-3ce5cf5f.json'
 import { applyRealRead } from '../analysis-hero/__tests__/helpers/realScenarioRead'
@@ -26,17 +34,28 @@ import { useResultsSectionData, type ResultsSectionDataReturn } from '../useResu
 import { ResultsBody } from '../ResultsBody'
 import { OptionNode } from '../../../canvas/nodes/OptionNode'
 import { OptionChanceCellProvider } from '../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { FactorNode } from '../../../canvas/nodes/FactorNode'
+import { AnalysisNewTabBody } from '../analysisNew/AnalysisNewTabBody'
+import { canvasLinkOfTarget, useCanvasLight } from '../../../canvas/graphChanges/rowCanvasLink'
 import type { OptionResult } from '../types'
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
-vi.mock('../../../canvas/utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusByTarget: vi.fn() }))
+vi.mock('../../../canvas/utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusByTarget: vi.fn(), focusModelTarget: vi.fn() }))
+vi.mock('../../../canvas/graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
+beforeEach(() => {
+  vi.mocked(canvasLinkOfTarget).mockReturnValue(null)
+  vi.mocked(useCanvasLight).mockReturnValue({ on: vi.fn(), off: vi.fn() } as never)
+})
 afterEach(() => {
   cleanup(); vi.unstubAllGlobals()
   useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
 })
 
-/** The DL's census pattern, verbatim. */
-const LEADER_WORDS = /more runs than any other|most runs|ahead of|out on top|highest .* in \d+% of runs|than any other option/i
+/** The DL's census pattern, verbatim: the first ruling's, then the second's additions. */
+const LEADER_WORDS = new RegExp([
+  /more runs than any other|most runs|ahead of|out on top|highest .* in \d+% of runs|than any other option/.source,
+  /supported by .* runs|most[- ]supported|more runs|better supported|runs (would|could) support/.source,
+].join('|'), 'i')
 
 /** The served goal chance (canonical cell face for 'Add one specialist'), the contrast that must still render. */
 const SERVED_CHANCE = served.canonical_analysis_view.options.find(o => o.option_id === 'add_one_specialist')!.cell.face
@@ -58,8 +77,9 @@ function canvasCardsText(): string {
   const out: string[] = []
   for (const viewMode of ['standard', 'detailed'] as const) {
     useCanvasStore.setState({ viewMode } as never)
-    for (const node of useCanvasStore.getState().nodes.filter(n => n.type === 'option')) {
-      const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
+    for (const node of useCanvasStore.getState().nodes.filter(n => n.type === 'option' || n.type === 'factor')) {
+      const Card = node.type === 'option' ? OptionNode : FactorNode
+      const card = render(<ReactFlowProvider><OptionChanceCellProvider><Card id={node.id} type={node.type as never} data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
       out.push(card.container.textContent ?? '')
@@ -67,6 +87,22 @@ function canvasCardsText(): string {
     }
   }
   return out.join('\n')
+}
+
+/**
+ * The Reasoning tab, with every collapsed section opened (a closed section is unmounted, so its words would hide). Used
+ * only for the contrast: share of runs may stay there as supporting detail (DL 12 Oct refinement).
+ */
+function reasoningText(data: ResultsSectionDataReturn): string {
+  const { container } = render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="run4_census" />)
+  for (let pass = 0; pass < 3; pass++) {
+    container.querySelectorAll('button[aria-expanded="false"]').forEach(b => fireEvent.click(b))
+  }
+  const attrs = [...container.querySelectorAll('[title],[aria-label]')]
+    .flatMap(el => [el.getAttribute('title'), el.getAttribute('aria-label')]).filter(Boolean)
+  const text = [container.textContent ?? '', ...attrs].join('\n')
+  cleanup()
+  return text
 }
 
 /** Each match with a little context either side, so a RED names the sentence. */
@@ -111,6 +147,14 @@ describe('run 4: no surface composes a leader claim from a win share (the class,
     const data = await servedData()
     expect(leaderLines(resultsText(data))).toEqual([])
     expect(leaderLines(canvasCardsText())).toEqual([])
+  })
+
+  it('CONTRAST (Reasoning keeps supporting detail): the served Reasoning tab still renders its run-share inspect row', async () => {
+    // The fragile-relationship insight's Inspect row (`SWITCH_SHARE_LABEL`), served capacity's 46%: the probe sees it,
+    // so the Results silence above is not a blind pattern.
+    const text = reasoningText(await servedData())
+    expect(text).toContain('Changes the most-supported option in this model46% of runs')
+    expect(leaderLines(text).some(l => l.includes('Changes the most-supported option in this model'))).toBe(true)
   })
 
   it('CONTRAST: the served goal chance still renders verbatim on the hero', async () => {

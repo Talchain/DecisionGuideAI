@@ -49,19 +49,23 @@
  * that stop the fix being "delete the denial", which would lose a true claim.
  *
  * ── Run-4 judge (DL 12 Oct, the class) ─────────────────────────────────────
- * The assert row ("one option was supported by more runs than any other") was
- * a leader claim from a win share, and the silence row's words ("…: not
- * assessed") went with it. Both are removed and nothing replaces them: in those
- * states the row is NOT DRAWN. The triple is now
+ * Every state the row could say was run-share comparison wording: the assert
+ * ("one option was supported by more runs than any other"), the silence row
+ * ("…: not assessed"), the similar-shares fact ("similar shares of runs") and
+ * the tie denial ("no option was supported by clearly more runs"). All four are
+ * removed and nothing replaces them: in EVERY state the row is NOT DRAWN.
  *
  *   producer signal present, not a tie, shares apart → row absent
- *   producer signal present, IS a tie                → "no option … clearly more runs" (deny)
- *   NO producer signal (`unknown`)                   → row absent           (silence)
- *   permitted leader, shares within 10 pts           → "similar shares of runs"
+ *   producer signal present, IS a tie                → row absent (no denial)
+ *   NO producer signal (`unknown`)                   → row absent (silence)
+ *   permitted leader, shares within 10 pts           → row absent
  *
- * The tie denial is still the only denial, and absence is always read beside a
- * contrast control (the footer and its robustness row rendered in the same
- * render), so "absent" cannot come from a blind probe.
+ * The rule this file pinned still holds, now trivially: nothing denies a
+ * leading option without authority, because nothing denies one at all. Absence
+ * is always read beside a contrast control (the footer and its robustness row
+ * rendered in the same render), so "absent" cannot come from a blind probe, and
+ * each arm pins its separation so the four absences cover four genuinely
+ * different states.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -228,13 +232,6 @@ function probeWinnerCheck(): WinnerProbe {
   }
 }
 
-/** For the states where the row MUST render: a missing row is a blind probe, never a pass. */
-function readWinnerCheck(): Omit<WinnerProbe, 'label'> & { label: string } {
-  const probe = probeWinnerCheck()
-  if (probe.label == null) throw new Error('checks-winner did not render — the probe is blind, not the product silent')
-  return { ...probe, label: probe.label }
-}
-
 describe('checks-winner: no denial without authority', () => {
   beforeEach(() => {
     useCanvasStore.setState({
@@ -267,15 +264,18 @@ describe('checks-winner: no denial without authority', () => {
    * more runs than any other" is true at any gap, so it is a crown on a near tie. Within 10 pts of the next run share
    * the row says the shares were similar, and names no ranking.
    */
-  it('J4: a PERMITTED leader only 4 pts ahead in run share → similar shares, no comparative', () => {
+  it('J4: a PERMITTED leader only 4 pts ahead in run share → the row is NOT DRAWN, no comparative', () => {
     setStore({ isTie: false }, [0.47, 0.43])
-    const { label, separation, gapPp, permitted } = readWinnerCheck()
+    const { label, footerText, separation, gapPp, permitted } = probeWinnerCheck()
     // PRECONDITION: a permitted leader (the producer said not a tie) at a 4-pt gap — the state J4 witnessed.
     expect(permitted).toBe(true)
     expect(separation).toBe('slight')
     expect(gapPp).toBe(4)
-    expect(label).toBe('In this model, the options were supported by similar shares of runs')
-    expect(label).not.toMatch(/more runs than any other|most likely|chance|\b(best|lead\w*|ahead|winner)\b/i)
+    // Run-4 judge (DL 12 Oct, the class): "the options were supported by similar shares of runs" is removed; nothing
+    // replaces it.
+    expect(label).toBeNull()
+    expect(footerText).not.toMatch(/similar shares of runs/i)
+    expect(footerText).not.toMatch(/more runs than any other|most likely|\bchance\b|\b(best|lead\w*|ahead|winner)\b/i)
   })
 
   it('J4 boundary: exactly 10 pts apart → not similar shares (the producer\u2019s own near-tie line), so the row is not drawn', () => {
@@ -289,11 +289,15 @@ describe('checks-winner: no denial without authority', () => {
     expect(footerText).not.toMatch(/more runs than any other|similar shares of runs/i)
   })
 
-  it('producer says IS a tie → the check DENIES a leading option', () => {
+  it('producer says IS a tie → the row is NOT DRAWN (the tie denial is removed too)', () => {
     setStore({ isTie: true })
-    const { label, separation } = readWinnerCheck()
+    const { label, footerText, separation } = probeWinnerCheck()
     expect(separation).toBe('tied')
-    expect(label).toBe('In this model, no option was supported by clearly more runs than the others')
+    // Run-4 judge (DL 12 Oct, the class): the tie denial ("no option was supported by clearly more runs") is removed;
+    // nothing replaces it.
+    expect(label).toBeNull()
+    expect(footerText).not.toMatch(/no option was supported by clearly more runs/i)
+    expect(footerText).not.toMatch(/one option was supported by more runs than any other|similar shares of runs/i)
   })
 
   it('producer sent NO signal → the check makes NO claim in either direction', () => {
@@ -312,26 +316,28 @@ describe('checks-winner: no denial without authority', () => {
     expect(footerText).not.toMatch(/one option was supported by more runs than any other/i)
   })
 
-  it('the separations produce DIFFERENT outcomes — the probe discriminates (tie denies, unknown is silent)', () => {
+  it('four DIFFERENT separations, one outcome — the row is absent in every state, and the states really differ', () => {
     setStore({ isTie: false })
-    const clear = probeWinnerCheck().label
+    const clear = probeWinnerCheck()
     document.body.innerHTML = ''
     setStore({ isTie: true })
-    const tied = probeWinnerCheck().label
+    const tied = probeWinnerCheck()
     document.body.innerHTML = ''
     setStore(null)
-    const unknown = probeWinnerCheck().label
+    const unknown = probeWinnerCheck()
     document.body.innerHTML = ''
     setStore({ isTie: false }, [0.47, 0.43])
-    const similar = probeWinnerCheck().label
+    const similar = probeWinnerCheck()
 
-    // Run-4 judge (DL 12 Oct, the class): the clear-leader and undetermined rows are removed; nothing replaces them.
-    // The tie denial and the similar-shares fact still render, and differ, so a blanket change in either direction REDs.
-    expect({ clear, tied, unknown, similar }).toEqual({
+    // The probe is not answering the same for every item because it is blind: each read pinned the footer and its
+    // robustness row (contrast control, inside `probeWinnerCheck`), and the four inputs reach four different states.
+    expect([clear, tied, unknown, similar].map((p) => p.separation)).toEqual(['clear', 'tied', 'unknown', 'slight'])
+    // Run-4 judge (DL 12 Oct, the class): every state the row could say is removed; nothing replaces it.
+    expect({ clear: clear.label, tied: tied.label, unknown: unknown.label, similar: similar.label }).toEqual({
       clear: null,
-      tied: 'In this model, no option was supported by clearly more runs than the others',
+      tied: null,
       unknown: null,
-      similar: 'In this model, the options were supported by similar shares of runs',
+      similar: null,
     })
   })
 })

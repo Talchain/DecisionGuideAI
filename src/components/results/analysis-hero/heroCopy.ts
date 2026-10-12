@@ -441,10 +441,9 @@ export const HERO_COPY = {
      */
     // Science d5 (#87 6007969474): a share of runs, never a chance. The withheld caption is for a target-only withhold
     // (the comparison is kept); where the ordering is withheld the probabilities are stripped, so no caption renders.
-    flipRisksNote: (designationsWithheld: boolean) =>
-      designationsWithheld
-        ? 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.'
-        : 'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.',
+    // Run-4 judge (DL 12 Oct, the class): every run takes the withheld wording; "changes the most-supported option" is
+    // run-share wording and is removed.
+    flipRisksNote: 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.',
     /**
      * ROADMAP 2.291 — the flip-threshold sentences and tokens DELEGATE to
      * `utils/flipThresholdDisplay`'s register (one-copy guarantee, same

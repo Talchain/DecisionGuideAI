@@ -130,15 +130,17 @@ describe('OptionCards — withheld leader claim', () => {
     expect(screen.queryByTestId(`leading-option-downside-${WINNER_ID}`)).toBeNull()
   })
 
-  it('offers the forward-looking chip instead of "best supported"', () => {
+  it('offers no "better supported" chip on either card (the chip is removed), and no "best supported" either', () => {
     renderCards(false)
-    // Existing copy, not invented: this is already the module's phrasing for
-    // an option that does not hold a lead.
-    expect(screen.getAllByText('What would make this better supported?').length).toBeGreaterThan(0)
-    // Twin of the permitted row below: on a withheld turn the leading option's own card keeps that chip.
-    expect(
-      within(screen.getByTestId(`option-card-${WINNER_ID}`)).getByRole('button', { name: 'What would make this better supported?' }),
-    ).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the forward-looking chip "What would make this better supported?" is removed on every card; nothing
+    // replaces it. Twin of the permitted row below, bound to each card by testid; the labels are the presence control.
+    for (const [id, label] of [[WINNER_ID, 'Standardise on MacBook Pro'], [RUNNER_UP_ID, 'Standardise on Dell XPS']] as const) {
+      const card = screen.getByTestId(`option-card-${id}`)
+      expect(within(card).getByText(label)).toBeDefined()
+      expect(within(card).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+    }
+    expect(screen.queryAllByText('What would make this better supported?')).toHaveLength(0)
+    expect(screen.queryByText(/best supported/i)).toBeNull()
   })
 })
 
@@ -175,15 +177,16 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
 
   // Run-4 judge (DL 12 Oct, the class): the leader chip ("Why did the most runs in this model support this?" / "What does
   // this rest on in this model?") is removed; nothing replaces it. Was 'keeps the leader chip copy'.
-  it('draws no leader chip even when permitted; the non-leader card keeps its own chip', () => {
+  it('draws no leader chip even when permitted; the non-leader card draws none either', () => {
     const { container } = renderCards(true)
     const leader = screen.getByTestId(`option-card-${WINNER_ID}`)
     expect(within(leader).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
     expect(container.textContent ?? '').not.toMatch(/What does this rest on in this model\?|most runs in this model support/)
-    // Over-suppression control: the non-leader card keeps its forward-looking chip.
-    expect(
-      within(screen.getByTestId(`option-card-${RUNNER_UP_ID}`)).getByRole('button', { name: 'What would make this better supported?' }),
-    ).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the non-leader's "What would make this better supported?" chip is removed; nothing replaces it.
+    // The card itself still renders (its label), so the absence is not an empty render.
+    const runnerUp = screen.getByTestId(`option-card-${RUNNER_UP_ID}`)
+    expect(within(runnerUp).getByText('Standardise on Dell XPS')).toBeDefined()
+    expect(within(runnerUp).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {

@@ -1462,9 +1462,11 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
 
   it('flip risks: falls-below sentence with user unit and alternative winner', () => {
     const m = chart(buildHeroModel(makeHeroData()))
+    // Run-4 judge (DL 12 Oct, the class): "‘Two developers’ becomes the most-supported option" is removed; every run takes the comparison wording.
+    expect(m.evidence.flipRisks[0]?.text).not.toMatch(/most[- ]supported/i)
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If ‘Team capacity’ falls below about 30%, ‘Two developers’ becomes the most-supported option, in this model.',
+        text: 'If ‘Team capacity’ falls below about 30%, the comparison shifts towards ‘Two developers’, in this model.',
         targetId: 'fac_capacity',
         switchMeta: null,
         magnitude: null,
@@ -1478,9 +1480,11 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
         { label: 'Salary cost', node_id: 'fac_salary', current_value: 50000, flip_value: 60000, unit: '$' },
       ],
     } })))
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option changes" is removed; every run takes the comparison wording.
+    expect(m.evidence.flipRisks[0]?.text).not.toMatch(/most[- ]supported/i)
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.',
+        text: 'If ‘Salary cost’ rises above about $60,000, the comparison changes, in this model.',
         targetId: 'fac_salary',
         switchMeta: null,
         magnitude: null,
@@ -1494,8 +1498,10 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
         { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: 40, unit: '%' },
       ],
     } })))
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option changes" is removed; every run takes the
+    // comparison wording.
     expect(m.evidence.flipRisks[0].text).toBe(
-      'If ‘Team capacity’ crosses about 40%, the most-supported option changes, in this model.',
+      'If ‘Team capacity’ crosses about 40%, the comparison changes, in this model.',
     )
   })
 

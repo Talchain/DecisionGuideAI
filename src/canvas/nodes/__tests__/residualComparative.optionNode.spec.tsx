@@ -168,10 +168,14 @@ describe('OptionNode — "Held back by: <reason>" (ROADMAP 1.239 residual 1)', (
     expect(screen.getByText('Standardise on Dell XPS')).toBeDefined()
   })
 
-  it('PERMITTED: the runner-up keeps its "Held back by:" reason (over-suppression control)', () => {
+  it('PERMITTED: the runner-up carries no "Held back by:" reason either (the line is removed)', () => {
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
     withStore(PERMITTED_REPORT)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
-    expect(screen.getByText(/Held back by: fewer key changes/)).toBeDefined()
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getByText('Standardise on Dell XPS')).toBeDefined()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
+    expect(screen.queryByText(/fewer key changes/)).toBeNull()
   })
 })
 

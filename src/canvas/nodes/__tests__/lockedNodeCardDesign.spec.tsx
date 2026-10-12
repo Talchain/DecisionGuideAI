@@ -601,20 +601,40 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
 })
 
 describe('Option — the coaching icon keeps a TYPED action typed (ED 02:31Z)', () => {
-  it('after a run, the icon sends its option-support intent as one bound chip', () => {
+  it('after a run, the non-leader icon carries no option-support intent: it is the untyped generic door', () => {
+    // Run-4 judge (DL 12 Oct, the class): "What would make this better supported?" (option_what_would_make_lead →
+    // 'support-option') is removed; nothing replaces it. With no close-call gap this card has no question of its own.
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'opt-bundle': { winRate: 0.25, isResultsMode: true } })
     renderCard(OptionNode as never, 'opt-bundle')
     const icon = within(face('Bundle seats')).getByTestId('node-coaching-icon-opt-bundle')
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe('__ask_olumi__')
+    expect(icon.getAttribute('data-coaching-typed')).toBeNull()
+    fireEvent.click(icon)
+    const dispatch = useGuidanceStore.getState()._dispatchAction as unknown as ReturnType<typeof vi.fn>
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:support-option' }))
+    for (const [sent] of dispatch.mock.calls) expect(String(sent.message)).not.toMatch(/better supported/i)
+  })
+  it('after a run, the baseline icon sends its typed option intent as one bound chip', () => {
+    // Run-4 judge (DL 12 Oct, the class): the typed-chip contract is rebound to a post-run option chip that still
+    // exists (the baseline's option_why_win_lose → 'option').
+    setState({ phase: 'post' })
+    setCurrency('current')
+    setMeta({ 'opt-base': { winRate: 0.2, isResultsMode: true } })
+    renderCard(OptionNode as never, 'opt-base')
+    const icon = within(face('Keep current pricing')).getByTestId('node-coaching-icon-opt-base')
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe('option_why_win_lose')
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
     fireEvent.click(icon)
     const dispatch = useGuidanceStore.getState()._dispatchAction as unknown as ReturnType<typeof vi.fn>
     expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:support-option', source: 'chip',
-      message: 'What would need to change for ‘Bundle seats’ to be better supported, and what evidence would we need?' }))
+    // The words come from askAi's own stage resolver; this harness's store carries no `hasCompletedFirstRun`, so the
+    // 'option' intent reads its pre-run arm. The pin is the typed route (id, source, binding), not the stage.
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:option', source: 'chip',
+      message: 'What would have to be true for ‘Keep current pricing’ to meet the goal?' }))
     expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
-    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['opt-bundle']))
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['opt-base']))
     expect(revealOlumiSurface).toHaveBeenCalled()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })

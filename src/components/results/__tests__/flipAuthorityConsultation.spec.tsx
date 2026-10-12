@@ -28,6 +28,13 @@
  *
  * PROVENANCE: the flip-threshold rows below are read from the real capture, not
  * authored here.
+ *
+ * Run-4 judge (DL 12 Oct, the class): SURFACE 1's ranking arms ("… N% of them
+ * support {alt}" on a flip-bearing run, "more runs could support {alt}" on an
+ * attested one) are removed and nothing replaces them. The callout no longer
+ * reads the flip authority: under EITHER real row-set it says the finding alone
+ * ("If {factor} shifts, the result could change."). Its rows now pin that, on
+ * both row-sets, so the two directions still both run.
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -80,13 +87,15 @@ const triageData = (flipThresholds: unknown): ResultsSectionDataReturn =>
     drivers: { drivers: [] },
   }) as unknown as ResultsSectionDataReturn
 
-describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
-  it('ANTI-VACUITY: the callout renders at all, and carries the claim the matcher hunts', () => {
+describe('SURFACE 1 — T1FlipRiskCallout makes no ranking claim under either flip evidence', () => {
+  it('ANTI-VACUITY: the callout renders at all on the flip-bearing run, and says the finding', () => {
     render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
     const el = screen.getByTestId('t1-flip-risk-callout')
-    // RT-13 (Science #87 5993266380): the measured figure is said WITH its condition, in this model.
-    expect(el.textContent ?? '').toContain('In this model, in the quarter of simulated futures where')
-    expect(el.textContent ?? '').toContain(`55% of them support ${ALT}`)
+    // Run-4 judge (DL 12 Oct, the class): the measured conditional ("In this model, in the quarter of simulated futures
+    // where … 55% of them support {alt}") is removed; nothing replaces it. Rebound: the callout renders its finding.
+    expect(el.textContent ?? '').toContain('If Self-Serve Product Tier shifts, the result could change')
+    expect(el.textContent ?? '').not.toContain('In this model, in the quarter of simulated futures where')
+    expect(el.textContent ?? '').not.toContain(`55% of them support ${ALT}`)
   })
 
   it('ATTESTED NO-FLIP: the presupposing verb goes', () => {
@@ -113,22 +122,29 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     expect(t).not.toMatch(/\d+\s*%/)
   })
 
-  it('DATA SURVIVES: the alternative and the factor are still named', () => {
-    // The DATA stays in full; only the CLAIM changes. The finding itself is
-    // carried by the fragile card (count, labels, E-values, alt-winner,
-    // Stability pill) — this callout is not the only place it lives.
+  it('DATA SURVIVES: the factor is still named; the alternative goes with the ranking', () => {
+    // The finding itself is carried by the fragile card (count, labels,
+    // E-values, alt-winner, Stability pill) — this callout is not the only
+    // place it lives.
     render(<TriageActionCardsBody data={triageData(ATTESTED_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
-    expect(t).toContain(ALT)
     expect(t).toContain('Self-Serve Product Tier')
-    expect(t).toContain(`more runs could support ${ALT}`)
+    expect(t).toContain('If Self-Serve Product Tier shifts, the result could change')
+    // Run-4 judge (DL 12 Oct, the class): "more runs could support {alt}" is removed; nothing replaces it.
+    expect(t).not.toContain(`more runs could support ${ALT}`)
+    expect(t).not.toContain(ALT)
   })
 
-  it('OPPOSITE DIRECTION: a genuinely flip-bearing run keeps the percentage WITH its strong verb', () => {
+  it('OPPOSITE DIRECTION: a genuinely flip-bearing run makes no ranking claim and prints no percentage either', () => {
     render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
-    expect(t).toContain('In this model, in the quarter of simulated futures where')
-    expect(t).toContain(`55% of them support ${ALT}`)
+    // Run-4 judge (DL 12 Oct, the class): the percentage and its sentence are removed on this run too; nothing replaces
+    // them.
+    expect(t).not.toContain('In this model, in the quarter of simulated futures where')
+    expect(t).not.toContain(`55% of them support ${ALT}`)
+    expect(t).not.toMatch(/\d+\s*%/)
+    expect(t).not.toContain(ALT)
+    expect(t).toContain('If Self-Serve Product Tier shifts, the result could change')
   })
 })
 

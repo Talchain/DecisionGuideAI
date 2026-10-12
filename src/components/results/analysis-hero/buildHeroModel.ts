@@ -1313,19 +1313,8 @@ export function buildHeroModel(
       // only the leader framing around them changes.
       const text =
         alt && !containsBannedTerm(alt)
-          ? HERO_COPY.evidence.flipRiskWithAlternative(
-              label,
-              direction,
-              value,
-              alt,
-              designationsWithheld,
-            )
-          : HERO_COPY.evidence.flipRiskNoAlternative(
-              label,
-              direction,
-              value,
-              designationsWithheld,
-            )
+          ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
+          : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
       // Fail-closed focus pre-gate: with canvas knowledge supplied, a
       // node_id absent from the canvas yields a text row, not a dead button.
       const rawTarget = ft.node_id || null

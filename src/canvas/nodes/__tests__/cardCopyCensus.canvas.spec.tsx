@@ -605,7 +605,9 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Current model', // CAPTION
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
-    'What would make this better supported?', // CONTROL
+    // ⭐ WAS `What would make this better supported?` (CONTROL). Run-4 judge (DL 12 Oct, the class): the
+    // non-leader chip is removed (run-share wording); nothing replaces it. This fixture's non-leader has no
+    // close-call gap, so it asks nothing here.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)

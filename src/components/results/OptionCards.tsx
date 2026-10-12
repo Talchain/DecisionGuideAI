@@ -65,7 +65,6 @@ import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
 import { buildOptionRankColorMap, OPTION_RANK_COLORS } from './optionRankColors'
 import Tooltip from '../Tooltip'
-import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from './utils/goalIdentityWithheld'
 
@@ -212,7 +211,6 @@ function hingeAwareDescription(
   option: OptionResult,
   isWinner: boolean,
   isRunnerUp: boolean,
-  hinge: HingeInfo | null | undefined,
   lensActive = false,
   hasLeadingOption?: boolean,
   /** Run-level: does ANY option carry a goal number? Gates the lens sentence. */
@@ -300,15 +298,9 @@ function hingeAwareDescription(
     return ''
   }
   if (isRunnerUp) {
-    // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
-    // above. The conditional-flip line is honest copy where a leader HAS been
-    // designated; it is the designation it presupposes, not the factor it
-    // names, that made it unrenderable on a withheld one.
-    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
-      return `If ${hinge.label} shifts, more runs would support this option in this model`
-    }
-    // ⭐ Run-4 judge (DL 12 Oct, the class): "Effectively tied … with the option the most runs supported" and "Close to
-    // the option the most runs supported" were leader claims from a win share. Removed; nothing replaces them.
+    // ⭐ Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model",
+    // "Effectively tied … with the option the most runs supported" and "Close to the option the most runs supported" were
+    // run-share comparison lines with no other fact. Removed; nothing replaces them.
     return ''
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
@@ -460,7 +452,6 @@ function OptionCard({
   segmentFillColor,
   onClick,
   scale = null,
-  onSendMessage,
   onFocusNode,
   expertMode = false,
   leadingOptionDownsideFlag,
@@ -556,7 +547,6 @@ function OptionCard({
   // is added here so the next reader does not repeat it. The two rulings
   // co-exist because they govern different channels.
   const crowned = designationsWithheld ? false : cardLensActive ? isLensCrowned : isWinner
-  const chipLabel = winnerChipLabel(isWinner, hasLeadingOption)
   const borderClass = neutralised || !crowned
     ? 'border border-panel-border'
     : 'border border-success/30'
@@ -932,33 +922,11 @@ function OptionCard({
           legacy limits channel, licensed by no canonical cell (DL ruling (a)), so it was a chance outside the gate. */}
 
       {/* Action CTAs */}
-      {(onSendMessage || onFocusNode) && (
+      {onFocusNode && (
         <div className="flex items-center gap-1 pt-1.5">
-          {/* Run-4 judge (DL 12 Oct, the class): the leading option's chip ("Why did the most runs in this model support
-              this?") is removed and nothing replaces it; `winnerChipLabel` returns null for it. */}
-          {onSendMessage && chipLabel !== null && (
-            // Brief 5.1 Task 7 / Brief 5.4 Phase 7: single non-winner chip copy.
-            // The earlier baseline-specific "Why does this lose?" read as negative
-            // framing; forward-looking copy is parallel for both winner and non-winner.
-            // Copy source: winnerChipCopy utility (no hardcoded strings at render sites).
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Codex finding 6: exploratory question-shaped CTA — prefill the
-                // Ask-Olumi drawer (editable draft, user presses Send) instead of
-                // auto-sending into a possibly-hidden conversation.
-                openAskOlumi({
-                  context: `About "${option.label}"`,
-                  draft: winnerChipPrompt(option.label),
-                  label: chipLabel,
-                })
-              }}
-              className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
-            >
-              {chipLabel}
-            </button>
-          )}
+          {/* Run-4 judge (DL 12 Oct, the class): the card's chat chip is removed and nothing replaces it. Its every label was
+              run-share comparison wording ("Why did the most runs in this model support this?", "What would make this
+              better supported?"). */}
           {!option.isBaseline && onFocusNode && (
             // ⚠ THIS CHIP READ "Edit interventions" AND EDITED NOTHING.
             // `onFocusNode` on this surface is `handleFocusResultNode`
@@ -997,7 +965,6 @@ export function OptionCards({
   storyHeadlines,
   cardRefMap,
   decisionState,
-  hinge,
   runnerId,
   onSendMessage,
   onFocusNode,
@@ -1299,14 +1266,14 @@ export function OptionCards({
         // at the one call site that mattered.
         const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
         const description = isLensCrowned
-          ? hingeAwareDescription(option, true, isRunnerUp, hinge, true, hasLeadingOption, hasGoalNumbers)
+          ? hingeAwareDescription(option, true, isRunnerUp, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, false, hasLeadingOption, hasGoalNumbers)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
             : headline
               ? headline
               // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, false, hasLeadingOption, hasGoalNumbers)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
                 : fallbackDescription(option, options.length)
 
         // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
