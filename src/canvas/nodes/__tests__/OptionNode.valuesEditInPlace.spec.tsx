@@ -193,3 +193,50 @@ describe('a retry refused on a moved base reads the saved model before it speaks
     expect(word()).toMatch(/^Not saved\./)
   })
 })
+
+/**
+ * ⭐ RECOVERY BATCH B — THE CARD READ A STALE ANALYSIS VIEW THROUGH A RELOAD (served `live/runs/2026-10-12T020148Z/capacity`,
+ * row 7a; UI 52936df0, CEE c85817f2). After the lost reply the UI's `ceeAnalysisReady` was still the pre-edit view
+ * (turns 01–03: `current_graph_hash` 94902edbc47c5776, 0.1, "1 specialists"); the saved graph re-read after the 409, and
+ * again on reload, was 175a3ae98f06785f with 0.2. The card said "0 → 1 specialists" while the server held 2.
+ */
+describe('a stale analysis view never overrides the saved value on the option card', () => {
+  const OPTION_ID = 'add_one_specialist'
+  const FACTOR_ID = 'additional_specialists'
+  const FACTOR = { id: FACTOR_ID, type: 'factor', data: { label: 'Additional specialists', type: 'factor',
+    observedState: { cap: 10, unit: 'specialists', value: 0, source: 'cee_inference', raw_value: 0, declared_scale: 'unit_interval' } } }
+  /** reads/05-05-B.json: the saved option after the dropped send. */
+  const SAVED = { id: OPTION_ID, type: 'option', data: { label: 'Add one specialist', type: 'option', interventions: { [FACTOR_ID]: {
+    unit: 'specialists', value: 0.2, source: 'user_specified', target_match: { node_id: FACTOR_ID, confidence: 'high', match_type: 'exact_id' } } } } }
+  /** turns/03.json `analysis_ready`: the last view the UI ingested, before the edit. */
+  const viewBeforeTheEdit = {
+    current_graph_hash: '94902edbc47c5776',
+    options: [{ id: OPTION_ID, option_id: OPTION_ID, label: 'Add one specialist', is_baseline: false,
+      interventions: { [FACTOR_ID]: 0.1 },
+      intervention_details: { [FACTOR_ID]: { display_value: '1 specialists', normalised_value: 0.1, raw_value: 1, unit: 'specialists' } } }],
+  }
+  const EDITOR = `option-value-editor-${OPTION_ID}-${FACTOR_ID}`
+  function renderWith(savedBase: string) {
+    storeOverlay = { nodes: [FACTOR, SAVED], ceeAnalysisReady: viewBeforeTheEdit, lastServerGraphHash: savedBase }
+    render(
+      <ReactFlowProvider>
+        <OptionNode type="option" position={{ x: 0, y: 0 }} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
+          dragging={false} zIndex={0} deletable selectable draggable id={OPTION_ID} data={SAVED.data} {...({} as any)} />
+      </ReactFlowProvider>,
+    )
+  }
+
+  it('RED on 84c7d3a: the saved graph moved on (175a3ae…), so the card shows the saved 2, never the view\'s 1', () => {
+    renderWith('175a3ae98f06785f')
+    const resting = screen.getByTestId(EDITOR).textContent ?? ''
+    expect(resting).toMatch(/\b2 specialists\b/)
+    expect(resting).not.toMatch(/\b1 specialists\b/)
+    fireEvent.click(screen.getByTestId(EDITOR))
+    expect((screen.getByTestId(`${EDITOR}-input`) as HTMLInputElement).value).toBe('2')
+  })
+
+  it('NEGATIVE: a CURRENT view keeps the existing rule (a different value keeps the producer\'s entry)', () => {
+    renderWith('94902edbc47c5776')
+    expect(screen.getByTestId(EDITOR).textContent ?? '').toMatch(/\b1 specialists\b/)
+  })
+})
