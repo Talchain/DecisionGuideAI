@@ -7,7 +7,7 @@
  * draft ended EVERY accepted edit on "Could not confirm". The ⭐ CONTRAST case
  * below is the one that pins that away.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeValueEditor } from '../NodeValueEditor'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
@@ -292,6 +292,68 @@ describe('a scenario switch, at any point of the flow, leaves no word from the o
       }
     })
   }
+})
+
+/**
+ * B UI's final check on d770bc1c (non-blocking, DL ruling): keyed by the scenario id alone, the editor also remounted
+ * on the FIRST "Save as" of an unbound model and threw away a genuine refusal and its draft. The id changed; the model
+ * did not. The checker's sequence, on the real store, then the id changes that are a new model and must still remount.
+ */
+describe('the unbound model getting its first id is the same model: the editor keeps its refusal and draft', () => {
+  const start = useCanvasStore.getState()
+  const node = { id: 'keep', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Keep' } }
+  const set = (patch: Record<string, unknown>) => act(() => { useCanvasStore.setState(patch as never) })
+  afterEach(() => set({
+    currentScenarioId: start.currentScenarioId, unboundModelBinding: null, nodes: start.nodes, edges: start.edges,
+  }))
+
+  function refuseAnOutOfRangeValue() {
+    render(<NodeValueEditor value={50} readout="50" onCommit={vi.fn(() => 'dispatched' as const)} min={0} max={100}
+      ariaLabel="Value" testId="nve" />)
+    fireEvent.click(screen.getByTestId('nve'))
+    fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '500' } })
+    fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
+    expect(screen.getByTestId('nve-refusal').textContent).not.toBe('')
+  }
+  const refusalAndDraft = () => [
+    screen.queryByTestId('nve-refusal')?.textContent ?? null,
+    (screen.queryByTestId('nve-input') as HTMLInputElement | null)?.value ?? null,
+  ]
+
+  it('⭐ Start fresh → Undo (the id is null) → an out-of-range value → Save as: the refusal and its draft stay', () => {
+    set({ currentScenarioId: 'scenario-a', nodes: [node], edges: [] })
+    act(() => useCanvasStore.getState().resetCanvas())
+    act(() => useCanvasStore.getState().undo())
+    expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+    expect(useCanvasStore.getState().nodes.map(n => n.id)).toEqual(['keep'])
+    refuseAnOutOfRangeValue()
+    const before = refusalAndDraft()
+    expect(before[1]).toBe('500')
+    act(() => { useCanvasStore.getState().saveCurrentScenario('Saved model') })
+    expect(useCanvasStore.getState().currentScenarioId).toEqual(expect.any(String))
+    expect(refusalAndDraft()).toEqual(before)
+  })
+
+  it.each([
+    ['opening another decision from the unbound model (null → id, no binding)', null,
+      { currentScenarioId: 'scenario-b' }],
+    ['a binding left from an earlier Save as, when that id is opened later', 'scenario-x',
+      { currentScenarioId: 'scenario-x' }],
+    ['a fresh binding that names another id', null,
+      { currentScenarioId: 'scenario-b', unboundModelBinding: { scenarioId: 'scenario-x' } }],
+  ] as const)('CONTRAST, a new model: %s → remounts', (_name, earlier, write) => {
+    set({ currentScenarioId: null, unboundModelBinding: earlier === null ? null : { scenarioId: earlier } })
+    refuseAnOutOfRangeValue()
+    set(write)
+    expect(refusalAndDraft()).toEqual([null, null])
+  })
+
+  it('CONTRAST, a new model: a BOUND model given another id, even with a binding (A → Y) → remounts', () => {
+    set({ currentScenarioId: 'scenario-a', unboundModelBinding: null })
+    refuseAnOutOfRangeValue()
+    set({ currentScenarioId: 'scenario-y', unboundModelBinding: { scenarioId: 'scenario-y' } })
+    expect(refusalAndDraft()).toEqual([null, null])
+  })
 })
 
 describe('opening the editor', () => {

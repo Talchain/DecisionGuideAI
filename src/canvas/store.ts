@@ -191,6 +191,7 @@ import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
 import { buildSnapshotFromV5Analysis } from './stores/v5RunSnapshotFactory'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 import { useComparisonStore } from './stores/comparisonStore'
+import { scenarioIdWrite, type UnboundModelBinding } from './stores/unboundModelBinding'
 import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -1505,6 +1506,13 @@ interface CanvasState {
    * this is the only signal that the user moved on while a read was in flight (#2418 delta CR, P1-2).
    */
   scenarioEpoch: number
+  /**
+   * Written ONLY by `scenarioIdWrite` (`stores/unboundModelBinding.ts`), in the same store write as the id, when the
+   * model already on the canvas had no id and gets one without being replaced (Save as, Save as Scenario from a
+   * template, the first Send's lazy id, an import's registration). A fresh object each time. NodeValueEditor keeps the
+   * model instance's editor across that one null → id change (B UI final check on d770bc1c).
+   */
+  unboundModelBinding?: UnboundModelBinding | null
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -3423,6 +3431,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   edges: initialEdges,
   history: { past: [], future: [] },
   scenarioEpoch: 0,
+  unboundModelBinding: null,
   selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
@@ -6906,7 +6915,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
         set({
           nodes: newCleansedNodes,
-          currentScenarioId: scenario.id,
+          ...scenarioIdWrite(currentScenarioId, scenario.id),
           scenarioPersistedToDb: true,
           isDirty: false,
           isSaving: false,
@@ -6933,7 +6942,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     set({
-      currentScenarioId: scenario.id,
+      ...scenarioIdWrite(get().currentScenarioId, scenario.id),
       scenarioPersistedToDb: true,
       isDirty: false,
       showDraftChat: false,
