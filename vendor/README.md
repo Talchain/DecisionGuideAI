@@ -7,7 +7,27 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.81.0.tgz` ← **THE CURRENT PIN** (7 Oct 2026, Compare-chance chain: READER first; DL #87 6035414740)
+### `talchain-schemas-0.82.0.tgz` ← **THE CURRENT PIN** (12 Oct 2026, recovery Batch C step 1: READER re-vendor, readers before writers; unblocks schemas #96 `pin-drift`)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.82.0/3c18c6453ba15df76cd309058aff06fef885d12d`; registry gitHead
+`c7461d7ed76133cf0e8310c22026e93935833da2` = tag `v0.82.0` (olumi-schemas `main`, DL publish). **869,122 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  3c18c6453ba15df76cd309058aff06fef885d12d   (the registry download id)
+integrity (sha512) sha512-vqEsT6Vi9HfxETGOXT+9zIfCIoRQHUMRATa78ImVuP4W460VFzopwb4U02GbcSwibjwgEVyBt592XU+rdUjbTA==
+sha256             976e9fdf9712a14b9633a28c56e03287c919abc46a590dd7dd15ba1af67ee651   (the .sha256 sidecar)
+```
+
+0.82.0 adds the optional strict `NodeV3.event_risk` (`EventRiskV1Schema`: `{version: 1, occurrence {p_low, p_high, basis},
+horizon, meaning, mitigations?}`) and moves the graph-hash projection to **v6** (`event_risk` appended to the node fields). A graph
+with no `event_risk` hashes byte-identically (`graph-hash-proposed-by` CONTROL row); a node carrying it moves the hash
+(`graph-hash-whose-value` `node.event_risk`). ORDER: 0.81.0's `NodeV3Schema` is `.passthrough()`, so a DGAI still on 0.81.0
+neither refuses nor strips a node carrying `event_risk`; CEE only writes it through the add-risk door (event_risk.v1 slice 2a).
+
+**This copy:** byte-identical to CEE's vendored `vendor/talchain-schemas-0.82.0.tgz` (git blob `a947913dd6681a949cfa8c73fd9c763b596e583c`, on CEE `staging` `c87608e40f0a9ee97be016f8fa85e3b01b9e793a`); copied, never re-packed. `pnpm-lock.yaml` integrity = the sha512 above. Replaces 0.81.0 (tarball and sidecar removed in the same commit). **Reader-only here:** the runtime `dist/*.js` diff vs 0.81.0 (checked 12 Oct) is `graph.js` (the three `EventRisk*V1Schema`s + optional `NodeV3.event_risk`), `index.js` (their exports), `boundary/graph-hash-contract.js` (projection 5 → 6, `event_risk` appended), `fixtures/index.js` and `contracts/generated-constants.js`. This change emits nothing new.
+
+### `talchain-schemas-0.81.0.tgz` (historical — no longer vendored as of 0.82.0) (7 Oct 2026, Compare-chance chain: READER first; DL #87 6035414740)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.81.0/6ca5c614caa32c47f249717f373e5ca75e5616ff`; registry gitHead
