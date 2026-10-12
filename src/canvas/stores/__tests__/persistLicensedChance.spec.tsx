@@ -10,6 +10,9 @@ import { CompareRunPairBody } from '../../compare-tab/CompareRunPairBody'
 import { selectGoalProbability, type GoalProbabilityInput } from '../../../components/results/utils/selectGoalProbability'
 import { goalLevelFromIdentityCaveat } from '../../../components/results/utils/goalLevelFromIdentity'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
+import { useCanonicalAnalysisViewStore } from '../canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
+import { goalProbabilityWords } from '../../../components/results/utils/goalAnchorCopy'
 
 const licence = {
   code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info',
@@ -36,8 +39,23 @@ function snapshot(response: ReturnType<typeof raw>) {
   return buildAnalysisSnapshot({ rawV2Response: response as unknown as V2RunResponse,
     nodes: [], edges: [], runNumber: 1, events: [], previousSnapshotTimestamp: null })
 }
-function previous(warnings: unknown[] = []) {
-  useCanvasStore.setState(s => ({ results: { ...s.results, status: 'complete', report: report(warnings) as never } }))
+/**
+ * #2747 chance authority gate: the previous Run is held with its matching, current canonical view (figure cells saying the
+ * licence's percents) unless `held` is false; the writer stores only a gated figure.
+ */
+function previous(warnings: unknown[] = [], held = true) {
+  const lic = warnings.find((w): w is typeof licence => (w as { code?: string }).code === 'GOAL_CHANCE_LICENSED')
+  useCanonicalAnalysisViewStore.getState().adopt(useCanvasStore.getState().currentScenarioId as string, held && lic ? parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: 'run-previous', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: lic.option_ids.map(option_id => ({ option_id, main_driver: { kind: 'not_recorded' },
+      cell: typeof (lic.pct_by_option as Record<string, number>)[option_id] === 'number'
+        ? { kind: 'figure', display: goalProbabilityWords(`${(lic.pct_by_option as Record<string, number>)[option_id]}%`) }
+        : { kind: 'withheld', reasons: [] } })),
+  }) : null)
+  useCanvasStore.setState(s => ({ results: { ...s.results, status: 'complete', report: { ...report(warnings), run_id: 'run-previous' } as never } }))
   useCanvasStore.getState().resultsComplete({ report: { option_probabilities: {} } as never, hash: 'next' })
   return selectPreviousReport(useCanvasStore.getState())!
 }
@@ -50,20 +68,23 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('S1 PERSIST licensed chance', () => {
-  it('P1 last-result: licensed option stores pct/100; all keys and other values survive', () => {
+  it('P1 last-result: a licensed option of a Run held with its current canonical view stores pct/100; all keys survive', () => {
     expect(previous([licence]).options.a).toEqual({ winProbability: 0.7, goalProbability: 0.41 })
   })
-  it('P1 AnalysisSnapshot: licensed winner stores the licensed whole percent (field unit), never raw or a rounded raw percent', () => {
+  it('#2747 CONTRAST last-result: the same licence with no canonical view stores null (the gate; never the licence alone)', () => {
+    expect(previous([licence], false).options.a).toEqual({ winProbability: 0.7, goalProbability: null })
+  })
+  it('#2747 P1 AnalysisSnapshot: written before the Run has a canonical view, it stores no chance (never raw, never the licence alone)', () => {
     const saved = snapshot(raw([licence]))
-    expect(saved.goalProbability).toBe(41)
+    expect(saved.goalProbability).toBeNull()
     expect(saved.jointGoalProbability).toBe(23)
     expect(saved.goalBaseCaveat).toBeNull()
   })
-  it('P1 licensed zero and 100 are retained by both writers', () => {
+  it('P1 licensed zero and 100 are retained by the last-result writer (held); the snapshot writer stores none (#2747)', () => {
     for (const pct of [0, 100]) {
       const lic = { ...licence, pct_by_option: { a: pct } }
       expect(previous([lic]).options.a.goalProbability).toBe(pct / 100)
-      expect(snapshot(raw([lic])).goalProbability).toBe(pct)
+      expect(snapshot(raw([lic])).goalProbability).toBeNull()
     }
   })
   it('P2 last-result: absent licence, withheld option and unlisted option store null', () => {
@@ -77,7 +98,7 @@ describe('S1 PERSIST licensed chance', () => {
     expect(snapshot(raw([{ ...licence, pct_by_option: {}, withheld_option_ids: ['a', 'b'] }])).goalProbability).toBeNull()
     expect(snapshot(raw([{ ...licence, option_ids: ['b'], pct_by_option: { b: 41 }, withheld_option_ids: [] }])).goalProbability).toBeNull()
   })
-  it('CONTROL: every other AnalysisSnapshot field, including joint and base caveat, keeps its old value', () => {
+  it('CONTROL: every other AnalysisSnapshot field keeps its old value; the base caveat follows the gated chance (#2747: none here)', () => {
     const identityWarning = { code: 'GOAL_LEVEL_FROM_IDENTITY_INPUTS', field: 'nodes[g].nonlinear_identity' }
     for (const goal of [0.879, undefined]) {
       for (const author of ['olumi', 'user', undefined]) {
@@ -93,7 +114,8 @@ describe('S1 PERSIST licensed chance', () => {
           const old = selectGoalProbability({ ...input, ...(level === null ? {} : { goalLevelAuthor: level }) })
           const saved = snapshot(response)
           expect(saved.jointGoalProbability).toBe(old.jointGoalProbability === null ? null : Math.round(old.jointGoalProbability * 100))
-          expect(saved.goalBaseCaveat).toBe(old.goalFitBaseCaveat)
+          // #2747: the caveat qualifies a gated chance; this snapshot has none, so it carries none.
+          expect(saved.goalBaseCaveat).toBeNull()
           const licensed = snapshot({ ...response, inference_warnings: [identityWarning, licence] })
           const omit = ({ goalProbability: _goal, runId: _id, timestamp: _time, inferenceWarnings: _warnings, ...rest }: typeof saved) => rest
           expect(omit(licensed)).toEqual(omit(saved))

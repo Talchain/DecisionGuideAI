@@ -1,8 +1,11 @@
 import { useCanonicalAnalysisViewStore } from '../../../../../canvas/stores/canonicalAnalysisViewStore'
 import type { ResultsSectionDataReturn } from '../../../useResultsSectionData'
-import { buildRunView, type OptionChanceCellContext } from '../../../../../canvas/runView/runView'
+import { buildRunView, runViewFromParts, type OptionChanceCellContext } from '../../../../../canvas/runView/runView'
+import { goalProbabilityWords } from '../../../utils/goalAnchorCopy'
+import { readGoalChanceRange } from '../../../utils/goalChanceRange'
 import type { CanonicalAnalysisView, CanonicalAnalysisCell } from '../../../../../canvas/runView/canonicalAnalysisView'
 import { goalChanceOptionLines, goalChanceRangeLine } from '../../goalChanceCopy'
+import { gateWordsOf } from './gateWords'
 
 /** SELF-AUTHORED UI fixtures, not served evidence. Positive display tests explicitly supply
  * canonical cells; D1/served-byte/turn suites never use this helper. The historical chat
@@ -12,7 +15,7 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
   const range = data.goalChanceRange ?? data.runView?.goalChanceRange ?? null
   const options = data.recommendation.allOptions
   const labelOf = (id: string) => options.find(o => o.id === id)?.label ?? null
-  const lines = data.goalChanceLicence ? goalChanceOptionLines(data.goalChanceLicence, labelOf) : null
+  const lines = data.goalChanceLicence ? goalChanceOptionLines(data.goalChanceLicence, labelOf, gateWordsOf(data.goalChanceLicence)) : null
   const canonical: CanonicalAnalysisView = {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run,
@@ -26,13 +29,14 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
       const face = line
       const withheld = data.recommendation.goalFiguresWithheldMessage ?? option.goalCertaintyUnearned?.say
       const pct = licence?.pctByOption[option.id] ?? null
-      const display = pct === null ? null : pct < 1 ? 'less than 1%' : pct > 99 ? 'more than 99%' : `about ${pct}%`
+      // Served shape (#2747): `display` is the figure's words ("about 17%"), the option's sentence is its `face`.
+      const display = pct === null ? null : goalProbabilityWords(`${pct}%`)
       const cell: CanonicalAnalysisCell = rangeText !== null ? { kind: 'range', display: rangeText,
         face: rangeText.includes(' chance of meeting your goal, in this model. ')
           ? rangeText.split(' chance of meeting your goal, in this model. ')[0] + ' chance of meeting your goal, in this model.' : rangeText, detail: {} }
         : withheld ? { kind: 'withheld', face: withheld, reasons: [] }
         : face !== undefined ? licence!.withheldOptionIds.includes(option.id) ? { kind: 'withheld', face, reasons: [] }
-          : { kind: 'figure', display: face, face }
+          : { kind: 'figure', display: display ?? face, face }
         : display !== null ? { kind: 'figure', display } : { kind: 'none' }
       const driver = licence?.driverByOption?.[option.id]
       const wireDriver = driver ? { ...driver, authored_by: driver.authoredBy,
@@ -47,22 +51,25 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
   return canonical
 }
 
+/** The data's licence and ranges, held with their self-authored current canonical view, through the REAL gate (#2747). */
 export function withCanonicalTestCells(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
-  const view = buildRunView({ run_id: 'synthetic-ui-fixture' }, canonicalTestCellsOf(data))
-  Object.assign(view, { goalChance: data.goalChanceLicence ?? data.runView?.goalChance ?? null,
-    goalChanceRange: data.goalChanceRange ?? data.runView?.goalChanceRange ?? null,
-    ...(data.runView ? { chanceOf: data.runView.chanceOf } : {}),
-  })
+  const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, data.goalChanceLicence ?? data.runView?.goalChance ?? null,
+    data.goalChanceRange ?? data.runView?.goalChanceRange ?? null, canonicalTestCellsOf(data))
   return { ...data, runView: view }
 }
+
+/** The Run's own range record (test-only read; the view's ranges are gated by the canonical view this fixture supplies). */
+const rawRangeOf = (report: unknown) => readGoalChanceRange((report as { inference_warnings?: unknown } | null)?.inference_warnings)
 
 /** Explicit synthetic canonical projection for isolated card layout tests. */
 export function canonicalFixtureRunView(report: unknown, ctx: OptionChanceCellContext) {
   const view = buildRunView(report)
-  const ids = [...new Set([...(view.goalChance?.optionIds ?? []), ...(view.goalChanceRange?.optionIds ?? [])])]
+  // #2747: the view's own ranges are gated (none without a canonical view), so the fixture reads the Run's range record.
+  const range = rawRangeOf(report)
+  const ids = [...new Set([...(view.goalChance?.optionIds ?? []), ...(range?.optionIds ?? [])])]
   return withCanonicalTestCells({
     runView: view, goalChanceLicence: ctx.goalChanceHeroSays ? view.goalChance : null,
-    goalChanceRange: view.goalChanceRange,
+    goalChanceRange: range,
     goalChanceDriverNames: { labelOf: ctx.rangeLabelOf ?? ctx.labelOf },
     recommendation: { allOptions: ids.map(id => ({ id, label: ctx.labelOf(id) ?? '',
       goalCertaintyUnearned: ctx.goalCertaintyUnearned })), goalFiguresWithheldMessage: ctx.goalFiguresWithheldMessage },
@@ -74,12 +81,13 @@ export function installCanonicalFixtureState<T extends { results?: { report?: un
   const report = state.results?.report
   if (!report || typeof report !== 'object') return state
   const view = buildRunView(report)
+  const range = rawRangeOf(report)
   const probabilities = (report as { option_probabilities?: Record<string, { win_probability?: unknown }> }).option_probabilities ?? {}
-  const ids = [...new Set([...(view.goalChance?.optionIds ?? []), ...(view.goalChanceRange?.optionIds ?? []),
+  const ids = [...new Set([...(view.goalChance?.optionIds ?? []), ...(range?.optionIds ?? []),
     ...(unlicensedFace ? Object.keys(probabilities).filter(id => typeof probabilities[id].win_probability === 'number') : [])])]
   if (ids.length === 0) return state
   const scenarioId = state.currentScenarioId ?? 'synthetic-card-scenario'
-  const canonical = canonicalTestCellsOf({ runView: view, goalChanceLicence: view.goalChance, goalChanceRange: view.goalChanceRange,
+  const canonical = canonicalTestCellsOf({ runView: view, goalChanceLicence: view.goalChance, goalChanceRange: range,
     recommendation: { allOptions: ids.map(id => ({ id, label: String(state.nodes?.find(n => n.id === id)?.data?.label ?? id) })) },
     goalChanceDriverNames: { labelOf: (id: string) => String(state.nodes?.find(n => n.id === id)?.data?.label ?? id) },
   } as ResultsSectionDataReturn)

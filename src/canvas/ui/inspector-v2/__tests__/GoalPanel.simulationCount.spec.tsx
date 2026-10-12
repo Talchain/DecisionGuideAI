@@ -78,15 +78,12 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     }
   })
 
-  it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
+  it('#2747: with no canonical view no chance is shown, so no simulation count is said (never a fabricated 1,000)', () => {
+    // The real count beside a shown chance is pinned by the view-bearing control above.
     setStore(reportWithGoal({ n_samples: 5000 }))
     const { getByText, queryByText } = renderPanel()
-    const face = getByText(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
-    expect(getByText('Based on 5,000 simulations')).toBeTruthy()
-    // The old fabricated constant must never appear.
+    expect(getByText(CHANCE_NOT_SHOWN_YET).textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(queryByText('Based on 5,000 simulations')).toBeNull()
     expect(queryByText('Based on 1,000 simulations')).toBeNull()
   })
 

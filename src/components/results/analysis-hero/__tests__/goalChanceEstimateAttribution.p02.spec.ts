@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { goalChanceHeadline, goalChanceOptionLines } from '../goalChanceCopy'
+import { gateWordsOf } from './helpers/gateWords'
 
 const TARGET = { comparator: 'at_least', value: 20000, unit: '£/month' }
 const wire = (extra: Record<string, unknown>) => [{
@@ -15,8 +16,8 @@ const wire = (extra: Record<string, unknown>) => [{
 }]
 const LABELS: Readonly<Record<string, string>> = { keep: 'Keep £49 Pro price', raise: '£59 Pro price at release' }
 const labelOf = (id: string) => LABELS[id] ?? null
-const lines = (extra: Record<string, unknown>) => goalChanceOptionLines(readGoalChanceLicence(wire(extra))!, labelOf) ?? []
-const headline = (extra: Record<string, unknown>) => goalChanceHeadline(readGoalChanceLicence(wire(extra))!, labelOf)
+const lines = (extra: Record<string, unknown>) => goalChanceOptionLines(readGoalChanceLicence(wire(extra))!, labelOf, gateWordsOf(readGoalChanceLicence(wire(extra))!)) ?? []
+const headline = (extra: Record<string, unknown>) => goalChanceHeadline(readGoalChanceLicence(wire(extra))!, labelOf, gateWordsOf(readGoalChanceLicence(wire(extra))!))
 
 describe('GP: an estimate-backed goal chance names Olumi’s estimates in the same sentence', () => {
   it('k = 2 → every option line carries the attribution before its full stop', () => {

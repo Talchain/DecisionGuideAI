@@ -1,4 +1,4 @@
-import { withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { installCanonicalFixtureState, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
@@ -46,6 +46,8 @@ function seedRange() {
   useCanvasStore.setState({ results: { ...state.results, report: {
     ...source, inference_warnings: [...source.inference_warnings, RANGE],
   } } } as never)
+  // #2747 chance authority gate: the Run is held with its current canonical view (a range cell for the ranged option).
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
   const data = renderHook(() => useResultsSectionData()).result.current
   expect(data.goalChanceRange).toEqual(readGoalChanceRange([RANGE]))
   return withCanonicalTestCells(data)
@@ -58,6 +60,7 @@ function withWarnings(extra: Array<Record<string, unknown>>) {
   useCanvasStore.setState({ results: { ...state.results, report: {
     ...source, inference_warnings: [...source.inference_warnings, ...extra],
   } } } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
   return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
 }
 

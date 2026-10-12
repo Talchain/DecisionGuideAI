@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest'
 import { readGoalChanceLicence, type GoalChanceLicence } from '../../utils/goalChanceLicence'
 import { goalChanceDriverLines, goalChanceOptionLines } from '../goalChanceCopy'
+import { gateWordsOf } from './helpers/gateWords'
 
 const TARGET = { comparator: 'at_least', value: 120000, unit: '£' }
 const wire = (extra: Record<string, unknown>) => [{
@@ -319,7 +320,7 @@ describe('the sentence follows its own option’s line', () => {
 
   it('is appended to the option CEE made the claim for, and to no other', () => {
     const licence = read({ driver_by_option: { hold: FACTOR } })
-    expect(goalChanceOptionLines(licence, optionLabelOf, [], goalChanceDriverLines(licence, NAMES))).toEqual([
+    expect(goalChanceOptionLines(licence, optionLabelOf, gateWordsOf(licence), [], goalChanceDriverLines(licence, NAMES))).toEqual([
       '‘Raise to £59’: about 62% chance of meeting your goal, in this model.',
       `‘Keep £49’: about 41% chance of meeting your goal, in this model. ${sentence}`,
       '‘Longer trial’: about 20% chance of meeting your goal, in this model.',
@@ -328,7 +329,7 @@ describe('the sentence follows its own option’s line', () => {
 
   it('CONTROL: with no sentences the lines are exactly what they were', () => {
     const licence = read({ driver_by_option: { hold: FACTOR } })
-    expect(goalChanceOptionLines(licence, optionLabelOf)).toEqual([
+    expect(goalChanceOptionLines(licence, optionLabelOf, gateWordsOf(licence))).toEqual([
       '‘Raise to £59’: about 62% chance of meeting your goal, in this model.',
       '‘Keep £49’: about 41% chance of meeting your goal, in this model.',
       '‘Longer trial’: about 20% chance of meeting your goal, in this model.',
@@ -337,7 +338,7 @@ describe('the sentence follows its own option’s line', () => {
 
   it('a withheld option keeps its withheld line and never takes a sentence', () => {
     const licence = read({ pct_by_option: { raise: 62, hold: 41 }, withheld_option_ids: ['trial'] })
-    const lines = goalChanceOptionLines(licence, optionLabelOf, [], { trial: sentence, raise: sentence })
+    const lines = goalChanceOptionLines(licence, optionLabelOf, gateWordsOf(licence), [], { trial: sentence, raise: sentence })
     expect(lines?.[0]).toBe(`‘Raise to £59’: about 62% chance of meeting your goal, in this model. ${sentence}`)
     expect(lines?.[2]).toBe('‘Longer trial’: Olumi can’t yet say its chance of meeting your goal, in this model.')
   })

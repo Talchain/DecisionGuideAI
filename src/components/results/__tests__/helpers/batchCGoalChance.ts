@@ -7,6 +7,9 @@
  * quote the joint" case). The marketing licensed faces follow CEE's face rule (`goal-chance-screen-lines.ts:64`:
  * `‘label’: about N% ${chance_words}, in this model.`). The UI must say them as served and compose no chance of its own.
  *
+ * IDENTITY (#2747): each Run carries a graph hash on the wire block and the canonical run alike, as served (capacity 03.json),
+ * so a persisted chat card can be matched to its Run by the chance authority gate.
+ *
  * SHAPE: the Run goes through the REAL V5 mapper (`mapV5AnalysisToReport`) and the canonical view through the REAL
  * parser (`parseCanonicalAnalysisView`) into the scenario-bound store, exactly as READ/TURN adopt it.
  * `probability_of_goal` on marketing is the NEW CUSTOMERS marginal (60 / 70); the joint (35 / 48) is the headline.
@@ -75,14 +78,14 @@ export function hiringJourney(): Journey {
       node('carry_on', 'option', 'Carry on with the current team'),
       node('cost', 'factor', 'First-year hiring cost'),
     ],
-    block: { type: 'analysis_result', run_id: 'run-batch-c-hiring', summary: 'Hiring', leading_option_id: null,
+    block: { type: 'analysis_result', run_id: 'run-batch-c-hiring', computed_against_hash: 'graph-hash-hiring', summary: 'Hiring', leading_option_id: null,
       enrichment: { option_comparison: [
         entry('hire_a_tech_lead', 'Hire a tech lead', { probability_of_goal: 0.46, win_probability: 0.55, outcome: outcome(12) }),
         entry('hire_two_developers', 'Hire two developers', { probability_of_goal: 0.31, win_probability: 0.4, outcome: outcome(9) }),
         entry('carry_on', 'Carry on with the current team', { probability_of_goal: 0, win_probability: 0.05, outcome: outcome(0) }),
       ], inference_warnings: [structuredClone(HIRING_LICENCE)] } },
     canonical: { schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
-      run: { run_id: 'run-batch-c-hiring', graph_hash_at_run: null, computed_at: null }, staleness: STALENESS, leader_licence: 'withheld',
+      run: { run_id: 'run-batch-c-hiring', graph_hash_at_run: 'graph-hash-hiring', computed_at: null }, staleness: STALENESS, leader_licence: 'withheld',
       options: [
         { option_id: 'hire_a_tech_lead', cell: { kind: 'figure', display: 'about 46%', face: HIRING_TECH_LEAD_FACE }, main_driver: { kind: 'not_recorded' } },
         { option_id: 'hire_two_developers', cell: { kind: 'figure', display: 'about 31%', face: HIRING_TWO_DEVS_FACE }, main_driver: { kind: 'not_recorded' } },
@@ -123,13 +126,13 @@ export function marketingJourney(joint: 'licensed' | 'withheld'): Journey {
       node('hire_manager', 'option', 'Hire a marketing manager'),
       node('ai_plus_ads', 'option', 'AI planning plus advertising'),
     ],
-    block: { type: 'analysis_result', run_id: `run-batch-c-marketing-${joint}`, summary: 'Marketing', leading_option_id: null,
+    block: { type: 'analysis_result', run_id: `run-batch-c-marketing-${joint}`, computed_against_hash: `graph-hash-marketing-${joint}`, summary: 'Marketing', leading_option_id: null,
       enrichment: { option_comparison: [
         entry('hire_manager', 'Hire a marketing manager', { probability_of_goal: 0.6, probability_of_joint_goal: 0.35, ...precision, win_probability: 0.4, outcome: outcome(18) }),
         entry('ai_plus_ads', 'AI planning plus advertising', { probability_of_goal: 0.7, probability_of_joint_goal: 0.48, ...precision, win_probability: 0.6, outcome: outcome(21) }),
       ], inference_warnings: [licence] } },
     canonical: { schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
-      run: { run_id: `run-batch-c-marketing-${joint}`, graph_hash_at_run: null, computed_at: null }, staleness: STALENESS, leader_licence: 'withheld',
+      run: { run_id: `run-batch-c-marketing-${joint}`, graph_hash_at_run: `graph-hash-marketing-${joint}`, computed_at: null }, staleness: STALENESS, leader_licence: 'withheld',
       options: [
         { option_id: 'hire_manager', cell: cell('Hire a marketing manager', 35), main_driver: { kind: 'not_recorded' } },
         { option_id: 'ai_plus_ads', cell: cell('AI planning plus advertising', 48), main_driver: { kind: 'not_recorded' } },

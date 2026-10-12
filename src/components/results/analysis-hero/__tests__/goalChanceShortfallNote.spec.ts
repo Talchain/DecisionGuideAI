@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { GOAL_CHANCE_SPREAD_NOTE, goalChanceOptionLines } from '../goalChanceCopy'
+import { gateWordsOf } from './helpers/gateWords'
 
 // T1b known answers, byte for byte as CEE #2787 asserts them.
 const RAISE = 'In its worst 1 in 20 runs of this model, ‘Raise prices 10%’ falls short of your target by £15,000 / month or more.'
@@ -19,7 +20,7 @@ const LABELS: Readonly<Record<string, string>> = { raise: 'Raise prices 10%', ke
 const linesOf = (extra: Record<string, unknown>, labels = LABELS): string[] => {
   const licence = readGoalChanceLicence(wire(extra))
   expect(licence, 'the record itself is well formed').not.toBeNull()
-  return goalChanceOptionLines(licence!, (id) => labels[id] ?? null) ?? []
+  return goalChanceOptionLines(licence!, (id) => labels[id] ?? null, gateWordsOf(licence!)) ?? []
 }
 const said = (lines: string[]) => lines.filter((l) => l.includes(RAISE) || l.includes(KEEP))
 
@@ -34,7 +35,7 @@ describe('B19 shortfall: CEE words it, the card says it verbatim after the chanc
   })
   it('it follows the spread note and precedes the driver', () => {
     const licence = readGoalChanceLicence(wire({ spread_note_by_option: { raise: GOAL_CHANCE_SPREAD_NOTE }, shortfall_note_by_option: { raise: RAISE } }))!
-    const lines = goalChanceOptionLines(licence, (id) => LABELS[id] ?? null, [], { raise: 'DRIVER.' })!
+    const lines = goalChanceOptionLines(licence, (id) => LABELS[id] ?? null, gateWordsOf(licence), [], { raise: 'DRIVER.' })!
     expect(lines[0].endsWith(`. ${GOAL_CHANCE_SPREAD_NOTE} ${RAISE} DRIVER.`)).toBe(true)
   })
   it('a sentence naming another label is not said on this option (identity, not position)', () => {
@@ -52,7 +53,7 @@ describe('B19 shortfall: CEE words it, the card says it verbatim after the chanc
     const licence = readGoalChanceLicence(wire(extra as Record<string, unknown>))
     expect(licence).not.toBeNull()
     expect(licence!.shortfallNoteByOption ?? {}).toEqual({})
-    expect(said(goalChanceOptionLines(licence!, (id) => LABELS[id] ?? null) ?? [])).toHaveLength(0)
+    expect(said(goalChanceOptionLines(licence!, (id) => LABELS[id] ?? null, gateWordsOf(licence!)) ?? [])).toHaveLength(0)
   })
   it('a withheld option never carries it', () => {
     const licence = readGoalChanceLicence(wire({

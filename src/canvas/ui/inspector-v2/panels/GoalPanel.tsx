@@ -45,9 +45,8 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
-import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
-import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
+import { formatGoalChangeBound, formatGoalTarget, TARGET_NOT_CAPTURED } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -221,34 +220,8 @@ export const GoalPanel = memo(function GoalPanel({
   // The owner's decision, forwarded (see the identity comment above): the
   // number, the joint figure, and which quantity the number IS.
   const probGoal = displayMetadata.achievementProbability
-  const probJoint = displayMetadata.jointGoalProbability ?? null
-  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
-  // chooser; it was still being a NARRATOR — rendering the owner's number in
-  // possessive wording the owner had explicitly forbidden
-  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
-  // this and was the one field this panel destructured past.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
-  // the user's own goal AND their own limits — the possessive is earned there
-  // and is untouched. The `=== 'joint_goal_substituted'` narrowing is the
-  // canvas's one vocabulary for this test (OptionNode, GoalNode) — never a
-  // re-derivation.
-  //
-  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
-  // selector returns `goalProbability === jointGoalProbability` by
-  // construction, so the Impact block was stating one value twice in two
-  // different voices: "N% chance of success" over "Chance of hitting every
-  // target: N%". One of those was false. They are collapsed to the honest one.
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
-  // `selectGoalProbability` no longer substitutes the joint figure into the
-  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
-  // number, so this surface renders nothing to re-voice. The bases that still
-  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
-  // both EARN the possessive. The narrowing goes through the owner's exported
-  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
-  // rule instead of four copies of a literal.
-  const goalFitSubstituted =
-    probGoal !== null && basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
+  // #2747 chance authority gate: no joint ("all your limits hold") figure is shown; no canonical cell licenses it.
+  // #2747: the possessive gate's `goalFitSubstituted` guarded only the joint lines, which are removed (no licensed joint).
 
   /**
    * The success-target string (ROADMAP 2.315(c)).
@@ -327,7 +300,7 @@ export const GoalPanel = memo(function GoalPanel({
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
   /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
   const changeBound = resolvedTarget?.frame != null
@@ -622,7 +595,7 @@ export const GoalPanel = memo(function GoalPanel({
     const raw = typeof summaryTarget.raw === 'number' ? summaryTarget.raw : Number(summaryTarget.raw)
     return Number.isNaN(raw)
       ? String(summaryTarget.raw)
-      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? String(summaryTarget.raw)
+      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
   const summaryTargetDisplay = summaryNodeTargetDisplay
     ?? (summaryStoreTarget != null ? String(summaryStoreTarget) : null)
@@ -1018,16 +991,6 @@ export const GoalPanel = memo(function GoalPanel({
                     measurement, and only one of the two framings was true.
                     Same flag, same reason, same arm. On every other basis the
                     two are genuinely different quantities and this line stays. */}
-                {typeof probJoint === 'number' && !goalFitSubstituted && (
-                  <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
-                  </p>
-                )}
-                {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
-                  <p className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
-                    {GOAL_FIT_BASIS_CAVEAT_COPY}
-                  </p>
-                )}
                 {/* UI-SEM-087: honest status when the constraints displayed here
                     do not reach the engine — guest panel writes are RLS-swallowed. */}
                 {constraintsInert && (
@@ -1154,7 +1117,7 @@ export const GoalPanel = memo(function GoalPanel({
       {isResultsMode && (typeof probGoal === 'number' || (identityWithheld === null && certaintyUnearned === null && !perOptionOnly)) && (
         <InspectorMoreItems>
           <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-            {typeof probGoal === 'number' || (displayMetadata.achievementChanceUnlicensed === true && typeof probJoint === 'number') ? (
+            {typeof probGoal === 'number' || (displayMetadata.achievementChanceUnlicensed === true && displayMetadata.jointGoalPresent === true) ? (
             <>
             {scenarioCount != null && (
               <div className={`${typography.panelMeta} text-text-light`}>
@@ -1164,20 +1127,9 @@ export const GoalPanel = memo(function GoalPanel({
             <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
             {/* The constraints block already states this when it is mounted.
                 A joint result without that block still needs its own words. */}
-            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && (
-              <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
-              </div>
-            )}
-            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
-              <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
-                {GOAL_FIT_BASIS_CAVEAT_COPY}
-              </div>
-            )}
             {techMode && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>
                 {displayMetadata.achievementChanceCell?.text}
-                {typeof probJoint === 'number' && ` · probability_of_joint_goal: ${probJoint.toFixed(2)}`}
               </div>
             )}
             </>

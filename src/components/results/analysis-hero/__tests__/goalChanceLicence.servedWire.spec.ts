@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { goalChanceDriverLines, goalChanceOptionLines } from '../goalChanceCopy'
+import { gateWordsOf } from './helpers/gateWords'
 
 type Json = Record<string, any>
 const SERVED = JSON.parse(readFileSync(join(process.cwd(), 'src/components/results/analysis-hero/__tests__/fixtures/served-t1b-f440be4a-goal-chance-records.json'), 'utf8')) as Json
@@ -31,7 +32,7 @@ describe('served T1b goal-chance records → the hero’s per-option lines (ruli
     expect(licence!.pctByOption).toEqual({ raise_prices_by_10: 46, launch_starter_tier: 52, keep_pricing_as_it_is: 0 })
     const drivers = goalChanceDriverLines(licence, names)
     expect(Object.keys(drivers)).toEqual(['raise_prices_by_10', 'launch_starter_tier'])
-    expect(goalChanceOptionLines(licence!, (id) => OPTION_LABEL[id] ?? null, [], drivers)).toEqual([
+    expect(goalChanceOptionLines(licence!, (id) => OPTION_LABEL[id] ?? null, gateWordsOf(licence!), [], drivers)).toEqual([
       '‘Raise prices by 10%’: about 46% chance of meeting your goal, in this model. It rests most on how strongly '
         + '‘Price increase from current’ affects ‘Monthly recurring revenue’, at the size you set: if that effect is weaker '
         + 'than that, the chance falls. How sure are you of that size?',

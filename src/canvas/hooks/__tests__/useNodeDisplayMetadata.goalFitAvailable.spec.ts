@@ -1,4 +1,4 @@
-import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
+import { licensedTestReportHeld } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ROADMAP 2.275 — the CONTAINER/POINTER gap behind the witnessed goal-node
  * contradiction, pinned by EXECUTING THE REAL HOOK.
@@ -80,7 +80,7 @@ const WITNESSED_REPORT = {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReport(report) } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReportHeld(report) } }))
 }
 
 beforeEach(() => {

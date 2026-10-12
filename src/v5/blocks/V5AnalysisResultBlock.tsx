@@ -70,7 +70,8 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { licensedGoalChanceDetailLines, licensedOptionChanceLines, runViewOf } from '../../canvas/runView/runView'
+import { chatCardRunViewOf, licensedGoalChanceDetailLines, licensedOptionChanceLines } from '../../canvas/runView/runView'
+import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 import { goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
@@ -460,24 +461,32 @@ function V5AnalysisResultBlockImpl({
   // Paul's 6 Oct rule: the chance of meeting the goal is the per-option
   // headline; win share below is supporting detail. Read the licence from THIS
   // persisted block, never the current report in the store, so an older card
-  // cannot acquire a newer Run's figures.
-  const blockRunView = runViewOf(block.enrichment)
+  // cannot acquire a newer Run's figures. #2747 re-scope: every figure passes the
+  // ONE authority gate, against the scenario's canonical view matched to THIS
+  // card's Run by its graph hash; a card for an older or not-current Run quotes none.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const goalChanceLicence = blockRunView.goalChance
   const goalChanceRange = blockRunView.goalChanceRange
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
-  // Recovery Batch C (#2747 r1): THIS Run's own stored words for what the chance is OF, its status quo, each target
-  // and its notes (the conditions the chance leaves out), never the generic "your goal".
-  const goalChanceDetail = blockRunView.licenceGoalChanceDetail()
+  // Recovery Batch C: the Run's words for what the chance is OF, its status quo, each target and its notes, from the
+  // matching current canonical view (the gate's own rule), never the generic "your goal".
+  const goalChanceDetail = blockRunView.goalChanceDetail()
+  const rangedIds = new Set(goalChanceRange?.optionIds ?? [])
   const pointGoalChanceLines = goalChanceLicence === null
     ? null
-    : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, [], {}, false, undefined,
+    : licensedOptionChanceLines({ ...goalChanceLicence, optionIds: goalChanceLicence.optionIds.filter(id => !rangedIds.has(id)) },
+      goalChanceLabelOf, id => blockRunView.chanceFigureOf(id)?.words ?? null, [], {}, false, undefined,
       goalChanceDetail === null ? undefined : { chanceWords: goalChanceDetail.chance_words, statusQuo: goalChanceDetail.status_quo })
+  const pointLineById = new Map(goalChanceLicence === null || pointGoalChanceLines === null ? []
+    : goalChanceLicence.optionIds.filter(id => !rangedIds.has(id)).map((id, index) => [id, pointGoalChanceLines[index]] as const))
   const goalChanceLines = pointGoalChanceLines === null || goalChanceLicence === null
     ? null
-    : goalChanceLicence.optionIds.map((id, index) => {
+    : goalChanceLicence.optionIds.map((id) => {
         const range = goalChanceRange?.rangeByOption[id]
         return range === undefined
-          ? pointGoalChanceLines[index]
+          ? pointLineById.get(id)
           : goalChanceRangeLine(range, goalChanceLabelOf(id), goalChanceLabelOf)
       })
   const shownGoalChanceLines = goalChanceLines?.every((line): line is string => typeof line === 'string')

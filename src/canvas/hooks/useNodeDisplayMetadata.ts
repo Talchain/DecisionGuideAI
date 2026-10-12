@@ -254,25 +254,9 @@ export interface NodeDisplayMetadata {
    * real hook so "optional in the type" cannot decay into "absent in practice".
    */
   achievementProbabilityBasis?: GoalProbabilityBasis | null
-  /**
-   * ROADMAP 2.296 item 5 (2.282-C2) — the raw joint-goal quantity, FORWARDED
-   * VERBATIM from the SAME `selectGoalProbability` decision that produced
-   * `achievementProbability`. It exists because `GoalPanel` renders the joint
-   * figure as its own separately-labelled claim ("Chance of hitting every
-   * target") beside the goal figure; until this field the panel obtained both
-   * by feeding the WHOLE report into the selector — which expects one
-   * option-probability record — so on the real V5 mapper shape every read was
-   * null and #556's basis gate was dark. Never re-read off the raw record and
-   * never re-derived at a render site: the selector's `jointGoalProbability`
-   * is the one answer, and this hook only carries it.
-   *
-   * OPTIONAL for the same mock-churn reason as `achievementProbabilityBasis`
-   * below; the real hook populates it whenever the pointer resolves.
-   * `useNodeDisplayMetadata.jointGoal.spec.ts` pins that.
-   */
-  jointGoalProbability?: number | null
-  /** The selector's `jointGoalIsModelledBasis`, carried beside the joint figure it qualifies (AIQ 5883088747). */
-  jointGoalProbabilityIsModelledBasis?: boolean
+  // #2747 chance authority gate: the joint ("all your limits hold") figure is not carried; no canonical cell licenses it.
+  /** Whether the producer sent a joint figure at all (the selector's `jointGoalPresent`), for classification only. */
+  jointGoalPresent?: boolean
   /**
    * ROADMAP 2.275. True when this run carries an admissible per-option goal
    * figure (per `selectGoalProbability`) even though no single probability is
@@ -404,8 +388,6 @@ export function useNodeDisplayMetadata(
         achievementProbabilityIsModelledBasis: false,
         achievementProbabilityBaseCaveat: null,
         achievementProbabilityBasis: null,
-        jointGoalProbability: null,
-        jointGoalProbabilityIsModelledBasis: false,
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
@@ -562,11 +544,10 @@ export function useNodeDisplayMetadata(
     let achievementProbabilityIsModelledBasis = false
     let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
     let achievementProbabilityBasis: GoalProbabilityBasis | null = null
-    let jointGoalProbability: number | null = null
-    let jointGoalProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
     let achievementCertaintyUnearned: { say: string | null } | null = null
+    let jointGoalPresent = false
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
       const optionProbabilities = report.option_probabilities ?? {}
@@ -584,9 +565,8 @@ export function useNodeDisplayMetadata(
           achievementProbability = chance.kind === 'figure' ? chance.pct / 100 : null
           achievementProbabilityBaseCaveat = achievementProbability === null ? null : details.baseCaveat
           achievementProbabilityBasis = achievementProbability !== null ? 'goal_probability'
-            : details.jointGoalProbability !== null ? 'joint_goal_withheld' : 'none'
-          jointGoalProbability = details.jointGoalProbability
-          jointGoalProbabilityIsModelledBasis = details.jointGoalIsModelledBasis
+            : details.jointGoalPresent ? 'joint_goal_withheld' : 'none'
+          jointGoalPresent = details.jointGoalPresent
           achievementCertaintyUnearned = details.goalCertaintyUnearned
 
         }
@@ -725,11 +705,10 @@ export function useNodeDisplayMetadata(
       achievementProbabilityIsModelledBasis,
       achievementProbabilityBaseCaveat,
       achievementProbabilityBasis,
-      jointGoalProbability,
-      jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
       goalIdentityWithheld: nodeType === 'goal' ? readGoalIdentityWithheld(report) : null,
       achievementCertaintyUnearned,
+      jointGoalPresent,
       stabilityPercentage,
       winRate,
       winComputationFailed,

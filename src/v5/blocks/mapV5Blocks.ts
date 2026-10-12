@@ -71,6 +71,9 @@ export function mapV5Block(
           ? { win_probabilities: block.win_probabilities }
           : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
+        // The Run's graph hash, for the chance authority gate's match to the canonical view (#2747).
+        ...(typeof (block as { computed_against_hash?: unknown }).computed_against_hash === 'string'
+          ? { computed_against_hash: (block as { computed_against_hash: string }).computed_against_hash } : {}),
         // The Run's identity, from the unstripped wire block (see `V5AnalysisResultBlock.analysis_hash`).
         analysis_hash: v5AnalysisBlockContentHash(block),
       }

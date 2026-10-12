@@ -102,8 +102,8 @@
   "sites": [
     {"class":"PERSIST","symbol":"licensedChanceCopy","file":"src/canvas/store.ts","call":0,"read":1,"def":0,"sanctioned":false},
     {"class":"PERSIST","symbol":"licensedChanceCopy","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"goal_probability","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"probability_of_goal","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":1,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"goal_probability","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":0,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"probability_of_goal","file":"src/canvas/stores/analysisSnapshotFactory.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/decisionBrief/buildDecisionBrief.ts","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/nodes/GoalNode.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/ui/inspector-v2/panels/GoalPanel.tsx","call":0,"read":0,"def":0,"sanctioned":false},

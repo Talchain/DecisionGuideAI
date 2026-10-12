@@ -46,6 +46,7 @@ export function goalChanceTargetWords(licence: GoalChanceLicence): string | null
 /**
  * The displayed figure in words (c6 6 Oct): a chance that DISPLAYS as 0 (under 0.5%) is "less than 1%" and one that
  * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
+ * Only for numbers already through the authority gate (gated ranges; the current canonical driver).
  */
 const about = (pct: number | undefined): string =>
   goalProbabilityWords(`${pct}%`)
@@ -54,17 +55,18 @@ const listOf = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 
 /**
- * The headline for a licensed Run, or `null` when a label or the target cannot be said (the surface then keeps the
- * headline it had). `labelOf` returns the option's display label, or null.
+ * The headline for a licensed Run, or `null` when a label, the target or a quoted figure cannot be said (the surface then
+ * keeps the headline it had). `labelOf` returns the option's display label, or null. `wordsOf` is the authority gate's
+ * words for an option's figure (`RunView.chanceFigureOf`), never the licence's own number (#2747 re-scope).
  */
-function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null): string | null {
+function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf: (id: string) => string | null): string | null {
   const target = goalChanceTargetWords(licence)
   if (target === null) return null
-  const figure = (id: string): string => wordsOf ? (wordsOf(id) ?? '') : about(licence.pctByOption[id])
+  const figure = (id: string): string => wordsOf(id) ?? ''
   const quoted = licence.form === 'highest' ? [licence.leaderOptionId!, licence.nextOptionId!]
     : licence.form === 'highest_all_likely_to_miss' ? [licence.leaderOptionId!]
     : licence.form === 'similar' ? licence.similarOptionIds : []
-  if (wordsOf && quoted.some(id => wordsOf(id) === null)) return null
+  if (quoted.some(id => wordsOf(id) === null)) return null
   const lead = 'In this model, on current information,'
   switch (licence.form) {
     case 'highest': {
@@ -112,7 +114,7 @@ function estimateLinkAttribution(licence: GoalChanceLicence, optionId?: string):
   return `, using Olumi's estimates for ${words} (see Check estimates)`
 }
 
-export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null,
+export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf: (id: string) => string | null,
   chanceWords?: string | null): string | null {
   // Recovery Batch C (rulings 18 to 22): when the Run's licence carries its own words for what the chance is a chance OF
   // (a change from today, several targets), they replace "chance of meeting your goal (target)", whose target words would
@@ -167,7 +169,10 @@ export const GOAL_CHANCE_SPREAD_NOTE =
   'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
 
 export function goalChanceOptionLines(
-  licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
+  licence: GoalChanceLicence, labelOf: (optionId: string) => string | null,
+  /** The authority gate's words for each option's figure (`RunView.chanceFigureOf`); null: the set cannot be said. */
+  wordsOf: (optionId: string) => string | null,
+  except: readonly string[] = [],
   driverLines: Readonly<Record<string, string>> = {},
   includeQuotedDrivers = false,
   cellOf?: (id: string) => { readonly kind: 'figure' | 'range' | 'withheld' | 'none'; readonly text: string | null },
@@ -215,7 +220,9 @@ export function goalChanceOptionLines(
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}${estimateLinkAttribution(licence, id)}.${spread}${shortfall}`
+    const words = wordsOf(id)
+    if (words === null) return null
+    lines.push(`‘${label}’: ${words} ${chance}${estimateLinkAttribution(licence, id)}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines

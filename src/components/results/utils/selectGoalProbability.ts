@@ -227,6 +227,11 @@ export interface GoalProbabilitySelection {
    * purpose, goes through this module.
    */
   jointGoalProbability: number | null
+  /**
+   * #2747 chance authority gate: whether the producer sent a joint figure at all, for classification only. No surface
+   * shows the joint number (no canonical cell licenses it); `jointGoalProbability` stays for the snapshot writer.
+   */
+  jointGoalPresent: boolean
   /** Which producer quantity `goalProbability` is. Never null; 'none' when absent. */
   basis: GoalProbabilityBasis
   /**
@@ -312,7 +317,7 @@ export function goalProbabilityDetails(prob: GoalProbabilityInput | null | undef
     prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
 
   return {
-    jointGoalProbability: jointGoalProb,
+    jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
     jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
     baseCaveat,
     goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
@@ -363,7 +368,7 @@ export function selectGoalProbability(
       // those surfaces read the producer field directly regardless of this
       // constant today — so publishing it here changes no rendered output in
       // either state of the gate, while keeping the read inside this module.
-      jointGoalProbability: jointGoalProb,
+      jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
       jointGoalIsModelledBasis: details.jointGoalIsModelledBasis,
@@ -425,7 +430,7 @@ export function selectGoalProbability(
     // figure as its OWN, separately-labelled claim ("chance of hitting every
     // target") are honest and keep their number. The gate governs the GOAL-FIT
     // slot only.
-    jointGoalProbability: jointGoalProb,
+    jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && details.jointGoalIsModelledBasis,

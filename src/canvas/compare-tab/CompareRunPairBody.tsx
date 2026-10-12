@@ -37,6 +37,8 @@ import { withheldReasonSegments } from './withheldReasonSegments'
 import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
 import { latestOnlyShares } from './latestOnlyShares'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
+import { latestRunIsCurrentCanonical } from '../runView/runView'
 import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
@@ -128,6 +130,10 @@ export function CompareRunPairBody({
   const latestShares = useMemo(() => view === null ? null : latestOnlyShares(view, report, (id) => labels.get(id) ?? null), [view, report, labels])
   const sizingPath: SizingPath = useMemo(() => ({ stateOf: linkSizingState, listed: unsizedLinks, latestShares }), [linkSizingState, unsizedLinks, latestShares])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
+  // #2747 (DL ruling (b)): the goal-chance row only when the pair's Latest Run is the current canonical Run.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const goalChancesCurrent = latestRunIsCurrentCanonical(canonical, endpoints?.current.run_id)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
   // The shared display order's own gate (`sortOptionsForDisplay`): a run that withholds designations keeps the producer's order.
@@ -186,7 +192,7 @@ export function CompareRunPairBody({
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} sizingPath={sizingPath} />
+        runIsCurrent={runIsCurrent} goalChancesCurrent={goalChancesCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} sizingPath={sizingPath} />
     </div>
   )
 }

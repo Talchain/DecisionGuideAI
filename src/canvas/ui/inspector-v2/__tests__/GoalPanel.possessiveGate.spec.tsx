@@ -296,9 +296,9 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(face.textContent).not.toContain('Why?')
     expect(text.split(CHANCE_NOT_SHOWN_YET).length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
-    // The joint line is a genuinely DIFFERENT quantity here, so it stays.
-    // 29 Sep 2026 (AIQ 5882498938 → 5885033487): "All your limits hold in N% of model runs".
-    expect(text).toMatch(/All your limits hold in \d+% of model runs/)
+    // #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint ("all your limits hold") figure is shown: the report's
+    // `probability_of_joint_goal` is licensed by no canonical cell, and beside CEE's licensed joint it is a second "both".
+    expect(text).not.toMatch(/All your limits hold in \d+% of model runs/)
   })
 
   // 29 Sep 2026 (AIQ 5882498938): was "the CONSTRAINED joint basis keeps the possessive" — now the GOAL figure on a constrained option does.
@@ -315,10 +315,11 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
 
-  it('AIQ 5882498938: the joint figure sits beside "Chance all your limits hold" — its own row, never the goal slot', () => {
+  it('#2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint (\"all your limits hold\") figure is shown, in any row', () => {
     setStore(CONSTRAINED_REPORT)
     const text = renderPanel().container.textContent ?? ''
-    expect(text).toContain('All your limits hold in 42% of model runs')
+    expect(text).not.toContain('All your limits hold in 42% of model runs')
+    expect(text).not.toContain('42%')
     expect(text).not.toContain('Chance of hitting every target')
   })
 
@@ -377,7 +378,12 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
  * (user constraints defined, run substituted) it restated the suppressed
  * number one section down.
  */
-describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real shape)', () => {
+/**
+ * #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint ("all your limits hold") figure is shown. The section's limits
+ * stay; the joint sentence and its modelled-basis caveat are gone (the report's `probability_of_joint_goal` is licensed
+ * by no canonical cell; in Batch C it can carry goal-target semantics). Every presence pin below is now an absence pin.
+ */
+describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real shape; joint figure removed by #2747)', () => {
   function setStoreWithConstraints(report: Record<string, unknown>) {
     assertHasCapturedTarget()
     const state = useCanvasStore.getState()
@@ -420,36 +426,35 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
    * what it is: P(all your limits met), not P(you reach your target). So it
    * comes BACK, and this test pins its presence rather than its absence.
    */
-  it('L62: the Constraints section DOES state the joint figure under its own honest label — the goal-fit slot is what was withheld, not the quantity', () => {
+  it('#2747: the Constraints section keeps its limits and states NO joint figure (was L62: stated under its own label)', () => {
     setStoreWithConstraints(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
     expect(text).toContain('Stay under budget')
-    expect(text).toContain(JOINT_LINE)
+    expect(text).not.toContain(JOINT_LINE)
     // …and the goal-fit claim it used to be duplicating is gone, so this is
     // one statement of one measurement, not two.
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
     expect(text).not.toMatch(/\d% chance of meeting your goal/)
   })
 
-  it('positive control: with constraints defined, a REAL probability_of_goal KEEPS the Constraints line', () => {
+  it('#2747: with constraints defined and a real goal figure, still no joint line', () => {
     setStoreWithConstraints(REAL_GOAL_REPORT)
-    expect(renderPanel().container.textContent ?? '').toContain(JOINT_LINE)
+    expect(renderPanel().container.textContent ?? '').not.toContain(JOINT_LINE)
   })
 
   // 29 Sep 2026 (AIQ 5882498938): the constrained fixture now carries its goal figure; without one, only the Constraints line survives.
-  it('positive control: a constrained option with its goal figure KEEPS one joint line beside its limits with or without a goal figure', () => {
-    // Count the surviving limits sentence once; removing it remains a failure.
+  it('#2747: a constrained option, with or without its goal figure, states no joint line (its limits stay)', () => {
     setStoreWithConstraints(CONSTRAINED_REPORT)
     const { container, unmount } = renderPanel()
     const text = container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(1)
+    expect(text).toContain('Stay under budget')
+    expect(text.split(JOINT_LINE).length - 1).toBe(0)
     unmount()
-    // No goal figure → the Impact block is withheld, so the joint figure is stated once, under its own label.
     setStoreWithConstraints(CONSTRAINED_NO_GOAL_REPORT)
     const withheld = renderPanel().container.textContent ?? ''
-    expect(withheld.split(JOINT_LINE).length - 1).toBe(1)
+    expect(withheld.split(JOINT_LINE).length - 1).toBe(0)
     expect(withheld).not.toMatch(/\d% chance of meeting your goal/)
   })
 
@@ -461,40 +466,32 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
   })
   const caveats = (c: HTMLElement) => [...c.querySelectorAll('[data-testid="goal-joint-modelled-basis-caveat"]')]
 
-  it('a modelled-basis joint figure carries GOAL_FIT_BASIS_CAVEAT_COPY directly under the surviving limits row', () => {
+  it('#2747: a modelled-basis joint figure is not shown, so neither is its caveat', () => {
     setStoreWithConstraints(MODELLED_JOINT_WITH_GOAL)
     const { container } = renderPanel()
-    const text = container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(1)
-    const cs = caveats(container)
-    expect(cs).toHaveLength(1)
-    for (const c of cs) {
-      expect(c.textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
-      expect(c.previousElementSibling?.textContent ?? '').toContain(JOINT_LINE)
-    }
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(0)
+    expect(caveats(container)).toHaveLength(0)
   })
 
-  it('CONTRAST: the same joint figure with NO modelled basis carries no caveat', () => {
+  it('#2747: the same report with NO modelled basis: no joint line and no caveat', () => {
     setStoreWithConstraints(REAL_GOAL_REPORT)
     const { container } = renderPanel()
-    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(1)
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(0)
     expect(caveats(container)).toHaveLength(0)
     expect(container.textContent ?? '').not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
   })
 
-  it('a modelled joint with the goal slot withheld: one limits row, one caveat under it', () => {
+  it('#2747: a modelled joint with the goal slot withheld: no joint line, no caveat', () => {
     setStoreWithConstraints(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
-    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(1)
-    expect(caveats(container)).toHaveLength(1)
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(0)
+    expect(caveats(container)).toHaveLength(0)
   })
 
-  it('DEDUP: the surviving limits row renders the REGISTER string', () => {
-    // The expectation is the register value; removing or changing the surviving
-    // sentence still turns the exact count red.
+  it('#2747: the register string for the joint line appears nowhere', () => {
     setStoreWithConstraints(REAL_GOAL_REPORT)
     const text = renderPanel().container.textContent ?? ''
-    expect(text.split(JOINT_LINE).length - 1).toBe(1)
+    expect(text.split(JOINT_LINE).length - 1).toBe(0)
   })
 })
 
@@ -503,7 +500,7 @@ function renderPanelFace(container: HTMLElement) {
   expect(face).toBeDefined()
   return face!
 }
-it('view-bearing control: GoalPanel retains possessive wording once and keeps joint limits in their own row', () => {
+it('view-bearing control: GoalPanel retains possessive wording once, and (#2747) states no joint limits figure', () => {
   vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
   for (const [report, pct] of [[REAL_GOAL_REPORT, 55], [CONSTRAINED_REPORT, 30]] as const) {
     setStore(report)
@@ -514,7 +511,7 @@ it('view-bearing control: GoalPanel retains possessive wording once and keeps jo
     expect(text.split(`about ${pct}% chance of meeting your goal`).length - 1).toBe(1)
     expect(text).not.toContain('42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
-    expect(text).toMatch(/All your limits hold in \d+% of model runs/)
+    expect(text).not.toMatch(/All your limits hold in \d+% of model runs/)
     unmount()
   }
 })

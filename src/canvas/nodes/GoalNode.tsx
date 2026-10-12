@@ -43,7 +43,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
-import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import {
   canCaptureGoalTarget,
@@ -230,7 +230,7 @@ const GOAL_TARGET_PREFIX = 'Target:'
  * and miss the others.
  */
 /** The fact, and the reduced line below the legibility floor. */
-export const GOAL_NO_TARGET_STATE = 'Target not captured'
+export const GOAL_NO_TARGET_STATE = TARGET_NOT_CAPTURED
 
 /**
  * WHERE A TARGET CAN ACTUALLY BE CAPTURED — one name, the estate's existing one.
@@ -695,7 +695,8 @@ export const GoalNode = memo((props: NodeProps) => {
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame) ?? String(thresholdRaw)
+    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame)
+    if (figure === null) return TARGET_NOT_CAPTURED
     return heldBound === null ? figure : `${heldBound} ${figure}`
   }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, quantityFrame, heldBound])
 

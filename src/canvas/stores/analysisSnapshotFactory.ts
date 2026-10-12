@@ -672,8 +672,8 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   const goalProbability = chance.kind === 'figure' ? chance.pct : null
 
   // Preserve the independent joint channel and base-caveat metadata exactly.
-  // Raw goal-field presence below is ONLY the existing caveat's applicability,
-  // never a source for the stored chance.
+  // The caveat applies as on Results (`goalFitBaseCaveat`): to a gated figure or
+  // a licensed withholding, never on a raw goal field (#2747 chance gate).
   const goalLevelAuthor = goalLevelFromIdentityCaveat(rawV2Response)
   const snapshotWithholds = readGoalFigureWithholds(rawV2Response)
   const goalIdentityWithheld = snapshotWithholds.length > 0 &&
@@ -688,7 +688,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     : null
   const goalBaseCaveat = !goalIdentityWithheld && winnerInput?.goalIdentityWithheld !== true &&
     winnerInput?.goalCertaintyUnearned === undefined &&
-    (typeof winnerInput?.goal_probability === 'number' || typeof winnerInput?.probability_of_goal === 'number')
+    (chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence'))
     ? details.baseCaveat : null
 
   // Seed

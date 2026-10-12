@@ -79,6 +79,14 @@ import { formatTargetValue } from './formatTargetValue'
 import { goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, isGoalPercentUnit, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
+ * #2747 re-scope (DL, after Codex round 2): THE ONE RULE FOR TARGET TEXT. When `formatGoalTarget` / `formatGoalChangeBound`
+ * cannot say a target (an unread frame, or a % change whose quantity frame is absent), the surface says this, never the
+ * bare stored number. Callers that pass a frame also pass the goal's `quantityFrame` (census:
+ * `__tests__/goalTargetText.census.spec.ts`).
+ */
+export const TARGET_NOT_CAPTURED = 'Target not captured'
+
+/**
  * Render a goal target magnitude with its unit.
  *
  * @param value - the target magnitude, in the units `unit` describes

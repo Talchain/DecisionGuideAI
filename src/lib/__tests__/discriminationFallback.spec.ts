@@ -1,4 +1,4 @@
-import { licensedTestReport } from '../../canvas/runView/__tests__/helpers/licensedTestReport'
+import { licensedTestView } from '../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * Tests for Discrimination Fallback Module
  *
@@ -17,7 +17,7 @@ import {
 // Existing synthetic conversion controls now supply the Run's test licence.
 const fromLicensedOptionProbabilities = (
   options: Parameters<typeof fromOptionProbabilities>[0], labels: Parameters<typeof fromOptionProbabilities>[1] = {},
-) => fromOptionProbabilities(options, labels, licensedTestReport({ option_probabilities: options }))
+) => fromOptionProbabilities(options, labels, licensedTestView({ option_probabilities: options }))
 
 describe('analyzeDiscrimination', () => {
   describe('basic discrimination', () => {

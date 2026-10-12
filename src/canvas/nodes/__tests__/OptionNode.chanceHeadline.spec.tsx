@@ -18,6 +18,7 @@ const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
 
 import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { fx, SCORED, seedPaulRun, resetPaulRun } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
+import { readGoalChanceRange } from '../../../components/results/utils/goalChanceRange'
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
 const ID = 'angel_bridge'
@@ -55,7 +56,9 @@ function seed(kind: Case) {
   } as never)
   if (kind !== 'unlicensed' && kind !== 'none') {
     const projection = renderHook(() => useResultsSectionData())
-    const canonical = canonicalTestCellsOf(projection.result.current, { run_id: 'canonical-chance-fixture', graph_hash_at_run: null, computed_at: null })
+    // #2747: the projection's ranges are gated before this canonical view exists, so the fixture reads the Run's range record.
+    const rawRange = readGoalChanceRange((useCanvasStore.getState().results.report as { inference_warnings?: unknown }).inference_warnings)
+    const canonical = canonicalTestCellsOf({ ...projection.result.current, goalChanceRange: rawRange }, { run_id: 'canonical-chance-fixture', graph_hash_at_run: null, computed_at: null })
     projection.unmount()
     useCanonicalAnalysisViewStore.getState().adopt(state.currentScenarioId!, canonical)
   }

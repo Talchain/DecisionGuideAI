@@ -17,6 +17,9 @@ import {
   COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords,
 } from '../../../components/results/analysis-hero/goalChanceCopy'
 import { CompareRunPairBody } from '../CompareRunPairBody'
+import { COMPARE_GOAL_CHANCES_NOT_CURRENT } from '../ComparePairSections'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { COMPARE_SUPPORT_TESTID } from '../CompareSupportFigures'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
@@ -75,7 +78,22 @@ describe('the view carries the producer\'s goal chances by identity', () => {
   })
 })
 
-function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true): string {
+/**
+ * #2747 (DL ruling (b)): the scenario's canonical view, for the pair's Latest Run (`run-b`, the fixture's current endpoint)
+ * by default; `latest: 'stale'` / `'other'` / `'absent'` are the three ways its Latest Run is not the current one.
+ */
+type Latest = 'current' | 'stale' | 'other' | 'absent'
+function adoptCanonical(latest: Latest): void {
+  const view = latest === 'absent' ? null : parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld', options: [],
+    run: { run_id: latest === 'other' ? 'run-after-b' : 'run-b', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: latest === 'stale', revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+  })
+  useCanonicalAnalysisViewStore.getState().adopt('scn-1', view)
+}
+function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true, latest: Latest = 'current'): string {
+  adoptCanonical(latest)
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.44, opt_49: 0.56 } })
   report.producer_leader_permission = permission
@@ -105,7 +123,7 @@ beforeEach(() => {
   vi.mocked(canvasLinkOfTarget).mockImplementation((target) => (target ? { target, focus: vi.fn(), highlight: vi.fn() } : null))
   vi.mocked(useCanvasLight).mockReturnValue({ on: vi.fn(), off: vi.fn() })
 })
-afterEach(() => { cleanup(); useCanvasStore.setState(original, true) })
+afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 
 describe('Compare leads with each option\'s chance of meeting the goal', () => {
   it('the heading names the quantity, and each option\'s row is its two sides in producer order', () => {
@@ -182,4 +200,23 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true)} />)
     expect(screen.getByTestId('compare-goal-chances')).toBeInTheDocument()
   })
+})
+
+describe('#2747 chance authority gate (DL ruling (b)): Compare\'s goal chances only when its Latest Run is the current canonical Run', () => {
+  it('Latest is current → the rows are shown (CONTROL)', () => {
+    render(<CompareRunPairBody responseHash={seed(withGoal())} />)
+    expect(goalWords()).toEqual([
+      'Keep £49: Earlier about 47% → Latest about 15%',
+      'Raise to £60: Earlier not recorded → Latest between about 20% and 40%',
+    ])
+    expect(screen.queryByTestId('compare-goal-chances-not-current')).toBeNull()
+  })
+
+  it.each([['stale', 'its canonical Run is not known to be current'], ['other', 'the canonical Run is a later one'], ['absent', 'no canonical view']] as const)(
+    'Latest is not current (%s: %s) → no figure, and the one line', (latest, _why) => {
+      render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true, latest)} />)
+      expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
+      expect(screen.getByTestId('compare-goal-chances-not-current')).toHaveTextContent(COMPARE_GOAL_CHANCES_NOT_CURRENT)
+      expect(screen.getByTestId('compare-run-pair').textContent).not.toMatch(/\b47%|\b15%|20% and 40%/)
+    })
 })

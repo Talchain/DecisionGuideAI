@@ -1,4 +1,4 @@
-import { withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { installCanonicalFixtureState, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, renderHook, screen } from '@testing-library/react'
@@ -71,6 +71,8 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     useCanvasStore.setState({ results: {
       ...state.results, report: { ...state.results?.report, inference_warnings: [record] },
     } } as never)
+    // #2747 chance authority gate: the Run is held with its current canonical view (a range cell for the ranged option).
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
     const live = renderHook(() => useResultsSectionData()).result.current
     expect(live.goalChanceRange).toEqual(readGoalChanceRange([record]))
     const entry = live.goalChanceRange?.rangeByOption[CONVERTIBLE]

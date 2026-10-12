@@ -275,6 +275,11 @@ export interface V5AnalysisResultBlock {
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
   /**
+   * The wire block's graph hash at its Run (CEE `computed_against_hash`): how the card's Run is matched to the scenario's
+   * canonical view by the chance authority gate (#2747). Absent on cards stored before it was kept: they quote no chance.
+   */
+  computed_against_hash?: string
+  /**
    * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
    * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis
    * (`mapV5AnalysisToReport` derives `model_card.response_hash` from the same block, the same way). The card asks

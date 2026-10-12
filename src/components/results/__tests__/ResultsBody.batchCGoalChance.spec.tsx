@@ -64,6 +64,42 @@ describe('ResultsBody: the Batch C licence, said once and alike on every mounted
     expect(document.body.textContent).not.toMatch(/\b35%|\b48%/)
   })
 
+  /**
+   * #2747 Codex round 2 (BLOCKING, reproduced): with the canonical authority absent or for another Run, `chanceOf` still
+   * gave the licence's 46% and WinGauge said "Chance of meeting your goal… 46%" while the option's own cell withheld.
+   * Re-scope (a): every figure passes the one authority gate, so no surface quotes it.
+   */
+  const r2Cases: ReadonlyArray<readonly [string, (j: ReturnType<typeof hiringJourney>) => Record<string, unknown> | null]> = [
+    ['canonical absent', () => null],
+    ['canonical for another Run', j => ({ ...j.canonical, run: { ...(j.canonical.run as object), run_id: 'run-an-older-one' } })],
+  ]
+  for (const [name, canonicalOf] of r2Cases) {
+    it(`#2747 r2 B5 (${name}): no surface quotes the licence's 46% / 31%; WinGauge carries no goal figure`, () => {
+      const j = hiringJourney()
+      seedJourney(j, canonicalOf(j))
+      const { result, unmount } = renderHook(() => useResultsSectionData())
+      const data = result.current
+      unmount()
+      expect(data.runView!.chanceOf('hire_a_tech_lead')).toEqual({ kind: 'none' })
+      expect(data.runView!.chanceFigureOf('hire_a_tech_lead')).toBeNull()
+      expect(data.recommendation.allOptions.every(o => o.goalProbability == null)).toBe(true)
+      render(<ResultsBody resultsSectionData={data} tornadoData={{ rows: [], expectedOutcome: null }} onSendMessage={() => {}} expertMode={false} />)
+      expect(screen.queryByTestId('goal-pct-hire_a_tech_lead')).toBeNull()
+      expect(screen.queryByTestId('goal-pct-hire_two_developers')).toBeNull()
+      expect(document.body.textContent).not.toMatch(/\b46%|\b31%/)
+    })
+  }
+
+  it('CONTROL (the gate opens): the matching current Run quotes 46% on WinGauge, and the gate gives CEE\'s words', () => {
+    seedJourney(hiringJourney())
+    const { result, unmount } = renderHook(() => useResultsSectionData())
+    const data = result.current
+    unmount()
+    expect(data.runView!.chanceFigureOf('hire_a_tech_lead')).toEqual({ pct: 46, words: 'about 46%' })
+    render(<ResultsBody resultsSectionData={data} tornadoData={{ rows: [], expectedOutcome: null }} onSendMessage={() => {}} expertMode={false} />)
+    expect(screen.getByTestId('goal-pct-hire_a_tech_lead')).toHaveTextContent('46%')
+  })
+
   it('item 1 (marketing, joint withheld): the hero says the withheld line, the bound, then each target, once on the surface', () => {
     seedJourney(marketingJourney('withheld'))
     mount()

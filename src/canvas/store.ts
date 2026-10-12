@@ -83,6 +83,7 @@ export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { runViewOf } from './runView/runView'
+import { useCanonicalAnalysisViewStore } from './stores/canonicalAnalysisViewStore'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 // The "no analysis on screen" state, shared with the Supabase switch boundary in
@@ -5722,7 +5723,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const options: Record<string, OptionSnapshot> = {}
       // ReportV1.option_probabilities: Record<string, OptionProbability>
       const optionProbs = currentReport.option_probabilities
-      const previousRunView = runViewOf(currentReport)
+      // #2747 chance authority gate: the copy is the previous Run's GATED figure (its scenario's canonical view).
+      const heldCanonical = useCanonicalAnalysisViewStore.getState()
+      const previousRunView = runViewOf(currentReport, heldCanonical.scenarioId === get().currentScenarioId ? heldCanonical.view : null)
       if (optionProbs) {
         for (const [optId, prob] of Object.entries(optionProbs)) {
           const chance = previousRunView.chanceOf(optId)

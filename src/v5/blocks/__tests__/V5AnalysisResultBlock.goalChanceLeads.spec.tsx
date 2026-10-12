@@ -5,6 +5,9 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { useCanvasStore } from '../../../canvas/store'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../../canvas/runView/canonicalAnalysisView'
+import { goalProbabilityWords } from '../../../components/results/utils/goalAnchorCopy'
 
 const OPTIONS = [
   ['launch', 'Launch starter tier'],
@@ -26,6 +29,7 @@ const LICENCE = {
 function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5AnalysisResultBlockType {
   return {
     type: 'v5_analysis_result',
+    computed_against_hash: 'graph-hash-d1w5',
     summary: 'The analysis completed for all four options.',
     leading_option_id: 'launch',
     // The served d1w-5 values. The first value deliberately differs from the
@@ -49,6 +53,18 @@ function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5Analysi
 
 const initialState = useCanvasStore.getState()
 
+/** #2747 chance authority gate: the card's Run held with its matching (graph hash), current canonical view. */
+function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<string, number> }) {
+  useCanonicalAnalysisViewStore.getState().adopt('scn-d1w5', parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: null, graph_hash_at_run: 'graph-hash-d1w5', computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: licence.option_ids.map(option_id => ({ option_id, main_driver: { kind: 'not_recorded' },
+      cell: { kind: 'figure', display: goalProbabilityWords(`${licence.pct_by_option[option_id]}%`) } })),
+  }))
+}
+
 beforeEach(() => {
   useCanvasStore.setState({
     nodes: OPTIONS.map(([id, label]) => ({
@@ -59,16 +75,19 @@ beforeEach(() => {
     })),
     results: null,
     ceeAnalysisReady: null,
+    currentScenarioId: 'scn-d1w5',
   } as never)
 })
 
 afterEach(() => {
   cleanup()
   useCanvasStore.setState(initialState, true)
+  useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
 })
 
 describe('V5AnalysisResultBlock goal chances lead run shares', () => {
   it('R1: the served each licence puts the goal chance before the first percentage', () => {
+    hold(LICENCE)
     const { container } = render(<V5AnalysisResultBlock block={d1w5Block()} />)
     const chances = screen.getByTestId('v5-analysis-result-goal-chances')
     expect(within(chances).getAllByRole('listitem').map((line) => line.textContent)).toEqual([
@@ -110,6 +129,7 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
       next_option_id: 'raise',
       pct_by_option: { hold: 64, raise: 43, launch: 30, annual: 12 },
     }
+    hold(highest)
     render(<V5AnalysisResultBlock block={d1w5Block(highest)} />)
     const lines = within(screen.getByTestId('v5-analysis-result-goal-chances')).getAllByRole('listitem')
     expect(lines.map((line) => line.dataset.optionId)).toEqual(optionIds)

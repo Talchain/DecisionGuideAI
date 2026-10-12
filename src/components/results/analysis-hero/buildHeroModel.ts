@@ -793,12 +793,12 @@ export function buildHeroModel(
     const figure = prefix !== '' && cell.text.startsWith(prefix) ? cell.text.slice(prefix.length) : cell.text
     return figure.match(/^(?:less than |more than |about |[<>])?\d+(?:\.\d+)?\s*%/)?.[0] ?? null
   }
-  const copyLicence = goalChanceLicence !== null && data.runView
-    ? { ...goalChanceLicence, driverByOption: Object.fromEntries(goalChanceLicence.optionIds.flatMap(id => {
-      const driver = data.runView!.mainDriverOf(id)
+  // A driver line quotes chances, so only the gated driver (RunView.mainDriverOf) is said; never the licence's own (#2747).
+  const copyLicence = goalChanceLicence === null ? null
+    : { ...goalChanceLicence, driverByOption: Object.fromEntries(goalChanceLicence.optionIds.flatMap(id => {
+      const driver = data.runView?.mainDriverOf(id) ?? null
       return driver === null ? [] : [[id, driver]]
     })) }
-    : goalChanceLicence
   const summaryLicence = copyLicence !== null && copyLicence.optionIds.some(id => cellWordsOf(id) === null)
     ? { ...copyLicence, form: 'each' as const } : copyLicence
   const goalChanceHeadlineText =

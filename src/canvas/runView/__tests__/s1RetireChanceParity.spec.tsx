@@ -141,7 +141,7 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
   expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
   for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
   expect(data.recommendation.allOptions.every(row => row.goalProbability === null)).toBe(true)
-  expect(fromOptionProbabilities(report.option_probabilities as never, {}, report)).toEqual([])
+  expect(fromOptionProbabilities(report.option_probabilities as never, {}, runViewOf(report))).toEqual([])
   for (const option of options) {
     useCanvasStore.setState({ results: { status: 'complete', report: { ...report, robustness: { recommended_option_id: option.id } } } } as any)
     const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
@@ -185,7 +185,8 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
   }
   const view = runViewOf(report)
   expect(view.goalChance).not.toBeNull()
-  expect(view.chanceOf('a')).toMatchObject({ kind: 'figure', pct: 17 })
+  // #2747 chance authority gate: with no canonical view even the licensed option quotes no figure.
+  expect(view.chanceOf('a')).toEqual({ kind: 'none' })
   expect(view.chanceOf('b').kind).toBe('withheld')
   expect(view.chanceOf('c').kind).toBe('none')
   const nodes = ['a', 'b', 'c'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id } }))
@@ -198,7 +199,17 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
     expect(cell.text).not.toContain('Why?')
   }
   expect(view.chanceCellOf('c', { goalChanceHeroSays: true, labelOf: () => 'c' })).toEqual({ kind: 'none', text: null })
-  expect(fromOptionProbabilities(report.option_probabilities, {}, report)).toEqual([
+  // #2747: no canonical view → no spread figure; held with its matching current canonical view → only the licensed 17.
+  expect(fromOptionProbabilities(report.option_probabilities, {}, view)).toEqual([])
+  const held = runViewOf({ ...report, run_id: 'run-r2' }, parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: 'run-r2', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: [{ option_id: 'a', cell: { kind: 'figure', display: 'about 17%' }, main_driver: { kind: 'not_recorded' } },
+      { option_id: 'b', cell: { kind: 'withheld', reasons: [] }, main_driver: { kind: 'not_recorded' } }],
+  }))
+  expect(fromOptionProbabilities(report.option_probabilities, {}, held)).toEqual([
     { optionId: 'a', optionLabel: 'a', value: 17, confidence: 0.9 },
   ])
 })

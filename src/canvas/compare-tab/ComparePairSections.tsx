@@ -21,6 +21,7 @@ import type { ReasonSegment } from './withheldReasonSegments'
 import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { GraphLink } from '../../components/results/GraphLink'
 import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords } from '../../components/results/analysis-hero/goalChanceCopy'
+import { gatedCompareGoalChances } from '../runView/runView'
 
 /**
  * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
@@ -42,6 +43,8 @@ export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
 /** The state notice's heading while a Run is in progress (v3 artefact "Rerun in progress"). */
 export const COMPARE_RUN_IN_PROGRESS_HEADING = 'Rerun in progress'
+/** #2747 (DL ruling (b)): the pair's goal chances are not shown when its Latest Run is not the current canonical Run. */
+export const COMPARE_GOAL_CHANCES_NOT_CURRENT = 'These runs were before your latest changes. Run the analysis again to compare.'
 
 /**
  * The one headline. Words selected from entitled producer claims, never from a score or a client comparison: an
@@ -93,7 +96,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
  */
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
-  runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null, sizingPath = null,
+  runIsCurrent = true, goalChancesCurrent = false, analysing = false, designationsWithheld = false, optionLink = () => null, sizingPath = null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -101,6 +104,11 @@ export function ComparePairSections({
   withheldSegments?: ReadonlyArray<ReasonSegment> | null
   /** `selectRunAffirmedCurrent`: Ask is offered only while the pair on screen is the pair Olumi's tools read. */
   runIsCurrent?: boolean
+  /**
+   * #2747 chance authority gate (DL ruling (b)): the pair's Latest Run is the scenario's current canonical Run
+   * (`latestRunIsCurrentCanonical`). Absent: false, so no goal-chance figure is shown.
+   */
+  goalChancesCurrent?: boolean
   /** A run is in flight: the pair below is the previous one and stays visible. */
   analysing?: boolean
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
@@ -119,9 +127,11 @@ export function ComparePairSections({
   // sentence and figures move behind Result details. Only for the pair Olumi's tools read (`runIsCurrent`).
   // ...and only when at least one side of one option carries a figure (served witness cgc-1, 7 Oct: a pair whose Runs showed
   // no chance at all led with the heading over rows of "not shown → not shown"; that pair keeps the run-share layout).
-  const goalRows = runIsCurrent && view.goalChances !== undefined
-    && view.goalChances.some((g) => [g.prior, g.current].some((side) => side.kind === 'point' || side.kind === 'range'))
-    ? view.goalChances : null
+  // #2747: through the chance authority gate. The pair carries chances but its Latest Run is not the current one: no
+  // figure, and why (DL ruling (b)).
+  const gatedGoalChances = gatedCompareGoalChances(view, goalChancesCurrent)
+  const goalRows = runIsCurrent ? gatedGoalChances.rows : null
+  const goalChancesNotCurrent = gatedGoalChances.notCurrent
   const shareHeadline = resultsAllowed ? headline(delta, label, nearTie) : null
   const resultHeadline = goalRows ? COMPARE_GOAL_CHANCE_HEADING : shareHeadline ?? 'Result comparison not shown'
   const qualification = resultsAllowed ? noiseQualifier(delta.leader.noise_verdict) : null
@@ -180,6 +190,9 @@ export function ComparePairSections({
         <div className="mt-2">
           <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
         </div>
+        {goalChancesNotCurrent ? (
+          <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-goal-chances-not-current">{COMPARE_GOAL_CHANCES_NOT_CURRENT}</p>
+        ) : null}
         {goalRows ? (
           // Figures only (DL ruling 2): each side as its own Run showed it, in the producer's (model) order, never a direction.
           <ul className={`${typography.panelBody} text-text-body list-none p-0 mt-2 mb-0 space-y-2`} data-testid="compare-goal-chances" data-wire-fields={GOAL_CHANCE_FIELDS}>

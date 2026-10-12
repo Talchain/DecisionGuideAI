@@ -206,8 +206,9 @@ describe('buildDecisionBrief — licensed complete-field controls', () => {
       option_ids: ['keep_current_price', 'raise_price_to_59', 'raise_price_to_54'],
       pct_by_option: { keep_current_price: 17 }, withheld_option_ids: ['raise_price_to_59', 'raise_price_to_54'],
     } as never)
-    const read = await readOf(body)
-    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never))
+    // #2747: the precondition holds the Run with its matching current canonical view (the chance authority gate).
+    const read = await readOf({ ...body, canonical_analysis_view: canonicalBriefFixture(body) })
+    const view = runViewOf(mapV5AnalysisToReport(read.analysisResult as never, { computedAt: (read.analysisState?.run_state as { computed_at?: string })?.computed_at }), parseCanonicalAnalysisView(read.canonicalAnalysisView))
     expect(view.chanceOf('keep_current_price')).toMatchObject({ kind: 'figure', pct: 17 })
     const brief = buildDecisionBrief(read)
     expect(brief.chances).toEqual([])

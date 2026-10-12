@@ -69,13 +69,11 @@ describe('GoalPanel — the goal chance carries its base-caveat (served mapper p
   it.each([
     ['olumi', OLUMI_COPY],
     ['dropped', NEUTRAL_COPY],
-  ] as const)('author %s → the copy beside the chance, at every render site', (author, copy) => {
+  ] as const)('#2747: author %s with no canonical view → no chance is shown, so no base-caveat either (copy: %s)', (author, _copy) => {
+    // The caveat qualifies a shown chance; the view-bearing control below pins it beside the server figure.
     seed(report(author))
     renderPanel()
-    const sites = screen.getAllByTestId(/^goal-fit-base-caveat-goal-panel-/)
-    expect(sites.length).toBeGreaterThanOrEqual(1)
-    for (const s of sites) expect(s.textContent).toBe(copy)
-    if (author === 'dropped') for (const s of sites) expect(s.textContent).not.toContain("Olumi's")
+    expect(screen.queryAllByTestId(/^goal-fit-base-caveat-goal-panel-/)).toHaveLength(0)
   })
 
   it.each(['user', 'none'] as const)('CONTROL: author %s → no base-caveat, the chance still shows', (author) => {

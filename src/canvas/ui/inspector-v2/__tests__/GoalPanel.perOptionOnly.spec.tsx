@@ -1,6 +1,6 @@
 const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
 
-import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
+import { licensedTestReportHeld } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel: when NO option is put forward but the run carried every option's goal figure.
  *
@@ -89,7 +89,7 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     expect(container.textContent ?? '').not.toContain(TEST_RUN_AGAIN_COPY)
   })
   it('CONTRAST: an explicit test licence preserves the per-option availability signal without picking an option', () => {
-    const { getByTestId, container } = renderWith(licensedTestReport(SERVED))
+    const { getByTestId, container } = renderWith(licensedTestReportHeld(SERVED))
     expect(getByTestId('goal-probability-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
     expect(container.textContent).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(container.textContent).not.toMatch(/\d+(\.\d+)?% chance/)

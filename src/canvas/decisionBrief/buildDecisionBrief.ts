@@ -42,7 +42,7 @@ import { selectStatedLimits } from '../../components/results/decision-overview/s
 import { buildLimitVerdictView } from '../../components/results/analysisNew/limitVerdictView'
 import { goalProbabilityDetails, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
 import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
-import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 import type { DecisionRecord } from '../../components/results/modals'
@@ -358,7 +358,8 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     const targetText = (() => {
       if (target == null) return null
       const n = typeof target.raw === 'number' ? target.raw : Number(target.raw)
-      const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame, target.quantityFrame) ?? String(target.raw)
+      const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame, target.quantityFrame)
+      if (figure === null) return TARGET_NOT_CAPTURED
       // SD-1: a goal that holds a ceiling says so, from its own `goal_direction` (the one source).
       const bound = heldTargetBoundWords(data)
       return bound === null ? figure : `${bound} ${figure}`

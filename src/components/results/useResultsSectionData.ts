@@ -2304,8 +2304,10 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       const goalProbability = chance.kind === 'figure' ? chance.pct / 100 : null
       const details = goalProbabilityDetails(prob as GoalProbabilityInput)
       const goalFitIsModelledBasis = false
-      // A licensed withholding retains its basis metadata without licensing a figure.
-      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence')
+      // A licensed withholding retains its basis metadata without licensing a figure; so does a gated range (#2747: a
+      // ranged option has no point figure through the gate, but its range is this Run's licensed quantity).
+      const gatedRanged = runView.goalChanceRange !== null && Object.prototype.hasOwnProperty.call(runView.goalChanceRange.rangeByOption, nodeId)
+      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence') || gatedRanged
         ? details.baseCaveat : null
 
       // Display-honesty: per-option valid sample count for resolution-aware
@@ -2401,7 +2403,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         goalFitBaseCaveat,
         ...(details.goalCertaintyUnearned ? { goalCertaintyUnearned: details.goalCertaintyUnearned } : {}),
         goalFitIsSubstitutedJoint: false,
-        goalFitWithheld: chance.kind === 'withheld' || (goalProbability === null && details.jointGoalProbability !== null),
+        goalFitWithheld: chance.kind === 'withheld' || (goalProbability === null && details.jointGoalPresent),
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
         ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),

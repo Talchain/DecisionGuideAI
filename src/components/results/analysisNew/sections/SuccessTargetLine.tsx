@@ -89,7 +89,7 @@ import {
   goalTargetBound, goalTargetComparator, goalTargetEditDirection, resolveGoalTargetWithOwnRow,
 } from '../../../../canvas/domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
-import { formatGoalTarget } from '../../utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import type {
   SystemEventSendSettlement,
@@ -380,16 +380,19 @@ export function SuccessTargetLine({
   const changeGoal = fromNode?.frame != null || unreadFrame
   const fromStore = threshold != null && representation === 'raw' && !goalTargetMeaningUnread(goalData as GoalTargetSource | null) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
+  // #2747 r2 (Codex, BLOCKING): the goal's quantity frame is passed, so a % change is said in its own frame; a target
+  // the formatter cannot say is "Target not captured", never the bare stored number ("Success: 10").
   const nodeFigure = fromNode !== null
     ? (formatGoalTarget(
         typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
         fromNode.unit,
         fromNode.frame,
-      ) ?? String(fromNode.raw))
+        fromNode.quantityFrame,
+      ) ?? TARGET_NOT_CAPTURED)
     : null
   const shownText =
     nodeFigure !== null
-      ? (bound !== null ? `${bound} ${nodeFigure}` : nodeFigure)
+      ? (bound !== null && nodeFigure !== TARGET_NOT_CAPTURED ? `${bound} ${nodeFigure}` : nodeFigure)
       : fromStore != null
         ? String(fromStore)
         : null
