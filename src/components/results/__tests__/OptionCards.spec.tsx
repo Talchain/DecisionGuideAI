@@ -7,6 +7,8 @@
  * V11 additions: indeterminate neutralisation, conditional hits target,
  * hinge-aware descriptions.
  * V12.4: Per-card "Wins" bar removed; win % shown as text in header.
+ * #2747 re-scope 2 (U0, DL ruling (A)): no win share at all in C — no header win %, no fill bar, and the winner's claim
+ * carries no magnitude ("Supported in more simulated scenarios than any other option").
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -111,8 +113,9 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // With win probabilities available, hingeAwareDescription provides the
-      // winner's own-probability sentence.
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      // winner's sentence. #2747 re-scope 2 (U0, DL ruling (A)): it carries no magnitude in C.
+      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
       // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 30 percentage points'.
       // The percentage-point gap between two win frequencies is retired from
       // every user-facing surface. The non-leader's line is DELETED rather than
@@ -120,7 +123,9 @@ describe('OptionCards', () => {
       // probability in its header readout — pinned here by identity so the
       // deletion cannot quietly become "the card lost its number".
       expect(screen.queryByText(/percentage point/i)).toBeNull()
-      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
+      // #2747 re-scope 2 (U0, DL ruling (A)): the card no longer carries its own share either — no win readout, no 35%.
+      expect(screen.queryByTestId('win-pct-option-2')).not.toBeInTheDocument()
+      expect(screen.getByTestId('option-card-option-2').textContent).not.toContain('35%')
     })
 
     it('shows baseline description for baseline option', () => {
@@ -136,15 +141,18 @@ describe('OptionCards', () => {
   })
 
   describe('Stat rows', () => {
-    it('V12.4: shows win probability as text (no bar)', () => {
+    // #2747 re-scope 2 (U0, DL ruling (A)): was 'V12.4: shows win probability as text (no bar)'; no card shows a win share in C.
+    it('shows no win probability — no header text, no bar', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // "Wins" bar label should no longer exist
       expect(screen.queryByText('Wins')).not.toBeInTheDocument()
 
-      // Win percentage displayed as text in header
-      expect(screen.getByTestId('win-pct-option-1')).toHaveTextContent('65%')
-      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
+      // No win percentage in either header, by identity and by figure
+      expect(screen.queryByTestId('win-pct-option-1')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('win-pct-option-2')).not.toBeInTheDocument()
+      expect(screen.getByTestId('option-card-option-1').textContent).not.toContain('65%')
+      expect(screen.getByTestId('option-card-option-2').textContent).not.toContain('35%')
     })
 
     it('shows "Hits target" when hasGoalThreshold is true', () => {
@@ -349,7 +357,8 @@ describe('OptionCards', () => {
       expect(winnerCard.className).toContain('border-panel-border')
     })
 
-    it('Brief 5.4 P6: hides rank badge entirely when indeterminate (win% shown right-aligned instead)', () => {
+    // #2747 re-scope 2 (U0, DL ruling (A)): was '… (win% shown right-aligned instead)'; no win % is shown in C.
+    it('Brief 5.4 P6: hides rank badge entirely when indeterminate (and, in C, shows no win%)', () => {
       // Phase 6 dedup: in neutralised state the rank badge no longer switches
       // to win% — that duplicated the right-aligned canonical win% text.
       // Now the rank badge is simply absent; win% is shown once via win-pct-*.
@@ -363,11 +372,13 @@ describe('OptionCards', () => {
 
       expect(screen.queryByTestId('rank-marker-option-1')).not.toBeInTheDocument()
       expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
-      // Canonical win% still present right-aligned
-      expect(screen.getByTestId('win-pct-option-1')).toHaveTextContent('65%')
+      // #2747 re-scope 2 (U0, DL ruling (A)): no win% right-aligned either
+      expect(screen.queryByTestId('win-pct-option-1')).not.toBeInTheDocument()
+      expect(screen.getByTestId('option-card-option-1').textContent).not.toContain('65%')
     })
 
-    it('win-pct element uses text-light styling when indeterminate', () => {
+    // #2747 re-scope 2 (U0, DL ruling (A)): was 'win-pct element uses text-light styling when indeterminate'; no win-pct in C.
+    it('no win-pct element when indeterminate (no rank badge, no win share)', () => {
       // Brief 5.4 P6: rank badge gone in indeterminate; check win-pct styling instead.
       render(
         <OptionCards
@@ -378,8 +389,8 @@ describe('OptionCards', () => {
       )
 
       expect(screen.queryByTestId('rank-marker-option-1')).not.toBeInTheDocument()
-      // win-pct is always present when winProbability is set
-      expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
+      // #2747 re-scope 2 (U0, DL ruling (A)): win-pct is never present in C, winProbability set or not
+      expect(screen.queryByTestId('win-pct-option-1')).not.toBeInTheDocument()
     })
 
     it('V12.4: no per-card wins bars when indeterminate (removed)', () => {
@@ -393,8 +404,8 @@ describe('OptionCards', () => {
 
       // Wins bars removed — no "Wins" label rendered
       expect(screen.queryByText('Wins')).not.toBeInTheDocument()
-      // Win percentage still shown as text
-      expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
+      // #2747 re-scope 2 (U0, DL ruling (A)): no win percentage as text either
+      expect(screen.queryByTestId('win-pct-option-1')).not.toBeInTheDocument()
     })
 
     it('winner card uses border-success/30 when robust (Brief 5.8B D3 simplified palette)', () => {
@@ -504,9 +515,11 @@ describe('OptionCards', () => {
       // un-anchored superlative "Highest leading-option likelihood". The hinge
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
+      // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios, but this depends on Customer churn/i),
+        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
       ).toBeInTheDocument()
+      expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
     it('winner: heuristic hinge shows "{label} has the widest uncertainty"', () => {
@@ -522,9 +535,11 @@ describe('OptionCards', () => {
 
       // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
       // hinge clause.
+      // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios\. Market size has the widest uncertainty\./i),
+        screen.getByText('Supported in more simulated scenarios than any other option. Market size has the widest uncertainty.'),
       ).toBeInTheDocument()
+      expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
     it('winner: no hinge shows generic description', () => {
@@ -538,7 +553,9 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
+      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {
@@ -574,10 +591,13 @@ describe('OptionCards', () => {
       // ⭐ SUPERSEDED 2026-08-10 — see the note above: the gap line is retired,
       // the card's own-probability readout is what carries the number.
       expect(screen.queryByText(/percentage point/i)).toBeNull()
-      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
+      // #2747 re-scope 2 (U0, DL ruling (A)): and in C the card carries no share of its own — no readout, no 35%.
+      expect(screen.queryByTestId('win-pct-option-2')).not.toBeInTheDocument()
+      expect(screen.getByTestId('option-card-option-2').textContent).not.toContain('35%')
     })
 
-    it('other options state their OWN probability, never a gap', () => {
+    // #2747 re-scope 2 (U0, DL ruling (A)): was 'other options state their OWN probability, never a gap'; no share in C.
+    it('other options state no gap and (in C) no share of their own', () => {
       const threeOptions: OptionResult[] = [
         ...mockOptions,
         {
@@ -609,7 +629,10 @@ describe('OptionCards', () => {
       // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 55 percentage points'.
       // Option C's own win probability (0.10) is on its card; the gap is not.
       expect(screen.queryByText(/percentage point/i)).toBeNull()
-      expect(screen.getByTestId('win-pct-option-3')).toHaveTextContent('10%')
+      // #2747 re-scope 2 (U0, DL ruling (A)): nor, in C, is its own share — no readout, no 10%.
+      expect(screen.getByTestId('option-card-option-3')).toBeInTheDocument()
+      expect(screen.queryByTestId('win-pct-option-3')).not.toBeInTheDocument()
+      expect(screen.getByTestId('option-card-option-3').textContent).not.toContain('10%')
     })
 
     it('V11.2: VM hinge-aware description takes priority over story_headline when decisionState available', () => {
@@ -629,9 +652,11 @@ describe('OptionCards', () => {
       // un-anchored superlative "Highest leading-option likelihood". The hinge
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
+      // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios, but this depends on Customer churn/i),
+        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
       ).toBeInTheDocument()
+      expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
 
@@ -651,7 +676,9 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
+      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
     it('V11.2: renders pre-sanitized story_headline (sanitization at data layer)', () => {

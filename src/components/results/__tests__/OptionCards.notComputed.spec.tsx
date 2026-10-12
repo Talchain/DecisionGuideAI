@@ -156,10 +156,12 @@ describe('OptionCards — SUPPRESSION direction: a failed option asserts nothing
     ).not.toBeInTheDocument()
   })
 
-  it('renders NO win percentage for the failed option, while the sibling keeps its own', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): no card shows a win share in C, so the sibling keeps its ranked card but no share.
+  it('renders NO win percentage for the failed option; the sibling keeps its ranked card and (in C) shows no share either', () => {
     renderField([base(COMPUTED_HEALTHY, { winProbability: 0.6 }), failedOption()])
     expect(screen.queryByTestId(`win-pct-${FAILED}`)).not.toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${COMPUTED_HEALTHY}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`option-card-${COMPUTED_HEALTHY}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${COMPUTED_HEALTHY}`)).not.toBeInTheDocument()
   })
 
   it('renders NO rank marker for the failed option, while the sibling keeps its own', () => {
@@ -213,7 +215,8 @@ describe('OptionCards — SUPPRESSION direction: a failed option asserts nothing
 })
 
 describe('OptionCards — SURVIVAL direction: a real result is never suppressed', () => {
-  it('a COMPUTED option with a genuine 0.0 still renders a measured readout and a rank', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): the survival twin keeps its ranked card and rank; its "<0.01%" share is not shown in C.
+  it('a COMPUTED option with a genuine 0.0 still keeps its ranked card and a rank (and, in C, shows no share)', () => {
     // ⭐ THE TWIN THAT MAKES THE FIX MEAN SOMETHING. Same `winProbability: 0`
     // as the failed option, same slot — and it keeps its readout, because a
     // measured zero IS a measurement. A predicate written against falsiness
@@ -233,11 +236,14 @@ describe('OptionCards — SURVIVAL direction: a real result is never suppressed'
     expect(
       screen.queryByTestId(`option-card-not-computed-${COMPUTED_TRUE_ZERO}`),
     ).not.toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${COMPUTED_TRUE_ZERO}`)).toHaveTextContent('<0.01%')
+    expect(screen.getByTestId(`option-card-${COMPUTED_TRUE_ZERO}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${COMPUTED_TRUE_ZERO}`)).not.toBeInTheDocument()
+    expect(screen.getByTestId(`option-card-${COMPUTED_TRUE_ZERO}`).textContent).not.toContain('<0.01%')
     expect(screen.getByTestId(`rank-marker-${COMPUTED_TRUE_ZERO}`)).toBeInTheDocument()
   })
 
-  it('a COMPUTED option with a genuine 0.0 AND NO sample count still renders 0%', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): the no-count survival twin keeps its ranked card; its "0%" share is not shown in C.
+  it('a COMPUTED option with a genuine 0.0 AND NO sample count still keeps its ranked card (and, in C, shows no 0% share)', () => {
     // The other survival sub-case, and the one the brief names literally: with
     // no resolution to floor against, the formatter's documented behaviour is
     // that an exact zero reads `"0%"` — "came out ahead in 0% of simulated
@@ -249,7 +255,8 @@ describe('OptionCards — SURVIVAL direction: a real result is never suppressed'
     expect(
       screen.queryByTestId(`option-card-not-computed-${COMPUTED_TRUE_ZERO}`),
     ).not.toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${COMPUTED_TRUE_ZERO}`)).toHaveTextContent('0%')
+    expect(screen.getByTestId(`option-card-${COMPUTED_TRUE_ZERO}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${COMPUTED_TRUE_ZERO}`)).not.toBeInTheDocument()
   })
 
   it("a PARTIAL option is a DISCLOSURE, not a failure, and keeps its card", () => {
@@ -262,7 +269,9 @@ describe('OptionCards — SURVIVAL direction: a real result is never suppressed'
       base(PARTIAL, { computeStatus: 'partial', winProbability: 0.25, nValidSamples: 4000 }),
     ])
     expect(screen.queryByTestId(`option-card-not-computed-${PARTIAL}`)).not.toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${PARTIAL}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0, DL ruling (A)): it keeps its ranked card; no card shows a win share in C.
+    expect(screen.getByTestId(`option-card-${PARTIAL}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${PARTIAL}`)).not.toBeInTheDocument()
   })
 
   it('an ABSENT status implies nothing and stays on the ordinary path', () => {
@@ -276,7 +285,9 @@ describe('OptionCards — SURVIVAL direction: a real result is never suppressed'
     expect(
       screen.queryByTestId(`option-card-not-computed-${LEGACY_NO_STATUS}`),
     ).not.toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${LEGACY_NO_STATUS}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0, DL ruling (A)): it keeps its ranked card; no card shows a win share in C.
+    expect(screen.getByTestId(`option-card-${LEGACY_NO_STATUS}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${LEGACY_NO_STATUS}`)).not.toBeInTheDocument()
   })
 
   it('a failed option does NOT delete the goal bar from the options that WERE scored', () => {

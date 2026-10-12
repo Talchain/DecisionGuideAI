@@ -114,7 +114,10 @@ function winReadoutOf(
   // Mirrors the builder exactly: a row with no comparative probability yields
   // null, and the copy drops its magnitude clause rather than printing a
   // placeholder glyph inside the sentence.
-  return row.comparativeReadout ?? null
+  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C, so every row's magnitude is null and every leader
+  // headline below is pinned to its magnitude-free form.
+  expect(row.comparativeReadout).toBeNull()
+  return null
 }
 function goalReadoutOf(m: HeroChartModel, label: string): string {
   const row = m.rows.find(r => r.label === label)
@@ -1189,15 +1192,21 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     expect(m.rows[1].detail.couldChangeIf).toBeUndefined()
   })
 
-  it('formats win probability with the display-honesty formatter', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C. A row whose option carries a win probability (0.3) has no
+  // win line and no comparative magnitude, in its detail or anywhere in the model.
+  it('says no win share: a row with a win probability carries no win line and no comparative magnitude', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.winChance).toBe(COMPARATIVE_COPY.sentence('30%'))
+    expect(m.rows[0].detail).not.toHaveProperty('winChance')
+    expect(m.rows.map((r) => r.comparativeReadout)).toEqual([null, null])
+    expect(JSON.stringify(m)).not.toContain(COMPARATIVE_COPY.sentence('30%'))
+    expect(JSON.stringify(m)).not.toContain(COMPARATIVE_COPY.runShare('30%'))
   })
 
   it('omits the win line when winProbability is absent', () => {
     const a = makeOption({ ...OPTION_A, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.rows[0].detail.winChance).toBeUndefined()
+    // #2747 re-scope 2 (DL ruling (A)): `winChance` left the row detail type; the negative is kept by key.
+    expect(m.rows[0].detail).not.toHaveProperty('winChance')
   })
 
   it('main reason names the Drivers section top driver; omitted when none', () => {

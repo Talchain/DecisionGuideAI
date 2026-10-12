@@ -136,8 +136,7 @@ const SCOPE_FILES = [
   'src/components/results/utils/goalChanceRange.ts',
   'src/components/results/analysis-hero/GoalChanceRangeLines.tsx',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
-  // The results directory is not swept; include the matrix's new rendered copy explicitly.
-  'src/components/results/analysisNew/sections/DecisionMatrix.tsx',
+  // (#2747 re-scope 2: the decision matrix, listed here until then, is removed in C.)
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
    * will otherwise read as closing the CLASS, and it closes the INSTANCES.

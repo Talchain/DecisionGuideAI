@@ -22,7 +22,6 @@ import {
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
   GOAL_CONSTRAINT_COPY,
-  GOAL_STRINGS,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -44,7 +43,6 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
-import { goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { formatGoalChangeBound, formatGoalTarget, TARGET_NOT_CAPTURED } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
@@ -213,9 +211,6 @@ export const GoalPanel = memo(function GoalPanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
 
-  // The owner's decision, forwarded (see the identity comment above): the
-  // number, the joint figure, and which quantity the number IS.
-  const probGoal = displayMetadata.achievementProbability
   // #2747 chance authority gate: the legacy limits-channel line ("All your limits hold in N% of model runs",
   // `probability_of_joint_goal`) is removed; no canonical cell licenses it. CEE's licensed AND-target answer is a
   // different claim and is not affected. The possessive gate's `goalFitSubstituted` guarded only those lines.
@@ -512,17 +507,6 @@ export const GoalPanel = memo(function GoalPanel({
   const hasConstraints = listedConstraints.length > 0
 
   /**
-   * The probability sentence under a stated target. One element, two readers:
-   * the readout arm below and the mounted target block, so the two cannot drift.
-   */
-  /**
-   * Served f5d503b0 (29 Sep): with no option put forward there is no recommended option,
-   * so `probGoal` is null, yet the run carried every option's goal figure (Analysis
-   * showed < 1% / 99% / 83%). `goalFitAvailable` is the hook's own answer (the same
-   * selector, per option). The panel says where the figures are, never picks one.
-   */
-  const perOptionOnly = isResultsMode && typeof probGoal !== 'number' && displayMetadata.goalFitAvailable === true
-  /**
    * AIQ #72 5885033487 (2) / PLoT #416: the producer withheld P(goal) (a declared identity on the goal's path was not
    * evaluated). Its words, verbatim from the typed warning; the mappers already removed every goal figure.
    */
@@ -539,36 +523,13 @@ export const GoalPanel = memo(function GoalPanel({
       {identityWithheld?.message}
     </p>
   )
-  const perOptionOnlyLine = (testId: string) => (
-    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
-      {GOAL_CONSTRAINT_COPY.perOptionOnly}{' '}
-      <ResultsLink label={GOAL_CONSTRAINT_COPY.perOptionOnlyLink} tab="analysisNew" />
-    </p>
-  )
 
-  const targetProbabilityLine = displayMetadata.achievementChanceCell?.text != null ? (
-    <p data-testid={identityWithheld !== null ? 'goal-probability-withheld-identity' : undefined} className={`${typography.panelBody} text-text-body mt-1`}>
-      {displayMetadata.achievementChanceCell.text}
-      {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
-      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
-        <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
-          {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
-        </span>
-      )}
-    </p>
-  ) : identityWithheld !== null ? (
-    identityWithheldLine('goal-probability-withheld-identity')
-  ) : certaintyUnearned !== null ? (
-    certaintyUnearnedLine('goal-probability-certainty-unearned')
-  ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
-    /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
-       and an absence is stated, not turned into an instruction. Before any
-       results: "No analysis results yet." With complete results that carry no
-       probability for this target: that run's own absence. */
-    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="goal-probability-absent">
-      {isResultsMode ? GOAL_CONSTRAINT_COPY.runForProbability : EMPTY_STATES.noAnalysis}
-    </p>
-  )
+  // #2747 re-scope 2 (U0): the goal inspector says no chance in C — neither the recommended option's cell nor a line
+  // about its absence ("This run did not return the chance of meeting your goal…"). Chances are said on the journey path
+  // only, in CEE's words. The producer's own withheld sentences (identity, unearned certainty) are not chances and stay.
+  // Restore trigger: the chance's own served string and Run licence on this surface (post-C).
+  const targetProbabilityLine = identityWithheld !== null ? identityWithheldLine('goal-probability-withheld-identity')
+    : certaintyUnearned !== null ? certaintyUnearnedLine('goal-probability-certainty-unearned') : null
 
   /** True only while the pipeline holds no number — see the note in the editor arm. */
   const targetUnlocksLine = pipelineHoldsNoTargetNumber ? (
@@ -997,32 +958,15 @@ export const GoalPanel = memo(function GoalPanel({
         />
       </PanelGroup>
 
-      {/* The goal chance and its caveat are stated once beside the target.
-          Run details stay available without repeating the same figure. */}
-      {isResultsMode && (typeof probGoal === 'number' || (identityWithheld === null && certaintyUnearned === null && !perOptionOnly)) && (
+      {/* #2747 re-scope 2 (U0): no chance here in C, so the Run's details say only how many simulations it rests on and
+          where its results are; no figure, no "probability data unavailable". */}
+      {isResultsMode && scenarioCount != null && (
         <InspectorMoreItems>
           <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-            {typeof probGoal === 'number' || (displayMetadata.achievementChanceUnlicensed === true && displayMetadata.jointGoalPresent === true) ? (
-            <>
-            {scenarioCount != null && (
-              <div className={`${typography.panelMeta} text-text-light`}>
-                Based on {scenarioCount.toLocaleString('en-GB')} simulations
-              </div>
-            )}
+            <div className={`${typography.panelMeta} text-text-light`}>
+              Based on {scenarioCount.toLocaleString('en-GB')} simulations
+            </div>
             <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-            {/* The constraints block already states this when it is mounted.
-                A joint result without that block still needs its own words. */}
-            {techMode && (
-              <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                {displayMetadata.achievementChanceCell?.text}
-              </div>
-            )}
-            </>
-            ) : (
-              <p className={`${typography.panelMeta} text-text-light`} data-testid="goal-impact-unavailable">
-                {GOAL_STRINGS.impactUnavailable}
-              </p>
-            )}
           </PanelGroup>
         </InspectorMoreItems>
       )}

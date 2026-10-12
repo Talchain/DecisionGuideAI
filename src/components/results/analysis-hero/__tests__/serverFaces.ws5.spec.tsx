@@ -11,8 +11,6 @@ import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/Option
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
-import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
 import { applyRealRead } from './helpers/realScenarioRead'
 import served from './fixtures/cee-1c-served-read-464abd0a.json'
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
@@ -29,27 +27,24 @@ async function dataFrom(body: unknown) {
   expect((await applyRealRead({ j: body })).outcome.outcome).toBe('applied')
   return renderHook(() => useResultsSectionData()).result.current
 }
-function mountSurface(data: ReturnType<typeof useResultsSectionData>, surface: 'hero' | 'matrix') {
-  if (surface === 'hero') {
-    const model = buildHeroModel(data)
-    expect(model.kind).toBe('chart')
-    if (model.kind !== 'chart') throw new Error('Expected chart')
-    // Container's supplemental withholding lines must not repeat the server explanation outside Why?.
-    expect(model.goalOptionCoverage?.withheldLines).toEqual([])
-    render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
-    return (id: string) => screen.getByTestId(`hero-option-row-${model.rows.find(r => r.id === id)!.index}`)
-  }
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={data.recommendation.allOptions.map(o => o.id)} run={{}} isStale={false} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-  return (id: string) => screen.getByTestId(`decision-matrix-chance-${id}`)
+// #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C, and the canvas cards show no chance; the
+// Results hero is the surface these served faces reach.
+function mountHero(data: ReturnType<typeof useResultsSectionData>) {
+  const model = buildHeroModel(data)
+  expect(model.kind).toBe('chart')
+  if (model.kind !== 'chart') throw new Error('Expected chart')
+  // Container's supplemental withholding lines must not repeat the server explanation outside Why?.
+  expect(model.goalOptionCoverage?.withheldLines).toEqual([])
+  render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
+  return (id: string) => screen.getByTestId(`hero-option-row-${model.rows.find(r => r.id === id)!.index}`)
 }
 describe('WS5 PR-C server faces', () => {
-  it.each(['hero', 'matrix'] as const)('untouched served 464abd0a %s prints faces; full why only after Why? (mutant-sensitive)', async surface => {
+  it('untouched served 464abd0a hero prints faces; full why only after Why? (mutant-sensitive)', async () => {
+    const surface = 'hero'
     const data = await dataFrom(served)
-    const rowOf = mountSurface(data, surface)
+    const rowOf = mountHero(data)
     for (const option of served.canonical_analysis_view.options) {
-      if (typeof option.cell.why === 'string') expect(screen.getByTestId(surface === 'hero' ? 'analysis-hero-panel' : 'decision-matrix').textContent).not.toContain(option.cell.why)
+      if (typeof option.cell.why === 'string') expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain(option.cell.why)
     }
     for (const option of served.canonical_analysis_view.options) {
       const row = rowOf(option.option_id)
@@ -67,20 +62,21 @@ describe('WS5 PR-C server faces', () => {
     }
     console.info('SERVER-FACES', surface, JSON.stringify(served.canonical_analysis_view.options.map(o => ({ id: o.option_id, face: o.cell.face }))))
   })
-  it('untouched served 464abd0a cards print only face, with no Why? or full why', async () => {
+  it('untouched served 464abd0a cards print NO chance in C (#2747 re-scope 2, U0): no face, no Why?, no full why', async () => {
     await dataFrom(served)
     for (const option of served.canonical_analysis_view.options) {
       const node = useCanvasStore.getState().nodes.find(n => n.id === option.option_id)!
       const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(option.cell.face)
+      expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
+      expect(card.container.textContent).not.toContain(option.cell.face)
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof option.cell.why === 'string') expect(card.container.textContent).not.toContain(option.cell.why)
       card.unmount()
     }
   })
-  it.each(['hero', 'matrix', 'card'] as const)('b38d1c80 figure %s prints an explicit face; self-authored additive 1c face, original fixture has display only', async surface => {
+  it.each(['hero', 'card'] as const)('b38d1c80 figure %s: the hero prints an explicit face, the card none (C); self-authored additive 1c face, original fixture has display only', async surface => {
     const body = structuredClone(figures.j)
     // Historical bytes predate 1c. Explicit additive mutation, never claimed as served face bytes.
     const option = body.canonical_analysis_view.options.find(o => o.option_id === 'launch_starter_tier')!
@@ -92,8 +88,8 @@ describe('WS5 PR-C server faces', () => {
       render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(face)
-    } else expect(mountSurface(data, surface)(option.option_id)).toHaveTextContent(face)
+      expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
+    } else expect(mountHero(data)(option.option_id)).toHaveTextContent(face)
     expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(face)
   })
   it('stale run prints face_when_stale; mismatched run keeps fallback; no-run never takes stale face', () => {

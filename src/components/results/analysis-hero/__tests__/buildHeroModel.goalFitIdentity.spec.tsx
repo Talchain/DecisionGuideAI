@@ -83,14 +83,16 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, OPTION_A.id).text ?? HERO_COPY.readout.missing)
   })
 
-  it('drops the possessive framing when the number is a substituted joint figure', () => {
+  it('drops the possessive framing when the number is a substituted joint figure: the detail is the served cell, verbatim', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
     const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: true })
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    const data = makeHeroData({ options: [a, b] })
+    const m = chart(buildHeroModel(data))
     expect(m.rows[0].detail.goalFit).not.toContain('chance of meeting your goal')
-    expect(m.rows[0].detail.goalFit).toBe(
-      HERO_COPY.detail.goalFitJointBasis(m.rows[0].goal.readout),
-    )
+    // #2747 re-scope 2 (U0): CEE's cell words verbatim (was the UI's joint-basis sentence re-worded around a figure taken
+    // out of the cell); the UI composes no joint-basis wording of its own.
+    expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, m.rows[0].id).text ?? HERO_COPY.readout.missing)
+    expect(m.rows[0].detail.goalFit).not.toBe(HERO_COPY.detail.goalFitJointBasis(m.rows[0].goal.readout))
   })
 
   it('still shows the NUMBER on a substituted joint figure (copy switch, never a value transform)', () => {

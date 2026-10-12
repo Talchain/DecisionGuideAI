@@ -60,7 +60,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceDetailLines, goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
+import { goalChanceDetailLines, goalChanceHeadline } from './goalChanceCopy'
 import { goalChanceDriverRunMessageIdentity, goalChanceRunMessages } from './goalChanceRunMessages'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
@@ -73,7 +73,7 @@ import {
   getPessimistic,
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryCheck'
-import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { formatPercent } from '@/utils/formatPercent'
 import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
@@ -425,15 +425,8 @@ export function buildHeroModel(
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
-    // ⭐⭐ CURRENT-READ-v1 row 9 (AIQ #75 5912710392): a withheld leader withholds every per-row win share — the
-    // detail line AND the magnitude the leader headline would quote. From the hook's `winShareGate` read.
-    const winReadout =
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-      !winSharesAreWithheld && typeof o.winProbability === 'number'
-        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-        ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
-        : undefined
-    const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
+    // #2747 re-scope 2 (DL ruling (A)): no win share is said in C, neither the row's line nor the leader headline's
+    // magnitude. CEE serves no wording or Run authority for it; its restore trigger is a served share string (post-C).
     // Grounded detail lines from the row's OWN existing fields (same
     // formatters as the readouts) — never authored prose, omitted when the
     // sourcing fields are absent.
@@ -447,13 +440,8 @@ export function buildHeroModel(
     // Per-option goal text comes verbatim from the same RunView cell as the card and matrix.
     // C-LOST: an empty cell supplies no detail. Preserve win-only rows' existing
     // persistent comparative text instead of opening a disclosure for a gap glyph.
-    const goalFit = hasUserTarget && cell.kind !== 'none'
-      ? o.goalFitIsSubstitutedJoint === true && !optionHasConstraints(o)
-        ? HERO_COPY.detail.goalFitJointBasis(cell.kind === 'figure'
-          ? cell.text.match(/(?:about|less than|more than) \d+(?:\.\d+)?%/)?.[0] ?? HERO_COPY.readout.missing
-          : HERO_COPY.readout.missing)
-        : cell.text ?? HERO_COPY.readout.missing
-      : undefined
+    // #2747 re-scope 2 (U2): CEE's cell words verbatim, never re-worded around a figure taken out of them.
+    const goalFit = hasUserTarget && cell.kind !== 'none' ? cell.text ?? HERO_COPY.readout.missing : undefined
     // Retain the row's own modelled-basis caveat beside its cell or honest gap.
     // The canonical figure also licenses that caveat when no separate numeric point is present.
     // The row's own goalFitIsModelledBasis flag is
@@ -491,8 +479,8 @@ export function buildHeroModel(
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
-      comparativeReadout: winReadout ?? null,
-      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
+      comparativeReadout: null,
+      detail: { why, couldChangeIf, range, goalFit, goalFitCaveat },
     }
   })
 
@@ -1124,8 +1112,8 @@ export function buildHeroModel(
   let goalChanceHorizonLine: string | null = null
   let goalChanceLeadLines: HeroChartModel['goalChanceLeadLines']
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
-    // Keep staging's driver words and shared-question rules, using matching canonical drivers through mainDriverOf.
-    const driverLines = goalChanceDriverLines(goalChanceLicence.optionIds, gatedDriverOf, data.goalChanceDriverNames)
+    // #2747 re-scope 2 (U2): what each chance rests on most is CEE's own sentence (`main_driver.detail`), verbatim; a
+    // driver CEE gave no sentence for says nothing (its figure is never worded here).
     const driverRunIdentities = new Set<string>()
     const lines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = options.flatMap(option => {
       const label = stripEncodingNotation(option.label).trim()
@@ -1138,8 +1126,8 @@ export function buildHeroModel(
         id: option.id, kind: 'cell', text: text.startsWith(prefix) ? text : prefix + text,
         ...('why' in cell && cell.why ? { why: cell.why } : {}),
       }]
-      const driverText = driverLines[option.id]
-      if (driverText !== undefined) {
+      const driverText = data.runView?.mainDriverDetailOf(option.id) ?? null
+      if (driverText !== null) {
         ownLines.push({ id: option.id, kind: 'driver', text: driverText })
         const identity = goalChanceDriverRunMessageIdentity(gatedDriverOf(option.id) ?? undefined,
           goalChanceLicence.target, driverText, data.confidence?.inferenceWarnings)
@@ -1151,10 +1139,8 @@ export function buildHeroModel(
       admissionWithheldReason === null ? { cause: data.winShareWithheldCause, text: designationWithheldReason } : undefined)
     lines.push(...runMessages.lines.filter(line => !driverRunIdentities.has(line.identity)))
     if (runMessages.ownsDesignation) designationWithheldReason = null
-    // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
-    // the part of these figures that is Olumi's assumption about the user's own links.
-    const disclosure = goalChanceDisclosureLines(goalChanceLicence)
-    if (disclosure !== null) lines.push({ text: disclosure })
+    // #2747 re-scope 2 (U2): the licence-composed disclosure lines (why no summary is stated; the 1-in-N existence prior)
+    // are not said here: CEE's served notes carry what the Run's chances rest on, verbatim (`goalChanceDetailLines`).
     goalChanceHorizonLine = goalChanceLicence.horizonLine ?? null
     if (goalChanceHorizonLine !== null) {
       lines.push({ text: goalChanceHorizonLine })

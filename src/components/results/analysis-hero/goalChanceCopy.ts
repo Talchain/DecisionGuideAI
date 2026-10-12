@@ -7,21 +7,12 @@
  * Every line is model-relative ("In this model, on current information") and says "chance of MEETING your goal" —
  * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
  */
-import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
+import type { GoalChanceLicence } from '../utils/goalChanceLicence'
 import { shortfallNoteLabel } from '../utils/goalChanceLicence'
-import { formatGoalTarget } from '../utils/formatGoalTarget'
-import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
-import { readGoalChanceByDate, type GoalChanceTarget } from '../utils/goalChanceTarget'
+import { GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
+import { goalChanceTargetBound, readGoalChanceByDate, type GoalChanceTarget } from '../utils/goalChanceTarget'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
-import type { RunDeltaGoalChanceSide } from '@talchain/schemas/boundary'
 import type { CanonicalGoalChanceDetail } from '../../../canvas/runView/canonicalAnalysisView'
-
-const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
-  at_least: 'at least',
-  above: 'above',
-  at_most: 'at most',
-  below: 'below',
-}
 
 /** Date words use UTC so the producer's calendar day cannot shift with the viewer's timezone. */
 function shareByDateWords(target: GoalChanceTarget | undefined): { deliverable: string; date: string } | null {
@@ -35,21 +26,13 @@ function shareByDateWords(target: GoalChanceTarget | undefined): { deliverable: 
   }
 }
 
-/** The target as the user stated it, in their unit: "at most 400 cancellations/month". */
+/** The target as the user stated it, in their unit and its own frame: "at most 400 cancellations/month" (`goalChanceTargetBound`). */
 export function goalChanceTargetWords(licence: GoalChanceLicence): string | null {
   const share = shareByDateWords(licence.target)
   if (share !== null) return `${share.deliverable} done by ${share.date}`
-  const figure = formatGoalTarget(licence.target.value, licence.target.unit, 'level')
-  return figure === null ? null : `${COMPARATOR_WORDS[licence.target.comparator]} ${figure}`
+  return goalChanceTargetBound(licence.target)
 }
 
-/**
- * The displayed figure in words (c6 6 Oct): a chance that DISPLAYS as 0 (under 0.5%) is "less than 1%" and one that
- * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
- * Only for numbers already through the authority gate (gated ranges; the current canonical driver).
- */
-const about = (pct: number | undefined): string =>
-  goalProbabilityWords(`${pct}%`)
 /** "a and b" / "a, b and c" — British, no serial comma. */
 const listOf = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
@@ -274,158 +257,7 @@ function shareChanceWords(share: { readonly deliverable: string; readonly date: 
     : `chance of finishing ${share.deliverable} by ${share.date}`
 }
 
-/** CEE's range, with its stated estimate or canvas link labels; unresolved labels never expose ids. */
-export function goalChanceRangeLine(
-  range: GoalChanceRangeEntry, option: string | null, labelOf: (id: string) => string | null,
-  target?: GoalChanceTarget,
-): string | null {
-  if (option === null || option.trim() === '') return null
-  const share = shareByDateWords(target)
-  if (range.kind === 'stated_time') {
-    if (share === null) return null
-    const estimate = range.statedEstimate
-    const bounds = estimate.low === estimate.high ? `${estimate.low}` : `${estimate.low}–${estimate.high}`
-    const stated = range.quantity === 'months_to_finish' ? `${bounds} months` : `${bounds}% a month`
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a range the caller passed through the gate (RunView.goalChanceRange)
-    return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} ${shareChanceWords(share)}, in this model, from the slow end of your ${stated} to the fast end.`
-  }
-  const from = labelOf(range.from)
-  const to = labelOf(range.to)
-  if (from === null || from.trim() === '' || to === null || to.trim() === '') return null
-  const depends = range.among === 'unsized_links' ? 'Of the links not sized yet, it depends most on' : 'It depends most on'
-  const link = range.kind === 'link_strength'
-    ? `how strongly ‘${from}’ affects ‘${to}’, which isn’t sized in the model yet.`
-    : `whether ‘${from}’ affects ‘${to}’ at all, which Olumi assumed.`
-  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a range the caller passed through the gate (RunView.goalChanceRange)
-  return `‘${option}’: between ${about(range.lowPct)} and ${about(range.highPct).replace(/^about /, '')} chance of meeting your goal, in this model. ${depends} ${link}`
-}
-
 export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<Exclude<GoalChanceRangeEntry['kind'], 'stated_time'>, string>> = {
   link_strength: 'Size it to see where it lands',
   link_existence: 'Confirm or remove it to see where it lands',
-}
-
-const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
-
-/**
- * ⭐ G4/G5 phase 2, P3 — WHAT AN OPTION'S CHANCE RESTS ON MOST (design-g4g6 Q6 cases A–E; DL rulings 6 Oct). Said after the
- * option's own chance line. Each sentence is SELECTED by what CEE decided (the driver's kind, the side where the chance
- * falls, whose assumption it is) and FILLED with the model's labels, the cut in the user's units and the figure CEE
- * stored. Nothing here compares a number.
- *
- * `null` (nothing is said, the chance line stands) when a label or the cut cannot be said, and for the claims the
- * rulings give no words: an existence driver whose falling side is the runs WITH the link, and an existence claim
- * that is not Olumi's. A link's strength never carries a figure. `ask` is false when an option shown earlier already
- * asked the same question about the same driver (DL ruling 6 Oct): the sentence is then said without its question.
- */
-export function goalChanceDriverLine(
-  driver: GoalChanceDriver, names: GoalChanceDriverNames, ask = true,
-): string | null {
-  if (driver.kind === 'factor_value') {
-    const label = names.labelOf(driver.factorId)
-    if (label === null) return null
-    // The unit CEE carried with the cut (PLoT's own) is preferred; the canvas node's is the fallback.
-    const cut = formatGoalTarget(driver.cutValue, driver.cutUnit ?? names.unitOf(driver.factorId) ?? '', 'level')
-    if (cut === null) return null
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
-    const falls = `if it is ${FALLING_SIDE_WORDS[driver.side]} ${cut}, the chance falls to ${about(driver.pctIfSide)}.`
-    // Olumi's own range says so and asks; the user's, or one CEE could not attribute, claims no author.
-    return driver.authoredBy === 'olumi'
-      ? `It rests most on ‘${label}’, using a range Olumi assumed: ${falls}${ask ? ' Do you know it more precisely?' : ''}`
-      : `It rests most on ‘${label}’: ${falls}`
-  }
-  const from = names.labelOf(driver.from)
-  const to = names.labelOf(driver.to)
-  if (from === null || to === null) return null
-  if (driver.kind === 'link_strength') {
-    if (driver.authoredBy === 'olumi') {
-      return `It rests most on Olumi’s own estimate of how strongly ‘${from}’ affects ‘${to}’: `
-        + `if that effect is ${driver.strength} than Olumi assumed, the chance falls.${ask ? ' Is that estimate right?' : ''}`
-    }
-    // U / N (DL ruling 6 Oct): the size is the user's, or nobody's CEE could name. Neither says whose spread it is.
-    return driver.authoredBy === 'user'
-      ? `It rests most on how strongly ‘${from}’ affects ‘${to}’, at the size you set: `
-        + `if that effect is ${driver.strength} than that, the chance falls.${ask ? ' How sure are you of that size?' : ''}`
-      : `It rests most on how strongly ‘${from}’ affects ‘${to}’: `
-        + `if that effect is ${driver.strength} than this model assumes, the chance falls.`
-  }
-  if (driver.authoredBy !== 'olumi' || driver.side !== 'absent') return null
-  return driver.userStatedLink
-    ? `It rests most on your link from ‘${from}’ to ‘${to}’: Olumi’s model also allows that it does not hold, `
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
-      + `and in those runs the chance is ${about(driver.pctIfSide)}.`
-    : `It rests most on Olumi’s own assumption that ‘${from}’ affects ‘${to}’: `
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
-      + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}.${ask ? ' Is that right?' : ''}`
-}
-
-/**
- * The driver a sentence's closing question is about, or `null` for a sentence that asks nothing (A, E and N). Two
- * options resting on the same driver share one question, whichever side each falls on.
- */
-function questionDriver(driver: GoalChanceDriver): string | null {
-  if (driver.kind === 'factor_value') return driver.authoredBy === 'olumi' ? `factor:${driver.factorId}` : null
-  const link = `${driver.from}->${driver.to}`
-  if (driver.kind === 'link_strength') return driver.authoredBy === 'unattributed' ? null : `strength:${link}`
-  return driver.userStatedLink ? null : `existence:${link}`
-}
-
-/**
- * The driver sentence for each option that has one that can be worded, by option id.
- *
- * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). A sentence's
- * closing question is asked ONCE per driver, by the first option SHOWN (the model's order) that rests on it.
- *
- * #2747 r2 (BLOCKING 1): a driver line quotes chances ("the chance falls to about 7%"), so the driver comes ONLY from
- * `driverOf`, which callers bind to the gated `RunView.mainDriverOf`. This helper never reads the licence's own driver;
- * a null driver is no line.
- */
-export function goalChanceDriverLines(
-  optionIds: readonly string[], driverOf: (optionId: string) => GoalChanceDriver | null | undefined,
-  names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
-): Readonly<Record<string, string>> {
-  const lines: Record<string, string> = {}
-  if (names == null) return lines
-  const asked = new Set<string>()
-  for (const id of optionIds) {
-    const driver = driverOf(id)
-    if (driver == null || except.includes(id)) continue
-    const question = questionDriver(driver)
-    const line = goalChanceDriverLine(driver, names, question === null || !asked.has(question))
-    if (line === null) continue
-    lines[id] = line
-    if (question !== null) asked.add(question)
-  }
-  return lines
-}
-
-
-/** The existence line lives with the licence reader (`utils/goalChanceLicence`), so the hero and the WinGauge share it. */
-export { goalChanceExistenceLine, goalChanceDisclosureLines, goalChanceSummaryWithheldLine } from '../utils/goalChanceLicence'
-
-/**
- * Compare's section heading for `run_delta.goal_chances` (schemas 0.81.0; DL #87 6035414740). It names the quantity,
- * never a contest: each option's chance, never which option leads.
- */
-export const COMPARE_GOAL_CHANCE_HEADING = 'Chance of meeting your goal, in this model'
-
-/**
- * One Run's side of an option's chance, as THAT Run's Analysis showed it: the displayed figure in the hero's own words
- * (`about`, so 0 and 100 never read as certain), a range as the range line says it, and the two sides with no figure in
- * plain words. Figures only (DL ruling 2): nothing here says higher, lower or moved.
- */
-export function goalChanceSideWords(side: RunDeltaGoalChanceSide): string {
-  switch (side.kind) {
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a Compare side passed only through gatedCompareGoalChances
-    case 'point': return about(side.pct)
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a Compare side passed only through gatedCompareGoalChances
-    case 'range': return `between ${about(side.low_pct)} and ${about(side.high_pct).replace(/^about /, '')}`
-    case 'withheld': return 'not shown'
-    case 'not_recorded': return 'not recorded'
-  }
-}
-
-/** "Earlier about 47% → Latest about 15%": each side in its own Run's words, earlier first. */
-export function goalChanceCompareWords(prior: RunDeltaGoalChanceSide, current: RunDeltaGoalChanceSide): string {
-  return `Earlier ${goalChanceSideWords(prior)} → Latest ${goalChanceSideWords(current)}`
 }

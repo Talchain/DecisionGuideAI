@@ -7,8 +7,8 @@
  *
  * THE PRECISE CLAIM, over production sources under `src/` (tests, fixtures and stories excluded; the formatter's and
  * the limit sayer's own files excluded):
- *   R1 every `formatGoalTarget` call that passes a frame other than the literal 'level' passes `quantityFrame` too, and
- *      every `formatGoalChangeBound` call passes it;
+ *   R1 every `formatGoalTarget` call that passes a frame passes `quantityFrame` too, and every `formatGoalChangeBound`
+ *      call passes it;
  *   R2 NO formatter call (level calls included, #2747 r2) falls back (`??` / `||`) to anything but a string literal,
  *      `null`/`undefined` or `TARGET_NOT_CAPTURED` / `GOAL_NO_TARGET_STATE` (never `String(raw)`, never a unit formatter);
  *   R3 every `goalConstraintText` / `goalConstraintShortText` call passes the nodes it reads a target row's quantity
@@ -18,6 +18,9 @@
  *      `formatWithUnit`, `formatValueWithUnit`) over a name that holds one (`threshold`, `.raw`, `fromStore`, `storeTarget`).
  *      A line that must (the user's own non-numeric words, an input's draft, a parse) says why on the line or the line
  *      above: `// target-text: <reason>`.
+ *   R5 (#2747 re-scope 2, finding 3: "Goal: at least 10%" for a CHANGE target, through a call that passed the literal
+ *      'level' and was exempt here) NO call ASSUMES a level: a `formatGoalTarget` call that omits the frame or passes
+ *      'level' / `undefined` says why its figure is a level, on the line or the line above: `// target-text: <reason>`.
  *
  * ⚠ A SCANNER, NOT A PROOF: it reads call shapes. The mounted witnesses are
  * `SuccessTargetLine.batchCQuantityFrame.spec.tsx` and `GoalNode.batchCPercentagePoints.spec.tsx`.
@@ -37,7 +40,7 @@ const R3_EXEMPT: Readonly<Record<string, string>> = {
   'src/components/results/decision-overview/statedLimits.ts': 'limits only: target rows are skipped (isGoalTargetRow) before the call',
 }
 
-export interface TargetTextViolation { readonly file: string; readonly line: number; readonly rule: 'R1' | 'R2' | 'R3' | 'R4'; readonly call: string }
+export interface TargetTextViolation { readonly file: string; readonly line: number; readonly rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5'; readonly call: string }
 
 /** R4: a name that holds a raw target number. */
 const RAW_TARGET = /(?:^|[^A-Za-z])(?:goalThreshold|threshold|thresholdRaw|fromStore|storeTarget|StoreTarget)\b|\.raw\b|\bthreshold_raw\b/
@@ -68,9 +71,11 @@ export function scanTargetText(file: string, text: string): { violations: Target
       if (qfIndex !== undefined) {
         calls += 1
         const frame = node.arguments[2]
-        const levelOnly = frame === undefined || (ts.isStringLiteralLike(frame) && frame.text === 'level')
+        const assumesLevel = frame === undefined || (ts.isStringLiteralLike(frame) && frame.text === 'level')
           || (ts.isIdentifier(frame) && frame.text === 'undefined')
-        if ((!levelOnly || name === 'formatGoalChangeBound') && node.arguments.length <= qfIndex) flag(node, 'R1', name)
+        // R5 (#2747 re-scope 2): an assumed level is never exempt; it carries its reason.
+        if (assumesLevel && name === 'formatGoalTarget') checkReason(node, 'R5', name)
+        else if (node.arguments.length <= qfIndex) flag(node, 'R1', name)
         const outer = unparen(node)
         const parent = outer.parent
         if (parent && ts.isBinaryExpression(parent) && parent.left === outer
@@ -92,10 +97,11 @@ export function scanTargetText(file: string, text: string): { violations: Target
     ts.forEachChild(node, visit)
   }
   const lines = text.split('\n')
-  const checkR4 = (node: ts.Node, call: string): void => {
+  const checkReason = (node: ts.Node, rule: 'R4' | 'R5', call: string): void => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line
-    if (!R4_REASON.test(lines[line] ?? '') && !R4_REASON.test(lines[line - 1] ?? '')) flag(node, 'R4', call)
+    if (!R4_REASON.test(lines[line] ?? '') && !R4_REASON.test(lines[line - 1] ?? '')) flag(node, rule, call)
   }
+  const checkR4 = (node: ts.Node, call: string): void => checkReason(node, 'R4', call)
   visit(sf)
   return { violations, calls }
 }
@@ -130,23 +136,27 @@ describe('⭐ one rule for target text: the quantity frame is passed, and a null
       'const d = goalConstraintText(row)',
       'const e = formatGoalChangeBound(n, unit, frame, op)',
       'const ok1 = formatGoalTarget(n, unit, frame, qf) ?? TARGET_NOT_CAPTURED',
-      "const ok2 = formatGoalTarget(n, unit, 'level') ?? TARGET_NOT_CAPTURED",
-      'const ok3 = formatGoalTarget(n, unit)',
+      "const r5a = formatGoalTarget(n, unit, 'level') ?? TARGET_NOT_CAPTURED",
+      'const r5b = formatGoalTarget(n, unit)',
       'const ok4 = goalConstraintText(row, nodes)',
       "const f = formatGoalTarget(n, unit, 'level') ?? String(n)",
       'const g = fromStore != null ? String(fromStore) : null',
       'const h = `Success: ${goalThreshold}`',
       'const i = formatSmartNumber(target.raw)',
       'const ok5 = String(target.raw) // target-text: the user\'s own non-numeric words',
+      "const ok6 = formatGoalTarget(n, unit, 'level') // target-text: a factor's own level, never a goal target",
+      "// target-text: today's level of the goal's quantity",
+      'const ok7 = formatGoalTarget(n, unit)',
     ].join('\n'))
-    expect(violations.map(v => `${v.line}:${v.rule}`)).toEqual(['1:R1', '2:R2', '3:R2', '4:R3', '5:R1', '10:R2', '11:R4', '12:R4', '13:R4'])
+    expect(violations.map(v => `${v.line}:${v.rule}`))
+      .toEqual(['1:R1', '2:R2', '3:R2', '4:R3', '5:R1', '7:R5', '8:R5', '10:R5', '10:R2', '11:R4', '12:R4', '13:R4'])
   })
 
   it('CONTROL (magnitude): the census inspects the real callers, so the probe is not blind', () => {
     expect(census().calls).toBeGreaterThanOrEqual(25)
   })
 
-  it('⭐ no production caller breaks R1, R2 or R3', () => {
+  it('⭐ no production caller breaks R1 to R5', () => {
     const found = census().violations.map(v => `${v.file}:${v.line} ${v.rule} ${v.call}`)
     expect(found, `target text callers off the one rule:\n  ${found.join('\n  ')}`).toEqual([])
   })

@@ -1,6 +1,3 @@
-import { goalProbabilityDetails } from '../../components/results/utils/selectGoalProbability'
-import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
-import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 /**
  * DecisionSummary - Core decision synthesis card
  *
@@ -29,7 +26,6 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { runViewOf, type OptionChanceCell } from '../runView/runView'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
@@ -42,7 +38,6 @@ import { getRationale, type Rationale } from '../utils/ceeDataAdapter'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
-import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 export interface RankingData {
   /** 1-indexed rank (1 = best) */
@@ -57,13 +52,6 @@ export interface RankingData {
   winnerName?: string
   /** Current option name being viewed */
   currentOptionName?: string
-}
-
-interface GoalProbabilityData {
-  /** RunView's words for this option, including a withheld cell. */
-  cell: OptionChanceCell
-  confidence: number
-  winProbability?: number
 }
 
 /** P0.5: Comparative delta between options */
@@ -144,11 +132,7 @@ export function DecisionSummary({
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
   const nodes = useCanvasStore((s) => s.nodes)
-  const scenarioId = useCanvasStore(state => state.currentScenarioId)
-  const canonical = useCanonicalAnalysisViewStore(state => state.scenarioId === scenarioId ? state.view : null)
   const edges = useCanvasStore((s) => s.edges)
-  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
-  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const report = results?.report
 
@@ -262,29 +246,9 @@ export function DecisionSummary({
     const confusingPattern = /Outcome likely to (increase|decrease) by \d+%/i
     const keyInsight = rawInsight && confusingPattern.test(rawInsight) ? null : rawInsight
 
-    // Brief E Task 1: Extract goal probability for the current option
-    // Updated to use store values for goal node info
-    let goalProbability: GoalProbabilityData | null = null
-    if (report.option_probabilities && outcomeNodeId) {
-      // Find the first option node to get its probability
-      const optionNodesList = nodes.filter(n => (n.data as any)?.kind === 'option')
-      const currentOptionId = optionNodesList[0]?.id
-      if (currentOptionId && report.option_probabilities[currentOptionId]) {
-        const prob = report.option_probabilities[currentOptionId]
-        const view = runViewOf(report, canonical)
-        const cell = view.chanceCellOf(currentOptionId, {
-          goalChanceHeroSays: view.goalChance !== null,
-          ...(goalThreshold != null ? { hasGoalTarget: true } : {}),
-          goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message,
-          goalCertaintyUnearned: goalProbabilityDetails(prob).goalCertaintyUnearned,
-          labelOf: id => (nodes.find(n => n.id === id)?.data as { label?: string } | undefined)?.label ?? null,
-        })
-        goalProbability = cell.kind === 'none' ? null : {
-          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-          cell, confidence: prob.confidence, winProbability: prob.win_probability,
-        }
-      }
-    }
+    // #2747 re-scope 2 (U0, DL ruling (A)): the canvas summary says no chance and no win share in C. Chances are said on
+    // the journey path only, in CEE's words; CEE serves no share string. Restore trigger: each measure's own served
+    // string and Run licence on this surface (post-C).
 
     // P0.2: Compute precision display based on confidence level
     const confidenceLevel = (confidence?.level || 'medium') as ConfidenceLevel
@@ -305,10 +269,9 @@ export function DecisionSummary({
       headline: keyInsight,
       topDriver,
       baselineComparison,
-      goalProbability,
       precisionDisplay, // P0.2: Precision-aware display
     }
-  }, [report, canonical, runMeta, baseline, goalDirection, nodes, outcomeNodeId, goalThreshold])
+  }, [report, runMeta, baseline, goalDirection])
 
   // Don't render if no results
   if (!summaryData) {
@@ -399,31 +362,6 @@ export function DecisionSummary({
           <p className={`${typography.caption} text-carrot-600 font-medium mb-1`}>
             {summaryData.precisionDisplay.qualifier}
           </p>
-        )}
-
-        {/* Brief E Task 1: Goal probability display */}
-        {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
-        {summaryData.goalProbability && (
-          <div className="space-y-1 mb-2">
-            <p className={`${typography.bodySmall} text-ink-600`}>
-              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
-              {summaryData.goalProbability.cell.text}
-              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
-              {summaryData.goalProbability.cell.kind === 'figure' && summaryData.goalProbability.confidence < 0.7 && (
-                <span className={`ml-2 ${typography.caption} text-banana-600`}>
-                  (low confidence)
-                </span>
-              )}
-            </p>
-            {/* Win probability - shown as secondary context */}
-            {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
-            {summaryData.goalProbability.winProbability !== undefined && (
-              <p className={`${typography.caption} text-ink-500`}>
-                {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
-                Supported in {wholePercentBelowCertain(summaryData.goalProbability.winProbability)} of scenarios
-              </p>
-            )}
-          </div>
         )}
 
         {/* Winner context - shown when NOT the winner but ranking available */}

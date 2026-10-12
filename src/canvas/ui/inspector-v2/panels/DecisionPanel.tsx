@@ -6,7 +6,6 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
-import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 // Grounded guidance now lives outside the write fence in InspectorRouter.
@@ -15,7 +14,6 @@ import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
-import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -108,20 +106,16 @@ export const DecisionPanel = memo(function DecisionPanel({
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const resultsStatus = useCanvasStore(s => s.results?.status)
-  const isResultsMode = resultsStatus === 'complete'
-  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds every option's share and bar here too.
-  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
-  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
-  const showsShares = isResultsMode && !winSharesWithheld
-  const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
+  // #2747 re-scope 2 (DL ruling (A)): no option's win share or bar here in C (CEE serves no wording or Run licence for a
+  // share), so the not-ranked reason for withholding one has nothing to explain either. The alternatives stay, navigable.
+  // Restore trigger: a CEE-served share string with its own Run licence (post-C), never worded as a chance.
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
 
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
 
-  // Connected options — stored with raw winProb for formatWinProbability().
+  // Connected options.
   //
   // ⚠ BOTH DIRECTIONS, and it was outbound-only (review D3). The canvas's
   // `isValidConnection` lets a user draw `option → decision`, and such an edge
@@ -160,21 +154,15 @@ export const DecisionPanel = memo(function DecisionPanel({
           ceeOptions?.find((o: { id: string }) => o.id === otherId),
           declaredBaseline,
         )
-        // Raw win probability — formatted via formatWinProbability() at render.
-        const rawWinProb = optionComparison && Array.isArray(optionComparison)
-          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-          ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === otherId)?.win_probability
-          : undefined
         return {
           nodeId: otherId,
           label,
           ivCount,
           isBaseline,
-          winProb: typeof rawWinProb === 'number' ? rawWinProb : undefined,
         }
       })
-      .filter(Boolean) as Array<{ nodeId: string; label: string; ivCount: number; isBaseline: boolean; winProb?: number }>
-  }, [edges, nodes, nodeId, optionComparison, ceeOptions])
+      .filter(Boolean) as Array<{ nodeId: string; label: string; ivCount: number; isBaseline: boolean }>
+  }, [edges, nodes, nodeId, ceeOptions])
 
   // Non-option connections (edges where decision is source/target and other end is not an option).
   // Options belong in the Input group; other connections (if any) go here.
@@ -249,11 +237,6 @@ export const DecisionPanel = memo(function DecisionPanel({
             reach it. An empty bordered card would be a box with nothing in it. */}
         {connectedOptions.length > 0 && (
         <PrimaryControlCard>
-          {isResultsMode && winSharesWithheld && winShareWithheldReason !== null && (
-            <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid="decision-panel-not-ranked">
-              {winShareWithheldReason}
-            </p>
-          )}
           {/* Flat option rows — the contract's hairline rule between rows. */}
           {connectedOptions.map((opt) => (
             <div
@@ -274,22 +257,7 @@ export const DecisionPanel = memo(function DecisionPanel({
                     </span>
                   )}
                 </div>
-                {showsShares && opt.winProb != null && (
-                  <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
-                    {formatWinProbability(opt.winProb)}
-                  </span>
-                )}
               </div>
-              {showsShares && opt.winProb != null && (
-                <div className="mt-1.5">
-                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${Math.round(opt.winProb * 100)}%`, background: 'var(--option)' }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </PrimaryControlCard>

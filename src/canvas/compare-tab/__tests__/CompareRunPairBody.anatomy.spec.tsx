@@ -6,7 +6,6 @@ import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
-import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { PANEL_RULE } from '../../../components/results/analysisNew/panelSurfaces'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
@@ -51,14 +50,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useAskOlumiStore.setState(originalAsk, true) })
 
 describe('Compare v1 anatomy and producer-only rendering', () => {
-  it('orders the headline (with its ✦ Ask), then the canvas-linked inputs with the reading note, then result details — one change list, not two', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "then result details" assertions (the details row after the inputs) are deleted —
+  // Compare has no "Result details" section in C (no share figures). The section order, Ask and input rows stay.
+  it('orders the headline (with its ✦ Ask), then the canvas-linked inputs with the reading note — one change list, not two', () => {
     const { container } = mount()
     expect([...container.querySelectorAll('[data-compare-section]')].map(el => el.getAttribute('data-compare-section'))).toEqual(['headline', 'inputs'])
     expect(within(section('What changed between runs')).getByRole('button', { name: 'Ask Olumi about this comparison' })).toBeInTheDocument()
     expect(screen.getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(1)
-    // The details row follows the inputs: the last thing in the body.
-    const details = screen.getByTestId('compare-result-details')
-    expect(section('What changed in the model').compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('reads each section from the licensed producer pair and ignores current graph values and unrelated result prose', () => {
@@ -85,8 +83,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(hero).toHaveTextContent('In this model, the most runs supported Raise to £60 on the latest run; the previous run named no option')
     expect(hero).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
     expect(hero).not.toHaveTextContent('changed')
-    // No pair of figures: the producer's reason stands in the figures' place, and no details row promises figures.
-    expect(hero).toHaveTextContent('The options can be compared for the first time.')
+    // #2747 re-scope 2 (DL ruling (A)): the "The options can be compared for the first time." presence is deleted — it was
+    // the reason no pair of share figures is drawn, and Compare draws no share figures in C. No details row either.
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
   })
 
@@ -159,31 +157,20 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(screen.queryByText('0%')).toBeNull()
   })
 
-  it('keeps business quantities visible and hides science numerics until result disclosure', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the disclosure clicks and the two "supported by 41% → 44% / 59% → 56% of runs"
+  // presence assertions are deleted — Compare has no "Result details" section and no share figures in C. The business
+  // quantity and the share-numeric negative stay.
+  it('keeps business quantities visible and shows no share numerics', () => {
     mount()
     expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
-    expect(screen.getByText('Keep £49: supported by 59% → 56% of runs.')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.queryByText(/41%.*44%/)).toBeNull()
   })
 
-  it('says each exact figure as a share of runs, never a chance and never who leads (6 Oct rule; #2549 missed this line)', () => {
-    mount()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    const region = screen.getByTestId('compare-result-details-region')
-    expect(region).toHaveTextContent('Raise to £60: supported by 41% → 44% of runs.')
-    expect(region.textContent).not.toMatch(/chance|lead/i)
-  })
-
-  it('keeps the not-noise-qualified magnitude withheld even on disclosure', () => {
-    mount(runChangeDelta({ win_probabilities: [{ option_id: 'opt_60', prior: 0.1, current: 0.9, noise_verdict: 'not_noise_qualified' }] }))
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('10%')
-    expect(screen.getByTestId('compare-result-details-region')).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "says each exact figure as a share of runs, never a chance and never
+  // who leads": its only subject (the share figures in the Result details region; its negative was bound to that region)
+  // is removed from Compare in C.
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "keeps the not-noise-qualified magnitude withheld even on disclosure":
+  // its only subject (a share magnitude in the Result details region; both assertions bound to that region) is removed.
 
   it('opens the existing editable Ask Olumi draft only on user click, with producer pair context', () => {
     mount()
@@ -248,11 +235,11 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // The shared link wording (`linkRowText`), the same sentence every surface prints.
     expect(section('What changed in the model')).toHaveTextContent('moderate → strong')
     expect(section('What changed in the model')).not.toHaveTextContent('0.5')
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('0.5')
+    // #2747 re-scope 2 (DL ruling (A)): the Result details disclosure (and its region-bound '0.5' negative) is deleted —
+    // Compare has no "Result details" section in C.
   })
 
-  it('is built from Reasoning\'s own parts: its measure, its rule, its heading row, its disclose row', () => {
+  it('is built from Reasoning\'s own parts: its measure, its rule, its heading row', () => {
     mount()
     // Reasoning's inner measure (AnalysisNewTabBody), owned by the body (`padding: 'self'`).
     expect(screen.getByTestId('compare-run-pair').className).toBe('px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto')
@@ -269,14 +256,10 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const ask = screen.getByRole('button', { name: 'Ask Olumi about this comparison' })
     expect(ask).toHaveAttribute('data-ai', 'true')
     expect(heading.parentElement).toContainElement(ask)
-    // The exact shares sit behind SectionShell's `disclose` row, closed by default.
-    expect(screen.getByTestId('compare-result-details')).toHaveAttribute('data-section-open', 'false')
+    // #2747 re-scope 2 (DL ruling (A)): the "disclose row" assertion (compare-result-details, closed by default) is deleted —
+    // the exact shares and their Result details row are removed from Compare in C.
   })
 
-  it('also respects advanced mode through the shared science gate', () => {
-    const hash = seed()
-    render(<DetailToggleContext.Provider value={{ showDetail: true }}><CompareRunPairBody responseHash={hash} /></DetailToggleContext.Provider>)
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "also respects advanced mode through the shared science gate": its only
+  // subject (the share figures behind Result details, under advanced mode) is removed from Compare in C.
 })

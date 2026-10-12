@@ -32,7 +32,7 @@ import { installCanonicalFixtureState } from '../../../components/results/analys
  * run is now asserted ABSENT there too — the strongest case, since `permitted`
  * is exactly the state that used to license it. The withheld arms keep their
  * absence assertions unchanged. Every absence is paired with a same-render
- * contrast control (the card's own result row), so a blank render cannot pass.
+ * contrast control (the card's own label; #2747 re-scope 2: no result row in C), so a blank render cannot pass.
  *
  * ⭐⭐ CURRENT-READ row 9 (AIQ 5912710392; Paul's test 4276f3f9, finding 9): a
  * per-option share names the leader in numbers, so a WITHHELD leader now
@@ -64,7 +64,6 @@ vi.mock('../../layoutStore', () => ({
 
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -147,14 +146,13 @@ beforeEach(() => {
  * ED #63 5799353114 decision 1 — the card makes NO leader claim: no pill by
  * identity, no robustness grade beside it, and no "Most supported" in the
  * card's text. Each absence is read from the SAME render as its contrast
- * control: the card's own label and its model-relative result row.
+ * control: the card's own label (#2747 re-scope 2 (U0): the chance result row is removed in C).
  */
 function expectNoLeaderClaimOnCard(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
-  // CONTRAST CONTROL FIRST — the card rendered, with its result row.
+  // CONTRAST CONTROL FIRST — the card rendered (its label).
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  if (contrast === 'share') {
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
-  } else {
+  // #2747 re-scope 2 (U0): the 'share' arm's chance readout ("41%") is deleted — the canvas card shows no chance in C.
+  if (contrast !== 'share') {
     // CURRENT-READ row 9 (AIQ 5912710392): on a withheld run the result slot holds `Not ranked` + the reason.
     expectNotRankedInSlot(contrast.notRankedReason)
   }
@@ -210,7 +208,9 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     expectNoLeaderClaimOnCard(container)
   })
 
-  it('a Run without a chance keeps its compared marker; the permitted control with a licence shows its chance', () => {
+  // #2747 re-scope 2 (U0): "shows its chance" (the permitted control's chance readout) is deleted — the canvas card shows
+  // no chance in C; the permitted control's no-marker negative stays.
+  it('a Run without a chance keeps its compared marker; the permitted control with a licence has no marker', () => {
     // WS5-1: the old share headline is removed. Keep the independent marker assertions on the
     // no-chance fixture, and test the replacement headline with an explicit chance licence.
     renderOption(withPermission(permittedReport(), { permitted: false }))
@@ -218,7 +218,7 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     cleanup()
     // The licensed chance has a different figure from the runs share, so the control identifies the new quantity.
     renderOption(withPermission(permittedReport(), { permitted: true }), true)
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
+    expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-ranked-${NODE_ID}`)).toBeNull()
   })
 

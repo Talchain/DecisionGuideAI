@@ -15,7 +15,7 @@ import { cardMark } from './shared/cardMarks'
  *    in Standard, the user-stated limits as compact boundary pills
  *    (`goalLimitPills`; NODE-ANATOMY v3.2, ED #63 choice 2), full sentence on
  *    hover/focus. Never beside the no-target chip (one pill in that state).
- *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
+ *  - Post-analysis with threshold: no achievement probability in C (#2747 re-scope 2); the Results hero says the chance
  *    — only when the run PRODUCED one; no Chance row otherwise (contract v3.1 goal anatomy, gap U3)
  *  - No risks chip (always)
  *  - No rail source icon (contract v3.1 pt 1, gap U8)
@@ -42,7 +42,6 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import {
@@ -53,7 +52,6 @@ import {
   goalTargetInPlaceEdit,
   goalTodayLevel,
 } from '../domain/goalTarget'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -61,11 +59,10 @@ import {
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { NodeMetricRow, NodePopover, ScienceIcon } from './shared'
+import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
@@ -74,7 +71,6 @@ import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
-import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
 import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
@@ -451,13 +447,6 @@ export const GoalNode = memo((props: NodeProps) => {
   // Phase 2.3 — null-probability guard. Post-analysis without any finite
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
-  // F5a (Codex review): the rerun prompt must be driven by the ACTUAL freshness
-  // state — the same composed trust surface AnalysisFreshnessNotice reads — never
-  // by value absence. A completed CURRENT run can legitimately carry no goal
-  // probability (producer returned none), and demanding a rerun then contradicts
-  // the panel's "Analysis reflects the current model". Only a genuinely
-  // changed/stale model ('changed' semantic) warrants "Rerun the analysis".
-  const analysisChanged = useAnalysisTrust().semantic === 'changed'
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
 
@@ -600,41 +589,11 @@ export const GoalNode = memo((props: NodeProps) => {
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])
 
-  // Use the option card's complete chance cell, including withheld and range words.
-  const achievementReadout = displayMetadata.achievementChanceCell?.text ?? null
-
-  /**
-   * ⭐ ONE GATE FOR THE ACHIEVEMENT FIGURE, NAMED ONCE.
-   *
-   * The same three-term expression was written out THREE times below — once
-   * for the readout, once for the modelled-basis caveat, once for the
-   * low-probability guidance — and the metric row would have made it four.
-   * Four hand-kept copies of the permission that decides whether this card
-   * states a probability at all is precisely the mirror this estate keeps
-   * paying for (CLAUDE.md trap 12), and the drift it produces is the worst
-   * kind available here: a number rendered by one copy while the disclosure
-   * that makes it honest is withheld by another.
-   *
-   * ⚠ UI-SEM-082 IS THE REASON FOR `hasThreshold`, and it is not incidental.
-   * The producer synthesises an auto goal threshold and returns a probability
-   * even when the USER set no target, so gating on value presence alone would
-   * crown a target nobody chose.
-   */
-  const showAchievementReadout =
-    hasThreshold &&
-    displayMetadata.isResultsMode &&
-    achievementReadout !== null
-
-  /**
-   * The critical-probability predicate, also named once. It was written out
-   * three times — the danger colour, the coaching chip's gate, and the
-   * "Target may be ambitious" guidance — each carrying its own null check. The
-   * `< 0.10` threshold is the card's own editorial line and there is no reason
-   * for three copies of it to be able to disagree about where it sits.
-   */
-  const achievementIsCritical =
-    displayMetadata.achievementProbability !== null &&
-    displayMetadata.achievementProbability < 0.10
+  // #2747 re-scope 2 (U0): the canvas goal card shows no goal chance in C (nor the "critically low" reading of one). It
+  // used to state the recommended option's chance cell, with its caveats, a "Why is this so low?" chip and a "Target may
+  // be ambitious" prompt under 10%. Interim limit: restore via the chance's own served string and Run licence on the
+  // canvas (post-C). The chance is said on the Results hero, in CEE's words.
+  const achievementIsCritical = false
 
   /**
    * ⛔ NO BORDER OVERRIDE — THE GOAL IS ALWAYS A SOLID FRAME IN ITS KIND HUE
@@ -1045,15 +1004,6 @@ export const GoalNode = memo((props: NodeProps) => {
       }),
     [achievementIsCritical],
   )
-  const achievementTitle = [
-    // AIQ #72 5885116642: the register's model-run sentence on BOTH arms — never "chance of reaching target".
-    achievementReadout,
-    displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
-    goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
-    hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
-    analysisChanged ? 'The model has changed since this run.' : null,
-  ].filter(Boolean).join(' ')
-
   return (
     <div
       ref={nodeElRef as React.Ref<HTMLDivElement>}
@@ -1253,77 +1203,6 @@ export const GoalNode = memo((props: NodeProps) => {
         {todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
             {goalTodayLevelCopy(todayLevel)}
-          </p>
-        )}
-        {showAchievementReadout && displayMetadata.achievementProbability !== null && (
-          <NodeMetricRow
-            label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
-            value={displayMetadata.achievementProbability}
-            formatted={achievementReadout ?? ''}
-            fillClass="bg-goal"
-            testId="goal-achievement-metric-row"
-            title={achievementTitle}
-            phrase={achievementTitle}
-          />
-        )}
-        {showAchievementReadout && displayMetadata.achievementProbability === null && (
-          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            {achievementReadout}
-          </p>
-        )}
-        {/* ISL #207 (AIQ #72 5877139338): a chance measured from a goal level
-            Olumi worked out is never shown bare. Visible on the resting card,
-            not only in Detailed or a tooltip, because without it the figure
-            reads as the user's own chance. Two strings, fail-closed: the
-            neutral one never says "Olumi's". */}
-        {showAchievementReadout && goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-            data-testid="goal-fit-base-caveat-node"
-          >
-            {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
-          </p>
-        )}
-        {/* No Chance row when the run produced no goal chance (contract v3.1
-            goal anatomy, gap U3): the old unset row ("Not produced by this run" /
-            "See each option" / "Rerun to update") is gone, not reworded. */}
-
-        {/* Detailed adds information, not a different card: the basis caveat
-            and the "may be ambitious" prompt, as before. */}
-        {isDetailed && showAchievementReadout && displayMetadata.achievementProbabilityIsModelledBasis === true && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-            data-testid="goal-fit-basis-caveat-node"
-          >
-            {GOAL_FIT_BASIS_CAVEAT_COPY}
-          </p>
-        )}
-        {isDetailed && hasThreshold && isPostAnalysis && achievementIsCritical && (
-          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
-            Target may be ambitious.{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={(e) => {
-                e.stopPropagation()
-                openNodeInspector(props.id)
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              Adjust target
-            </button>
-            {' '}or{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={(e) => {
-                e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors so the goal is reached in more model runs?')
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              strengthen key factors
-            </button>
           </p>
         )}
 

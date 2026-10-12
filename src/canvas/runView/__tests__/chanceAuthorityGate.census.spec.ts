@@ -30,7 +30,7 @@ const ROOT = process.cwd()
 const DISPLAY_DIRS = ['src/components', 'src/canvas', 'src/v5/blocks']
 const RULE = 'chance-gate/no-raw-chance-read'
 /** `runView.ts`'s gate functions: the only place a raw read is `gate`. */
-const GATE_FUNCTIONS = new Set(['optionsWithGoalFigures', 'gatedFigure', 'gatedRange', 'gatedCompareGoalChances'])
+const GATE_FUNCTIONS = new Set(['optionsWithGoalFigures', 'gatedFigure', 'gatedRange'])
 const REASON = /^\s*(?:\/\/|\/\*|\{\/\*)\s*eslint-disable-(next-line|line)\s+chance-gate\/no-raw-chance-read\s+--\s+chance-gate:\s*([a-z-]+):\s*(\S.*?)\s*(?:\*\/\}?)?\s*$/
 
 const EXCLUDED_DIR = new Set(['__tests__', '__fixtures__', 'fixtures', 'test', '__mocks__'])

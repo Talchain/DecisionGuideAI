@@ -142,11 +142,15 @@ describe('OptionCards — the ranked repeat', () => {
    * deleted the bar outright — the over-suppression failure this asserts
    * against.
    */
-  it('WITHHELD: still renders the win-probability bar for each visible card', () => {
-    const { container } = renderCards(WITHHELD_VERDICT)
-    expect(
-      container.querySelectorAll('[title^="Supported in"]').length,
-    ).toBeGreaterThan(0)
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'WITHHELD: still renders the win-probability bar for each visible card'. No
+  // card draws a win-share bar in C, withheld or permitted; the cards themselves still render (pinned by the order rows).
+  it('WITHHELD: renders no win-probability bar on any card (nor does a PERMITTED run, in C)', () => {
+    const { container, unmount } = renderCards(WITHHELD_VERDICT)
+    expect(container.querySelectorAll('[data-testid^="option-card-"]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('[title^="Supported in"]')).toHaveLength(0)
+    unmount()
+    const permitted = renderCards(PERMITTED_VERDICT)
+    expect(permitted.container.querySelectorAll('[title^="Supported in"]')).toHaveLength(0)
   })
 
   /**

@@ -270,20 +270,19 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
       .toHaveLength(0)
   })
 
-  it('positive control: a REAL probability_of_goal below the low-goal threshold KEEPS the possessive badge wording', () => {
-    // Below 0.10 so the badge branch is exercised in this arm too — without
-    // this the badge's possessive wording would be pinned in one direction
-    // only, and deleting it outright would still pass.
+  // #2747 re-scope 2 (U0 rewrite): the low-goal badge is gone in C (it worded its own chance sentence); the arm below 0.10
+  // now pins the card's readout and the badge's absence, still never the substituted joint wording.
+  it('positive control: a REAL probability_of_goal below the low-goal threshold keeps its readout, with no low-goal badge', () => {
     const options = toOptionResults(withRealGoalProbability(0.055))
     expect(options.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
 
     const { container } = renderCards(options)
     const text = container.textContent ?? ''
 
-    expect(text).toContain(`6% ${POSSESSIVE_BADGE_TAIL}`)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toMatch(/\d%/)
+    expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('6%', true))
-    expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]'))
-      .toHaveLength(1)
+    expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]')).toHaveLength(0)
   })
 
   it('L62: the withheld run shows NEITHER voice, and the honest run shows exactly the possessive one', () => {

@@ -1,6 +1,6 @@
 import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { readGoalChanceRange } from '../../utils/goalChanceRange'
 import { goalChanceHeadline, goalChanceOptionLines, goalChanceTargetWords } from '../goalChanceCopy'
@@ -8,7 +8,6 @@ import { GoalChanceRangeLines } from '../GoalChanceRangeLines'
 import { withGoalOptionCoverage } from '../goalOptionCoverage'
 import type { HeroChartModel } from '../heroTypes'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { DecisionMatrix, type DecisionMatrixProps } from '../../analysisNew/sections/DecisionMatrix'
 import { gateWordsOf } from './helpers/gateWords'
 
 const TARGET = { comparator: 'at_least', value: 100, unit: '% of the feature launch', by_date: '2027-04-07' }
@@ -29,29 +28,21 @@ const range = (entry = ENTRY, warnings: Record<string, unknown>[] = []) => readG
 const line = (estimate: string, bounds = '23% and 90%') =>
   `‘Team A’: between ${bounds} chance of launching by 7 April 2027, in this model, from the slow end of your ${estimate} to the fast end.`
 
-function matrix(goalChanceRange: ReturnType<typeof range>, goalChanceLicence: ReturnType<typeof licence> | null = null) {
-  const props = {
-    data: { goalChanceRange, goalChanceLicence, recommendation: {
-      goalThreshold: 100, allOptions: [{ id: 'a', label: 'Team A' }, { id: 'b', label: 'Team B' }],
-    } }, comparison: { rows: [] }, optionOrder: ['a', 'b'], run: {}, isStale: false,
-  } as unknown as DecisionMatrixProps
-  props.data = withCanonicalTestCells(props.data)
-  render(<DecisionMatrix {...props} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-}
+// #2747 re-scope 2 (U2): the range line says CEE's served face verbatim and composes nothing; this is a stated-time face as
+// CEE serves it (SELF-AUTHORED here, in CEE's words), so the rows below pin that the line says it, whole.
+const SERVED_FACE = line('3–6 months')
+const faceOfA = (id: string) => (id === 'a' ? SERVED_FACE : null)
 
 afterEach(cleanup)
 
 describe('share-by-date chance: the same words as CEE chat', () => {
-  it('point line and matrix bind the deliverable verbatim, British date and model-relative chance', () => {
+  // #2747 re-scope 2 (U0): the decision matrix is removed in C, so its cell and "Goal:" line are no longer pinned here.
+  it('point line binds the deliverable verbatim, British date and model-relative chance', () => {
     const read = licence()
     expect(goalChanceOptionLines(read, labels, gateWordsOf(read))).toEqual([
       '‘Team A’: about 62% chance of launching by 7 April 2027, in this model.',
       '‘Team B’: about 41% chance of launching by 7 April 2027, in this model.',
     ])
-    matrix(null, read)
-    expect(screen.getByTestId('decision-matrix-chance-a').textContent).toBe(goalChanceOptionLines(read, labels, gateWordsOf(read))![0])
-    expect(screen.getByText('Goal: the feature launch done by 7 April 2027')).toBeTruthy()
   })
 
   it('removes only the leading share marker and preserves the deliverable verbatim', () => {
@@ -87,38 +78,27 @@ describe('share-by-date chance: the same words as CEE chat', () => {
     ])
   })
 
-  it.each([
-    ['months_to_finish', { low: 3, high: 6, unit: 'months' }, '3–6 months'],
-    ['share_per_month', { low: 10, high: 20, unit: '% of the feature launch per month' }, '10–20% a month'],
-    ['months_to_finish', { low: 3, high: 3, unit: 'months' }, '3 months'],
-    ['share_per_month', { low: 20, high: 20, unit: '% of the feature launch per month' }, '20% a month'],
-  ])('range %s / %j binds the stated estimate; endpoints need no labels or link action', (quantity, stated_estimate, words) => {
-    const read = range({ ...ENTRY, quantity, stated_estimate })
-    expect(read).not.toBeNull()
-    render(<GoalChanceRangeLines range={read} labelOf={labels} />)
-    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(line(words))
+  it('a stated-time range line says CEE\'s served face whole, with no link action and no link-dependence words', () => {
+    render(<GoalChanceRangeLines range={range()} faceOf={faceOfA} />)
+    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(SERVED_FACE)
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByTestId('goal-chance-range-lines').textContent).not.toContain('It depends most on')
   })
 
-  it('the matrix carries the range target and keeps the stated-time sentence together', () => {
-    matrix(range())
-    expect(screen.getByTestId('decision-matrix-chance-a').textContent).toBe(line('3–6 months'))
-    expect(screen.getByTestId('decision-matrix-driver-a').textContent).toBe('')
+  it('a range CEE served no face for says nothing (the bounds are never worded here)', () => {
+    render(<GoalChanceRangeLines range={range()} faceOf={() => null} />)
+    expect(screen.queryByTestId('goal-chance-range-line')).toBeNull()
   })
 
   it('hero coverage recognises the stated-time figure without treating its endpoints as links', () => {
     const model = { lenses: ['goal'], rows: ['a', 'b'].map(id => ({ id, label: labels(id), goal: { value: null } })) } as unknown as HeroChartModel
     const data = { goalChanceRange: range(), goalChanceDriverNames: { labelOf: labels }, recommendation: { goalThreshold: 100, allOptions: ['a', 'b'].map(id => ({ id, label: labels(id) })) } } as unknown as ResultsSectionDataReturn
-    expect(withGoalOptionCoverage(model, withCanonicalTestCells(data)).goalOptionCoverage).toEqual({
+    expect(withGoalOptionCoverage(model, withCanonicalTestCells(data, null, { a: SERVED_FACE })).goalOptionCoverage).toEqual({
       hasFigures: true, withheldLines: [{ id: 'b', line: '‘Team B’: not shown yet in this model.' }],
     })
   })
 
-  it('range extremes use the existing chance words', () => {
-    render(<GoalChanceRangeLines range={range({ ...ENTRY, low: 0, high: 1, low_pct: 0, high_pct: 100 })} labelOf={labels} />)
-    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(line('3–6 months', 'less than 1% and more than 99%'))
-  })
+  // #2747 re-scope 2 (U2): the range's extreme words (less than 1% / more than 99%) are CEE's, in its served face.
 
   it('headline target words change only the parentheses in every existing template', () => {
     const read = licence()
@@ -153,12 +133,12 @@ describe('share-by-date chance: the same words as CEE chat', () => {
 
   it('share approximation permits the range; an unrelated option withhold bars it', () => {
     const compatible = range(ENTRY, [{ code: 'GOAL_FIGURES_SHARE_APPROXIMATION', option_ids: ['a'] }])
-    render(<GoalChanceRangeLines range={compatible} labelOf={labels} />)
-    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(line('3–6 months'))
+    render(<GoalChanceRangeLines range={compatible} faceOf={faceOfA} />)
+    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(SERVED_FACE)
     cleanup()
     const barred = range(ENTRY, [{ code: 'GOAL_FIGURES_PRODUCT_NOT_READ', option_ids: ['a'] }])
     expect(barred).toBeNull()
-    render(<GoalChanceRangeLines range={barred} labelOf={labels} />)
+    render(<GoalChanceRangeLines range={barred} faceOf={faceOfA} />)
     expect(screen.queryByTestId('goal-chance-range-line')).toBeNull()
   })
 })

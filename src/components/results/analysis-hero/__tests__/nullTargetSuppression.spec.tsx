@@ -105,13 +105,11 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
     expect(m.showGoalHint).toBe(true)
   })
 
-  it('outcome/win display is unchanged by the gate (Likely outcome untouched)', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the hero row carries no win-share detail in C, so only the outcome is compared.
+  it('outcome display is unchanged by the gate (Likely outcome untouched)', () => {
     const gated = chart(buildHeroModel(nullTargetSynthesizedData(null)))
     const baseline = chart(buildHeroModel(makeHeroData()))
     expect(gated.rows.map((r) => r.outcome)).toEqual(baseline.rows.map((r) => r.outcome))
-    expect(gated.rows.map((r) => r.detail.winChance)).toEqual(
-      baseline.rows.map((r) => r.detail.winChance),
-    )
     expect(gated.outcomeDomain).toEqual(baseline.outcomeDomain)
     expect(gated.leaders.outcome).toBe(baseline.leaders.outcome)
   })

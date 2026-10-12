@@ -1,4 +1,4 @@
-import { withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { canonicalTestCellsOf, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { HERO_COPY } from '../heroCopy'
 import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,8 @@ import { makeHeroData, makeOption } from '../__fixtures__/hero.fixtures'
 import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalIdentityWithheld } from '../../utils/goalIdentityWithheld'
 import { readGoalChanceRange } from '../../utils/goalChanceRange'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
+import { runViewFromParts } from '../../../../canvas/runView/runView'
+import type { CanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import t1b from './fixtures/served-t1b-f440be4a-goal-chance-records.json'
 import unseen1 from './fixtures/s4ui/unseen-1.turn.json'
 import unseen2 from './fixtures/s4ui/unseen-2.turn.json'
@@ -81,6 +83,51 @@ function mount(data: ReturnType<typeof fromTurn>) {
   Object.assign(data, withCanonicalTestCells(data))
   return render(<AnalysisHeroContainer data={data} fragileEdgeCount={0} />)
 }
+/**
+ * #2747 re-scope 2 (U0): the same self-authored current canonical view as `mount` (`withCanonicalTestCells`), edited as
+ * CEE would serve it (a driver's `detail`, a range cell without its `face`), through the real gate.
+ */
+function mountServed(data: ReturnType<typeof fromTurn>, edit: (view: CanonicalAnalysisView) => CanonicalAnalysisView) {
+  const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, data.goalChanceLicence ?? data.runView?.goalChance ?? null,
+    data.goalChanceRange ?? data.runView?.goalChanceRange ?? null, edit(canonicalTestCellsOf(data)))
+  Object.assign(data, { runView: view, goalChanceRange: view.goalChanceRange })
+  return render(<AnalysisHeroContainer data={data} fragileEdgeCount={0} />)
+}
+const withDriverDetails = (details: Readonly<Record<string, string>>) => (view: CanonicalAnalysisView): CanonicalAnalysisView => ({
+  ...view,
+  options: view.options.map(o => o.main_driver.kind === 'available' && details[o.option_id] !== undefined
+    ? { ...o, main_driver: { ...o.main_driver, detail: details[o.option_id] } } : o),
+})
+const withoutRangeFaces = (view: CanonicalAnalysisView): CanonicalAnalysisView => ({
+  ...view,
+  options: view.options.map(o => o.cell.kind === 'range' ? { ...o, cell: { kind: 'range' as const, display: o.cell.display, detail: o.cell.detail } } : o),
+})
+
+/**
+ * #2747 re-scope 2 (U0): a range line says CEE's served range face verbatim (`faceOf` → the range cell's `face`), then its
+ * action, and composes nothing: the captured UI link clause ("It depends most on …") is no longer said. The face is the
+ * captured line's own first sentence (CEE's served face shape), checked against the held canonical cell by option id.
+ */
+const FACE_END = ' chance of meeting your goal, in this model.'
+const capturedFace = (text: string) => text.slice(0, text.indexOf(FACE_END) + FACE_END.length)
+function servedRangeLines(data: ReturnType<typeof fromTurn>, captured: typeof captured1 | typeof captured2) {
+  return captured.dom.range_lines.map(r => {
+    const face = capturedFace(r.text)
+    expect(data.runView!.servedCellOf(r.option_id)).toMatchObject({ kind: 'range', face })
+    return { id: r.option_id, text: `${face} ${r.buttons[0].text}` }
+  })
+}
+const COMPOSED_RANGE_WORDS = /depends most on|isn’t sized in the model yet|which Olumi assumed/
+function expectNoComposedRangeWords() {
+  for (const line of lines('goal-chance-range-line')) expect(line.text).not.toMatch(COMPOSED_RANGE_WORDS)
+}
+/** CEE's served `main_driver.detail` for t1b's two drivers: the frozen base lead's own words (`points.base.html`). */
+const POINT_DETAILS: Readonly<Record<string, string>> = {
+  raise_prices_by_10: 'It rests most on how strongly ‘Price increase from current’ affects ‘Monthly recurring revenue’, at the size you set: '
+    + 'if that effect is weaker than that, the chance falls. How sure are you of that size?',
+  launch_starter_tier: 'It rests most on how strongly ‘Starter tier subscribers’ affects ‘Monthly recurring revenue’, at the size you set: '
+    + 'if that effect is weaker than that, the chance falls. How sure are you of that size?',
+}
 
 // Frozen control markup from the original base e3f2fc82 DOM replay, already
 // witnessed byte-identical in S4-UI. These references do not rebuild a baseline
@@ -133,8 +180,10 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
   ] as const)('%s: exact served ranges plus two identity-specific lines, without a run-wide box', (_row, turn, captured, missing) => {
     const data = fromTurn(turn)
     mount(data)
-    const expectedRanges = captured.dom.range_lines.map(r => ({ id: r.option_id, text: r.text }))
+    // #2747 re-scope 2 (U0): CEE's served face verbatim, then the action (was the captured UI-composed line).
+    const expectedRanges = servedRangeLines(data, captured)
     expect(lines('goal-chance-range-line')).toEqual(expectedRanges)
+    expectNoComposedRangeWords()
     expectWithheld(data, [...missing], producerReason(data))
     expectNoBox()
     fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
@@ -154,7 +203,8 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
 
   it('all-points control: own cell lead lines and wrapping column change; all other markup stays identical', () => {
     const data = pointControl()
-    const { container } = mount(data)
+    // #2747 re-scope 2 (U0): the drivers carry CEE's served `detail` (the only words a driver line may say).
+    const { container } = mountServed(data, withDriverDetails(POINT_DETAILS))
     for (const option of data.recommendation.allOptions) {
       const cell = chanceCellOf(data, option.id)
       const prefix = `‘${option.label}’: `
@@ -167,11 +217,16 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     const priorLead = base.content.querySelector('[data-testid="hero-subline"]')!.textContent!
     const driverLines = screen.getByTestId('hero-subline').querySelectorAll('[data-line-kind="driver"]')
     expect(driverLines).toHaveLength(2)
+    // #2747 re-scope 2 (U0): each driver line is ITS option's served detail, verbatim.
+    expect(Object.fromEntries([...driverLines].map(d => [d.getAttribute('data-option-id'), d.textContent]))).toEqual(POINT_DETAILS)
     for (const driver of driverLines) {
       expect(priorLead).toContain(driver.textContent)
       expect(driver.previousElementSibling!.getAttribute('data-line-kind')).toBe('cell')
       expect(driver.previousElementSibling!.getAttribute('data-option-id')).toBe(driver.getAttribute('data-option-id'))
     }
+    // #2747 re-scope 2 (U0): the base lead's licence-composed disclosure lines are no longer said on the hero.
+    expect(priorLead).toContain('These chances also count')
+    expect(screen.getByTestId('hero-subline').textContent).not.toMatch(/These chances also count|Olumi isn’t saying whether|might not hold/)
     expect(withoutLeadMarkup(container.innerHTML)).toBe(withoutLeadMarkup(pointsMarkupWithCells(data)))
     expect(lines('goal-option-withheld-line')).toEqual([])
     fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
@@ -183,6 +238,18 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     }
   })
 
+  // #2747 re-scope 2 (U0): a canonical driver CEE gave no `detail` says nothing; the UI composes no driver words.
+  it('all-points control without served details: the drivers say nothing, the own cells stay', () => {
+    const data = pointControl()
+    mount(data)
+    // CONTROL: the drivers are on the current canonical view; only their sentence is absent.
+    expect(data.runView!.mainDriverOf('raise_prices_by_10')).not.toBeNull()
+    expect(data.runView!.mainDriverDetailOf('raise_prices_by_10')).toBeNull()
+    expect(screen.getByTestId('hero-subline').querySelectorAll('[data-line-kind="driver"]')).toHaveLength(0)
+    expect(screen.getByTestId('hero-subline').querySelectorAll('[data-line-kind="cell"]')).toHaveLength(3)
+    expect(screen.getByTestId('hero-subline').textContent).not.toMatch(/It rests most on|the chance falls/)
+  })
+
   it('swap: ranges and withholding follow the swapped option IDs and labels', () => {
     const data = fromTurn(unseen1)
     const range = data.goalChanceRange!
@@ -192,10 +259,14 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
       rangeByOption: Object.fromEntries(after.map((id, i) => [id, range.rangeByOption[before[i]]])),
     }
     mount(data)
-    expect(lines('goal-chance-range-line')).toEqual(captured1.dom.range_lines.map((r, i) => ({
-      id: after[i], text: r.text.replace(`‘${data.recommendation.allOptions.find(o => o.id === before[i])!.label}’:`,
-        `‘${data.recommendation.allOptions.find(o => o.id === after[i])!.label}’:`),
-    })))
+    // #2747 re-scope 2 (U0): each line is the swapped option's served face verbatim, then its action.
+    expect(lines('goal-chance-range-line')).toEqual(captured1.dom.range_lines.map((r, i) => {
+      const face = capturedFace(r.text).replace(`‘${data.recommendation.allOptions.find(o => o.id === before[i])!.label}’:`,
+        `‘${data.recommendation.allOptions.find(o => o.id === after[i])!.label}’:`)
+      expect(data.runView!.servedCellOf(after[i])).toMatchObject({ kind: 'range', face })
+      return { id: after[i], text: `${face} ${r.buttons[0].text}` }
+    }))
+    expectNoComposedRangeWords()
     expectWithheld(data, before, producerReason(data))
     expectNoBox()
   })
@@ -208,7 +279,9 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     }]
     mount(data)
     expectWithheld(data, ['loyalty_app', 'carry_on_as_now'])
-    expect(lines('goal-chance-range-line')).toEqual(captured1.dom.range_lines.map(r => ({ id: r.option_id, text: r.text })))
+    // #2747 re-scope 2 (U0): CEE's served face verbatim, then the action (was the captured UI-composed line).
+    expect(lines('goal-chance-range-line')).toEqual(servedRangeLines(data, captured1))
+    expectNoComposedRangeWords()
     expectNoBox()
   })
 
@@ -230,17 +303,36 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
       affected_nodes: [], message: GOAL_IDENTITY_WITHHELD_FALLBACK }]
     mount(data)
     expectWithheld(data, ['loyalty_app', 'carry_on_as_now'], producerReason(data))
-    expect(lines('goal-chance-range-line')).toEqual(captured1.dom.range_lines.map(r => ({ id: r.option_id, text: r.text })))
+    // #2747 re-scope 2 (U0): CEE's served face verbatim, then the action (was the captured UI-composed line).
+    expect(lines('goal-chance-range-line')).toEqual(servedRangeLines(data, captured1))
+    expectNoComposedRangeWords()
     expectNoBox()
   })
 
-  it('unresolved labels: honest gap markers and withheld cells, with no phantom figure coverage', () => {
+  // #2747 re-scope 2 (U0): the range line no longer resolves canvas labels (it says CEE's served face, which carries CEE's
+  // own labels), so unresolved canvas labels change nothing there and no raw id can be exposed. What now withholds the
+  // line is a range cell CEE served with no face: that says nothing (the old `[]` negative, kept on its new condition).
+  it('unresolved labels: the range lines say CEE’s served faces verbatim, exposing no raw id; the hero rows keep their cells', () => {
     const data = fromTurn(unseen1)
     data.goalChanceDriverNames = { labelOf: () => null, unitOf: () => null }
     mount(data)
     expectCellRows(data)
+    expect(lines('goal-chance-range-line')).toEqual(servedRangeLines(data, captured1))
+    const linkIds = Object.values(data.goalChanceRange!.rangeByOption).flatMap(e => e.kind === 'stated_time' ? [] : [e.from, e.to])
+    expect(linkIds.length).toBeGreaterThan(0)
+    for (const line of lines('goal-chance-range-line')) for (const id of linkIds) expect(line.text).not.toContain(id)
+    expectWithheld(data, ['loyalty_app', 'carry_on_as_now'], producerReason(data))
+    expectNoBox()
+  })
+
+  it('a range cell CEE served with no face: no range line, honest cells, no phantom figure coverage', () => {
+    const data = fromTurn(unseen1)
+    mountServed(data, withoutRangeFaces)
+    // CONTROL: the ranges are still held through the gate; only their served sentence is absent.
+    expect(data.goalChanceRange?.optionIds.length).toBe(2)
+    expectCellRows(data)
     expect(lines('goal-chance-range-line')).toEqual([])
-    expect(lines('goal-option-withheld-line')).toEqual([])
+    expectWithheld(data, ['loyalty_app', 'carry_on_as_now'], producerReason(data))
     expectNoBox()
   })
 

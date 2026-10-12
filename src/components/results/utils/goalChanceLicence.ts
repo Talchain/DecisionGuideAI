@@ -17,9 +17,8 @@
  * otherwise disagrees with itself and is not read).
  */
 
-import { formatGoalTarget } from './formatGoalTarget'
 import { readGoalChanceHorizonLine } from './goalChanceRange'
-import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
+import { goalChanceTargetBound, readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
 export type { GoalChanceComparator } from './goalChanceTarget'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
@@ -67,7 +66,8 @@ export type GoalChanceDriver =
 
 /**
  * How the driver sentence names things: a model node's display label, and a factor's unit as the user stated it. The
- * results hook supplies these from the canvas; the hero words the sentence (`goalChanceDriverLine`).
+ * results hook supplies these from the canvas. (#2747 re-scope 2: the UI no longer words a driver; CEE's
+ * `main_driver.detail` is said verbatim.)
  */
 export interface GoalChanceDriverNames {
   readonly labelOf: (nodeId: string) => string | null
@@ -330,38 +330,12 @@ export function goalChanceHeroSays(
 ): boolean {
   if (licence === null || options.length < 2 || !goalChanceHeroArmOpen(goalThreshold, options)) return false
   if (!licence.optionIds.every((id) => options.some((o) => o.id === id))) return false
-  return Boolean(chanceWords) || formatGoalTarget(licence.target.value, licence.target.unit, 'level') !== null
+  // #2747 re-scope 2 (U2, finding 3): the target is sayable in its OWN frame, never checked as a level.
+  return Boolean(chanceWords) || goalChanceTargetBound(licence.target) !== null
 }
 
-/**
- * c6/d5's words (cut 5), said ONCE beside the chance lines: the chances also count Olumi's existence prior on the user's
- * own links. CEE's fraction (`oneIn`), never computed; mixed values say it is Olumi's estimate for each. `null` otherwise.
+/*
+ * #2747 re-scope 2: the disclosure lines said once beside the chance lines (cut 6's summary-withheld words and cut 5's
+ * existence line, "These chances also count Olumi's own assumption …") lost their last callers (the hero and the WinGauge
+ * goal rows) and are deleted: the journey surfaces say CEE's served notes verbatim (`goal_chance.notes`).
  */
-const SUMMARY_WITHHELD_WORDS: Readonly<Record<Exclude<GoalChanceForm, 'each'>, string>> = {
-  highest: 'Olumi isn’t naming the option with the highest chance, because that could depend on its own assumption that some links might not hold.',
-  highest_all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, or naming the option with the highest chance, because both could depend on its own assumption that some links might not hold.',
-  all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, because that could depend on its own assumption that some links might not hold.',
-  similar: 'Olumi isn’t saying whether the options have similar chances of meeting your goal, because that could depend on its own assumption that some links might not hold.',
-}
-
-/** c6's words (cut 6 interim), chosen by the withheld FORM (never "highest" for a withheld `similar`). `null` otherwise. */
-export function goalChanceSummaryWithheldLine(licence: GoalChanceLicence | null): string | null {
-  const w = licence?.summaryWithheld ?? null
-  return w === null ? null : SUMMARY_WITHHELD_WORDS[w.form]
-}
-
-/**
- * Everything said once beside the chance lines, in order: why no summary is stated (cut 6), then the existence line
- * (cut 5). ONE home: the hero when it speaks, else the WinGauge goal rows. `null` when there is nothing to say.
- */
-export function goalChanceDisclosureLines(licence: GoalChanceLicence | null): string | null {
-  const lines = [goalChanceSummaryWithheldLine(licence), goalChanceExistenceLine(licence)].filter((l): l is string => l !== null)
-  return lines.length > 0 ? lines.join(' ') : null
-}
-
-export function goalChanceExistenceLine(licence: GoalChanceLicence | null): string | null {
-  const e = licence?.userLinkExistence ?? null
-  if (e === null) return null
-  const which = e.oneIn !== null ? `a 1-in-${e.oneIn} chance each` : 'Olumi’s estimate for each'
-  return `These chances also count Olumi’s own assumption that each of your links might not hold (${which}).`
-}

@@ -111,7 +111,9 @@ describe('OptionCards — V5 visible render (Phase 1 G1 closure)', () => {
   // (`src/components/debug/__tests__/exportBundle.displayState.spec.ts`)
   // which assert all 4 option_probabilities flow correctly.
 
-  it('renders the exact numeric win-probability percentage for each visible option from V5-derived OptionResult shape', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'renders the exact numeric win-probability percentage for each visible option
+  // …'; the cards show no win share in C, so the V5-derived shares (72%, 5%) are pinned ABSENT, by option id.
+  it('renders NO win-probability percentage for any visible option from V5-derived OptionResult shape', () => {
     // Two options spanning the staging fixture's high + low extremes.
     const options = stagingFixtureOptions().filter((o) =>
       o.id === 'opt_hire_local' || o.id === 'opt_offshore',
@@ -119,13 +121,14 @@ describe('OptionCards — V5 visible render (Phase 1 G1 closure)', () => {
 
     render(<OptionCards options={options} winnerId="opt_hire_local" />)
 
-    // Each option's win-probability percentage renders via the production
-    // formatPercent path (Math.round(x * 100) + '%'). Asserts the exact
-    // rendered string keyed by `data-testid="win-pct-<id>"`.
-    // 0.7193... → 72%
-    expect(screen.getByTestId('win-pct-opt_hire_local').textContent).toBe('72%')
-    // 0.054 → 5%
-    expect(screen.getByTestId('win-pct-opt_offshore').textContent).toBe('5%')
+    // The cards render (contrast) but carry no `win-pct-<id>` readout and not
+    // the figure the formatter would have printed (0.7193… → 72%, 0.054 → 5%).
+    expect(screen.getByTestId('option-card-opt_hire_local')).toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt_offshore')).toBeInTheDocument()
+    expect(screen.queryByTestId('win-pct-opt_hire_local')).toBeNull()
+    expect(screen.queryByTestId('win-pct-opt_offshore')).toBeNull()
+    expect(screen.getByTestId('option-card-opt_hire_local').textContent).not.toContain('72%')
+    expect(screen.getByTestId('option-card-opt_offshore').textContent).not.toContain('5%')
   })
 
   it('renders option labels for the visible options (no synthetic / placeholder labels)', () => {
@@ -142,6 +145,8 @@ describe('OptionCards — V5 visible render (Phase 1 G1 closure)', () => {
     expect(screen.getByText(/Maintain Current Team/i)).toBeTruthy()
   })
 
+  // #2747 re-scope 2 (U0, DL ruling (A)): no card shows a win share in C, so no placeholder "0%" share can render either;
+  // the guard now pins the win readout absent for every visible option, by id.
   it('does NOT render placeholder "0%" for every visible option (regression guard for hardcoded-zero mapper bug)', () => {
     // PR #137 round-3 fixed the hardcoded-zero bug in the mapper's
     // headline `results.{conservative,likely,optimistic}` derivation.
@@ -154,11 +159,11 @@ describe('OptionCards — V5 visible render (Phase 1 G1 closure)', () => {
     render(<OptionCards options={options} winnerId="opt_hire_local" />)
 
     const visibleIds = ['opt_hire_local', 'opt_status_quo']
-    const allWinPctTexts = visibleIds.map((id) => screen.getByTestId(`win-pct-${id}`).textContent)
-    const allZero = allWinPctTexts.every((t) => t === '0%')
-    expect(allZero).toBe(false)
-    // At least the leader is unambiguously > 0.
-    expect(screen.getByTestId('win-pct-opt_hire_local').textContent).not.toBe('0%')
+    for (const id of visibleIds) {
+      expect(screen.getByTestId(`option-card-${id}`)).toBeInTheDocument()
+      expect(screen.queryByTestId(`win-pct-${id}`)).toBeNull()
+      expect(screen.getByTestId(`option-card-${id}`).textContent).not.toContain('0%')
+    }
   })
 
   it('omits the win-probability span entirely when winProbability is null (honest miss)', () => {

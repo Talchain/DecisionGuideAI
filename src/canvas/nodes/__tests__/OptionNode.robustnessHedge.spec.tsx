@@ -25,6 +25,8 @@ import { installCanonicalFixtureState } from '../../../components/results/analys
  *
  * ⭐ THE DATA IS NOT THE CLAIM. The win share is still printed on a fragile run
  * — that half of the old suite is kept verbatim.
+ * (#2747 re-scope 2 (U0): no longer — the canvas card shows no chance or share in C, so that TWIN row is deleted and
+ * the card's label is the contrast control.)
  *
  * ⭐ EXCEPT WHEN THE PRODUCER WITHHOLDS THE LEADER — CURRENT-READ row 9 (AIQ
  * 5912710392): a per-option share names the leader in numbers, so a withheld
@@ -64,7 +66,6 @@ vi.mock('../../layoutStore', () => ({
 
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -151,14 +152,13 @@ beforeEach(() => {
 /**
  * ED #63 5799353114 decision 1 — absence of the claim AND of its qualifier,
  * each read from the SAME render as a contrast control that is present: the
- * card's label and its "N% of runs" result row. A blank render cannot pass.
+ * card's label (and, on a withheld run, its `Not ranked` marker). A blank render cannot pass.
  */
 function expectNoClaimNoGrade(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
   // CONTRAST CONTROL FIRST.
   expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
-  if (contrast === 'share') {
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
-  } else {
+  // #2747 re-scope 2 (U0): the 'share' arm's chance readout ("41%") is deleted — the canvas card shows no chance in C.
+  if (contrast !== 'share') {
     // CURRENT-READ row 9 (AIQ 5912710392): a withheld run's result slot holds `Not ranked` + the reason.
     const slot = screen.getByTestId(`option-share-slot-${NODE_ID}`)
     expect(slot.textContent).not.toMatch(/\d\s*%/)
@@ -205,13 +205,8 @@ describe('OptionNode — no leader pill and no robustness grade on the card (ED 
     expectNoClaimNoGrade(container)
   })
 
-  it('TWIN — a licensed chance is never suppressed on a fragile run', () => {
-    // ⚠ BOUND BY IDENTITY, and the first cut of this test was not: `getByText(/53%/)`
-    // matched several elements and threw. A value predicate another element can
-    // satisfy is trap 19, in the suite whose own header warns about it.
-    renderOption(reportWithRobustness({ level: 'very_low' }))
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
-  })
+  // #2747 re-scope 2 (U0): row deleted — "TWIN — a licensed chance is never suppressed on a fragile run": its only subject,
+  // the chance readout on the canvas card, is removed in C.
 
   it('withheld crown on a fragile run: still neither — and the share is withheld too (CURRENT-READ row 9)', () => {
     const withheld = {

@@ -1,4 +1,3 @@
-import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
@@ -66,7 +65,7 @@ import { useAuth } from '../../../../contexts/AuthContext'
 import { selectGoalProbability } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
-import { GOAL_CONSTRAINT_COPY, GOAL_STRINGS } from '../inspectorStrings'
+import { GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
 import { canCaptureGoalTarget } from '../../../domain/goalTarget'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
@@ -274,27 +273,22 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     setStore(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
 
+    // #2747 re-scope 2 (U0): the Impact-group presence and its impactUnavailable line are deleted — in C the goal
+    // inspector says no chance and no "probability data unavailable" line. The negatives stay.
     const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact).not.toBeNull()
     const text = impact?.textContent ?? ''
 
     expect(text).not.toMatch(/\d% chance of meeting your goal/)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
-    // The panel's own honest-absence string for this block.
-    expect(text).toContain(GOAL_STRINGS.impactUnavailable)
   })
 
-  it('positive control: a REAL probability_of_goal KEEPS the possessive wording once', () => {
+  // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence, its once-count and the two negatives bound to that face
+  // are deleted — the goal inspector shows no chance face in C. The panel-wide negatives stay.
+  it('a REAL probability_of_goal: no possessive anchor and no limits figure', () => {
     setStore(REAL_GOAL_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    // Anatomy keeps one register sentence; dropping or duplicating it turns this count red.
-    const face = renderPanelFace(container)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
-    expect(text.split(CHANCE_NOT_SHOWN_YET).length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits-channel ("all your limits hold") figure is shown: the report's
     // `probability_of_joint_goal` is licensed by no canonical cell, and beside CEE's licensed joint it is a second "both".
@@ -302,15 +296,13 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
   })
 
   // 29 Sep 2026 (AIQ 5882498938): was "the CONSTRAINED joint basis keeps the possessive" — now the GOAL figure on a constrained option does.
-  it('positive control: the GOAL figure on a constrained option KEEPS the possessive wording — never the joint figure', () => {
+  // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence and the two negatives bound to that face are deleted —
+  // the goal inspector shows no chance face in C. The panel-wide negatives stay.
+  it('the GOAL figure on a constrained option: never the joint figure, no possessive anchor', () => {
     setStore(CONSTRAINED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    const face = renderPanelFace(container)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
     expect(text).not.toContain('About 42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
@@ -326,10 +318,10 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
   it('a constrained option with NO goal figure: the goal slot is withheld; the joint figure keeps only its own row', () => {
     setStore(CONSTRAINED_NO_GOAL_REPORT)
     const { container } = renderPanel()
+    // #2747 re-scope 2 (U0): the Impact-group presence and its impactUnavailable line are deleted — in C the goal
+    // inspector says no chance and no "probability data unavailable" line. The negatives stay.
     const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact).not.toBeNull()
     const impactText = impact?.textContent ?? ''
-    expect(impactText).toContain(GOAL_STRINGS.impactUnavailable)
     expect(impactText).not.toMatch(/\d% chance of meeting your goal/)
     expect(impactText).not.toContain('42%')
   })
@@ -496,20 +488,15 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
   })
 })
 
-function renderPanelFace(container: HTMLElement) {
-  const face = Array.from(container.querySelectorAll('p')).find(el => el.textContent === CHANCE_NOT_SHOWN_YET)
-  expect(face).toBeDefined()
-  return face!
-}
-it('view-bearing control: GoalPanel retains possessive wording once, and (#2747) states no joint limits figure', () => {
+// #2747 re-scope 2 (U0): the "about N% chance of meeting your goal" presence and its once-count are deleted — the goal
+// inspector says no chance in C, even with a canonical view installed. The negatives stay.
+it('view-bearing: with a canonical view GoalPanel states no joint figure, no possessive anchor and (#2747) no limits figure', () => {
   vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
   for (const [report, pct] of [[REAL_GOAL_REPORT, 55], [CONSTRAINED_REPORT, 30]] as const) {
     setStore(report)
     useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
     const { container, unmount } = renderPanel()
     const text = container.textContent ?? ''
-    expect(text).toContain(`about ${pct}% chance of meeting your goal, in this model.`)
-    expect(text.split(`about ${pct}% chance of meeting your goal`).length - 1).toBe(1)
     expect(text).not.toContain('42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
     expect(text).not.toMatch(/All your limits hold in \d+% of model runs/)

@@ -25,7 +25,6 @@ import {
   GOAL_ANCHOR_COPY,
   LENS_COPY,
   deriveComparisonScope,
-  isFiniteProbability,
   runHasGoalNumbers,
 } from './utils/goalAnchorCopy'
 import { ComparisonScopeNote } from './ComparisonScopeNote'
@@ -66,7 +65,7 @@ import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
-import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
+import { buildOptionRankColorMap, OPTION_RANK_COLORS } from './optionRankColors'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
@@ -172,8 +171,6 @@ export interface OptionCardsProps {
   outcomeUnitSymbol?: string
   /** True when option magnitudes are normalised 0-1 scores, not user units. */
   isNormalised?: boolean
-  /** Recovery Batch C: the matching current Run's licence words for what the chance is a chance OF; null = "your goal". */
-  goalChanceWords?: string | null
 }
 
 /** Fallback description when no story headline is available */
@@ -356,14 +353,8 @@ function hingeAwareDescription(
      * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
      * so a fourth variant cannot be born ungated.
      */
-    const claim =
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-      isFiniteProbability(option.winProbability)
-        ? COMPARATIVE_COPY.phrase(
-            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
-          )
-        : COMPARATIVE_COPY.leadNoMagnitude
+    // #2747 re-scope 2 (DL ruling (A)): the claim keeps no magnitude in C (no win share is said).
+    const claim = COMPARATIVE_COPY.leadNoMagnitude
 
     // F2 — both hinge variants carried the retired un-anchored superlative
     // ("Highest leading-option likelihood"): no basis, no number. Only the
@@ -557,7 +548,6 @@ function OptionCard({
   outcomeUnitSymbol,
   isNormalised,
   winSharesWithheld = false,
-  goalChanceWords = null,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -566,7 +556,6 @@ function OptionCard({
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
    */
   winSharesWithheld?: boolean
-  goalChanceWords?: string | null
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -713,16 +702,6 @@ function OptionCard({
     option.nValidSamples,
   )
 
-  // The low-goal badge's VISIBILITY gate. It used to also carry its own
-  // inline copy of the sub-1% floor — a hand-copy of `formatGoalProbability`
-  // rather than a call to it, and the direct source of the "0%" beside
-  // "< 1%" contradiction. The threshold below is a display DECISION (when is
-  // a goal probability low enough to warrant a warning affordance) and stays;
-  // the FORMATTING is gone, and the badge now renders `goalReadout`.
-  const showLowGoalBadge =
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
-    typeof option.goalProbability === 'number' && option.goalProbability < 0.10
-  const lowGoalReadout = showLowGoalBadge ? goalReadout : null
 
   return (
     <div
@@ -741,14 +720,14 @@ function OptionCard({
       {/* Header: colour marker · option name | win percentage right-aligned.
           D17: "#N of M" rank prefix removed (rank conveyed by position +
           marker colour + right-aligned win%). Colour marker = 10×10px square
-          matching the scenario-bar ordinal palette from WIN_GAUGE_COLORS. */}
+          matching the scenario-bar ordinal palette from OPTION_RANK_COLORS. */}
       <div className="flex items-center gap-2">
         {!neutralised && rank != null && totalOptions > 1 && (
           <span
             aria-hidden="true"
             className="inline-block flex-shrink-0 w-2.5 h-2.5"
             data-testid={`rank-marker-${option.id}`}
-            style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
+            style={{ backgroundColor: OPTION_RANK_COLORS[Math.min(rank - 1, OPTION_RANK_COLORS.length - 1)] }}
           />
         )}
         {stableNumber != null && (
@@ -866,8 +845,7 @@ function OptionCard({
           <StatBar
             // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
             value={option.goalProbability}
-            // The SAME string the low-goal badge below renders. This is the
-            // N11 fix at its call site: one readout, two surfaces.
+            // The card's one goal readout (N11); the low-goal badge that restated it went in #2747 re-scope 2.
             readout={goalReadout}
             testId={`goal-readout-${option.id}`}
             // The possessive "Hits target" names the user's OWN target, which
@@ -881,24 +859,9 @@ function OptionCard({
             color="info"
             neutralised={neutralised}
           />
-          {/* T6 fix: Warning badge when goal probability is very low (<10%).
-              ROADMAP 2.282: the badge is the register's COMPACT READOUT slot
-              — "number first, no full stop" — so the withheld arm is
-              `GOAL_ANCHOR_COPY.phrase(...)` verbatim, no adapted wording. The
-              permitted arm keeps the shipped sentence byte-for-byte. The two
-              arms are mutually exclusive by construction: one boolean, one
-              ternary, one readout. */}
-          {lowGoalReadout != null && (
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
-                data-testid={`low-goal-warning-${option.id}`}
-              >
-                {goalChanceWords ? GOAL_ANCHOR_COPY.readoutInLicenceWords(lowGoalReadout, goalChanceWords)
-                  : GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
-              </span>
-            </div>
-          )}
+          {/* #2747 re-scope 2 (U2): no low-goal badge in C. It restated the readout above in a chance sentence the UI
+              composed ("About N% chance of meeting your goal", or of the Run's chance words without CEE's "in this
+              model" and provisional clause), on a threshold the UI chose. CEE's served cell says the chance. */}
           {/* Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
               "Hits target" number above is scored from a MODELLED
               forward-propagated outcome distribution, not a
@@ -1156,7 +1119,6 @@ export function OptionCards({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
-  goalChanceWords = null,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1238,7 +1200,7 @@ export function OptionCards({
   // sentences), so the card copy and the sentence above it read one answer.
   // Only a caller that supplies none falls back to deriving it here.
   const hasGoalNumbers = hasGoalNumbersProp ?? runHasGoalNumbers(options)
-  const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
+  const segmentColorMap = buildOptionRankColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
   const TOP_N = 2
@@ -1458,7 +1420,7 @@ export function OptionCards({
                 : fallbackDescription(option, options.length, hasLeadingOption)
 
         // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
-        // kept) but its COLOUR is the rank palette — WIN_GAUGE_COLORS[0] is
+        // kept) but its COLOUR is the rank palette — OPTION_RANK_COLORS[0] is
         // commented "Winner — mint-500". On a withheld run the bar still
         // draws, in one neutral colour for every option: the measurement
         // survives, the ranking does not.
@@ -1501,8 +1463,9 @@ export function OptionCards({
             outcomeUnitSymbol={outcomeUnitSymbol}
             isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
-            winSharesWithheld={winSharesAreWithheld}
-            goalChanceWords={goalChanceWords}
+            // #2747 re-scope 2 (DL ruling (A)): no card shows a win share in C, permitted or not (no header figure, no fill
+            // bar). CEE serves no wording or Run authority for it. The leader entitlement above is unchanged.
+            winSharesWithheld
           />
         )
       })}

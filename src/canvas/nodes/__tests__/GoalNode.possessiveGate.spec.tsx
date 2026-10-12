@@ -152,7 +152,6 @@ const POSSESSIVE = 'chance of meeting your goal'
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
 const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
 /** Locked Canvas design (23 Sep 2026): the row's sentence lives in its accessible name. */
-const rowName = (testId: string): string => screen.getByTestId(testId).getAttribute('aria-label') ?? ''
 /** Every accessible name in the render, so an absence covers the rows' sentences too. */
 const allAccessibleNames = (container: HTMLElement): string =>
   Array.from(container.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label')).join('\n')
@@ -264,13 +263,7 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
   })
 })
 
-it('view-bearing control: GoalNode retains the server figure and possessive voice, never the joint figure', () => {
-  for (const [option, pct] of [[REAL_GOAL_OPTION, 55], [CONSTRAINED_OPTION, 30]] as const) {
-    const { container, unmount } = renderGoalWith(option, true)
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain(`${pct}%`)
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(`${pct}% ${POSSESSIVE}`)
-    expect(allAccessibleNames(container)).not.toContain('42%')
-    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
-    unmount()
-  }
-})
+// #2747 re-scope 2 (U0, pre-accepted): row deleted — "view-bearing control: GoalNode retains the server figure and
+// possessive voice, never the joint figure". Its only subject, the goal card's chance row, is removed in C (the canvas
+// goal card shows no chance; the Results hero says it, in CEE's words). Census row: canvas goal card (GoalNode), which
+// now reaches the card's chance branch (the Run points at an option) and is RED on a1efd4ae.

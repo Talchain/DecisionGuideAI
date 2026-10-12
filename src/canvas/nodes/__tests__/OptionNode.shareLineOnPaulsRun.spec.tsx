@@ -124,14 +124,7 @@ const renderCard = (id: string) => {
 const tokens = (el: Element | null) => new Set((el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 const byId = (tid: string) => screen.queryByTestId(tid)
 const chanceText = (id: string) => renderHook(() => useOptionChanceCell(id), { wrapper: OptionChanceCellProvider }).result.current.text
-/** Every element between `el` and `stop` (exclusive), innermost first. */
-const between = (el: Element, stop: Element): Element[] => {
-  const out: Element[] = []
-  for (let p = el.parentElement; p && p !== stop; p = p.parentElement) out.push(p)
-  return out
-}
-/** A class that lets a box give way: a shrink weight, a wrap, or an ellipsis. */
-const GIVES_WAY = (el: Element) => [...tokens(el)].some(c => /^shrink(-\[|$)/.test(c) || c === 'flex-wrap' || c === 'truncate' || c === 'min-w-0')
+// #2747 re-scope 2 (U0): the `between` / `GIVES_WAY` caption-geometry helpers are removed with the chance-caption rows they served.
 
 afterEach(() => {
   cleanup()
@@ -160,35 +153,19 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
   // "the anchor, the figure and `Goal only` never give way". The geometry is kept on the same run with no
   // stamp. The compact `Model` anchor and `· Goal only` only rendered WITH a qualifier, which only a withheld
   // run carried; a withheld run now shows no share, so on the permitted run they are pinned ABSENT.
-  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the caption stays whole and the accessible name retains the exact Results chance', (id) => {
+  // #2747 re-scope 2 (U0): the chance row's assertions (the `Current model` caption's geometry, the readout, the caption
+  // order and the accessible name) are deleted — the canvas card shows no chance in C. The share-part negatives stay; the
+  // bar negative is re-anchored from the removed row onto the slot.
+  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the reserved slot carries no compact anchor, qualifier, figure, unit or bar', (id) => {
     seed('current', { stamp: false })
     renderCard(id)
-    const row = byId(`option-analysis-currency-${id}`)!
-    expect(row, 'precondition: the share row renders').not.toBeNull()
-    const expected = chanceText(id)
-    expect(expected, 'the Results chance cell has a sentence').not.toBeNull()
-
-    const anchor = byId(`option-win-anchor-${id}`)!
-    expect(anchor.textContent).toBe('Current model')
-    expect(tokens(anchor).has('shrink-0')).toBe(true)
-    expect(GIVES_WAY(anchor)).toBe(false)
-    expect(between(anchor, row).filter(GIVES_WAY), 'a yielding box wraps the anchor').toEqual([])
     expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     expect(byId(`option-share-provisional-${id}`)).toBeNull()
-    expect(tokens(anchor).has('hidden')).toBe(false)
     expect(tokens(byId(`option-share-slot-${id}`)).has('[container-type:inline-size]')).toBe(true)
-
-    const readout = byId(`option-win-readout-${id}`)!
-    expect(readout.textContent).toBe(expected)
-    expect(anchor.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(row.getAttribute('aria-label')).toContain(`Current model · ${expected}`)
-    expect(row.getAttribute('aria-label')).not.toContain('of runs')
-    expect(readout.textContent).not.toContain('of runs')
     expect(byId(`option-win-figure-${id}`)).toBeNull()
     expect(byId(`option-win-unit-${id}`)).toBeNull()
-    expect(row.querySelector('.h-full.rounded-full')).toBeNull()
-    expect([...tokens(row)]).toEqual(expect.arrayContaining(['relative', 'flex-nowrap']))
+    expect(byId(`option-share-slot-${id}`)!.querySelector('.h-full.rounded-full')).toBeNull()
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): the run AS SERVED (stamp `constraint_verdict_withheld`). WAS
@@ -217,23 +194,17 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS stale on the withheld stamp, with
   // "`Goal only` is whole". `Last run` and the fixed bar are kept on the same stale run with no stamp; the
   // qualifier cannot render on a share any more, so its absence is pinned instead.
-  it('STALE (the model changed), PERMITTED run: `Last run` stays whole before each shared chance cell', () => {
+  // #2747 re-scope 2 (U0): the `Last run` chance caption's geometry, the readout and the chance row's accessible name are
+  // deleted — the canvas card shows no chance in C. The compact-anchor and qualifier negatives stay; the bar negative is
+  // re-anchored from the removed row onto the slot, which is also the same-render control.
+  it('STALE (the model changed), PERMITTED run: no compact anchor, qualifier or bar on any card', () => {
     seed('changed', { stamp: false })
     for (const { id } of ANALYSED) {
       renderCard(id)
-      const row = byId(`option-analysis-currency-${id}`)!
-      expect(row, `${id}: precondition: the share row renders`).not.toBeNull()
-      const anchor = byId(`option-win-anchor-${id}`)!
-      expect(anchor.textContent).toBe('Last run')
-      expect(GIVES_WAY(anchor), `${id}: "Last run" may not truncate`).toBe(false)
-      expect(between(anchor, row).filter(GIVES_WAY)).toEqual([])
-      // `Last run` is already the short form: no second anchor.
+      const slot = byId(`option-share-slot-${id}`)
+      expect(slot, `${id}: precondition: the slot renders`).not.toBeNull()
       expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
-      expect(tokens(anchor).has('hidden')).toBe(false)
-      expect(row.querySelector('.h-full.rounded-full')).toBeNull()
-      expect(byId(`option-win-readout-${id}`)!.textContent).toBe(chanceText(id))
-      expect(row.getAttribute('aria-label')).toContain(`Last run · ${chanceText(id)}`)
-      expect(row.getAttribute('aria-label')).not.toContain('of runs')
+      expect(slot!.querySelector('.h-full.rounded-full')).toBeNull()
       expect(byId(`option-share-goal-only-${id}`)).toBeNull()
       cleanup()
     }
@@ -259,27 +230,18 @@ describe('DIFF item 1 — the run caption leads the Results chance; the runs-sha
     }
   })
 
-  it('CONTRAST — no qualifier on the line: the long anchor is the only anchor and is never hidden', () => {
+  // #2747 re-scope 2 (U0): the long `Current model` chance caption is deleted — the canvas card shows no chance in C; the
+  // qualifier and compact-anchor negatives stay, with the slot as the same-render control.
+  it('CONTRAST — no qualifier on the line: no compact anchor', () => {
     seed('current', { stamp: false })
     renderCard('increase_price_to_59')
+    expect(byId('option-share-slot-increase_price_to_59')).not.toBeNull()
     expect(byId('option-share-goal-only-increase_price_to_59')).toBeNull()
     expect(byId('option-win-anchor-compact-increase_price_to_59')).toBeNull()
-    const anchor = byId('option-win-anchor-increase_price_to_59')!
-    expect(anchor.textContent).toBe('Current model')
-    expect(tokens(anchor).has('hidden')).toBe(false)
   })
 
-  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS "… · Goal only. This share compares
-  // the options on the goal alone." on the withheld stamp; the share's name is kept on the same run, no stamp.
-  it('the accessible name still carries the whole line and its meaning, whatever the width shows (PERMITTED run)', () => {
-    seed('current', { stamp: false })
-    renderCard('increase_price_to_59')
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    const name = byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-    expect(name.startsWith(`Current model · ${chanceText('increase_price_to_59')}`)).toBe(true)
-    expect(name).not.toContain('of runs')
-    expect(name).not.toContain('Goal only')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "the accessible name still carries the whole line and its meaning, whatever the
+  // width shows (PERMITTED run)": its only subject, the canvas card's chance row and its accessible name, is removed in C.
 })
 
 describe('DIFF item 5 — the option the run left out keeps saying so, in the reserved slot', () => {

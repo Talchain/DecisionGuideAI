@@ -22,8 +22,7 @@ import { DecisionPanel } from '../ui/inspector-v2/panels/DecisionPanel'
 import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { resolveLodMetricLineDetail } from '../nodes/shared/lodMetricLine'
-import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { EXPLORATORY_REASON_LINE, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 
 const fx = JSON.parse(
   readFileSync(resolve(process.cwd(), 'e2e/geometry/fixtures/securing-funding-4276f3f9.fixture.json'), 'utf8'),
@@ -36,7 +35,6 @@ const edges = fx.draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from, targe
 const WITHHELD = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' }
 const OTHER = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'separation_unavailable' }
 const PERMITTED = { permitted: true }
-const OTHER_WORDS = leaderWithholdCause('separation_unavailable')!
 
 const seed = (stamp: Record<string, unknown>) => {
   useCanvasStore.setState({
@@ -64,26 +62,29 @@ describe.each([
   ['DecisionPanel', () => render(<DecisionPanel nodeId="decision_securing_funding" techMode={false} onClose={() => {}} onNavigate={() => {}} />), 'decision-panel-not-ranked'],
   ['OutcomePanel', () => render(<OutcomePanel nodeId="investment_firm_meetings" techMode={false} onClose={() => {}} onNavigate={() => {}} />), 'outcome-panel-not-ranked'],
 ] as const)('%s — row 9', (_name, mount, reasonTestId) => {
-  it('⭐ ROW 1: Paul\'s withheld Run → no option percentage, and the exploratory reason', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the panel's not-ranked reason line (`decision-panel-not-ranked` /
+  // `outcome-panel-not-ranked`) is removed in C, so its words are no longer asserted; the labels and no-percentage
+  // negatives stay.
+  it('⭐ ROW 1: Paul\'s withheld Run → no option percentage', () => {
     seed(WITHHELD)
-    const { container, getByTestId } = mount()
-    expect(getByTestId(reasonTestId).textContent).toBe(EXPLORATORY_REASON_LINE)
+    const { container } = mount()
     for (const label of ['Convertible bridge from existing supporters', 'Angel bridge', 'Current outreach']) {
       expect(container.textContent).toContain(label)
     }
     expect(container.textContent).not.toMatch(PCT)
   })
-  it('ROW 2 — CONTROL: a permitted Run shows the shares (80%)', () => {
+  // #2747 re-scope 2 (DL ruling (A)): "a permitted Run shows the shares (80%)" is deleted — no win share is shown in C.
+  // The no-reason-line negative stays (its test id is removed from source in C).
+  it('ROW 2 — CONTROL: a permitted Run says no withheld reason', () => {
     seed(PERMITTED)
-    const { container, queryByTestId } = mount()
-    expect(container.textContent).toContain('80%')
+    const { queryByTestId } = mount()
     expect(queryByTestId(reasonTestId)).toBeNull()
   })
-  it('ROW 3 — CONTROL: another cause hides them too, in its own words', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the cause's own words on the removed reason line are no longer asserted.
+  it('ROW 3 — CONTROL: another cause → no option percentage either', () => {
     seed(OTHER)
-    const { container, getByTestId } = mount()
+    const { container } = mount()
     expect(container.textContent).not.toMatch(PCT)
-    expect(getByTestId(reasonTestId).textContent).toBe(OTHER_WORDS)
   })
 })
 
@@ -96,22 +97,19 @@ describe('V5ComparisonBlock (chat) — row 9', () => {
       { option_id: 'angel_bridge', label: 'Angel bridge', win_probability: 0.132 },
     ],
   }
-  it('⭐ ROW 1: withheld → no share column, the reason instead', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the block's withheld-share note (`v5-comparison-not-ranked`) is removed in C, so its
+  // words are no longer asserted; the no-percentage negatives stay.
+  it('⭐ ROW 1: withheld → no share column', () => {
     seed(WITHHELD)
-    const { container, getByTestId } = render(<V5ComparisonBlock block={block as never} />)
-    expect(container.textContent).not.toMatch(PCT)
-    expect(getByTestId('v5-comparison-not-ranked').textContent).toBe(EXPLORATORY_REASON_LINE)
-  })
-  it('ROW 2 — CONTROL: permitted → the shares', () => {
-    seed(PERMITTED)
     const { container } = render(<V5ComparisonBlock block={block as never} />)
-    expect(container.textContent).toContain('80%')
-  })
-  it('ROW 3 — CONTROL: another cause → hidden, in its own words', () => {
-    seed(OTHER)
-    const { container, getByTestId } = render(<V5ComparisonBlock block={block as never} />)
     expect(container.textContent).not.toMatch(PCT)
-    expect(getByTestId('v5-comparison-not-ranked').textContent).toBe(OTHER_WORDS)
+  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "ROW 2 — CONTROL: permitted → the shares": its only subject, the
+  // share column on a permitted Run, is removed in C (no win share anywhere).
+  it('ROW 3 — CONTROL: another cause → hidden', () => {
+    seed(OTHER)
+    const { container } = render(<V5ComparisonBlock block={block as never} />)
+    expect(container.textContent).not.toMatch(PCT)
   })
 })
 

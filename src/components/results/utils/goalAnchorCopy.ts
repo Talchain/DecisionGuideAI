@@ -116,16 +116,6 @@ export const GOAL_ANCHOR_COPY = {
   byOptionAria: (isSubstitutedJoint: boolean): string =>
     `${GOAL_ANCHOR_COPY.label(isSubstitutedJoint)}, by option`,
 
-  /**
-   * Recovery Batch C (rulings 18 to 22): the Run's licence carries its own words for what the chance is a chance OF ("chance
-   * of ‘Productivity’ being at least 10% higher than today at three months"); where it does, they replace "your goal".
-   */
-  labelInLicenceWords: (chanceWords: string): string =>
-    `${chanceWords.charAt(0).toUpperCase()}${chanceWords.slice(1)}, in this model`,
-  readoutInLicenceWords: (formatted: string, chanceWords: string): string => {
-    const p = `${goalProbabilityWords(formatted)} ${chanceWords}`
-    return p.charAt(0).toUpperCase() + p.slice(1)
-  },
 
   /**
    * A5 — the no-target state. ISL computes a goal probability ONLY when a
@@ -140,57 +130,8 @@ export const GOAL_ANCHOR_COPY = {
   noTarget: 'Set a success target to see which option is most likely to reach it.',
   /** Inline unlock action beside `noTarget`. `HERO_COPY` re-exports this. */
   noTargetCta: 'Define success',
-
-  /**
-   * ⭐ L62 — the WITHHELD state. A second no-number state, NOT a third
-   * A-register voice.
-   *
-   * The header above forbids inventing a third voice for a DISPLAYED number,
-   * and this is not one: it is the sentence for when there is no number at
-   * all. It exists because `noTarget` is the wrong sentence in this state and
-   * saying it would be its own small untruth — the user HAS set a target, or
-   * the run DID carry limits; the surface is not asking for one. What
-   * happened is that the only figure available was
-   * `probability_of_joint_goal` standing in for a goal probability the engine
-   * refused to produce, and nothing on the wire lets us check that the
-   * threshold and the samples are even in the same frame
-   * (`selectGoalProbability`, basis `'joint_goal_withheld'`). Scoring it
-   * anyway is what produced "< 1%" for every option on every decision.
-   *
-   * Plain language, no jargon, no number, no blame on the user, and it does
-   * not promise the figure is coming back.
-   */
-  notScored: "This run couldn't score your options against your target.",
-  /**
-   * The one-line reason, rendered beside `notScored` where there is room.
-   * Separate string so a compact surface can take the headline alone rather
-   * than truncate a sentence mid-clause.
-   */
-  notScoredReason:
-    'The analysis produced a figure for your limits, but not one that answers whether an option reaches your target.',
-
-  /**
-   * ⭐ L65 — the TARGET-SET-BUT-NOT-SCORED state. A third no-number state,
-   * and like `notScored` above it is NOT a third A-register voice: there is
-   * no number to voice.
-   *
-   * LICENSED BY: a user target exists (the store-derived `goalThreshold`
-   * signal the V7 goal lens already gates with, `buildV7Lenses.ts`) and NO
-   * goal-fit figure arrived at all — basis 'none'. Post-#308 the producer
-   * suppresses the frame-broken joint channel at source, so this is the
-   * ordinary shape of that run class, and BOTH existing sentences are wrong
-   * for it: `noTarget` asks the user for something they already gave, and
-   * `notScoredReason` claims "the analysis produced a figure for your
-   * limits" when nothing arrived. This sentence claims only the gap.
-   *
-   * The wording is the V7 goal lens's producer-gap gate, MOVED here verbatim
-   * (byte-identical) so the lens and WinGauge render one claim from one
-   * register — `V7_LENS_COPY.goal.gateProducerGap` now references this key,
-   * the same delegation shape as its `gateNoTarget`. No CTA beside it:
-   * there is nothing a user action currently unlocks.
-   */
-  producerGap:
-    'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
+  // #2747 re-scope 2: `notScored`, `notScoredReason` (L62) and `producerGap` (L65) went with WinGauge, their last
+  // caller. In C a withheld or stale option says CEE's own served words on the Results hero instead.
 } as const
 
 /** #87, 6 Oct: the Analysis hero's earned per-option wording, shared with the Reasoning Goal fit lens. */

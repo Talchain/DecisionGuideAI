@@ -315,8 +315,8 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
     const figures = within(panel).getByTestId('lens-info-robustness')
-    // POSITIVE CONTROL: the run's figures really are on screen, so the label below is not vacuous.
-    expect(figures.textContent).toContain('85%')
+    // POSITIVE CONTROL: the run's figures really are on screen, so the label below is not vacuous. (#2747 re-scope 2:
+    // the switch figure "85%" is not shown in C, DL ruling; the panel's focus line is the control.)
     expect(figures.textContent).toContain('focus on: Price → Revenue')
     expect(within(panel).getByTestId('lens-info-robustness-heading').textContent).toBe(`${LAST_RUN_PREFIX}Robustness`)
     const stale = within(panel).getByTestId(LENS_INFO_STALE_TESTID)
@@ -343,8 +343,9 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
     seedLens('robustness')
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
-    // The same figures render — so the absences below are about the state, not a missing panel.
-    expect(within(panel).getByTestId('lens-info-robustness').textContent).toContain('85%')
+    // The same figures render — so the absences below are about the state, not a missing panel. (#2747 re-scope 2: the
+    // switch figure "85%" is not shown in C; the focus line is the same-render control.)
+    expect(within(panel).getByTestId('lens-info-robustness').textContent).toContain('focus on: Price → Revenue')
     expect(within(panel).queryByTestId(LENS_INFO_STALE_TESTID)).toBeNull()
     expect(within(panel).getByTestId('lens-info-robustness-heading').textContent).toBe('Robustness')
     expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()

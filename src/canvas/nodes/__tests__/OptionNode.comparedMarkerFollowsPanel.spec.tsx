@@ -28,7 +28,6 @@ vi.mock('../../layoutStore', () => ({
 
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -119,9 +118,11 @@ describe('the option marker follows the panel\'s "was it compared?"', () => {
     expect(marker()).toBeNull()
   })
 
-  it('compared + licensed chance → the chance, never the marker', () => {
+  it('compared + licensed chance → never the marker', () => {
     renderOption(withLicensedOptionChances({ option_probabilities: { [NODE_ID]: { win_probability: 0.53 }, [SIBLING_ID]: { win_probability: 0.21 } } }, { [NODE_ID]: 41, [SIBLING_ID]: 29 }))
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
+    // #2747 re-scope 2 (U0): the chance readout ("41%") is deleted — the canvas card shows no chance in C; the card's label
+    // is the same-render control instead.
+    expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
     expect(marker()).toBeNull()
   })
 

@@ -239,8 +239,11 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     // that resolved one and floored the other would reopen the
     // one-number-two-answers defect between the hero and the cards.
     // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000.
-    expect(within(cards.container).getAllByText(/Less than 0\.03% chance of meeting your goal/).length)
-      .toBeGreaterThan(0)
+    // #2747 re-scope 2 (U0 rewrite): the cards' low-goal badge ("Less than 0.03% chance of meeting your goal") is gone in
+    // C; the cards' goal readout carries the same resolved floor, and no UI-worded chance sentence.
+    const readouts = within(cards.container).getAllByTestId(/^goal-readout-/).map((el) => el.textContent ?? '')
+    expect(readouts.some((t) => /0\.03%/.test(t))).toBe(true)
+    expect(cardsText).not.toMatch(/chance of meeting your goal/)
   })
 
   it('hero and OptionCards render the four options in the SAME rendered order (no #1-vs-#4 disagreement)', () => {

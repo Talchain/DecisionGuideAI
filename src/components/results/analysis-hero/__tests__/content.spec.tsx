@@ -55,13 +55,16 @@ describe('AnalysisHeroPanel — content', () => {
     expect(within(screen.getByTestId('hero-option-row-2')).getByText('62')).toBeInTheDocument()
   })
 
-  it('shows the comparative readout ONLY inside an opened option detail', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C — not on the closed row, not inside an opened detail
+  // (was: 'Supported in 30% of simulated scenarios.' inside the opened detail).
+  it('shows no comparative readout, closed or inside an opened option detail', () => {
     renderPanel(chartModel())
     expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
-    expect(screen.getByTestId('hero-detail-win')).toHaveTextContent(
-      'Supported in 30% of simulated scenarios.',
-    )
+    // CONTROL: the detail did open (its grounded range line is there).
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-detail-win')).toBeNull()
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toMatch(/Supported in .+ of simulated scenarios/)
   })
 
   it('Likely outcome lens renders no target marker and never mentions the target', () => {
@@ -129,7 +132,8 @@ describe('AnalysisHeroPanel — content', () => {
     )
   })
 
-  it('comparative-only rows are not expandable and keep the comparative line as persistent meta', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share in C, so a comparative-only row has no persistent win meta either.
+  it('comparative-only rows are not expandable and carry no comparative line (no win share in C)', () => {
     // Strip everything except winProbability from B; A keeps its range so
     // the outcome lens stays available.
     const winOnly = makeOption({
@@ -148,16 +152,15 @@ describe('AnalysisHeroPanel — content', () => {
         }),
       ),
     )
-    // B has no disclosure button; its win probability is persistent meta.
+    // B has no disclosure button; its win probability is not said (was: persistent meta 'Supported in 29% …').
     expect(screen.queryByRole('button', { name: /Upskill the team/ })).toBeNull()
-    expect(screen.getByTestId('hero-win-meta')).toHaveTextContent(
-      'Supported in 29% of simulated scenarios.',
-    )
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toMatch(/Supported in .+ of simulated scenarios/)
     // A (range detail exists) is still expandable.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
   })
 
-  it('content is fully readable with no hero-side stale surface (v6/C1): win meta persists and rows stay expandable', () => {
+  it('content is fully readable with no hero-side stale surface (v6/C1): rows stay expandable (no win meta in C)', () => {
     // Prototype v6 stale doctrine: the freshness strip (outside this panel)
     // carries the warning AND the one Rerun; the hero is staleness-agnostic
     // — never dimmed, locked, or stripped of detail.
@@ -177,7 +180,8 @@ describe('AnalysisHeroPanel — content', () => {
         }),
       ),
     )
-    expect(screen.getByTestId('hero-win-meta')).toBeInTheDocument()
+    // #2747 re-scope 2 (DL ruling (A)): no win share in C (was: the win meta persists).
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
     // Rows with detail keep their disclosure.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
     // No dim/inert lockout on the chart area, and no hero rerun control.
@@ -552,11 +556,13 @@ describe('AnalysisHeroPanel — content', () => {
       recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
     })
     renderPanel(chartModel(data))
-    // Row 1 still has a win line, so it stays expandable — open it.
+    // Row 1 still has its grounded range line, so it stays expandable — open it.
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.queryByTestId('hero-detail-why')).toBeNull()
     expect(screen.queryByTestId('hero-detail-could-change')).toBeNull()
-    expect(screen.getByTestId('hero-detail-win')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+    // #2747 re-scope 2 (DL ruling (A)): no win line in C (was: present).
+    expect(screen.queryByTestId('hero-detail-win')).toBeNull()
   })
 
   it('renders the footer main reason from the top driver and neutral focus-next text', () => {

@@ -51,6 +51,18 @@ function heroModel(): HeroChartModel {
   return model as HeroChartModel
 }
 
+/** The licence the hero reads (POSITIVE CONTROL for the absence rows: the record's fields are read, then not said). */
+function heldLicence() {
+  const data = renderHook(() => useResultsSectionData()).result.current
+  return data.goalChanceLicence ?? data.runView?.goalChance ?? null
+}
+/** The three options' own cells for the existence fixtures (pct 0 / 35 / 50), in the MODEL's order. */
+const EXISTENCE_CELLS = [
+  `‘${labelOf(OUTREACH)}’: less than 1% chance of meeting your goal, in this model.`,
+  `‘${labelOf(ANGEL)}’: about 35% chance of meeting your goal, in this model.`,
+  `‘${labelOf(CONVERTIBLE)}’: about 50% chance of meeting your goal, in this model.`,
+].join(' ')
+
 afterEach(() => resetPaulRun())
 
 const GOAL = { [CONVERTIBLE]: 0.62, [ANGEL]: 0.41, [OUTREACH]: 0.2 }
@@ -99,40 +111,55 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(`${model.headline} ${model.subline}`).not.toMatch(/about the same|about 0%|about 100%/)
   })
 
-  it('EXISTENCE (DL 0df0e1 cut 5; d5 #87 6008252938; J4 R17): once, beside the chance lines — CEE\'s fraction, never computed', () => {
+  // #2747 re-scope 2 (U0): the licence-composed existence line is no longer said on the hero (was: once, at the end of
+  // the subline). The record's fraction is still read (control); the hero says only the options' own cells.
+  it('EXISTENCE (DL 0df0e1 cut 5; d5 #87 6008252938; J4 R17): not said on the hero — the subline is the options\' own cells only', () => {
     const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
     seed({ [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 },
       licenceRecord('highest', pct, { leader_option_id: CONVERTIBLE, next_option_id: ANGEL, user_link_existence: { links: 2, one_in: 5 } }))
     const line = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
+    expect(heldLicence()?.userLinkExistence).toEqual({ links: 2, oneIn: 5 })
     const model = heroModel()
-    expect(model.subline?.endsWith(line)).toBe(true)
-    expect(model.subline?.split(line)).toHaveLength(2) // once
+    expect(model.subline).toBe(EXISTENCE_CELLS)
+    expect(model.subline).not.toContain(line)
+    expect(model.subline).not.toMatch(/These chances also count|might not hold|1-in-5/)
   })
 
-  it('EXISTENCE: 0.9 is "1-in-10" as CEE says (never 1-in-5); mixed → Olumi\'s estimate for each; TWIN with none → no line', () => {
+  // #2747 re-scope 2 (U0): no variant of the existence line is said on the hero (was: "1-in-10" / "Olumi's estimate for
+  // each"); each record is still read (control), and the TWIN with none stays silent as before.
+  it('EXISTENCE: neither "1-in-10" nor Olumi\'s estimate for each is said on the hero; TWIN with none → no line', () => {
     const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
     const extra = { leader_option_id: CONVERTIBLE, next_option_id: ANGEL }
     const goal = { [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 }
     seed(goal, licenceRecord('highest', pct, { ...extra, user_link_existence: { links: 2, one_in: 10 } }))
-    expect(heroModel().subline).toContain('(a 1-in-10 chance each).')
+    expect(heldLicence()?.userLinkExistence).toEqual({ links: 2, oneIn: 10 })
+    expect(heroModel().subline).toBe(EXISTENCE_CELLS)
+    expect(heroModel().subline).not.toMatch(/1-in-10|1-in-5|might not hold/)
     resetPaulRun()
     seed(goal, licenceRecord('highest', pct, { ...extra, user_link_existence: { links: 2 } }))
-    expect(heroModel().subline).toContain('might not hold (Olumi’s estimate for each).')
+    expect(heldLicence()?.userLinkExistence).toEqual({ links: 2, oneIn: null })
+    expect(heroModel().subline).toBe(EXISTENCE_CELLS)
+    expect(heroModel().subline).not.toMatch(/might not hold|Olumi’s estimate for each/)
     resetPaulRun()
     seed(goal, licenceRecord('highest', pct, extra))
     expect(heroModel().subline ?? '').not.toContain('might not hold')
   })
 
-  it('INTERIM (d5 6009272273; DL; c6): a withheld summary → the `each` lines, then c6\'s sentence, then the existence line — once', () => {
+  // #2747 re-scope 2 (U0): the summary-withheld and existence lines are licence-composed disclosure, no longer said on the
+  // hero (was: the `each` lines, then c6's sentence, then the existence line). The `each` headline and lines stay.
+  it('INTERIM (d5 6009272273; DL; c6): a withheld summary → the `each` lines only; neither c6\'s sentence nor the existence line on the hero', () => {
     const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
     seed({ [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 }, licenceRecord('each', pct,
       { summary_withheld: { cause: 'olumi_existence_assumption', form: 'highest' }, user_link_existence: { links: 2, one_in: 5 } }))
     const why = 'Olumi isn’t naming the option with the highest chance, because that could depend on its own assumption that some links might not hold.'
     const existence = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
+    expect(heldLicence()?.summaryWithheld).toEqual({ cause: 'olumi_existence_assumption', form: 'highest' })
     const model = heroModel()
     expect(model.headline).toMatch(/^In this model, on current information, each option’s chance of meeting your goal/)
-    expect(model.subline?.endsWith(`${why} ${existence}`)).toBe(true)
-    expect(model.subline?.split(why)).toHaveLength(2) // once
+    expect(model.subline).toBe(EXISTENCE_CELLS)
+    expect(model.subline).not.toContain(why)
+    expect(model.subline).not.toContain(existence)
+    expect(model.subline).not.toMatch(/isn’t naming the option|These chances also count/)
     expect(`${model.headline} ${model.subline}`).not.toMatch(CONTEST)
   })
 

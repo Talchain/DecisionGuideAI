@@ -311,25 +311,19 @@ describe('SharedBriefPage', () => {
       mockGetSharedSnapshotBySlug.mockResolvedValue(SNAPSHOT_WITH_ANALYSIS)
     })
 
-    it('shows the producer’s own headline — the claim it was entitled to make', async () => {
-      renderPage()
-      expect(
-        await screen.findByText(/produced the best outcome in 82% of runs/),
-      ).toBeInTheDocument()
-    })
+    // #2747 re-scope 2 (DL ruling (A)): row deleted — "shows the producer’s own headline — the claim it was entitled to
+    // make": its only subject, the stored headline (a win-share sentence, "…best outcome in 82% of runs"), is not read in C.
 
-    it('ranks the options with their win probabilities', async () => {
+    // #2747 re-scope 2 (DL ruling (A)): the per-option "82%" / "18%" presence assertions are deleted — the page shows no
+    // win share in C. The options stay, by name, in the producer's order (bound by row identity).
+    it('ranks the options by name, in the producer’s order', async () => {
       renderPage()
       const section = await screen.findByTestId('shared-snapshot-analysis')
-      // Bound by identity: the option LABEL carries its own probability, so a
-      // row cannot pass by matching a number that belongs to another option.
       const leeds = within(section).getByTestId('shared-option-0')
       expect(within(leeds).getByText('Lease in Leeds')).toBeInTheDocument()
-      expect(within(leeds).getByText('82%')).toBeInTheDocument()
 
       const stay = within(section).getByTestId('shared-option-1')
       expect(within(stay).getByText('Stay put')).toBeInTheDocument()
-      expect(within(stay).getByText('18%')).toBeInTheDocument()
     })
 
     it('keeps robustness as a SEPARATE disclosure, never folded into the leader claim', async () => {
@@ -440,7 +434,7 @@ describe('SharedBriefPage', () => {
       const section = await screen.findByTestId('shared-snapshot-analysis')
       // The data still renders.
       expect(within(section).getByText('Lease in Leeds')).toBeInTheDocument()
-      expect(within(section).getByText('82%')).toBeInTheDocument()
+      // #2747 re-scope 2 (DL ruling (A)): the "82%" presence assertion is deleted — the page shows no win share in C.
       // The claim does not.
       expect(screen.queryByTestId('shared-analysis-headline')).not.toBeInTheDocument()
       expect(screen.queryByText(/clearly ahead/i)).not.toBeInTheDocument()
@@ -507,23 +501,9 @@ describe('SharedBriefPage', () => {
       expect(screen.getByTestId('shared-snapshot-analysis')).toBeInTheDocument()
     })
 
-    it('survives an analysis whose arrays are the wrong type', async () => {
-      mockGetSharedSnapshotBySlug.mockResolvedValue({
-        ...SNAPSHOT,
-        analysis: {
-          headline: 'A sentence.',
-          options: 'not-an-array',
-          top_drivers: { nope: true },
-          what_would_change: 42,
-          key_assumptions: null,
-          robustness_caveat: 'not-an-object',
-        },
-      })
-      renderPage()
-
-      const section = await screen.findByTestId('shared-snapshot-analysis')
-      expect(within(section).getByText('A sentence.')).toBeInTheDocument()
-    })
+    // #2747 re-scope 2 (DL ruling (A)): row deleted — "survives an analysis whose arrays are the wrong type": its only
+    // assertion was the stored headline ("A sentence.") rendering in the analysis section, and the page reads no stored
+    // headline in C.
   })
 
   it('shows a not-found state for an unknown or expired slug', async () => {

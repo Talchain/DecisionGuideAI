@@ -40,7 +40,7 @@ import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
 import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
-import { withLicensedOptionChances, fixtureChanceText } from './__helpers__/optionChanceFixture'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -84,9 +84,6 @@ const REPORT = withLicensedOptionChances({
   },
   robustness: { near_tie: { is_tie: false, top_option_id: 'option-1' } },
 }, { 'option-1': 41, 'option-2': 29, 'option-b': 18 })
-const CHANCE = fixtureChanceText(REPORT, 'option-1', {
-  'option-1': OPTION_1.data.label as string, 'option-2': OPTION_2.data.label as string, 'option-b': BASELINE.data.label as string,
-})!
 
 type Phase = 'pre' | 'current' | 'changed' | 'cannot_confirm'
 const seed = (
@@ -259,54 +256,42 @@ describe('row 22b — a target with no value reads "Needs input" in its amount c
   })
 })
 
-describe('row 22c — stale: "Last run · no new comparison yet", and the last result is kept, labelled', () => {
-  const shareName = () => onCard('option-analysis-currency-option-1')?.getAttribute('aria-label') ?? ''
-
-  it('changed (Standard): the state line is in the popover; the share stays on the card as `Last run`', () => {
+// #2747 re-scope 2 (U0): the canvas card shows no chance in C, so the kept "last result" (the `Last run` / `Current model` /
+// `Model result` caption, the chance readout and the currency row's accessible name) is gone from these rows; the stale
+// state line and its absence on current / cannot-confirm runs stay pinned.
+describe('row 22c — stale: "Last run · no new comparison yet"', () => {
+  // #2747 re-scope 2 (U0): the caption/readout/currency-name assertions are deleted, and so is "no stale glyph on the
+  // card": its premise (the chance caption's `Last run` holds the one status mark) is removed in C.
+  it('changed (Standard): the state line is in the popover', () => {
     seed({ phase: 'changed' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-label')).toBe('Last run')
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe(CHANCE)
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
-    // ONE status mark (DL 8 Oct, workstream D): "Last run" wins and names the stale line in its tooltip.
-    expect(onCard('option-stale-state-option-1')).toBeFalsy()
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe('Also: no new comparison yet')
-    // WS5-1: keep the last Run's licensed chance and its currency note; never the runs share.
-    expect(shareName()).toContain(`Last run · ${CHANCE}`)
-    expect(shareName()).not.toContain('of runs')
-    expect(shareName()).toContain('No new comparison yet.')
   })
 
-  it('changed (Detailed): the state line is inline on the card', () => {
-    seed({ phase: 'changed', viewMode: 'expert' })
-    renderOption(OPTION_1)
-    // ONE status mark (DL 8 Oct, workstream D): "Last run" wins and names the stale line in its tooltip.
-    expect(onCard('option-stale-state-option-1')).toBeFalsy()
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-description')).toBe('Also: no new comparison yet')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "changed (Detailed): the state line is inline on the card": both assertions
+  // pinned the chance caption `Last run` holding the one status mark (no stale glyph; its aria-description); that caption
+  // is removed in C.
 
-  it('CONTRAST — current: no stale line anywhere, and the share is "Current model"', () => {
+  it('CONTRAST — current: no stale line anywhere', () => {
     seed({ phase: 'current' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.textContent).toBe('Current model')
+    // #2747 re-scope 2 (U0): the `Current model` chance caption and the currency row's name are removed in C.
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
-    expect(shareName()).not.toContain('No new comparison')
   })
 
   it('cannot confirm: no "last run" claim is manufactured', () => {
     seed({ phase: 'cannot_confirm' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.textContent).toBe('Model result')
+    // #2747 re-scope 2 (U0): the `Model result` chance caption and the currency row's name are removed in C.
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
-    expect(shareName()).not.toContain('No new comparison')
   })
 
-  it('the SAME card moves current → changed on a real edit, keeping the result', () => {
+  it('the SAME card moves current → changed on a real edit', () => {
     seed({ phase: 'current' })
     renderOption(OPTION_1)
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true } as never))
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe(CHANCE)
+    // #2747 re-scope 2 (U0): the kept chance readout is removed in C.
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
   })
 })

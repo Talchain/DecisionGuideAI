@@ -1,4 +1,3 @@
-import { CHANCE_NOT_SHOWN_YET } from '../../../runView/runView'
 /** EDIT-UX slice 2: real Router → shell → every node panel. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -298,7 +297,9 @@ describe('specific node contracts', () => {
     expect(screen.getByTestId('risk-likelihood-row')).toBeVisible()
     expect(screen.getByTestId('risk-impact-row')).toBeVisible()
   })
-  it('after an unlicensed Run the withheld chance is stated once, with no raw figure', () => {
+  // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (once, visible) and the two negatives bound to that face
+  // are deleted — the goal inspector shows no chance face in C. The panel-wide negatives stay.
+  it('after an unlicensed Run the goal panel shows no raw figure', () => {
     seed(nodes.map(n => n.id === 'goal' ? { ...n, data: { ...n.data, goal_threshold_raw: 0.8 } } : n))
     useCanvasStore.setState({ goalThreshold: 0.8, results: { status: 'complete', report: {
       option_probabilities: { option: { win_probability: 0.62, probability_of_goal: 0.004, status: 'ok' } },
@@ -306,33 +307,12 @@ describe('specific node contracts', () => {
       robustness: { recommended_option_id: 'option', display_verdict: 'fragile' },
     } } } as never)
     open('goal')
-    const chances = screen.getAllByText(CHANCE_NOT_SHOWN_YET)
-    expect(chances).toHaveLength(1)
-    expect(chances[0]).toBeVisible()
-    expect(chances[0].textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(chances[0].textContent).not.toMatch(/\d+%/)
-    expect(chances[0].textContent).not.toContain('Why?')
     expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
-  it('after a Run the option keeps its headline words and moves the duplicate explanation and comparison context', () => {
-    useCanvasStore.setState({ results: { status: 'complete', report: {
-      option_probabilities: { option: { win_probability: 0.62, status: 'ok' }, 'unset-option': { win_probability: 0.38, status: 'ok' } },
-      option_comparison: [{ option_id: 'option', option_label: 'Grow', win_probability: 0.62 },
-        { option_id: 'unset-option', option_label: 'Hold', win_probability: 0.38 }],
-    } }, analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' }, analysisFreshnessDirty: false } as never)
-    open('option')
-    const caption = screen.getByTestId('option-panel-result-caption')
-    expect(caption).toBeVisible()
-    expect(caption).toHaveTextContent('Current model · of runs')
-    expect(caption.previousElementSibling?.textContent).toBe('62%')
-    expect(caption).not.toHaveAttribute('title')
-    const explanation = screen.getByTestId('option-result-explanation')
-    expect(explanation).toHaveTextContent('In this model, 62% of runs supported this option.')
-    expect(more()).toContainElement(explanation)
-    expect(more()).toContainElement(screen.getByTestId('option-comparative-context'))
-    expect(explanation).not.toBeVisible()
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "after a Run the option keeps its headline words and moves the duplicate
+  // explanation and comparison context": its only subjects (the share hero "62% · Current model · of runs", the share
+  // sentence and the share comparison context) are removed from OptionPanel in C.
   it('moves conversation navigation to the same header menu', () => {
     open('risk')
     fireEvent.click(screen.getByTestId('inspector-header-menu'))

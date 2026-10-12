@@ -26,10 +26,9 @@ import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
-import { WinGauge } from './WinGauge'
 import { ADVANCED_SECTION_TITLE, AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
 import { selectLensOption } from './utils/selectLensOption'
-import { LENS_COPY, deriveComparisonScope, runHasGoalNumbers } from './utils/goalAnchorCopy'
+import { LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
@@ -40,7 +39,6 @@ import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
-import { goalChanceDisclosureLines, goalChanceHeroSays } from './utils/goalChanceLicence'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -387,12 +385,6 @@ export const ResultsBody = memo(function ResultsBody({
   // isDefaultedConfidenceFromRaw), so the count cannot disagree with the pills
   // it is counting. Omitted entirely when there are no drivers: "0 of 0" is
   // not a disclosure, it is noise.
-  // Recovery Batch C: the matching current Run's licence words for what each chance is a chance OF (RunView owns the match).
-  const goalChanceWords = resultsSectionData.runView?.goalChanceDetail()?.chance_words ?? null
-  // Recovery Batch C (#2747 r1): a Run not known to be current quotes no chance; the gauge says CEE's line instead.
-  const goalChancesNotCurrent = resultsSectionData.runView?.chancesNotCurrent() === true
-    ? { line: resultsSectionData.runView.notCurrentLine() } : null
-
   const defaultEstimateDisclosure = useMemo(
     () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
     [resultsSectionData.drivers.drivers],
@@ -669,79 +661,13 @@ export const ResultsBody = memo(function ResultsBody({
                     : `Optimistic view: highlights the option with the strongest high end (p90). Order below is unchanged. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`}
               </p>
             )}
-            {/* WinGauge — moved from hero to top of options section */}
-            <WinGauge
-              shares={resultsSectionData.recommendation.allOptions
-                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-                .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
-                .map(o => ({
-                  id: o.id,
-                  label: o.label,
-                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-                  winProbability: o.winProbability,
-                  isWinner: o.isRecommended,
-                  // Re-anchoring (§6 map row 1): the figure headlines the GOAL
-                  // number and demotes the comparative one. Both anchors are
-                  // already on `OptionResult` — the gauge's prop shape simply
-                  // did not carry them, which is why it could only draw the
-                  // comparative quantity. The possessive gate travels with the
-                  // number so the label cannot assert "your goal" over a
-                  // substituted joint value.
-                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
-                  goalProbability: o.goalProbability,
-                  // ROADMAP 2.334 — the resolution the goal readouts need.
-                  nValidSamples: o.nValidSamples,
-                  goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
-                  // ⭐ L62 — lets the gauge tell "no target set" apart from
-                  // "a goal figure was withheld from you"; they need different
-                  // sentences and only the producer decision knows which.
-                  goalFitWithheld: o.goalFitWithheld,
-                }))}
-              decisionState={vm.decisionState}
-              designationsWithheld={
-                leaderDesignationPermitted(resultsSectionData.recommendation) === false
-              }
-              // ⭐ L65 — the same store-derived target signal the V7 goal
-              // lens gates with (`recommendation.goalThreshold`). Lets the
-              // gauge tell "no target set" from "target set, nothing scored":
-              // post-#308 the producer suppresses the frame-broken joint
-              // channel at source, so `goalFitWithheld` (which needs a joint
-              // figure to ARRIVE) can no longer see that state.
-              goalThreshold={resultsSectionData.recommendation.goalThreshold}
-              // ⭐ SUBSET DISCLOSURE — `shares` above is pre-filtered to
-              // options carrying a finite winProbability, so the gauge cannot
-              // see that an option was excluded. The comparison set is derived
-              // HERE, from the unfiltered `allOptions`, and rendered inside the
-              // gauge's COMPARATIVE block only (the goal block's quantity is
-              // subset-invariant).
-              comparisonScope={deriveComparisonScope(
-                resultsSectionData.recommendation.allOptions,
-              )}
-              // ⭐ D3 step 2: the goal block reads EVERY option's goal figure, share or not (a withheld share empties
-              // `shares` above), and orders it by CEE's goal-chance licence when there is one.
-              goalShares={resultsSectionData.recommendation.allOptions.map((o) => ({
-                id: o.id,
-                label: o.label,
-                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
-                goalProbability: o.goalProbability,
-                nValidSamples: o.nValidSamples,
-                goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
-                goalFitWithheld: o.goalFitWithheld,
-              }))}
-              goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
-              // ⭐ D3 cut 5 + 6: the disclosure's ONE home — here only when the hero will not say the goal-chance sentence.
-              goalChanceDisclosure={goalChanceHeroSays(resultsSectionData.recommendation.goalThreshold,
-                resultsSectionData.recommendation.allOptions, resultsSectionData.goalChanceLicence ?? null, goalChanceWords)
-                ? null
-                : goalChanceDisclosureLines(resultsSectionData.goalChanceLicence ?? null)}
-              goalChanceWords={goalChanceWords}
-              goalChancesNotCurrent={goalChancesNotCurrent}
-            />
+            {/* #2747 re-scope 2 (U0, DL ruling (A)): no WinGauge in C. Its comparative block was win shares and its goal block
+                composed its own chance wording; CEE serves neither. The chances on this tab are CEE's cells, said by the hero,
+                the option cards and the range lines. Restore trigger: a CEE-served share string with its own Run licence. */}
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The
                 lens selection is a separate id that only crowns/relabels its card. */}
             <OptionCards
-              goalChanceWords={goalChanceWords}
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
               // ROADMAP 1.223: the ENTITLEMENT, kept separate from the identity

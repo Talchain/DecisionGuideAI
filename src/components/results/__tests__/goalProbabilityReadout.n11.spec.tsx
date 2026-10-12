@@ -86,11 +86,14 @@ describe('positive control — the harness renders a non-degenerate card (trap 1
       makeOption({ id: 'b', goalProbability: 0.2, winProbability: 0.2, isRecommended: false, nValidSamples: WALK_N }),
     ])
     expect(screen.getByTestId('goal-readout-a').textContent).toBe('34%')
-    expect(screen.getByTestId('win-pct-a').textContent).toBe('34%')
+    // #2747 re-scope 2 (U0, DL ruling (A)): the card prints no win share in C, so no header win readout.
+    expect(screen.queryByTestId('win-pct-a')).toBeNull()
   })
 })
 
-describe('T-2333-2 — N11: the goal readout and the low-goal badge share ONE string', () => {
+// #2747 re-scope 2 (U0 rewrite): the low-goal badge that restated the readout in a UI-worded chance sentence is gone in C;
+// the card's goal readout is the one string, and no badge restates it.
+describe('T-2333-2 — N11: the goal readout is ONE string, and no low-goal badge restates it', () => {
   it('prints no bare "0%" anywhere on a card whose goal probability is 0.0007', () => {
     // The headline assertion, and the one that is RED at the defect: the
     // StatBar's `Math.round(0.0007 * 100)` printed "0%" beside a badge
@@ -103,25 +106,21 @@ describe('T-2333-2 — N11: the goal readout and the low-goal badge share ONE st
     expect(card.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
   })
 
-  it('binds the two surfaces to the SAME numeric string, by identity', () => {
+  it('says the readout from the shared formatter, and no low-goal badge (re-scope 2)', () => {
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.0007, winProbability: 0.65, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.0004, winProbability: 0.35, isRecommended: false, nValidSamples: WALK_N }),
     ])
     const card = screen.getByTestId('option-card-a')
     const statReadout = within(card).getByTestId('goal-readout-a').textContent
-    const badge = within(card).getByTestId('low-goal-warning-a').textContent
 
     // Executed against the real formatter at this tip: 0.0007 at n=10000.
     expect(statReadout).toBe('0.1%')
-    expect(badge).toBe('About 0.1% chance of meeting your goal')
-    // The identity claim itself — not "both are 0.1%", but "the badge is
-    // built FROM the readout". A mutant that recomputes the badge with a
-    // different threshold breaks this even if both strings look plausible.
-    expect(badge).toBe(`About ${statReadout} chance of meeting your goal`)
+    expect(within(card).queryByTestId('low-goal-warning-a')).toBeNull()
+    expect(card.textContent ?? '').not.toMatch(/chance of meeting your goal/)
   })
 
-  it('keeps the floor readout on both surfaces when the run carries no sample count', () => {
+  it('keeps the floor readout when the run carries no sample count, with no badge', () => {
     // The no-resolution fallback still agrees with itself — the register's
     // older guarantee, re-pinned so the new arm cannot regress it.
     renderCards([
@@ -130,7 +129,7 @@ describe('T-2333-2 — N11: the goal readout and the low-goal badge share ONE st
     ])
     const card = screen.getByTestId('option-card-a')
     expect(within(card).getByTestId('goal-readout-a').textContent).toBe('< 1%')
-    expect(within(card).getByTestId('low-goal-warning-a').textContent).toBe('Less than 1% chance of meeting your goal')
+    expect(within(card).queryByTestId('low-goal-warning-a')).toBeNull()
   })
 })
 
@@ -154,26 +153,29 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
    * `winsReadout`. That is a single-sourcing claim, not a defect fix, and it
    * is asserted as such.
    */
-  it('states ONE win string across the header readout, its tooltip and the bar title', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'states ONE win string across the header readout, its tooltip and the bar
+  // title'. In C the card states the win figure at NONE of the three places: no header readout, no "supported in" title.
+  it('states NO win string — no header readout, no tooltip/bar title carrying it', () => {
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.4, winProbability: 0.002675, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.3, winProbability: 0.5, isRecommended: false, nValidSamples: WALK_N }),
     ])
     const card = screen.getByTestId('option-card-a')
-    // executed: formatProbabilityWithResolution(0.002675, 10000)
-    expect(within(card).getByTestId('win-pct-a').textContent).toBe('0.3%')
+    // formatProbabilityWithResolution(0.002675, 10000) would print '0.3%'; it is not printed.
+    expect(within(card).queryByTestId('win-pct-a')).toBeNull()
+    expect(card.textContent ?? '').not.toContain('0.3%')
 
-    // Every other surface stating the win figure carries the same string.
     const titled = Array.from(card.querySelectorAll('[title]'))
       .map((el) => el.getAttribute('title') ?? '')
       .filter((t) => /supported in/i.test(t))
-    expect(titled.length).toBeGreaterThan(0)
-    for (const t of titled) expect(t).toContain('0.3%')
+    expect(titled).toEqual([])
 
     expect(card.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
   })
 
-  it('threads the sample count to BOTH registers, not just the goal row', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'threads the sample count to BOTH registers, not just the goal row'; the win
+  // register is not printed in C, so the row pins the goal row's resolved readout and the win readout's absence.
+  it('threads the sample count to the goal row; no win register is printed', () => {
     // Guards the half-fix: passing `nValidSamples` to the goal readout and
     // `undefined` to the win readout would leave one register resolved and
     // the other floored on the same card.
@@ -183,7 +185,8 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
     ])
     const card = screen.getByTestId('option-card-a')
     expect(within(card).getByTestId('goal-readout-a').textContent).toBe('0.1%')
-    expect(within(card).getByTestId('win-pct-a').textContent).toBe('0.01%')
+    expect(within(card).queryByTestId('win-pct-a')).toBeNull()
+    expect(card.textContent ?? '').not.toContain('0.01%')
   })
 })
 

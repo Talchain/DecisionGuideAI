@@ -9,18 +9,12 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
-import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { resolveNodeTypeLiteral } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
-import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
-import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
-import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '../../../nodes/shared/runCurrency'
-import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
 import { resolveOptionTargetDisplayFrame, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
@@ -30,7 +24,7 @@ import {
   EMPTY_STATES,
   OPTION_STRINGS,
 } from '../inspectorStrings'
-import { unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
@@ -48,7 +42,6 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
-import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../../lib/decisionVerdict'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
@@ -90,7 +83,6 @@ export const OPTION_TARGET_EDIT_ROUTE_NOTE =
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
   techMode,
-  onClose,
   onNavigate,
   /**
    * ⛔ A DUTY, NOT A PERMISSION — see `types.ts`. The Router has stopped
@@ -115,38 +107,6 @@ export const OptionPanel = memo(function OptionPanel({
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
   const storyHeadlines = useCanvasStore(s => s.results?.report?.story_headlines)
-  // SINGLE VERDICT: the shared "is there a leading option?" answer, derived
-  // from the same PLoT report the canvas badge and results panel read.
-  const resultsReport = useCanvasStore(s => s.results?.report)
-
-  /*
-   * ⭐ Q1 OF TWO, IMPORTED — NEVER RE-SPELLED HERE.
-   *
-   * A leader claim needs both: Q1 — does the MODEL license a comparative claim
-   * at all (`permitted_analysis_mode`)? — and Q2 — did THIS RESULT separate the
-   * arms (`verdict.hasLeadingOption`)? This panel consulted Q2 alone at both
-   * its comparative sites, so CEE could withhold the designation while the
-   * inspector still said "Came out ahead in 72% of simulated scenarios" and
-   * "Behind X by Npp". UI #1202 closed the same defect on the canvas nodes;
-   * the inspector was outside its diff.
-   *
-   * ⚠ CONJOINED AT THE POINT OF USE, ON THEIR OWN LINES, because their ABSENCE
-   * ARMS ARE OPPOSITE: Q1 absent -> `true` (an older producer has not spoken,
-   * so nothing changes), Q2 absent -> `false` (no result, so no claim may be
-   * authored). Folding either into the other's default would silence every
-   * legacy payload or license every one — `useAnalysisReady.ts:110-116`.
-   */
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
-
-  const verdict = useMemo(
-    () => deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null | undefined, {
-      visibleOptionIds: new Set(
-        nodes.filter(n => n.type === 'option' || n.data?.type === 'option').map(n => n.id),
-      ),
-    }),
-    [resultsReport, nodes],
-  )
-
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
 
@@ -214,23 +174,6 @@ export const OptionPanel = memo(function OptionPanel({
     unapplied: unappliedIntervention,
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
-  const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
-  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds the share hero AND the comparison bars;
-  // the panel says why instead (`winShareGate.ts`).
-  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
-  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
-  /**
-   * ⭐ THE RESULT'S CAPTION FOLLOWS THE RUN'S CURRENCY, AS THE CARD'S DOES
-   * (canvas audit edit-values F5). This read `Current model` unconditionally,
-   * so after an edit the card said `Last run 62% of runs` and this panel said
-   * `62% Current model · of runs`, titled "the model as it stands" — a result
-   * CEE itself had marked `complete_stale`. Same owner as the card
-   * (`OptionNode`): `useRunCurrency` → `optionResultCaption`.
-   */
-  const runCurrency = useRunCurrency()
-  const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
-  const resultCurrencyNote = optionResultCurrencyNote(runCurrency)
-
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
   // (option-rephrase-merge.ts:459-462), so before this split they rendered
@@ -483,20 +426,13 @@ export const OptionPanel = memo(function OptionPanel({
   // All option results for comparison bars
   const allOptions = useMemo(() => {
     if (!optionComparison || !Array.isArray(optionComparison)) return []
-    return (optionComparison as Array<{ option_id: string; win_probability?: number; label?: string }>).map(o => ({
+    return (optionComparison as Array<{ option_id: string; label?: string }>).map(o => ({
       id: o.option_id,
       // Two legitimate name sources, then honest absence — never the id. The
       // graph node's own label wins; the analysis payload's `label` is the
       // fallback for an option the graph no longer holds; `o.option_id` is NOT
       // a third source, it is a database key and has been dropped.
       label: resolveFirstStatedLabel(nodes.find(n => n.id === o.option_id)?.data, { label: o.label }),
-      // winPct: integer percent used for bar width + close-call gap arithmetic.
-      // winLabel: user-facing string; routes through formatWinProbability so a
-      // non-zero probability that rounds to 0 renders as "< 1%" rather than "0%".
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-      winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : null,
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-      winLabel: typeof o.win_probability === 'number' ? formatWinProbability(o.win_probability) : null,
       isCurrent: o.option_id === nodeId,
     }))
   }, [optionComparison, nodes, nodeId])
@@ -863,176 +799,25 @@ export const OptionPanel = memo(function OptionPanel({
       </PanelGroup>
 
       {/* ── Impact group — post-analysis only, absent from DOM otherwise ──
-          When results are complete but impact data is missing (winRate null,
-          no headline, no comparison bars) the group still renders with a
-          fallback message rather than showing an empty bordered section —
-          mirrors GoalPanel Task 1 pattern. */}
+          #2747 re-scope 2 (DL ruling (A)): no win share in C — no share hero, no "N% of runs supported this option", no
+          gap to the leader, no share bars. CEE serves no wording or Run authority for the share. The group keeps CEE's
+          story headline and the way to the Analysis tab, where each option's chance is said in CEE's words. Restore
+          trigger: a CEE-served share string with its own Run licence (post-C). Each branch stays per node (L-24): an
+          option added since the run and one the run covered read differently. */}
       {isResultsMode && (() => {
-        // L-24 — every branch below is derived PER NODE. Previously the only
-        // per-node signal was `hasImpactContent`; the fallback sentence was
-        // shared, so an option ADDED SINCE the run and an option the run
-        // covered-and-returned-nothing-for read identically. They are
-        // different situations and only one of them is the user's to fix.
-        // Was THIS node in the run's own comparison? `allOptions` is built
-        // from `option_comparison`, i.e. the run's own record of what it
-        // analysed — not from the canvas, and not from global mode.
-        const runCoveredSomething = allOptions.length > 0
         const nodeWasInRun = allOptions.some(o => o.isCurrent)
-        const addedSinceRun = runCoveredSomething && !nodeWasInRun
-        // ⚠ THE THIRD DISJUNCT WAS RUN-LEVEL, NOT PER-NODE (review D2), so the
-        // fix above never fired on the mainline shape. A run compares two or
-        // more options; the user then adds a third. `allOptions.length > 1 &&
-        // some(winPct != null)` is true of THE RUN, so the new option scored
-        // as having impact content and rendered the OTHER options' bars —
-        // foreign data under its own heading — instead of saying it was added
-        // afterwards. The first round's fixture used a ONE-option comparison,
-        // the single shape in which the old predicate happened to be false.
-        // Gating on `nodeWasInRun` makes the whole predicate per-node.
-        const showsShares = !winSharesWithheld
-        const hasImpactContent =
-          (showsShares && displayMetadata.winRate !== null)
-          || (!showsShares && nodeWasInRun && winShareWithheldReason !== null)
-          || !!headline
-          || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
+        const addedSinceRun = allOptions.length > 0 && !nodeWasInRun
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           <StaleGuardBanner hasResults={isResultsMode}>
-            {hasImpactContent ? (
+            {nodeWasInRun || headline ? (
             <div>
-              {!showsShares && nodeWasInRun && winShareWithheldReason !== null && (
-                <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-not-ranked">
-                  {winShareWithheldReason}
-                </p>
-              )}
-              {/* Win probability hero */}
-              {showsShares && displayMetadata.winRate !== null && (
-                <div className="flex items-center gap-3">
-                  <div className="text-center">
-                    <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
-                      {formatWinProbability(displayMetadata.winRate)}
-                    </div>
-                    <div
-                      className={`${typography.panelMeta} text-text-light`}
-                      data-testid="option-panel-result-caption"
-                    >
-                      {resultCaption} · of runs
-                    </div>
-                    {/* SC-24 v3: Compare is now previous Run vs this Run; the options are compared on Analysis. */}
-                    <ResultsLink label="Compare all options" tab="results" />
-                  </div>
-                  <InspectorMoreItems>
-                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-result-explanation">
-                      {[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
-                    </p>
-                  </InspectorMoreItems>
-                </div>
-              )}
-
-              {/* Comparative context */}
-              <InspectorMoreItems>
-              <div data-testid="option-comparative-context">
-              {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
-                // The NUMBER, for the pp arithmetic below.
-                const myPct = Math.round(displayMetadata.winRate * 100)
-                // The STRING, from the shared formatter the hero readout at
-                // the top of this panel already uses. Hand-formatting it a
-                // second time is how one surface came to print "0%" where the
-                // other printed "< 1%" for the same win rate, three lines
-                // apart in one panel.
-                const myReadout = formatWinProbability(displayMetadata.winRate)
-                const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
-                const leaderPct = leader.winPct ?? 0
-                const gap = leaderPct - myPct
-                if (leader.isCurrent) {
-                  // SINGLE VERDICT (2026-07-25): the inspector may only say
-                  // "the leading option" when the shared verdict says one
-                  // exists. Previously this fired on being the local win-max,
-                  // so it could assert a leader in the same session where the
-                  // results panel said "no clear leading option".
-                  if (verdict.hasLeadingOption === false) return null
-                  if (!modelLicensesComparativeClaim) return null
-                  return (
-                    <p className={`${typography.panelBody} text-success mt-1`}>
-                      {COMPARATIVE_COPY.sentence(myReadout)}
-                    </p>
-                  )
-                }
-                // ROADMAP 1.223: both remaining branches presuppose a leading
-                // option — one names it ("the leading option"), one names the
-                // option that is ahead ("Behind {label} by Npp"). Each was
-                // ungated, firing off the local win-max and its own 5pp/10pp
-                // threshold, so on a withheld turn they reinstated exactly the
-                // claim the branch above had just declined to make. Same gate,
-                // same silent-omission convention.
-                if (verdict.hasLeadingOption === false) return null
-                if (!modelLicensesComparativeClaim) return null
-                /**
-                 * ⭐⭐ TWO INVENTED CUTOFFS WITH A SILENT DEAD BAND BETWEEN THEM.
-                 *
-                 * `gap <= 5` and `gap > 10` are numbers this panel chose, and
-                 * an option **6 to 10pp behind the leader fell through both and
-                 * was told nothing at all** — not "we are unsure", literally no
-                 * sentence. An absence read as a non-fact, on the surface where
-                 * the reader is comparing their options.
-                 *
-                 * ⛔ AND THE 5pp ARM MADE A CLAIM IT CANNOT SUPPORT: *"Small
-                 * model changes could shift this"* is a ROBUSTNESS statement,
-                 * and robustness is computed — by the producer, from the
-                 * samples. A 5-point gap is not evidence about stability.
-                 *
-                 * `gap` is arithmetic on two figures already on screen, so
-                 * stating it is representation, not interpretation. Every
-                 * option now gets the same true sentence.
-                 */
-                if (gap === 0) {
-                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Level with {leader.label} on support.</p>
-                }
-                return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
-              })()}
-              </div>
-              </InspectorMoreItems>
-
-              {/* Story headline */}
               {headline && (
-                <div className="bg-panel border rounded-lg p-2.5 mt-2" style={{ borderColor: 'var(--option)4D' }}>
+                <div className="bg-panel border rounded-lg p-2.5" style={{ borderColor: 'var(--option)4D' }}>
                   <p className={`${typography.panelBody} italic text-text-body`}>&ldquo;{headline}&rdquo;</p>
                 </div>
               )}
-
-              {/* Comparison bars */}
-              {showsShares && allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
-                <div className="mt-2">
-                  {/* F5: after the model changes these are the LAST run's
-                      shares — labelled with the contract's stale-option words
-                      (v3 §02, `lastRunNoNewComparison`), never shown bare. */}
-                  {runCurrency === 'changed' && (
-                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-compare-last-run">
-                      {OPTION_RESULT_COPY.lastRunNoNewComparison}
-                    </p>
-                  )}
-                  {allOptions.map(o => (
-                    <div key={o.id} className="flex items-center gap-2 py-0.5">
-                      <span
-                        className={`${typography.panelMeta} w-[110px] truncate text-text-light`}
-                      >
-                        {o.label}
-                      </span>
-                      <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${o.winPct ?? 0}%`,
-                            background: o.isCurrent ? 'var(--option)' : 'var(--text-light)',
-                          }}
-                        />
-                      </div>
-                      <span className={`${typography.panelMeta} w-7 text-right text-text-light`}>
-                        {o.winLabel ?? '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {nodeWasInRun && <div className="mt-1"><ResultsLink label="Compare all options" tab="results" /></div>}
             </div>
             ) : addedSinceRun ? (
               <p

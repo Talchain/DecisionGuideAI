@@ -275,9 +275,13 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    * card already carries this number, so if the number ever leaves, the
    * deletion stops being justified and this REDs.
    */
-  it('the non-leader card still carries its OWN probability, which is what licensed deleting the gap line', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'the non-leader card still carries its OWN probability, which is what licensed
+  // deleting the gap line'. In C no card says a win share at all, so neither the gap nor the own share is on either card.
+  it('neither card carries a win share in C — no gap line and no own-probability readout (71% / 31%)', () => {
     renderBody()
-    expect(screen.getByTestId('win-pct-opt_b')).toHaveTextContent('31%')
-    expect(screen.getByTestId('win-pct-opt_a')).toHaveTextContent('71%')
+    expect(screen.queryByTestId('win-pct-opt_b')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('win-pct-opt_a')).not.toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt_b').textContent).not.toContain('31%')
+    expect(screen.getByTestId('option-card-opt_a').textContent).not.toContain('71%')
   })
 })

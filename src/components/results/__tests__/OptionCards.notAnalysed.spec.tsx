@@ -106,7 +106,8 @@ describe('OptionCards — the option that was never analysed', () => {
     // If these ever go missing the absence assertions below stop discriminating
     // and start agreeing with a blank screen.
     expect(screen.getByTestId(`rank-marker-${ANALYSED_A}`)).toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${ANALYSED_A}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0, DL ruling (A)): no card shows a win share in C, so the analysed sibling carries none either.
+    expect(screen.queryByTestId(`win-pct-${ANALYSED_A}`)).not.toBeInTheDocument()
     expect(screen.getByTestId(`stable-number-${ANALYSED_A}`)).toBeInTheDocument()
   })
 

@@ -260,11 +260,10 @@ export function ConditionalWinnerCards({
           const label = bucket.winner_label !== undefined && mayNameLeader
             ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
             : undefined
-          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-          const pct = bucket.win_probability !== undefined && !winSharesAreWithheld
-            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-            ? `${Math.round(bucket.win_probability * 100)}%`
-            : undefined
+          // #2747 re-scope 2 (DL ruling (A)): a side's win share is not said in C (CEE serves no wording or Run licence for a
+          // share). The labels stay under the leader licence. Restore trigger: a CEE-served share string with its own Run
+          // licence (post-C), never worded as a chance.
+          const pct: string | undefined = undefined
           if (label !== undefined && pct !== undefined) return `${label} (${pct})`
           if (label !== undefined) return label
           if (pct !== undefined && !labelSuppressed) return pct

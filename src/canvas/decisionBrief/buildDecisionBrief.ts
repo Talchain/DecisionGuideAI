@@ -248,6 +248,7 @@ function figureText(raw: Record<string, unknown>): string | null {
   if (!obs || typeof obs.raw_value !== 'number' || !Number.isFinite(obs.raw_value)) return null
   const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
   if (unit === '') return null
+  // target-text: a factor's observed level in its own unit, never a goal target (it has no frame)
   return formatGoalTarget(obs.raw_value, unit)
 }
 

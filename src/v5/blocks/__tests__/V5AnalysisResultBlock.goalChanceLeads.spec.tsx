@@ -116,15 +116,16 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
     expect(firstPercentElement).toHaveTextContent('chance of meeting your goal')
   })
 
-  it('R2: without this Run\'s licence, no headline is added and the pills are unchanged', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "R2: without this Run's licence, no headline is added and the pills are
+  // unchanged". The no-headline negative is kept as written; the pill-row list (the four "supported by N% of runs"
+  // pills) became the absence check (DL ruling (A): C shows no win share on any Run), on the same unlicensed mount.
+  it('R2: without this Run\'s licence, no headline is added, and still no win-share row in C (ruling (A))', () => {
     render(<V5AnalysisResultBlock block={d1w5Block(null)} />)
     expect(screen.queryByTestId('v5-analysis-result-goal-chances')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem').map((pill) => pill.textContent)).toEqual([
-      'Launch starter tier· supported by 73% of runs',
-      'Raise prices 10%· supported by 18% of runs',
-      'Offer annual contracts· supported by 6% of runs',
-      'Keep the current plan· supported by 3% of runs',
-    ])
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent('The analysis completed for all four options.')
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
   it('R3: a highest licence follows option_ids rather than descending run share', () => {

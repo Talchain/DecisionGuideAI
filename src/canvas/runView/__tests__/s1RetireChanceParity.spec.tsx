@@ -98,15 +98,8 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
         const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
         expect(metadata.achievementChanceCell).toEqual(cell)
         expect(metadata.achievementProbability).toBe(numeric)
-        const summary = render(<DecisionSummary />)
-        expect(summary.container.textContent).toContain(cell.text)
-        summary.unmount()
-        const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
-        expect(goalMount.container.textContent).toContain(cell.text)
-        goalMount.unmount()
-        const panel = render(<GoalPanel {...({ nodeId: goal.id, node: { ...goal, data: { ...goal.data, goal_threshold_raw: 20000 } } } as any)} />)
-        expect(panel.container.textContent).toContain(cell.text)
-        panel.unmount()
+        // #2747 re-scope 2 (U0): the DecisionSummary, GoalPanel and GoalNode "contains cell.text" assertions are deleted —
+        // none of those surfaces says a chance in C (the journey path says it, in CEE's words). The hook parity stays.
         console.info(`R1 ${name} ${option.id}: ${cell.kind} ${cell.text}`)
       }
     })
@@ -149,27 +142,19 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     expect(metadata.goalFitAvailable).toBe(false)
     expect(metadata.achievementChanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
+    // #2747 re-scope 2 (U0): the DecisionSummary and GoalPanel CHANCE_NOT_SHOWN_YET face presence (and the two negatives
+    // bound to each face) are deleted — neither surface shows a chance face in C. Their container-wide negatives stay.
     const summary = render(<DecisionSummary />)
-    const summaryFace = summary.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(summaryFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(summaryFace.textContent).not.toMatch(/\d+%/)
-    expect(summaryFace.textContent).not.toContain('Why?')
     expect(summary.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(summary.container.textContent).not.toContain('73%')
     summary.unmount()
     const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
-    const goalMountFace = goalMount.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(goalMountFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(goalMountFace.textContent).not.toMatch(/\d+%/)
-    expect(goalMountFace.textContent).not.toContain('Why?')
+    // #2747 re-scope 2 (U0): the GoalNode CHANCE_NOT_SHOWN_YET face presence (and the two negatives bound to it) is deleted —
+    // the canvas goal card shows no chance face in C. Its container-wide negatives stay.
     expect(goalMount.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(goalMount.container.textContent).not.toContain('73%')
     goalMount.unmount()
     const panel = render(<GoalPanel {...({ nodeId: goal.id } as any)} />)
-    const panelFace = panel.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(panelFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(panelFace.textContent).not.toMatch(/\d+%/)
-    expect(panelFace.textContent).not.toContain('Why?')
     expect(panel.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(panel.container.textContent).not.toContain('73%')
     panel.unmount()

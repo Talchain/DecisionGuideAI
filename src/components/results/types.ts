@@ -329,8 +329,7 @@ export interface OptionResult {
    * being null means "no goal number", which is ALSO the state of a run where
    * the user set no target. Those need different sentences — offering "Set a
    * success target" to someone who set one is its own small untruth. Surfaces
-   * read this to choose `GOAL_ANCHOR_COPY.notScored` over
-   * `GOAL_ANCHOR_COPY.noTarget`.
+   * read this so they never offer `GOAL_ANCHOR_COPY.noTarget` here.
    */
   goalFitWithheld?: boolean
   /**

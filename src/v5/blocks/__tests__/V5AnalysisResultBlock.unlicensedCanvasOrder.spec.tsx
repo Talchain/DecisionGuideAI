@@ -2,6 +2,10 @@
  * ⭐ UI-SEM-097, ORDER — a card with no LICENSED leader keeps every number, in
  * CANVAS order, never largest-first.
  *
+ * #2747 re-scope 2 (DL ruling (A)): the pill row whose order this file pinned is gone from the card in C. The
+ * rows that pinned it are deleted in place (each leaves a comment); the licensed control is rewritten as the absence
+ * check.
+ *
  * RC ruling, #69 5829442152 §4 (on AI Conversation's 5829386262 §2): "Any card
  * that shows no permitted leader keeps every number, in CANVAS order, the same
  * order #2001's L2 uses, so every surface lists options alike. It never sorts
@@ -24,7 +28,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { useCanvasStore } from '../../../canvas/store'
@@ -41,9 +45,7 @@ const WIN_PROBABILITIES: Record<string, number> = {
   [STATUS_QUO]: 0.2489,
   [MAC]: 0.4277,
 }
-const LARGEST_FIRST = [MAC, DELL, STATUS_QUO]
-const WIRE_ORDER = [DELL, STATUS_QUO, MAC]
-const CANVAS_ORDER = [STATUS_QUO, MAC, DELL]
+// #2747 re-scope 2: the three expected orders (largest-first, wire, canvas) went with the rows that compared them.
 
 function block(nearTie: { is_tie: boolean } = { is_tie: false }): V5AnalysisResultBlockType {
   return {
@@ -83,12 +85,6 @@ const CANVAS = [
   { id: 'opt_dell', type: 'option', label: DELL },
 ]
 
-const pills = (): HTMLElement[] =>
-  within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem')
-const order = (): string[] =>
-  pills().map((p) => [MAC, DELL, STATUS_QUO].find((label) => p.textContent?.includes(label)) ?? '?')
-const crowned = (): HTMLElement[] => pills().filter((p) => p.getAttribute('data-leader') === 'true')
-
 const initialNodes = useCanvasStore.getState().nodes
 beforeEach(() => {
   setAdmission(null)
@@ -100,50 +96,39 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: initialNodes } as never)
 })
 
-describe('a LICENSED leader keeps largest-first (the control)', () => {
-  it('comparative_leader admission, separated run: the leader first, then largest-first', () => {
+describe('a LICENSED leader (the control)', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "comparative_leader admission, separated run: the leader first, then
+  // largest-first" (describe: "a LICENSED leader keeps largest-first (the control)"). The same licensed mount, which
+  // used to SHOW the pill row crowned and largest-first, now pins that C shows no win share (DL ruling (A)).
+  it('comparative_leader admission, separated run: still no win-share row in C (ruling (A))', () => {
     setAdmission('comparative_leader')
     render(<V5AnalysisResultBlock block={block()} />)
-    expect(order()).toEqual(LARGEST_FIRST)
-    expect(crowned().map((p) => p.textContent)).toEqual([expect.stringContaining(MAC)])
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent('Ran analysis on your current scenario.')
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 })
 
-describe('NO licensed leader: every number, in canvas order', () => {
-  it.each([
-    ['exploratory admission', () => setAdmission('exploratory'), block()],
-    ['admission refused (`none`)', () => setAdmission('none'), block()],
-    ['a near tie the producer calls', () => setAdmission('comparative_leader'), block({ is_tie: true })],
-  ])('%s: canvas order, nothing crowned, every share shown', (_name, arrange, b) => {
-    arrange()
-    render(<V5AnalysisResultBlock block={b} />)
-    expect(order(), 'canvas order, not largest-first').toEqual(CANVAS_ORDER)
-    expect(order()).not.toEqual(LARGEST_FIRST)
-    expect(crowned()).toEqual([])
-    for (const [label] of Object.entries(WIN_PROBABILITIES)) {
-      expect(pills().some((p) => p.textContent?.includes(label)), `${label}'s number still renders`).toBe(true)
-    }
-  })
+// #2747 re-scope 2: describe "NO licensed leader: every number, in canvas order" removed with its four rows, below.
 
-  it('no option on the canvas: the wire order stands (nothing to reorder by)', () => {
-    setAdmission('exploratory')
-    setCanvas([])
-    render(<V5AnalysisResultBlock block={block()} />)
-    expect(order()).toEqual(WIRE_ORDER)
-  })
+// #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+// "%s: canvas order, nothing crowned, every share shown".
+// Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+// chat analysis card, with and without a named leader.
+// (it.each over: exploratory admission; admission refused (`none`); a near tie the producer calls.)
 
-  it('an option the canvas no longer has keeps its wire position, after the ones it does have', () => {
-    setAdmission('exploratory')
-    setCanvas(CANVAS.filter((n) => n.id !== 'opt_sq'))
-    render(<V5AnalysisResultBlock block={block()} />)
-    expect(order()).toEqual([MAC, DELL, STATUS_QUO])
-  })
+// #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+// "no option on the canvas: the wire order stands (nothing to reorder by)".
+// Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+// chat analysis card, with and without a named leader.
 
-  it('id-keyed shares (some paths key by option id) follow canvas order too', () => {
-    setAdmission('exploratory')
-    const idKeyed = { ...block(), win_probabilities: { opt_dell: 0.3234, opt_sq: 0.2489, opt_mac: 0.4277 } }
-    render(<V5AnalysisResultBlock block={idKeyed} />)
-    const ids = pills().map((p) => ['opt_mac', 'opt_dell', 'opt_sq'].find((id) => p.textContent?.includes(id)) ?? '?')
-    expect(ids).toEqual(['opt_sq', 'opt_mac', 'opt_dell'])
-  })
-})
+// #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+// "an option the canvas no longer has keeps its wire position, after the ones it does have".
+// Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+// chat analysis card, with and without a named leader.
+
+// #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+// "id-keyed shares (some paths key by option id) follow canvas order too".
+// Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+// chat analysis card, with and without a named leader.

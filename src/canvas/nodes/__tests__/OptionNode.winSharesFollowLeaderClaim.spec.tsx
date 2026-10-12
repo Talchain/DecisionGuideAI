@@ -23,7 +23,6 @@ import { OptionNode } from '../OptionNode'
 import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { formatWinProbability } from '../../utils/labelUtils'
 import { leaderWithholdCause } from '../../../components/results/analysisNew/analysisNewCopy'
@@ -116,10 +115,11 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
     },
   )
 
-  it('⭐ ROW 2 — CONTROL: a PERMITTED Run with a licensed chance shows its chance', () => {
+  // #2747 re-scope 2 (U0): "shows its chance" (the slot's chance readout "41%") is deleted — the canvas card shows no
+  // chance in C; the no-runs-share and no-marker negatives stay.
+  it('⭐ ROW 2 — CONTROL: a PERMITTED Run with a licensed chance: no runs share and no `Not ranked`', () => {
     seed({ permitted: true }, true)
     renderCard(CONVERTIBLE)
-    expect(slotText(CONVERTIBLE)).toContain(GOAL_ANCHOR_COPY.phrase('41%', false))
     expect(slotText(CONVERTIBLE)).not.toContain('of runs')
     expect(screen.queryByTestId(`option-not-ranked-${CONVERTIBLE}`)).toBeNull()
   })

@@ -13,11 +13,10 @@
  *
  * Pure: no store reads. Formatters read only this view.
  */
-import type { CanonicalAnalysisView, CanonicalGoalChanceDetail } from './canonicalAnalysisView'
+import type { CanonicalAnalysisCell, CanonicalAnalysisView, CanonicalGoalChanceDetail } from './canonicalAnalysisView'
 import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
-import type { RunDeltaGoalChanceRow } from '../../components/results/analysisNew/runDeltaView'
 import { goalChanceDetailLines, goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
@@ -73,6 +72,17 @@ export interface RunView {
   readonly chanceFigureOf: (optionId: string) => ChanceFigure | null
   /** The current canonical main_driver for a matching Run; otherwise null (never the licence's own driver, #2747). */
   readonly mainDriverOf: (optionId: string) => GoalChanceDriver | null
+  /**
+   * #2747 re-scope 2 (U2): CEE's own sentence for what this option's chance rests on most (`main_driver.detail`), verbatim,
+   * for a matching Run known to be current; otherwise null. A driver record with no served sentence says nothing: its
+   * figure is never worded here.
+   */
+  readonly mainDriverDetailOf: (optionId: string) => string | null
+  /**
+   * #2747 re-scope 2 (U2): CEE's canonical cell for this option, as served (display, face, why), for a matching Run known
+   * to be current; otherwise null. The journey-path surfaces say its strings verbatim and compose none of their own.
+   */
+  readonly servedCellOf: (optionId: string) => CanonicalAnalysisCell | null
   /** Sole per-option display resolution. `none` leaves the matrix's existing empty-cell copy to the matrix. */
   readonly chanceCellOf: (optionId: string, ctx: OptionChanceCellContext) => OptionChanceCell
   /**
@@ -119,6 +129,7 @@ const NONE: OptionChance = { kind: 'none' }
 const NO_CELL: OptionChanceCell = { kind: 'none', text: null }
 const EMPTY: RunView = {
   goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, mainDriverOf: () => null,
+  mainDriverDetailOf: () => null, servedCellOf: () => null,
   chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), withheldReasonCodesOf: () => [],
   boundToCurrentCanonical: () => false,
   participationOf: () => null,
@@ -218,29 +229,6 @@ export function chanceFigureFromCanonical(view: RunView, optionId: string): Chan
 }
 
 /**
- * Compare's goal-chance rows through the gate (DL ruling (b)): the pair's rows only when its Latest Run is the current
- * canonical Run (`latestRunIsCurrentCanonical`) and some side carries a figure; `notCurrent` when it carries figures
- * but its Latest Run is not current (the row then shows no figure, only why).
- */
-export function gatedCompareGoalChances(
-  view: { readonly goalChances?: readonly RunDeltaGoalChanceRow[] }, latestIsCurrent: boolean,
-): { readonly rows: readonly RunDeltaGoalChanceRow[] | null; readonly notCurrent: boolean } {
-  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
-  const rows = view.goalChances
-  const figures = rows !== undefined && rows.some((g) => [g.prior, g.current].some((side) => side.kind === 'point' || side.kind === 'range'))
-  return { rows: figures && latestIsCurrent ? rows : null, notCurrent: figures && !latestIsCurrent }
-}
-
-/**
- * The same gate for Compare's goal-chance row (#2747, DL ruling (b)): the pair's Latest Run must be the scenario's current
- * canonical Run (the same CEE run id, `staleness.stale === false`); otherwise the row shows no figures.
- */
-export function latestRunIsCurrentCanonical(canonical: CanonicalAnalysisView | null, latestRunId: string | null | undefined): boolean {
-  return canonical !== null && canonical.staleness.stale === false && typeof latestRunId === 'string' && latestRunId.length > 0
-    && canonical.run?.run_id === latestRunId
-}
-
-/**
  * The gate's arithmetic, on one held licence and canonical view (pure). The licence's number and the canonical cell's
  * words must say the same figure (Ruling 4's wording of that percent); if they do not, neither is shown.
  */
@@ -310,6 +298,11 @@ export function runViewFromParts(
       const driver = current?.options.find(o => o.option_id === optionId)?.main_driver
       return driver?.kind === 'available' ? goalChanceDriverOf(driver.driver) : null
     },
+    mainDriverDetailOf: (optionId) => {
+      const driver = current?.options.find(o => o.option_id === optionId)?.main_driver
+      return driver?.kind === 'available' && typeof driver.detail === 'string' && driver.detail.trim() !== '' ? driver.detail : null
+    },
+    servedCellOf: (optionId) => current?.options.find(o => o.option_id === optionId)?.cell ?? null,
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     boundToCurrentCanonical: () => current !== null,
     withheldReasonCodesOf: (optionId) => {

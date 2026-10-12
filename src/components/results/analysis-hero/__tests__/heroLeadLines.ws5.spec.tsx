@@ -1,4 +1,4 @@
-import { withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { canonicalTestCellsOf, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
@@ -9,7 +9,7 @@ import { useResultsSectionData } from '../../useResultsSectionData'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
 import { buildHeroModel } from '../buildHeroModel'
 import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
-import { buildRunView } from '../../../../canvas/runView/runView'
+import { buildRunView, runViewFromParts } from '../../../../canvas/runView/runView'
 const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
 
 import { OLUMI_PROPOSED_EXCLUDED_COPY } from '../../utils/notAnalysedCopy'
@@ -31,6 +31,23 @@ function hydrate(envelope = turn) {
   expect(useCanvasStore.getState().results.report).toBeTruthy()
   return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
 }
+/**
+ * #2747 re-scope 2 (U0): the same self-authored canonical fixture as `hydrate`, with CEE's served `main_driver.detail` on
+ * the named options' drivers — the only words a hero driver line may say.
+ */
+function withDriverDetails(data: ReturnType<typeof hydrate>, details: Readonly<Record<string, string>>): ReturnType<typeof hydrate> {
+  const canonical = canonicalTestCellsOf(data)
+  const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, data.goalChanceLicence ?? data.runView?.goalChance ?? null,
+    data.goalChanceRange ?? data.runView?.goalChanceRange ?? null, {
+      ...canonical,
+      options: canonical.options.map(o => o.main_driver.kind === 'available' && details[o.option_id] !== undefined
+        ? { ...o, main_driver: { ...o.main_driver, detail: details[o.option_id] } } : o),
+    })
+  return { ...data, runView: view, goalChanceRange: view.goalChanceRange }
+}
+/** CEE's served sentence for the P45 Carry-on driver (SELF-AUTHORED stand-in in CEE's wording; not a capture). */
+const CARRY_ON_DETAIL = 'It rests most on how strongly ‘Pro subscribers today’ affects ‘Pro subscribers at month 12’, at the size you set: '
+  + 'if that effect is weaker than that, the chance falls. How sure are you of that size?'
 function mounted(data: ReturnType<typeof hydrate>) {
   const model = buildHeroModel(data)
   console.info('LEAD-MODEL', JSON.stringify({ kind: model.kind, ...model.kind === 'chart' ? { subline: model.subline, coverage: model.goalOptionCoverage } : {} }))
@@ -82,7 +99,11 @@ describe('WS5 hero lead lines', () => {
     expect(withheld.textContent).toContain(canonical.options[1].cell.why)
     console.info('L2', block.textContent)
   })
-  it.each(['licence', 'canonical'] as const)('L3 %s: P45 with a licensed driver keeps it after its own cell, with no matrix', source => {
+  // #2747 re-scope 2 (U0): the driver line is CEE's served `main_driver.detail`, verbatim (was the UI's composed sentence);
+  // `served: false` is the negative — the same current canonical driver with no served sentence says nothing.
+  it.each([
+    ['licence', true], ['canonical', true], ['licence', false], ['canonical', false],
+  ] as const)('L3 %s (served detail: %s): P45 with a licensed driver keeps CEE’s sentence after its own cell, with no matrix', (source, served) => {
     // Explicit control: the P45 capture itself has no licensed driver for Carry on.
     const claim = { quantity_id: 'pro_subscribers_today->pro_subscribers_at_month_12', kind: 'link_strength',
       from: 'pro_subscribers_today', to: 'pro_subscribers_at_month_12', side: 'low', strength: 'weaker',
@@ -92,25 +113,33 @@ describe('WS5 hero lead lines', () => {
       const licence = envelope.blocks[0].enrichment.inference_warnings.find(w => w.code === 'GOAL_CHANCE_LICENSED')!
       Object.assign(licence, { driver_by_option: { carry_on_as_now: claim }, no_driver_by_option: {} })
     }
-    const data = hydrate(envelope)
+    let data = hydrate(envelope)
+    if (source === 'licence' && served) data = withDriverDetails(data, { carry_on_as_now: CARRY_ON_DETAIL })
     if (source === 'canonical') {
       const canonical = { ...bodies.a_current, run: { ...bodies.a_current.run, run_id: 'same' }, options: [
-        { option_id: 'carry_on_as_now', cell: { kind: 'figure', display: 'about 17%' }, main_driver: { kind: 'available', driver: claim } },
+        { option_id: 'carry_on_as_now', cell: { kind: 'figure', display: 'about 17%' },
+          main_driver: { kind: 'available', driver: claim, ...(served ? { detail: CARRY_ON_DETAIL } : {}) } },
         { option_id: 'raise_pro_price_to_59', cell: { kind: 'withheld', face: TEST_WITHHELD_FACE }, main_driver: { kind: 'not_recorded' } },
         { option_id: 'raise_pro_price_to_54', cell: { kind: 'withheld', face: OLUMI_PROPOSED_EXCLUDED_COPY }, main_driver: { kind: 'not_recorded' } },
       ] }
       data.runView = buildRunView({ ...useCanvasStore.getState().results.report!, run_id: 'same' }, canonical as never)
     }
     expect(data.runView!.mainDriverOf('carry_on_as_now')).toMatchObject({ from: claim.from, to: claim.to })
+    expect(data.runView!.mainDriverDetailOf('carry_on_as_now')).toBe(served ? CARRY_ON_DETAIL : null)
     const block = mounted(data)
     expect(screen.queryByTestId('decision-matrix')).toBeNull()
     const cell = block.querySelector('[data-option-id="carry_on_as_now"][data-line-kind="cell"]')!
+    expect(cell).toBeTruthy()
+    expect(cell.textContent).not.toContain('It rests most on')
+    if (!served) {
+      expect(block.querySelectorAll('[data-line-kind="driver"]')).toHaveLength(0)
+      expect(block.textContent).not.toMatch(/It rests most on|the chance falls/)
+      return
+    }
     const driver = block.querySelector('[data-option-id="carry_on_as_now"][data-line-kind="driver"]')!
     expect(driver).toBeTruthy()
     expect(cell.nextElementSibling).toBe(driver)
-    expect(cell.textContent).not.toContain('It rests most on')
-    const words = 'It rests most on how strongly ‘Pro subscribers today’ affects ‘Pro subscribers at month 12’, at the size you set: '
-      + 'if that effect is weaker than that, the chance falls. How sure are you of that size?'
+    const words = CARRY_ON_DETAIL
     expect(driver.textContent).toBe(words)
     for (const line of block.querySelectorAll('[data-option-id]')) {
       if (line.getAttribute('data-option-id') !== 'carry_on_as_now') expect(line.textContent).not.toContain(words)
@@ -119,8 +148,8 @@ describe('WS5 hero lead lines', () => {
   })
   it('L3 duplicate run-message aliases are deduped by their link/target warning identity', () => {
     const envelope = structuredClone(turn)
-    const words = 'It rests most on how strongly ‘Pro subscribers today’ affects ‘Pro subscribers at month 12’, at the size you set: '
-      + 'if that effect is weaker than that, the chance falls. How sure are you of that size?'
+    // #2747 re-scope 2 (U0): the driver line is CEE's served `main_driver.detail` (supplied below), verbatim.
+    const words = CARRY_ON_DETAIL
     const link = { from: 'pro_subscribers_today', to: 'pro_subscribers_at_month_12' }
     const licence = envelope.blocks[0].enrichment.inference_warnings.find(w => w.code === 'GOAL_CHANCE_LICENSED')!
     Object.assign(licence, { driver_by_option: { carry_on_as_now: { ...link, kind: 'link_strength', side: 'low',
@@ -129,7 +158,7 @@ describe('WS5 hero lead lines', () => {
     const secondWording = placeholder.message
     Object.assign(placeholder, { links: [link], node_ids: [link.from, link.to], message: words })
     envelope.blocks[0].enrichment.inference_warnings.push({ ...placeholder, message: secondWording } as never)
-    const block = mounted(hydrate(envelope))
+    const block = mounted(withDriverDetails(hydrate(envelope), { carry_on_as_now: words }))
     const drivers = block.querySelectorAll('[data-option-id="carry_on_as_now"][data-line-kind="driver"]')
     expect(drivers).toHaveLength(1)
     expect(drivers[0].textContent).toBe(words)

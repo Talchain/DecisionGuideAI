@@ -7,8 +7,6 @@ import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/he
 import { HERO_COPY } from '../heroCopy'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
-import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
 import { goalChanceHeroArmOpen } from '../../utils/goalChanceLicence'
 import { selectGoalProbability } from '../../utils/selectGoalProbability'
 import { chanceCellOf } from './helpers/chanceCellOf'
@@ -52,17 +50,15 @@ function assertRows(allConstrained: boolean) {
   const model = buildHeroModel(data)
   expect(model.kind).toBe('chart')
   if (model.kind !== 'chart') throw new Error('Expected populated chart')
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<><AnalysisHeroPanel model={model} rerunDisabled={false} /><DecisionMatrix
-    data={data} comparison={vm.optionsComparison} optionOrder={[OPTION_A.id, OPTION_B.id]}
-    run={{}} isStale={false} /></>)
+  // #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C, so the hero rows are held to the shared
+  // RunView cell directly (the matrix was a second reader of the same cell).
+  render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
   fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
   for (const row of model.rows) {
     const element = screen.getByTestId(`hero-option-row-${row.index}`)
     fireEvent.click(within(element).getByRole('button'))
     const detail = within(element).getByTestId('hero-detail-goal-fit')
-    const cellText = screen.getByTestId(`decision-matrix-chance-${row.id}`).querySelector('span')!.textContent
+    const cellText = chanceCellOf(data, row.id).text
     expect(cellText).toBeTruthy()
     expect(cellText).toBe(chanceCellOf(data, row.id).text)
     expect(row.goal.readout).toBe(cellText)
@@ -82,7 +78,7 @@ function assertRows(allConstrained: boolean) {
 afterEach(cleanup)
 
 describe('WS5 constrained goal-fit acceptance', () => {
-  it('constrained and unconstrained rows and details equal their Matrix cells without joint words', () => {
+  it('constrained and unconstrained rows and details equal their RunView cells without joint words', () => {
     assertRows(false)
   })
   it('all-constrained goal-only cells carry the goal-only caption', () => {

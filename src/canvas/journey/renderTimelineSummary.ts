@@ -3,7 +3,7 @@
  *
  * Template:
  * "Framing confirmed: [goal]. Graph drafted with [N] nodes, [M] edges.
- *  Analysis run: [winner] at [probability]%, robustness [level].
+ *  Analysis run, robustness [level].
  *  [N] patches accepted, [M] dismissed. Brief [generated/not generated]."
  *
  * Only includes sections where relevant events exist.
@@ -41,21 +41,13 @@ export function renderTimelineSummary(events: ScenarioEvent[]): string {
     .reverse()
     .find(e => e.event_type === 'analysis_run')
   if (analysisRun) {
-    const winner = typeof analysisRun.details.winner === 'string'
-      ? analysisRun.details.winner : null
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: the logged leader's share, said only as "supported at N%", never as a chance
-    const prob = typeof analysisRun.details.probability === 'number'
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: the logged leader's share, said only as "supported at N%", never as a chance
-      ? analysisRun.details.probability : null
+    // #2747 re-scope 2 (DL ruling (A)): no win-share readout in C. The leader name and its "supported at N%"
+    // share are not read: CEE serves no wording or Run licence for a share, and `winner` / `probability`
+    // have no current writer (renderTimeline.ts, ROADMAP 1.239). Restore trigger: a CEE-served share string
+    // with its own Run licence (post-C), never worded as a chance. The run fact and robustness grade stay.
     const robust = typeof analysisRun.details.robustness === 'string'
       ? analysisRun.details.robustness : null
-
-    if (winner && prob != null) {
-      const base = `Analysis run: ${winner} supported at ${prob}%`
-      parts.push(robust ? `${base}, robustness ${robust}` : base)
-    } else {
-      parts.push('Analysis run')
-    }
+    parts.push(robust ? `Analysis run, robustness ${robust}` : 'Analysis run')
   }
 
   // Patches
