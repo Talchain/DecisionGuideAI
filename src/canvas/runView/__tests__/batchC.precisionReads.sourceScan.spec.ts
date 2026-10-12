@@ -77,7 +77,7 @@ describe('Batch C items 5 and 6: no interval from a standard error; one name for
       cell: { kind: 'figure', display: 'more than 99%', face: o.option_id === 'hire_manager' ? face : marketingFace('AI planning plus advertising', 100).replace('about 100%', 'more than 99%') } })) }
     seedJourney(j, canonical)
     const data = renderHook(() => useResultsSectionData()).result.current
-    const cell = data.runView!.chanceCellOf('hire_manager', { labelOf: () => 'Hire a marketing manager' })
+    const cell = data.runView!.chanceCellOf('hire_manager', { goalChanceHeroSays: true, labelOf: () => 'Hire a marketing manager' })
     expect(cell).toEqual({ kind: 'figure', text: face })
     expect(JSON.stringify(data.runView!.goalChanceDetail())).not.toMatch(/standard_error|interval|±/)
   })
