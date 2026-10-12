@@ -28,7 +28,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import { TechnicalDisclosure } from '../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { HERO_COPY } from './heroCopy'
 import type { HeroLens, HeroRowVM } from './heroTypes'
 
@@ -40,6 +39,11 @@ export interface HeroOptionRowProps {
   onToggle: () => void
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
+  /**
+   * Run-3 judge C5: whether this row says its own withheld reason (`row.goal.why`). False when every row shares one
+   * reason, which the panel then says once beneath the rows.
+   */
+  showWhy?: boolean
   /**
    * ROADMAP 1.267: whether to draw the RANK token.
    *
@@ -151,6 +155,7 @@ export function HeroOptionRow({
   onToggle,
   outcomeDomain,
   showOrdinal,
+  showWhy = true,
 }: HeroOptionRowProps) {
   const regionId = useId()
   const labelId = useId()
@@ -434,12 +439,11 @@ export function HeroOptionRow({
         </div>
       )}
 
-      {lens === 'goal' && row.goal.why && (
-        <div className="pb-1.5 pl-10 pr-2">
-          <TechnicalDisclosure visible label="Why?" openLabel="Hide why" compact>
-            <span>{row.goal.why}</span>
-          </TechnicalDisclosure>
-        </div>
+      {/* C5 (run-3 judge): CEE's specific reason is said in the row, verbatim, not folded under "Why?" (label, don't hide). */}
+      {lens === 'goal' && row.goal.why && showWhy && (
+        <p data-testid={`hero-option-why-${row.index}`} className={`${typography.panelMeta} text-text-light pb-1.5 pl-10 pr-2`}>
+          {row.goal.why}
+        </p>
       )}
 
       {expandable && isOpen && (

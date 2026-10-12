@@ -565,11 +565,13 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // must say the rest still stands, or an honest caveat reads as a broken run.
 
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
+  // Run-4 judge (DL 12 Oct, the class): the run-share clauses ("before a different option is the most supported in this
+  // model", "which option is the most supported in this model") are cut; each sentence keeps its other facts.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'Link margin analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
+      'Link margin analysis was skipped for time. It does not affect the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -587,7 +589,8 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
+      // Run-4 judge (DL 12 Oct, the class): the run-share clause is cut; the sentence keeps its other facts.
+      'How far each factor would have to move wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),

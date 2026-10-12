@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
+import { cleanup, render, renderHook, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonicalAnalysisViewStore'
@@ -39,44 +39,48 @@ function mountHero(data: ReturnType<typeof useResultsSectionData>) {
   return (id: string) => screen.getByTestId(`hero-option-row-${model.rows.find(r => r.id === id)!.index}`)
 }
 describe('WS5 PR-C server faces', () => {
-  it('untouched served 464abd0a hero prints faces; full why only after Why? (mutant-sensitive)', async () => {
+  // Run-3 judge C5 (label, don't hide): each row says its face AND CEE's full why, verbatim, without a "Why?" to open.
+  // (Was: "full why only after Why?".) A why every row shares is said once beneath the rows.
+  it('untouched served 464abd0a hero prints faces and each full why, verbatim, with nothing folded (mutant-sensitive)', async () => {
     const surface = 'hero'
     const data = await dataFrom(served)
     const rowOf = mountHero(data)
-    for (const option of served.canonical_analysis_view.options) {
-      if (typeof option.cell.why === 'string') expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain(option.cell.why)
-    }
+    const whys = served.canonical_analysis_view.options.flatMap(o => (typeof o.cell.why === 'string' ? [o.cell.why] : []))
+    const shared = whys.length >= 2 && whys.every(why => why === whys[0])
     for (const option of served.canonical_analysis_view.options) {
       const row = rowOf(option.option_id)
       const cell = option.cell
       expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(cell.face)
       expect(row).toHaveTextContent(cell.face)
+      expect(within(row).queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof cell.why === 'string') {
-        expect(row.textContent).not.toContain(cell.why)
-        expect(within(row).queryByText(cell.why)).toBeNull()
-        fireEvent.click(within(row).getByRole('button', { name: 'Why?' }))
-        expect(within(row).getByText(cell.why)).toBeVisible()
-        fireEvent.click(within(row).getByRole('button', { name: 'Hide why' }))
-        expect(row.textContent).not.toContain(cell.why)
-      } else expect(within(row).queryByRole('button', { name: 'Why?' })).toBeNull()
+        const where = shared ? screen.getByTestId('analysis-hero-panel') : row
+        expect(within(where).getByText(cell.why)).toBeVisible()
+      }
     }
     console.info('SERVER-FACES', surface, JSON.stringify(served.canonical_analysis_view.options.map(o => ({ id: o.option_id, face: o.cell.face }))))
   })
-  it('untouched served 464abd0a cards print NO chance in C (#2747 re-scope 2, U0): no face, no Why?, no full why', async () => {
-    await dataFrom(served)
+  // Post-C UI item 1 (DL, 12 Oct): each card says CEE's served cell for its option, verbatim (`servedCellOf`: its face, else
+  // its display), with no "Why?" button and no full why in the card's text. In C the cards printed no chance (U0).
+  it('untouched served 464abd0a cards say CEE\'s served face verbatim (post-C item 1): no Why?, no full why in the text', async () => {
+    const data = await dataFrom(served)
     for (const option of served.canonical_analysis_view.options) {
       const node = useCanvasStore.getState().nodes.find(n => n.id === option.option_id)!
       const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
-      expect(card.container.textContent).not.toContain(option.cell.face)
+      const cell = data.runView!.servedCellOf(node.id)
+      const face = cell?.kind === 'figure' || cell?.kind === 'range' ? cell.face ?? cell.display
+        : cell?.kind === 'withheld' ? cell.face ?? null : null
+      const readout = screen.queryByTestId(`option-win-readout-${node.id}`)
+      if (face === null) expect(readout).toBeNull()
+      else expect(readout?.textContent).toBe(face)
       expect(card.queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof option.cell.why === 'string') expect(card.container.textContent).not.toContain(option.cell.why)
       card.unmount()
     }
   })
-  it.each(['hero', 'card'] as const)('b38d1c80 figure %s: the hero prints an explicit face, the card none (C); self-authored additive 1c face, original fixture has display only', async surface => {
+  it.each(['hero', 'card'] as const)('b38d1c80 figure %s: the hero and (post-C item 1) the card print the explicit face; self-authored additive 1c face, original fixture has display only', async surface => {
     const body = structuredClone(figures.j)
     // Historical bytes predate 1c. Explicit additive mutation, never claimed as served face bytes.
     const option = body.canonical_analysis_view.options.find(o => o.option_id === 'launch_starter_tier')!
@@ -88,7 +92,7 @@ describe('WS5 PR-C server faces', () => {
       render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
+      expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(face)
     } else expect(mountHero(data)(option.option_id)).toHaveTextContent(face)
     expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(face)
   })

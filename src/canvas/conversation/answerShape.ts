@@ -120,3 +120,17 @@ export function extractAnswerShapeSidecar(response: unknown): AnswerShape | null
 
   return parseAnswerShape(additive?.[ANSWER_SHAPE_FIELD]) ?? parseAnswerShape(r[ANSWER_SHAPE_FIELD])
 }
+
+/**
+ * ⭐ RUN-3 JUDGE U2 (DL ruling b): the model state an answer was given in, which is the graph CEE read (`graph_hash`) and the
+ * run it described (`analysis_state.run_state.computed_at`, or no run). CEE prefixes the same status headline and
+ * bullets to every reply in one state, so the thread draws them once per state (`statusDrawnBefore`, AnswerBody.tsx).
+ * No graph hash ⇒ no state, and nothing about that answer is folded.
+ */
+export function answerStateKeyOf(response: unknown): string | null {
+  if (!response || typeof response !== 'object') return null
+  const r = response as { graph_hash?: unknown; analysis_state?: { run_state?: { computed_at?: unknown } } | null }
+  if (typeof r.graph_hash !== 'string' || r.graph_hash.trim() === '') return null
+  const computedAt = r.analysis_state?.run_state?.computed_at
+  return `${r.graph_hash}|${typeof computedAt === 'string' && computedAt !== '' ? computedAt : 'no-run'}`
+}

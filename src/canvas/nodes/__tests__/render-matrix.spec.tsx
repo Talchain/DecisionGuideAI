@@ -496,7 +496,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(screen.queryByTestId('option-differentiator-option-1')).toBeNull()
   })
 
-  it('Standard post non-leading: shows "What would make this better supported?" chip and NO differentiator', () => {
+  it('Standard post non-leading: NO "What would make this better supported?" chip and NO differentiator', () => {
     applyStore(twoOptionTopology('standard', 'post'))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -509,7 +509,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('What would make this better supported?')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the non-leader "What would make this better supported?" chip is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Aggressive plan').length).toBeGreaterThan(0)
+    expect(screen.queryByText('What would make this better supported?')).toBeNull()
     // Differentiator is pre-analysis only.
     expect(screen.queryByText(/key difference/i)).toBeNull()
   })
@@ -528,7 +531,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(within(face).queryByText('What could go wrong?')).toBeNull()
   })
 
-  it('Detailed post: chips render but differentiator never appears', () => {
+  it('Detailed post: no "better supported" chip, and the differentiator never appears', () => {
     applyStore(twoOptionTopology('expert', 'post'))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -542,7 +545,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     expect(screen.queryByText(/key difference/i)).toBeNull()
-    expect(screen.getByText('What would make this better supported?')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the non-leader "What would make this better supported?" chip is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Aggressive plan').length).toBeGreaterThan(0)
+    expect(screen.queryByText('What would make this better supported?')).toBeNull()
   })
 
   // ---- Graph v2 Task 4: close-call variant ----
@@ -560,6 +566,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
   // ABSENCE on the Standard face and its behaviour where it now lives, in
   // Detailed, on the SAME fixture — so the window (1pp in, sub-percent in,
   // 10pp out, leader never, pre-analysis never) stays pinned.
+  //
+  // Run-4 judge (DL 12 Oct, the class): the close-call LINE ("Close to the option most runs supported in this model") is
+  // removed; nothing replaces it. The gap is still computed and still offers the "What would need to be true for this?"
+  // chip, so the window's inner edge is now pinned by that chip.
   const renderCloseCallIn = (view: ViewMode, state: MatrixState) => {
     cleanup()
     applyStore({ ...state, viewMode: view })
@@ -604,7 +614,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard post non-leader, gap 3pp: shows the qualitative close-call marker and keeps "Held back by:" line', () => {
+  it('Standard post non-leader, gap 3pp: no close-call line and no "Held back by:" (both removed); the close-call chip stays', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -620,18 +630,19 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): Standard face carries neither line.
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
     expect(screen.queryByText(/Held back by:/)).toBeNull()
-    // …Detailed does, on the same fixture.
+    // …and Detailed, on the same fixture.
     renderCloseCallIn('expert', closeCallTopology(3))
-    // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
-    // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
-    // the banned statistic and is gone. The node already states this option's
-    // own win probability directly above.
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. The window still fires,
+    // seen through its chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
-    expect(screen.getByText(/Held back by:/)).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
-  it('Standard post non-leader, gap 1pp: the marker still fires at the narrow end of the window', () => {
+  it('Standard post non-leader, gap 1pp: the close-call chip still fires at the narrow end of the window (no line)', () => {
     applyStore(closeCallTopology(1))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -650,7 +661,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
     // worth pinning is that a 1pp gap is still INSIDE the close-call window.
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. Inside-the-window is now
+    // seen through the close-call chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -694,11 +708,14 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent on Standard…
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
     renderCloseCallIn('expert', subPercent)
-    expect(screen.getByText('Close to the option most runs supported in this model')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. Inside-the-window is now
+    // seen through the close-call chip.
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
-  it('Standard post close-call: "What would need to be true for this?" chip is added alongside "What would make this better supported?"', () => {
+  it('Standard post close-call: "What would need to be true for this?" is the only chip ("What would make this better supported?" is removed)', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -712,7 +729,8 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     expect(screen.getByText('What would need to be true for this?')).toBeDefined()
-    expect(screen.getByText('What would make this better supported?')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): "What would make this better supported?" is removed; nothing replaces it.
+    expect(screen.queryByText('What would make this better supported?')).toBeNull()
   })
 
   it('Standard post non-leader, gap 10pp: NO close-call line, NO "What would need to be true for this?" chip', () => {
@@ -738,8 +756,11 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // full. The comment above was already the warning; this is it firing.
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
     expect(screen.queryByText('What would need to be true for this?')).toBeNull()
-    // The standard "What would make this better supported?" chip is still present.
-    expect(screen.getByText('What would make this better supported?')).toBeDefined()
+    // Run-4 judge (DL 12 Oct, the class): the "What would make this better supported?" chip that served as this row's presence control is
+    // removed; nothing replaces it. The card itself renders (its label), and the gap-3pp row on the same fixture
+    // function shows the close-call chip rendering, so the absence above is discriminating.
+    expect(screen.getAllByText('Aggressive plan').length).toBeGreaterThan(0)
+    expect(screen.queryByText('What would make this better supported?')).toBeNull()
     // Locked Canvas design (23 Sep 2026): the marker is Detailed-only, so the
     // Standard absence above is no longer discriminating on its own — the
     // window's OUTER edge is pinned where the marker can render.

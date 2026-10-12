@@ -37,7 +37,7 @@ function apply(response: Awaited<ReturnType<typeof turn>>, scenarioId = served.s
   return applyV5State(response, { ...store, currentResultsHash: null }, { turnScenarioId: scenarioId })
 }
 
-it('T1: parsed Run TURN adopts its view and the mounted hero shows served faces without reload (no card chance in C)', async () => {
+it('T1: parsed Run TURN adopts its view and the mounted hero and (post-C item 1) the canvas card show served faces without reload', async () => {
   await applyRealRead({ j: served })
   useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
   useCanvasStore.setState({ results: { status: 'idle', report: null } } as never)
@@ -50,7 +50,8 @@ it('T1: parsed Run TURN adopts its view and the mounted hero shows served faces 
   expect(model.kind).toBe('chart')
   if (model.kind !== 'chart') throw new Error('Expected chart')
   render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
-  // #2747 re-scope 2 (U0): the decision matrix is removed in C and the canvas card shows no chance; the hero says the face.
+  // The decision matrix is removed in C (#2747 re-scope 2). Post-C UI item 1 (DL, 12 Oct): the canvas card says CEE's served
+  // face for its option, verbatim, as the hero does. In C the card showed no chance (U0).
   for (const option of served.canonical_analysis_view.options) {
     const text = option.cell.face
     const row = model.rows.find(r => r.id === option.option_id)!
@@ -59,7 +60,7 @@ it('T1: parsed Run TURN adopts its view and the mounted hero shows served faces 
     const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
       selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
+    expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(text)
     card.unmount()
   }
 })

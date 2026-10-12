@@ -24,6 +24,7 @@ import { safeRichText } from '../utils/safeRichText'
 import styles from './Conversation.module.css'
 import { dedupeRenderedText } from './messageComposition'
 import type { AnswerShape } from './answerShape'
+import type { ConversationMessage } from './types'
 import { PANEL_LIST_BULLET } from './panelLists'
 
 /**
@@ -104,6 +105,28 @@ export function resolveAnswerBodyText(
   }
   const detail = dedupeRenderedText(answer.detail ?? '', [...seenSoFar]).text
   return { headline, bullets, detail }
+}
+
+/**
+ * ⭐ RUN-3 JUDGE U2 (DL ruling b): ONCE PER STATE. CEE prefixes the same status headline and bullets ("Not shown: some
+ * relationships aren't sized yet" / "Olumi's estimates: 11, see Check estimates.") to every reply it gives in one model
+ * state. For each settled structured reply this returns what an EARLIER reply in the SAME state (`answerStateKey`)
+ * already drew, as headline and bullets, and the bubble adds it to AnswerBody's priors. The repeat is drawn once, and
+ * a reply in a NEW state starts with nothing folded, so the status shows again. A reply without a state folds nothing.
+ */
+export function statusDrawnBefore(
+  messages: readonly Pick<ConversationMessage, 'id' | 'role' | 'answerShape' | 'answerStateKey' | 'isStreaming'>[],
+): Map<string, readonly string[]> {
+  const drawn = new Map<string, string[]>()
+  const before = new Map<string, readonly string[]>()
+  for (const m of messages) {
+    if (m.role !== 'assistant' || m.isStreaming === true || !m.answerShape || !m.answerStateKey) continue
+    const earlier = drawn.get(m.answerStateKey) ?? []
+    if (earlier.length > 0) before.set(m.id, earlier)
+    const shown = resolveAnswerBodyText(m.answerShape, earlier)
+    drawn.set(m.answerStateKey, [...earlier, shown.headline, ...shown.bullets].filter((line) => line.trim() !== ''))
+  }
+  return before
 }
 
 export const AnswerBody = memo(function AnswerBody({

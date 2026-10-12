@@ -271,14 +271,15 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
       </OptionChanceCellProvider></ReactFlowProvider>,
     )
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed for every option, so this is now a regression
+    // guard only (see the flipped control below).
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the same 3pp gap DOES render the close-call line for a COMPUTED option', () => {
-    // Without this, the assertion above would pass if the close-call line were
-    // simply unreachable in this harness — an absence proven by an instrument
-    // that can never show a presence (CLAUDE.md trap 13). Same fixture, same
-    // gap, same leader; only `status` differs.
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. This was the positive control
+  // for the row above ("DOES render the close-call line for a COMPUTED option"); it now pins the line's absence on the
+  // COMPUTED option too, with the card itself on screen.
+  it('the same 3pp gap renders NO close-call line for a COMPUTED option either (the line is removed)', () => {
     useCanvasStore.setState({
       nodes: [
         { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
@@ -302,9 +303,12 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
       </OptionChanceCellProvider></ReactFlowProvider>,
     )
-    expect(screen.getByText(/Close to the option most runs supported/i)).toBeInTheDocument()
-    // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
-    // now — the identical computed fixture in Standard carries no such line.
+    // The computed card renders and is not read as not-computed, so the absence is the line's, not the card's.
+    expect(screen.getByText('Hold the current plan')).toBeInTheDocument()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    // Standard: the identical computed fixture carries no such line either.
     unmount()
     useCanvasStore.setState({ viewMode: 'standard' } as never)
     render(
@@ -386,14 +390,15 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the identical fixture DOES render "Held back by:" for a COMPUTED non-leader', () => {
+  it('CONTROL: the identical fixture renders NO "Held back by:" for a COMPUTED non-leader either', () => {
     // Same report, same nodes, same `win_probability: 0`, same leader, same
-    // gap. Only `status` differs — so this fails the moment the gate is
-    // widened past the producer's failing token, and the assertion above
-    // fails the moment it is removed.
+    // gap. Only `status` differs.
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
     const { unmount } = renderBehindFixture('computed')
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
-    expect(screen.getByText(/Held back by:/)).toBeInTheDocument()
+    expect(screen.getAllByText('Hold the current plan').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBehindFixture('computed', 'standard')
@@ -451,10 +456,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     expect(card).toBeInTheDocument()
   })
 
-  it('POSITIVE CONTROL: a COMPUTED non-leader DOES carry its "Held back by:" reason', () => {
-    // Without this the assertion above passes if "Held back by:" is simply
-    // unreachable in this harness (trap 13). Same fixture, same non-leader
-    // position; only `status` differs.
+  it('CONTROL: a COMPUTED non-leader carries no "Held back by:" reason either', () => {
+    // Same fixture, same non-leader position; only `status` differs.
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'computed'
     ;(r.report as { robustness?: unknown }).robustness = {
@@ -462,7 +466,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     }
     ;(r.report.option_probabilities[COMPUTED_TRUE_ZERO] as { win_probability: number }).win_probability = 0.6
     const { unmount } = renderBoth(r, 'expert')
-    expect(screen.queryAllByText(/^Held back by:/).length).toBeGreaterThan(0)
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Hold the current plan').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBoth(r, 'standard')

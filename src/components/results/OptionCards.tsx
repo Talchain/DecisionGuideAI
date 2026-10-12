@@ -65,7 +65,6 @@ import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
 import { buildOptionRankColorMap, OPTION_RANK_COLORS } from './optionRankColors'
 import Tooltip from '../Tooltip'
-import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from './utils/goalIdentityWithheld'
 
@@ -192,74 +191,15 @@ export interface ServedGoalCell {
 function fallbackDescription(
   option: OptionResult,
   totalOptions: number,
-  hasLeadingOption?: boolean,
 ): string {
-  // ROADMAP 1.223: both leader-presupposing strings below are withheld when
-  // the producer made no leader claim. Returning '' suppresses the line
-  // entirely (the caller renders nothing) rather than substituting invented
-  // copy — the card still shows the option's label, its win probability and
-  // its bar, so no DATA is lost. Only the claim is.
-  const noLeader = hasLeadingOption === false
-  if (option.isRecommended && totalOptions > 1) {
-    return noLeader ? '' : 'The most runs supported it in this model, on its current estimates.'
-  }
+  // ⭐ Run-4 judge (DL 12 Oct, the class): the leading option's "The most runs supported it…" and the others' "Compare
+  // it against the option the most runs supported…" were leader claims from a win share. They are removed, with no
+  // words in their place: '' is the caller's withhold idiom (it renders nothing). Only the baseline's own line stays.
+  if (option.isRecommended && totalOptions > 1) return ''
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return noLeader ? '' : 'Compare it against the option the most runs supported in this model.'
-}
-
-/**
- * The non-winner comparative line, for the ONE state both non-winner arms share.
- *
- * ⭐⭐ THE "Behind by N percentage points" LINE IS RETIRED (2026-08-10).
- *
- * It stated the percentage-point DIFFERENCE between two Monte-Carlo win
- * frequencies. A difference of two estimates carries more uncertainty than
- * either estimate does, and printed as a bare integer with no interval it read
- * as the most precise number on the card while being the least reliable one.
- * The ratified rule: no user-facing surface states that gap — own-probability
- * statements only.
- *
- * DELETED rather than reworded, and the licence for deleting is derivable at
- * this seam: the branch requires `option.winProbability != null`, which is the
- * SAME condition that renders the card's own `win-pct-{id}` readout. So
- * wherever this line could ever have fired, the option's OWN probability is
- * already on the card — the number survives, only the difference goes. `''` is
- * the caller's established withhold idiom (see the ROADMAP 1.223 header): the
- * caller renders nothing and the card falls back to label + win % + bar, which
- * are DATA and stay.
- *
- * The gap is still COMPUTED, purely as the near-tie predicate here. It is never
- * rendered.
- *
- * ⭐ ONE COPY, TWO CALLERS (2026-08-11). The runner-up arm and the
- * other-non-winner arm carried byte-identical five-line blocks. They were
- * changed together at the retirement precisely because leaving either one would
- * keep the banned quantity on screen for a different slice of the option list —
- * and two copies is how the next such change reaches only one of them. Returns
- * `null` when the comparison cannot be made, so each caller keeps its OWN
- * fallback sentence ("Close competitor" / "Compare against the leading
- * option"), which is the only thing that ever differed between them.
- *
- * ⚠ THE BOUNDARY IS `Math.round(diff * 100) > 0`, NOT `diff > 0`. They are not
- * the same predicate: a raw difference of +0.004 is a positive `diff` and a
- * ROUNDED gap of 0, i.e. a tie at the precision this card displays. Rounding
- * first is what makes the near-tie sentence agree with the two percentages
- * printed beside it.
- */
-function tiedOrWithheld(
-  winnerWinProbability: number | null | undefined,
-  optionWinProbability: number | null | undefined,
-): string | null {
-  if (winnerWinProbability != null && optionWinProbability != null) {
-    const gapPct = Math.round((winnerWinProbability - optionWinProbability) * 100)
-    if (gapPct > 0) {
-      return ''
-    }
-    return 'Effectively tied, in this model, with the option the most runs supported'
-  }
-  return null
+  return ''
 }
 
 /**
@@ -271,8 +211,6 @@ function hingeAwareDescription(
   option: OptionResult,
   isWinner: boolean,
   isRunnerUp: boolean,
-  hinge: HingeInfo | null | undefined,
-  winnerWinProbability?: number | null,
   lensActive = false,
   hasLeadingOption?: boolean,
   /** Run-level: does ANY option carry a goal number? Gates the lens sentence. */
@@ -353,50 +291,17 @@ function hingeAwareDescription(
   if (noLeader) return ''
 
   if (isWinner) {
-    /**
-     * The winner's comparative claim, in ONE place for all three variants.
-     *
-     * ⚠ F1 — an ABSENT comparative probability must never become a measured
-     * one. This read `option.winProbability ?? 0` and then applied the
-     * simulation-resolution floor, so a designated leader carrying no
-     * comparative probability got "Came out ahead in <0.02% of simulated
-     * scenarios" — a precise-looking, entirely invented measurement, on the
-     * card the user trusts most. Reachable: the `decisionState` arm at the
-     * render site calls this with no presence check (its sibling arm does).
-     *
-     * Same class as the two defects the previous pass fixed, and the same
-     * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
-     * so a fourth variant cannot be born ungated.
-     */
-    // #2747 re-scope 2 (DL ruling (A)): the claim keeps no magnitude in C (no win share is said).
-    const claim = COMPARATIVE_COPY.leadNoMagnitude
-
-    // F2 — both hinge variants carried the retired un-anchored superlative
-    // ("Highest leading-option likelihood"): no basis, no number. Only the
-    // third sibling had been re-anchored. They keep the hinge clause, which
-    // is the whole point of the variant.
-    if (hinge?.reason === 'fragile_edge') {
-      return `${claim}, but this depends on ${hinge.label}`
-    }
-    if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `${claim}. ${hinge.label} has the widest uncertainty.`
-    }
-    return claim
+    // ⭐ RUN-4 JUDGE, BLOCKING (DL 12 Oct): "Supported in more simulated scenarios than any other option" (with its
+    // hinge tail) was a leader claim built from a win share, said beside the option's goal chance. Ruling A and the
+    // guiding principle allow no "more than any other option", and CEE sends no such line. The winner's card says
+    // nothing here; no words replace it (the goal row and CEE's cells say what the model implies).
+    return ''
   }
   if (isRunnerUp) {
-    // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
-    // above. The conditional-flip line is honest copy where a leader HAS been
-    // designated; it is the designation it presupposes, not the factor it
-    // names, that made it unrenderable on a withheld one.
-    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
-      return `If ${hinge.label} shifts, more runs would support this option in this model`
-    }
-    // The retired point-gap line and its surviving near-tie predicate — see
-    // `tiedOrWithheld`, which is the single copy both non-winner arms call.
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-    const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
-    if (runnerUpTied !== null) return runnerUpTied
-    return 'Close to the option the most runs supported in this model'
+    // ⭐ Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model",
+    // "Effectively tied … with the option the most runs supported" and "Close to the option the most runs supported" were
+    // run-share comparison lines with no other fact. Removed; nothing replaces them.
+    return ''
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
   // note that used to sit here ("non-comparative … so it is not gated"): both
@@ -406,14 +311,9 @@ function hingeAwareDescription(
   if (option.isBaseline) {
     return 'Baseline: what happens if nothing changes. Compare the others against it.'
   }
-  // Other non-winner. Same retirement and the same near-tie predicate as the
-  // runner-up arm above — now literally the same code, so a future change
-  // cannot reach one arm and miss the other (which would keep the banned
-  // quantity on screen for whoever happens to have three options).
-  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-  const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
-  if (tied !== null) return tied
-  return 'Compare it against the option the most runs supported in this model'
+  // Other non-winner: its "Effectively tied …" / "Compare it against the option the most runs supported" lines went
+  // with the runner-up's (run-4 judge, the class). Nothing replaces them.
+  return ''
 }
 
 /**
@@ -552,11 +452,8 @@ function OptionCard({
   segmentFillColor,
   onClick,
   scale = null,
-  onSendMessage,
   onFocusNode,
   expertMode = false,
-  confidenceTier,
-  recommendationStability,
   leadingOptionDownsideFlag,
   hasLeadingOption,
   outcomeUnit,
@@ -797,7 +694,9 @@ function OptionCard({
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
         >
-          In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.
+          {/* Run-4 judge (DL 12 Oct, the class): the leader clause ("the most runs supported this option, but …") is cut; the
+              downside fact about this option stays, in its own words. */}
+          In this model, the lower range of this option&apos;s simulated outcomes includes meaningful downside.
         </p>
       )}
 
@@ -1023,31 +922,11 @@ function OptionCard({
           legacy limits channel, licensed by no canonical cell (DL ruling (a)), so it was a chance outside the gate. */}
 
       {/* Action CTAs */}
-      {(onSendMessage || onFocusNode) && (
+      {onFocusNode && (
         <div className="flex items-center gap-1 pt-1.5">
-          {onSendMessage && (
-            // Brief 5.1 Task 7 / Brief 5.4 Phase 7: single non-winner chip copy.
-            // The earlier baseline-specific "Why does this lose?" read as negative
-            // framing; forward-looking copy is parallel for both winner and non-winner.
-            // Copy source: winnerChipCopy utility (no hardcoded strings at render sites).
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Codex finding 6: exploratory question-shaped CTA — prefill the
-                // Ask-Olumi drawer (editable draft, user presses Send) instead of
-                // auto-sending into a possibly-hidden conversation.
-                openAskOlumi({
-                  context: `About "${option.label}"`,
-                  draft: winnerChipPrompt(isWinner, option.label, hasLeadingOption),
-                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption),
-                })
-              }}
-              className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
-            >
-              {winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption)}
-            </button>
-          )}
+          {/* Run-4 judge (DL 12 Oct, the class): the card's chat chip is removed and nothing replaces it. Its every label was
+              run-share comparison wording ("Why did the most runs in this model support this?", "What would make this
+              better supported?"). */}
           {!option.isBaseline && onFocusNode && (
             // ⚠ THIS CHIP READ "Edit interventions" AND EDITED NOTHING.
             // `onFocusNode` on this surface is `handleFocusResultNode`
@@ -1086,7 +965,6 @@ export function OptionCards({
   storyHeadlines,
   cardRefMap,
   decisionState,
-  hinge,
   runnerId,
   onSendMessage,
   onFocusNode,
@@ -1388,18 +1266,15 @@ export function OptionCards({
         // at the one call site that mattered.
         const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
         const description = isLensCrowned
-          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
+          ? hingeAwareDescription(option, true, isRunnerUp, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
-            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
             : headline
               ? headline
               // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
-                : fallbackDescription(option, options.length, hasLeadingOption)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
+                : fallbackDescription(option, options.length)
 
         // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
         // kept) but its COLOUR is the rank palette — OPTION_RANK_COLORS[0] is

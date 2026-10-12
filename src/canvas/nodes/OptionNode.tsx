@@ -2842,39 +2842,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Graph v2 Task 4: close-call line — only when within 5pp of leader.
-            Renders ABOVE the existing "Behind:" reason so users see both the
-            closeness signal and the causal explanation.
+        {/* ⭐ Run-4 judge (DL 12 Oct, the class): the close-call line ("Close to the option most runs supported in this
+            model") was a leader claim from a win share, and is removed; nothing replaces it. `closeCallGapPp` still
+            feeds the card's display metadata (`closeCallGapIsSet`). */}
 
-            ⭐⭐ THE QUANTITY IS RETIRED (2026-08-10); THE SIGNAL IS NOT.
-            This read "Close call: within N percentage points" — the
-            percentage-point difference between two Monte-Carlo win
-            frequencies, which is the banned statistic: less reliable than
-            either estimate it is built from, yet printed as a bare integer
-            with no interval. The tie-ness signal it carried is genuinely
-            useful and stays, as a QUALITATIVE marker with no number.
-
-            Naming the leading option is entitled here and nowhere borrowed:
-            `closeCallGapPp` returns null unless `verdict.hasLeadingOption`,
-            so this line cannot render on a turn where the producer withheld
-            the designation. And the reader is not left without a number — the
-            node states this option's OWN win probability directly above
-            (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
-            rule licenses. */}
-        {isDetailed && closeCallGapPp != null && (
-          <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
-            {/* Model-relative, never a leader title (Codex #63 5801910965; ED 5799353114 decision 1). */}
-            Close to the option most runs supported in this model
-          </p>
-        )}
-
-        {/* "Held back by:" reason (not the most-supported option, post-analysis
-            -- includes status quo) */}
-        {isDetailed && isPostAnalysis && !isRecommended && behindReason && (
-          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Held back by: {behindReason}
-          </p>
-        )}
+        {/* Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by: <reason>" line is removed. It placed this option
+            behind the most-supported one (its reason is the leader's difference from it), so it was run-share comparison
+            with no other fact; nothing replaces it. `behindReason` still keeps the standard view's differentiator from
+            doubling up (unchanged). */}
 
         {/* Status-quo bias coaching lives on the header ScienceIcon now — one
             bias-coaching surface per node (bias-coaching slice, proposal

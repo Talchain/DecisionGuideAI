@@ -107,36 +107,10 @@ export const HERO_COPY = {
     // must not print. That branch now takes `noLeader` below. Deleted rather
     // than left dangling: dead copy beside a live selector is an invitation to
     // re-wire it.
-    /**
-     * Leader-claim banding — producer-first (Lane UI-W4, PLoT #200): the
-     * band is PLoT's own decision_brief.headline_banded when present
-     * (clearly_ahead selects this claim), with the UI's win-probability
-     * banding (UI-SEM-060) as the absent-producer fallback only. Either
-     * way the "most likely" claim is grounded in producer win
-     * probabilities (the same quantity the detail's "chance it is the
-     * strongest option overall" line shows) — never in outcome-lens
-     * inference or range overlap. Range overlap alone must never temper or
-     * manufacture a closeness claim; it only appends the overlap advisory
-     * to the state-A subline.
-     */
-    /**
-     * ⭐ RE-ANCHORED 2026-07-31. Was `"{label} is most likely to be strongest
-     * overall."` — a bare superlative over an unnamed basis: a reader could
-     * not tell what it was strongest AT, and it carried no number to argue
-     * with. The claim was always grounded in the COMPARATIVE quantity (see
-     * the block above), so it now says so, with its magnitude.
-     */
-    // Principle audit (5 Oct): every headline arm is a finding about THIS model, never a verdict. The words are the
-    // register's (`COMPARATIVE_COPY.modelLeader*`) and the Reasoning tab's own (`analysisNewCopy.ts`).
-    mostLikelyStrongest: (label: string, readout: string | null) => {
-      const claim = readout ? COMPARATIVE_COPY.modelLeaderClause(readout) : COMPARATIVE_COPY.modelLeaderNoMagnitude
-      return `In this model, ${label} ${claim}.`
-    },
-    /**
-     * Banding state B: ahead on win probability without a strong majority. "Slightly more often" is said only because
-     * this arm is bound to the producer's named separation class (`separation === 'slight'` / `slightly_ahead`).
-     */
-    slightlyAhead: (label: string) => `In this model, slightly more runs supported ${label}.`,
+    // ⭐ RUN-4 JUDGE, DL RULING (12 Oct, the class): `mostLikelyStrongest` ("In this model, X was supported by more runs
+    // than any other option." / "… was supported by N of runs.") and `slightlyAhead` ("… slightly more runs supported X.")
+    // are DELETED. They named the leader from a win share; ruling A and the guiding principle allow no leader claim, and
+    // CEE sends none. Their bands take `noLeader` (SILENCE); no words replace them.
     /** Banding state C: the win probabilities identify no clear leader. */
     noClearLeader: 'In this model, no option is clearly most likely.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
@@ -150,25 +124,8 @@ export const HERO_COPY = {
   },
 
   subline: {
-    /**
-     * Persistent divergence subline: whenever the headlined leader is not
-     * the expected-outcome leader (goal basis or not), the tension is
-     * stated in one plain sentence naming the outcome leader.
-     */
-    highestOutcome: (label: string, readout: string) =>
-      // DELEGATED — this and `headline.outcomeLeader` were byte-identical
-      // twins: the same sentence, authored twice, one used as a headline and
-      // one as a subline. Two copies of one claim is how the four goal
-      // surfaces drifted apart in the first place.
-      HERO_COPY.headline.outcomeLeader(label, readout),
-    aligned: (label: string) => `${label}’s expected outcome points the same way, in this model.`,
-    /**
-     * Banding state B subline (producer band or UI-SEM-060 fallback): the
-     * runner-up is named from the SAME rendered outcome ranking the chart
-     * shows, and ONLY when the top-two expected outcomes are genuinely
-     * close — never from range overlap alone.
-     */
-    closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
+    // Run-4 judge (DL 12 Oct, the class): `highestOutcome`, `aligned` and `closeOnOutcome` described the named leader
+    // (and `overlapAdvisory` was appended to its claim). The headline names no leader now, so they are deleted.
     /**
      * Readout-tie subline (UI-SEM-070): the top-two options render the SAME
      * expected-outcome readout, so the chart cannot single one out. A neutral
@@ -178,12 +135,6 @@ export const HERO_COPY = {
     outcomesClose: 'The top options are close on expected outcome.',
     /** Banding state C companion line (no leader claimed, no name risked). */
     compareTop: 'Compare the top options before deciding.',
-    /**
-     * Appended to the state-A subline when the top-two p10-p90 ranges
-     * intersect: overlap is stated as uncertainty about the ranges, without
-     * downgrading the win-probability-grounded leader claim.
-     */
-    overlapAdvisory: 'Realistic ranges overlap, so validate the assumptions before deciding.',
   },
 
   /** Fallback when a label cannot be safely interpolated into generated copy. */
@@ -490,10 +441,9 @@ export const HERO_COPY = {
      */
     // Science d5 (#87 6007969474): a share of runs, never a chance. The withheld caption is for a target-only withhold
     // (the comparison is kept); where the ordering is withheld the probabilities are stripped, so no caption renders.
-    flipRisksNote: (designationsWithheld: boolean) =>
-      designationsWithheld
-        ? 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.'
-        : 'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.',
+    // Run-4 judge (DL 12 Oct, the class): every run takes the withheld wording; "changes the most-supported option" is
+    // run-share wording and is removed.
+    flipRisksNote: 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.',
     /**
      * ROADMAP 2.291 — the flip-threshold sentences and tokens DELEGATE to
      * `utils/flipThresholdDisplay`'s register (one-copy guarantee, same

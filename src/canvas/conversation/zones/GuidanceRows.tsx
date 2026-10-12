@@ -10,6 +10,7 @@
  *   still unsized (`isStrengthPlaceholder`), on an affirmatively current Run (`selectRunAffirmedCurrent`). Otherwise
  *   the row is the challenge's words alone, never a button that would act on the wrong link or a stale Run.
  */
+import { useState } from 'react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
@@ -80,6 +81,8 @@ function GuidanceRowCard({ row, testId }: { row: GuidanceRow; testId: string }) 
     if (!refOnCanvas(ref, new Set(s.nodes.map((n) => n.id))) || ref === null) return false
     return ref.kind === 'factor' || s.edges.some((e) => e.source === ref.fromId && e.target === ref.toId)
   })
+  // Batch F (DL 12 Oct): CEE's science basis for this policy, verbatim, behind a visible "Why?". Absent = no control.
+  const [scienceOpen, setScienceOpen] = useState(false)
   return (
     <div
       className="mt-2 rounded-lg border border-panel-border p-3"
@@ -89,6 +92,22 @@ function GuidanceRowCard({ row, testId }: { row: GuidanceRow; testId: string }) 
     >
       <p className={`${typography.chatBody} text-text-header`} data-testid={`${testId}-title`}>{row.copy.title}</p>
       {row.copy.why && <p className={`${typography.chatMeta} mt-1 text-text-light`} data-testid={`${testId}-why`}>{row.copy.why}</p>}
+      {row.science && (
+        <>
+          <button
+            type="button"
+            className={`${typography.chatMeta} ${action('quiet')} mt-1 text-text-light hover:text-text-header`}
+            data-testid={`${testId}-science-toggle`}
+            aria-expanded={scienceOpen}
+            onClick={() => setScienceOpen(open => !open)}
+          >
+            Why?
+          </button>
+          {scienceOpen && (
+            <p className={`${typography.chatMeta} mt-1 text-text-body`} data-testid={`${testId}-science`}>{row.science}</p>
+          )}
+        </>
+      )}
       {row.copy.question && <p className={`${typography.chatBody} mt-1 text-text-body`} data-testid={`${testId}-question`}>{row.copy.question}</p>}
       {showable && (
         <button

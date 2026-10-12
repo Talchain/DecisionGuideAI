@@ -17,13 +17,9 @@
  */
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
-import { leaderDesignationPermitted, runSharesSimilar } from './leaderDesignation'
-// MAY THIS PANEL NAME A LEADER? The shared three-answer claim policy. The
-// footer below reads `leaderDesignationPermitted` directly because it needs
-// the tri-state for its own `unknown` glyph; the PROSE sites read
-// `leaderClaimWithheld`, which is that same answer with the strict `=== false`
-// spelling every copy branch wants. One authority, two spellings of the same
-// read — never a second derivation.
+// MAY THIS PANEL NAME A LEADER? The shared claim policy, read through `leaderClaimWithheld` (the strict `=== false`
+// spelling). Run-4 judge (DL 12 Oct, the class): the footer's leader row, which read `leaderDesignationPermitted`
+// directly for its tri-state, is removed.
 //
 // MAY THIS PANEL STATE A STRENGTH WORD? `mayStateStability` is the THIRD
 // answer, and it is deliberately NOT the leader answer: separation is a
@@ -77,7 +73,6 @@ import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { useCanvasStore } from '@/canvas/store'
-import { attestsNoFactorFlip } from './utils/fragileEdgeCopy'
 import {
   buildStrengthenOverlayMap,
   findStrengthenOverlay,
@@ -401,50 +396,19 @@ function T1FlipRiskCallout({
 }) {
   const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
   if (!fragile) return null
-  // ⚠ CONSULT THE FLIP AUTHORITY — this callout renders the LITERAL second line
-  // of the witnessed contradiction ("{alt} could overtake (57% probability)")
-  // beside a footer stating that no probed factor changes the leader on its own.
-  // `switch_probability` is an EDGE statistic observed under JOINT sampling; the
-  // footer speaks for a SOLO sweep of root factors. Same fix as the fragile card:
-  // the presupposing verb goes, ALL data stays (see `fragileEdgeCopy`).
-  const attestsNoFlip = attestsNoFactorFlip(data.recommendation.flipThresholds)
-  // ⚠ A SECOND, INDEPENDENT AUTHORITY — AND IT IS NOT THE FLIP ONE.
-  //
-  // `attestsNoFlip` answers "did a SOLO sweep of root factors move the
-  // leader?"; this answers "may this panel name a leader AT ALL?" Two
-  // questions, and on the witnessed run they disagreed: no flip attestation
-  // was present (so the strong branch below fired, with its percentage) while
-  // the footer three rows down said "Leading option not assessed". The user
-  // read "Two Mid-Level Developers at £70k Each could overtake (57%
-  // probability)" beside a panel that had declined to name a leader.
-  //
-  // Conjoining these two into one boolean would put two questions under one
-  // name (CLAUDE.md trap 21). They stay separate and compose at the point of
-  // use: a permitted run keeps BOTH branches exactly as before.
-  const mayNameLeader = !leaderClaimWithheld(data.recommendation)
-  const switchPct = fragile.switchProbability != null
-    ? Math.round(fragile.switchProbability * 100)
-    : null
+  // ⭐ Run-4 judge (DL 12 Oct, the class): the callout no longer ranks. Its two ranking arms ("… N% of them support
+  // {alt}", from `switch_probability`, and "more runs could support {alt}") were run-share comparison wording; every run
+  // now takes the finding alone. So the flip and leader authorities, the switch percentage and the alternative's name are
+  // no longer read here (they still gate the fragile card and the conditional cards).
   // (Round-5 P1.1) In v17 mode, swap a banned-term label for a generic
   // phrase BEFORE interpolating into the visible prose, aria text, and
   // button copy. The raw label still appears in the legacy panel verbatim.
   const fromLabelDisplay = useV17Copy
     ? safeInterpolatedLabel(fragile.fromLabel, 'this factor')
     : fragile.fromLabel
-  const altWinnerLabelDisplay = useV17Copy
-    ? safeInterpolatedLabel(fragile.alternativeWinnerLabel, 'the next option')
-    : fragile.alternativeWinnerLabel
   const validateLabel = useV17Copy
     ? safeInterpolatedLabel(stripEncodingNotation(fragile.fromLabel), 'this factor')
     : stripEncodingNotation(fragile.fromLabel)
-  const toLabelDisplay = useV17Copy
-    ? safeInterpolatedLabel(fragile.toLabel, 'its target')
-    : fragile.toLabel
-  // ⭐ RT-13 (Science, #87 5993266380): `switch_probability` = P(another option comes out best | this link's effect is
-  // in the weakest quarter of its sampled strengths). It partitions the same draws as the option shares, so it is printed
-  // only WITH that condition, never bare, and never the marginal (which this edge never carries, see
-  // `useResultsSectionData`). Same gates as before: the number shows only on a licensed, non-attested run.
-  const showConditional = mayNameLeader && !attestsNoFlip && switchPct != null
   return (
     <div
       className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
@@ -464,23 +428,7 @@ function T1FlipRiskCallout({
             squeamishness: outside a ranking claim, "Two Mid-Level Developers
             could…" has no predicate left to attach to. It survives in full on
             the fragile card, which is where the finding lives in detail. */}
-        {showConditional ? (
-          <>
-            In this model, in the quarter of simulated futures where <strong>{fromLabelDisplay}</strong>
-            {"'s effect on "}{toLabelDisplay} is weakest, {switchPct}% of them support{' '}
-            <strong>{altWinnerLabelDisplay}</strong>
-          </>
-        ) : mayNameLeader ? (
-          <>
-            In this model, if <strong>{fromLabelDisplay}</strong> shifts,{' '}
-            {attestsNoFlip ? 'more runs could support ' : ''}<strong>{altWinnerLabelDisplay}</strong>
-            {attestsNoFlip ? '' : ' could be supported by the most runs instead'}
-          </>
-        ) : (
-          <>
-            If <strong>{fromLabelDisplay}</strong> shifts, the result could change
-          </>
-        )}
+        If <strong>{fromLabelDisplay}</strong> shifts, the result could change
         {/* ⚠ THE PERCENTAGE GOES WITH THE VERB, and the reason is not the
             authority's rule alone — it is that the NUMBER WOULD SAY MORE THAN
             THE SENTENCE IT SITS IN. `switch_probability` means P(the
@@ -623,9 +571,9 @@ function T1DominantNudge({
   // visible row, which is precisely why a text-only sweep of the panel could
   // not see it. A tooltip and a screen-reader announcement are the product
   // speaking.
-  const trailingClause = useV17Copy && !leaderClaimWithheld(data.recommendation)
-    ? 'If your assumptions about this factor are wrong, the most-supported option could change.'
-    : 'If your assumptions about this factor are wrong, the result could change.'
+  // Run-4 judge (DL 12 Oct, the class): the permitted arm's "the most-supported option could change" is gone; every run
+  // takes the existing neutral clause.
+  const trailingClause = 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
   // still appears VERBATIM in the visible identity span. But when the same
   // label gets interpolated into generated text (aria-label, title), gate
@@ -709,73 +657,10 @@ function T1ChecksFooter({
   data: ResultsSectionDataReturn
   aiAffordance?: ReactNode
 }) {
-  // SINGLE VERDICT (2026-07-25): this check used to be presence-only
-  // (`!!recommendedOption`), and `determineWinnerSelection` always returns a
-  // winner when any option exists — so the footer could tick "Winner" in the
-  // same panel whose headline said "no clear leading option". It now quotes
-  // the shared verdict (src/lib/decisionVerdict.ts), the same one the
-  // headline and the canvas badge use. Absent verdict (older fixtures) falls
-  // back to the historic presence check rather than silently reading false.
-  const verdict = data.recommendation.verdict
-  // The COMPOSED answer, not Q2 alone: an affirmative footer designation on a
-  // model that licenses no comparative claim is the same lie as a crown.
-  // The absent-verdict fallback below is untouched — see NO DENIAL WITHOUT
-  // AUTHORITY, which is about a DIFFERENT absence.
-  const hasWinner = verdict
-    ? leaderDesignationPermitted(data.recommendation) === true
-    : !!data.recommendation.recommendedOption
-  // ⭐ NO DENIAL WITHOUT AUTHORITY (Analysis convergence, 18 Aug 2026).
-  //
-  // `hasLeadingOption === false` covers TWO different states and this is the
-  // one consumer for which they differ. Every other consumer in the tree
-  // (`OptionNode`, `DecisionNode`, `OptionPanel`, `OptionCards`,
-  // `V5AnalysisResultBlock`, `deriveRunPairComparison`) uses the boolean to
-  // WITHHOLD — correct for both states, so none of them had to read
-  // `separation`. This one turns it into an affirmative DENIAL, and
-  // `decisionVerdict.ts` licenses that for `'tied'` ONLY:
-  //
-  //   "`false` — surfaces must NOT badge, and MAY say 'no clear leading
-  //    option' (only when `separation === 'tied'`; `'unknown'` licenses
-  //    silence, never a denial)"
-  //
-  // Measured on deployed staging `c71ea7e0`: a run whose producer sent no
-  // near-tie block and no `headline_banded` rendered "No clear leader" here
-  // while `results-analysis-footer` three screens below said "Stable ranking —
-  // this result held up under the changes we tested". Two authorities, two
-  // questions (CLAUDE.md trap 21) — and one of them claiming what it does not
-  // hold. Reconciling the DEFAULTS would have been the wrong fix; withdrawing
-  // the unlicensed claim is the right one, and it leaves the tie denial intact.
-  //
-  // `unknown` therefore renders the neutral third state — the same idiom the
-  // robustness check beside it already uses for 'Robustness not assessed'.
-  //
-  // ⚠ AND `separation === 'unknown'` IS NOT THE WHOLE OF "NO AUTHORITY" — the
-  // rule ten lines above is stated about `'unknown'` because that was the state
-  // in hand, but what it LICENSES is narrower than what it forbids: the denial
-  // is licensed for `'tied'` ONLY. A MODE-withheld run walks straight past a
-  // predicate that reads `separation` alone. `quantified_provisional` +
-  // `separation: 'clear'` gives `hasWinner === false` (it reads the COMPOSED
-  // answer) with `winnerUndetermined === false`, so the footer rendered the
-  // affirmative denial "No clear leader" on a run whose model licensed no
-  // comparative claim at all — an invented finding, which is the same class of
-  // lie as a crown, pointing the other way.
-  //
-  // So the predicate is written against what the rule ALLOWS (`'tied'` denies;
-  // everything else without a permitted leader is silence) rather than against
-  // the one state that produced it — CLAUDE.md trap 13d. It is a STRICT
-  // WIDENING: the `'unknown'` disjunct is kept verbatim, so nothing that reads
-  // undetermined today stops doing so, and the `'tied'` denial is untouched.
-  const winnerUndetermined =
-    verdict != null
-    && (verdict.separation === 'unknown' || (!hasWinner && verdict.separation !== 'tied'))
-  // ⭐ RT-17 (red team #87 6008162592; Science d5 #87 6008176400): a WITHHELD near tie said "not assessed" beside a
-  // hero saying the results overlap. The shares still ride the wire, so where the figures may be shown and the top two
-  // are within 10 pts the row states that data fact (not a leader claim, not the 'tied' denial). Same gate as
-  // `buildAnalysisNewViewModel`'s leader code. A withheld gap of 10 or more stays not assessed.
-  const withheldSimilarShares =
-    winnerUndetermined
-    && analysisClaimPolicy(data.recommendation).mayShowComparativeFigures === true
-    && runSharesSimilar(verdict)
+  // ⭐ Run-4 judge (DL 12 Oct, the class): the footer's leader row ("checks-winner") is removed, and nothing replaces it.
+  // Every state it could say was run-share comparison wording ("one option was supported by more runs than any other",
+  // "similar shares of runs", "no option was supported by clearly more runs", "Which option most runs supported … not
+  // assessed"), so the verdict it quoted is no longer read here. Robustness and evidence keep their rows.
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
@@ -890,53 +775,19 @@ function T1ChecksFooter({
   // for two authorities is to make them one, not to align their defaults).
   const evidenceAllAddressed = evidenceKnown && addressed === total
 
-  // §6.2g: the legacy arm ("Winner" / "No winner") is DELETED, not
-  // re-anchored. `useV17Copy` already selected the glossary-compliant labels
-  // on every live path; the legacy strings survived only as the false arm of
-  // a ternary, and dead copy beside a live selector is an invitation to
-  // re-wire it. `useV17Copy` itself is left in place — it gates more than
-  // these two labels.
-  // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
-  // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
-  // J4 (DL, 6 Oct): "more runs than any other" is true at a 0.1-pt gap, so within 10 pts of the next run share the
-  // row says the shares were similar instead (`runSharesSimilar`, the same rule as `ANALYSIS_NEW_COPY.checks`).
-  const winnerOkLabel = runSharesSimilar(verdict)
-    ? 'In this model, the options were supported by similar shares of runs'
-    : 'In this model, one option was supported by more runs than any other'
-  // RT-17 (red team #87 6008162592; Science d5 #87 6008176400): the run-share check never speaks of a goal chance.
-  const winnerNotOkLabel = 'In this model, no option was supported by clearly more runs than the others'
-  // States the check could not be determined. It is NOT a third verdict about
-  // the options — it is the absence of one, which is why it must not read like
-  // "No clear leader" (a finding) nor like "Has leading option".
-  const winnerUndeterminedLabel = 'Which option most runs supported, in this model: not assessed'
-
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
       {/* ⭐ L-58/L-57: the row used to be three bare glyph+word chips
           ("✓ Has leading option × Sensitive × Evidence unknown"), which reads
           as QA chrome rather than as a statement to the user — Paul filed it
           from a `?diag=1` session and it turned out to be USER-DEFAULT.
-          It keeps its three checks (they are the results side of the
-          cross-surface single-verdict guard, `singleVerdict.crossSurface.spec`)
-          and gains the heading that says what it IS, plus a plain-language
-          reading of each. Nothing is removed. */}
+          It gained the heading that says what it IS, plus a plain-language
+          reading of each check. Run-4 judge (DL 12 Oct, the class): the leader
+          check is removed (run-share wording); robustness and evidence stay. */}
       <p className={`${typography.panelMeta} text-text-light mb-1`} data-testid="checks-heading">
         What we checked
       </p>
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
-        <ChecksGlyph
-          ok={hasWinner || withheldSimilarShares}
-          unknown={winnerUndetermined && !withheldSimilarShares}
-          okLabel={withheldSimilarShares ? 'In this model, the options were supported by similar shares of runs' : winnerOkLabel}
-          notOkLabel={winnerUndetermined ? winnerUndeterminedLabel : winnerNotOkLabel}
-          title={
-            winnerUndetermined && !withheldSimilarShares
-              ? 'This run did not carry a leader verdict, so the analysis makes no claim either way.'
-              : undefined
-          }
-          dataTestid="checks-winner"
-          neutral
-        />
         <ChecksGlyph
           ok={robustOk}
           unknown={!robustKnown}

@@ -15,6 +15,10 @@
  *
  * ⭐ BOTH ARMS. The neutral arm ("Which option leads depends on …") and the
  * directional arm ("When … exceeds …") each interpolate the same threshold.
+ * Run-4 judge (DL 12 Oct, the class): the directional arm is removed and every
+ * row takes the neutral arm. The rows that drove it keep their input (a
+ * recommended id in one bucket), so the rule is still pinned on the input that
+ * used to reach the other arm.
  *
  * ⭐ THE CONTRAST: a fix that dropped every `split_unit` would pass the binary
  * half, so a real unit ('£') must still reach the card. This pins that the unit
@@ -63,26 +67,32 @@ describe('ConditionalWinnerCards — a factor-type descriptor is never a unit', 
     )
   })
 
-  it('⛔ directional arm: the same rule', () => {
-    // recommended id in the LOW bucket -> the flip is on the HIGH side.
+  it('⛔ the formerly directional input (recommended id in the LOW bucket): neutral arm, the same rule', () => {
     const { arm, sentence, text } = renderCard('binary', 'opt_hold')
-    expect(arm).toBe('high-alt')
+    // Run-4 judge (DL 12 Oct, the class): the directional arm ("… Raise price becomes the most-supported option
+    // instead, in this model.") is removed; nothing replaces it. This input now takes the neutral arm.
+    expect(arm).toBe('neutral')
     expect(text).not.toMatch(BINARY)
-    expect(sentence).toBe('When Enterprise tier availability exceeds 0.5, Raise price becomes the most-supported option instead, in this model.')
+    expect(text).not.toContain('becomes the most-supported option')
+    expect(text).not.toContain('Raise price')
+    expect(sentence).toBe(
+      'How the options compare depends on Enterprise tier availability; the analysis flips at 0.5.',
+    )
   })
 
   it('⛔ the descriptor is suppressed whatever its case', () => {
     expect(renderCard('Binary').text).not.toMatch(BINARY)
   })
 
-  it('⭐ CONTRAST: a real unit still prints, on both arms', () => {
+  it('⭐ CONTRAST: a real unit still prints, on both inputs', () => {
     const neutral = renderCard('£')
     expect(neutral.arm).toBe('neutral')
     expect(neutral.sentence).toContain('£')
     cleanup()
     const directional = renderCard('£', 'opt_hold')
-    expect(directional.arm).toBe('high-alt')
+    // Run-4 judge (DL 12 Oct, the class): the directional arm is removed; nothing replaces it.
+    expect(directional.arm).toBe('neutral')
     expect(directional.sentence).toContain('£')
-    expect(directional.sentence).toContain('Raise price becomes the most-supported option instead')
+    expect(directional.sentence).not.toContain('Raise price becomes the most-supported option instead')
   })
 })

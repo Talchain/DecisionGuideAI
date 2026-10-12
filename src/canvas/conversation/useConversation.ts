@@ -31,6 +31,7 @@ import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
@@ -134,7 +135,7 @@ import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
 import { extractProvisionalViewSidecar } from './provisionalView'
-import { extractAnswerShapeSidecar } from './answerShape'
+import { extractAnswerShapeSidecar, answerStateKeyOf } from './answerShape'
 import { extractGroundedSelectionSidecar } from './groundedSelection'
 import { extractModelBuildingNoticesSidecar } from './modelBuildingNotices'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
@@ -4683,7 +4684,7 @@ export function useConversation(): UseConversationReturn {
         // Recorded BEFORE the store write: the switch effect reads it to tell
         // this turn's own mint from the user opening another decision.
         lazyMintedScenarioIdRef.current = newId
-        useCanvasStore.setState({ currentScenarioId: newId })
+        useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, newId))
         setCurrentScenarioId(newId)
       }
       // Response ownership is the scenario that actually goes on the wire.
@@ -6311,6 +6312,7 @@ export function useConversation(): UseConversationReturn {
           // merged into `content` (attached as its own field, rendered by
           // AnswerBody). See answerShape.ts for the full contract note.
           const answerShape = extractAnswerShapeSidecar(target.response)
+          const answerStateKey = answerShape ? answerStateKeyOf(target.response) : null
           // CEE hop 4b — WHICH model elements this answer was grounded on.
           // `_grounded_selection` rides the SAME `__additive__` demotion as
           // `_reasoning` and `_answer_shape` (it is undeclared at the pinned
@@ -6393,6 +6395,7 @@ export function useConversation(): UseConversationReturn {
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
             ...(answerShape ? { answerShape } : {}),
+            ...(answerStateKey ? { answerStateKey } : {}),
             ...(groundedSelection ? { groundedSelection } : {}),
             ...(openQuestionList ? { openQuestionList } : {}),
             ...(provisionalView ? { provisionalView } : {}),

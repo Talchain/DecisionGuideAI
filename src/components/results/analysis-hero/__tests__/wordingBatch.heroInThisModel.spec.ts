@@ -15,14 +15,11 @@ const OPT = 'AI Reporting Module Sprint'
 const sentences = (text: string): string[] => text.split(/(?<=\.)\s+/).filter(Boolean)
 
 describe('RT-14 · the Analysis headline names an option only in this model', () => {
-  it('slight separation', () => {
-    expect(HERO_COPY.headline.slightlyAhead(OPT)).toBe(`In this model, slightly more runs supported ${OPT}.`)
-  })
-  it('clear separation, with and without the share', () => {
-    expect(HERO_COPY.headline.mostLikelyStrongest(OPT, '57%'))
-      .toBe(`In this model, ${OPT} was supported by 57% of runs.`)
-    expect(HERO_COPY.headline.mostLikelyStrongest(OPT, null))
-      .toBe(`In this model, ${OPT} was supported by more runs than any other option.`)
+  // Run-4 judge (DL 12 Oct, the class): the slight / clear separation headlines ("… slightly more runs supported X.",
+  // "X was supported by more runs than any other option." / "… by 57% of runs.") are deleted; nothing replaces them.
+  it('slight and clear separation name no option: their arms are gone', () => {
+    expect(HERO_COPY.headline).not.toHaveProperty('slightlyAhead')
+    expect(HERO_COPY.headline).not.toHaveProperty('mostLikelyStrongest')
   })
   it('no clear separation names no option', () => {
     expect(HERO_COPY.headline.noClearLeader).toBe('In this model, no option is clearly most likely.')
@@ -38,9 +35,6 @@ describe('RT-14 · the Analysis headline names an option only in this model', ()
 
 describe('SCAN · no headline that names an option drops "in this model"', () => {
   const naming: Array<[string, string]> = [
-    ['slight', HERO_COPY.headline.slightlyAhead(OPT)],
-    ['clear', HERO_COPY.headline.mostLikelyStrongest(OPT, '57%')],
-    ['clear, no share', HERO_COPY.headline.mostLikelyStrongest(OPT, null)],
     ['outcome', HERO_COPY.headline.outcomeLeader(OPT, '£1.2m')],
     ['goal and limits', HERO_COPY.headline.goalWithLimits(OPT, '49%')],
   ]

@@ -7,7 +7,7 @@ import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange 
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
 import type { LodRung } from './utils/zoomLegibility'
-import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
+import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition, optionCardsShareAPlace } from './store/stableOptionNumbers'
 import { seatNodesIntoRankedSlots } from './utils/factorRowOrder'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
@@ -191,6 +191,7 @@ import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
 import { buildSnapshotFromV5Analysis } from './stores/v5RunSnapshotFactory'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 import { useComparisonStore } from './stores/comparisonStore'
+import { scenarioIdWrite, type UnboundModelBinding } from './stores/unboundModelBinding'
 import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -1505,6 +1506,13 @@ interface CanvasState {
    * this is the only signal that the user moved on while a read was in flight (#2418 delta CR, P1-2).
    */
   scenarioEpoch: number
+  /**
+   * Written ONLY by `scenarioIdWrite` (`stores/unboundModelBinding.ts`), in the same store write as the id, when the
+   * model already on the canvas had no id and gets one without being replaced (Save as, Save as Scenario from a
+   * template, the first Send's lazy id, an import's registration). A fresh object each time. NodeValueEditor keeps the
+   * model instance's editor across that one null → id change (B UI final check on d770bc1c).
+   */
+  unboundModelBinding?: UnboundModelBinding | null
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -1665,6 +1673,13 @@ interface CanvasState {
    * every scenario boundary (loadScenario, hydrateGraphSlice, resetCanvas,
    * importCanvas). Read outside React via getAnalysisDisplaySnapshot(). */
   optionNumbering: Record<string, number>
+  /**
+   * Run-3 judge U7: the option ids numbered while their cards still shared one point of the canvas (the drafted graph
+   * before its layout), so their numbers follow the caller's order, not the row. The next registration after the
+   * cards are spread numbers them again, after every settled number, in reading order; from then on they are
+   * append-only like the rest. A settled number is never changed.
+   */
+  optionNumberingProvisional?: readonly string[]
   registerOptionNumbering: (optionIds: readonly string[]) => void
   /**
    * Seat the factor cards whose influence ordinal is DETERMINED into canvas
@@ -2492,6 +2507,7 @@ function scenarioResetState(): Partial<CanvasState> {
     nodes: [],
     // Wave F-A: fresh decision, fresh option-ordinal history
     optionNumbering: {},
+    optionNumberingProvisional: [],
     edges: [],
     touchedNodeIds: new Set(),
     nextNodeId: 1,
@@ -3423,6 +3439,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   edges: initialEdges,
   history: { past: [], future: [] },
   scenarioEpoch: 0,
+  unboundModelBinding: null,
   selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
@@ -4865,6 +4882,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: imported.edges,
       // Wave F-A: full graph replacement starts a fresh ordinal history
       optionNumbering: {},
+      optionNumberingProvisional: [],
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
@@ -6054,9 +6072,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   optionNumbering: {},
+  optionNumberingProvisional: [],
   registerOptionNumbering: (optionIds) => {
     if (optionIds.length === 0) return
-    const previous = get().optionNumbering
+    // ⭐ RUN-3 JUDGE U7: numbers given while the cards were stacked (no reading order yet) are provisional, so the first
+    // registration once the layout has spread them gives them again, in reading order. Otherwise a session keeps its
+    // draft-time tie order forever, and a reopen (laid out first) numbers the same saved model along the row.
+    const provisional = get().optionNumberingProvisional ?? []
+    const held = get().optionNumbering
+    const previous = provisional.length === 0 ? held : Object.fromEntries(Object.entries(held).filter(([id]) => !provisional.includes(id)))
     // ⭐ THE STORE OWNS ORDER; CALLERS OWN MEMBERSHIP (Paul, 31 Aug 2026).
     //
     // Callers say WHICH options exist. What `Option N` means — the Nth card in
@@ -6071,9 +6095,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // a sorted array, because its order is discarded except as a tiebreak.
     const ordered = orderOptionIdsByCanvasPosition(optionIds, get().nodes)
     const next = assignStableOptionNumbers(previous, ordered)
-    // Merge is append-only: skip the set entirely when nothing was new.
-    if (Object.keys(next).length === Object.keys(previous).length) return
-    set({ optionNumbering: next })
+    const fresh = ordered.filter((id) => previous[id] == null)
+    const stillProvisional = optionCardsShareAPlace(fresh, get().nodes) ? fresh : []
+    if (provisional.length === 0) {
+      // Merge is append-only: skip the set entirely when nothing was new.
+      if (Object.keys(next).length === Object.keys(previous).length) return
+      set(stillProvisional.length > 0 ? { optionNumbering: next, optionNumberingProvisional: stillProvisional } : { optionNumbering: next })
+      return
+    }
+    const same = Object.keys(next).length === Object.keys(held).length && Object.entries(next).every(([id, n]) => held[id] === n)
+    if (same && stillProvisional.length > 0) return
+    set(same ? { optionNumberingProvisional: stillProvisional } : { optionNumbering: next, optionNumberingProvisional: stillProvisional })
   },
 
   orderFactorRowByInfluence: (orderedFactorIds) => {
@@ -6624,6 +6656,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioId: id,
       // Wave F-A: option ordinals never cross a scenario boundary
       optionNumbering: {},
+      optionNumberingProvisional: [],
       scenarioPersistedToDb: true,
       currentScenarioFraming: scenario.framing ?? null,
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
@@ -6906,7 +6939,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
         set({
           nodes: newCleansedNodes,
-          currentScenarioId: scenario.id,
+          ...scenarioIdWrite(currentScenarioId, scenario.id),
           scenarioPersistedToDb: true,
           isDirty: false,
           isSaving: false,
@@ -6933,7 +6966,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     set({
-      currentScenarioId: scenario.id,
+      ...scenarioIdWrite(get().currentScenarioId, scenario.id),
       scenarioPersistedToDb: true,
       isDirty: false,
       showDraftChat: false,

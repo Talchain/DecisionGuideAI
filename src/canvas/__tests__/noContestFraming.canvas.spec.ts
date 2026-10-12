@@ -65,7 +65,7 @@
  * proof.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const ROOT = path.resolve(__dirname, '../../..')
@@ -122,7 +122,9 @@ const SCOPE_FILES = [
   // `src/components/results/WinGauge.tsx` left this list in #2747 re-scope 2: the gauge is deleted (no win share in C).
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
-  'src/components/results/utils/winnerChipCopy.ts',
+  // `src/components/results/utils/winnerChipCopy.ts` left this list in the Run-4 judge class (DL 12 Oct): the file is
+  // DELETED (the card's chat chip is removed on every card). The scope test below pins that it stays deleted, so a
+  // re-created register REDs there and must be re-added here rather than sitting unswept.
   // ⭐ ADDED 6 Oct 2026 (WORDING BATCH cut 6, DL lease): the leader-framing class. "Which option leads changed…",
   // "before a different option leads…", "Chance another option leads" and "chance of coming out ahead" were live here
   // because nothing opened these files. The hits were enumerated before adding (see the PR).
@@ -580,11 +582,10 @@ describe('the canvas never frames a decision as a contest', () => {
     )
     // ⭐ Each SCOPE_FILES entry is asserted BY NAME, not by counting the list.
     // A count would stay green if an entry were swapped for another; this is
-    // the file whose omission let two live offences sit under a green sweep,
-    // so its membership is pinned rather than inferred.
-    expect(files.some((f) => f.endsWith('src/components/results/utils/winnerChipCopy.ts'))).toBe(
-      true,
-    )
+    // the file whose omission let two live offences sit under a green sweep.
+    // Run-4 judge (DL 12 Oct, the class): `winnerChipCopy.ts` is deleted; nothing replaces it. Its absence from disk is
+    // pinned, so a re-created chip register REDs here instead of living outside the sweep.
+    expect(existsSync(path.join(ROOT, 'src/components/results/utils/winnerChipCopy.ts'))).toBe(false)
   })
 
   it('no user-visible canvas copy asserts that one option defeated the others', () => {

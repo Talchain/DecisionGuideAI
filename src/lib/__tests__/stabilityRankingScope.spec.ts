@@ -79,28 +79,25 @@ describe('stability copy is scoped to the RANKING (ROADMAP 2.580 member 3)', () 
     expect(cls.heroLabel).toMatch(RANKING_SCOPED)
   })
 
-  it.each(TIERS)('$name — the expanded text is scoped to the ranking', ({ stability }) => {
+  // Run-4 judge (DL 12 Oct, the class): `heroExpandedText` ("The most-supported option was the same / changed …") is
+  // removed from the classification; nothing replaces it. Its ranking-scope row is now "the field is gone"; its
+  // "came from a SAMPLE" row pinned only that field and is deleted.
+  it.each(TIERS)('$name — the classification carries no heroExpandedText field', ({ stability }) => {
     const cls = getStabilityClassification(stability)!
-    expect(cls.heroExpandedText).toMatch(RANKING_SCOPED)
+    expect('heroExpandedText' in cls).toBe(false)
   })
 
+  // Run-4 judge (DL 12 Oct, the class): `heroExpandedText` / `coaching` are gone; the remaining text fields are scanned.
   it.each(TIERS)('$name — no unbounded "even if estimates are off" guarantee anywhere', ({ stability }) => {
     const cls = getStabilityClassification(stability)!
-    const prose = [cls.heroLabel, cls.heroShortText, cls.heroExpandedText, cls.coaching ?? ''].join(' | ')
+    const prose = [cls.heroLabel, cls.heroShortText, cls.badgeLabel].join(' | ')
     expect(prose).not.toMatch(UNBOUNDED_CLAIM)
   })
 
   it.each(TIERS)('$name — no "the result stays the same" claim anywhere', ({ stability }) => {
     const cls = getStabilityClassification(stability)!
-    const prose = [cls.heroLabel, cls.heroShortText, cls.heroExpandedText, cls.coaching ?? ''].join(' | ')
+    const prose = [cls.heroLabel, cls.heroShortText, cls.badgeLabel].join(' | ')
     expect(prose).not.toMatch(RESULT_LEVEL_CLAIM)
-  })
-
-  it.each(TIERS)('$name — the expanded text says the finding came from a SAMPLE', ({ stability }) => {
-    // The quantity is a share of sampled scenarios. Saying so is the whole
-    // difference between "this held" and "this held in what we tried".
-    const cls = getStabilityClassification(stability)!
-    expect(cls.heroExpandedText).toMatch(/sampl/i)
   })
 
   it('the tiers stay DISTINGUISHABLE — a rewrite must not collapse them', () => {
@@ -121,10 +118,9 @@ describe('stability copy is scoped to the RANKING (ROADMAP 2.580 member 3)', () 
     expect(getStabilityClassification(undefined)).toBeNull()
   })
 
-  it('only the high tier withholds coaching — unchanged contract', () => {
-    expect(getStabilityClassification(0.97)!.coaching).toBeNull()
-    expect(getStabilityClassification(0.78)!.coaching).not.toBeNull()
-    expect(getStabilityClassification(0.55)!.coaching).not.toBeNull()
-    expect(getStabilityClassification(0.2)!.coaching).not.toBeNull()
+  // Run-4 judge (DL 12 Oct, the class): `coaching` ("The most-supported option … could change it") is removed from the
+  // classification on every tier; nothing replaces it.
+  it.each(TIERS)('$name — the classification carries no coaching field', ({ stability }) => {
+    expect('coaching' in getStabilityClassification(stability)!).toBe(false)
   })
 })

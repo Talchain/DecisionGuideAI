@@ -24,6 +24,11 @@ export interface GuidanceRow {
   readonly primaryAction: { readonly label: string; readonly actionKind: string | null } | null
   readonly copy: { readonly title: string; readonly why: string | null; readonly question: string | null }
   readonly itemRef: GuidanceItemRef | null
+  /**
+   * Batch F (DL 12 Oct): the policy's one-sentence science basis, sent by CEE only where it is true of the variant.
+   * Rendered verbatim behind the row's "Why?"; `null` (absent, empty or not a string) = no control.
+   */
+  readonly science: string | null
 }
 
 export interface TurnGuidance {
@@ -75,6 +80,7 @@ export function readGuidanceRow(raw: unknown): GuidanceRow | null {
     primaryAction: readPrimaryAction(r.primary_action ?? r.primaryAction),
     copy: { title, why: str(copy.why), question: str(copy.question) },
     itemRef: readItemRef(r.item_ref ?? r.itemRef),
+    science: str(r.science),
   }
 }
 

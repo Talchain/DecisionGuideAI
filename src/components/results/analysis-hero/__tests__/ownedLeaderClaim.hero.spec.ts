@@ -119,14 +119,14 @@ describe('analysis hero — headline + subline', () => {
     expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('PERMITTED: the producer-owned band still selects the leader headline', () => {
+  // Run-4 judge (DL 12 Oct, the class): a PERMITTED band no longer selects a leader headline ("In this model, X was
+  // supported by …" is deleted); it takes the same neutral headline and subline as a withheld turn. Nothing replaces it.
+  it('PERMITTED: the producer-owned band names no leader either (run-4 judge, the class)', () => {
     const m = hero(PERMITTED_VERDICT)
-    expect(m.headline).toBe(
-      HERO_COPY.headline.mostLikelyStrongest(
-        LEADER_LABEL,
-        m.rows.find((r) => r.label === LEADER_LABEL)!.comparativeReadout!,
-      ),
-    )
+    expectNoLeaderLanguage('hero', m.headline, m.subline)
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
+    expect(`${m.headline} ${m.subline}`).not.toContain(LEADER_LABEL)
   })
 
   it('WITHHELD: the win probabilities are still rendered — we suppress the CLAIM, not the data', () => {

@@ -147,9 +147,14 @@ describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
 })
 
 describe('OptionCards — permitted turn (over-suppression controls)', () => {
-  it('keeps the runner-up overtake line', () => {
-    const { container } = renderRunnerUp(true)
-    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, more runs would support this option in this model/i)
+  it('renders no runner-up overtake line on a permitted turn either (the line is removed)', () => {
+    // Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model" is removed; nothing
+    // replaces it. Bound to the runner-up card; its label is the presence control.
+    renderRunnerUp(true)
+    const card = screen.getByTestId(`option-card-${RUNNER_UP_ID}`)
+    expect(card.textContent ?? '').toContain(RUNNER_UP_LABEL)
+    expect(card.textContent ?? '').not.toMatch(/If Customer churn shifts, more runs would support this option in this model/i)
+    expect(card.textContent ?? '').not.toMatch(/more runs would support this option/i)
   })
 
   it('keeps the baseline superlative', () => {
@@ -160,7 +165,9 @@ describe('OptionCards — permitted turn (over-suppression controls)', () => {
   it('an ABSENT flag behaves exactly as a permitted one (legacy callers)', () => {
     // The same concession #493 pinned for the sentences it gated: the default
     // must not drift to silence and blank every legacy caller's cards.
-    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/more runs would support this option/i)
+    // Run-4 judge (DL 12 Oct, the class): the runner-up overtake line is removed on every turn; nothing replaces it. The baseline line
+    // below remains this row's permitted-default control.
+    expect(renderRunnerUp(undefined).container.textContent ?? '').not.toMatch(/more runs would support this option/i)
     expect(renderBaseline(undefined).container.textContent ?? '')
       .toMatch(/Baseline: what happens if nothing changes/i)
   })

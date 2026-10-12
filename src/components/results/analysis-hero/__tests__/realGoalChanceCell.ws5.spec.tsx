@@ -60,10 +60,13 @@ function cardParity(data: ReturnType<typeof useResultsSectionData>, id: string) 
   const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
     selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
   </OptionChanceCellProvider></ReactFlowProvider>)
-  // #2747 re-scope 2 (U0): the canvas cards show no chance in C, whatever the cell; the hero says it.
-  expect(screen.queryByTestId(`option-win-readout-${id}`)).toBeNull()
-  const text = data.runView!.chanceCellOf(id, ctx(data)).text
-  if (text !== null) expect(card.container.textContent).not.toContain(text)
+  // Post-C UI item 1 (DL, 12 Oct): the card says CEE's served cell for this option, verbatim (`servedCellOf`: its face, else
+  // its display; a withheld cell's own face), and nothing when CEE serves none. In C it showed no chance at all (U0).
+  const served = data.runView!.servedCellOf(id)
+  const readout = screen.queryByTestId(`option-win-readout-${id}`)
+  if (served?.kind === 'figure' || served?.kind === 'range') expect(readout?.textContent).toBe(served.face ?? served.display)
+  else if (served?.kind === 'withheld' && served.face !== undefined) expect(card.container.textContent).toContain(served.face)
+  else expect(readout).toBeNull()
   card.unmount()
 }
 // SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire).

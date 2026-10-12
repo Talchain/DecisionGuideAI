@@ -48,7 +48,6 @@ import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionR
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
-import { TechnicalDisclosure } from '../../../canvas/ui/inspector-v2/shared/TechnicalDisclosure'
 import { ComparisonScopeNote } from '../ComparisonScopeNote'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
@@ -329,17 +328,22 @@ export function AnalysisHeroPanel({
   // Honest unavailable-lens body: why it is empty + what unlocks it. The
   // goal lens distinguishes the user-actionable no-target case from a
   // producer gap.
+  // C5 (run-3 judge): CEE's served reason, when it serves one for every option, outranks the UI's own goal-lens copy.
   const unavailableBody = !lensAvailable && !suppressGoalWithholdingBox(model, lens)
     ? lens === 'goal'
-      ? model.showGoalHint
-        ? HERO_COPY.lensUnavailable.goalNoTarget
-        : HERO_COPY.lensUnavailable.goalProducerGap
+      ? model.servedWithheldWhy
+        ?? (model.showGoalHint
+          ? HERO_COPY.lensUnavailable.goalNoTarget
+          : HERO_COPY.lensUnavailable.goalProducerGap)
       : lens === 'outcome'
         ? (model.outcomeWithheldBody ?? HERO_COPY.lensUnavailable.outcome)
         : HERO_COPY.lensUnavailable[lens]
     : null
 
   const leaderId = model.leaders[lens]
+  // C5: when two or more rows carry the same served reason, it is said once beneath them, not once per row.
+  const rowWhys = model.rows.map(row => row.goal.why).filter((why): why is string => typeof why === 'string' && why !== '')
+  const sharedRowWhy = rowWhys.length >= 2 && rowWhys.every(why => why === rowWhys[0]) ? rowWhys[0] : null
 
   // §6.5 quick-evidence pills: outlined pills in the summary row between
   // the lens body and the evidence disclosure (prototype 1d .hero-summary).
@@ -395,11 +399,8 @@ export function AnalysisHeroPanel({
             {model.goalChanceLeadLines.map((line, index) => (
               <div key={`${line.id ?? 'run'}-${line.kind ?? index}`} data-option-id={line.id} data-line-kind={line.kind}>
                 <p><span>{line.text}</span></p>
-                {line.why && (
-                  <TechnicalDisclosure visible label="Why?" openLabel="Hide why" compact>
-                    <span>{line.why}</span>
-                  </TechnicalDisclosure>
-                )}
+                {/* C5 (run-3 judge): CEE's reason is said, verbatim, not folded under "Why?". */}
+                {line.why && <p data-testid="hero-lead-why">{line.why}</p>}
               </div>
             ))}
           </div>
@@ -498,7 +499,7 @@ export function AnalysisHeroPanel({
               <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
               <span>
                 {unavailableBody}
-                {lens === 'goal' && model.showGoalHint && onDefineSuccess && (
+                {lens === 'goal' && model.showGoalHint && !model.servedWithheldWhy && onDefineSuccess && (
                   <>
                     {' '}
                     <button
@@ -541,6 +542,7 @@ export function AnalysisHeroPanel({
               >
                 {model.rows.map((row) => (
                   <HeroOptionRow
+                    showWhy={sharedRowWhy === null}
                     key={row.id}
                     row={row}
                     lens={lens}
@@ -557,6 +559,11 @@ export function AnalysisHeroPanel({
                   />
                 ))}
               </div>
+              {lens === 'goal' && sharedRowWhy !== null && (
+                <p data-testid="hero-option-why-shared" className={`${typography.panelMeta} text-text-light pl-10 pr-2`}>
+                  {sharedRowWhy}
+                </p>
+              )}
             </>
           )}
         </div>

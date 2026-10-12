@@ -185,8 +185,10 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
     const eligible = view.chanceOf(optionId).kind !== 'none'
       || view.goalChance?.optionIds.includes(optionId) === true
       || ranged.has(optionId)
-    // The producer's own withheld sentence (goal identity) outranks the static face, verbatim.
-    const producerWithheld = typeof ctx.goalFiguresWithheldMessage === 'string' && ctx.goalFiguresWithheldMessage.trim() !== ''
+    // The producer's own withheld sentence (goal identity) outranks the static face, verbatim. Only in the run-wide
+    // "Not shown. …" shape: since Batch E the run-wide reader also keeps a reason that does not open so (a placeholder
+    // link's), and that is the RUN's, said once in the run-wide box, never repeated into every option's cell.
+    const producerWithheld = typeof ctx.goalFiguresWithheldMessage === 'string' && ctx.goalFiguresWithheldMessage.startsWith('Not shown.')
       ? ctx.goalFiguresWithheldMessage : null
     if (hasTarget && ctx.notAnalysed !== true && eligible) {
       return { kind: 'withheld', text: producerWithheld ?? CHANCE_NOT_SHOWN_YET }

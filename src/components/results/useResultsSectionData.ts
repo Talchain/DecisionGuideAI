@@ -121,7 +121,7 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { readGoalFigureWithholds, readGoalIdentityWithheld, sharedServedWithheldWhy } from './utils/goalIdentityWithheld'
 import { isUnsizedRelationship } from '../../canvas/domain/edgeProvenance'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
@@ -2703,6 +2703,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // C5 (run-3 judge): CEE's one served withheld reason, when every option it serves is withheld with the same why.
+    const servedWithheldWhy = sharedServedWithheldWhy((canonical?.options ?? []).map(o => runView.servedCellOf(o.option_id)))
+
     // Display-safe robustness verdict consumption (lane 35 fix 3,
     // ROADMAP 1.6; producer PLoT #202). Raw response first (fresh run),
     // mapped report as the saved/hydrated fallback — same chain as
@@ -2922,7 +2925,15 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
           : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
-      goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message ?? null,
+      // C5 (run-3 judge): when the producer's warning words fail the display check, the reader says its own fallback;
+      // CEE's served cells may carry the same reason, verbatim, and then they speak instead (label, don't hide).
+      goalFiguresWithheldMessage: (() => {
+        const read = readGoalIdentityWithheld(report)?.message ?? null
+        // Batch E: the reader now keeps CEE's warning words whatever their opening, so the current Run's one served why
+        // speaks first whenever the figures are withheld (it was only the fallback's replacement).
+        return read !== null && servedWithheldWhy !== null ? servedWithheldWhy : read
+      })(),
+      servedWithheldWhy,
       goalHoldsTodayLevel: (() => {
         const os = (goalNode?.data as { observedState?: { raw_value?: unknown } } | undefined)?.observedState
         return typeof os?.raw_value === 'number' && Number.isFinite(os.raw_value)
@@ -3020,7 +3031,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, canonical, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -4798,11 +4809,15 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
   // selector) — one order per question, which is the point.
   const optionIds = recommendation.allOptions.map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
+  // ⭐ RUN-3 JUDGE U7: both canvas rows are read again when a layout lands. The drafted graph sits stacked at {0,0}
+  // until then, so a registration or a seat that ran first read no row at all, and only a reopen (laid out first) read
+  // the saved model's row. `layoutVersion` moves on product layouts only, never on a person's drag.
+  const layoutVersion = useCanvasStore((s) => s.layoutVersion)
   useEffect(() => {
     if (!registerCanvasRows || optionIds.length === 0) return
     useCanvasStore.getState().registerOptionNumbering(optionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
-  }, [registerCanvasRows, optionIdsKey])
+  }, [registerCanvasRows, optionIdsKey, layoutVersion])
 
   // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
   //
@@ -4854,7 +4869,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     if (!registerCanvasRows || determinedFactorOrder.length < 2) return
     useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
-  }, [registerCanvasRows, determinedFactorOrderKey])
+  }, [registerCanvasRows, determinedFactorOrderKey, layoutVersion])
 
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return

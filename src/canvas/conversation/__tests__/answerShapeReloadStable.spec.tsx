@@ -204,6 +204,28 @@ describe('the served Run reply, live and after a reload (c673223 "C2 run")', () 
     expectConcise('after reload')
   })
 
+  /**
+   * Run-3 judge U2 (DL ruling b): CEE prefixes the same status headline and bullets to every reply in one model state.
+   * Through the real hook and panel: two replies on one graph draw it once, a reply on a new graph draws it again, and
+   * the reload folds the same way.
+   */
+  it('run-3 judge U2: one model state draws the repeated headline once, live and after a reload; a new state draws it again', async () => {
+    await mountPanel()
+    const onGraph = (graphHash: string): Wire => ({ ...withShape(), graph_hash: graphHash })
+    queue.push(onGraph('graph-one'), onGraph('graph-one'), onGraph('graph-two'))
+    for (const words of ['Run the analysis.', 'What does that mean?', 'Run it again.']) {
+      await act(async () => { await conv.current!.sendMessage(words) })
+    }
+    const headlines = () => Array.from(document.querySelectorAll('[data-testid="message-answer-structured"]'))
+      .map((b) => b.querySelector('[data-testid="answer-headline"]')?.textContent ?? null)
+    expect(headlines()).toEqual([HEADLINE, null, HEADLINE])
+    await waitFor(() => expect(savedRaw().filter((m) => m.answerShape !== undefined)).toHaveLength(3))
+
+    await reload()
+    await waitFor(() => expect(onTheFace('This run does not establish')).toBe(true))
+    expect(headlines()).toEqual([HEADLINE, null, HEADLINE])
+  })
+
   it('CONTROL, the served bytes as they are (no shape): the full text, live and after a reload', async () => {
     await mountPanel()
     queue.push(JSON.parse(JSON.stringify(C2_RUN)))

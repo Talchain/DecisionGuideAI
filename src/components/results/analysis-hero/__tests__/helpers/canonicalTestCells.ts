@@ -2,6 +2,7 @@ import { useCanonicalAnalysisViewStore } from '../../../../../canvas/stores/cano
 import type { ResultsSectionDataReturn } from '../../../useResultsSectionData'
 import { buildRunView, runViewFromParts, type OptionChanceCellContext } from '../../../../../canvas/runView/runView'
 import { goalProbabilityWords } from '../../../utils/goalAnchorCopy'
+import { GOAL_IDENTITY_WITHHELD_FALLBACK } from '../../../utils/goalIdentityWithheld'
 import { readGoalChanceRange, type GoalChanceRange, type GoalChanceRangeEntry } from '../../../utils/goalChanceRange'
 import type { CanonicalAnalysisView, CanonicalAnalysisCell } from '../../../../../canvas/runView/canonicalAnalysisView'
 import { fixtureOptionLines } from './fixtureOptionLines'
@@ -42,7 +43,12 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
       const rangeText = entry ? fixtureRangeFace(entry, labelOf(option.id), statedFaces[option.id]) : null
       const line = licence && lines ? lines[licence.optionIds.indexOf(option.id)] : undefined
       const face = line
-      const withheld = data.recommendation.goalFiguresWithheldMessage ?? option.goalCertaintyUnearned?.say
+      // A self-authored stand-in for CEE's withheld face. Since Batch E the run-wide reader keeps a reason whatever its opening
+      // (a placeholder link's); this fixture keeps the face the reader gave before (its fallback), so the rows built on it
+      // still test what they did. CEE's real cells carry their own face and why.
+      const runWide = data.recommendation.goalFiguresWithheldMessage
+      const withheld = (runWide == null ? undefined : runWide.startsWith('Not shown.') ? runWide : GOAL_IDENTITY_WITHHELD_FALLBACK)
+        ?? option.goalCertaintyUnearned?.say
       const pct = licence?.pctByOption[option.id] ?? null
       // Served shape (#2747): `display` is the figure's words ("about 17%"), the option's sentence is its `face`.
       const display = pct === null ? null : goalProbabilityWords(`${pct}%`)

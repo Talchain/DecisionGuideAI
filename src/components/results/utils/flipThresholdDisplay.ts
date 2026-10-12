@@ -39,28 +39,16 @@ export const FLIP_THRESHOLD_COPY = {
   // Direction-neutral fallback (UI-SEM-074): used when a direction claim
   // would not be honestly determinable.
   crosses: 'crosses',
-  flipRiskWithAlternative: (
-    factor: string,
-    direction: string,
-    value: string,
-    alternative: string,
-    designationsWithheld: boolean,
-  ) =>
-    // Science d5 (#87 6008165771): PLoT binary-searches where the argmax of the win shares changes — a CROSSING POINT,
-    // not a probability, so no "likely"; "about" because the search is Monte Carlo (precision 0.01). Named labels are
-    // quoted and the model is named.
-    designationsWithheld
-      ? `If ‘${factor}’ ${direction} about ${value}, the comparison shifts towards ‘${alternative}’, in this model.`
-      : `If ‘${factor}’ ${direction} about ${value}, ‘${alternative}’ becomes the most-supported option, in this model.`,
-  flipRiskNoAlternative: (
-    factor: string,
-    direction: string,
-    value: string,
-    designationsWithheld: boolean,
-  ) =>
-    designationsWithheld
-      ? `If ‘${factor}’ ${direction} about ${value}, the comparison changes, in this model.`
-      : `If ‘${factor}’ ${direction} about ${value}, the most-supported option changes, in this model.`,
+  // Science d5 (#87 6008165771): PLoT binary-searches where the argmax of the win shares changes — a CROSSING POINT,
+  // not a probability, so no "likely"; "about" because the search is Monte Carlo (precision 0.01). Named labels are
+  // quoted and the model is named.
+  // ⭐ Run-4 judge (DL 12 Oct, the class): EVERY run takes the words a withheld run already had. The permitted arms
+  // ("… ‘{alt}’ becomes the most-supported option" / "… the most-supported option changes") were run-share wording;
+  // they are removed and nothing new replaces them.
+  flipRiskWithAlternative: (factor: string, direction: string, value: string, alternative: string) =>
+    `If ‘${factor}’ ${direction} about ${value}, the comparison shifts towards ‘${alternative}’, in this model.`,
+  flipRiskNoAlternative: (factor: string, direction: string, value: string) =>
+    `If ‘${factor}’ ${direction} about ${value}, the comparison changes, in this model.`,
 } as const
 
 /**

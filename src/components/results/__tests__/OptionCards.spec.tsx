@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult, HingeInfo } from '../types'
 
@@ -117,7 +117,10 @@ describe('OptionCards', () => {
 
       // With win probabilities available, hingeAwareDescription provides the
       // winner's sentence. #2747 re-scope 2 (U0, DL ruling (A)): it carries no magnitude in C.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
       // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 30 percentage points'.
       // The percentage-point gap between two win frequencies is retired from
@@ -531,9 +534,10 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
@@ -551,9 +555,10 @@ describe('OptionCards', () => {
       // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
       // hinge clause.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option. Market size has the widest uncertainty.'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
@@ -569,11 +574,14 @@ describe('OptionCards', () => {
       )
 
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
-    it('runner-up: matched alternate winner shows overtake description', () => {
+    it('runner-up: matched alternate winner shows no overtake description (the line is removed)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -584,8 +592,13 @@ describe('OptionCards', () => {
         />
       )
 
-      // Option B is runnerId AND matches hinge.alternativeWinnerLabel
-      expect(screen.getByText('If Customer churn shifts, more runs would support this option in this model')).toBeInTheDocument()
+      // Option B is runnerId AND matches hinge.alternativeWinnerLabel.
+      // Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model" is removed; nothing
+      // replaces it. Bound to the runner-up's own card; its label is the presence control.
+      const runnerUpCard = screen.getByTestId('option-card-option-2')
+      expect(within(runnerUpCard).getByText('Option B')).toBeInTheDocument()
+      expect(runnerUpCard.textContent).not.toMatch(/more runs would support/i)
+      expect(screen.queryByText('If Customer churn shifts, more runs would support this option in this model')).toBeNull()
     })
 
     it('runner-up: unmatched alternate winner shows generic runner-up', () => {
@@ -668,9 +681,10 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
@@ -692,7 +706,10 @@ describe('OptionCards', () => {
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
@@ -807,7 +824,7 @@ describe('Wave 2: identity-anchored stable number chips', () => {
 })
 
 describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
-  it('canonical leader keeps the downside sentence + leader CTA; the lens card gets neither', () => {
+  it('canonical leader keeps the downside sentence; the lens card gets no leader semantics', () => {
     // Canonical leader A carries the downside flag; the cautious lens crowns B.
     render(
       <OptionCards
@@ -826,8 +843,18 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     // Union, never replace: the retired leader words AND the model-relative ones that replaced them (principle audit).
     expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best|most runs supported this option/i)
     expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model|runs in this model support/i)
-    // Canonical card: keeps the leader predicates even without the crown styling.
-    expect(canonicalCard.textContent).toMatch(/the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside/)
-    expect(canonicalCard.textContent).toMatch(/runs in this model support|rest on in this model/i)
+    expect(screen.queryByTestId('leading-option-downside-option-2')).toBeNull()
+    // Run-4 judge (DL 12 Oct, the class): the non-leader chip "What would make this better supported?" is removed on every card; nothing
+    // replaces it. The lens card draws no chip at all (and no leader CTA); the list's own link still renders.
+    expect(within(lensCard).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+    expect(screen.getByTestId('option-cards-different-approach')).toBeInTheDocument()
+    // Canonical card: keeps the downside sentence even without the crown styling.
+    expect(screen.getByTestId('leading-option-downside-option-1')).toHaveTextContent(
+      "In this model, the lower range of this option's simulated outcomes includes meaningful downside.",
+    )
+    // Run-4 judge (DL 12 Oct, the class): the leader clause of the downside line and the leader CTA are removed; nothing
+    // replaces them.
+    expect(canonicalCard.textContent).not.toMatch(/most runs supported this option|runs in this model support|rest on in this model/i)
+    expect(within(canonicalCard).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
   })
 })

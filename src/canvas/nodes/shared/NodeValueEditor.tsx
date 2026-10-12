@@ -212,14 +212,29 @@ export interface NodeValueEditorProps {
 }
 
 /**
- * ⭐ ONE SCENARIO PER EDITOR (B UI delta checks on c72ec673 and cbeefd21). Everything this editor holds after a commit
- * (the saved-model watch, "Checking…", a receipt) is about the scenario the edit was sent in, and a local scenario switch
- * keeps a same-id card mounted. So the editor is keyed by the scenario: any switch, A→B or A→B→A, remounts it, and the
- * unmount cancels the watch, retires the commit's settlement callback and drops every settlement word.
+ * ⭐ ONE MODEL PER EDITOR (B UI delta checks on c72ec673 and cbeefd21; final check on d770bc1c). Everything this editor
+ * holds after a commit (the saved-model watch, "Checking…", a receipt) and while it is open (a refusal, the draft) is
+ * about the model it was typed into, and a local scenario switch keeps a same-id card mounted. So the editor is keyed by
+ * the model instance: any switch, A→B or A→B→A, remounts it, and the unmount cancels the watch, retires the commit's
+ * settlement callback and drops every word. The one change of id that is NOT a new model is the unbound model getting
+ * its first id (Save as, the first Send's lazy id, an import's registration): its writer records `unboundModelBinding`
+ * in the same store write (`stores/unboundModelBinding.ts`), and the editor is kept, refusal and draft included.
  */
 export function NodeValueEditor(props: NodeValueEditorProps) {
+  return <NodeValueEditorInScenario key={useModelInstance()} {...props} />
+}
+
+/** Moves on every change of scenario id except the unbound model's own first id (above). */
+function useModelInstance(): number {
   const scenarioId = useCanvasStore((state) => state.currentScenarioId)
-  return <NodeValueEditorInScenario key={scenarioId ?? 'no-scenario'} {...props} />
+  const binding = useCanvasStore((state) => state.unboundModelBinding)
+  const [seen, setSeen] = useState({ scenarioId, binding, instance: 0 })
+  if (seen.scenarioId !== scenarioId || seen.binding !== binding) {
+    const sameModel = seen.scenarioId === scenarioId
+      || (seen.scenarioId == null && binding != null && binding !== seen.binding && binding.scenarioId === scenarioId)
+    setSeen({ scenarioId, binding, instance: sameModel ? seen.instance : seen.instance + 1 })
+  }
+  return seen.instance
 }
 
 function NodeValueEditorInScenario({

@@ -48,10 +48,13 @@ export function resolveEvidenceGapConfidenceDisplay(
  * the gap itself is a real producer finding and still deserves a row.
  */
 export function evidenceGapGenericText(display: EvidenceGapConfidenceDisplay): string {
+  // Run-4 judge (DL 12 Oct, the class): "Firming it up could change which option the most runs support in this model"
+  // was a leader claim from a win share. The clause is removed and nothing replaces it; with no confidence to state, the
+  // body is empty and the row keeps its title (the gap itself).
   return display.show
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: not-chance: Olumi's confidence in a factor, not a chance
-    ? `Olumi's confidence in this factor is ${display.pct}%. Firming it up could change which option the most runs support in this model.`
-    : 'Firming up this factor could change which option the most runs support in this model.'
+    ? `Olumi's confidence in this factor is ${display.pct}%.`
+    : ''
 }
 
 /**

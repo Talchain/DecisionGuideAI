@@ -73,6 +73,26 @@ import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixtu
  * same-render contrast control (both cards and their Results chance cells are on
  * screen). The panel-side assertions (its denial probe and the checks footer
  * stating exactly one verdict) are unchanged.
+ *
+ * ⚠ RE-POINTED ON THE RESULTS SIDE — RUN-4 JUDGE (DL 12 Oct, the class). The
+ * checks footer's affirmative ("one option was supported by more runs than any
+ * other") was a leader claim from a win share, and its undetermined row ("…: not
+ * assessed") went with it. Both are removed and nothing replaces them: in those
+ * states the footer's leader row is NOT DRAWN. So the results side no longer
+ * states a leader on ANY run either. What survives is the agreement for the
+ * states still drawn: the footer's row carries the tie denial EXACTLY when the
+ * panel denies, and is absent otherwise; and no surface in the panel asserts a
+ * leader. Absence is always read beside a same-render contrast control (the
+ * footer and its robustness row).
+ *
+ * Run-4 judge, round 2 (DL 12 Oct, the class): the footer's tie denial ("no
+ * option was supported by clearly more runs than the others") is run-share
+ * comparison wording too; it is removed and nothing replaces it. The footer's
+ * leader row is now NOT DRAWN in ANY state, so the footer states no verdict and
+ * cannot contradict the panel. What the matrix pins now: the canvas never
+ * claims, the footer never draws the row, and nothing in the panel asserts a
+ * leader. The panel's own denial (the hero's, on a tied run) still renders, and
+ * the positive control reads it in the same render as the row's absence.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -271,15 +291,25 @@ function readCanvas(withView = false): { claims: boolean; rendered: boolean; tex
 }
 
 
+/** The footer's tie denial — removed with the rest of the leader row (Run-4 judge, round 2). */
+const DENIAL_LABEL = 'In this model, no option was supported by clearly more runs than the others'
+/** The removed words (Run-4 judge, DL 12 Oct): no surface in the panel may say them. */
+const REMOVED_LEADER_RE = /one option was supported by more runs than any other|which option most runs supported/i
+
 /**
  * What the RESULTS SURFACE says — the whole cockpit, as a user loads it.
  *
- * The verdict claim read here is the T1 checks footer's tick, rendered by
- * `TriageActionCardsBody` inside the cockpit's act-on-it section: "Has leading
- * option" / "No clear leader". It is the results side's statement of whether a
- * leading option exists, and it must agree with the canvas badge.
+ * The verdict claim read here is the T1 checks footer's leader row, rendered by
+ * `TriageActionCardsBody` inside the cockpit's act-on-it section. It is the
+ * results side's statement about whether a leading option exists, and it must
+ * agree with the rest of the panel and with the canvas.
+ *
+ * Run-4 judge (DL 12 Oct, the class): the row's affirmative and undetermined
+ * states are removed with nothing in their place, so `leaderRow` is `null` there.
+ * Read by testid beside a contrast control (the footer and its robustness row,
+ * same render), so `null` is the product's absence, never a blind probe.
  */
-function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: string } {
+function readPanel(): { denies: boolean; leaderRow: string | null; assertsLeader: boolean; text: string } {
   const { result } = renderHook(() => useResultsSectionData())
   const { container } = render(
     <ResultsBody
@@ -288,18 +318,16 @@ function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: strin
     />,
   )
   const text = container.textContent ?? ''
+  const footer = container.querySelector('[data-testid="t1-checks-footer"]')
+  if (!footer) throw new Error('t1-checks-footer did not render — the probe is blind, not the product silent')
+  if (!footer.querySelector('[data-testid="checks-robust"]')) {
+    throw new Error('checks-robust did not render — the contrast control is blind')
+  }
+  const row = footer.querySelector('[data-testid="checks-winner"]')
   return {
     denies: /no option is clearly most likely|no option was supported by clearly more runs/i.test(text),
-    // Legacy copy: the tick read "Has leading option"; the failing state read
-    // "No clear leader".
-    // SUPERSEDED 2026-07-31 (§6.2g): the footer's legacy "Winner" / "No
-    // winner" arm is DELETED — `useV17Copy` already selected the compliant
-    // labels on every live path, and the legacy strings survived only as the
-    // false arm of a ternary. The probe reads the labels the footer actually
-    // renders now. The GUARD is unchanged: footer and headline must still
-    // agree inside one panel.
-    footerTicksWinner:
-      /one option was supported by more runs than any other/.test(text) && !/no option is clearly most likely|no option was supported by clearly more runs/i.test(text),
+    leaderRow: row ? (row.textContent ?? '').replace(/\s+/g, ' ').trim() : null,
+    assertsLeader: REMOVED_LEADER_RE.test(text),
     text,
   }
 }
@@ -356,12 +384,22 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     expect(readPanel().denies).toBe(true)
   })
 
-  it('POSITIVE CONTROL: the checks-footer probe can see both states', () => {
+  it('POSITIVE CONTROL: the checks-footer probe reads a live render in both states, and the row is absent in both', () => {
     setStore(CLEAR_RUN)
-    expect(readPanel().footerTicksWinner).toBe(true)
+    const clear = readPanel()
+    // Run-4 judge (DL 12 Oct, the class): the clear-leader row ("one option was supported by more runs than any other")
+    // is removed; nothing replaces it.
+    expect(clear.leaderRow).toBeNull()
+    expect(clear.assertsLeader).toBe(false)
     document.body.innerHTML = ''
     setStore(TIED_RUN)
-    expect(readPanel().footerTicksWinner).toBe(false)
+    const tied = readPanel()
+    // Rebound control: in the SAME render the probe sees the panel's own denial (and `readPanel` pinned the footer and
+    // its robustness row), so the null below is the product's absence, not a blind probe.
+    expect(tied.denies).toBe(true)
+    // Run-4 judge (DL 12 Oct, the class): the footer's tie denial is removed; nothing replaces it.
+    expect(tied.leaderRow).toBeNull()
+    expect(tied.text).not.toContain(DENIAL_LABEL)
   })
 
   // ── The invariant, over the whole matrix ────────────────────────────────
@@ -377,7 +415,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     { label: 'narrow lead just over the gap threshold', s: { winnerWin: 0.56, runnerUpWin: 0.44, stability: 0.75, isTie: false } },
   ]
 
-  it.each(MATRIX)('$label — the canvas makes no leader claim; the panel states exactly one verdict', ({ s }) => {
+  it.each(MATRIX)('$label — the canvas makes no leader claim; the footer draws no leader row; nothing asserts a leader', ({ s }) => {
     setStore(s)
     const canvas = readCanvas()
     document.body.innerHTML = ''
@@ -393,14 +431,17 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
       canvas.claims,
       `The canvas card named a leader (ED #63 5799353114 decision 1). Panel denied: ${panel.denies}.\nCanvas text: ${canvas.text.slice(0, 400)}`,
     ).toBe(false)
-    // The checks footer states EXACTLY ONE verdict — it must never print
-    // both labels, and never neither. (This replaces the deleted panel's
-    // headline-vs-footer comparison; see the file header for why it is not
+    // The checks footer cannot disagree with the panel: it used to carry the tie denial exactly when the panel denied.
+    // (That replaced the deleted panel's headline-vs-footer comparison; see the file header for why it is not
     // reconstructed.)
+    // Run-4 judge (DL 12 Oct, the class): the affirmative row AND the tie denial are removed; nothing replaces them —
+    // so the footer draws no leader row on any row of the matrix, and no surface in the panel asserts a leader.
     expect(
-      panel.footerTicksWinner,
-      `The checks footer printed both verdict labels, or neither.\nSurface text: ${panel.text.slice(0, 400)}`,
-    ).toBe(!panel.denies)
+      panel.leaderRow,
+      `The checks footer drew a leader row (panel denied: ${panel.denies}).\nSurface text: ${panel.text.slice(0, 400)}`,
+    ).toBeNull()
+    expect(panel.text).not.toContain(DENIAL_LABEL)
+    expect(panel.assertsLeader, `The panel asserted a leader.\nSurface text: ${panel.text.slice(0, 400)}`).toBe(false)
   })
 })
 
@@ -430,5 +471,8 @@ it('view-bearing control: singleVerdict Results panel preserves its single verdi
   } as never)
   const panel = readPanel()
   expect(panel.denies).toBe(false)
-  expect(panel.footerTicksWinner).toBe(true)
+  // Run-4 judge (DL 12 Oct, the class): the clear-leader row is removed; nothing replaces it. The single verdict the
+  // panel preserves is now: no denial, and no leader asserted anywhere.
+  expect(panel.leaderRow).toBeNull()
+  expect(panel.assertsLeader).toBe(false)
 })
