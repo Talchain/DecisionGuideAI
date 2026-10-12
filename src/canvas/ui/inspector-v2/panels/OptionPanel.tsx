@@ -51,6 +51,7 @@ import {
   readingShowsModelValue,
   resolveBaselineOptionReference,
   resolveOptionTargets,
+  analysisViewIsStale,
   type CeeOptionTargetsLike,
   type TargetNodeLike,
 } from '../../../nodes/shared/optionTargetDisplay'
@@ -103,6 +104,8 @@ export const OptionPanel = memo(function OptionPanel({
   const edges = useCanvasStore(s => s.edges)
   /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  /** The card's rule (`analysisViewIsStale`): on a stale analysis view the saved numbers stand. */
+  const analysisViewStale = useCanvasStore(s => analysisViewIsStale(s.ceeAnalysisReady, s.lastServerGraphHash))
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
@@ -493,7 +496,7 @@ export const OptionPanel = memo(function OptionPanel({
     if (!nodeId || !node) return out
     const ceeOptions = (ceeAnalysisReady as { options?: CeeOptionTargetsLike[] } | null | undefined)?.options
     const ceeOpt = ceeOptions?.find(o => o.id === nodeId)
-    const resolved = resolveOptionTargets(node.data as Record<string, unknown> | undefined, ceeOpt)
+    const resolved = resolveOptionTargets(node.data as Record<string, unknown> | undefined, ceeOpt, { viewStale: analysisViewStale })
     const baselineReference = isBaselineOption
       ? null
       : resolveBaselineOptionReference(nodes as ReadonlyArray<TargetNodeLike>, ceeOptions, nodeId)
@@ -527,7 +530,7 @@ export const OptionPanel = memo(function OptionPanel({
       })
     }
     return out
-  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption])
+  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption, analysisViewStale])
 
   /** The option's own name, for each target box's accessible name. */
   const optionAccessibleLabel = resolveElementLabel(node?.data)

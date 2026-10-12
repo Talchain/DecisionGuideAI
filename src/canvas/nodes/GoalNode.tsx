@@ -1026,7 +1026,7 @@ export const GoalNode = memo((props: NodeProps) => {
                     inPlaceTarget.unit,
                     goalEditAuthority.captureScenarioId(),
                     inPlaceTarget.direction,
-                    { onSendSettled: (settlement) => opts.onSendSettled(settlement) },
+                    { onSendSettled: (settlement, detail) => opts.onSendSettled(settlement, detail) },
                   )}
                 readCommittedValue={() =>
                   goalTargetInPlaceEdit(useCanvasStore.getState().nodes.find((n) => n.id === props.id)?.data as GoalTargetSource)?.value ?? null}

@@ -47,11 +47,14 @@ import { useCanvasStore } from '../store'
 import { isOrchestratorV2Enabled } from '../../flags'
 import {
   buildStructuralAddEdgeWirePayload,
+  captureStructuralAddEdge,
   readChainedStructuralAddEdge,
   resolveStructuralAddEdgeBase,
   STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST,
   type ResolvedStructuralAddEdgeIntent,
 } from '../mutations/structuralAddEdge'
+import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
+import { canvasEdgePairKey } from '../utils/graphIdentity'
 import type { WireSystemEvent } from './types'
 
 export type StructuralAddEdgeSender = (
@@ -160,13 +163,39 @@ export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSen
               }
               continue
             }
+            // Re-read after every await: a queued draw may have been reviewed
+            // while another add was in flight. Never replay its older sign.
+            let current = resolved
+            // Node-add chains are structural convention links. Their node
+            // receipt may temporarily remove the local edge; readiness above
+            // owns that lifecycle and its exact committed base hash.
+            if (intent.afterNodeAddIntentId === undefined) {
+              const live = useCanvasStore.getState()
+              const edge = live.edges.find(e => e.id === intent.edgeId)
+              if (!edge || live.lastAuthoritativeGraph?.edgePairs.includes(canvasEdgePairKey(edge)!)) continue
+              const latest = captureStructuralAddEdge({
+                edgesAfter: live.edges, edgeId: intent.edgeId,
+                baseGraphHash: resolved.baseGraphHash, externalMutationActive: false,
+                resolveSignedStrength: data => resolveEdgeSignedStrengthDisplay(data as Record<string, unknown>),
+                resolveDirection: data => resolveEdgeDirectionDisplay(data as Record<string, unknown>),
+                endpointKind: id => {
+                  const node = live.nodes.find(n => n.id === id)
+                  return node?.type ?? (node?.data?.kind as string | undefined)
+                },
+                makeId: () => intent.id,
+              })
+              if (!latest.ok) continue
+              // Keep the original base assertion; only the locally reviewed
+              // values replace the superseded queued values.
+              current = { ...resolved, magnitude: latest.intent.magnitude, direction: latest.intent.direction }
+            }
             // Nothing here may treat a resolved promise as evidence the edge
             // landed: the outcome is CEE's, carried in the turn response.
             await senderRef
               .current(
                 {
                   type: 'structural_add_edge',
-                  payload: buildStructuralAddEdgeWirePayload(resolved),
+                  payload: buildStructuralAddEdgeWirePayload(current),
                 },
                 // A link chained to a node add undoes WITH that node: one step.
                 {

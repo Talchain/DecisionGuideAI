@@ -168,6 +168,25 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
     expect(notice.querySelector('[role="alert"]')).toBeNull()
   })
 
+  it('a message with no response is labelled not delivered with the connection copy', () => {
+    failureMockState.lastSendFailure = {
+      kind: 'not_sent', retryable: true, inputText: 'hello',
+    }
+    messagesMockState.messages = [{ id: 'u1', role: 'user' }]
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.getByText("Your message wasn't sent. Check your connection and try again.")).toBeTruthy()
+  })
+
+  it('a dispatched message with no response says delivery is unconfirmed, never "not sent"', () => {
+    failureMockState.lastSendFailure = {
+      kind: 'delivery_unknown', retryable: true, inputText: 'hello',
+    }
+    messagesMockState.messages = [{ id: 'u1', role: 'user' }]
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.getByText("We couldn't confirm your message arrived. Check the conversation before sending it again.")).toBeTruthy()
+    expect(screen.queryByText("Your message wasn't sent. Check your connection and try again.")).toBeNull()
+  })
+
   it('server-class failure still gets a notice (the hero must never fail silently)', () => {
     failureMockState.lastSendFailure = {
       kind: 'server',

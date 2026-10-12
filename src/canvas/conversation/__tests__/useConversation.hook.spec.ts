@@ -165,6 +165,22 @@ vi.mock('../../../services/scenarioService', () => ({
   loadScenario: (...args: unknown[]) => mockLoadScenario(...args as [string]),
 }))
 
+/**
+ * B UI (follows c97624e, the stub `streamedDraftTurn.spec.ts` carries): a stream LOST to a dropped socket or silence
+ * now reads the saved model before any re-send (`streamCloseReadback.ts`). No row here is about that read; they are
+ * about what follows when nothing is saved yet, so it answers `absent` and its ~5 s wait resolves at once. The read-first
+ * path itself is pinned in `useConversation.draftRecovery.spec.ts` and `useConversation.streamLossReadback.spec.ts`.
+ */
+const mockFetchScenarioGraph = vi.fn(async (..._args: unknown[]) => ({ status: 'absent' as const, requestId: 'req-nothing-saved-yet' }))
+vi.mock('../streamCloseReadback', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../streamCloseReadback')>()),
+  waitBeforeStreamCloseReadback: async () => {},
+}))
+vi.mock('../../../adapters/cee/scenarioGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../adapters/cee/scenarioGraph')>()),
+  fetchScenarioGraph: (...args: unknown[]) => mockFetchScenarioGraph(...args),
+}))
+
 // Pin both flags ON:
 //   - isOrchestratorStreamingEnabled: the buildRequest payload block asserts
 //     against mockStreamTurn (streaming path). Without this, the flag
@@ -315,10 +331,11 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 
     expect(result.current.isThinking).toBe(false)
     expect(result.current.longRunningHint).toBeNull()
-    // Last message should be a synthetic timeout error
+    // Last message should be a synthetic timeout notice. The request was
+    // dispatched and never answered, so delivery is unknown (Batch B amendment).
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toMatch(/taking longer than expected/)
+    expect(last.content).toBe("We couldn't confirm your message arrived. Check the conversation before sending it again.")
   })
 })
 
@@ -2777,7 +2794,7 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
 // `x-cee-request-id` / `x-correlation-id` header (turnAuthHeaders.ts emits only
 // `X-User-Id` + `Authorization`). Reusing `client_turn_id` buys nothing —
 // CEE never reads `payload.turn_id` as a dedupe key.
-describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', () => {
+describe('acknowledged response — wait expiry keeps delivery uncertain (V5 path)', () => {
   const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 
   beforeEach(() => {
@@ -2785,9 +2802,12 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     useCanvasStore.setState({ currentScenarioId: SCENARIO_ID })
   })
 
-  /** Drive a turn that never resolves, then run the wait out. */
+  /** The server acknowledges HTTP headers, then the response body stalls. */
   const expireTheWait = async () => {
-    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    mockCallV5Turn.mockImplementation((_payload, opts) => {
+      opts.onResponseReceived?.()
+      return new Promise(() => {})
+    })
     const { result } = renderHook(() => useConversation())
     await act(async () => {
       result.current.sendMessage('add three options and a risk for each')
@@ -2909,7 +2929,7 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     expect(mockCallV5Turn).not.toHaveBeenCalled()
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
-    expect(last.content).toMatch(/didn['’]t reach the server/i)
+    expect(last.content).toBe("Your message wasn't sent. Check your connection and try again.")
     expect(last.content).not.toBe(WAIT_EXPIRY_UNKNOWN_COPY)
 
     // And advancing time cannot ADD a second, contradictory bubble — the

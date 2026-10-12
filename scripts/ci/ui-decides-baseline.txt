@@ -220,6 +220,9 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
 #    re-derived with the scanner, not hand-picked.
 #
+# 12 Oct 2026 (recovery Batch B): the moved-base saved-model read in `proposeFromMenu` (+15, then +1) was removed after
+#    B UI's independent check, so `contextMenu/actions.ts` is staging's text again and the site is back at `1151`.
+#    Same site, same code; re-derived with the scanner, not hand-picked.
 # 12 Oct 2026 (Batch C UI #2747, chance authority gate): `store.ts:8197` -> `8200` is a pure +3 line shift from the
 #    canonical-view import and the gated previous-Run view above. Same site, same code; re-derived with the scanner.
 # 12 Oct 2026 (Batch C UI #2747 r2, chance gate lint): `store.ts:8200` -> `8202` is a pure +2 line shift from the two

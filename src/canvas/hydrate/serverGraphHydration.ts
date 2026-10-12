@@ -32,7 +32,7 @@ import { reportActionBarIssue, useActionBarStore } from '../conversation/actionB
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
-import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
+import { fetchScenarioGraph, type FetchScenarioGraphOptions } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
@@ -98,6 +98,8 @@ export interface HydrateFromServerOptions {
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
   timeoutMs?: number
+  /** Opt-in re-read when the read gets no answer (stream-loss recovery only; `fetchScenarioGraph`). Boot passes none. */
+  unansweredRetry?: FetchScenarioGraphOptions['unansweredRetry']
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
   /**
@@ -251,6 +253,7 @@ async function readAndMergeServerGraph(
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,
+    ...(opts.unansweredRetry !== undefined ? { unansweredRetry: opts.unansweredRetry } : {}),
     ...(opts.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
   })
 

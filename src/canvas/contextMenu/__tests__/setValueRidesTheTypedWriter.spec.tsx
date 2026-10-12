@@ -346,11 +346,13 @@ describe('a refusal is shown where the user acted, in the card\'s words', () => 
     expect(refusal?.textContent, 'the card says the same sentence').toBe(settlementModule.VALUE_NOT_ENCODABLE_COPY)
   })
 
-  it('a server refusal after dispatch → "Not saved", the card\'s settlement word', async () => {
+  it('a server refusal after dispatch → "Not saved", the card\'s settlement word, with no reply claimed', async () => {
+    // Batch R3: a refused send gets no reply, so the word is `refused`, never "Olumi's reply says why".
     writer.settle = 'refused'
     openMenu(ADOPTION_ID)
     await clickSetValue(/^Best case/)
-    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message, 'warning')
+    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.refused.message, 'warning')
+    expect(toast.spy).not.toHaveBeenCalledWith(expect.stringMatching(/reply/), expect.anything())
   })
 
   it('sent, but the value reads unchanged → "Not saved" — the card\'s own revert rule', async () => {

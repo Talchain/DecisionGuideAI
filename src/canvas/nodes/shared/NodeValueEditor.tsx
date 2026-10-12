@@ -69,6 +69,13 @@
  * cannot drift):
  *
  *   refused → "Not saved"          (the server certified it wrote nothing)
+ *   refused on a MOVED base → "Checking the saved model…", then "Saved" if the
+ *                                  saved model holds the value, "Not saved" if it
+ *                                  still holds the old one, the revision notice if
+ *                                  another change got in first, "Could not confirm"
+ *                                  if it cannot be read (`awaitSavedModelRead`: after
+ *                                  a lost reply the model often already holds this
+ *                                  edit; `revision_conflict` included, capacity row 6)
  *   sent + reverted → "Not saved"  (a 200 that wrote nothing)
  *   sent + kept → no word          (the card already shows the saved value)
  *   unverified → "Could not confirm"
@@ -86,11 +93,14 @@ import { controls } from '../../../styles/controls'
 import { EditPencilCue } from './EditPencilCue'
 import { admitNumericField, NUMERIC_FIELD_REFUSAL } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
+  awaitSavedModelRead,
+  needsSavedModelRead,
   valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
   VALUE_NOT_ENCODABLE_COPY,
   type ValueCommitSettlementWord,
 } from '../../conversation/valueCommitSettlement'
+import { useCanvasStore } from '../../store'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 
 /** What a typed entry admits to: the value to commit, or the sentence saying why not. */
@@ -201,7 +211,18 @@ export interface NodeValueEditorProps {
   trailing?: React.ReactNode
 }
 
-export function NodeValueEditor({
+/**
+ * ⭐ ONE SCENARIO PER EDITOR (B UI delta checks on c72ec673 and cbeefd21). Everything this editor holds after a commit
+ * (the saved-model watch, "Checking…", a receipt) is about the scenario the edit was sent in, and a local scenario switch
+ * keeps a same-id card mounted. So the editor is keyed by the scenario: any switch, A→B or A→B→A, remounts it, and the
+ * unmount cancels the watch, retires the commit's settlement callback and drops every settlement word.
+ */
+export function NodeValueEditor(props: NodeValueEditorProps) {
+  const scenarioId = useCanvasStore((state) => state.currentScenarioId)
+  return <NodeValueEditorInScenario key={scenarioId ?? 'no-scenario'} {...props} />
+}
+
+function NodeValueEditorInScenario({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
   restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed,
 }: NodeValueEditorProps) {
@@ -216,8 +237,11 @@ export function NodeValueEditor({
   const mountedRef = useRef(true)
   const valueRef = useRef(value)
   valueRef.current = value
+  /** Cancels a pending read of the saved model (`awaitSavedModelRead`); a new edit or an unmount retires it. */
+  const cancelSavedReadRef = useRef<(() => void) | null>(null)
+  const retireSavedRead = useCallback(() => { cancelSavedReadRef.current?.(); cancelSavedReadRef.current = null }, [])
 
-  useEffect(() => () => { mountedRef.current = false }, [])
+  useEffect(() => () => { mountedRef.current = false; retireSavedRead() }, [retireSavedRead])
 
   // Open with the whole number selected, so typing replaces it rather than
   // appending to it (served witness 24 Sep: "60000" + "70000" → "6000070000").
@@ -232,11 +256,12 @@ export function NodeValueEditor({
     // rule `GoalPanel`'s `targetSettlement` follows for the goal target: a
     // stale "Not saved" must not survive past the edit that supersedes it.
     commitSeqRef.current += 1
+    retireSavedRead()
     setSettlement(null)
     setDraft(seedText ?? (value != null ? String(value) : ''))
     setRefusal(null)
     setIsEditing(true)
-  }, [value, seedText])
+  }, [value, seedText, retireSavedRead])
 
   // WHAT-IF "PUT IT BACK": open with the requested text, once per request. Same opening as a click (a new edit retires
   // any prior settlement word); only the draft differs. Nothing is committed here: Enter does that.
@@ -244,6 +269,7 @@ export function NodeValueEditor({
   useEffect(() => {
     if (!prefill) return
     commitSeqRef.current += 1
+    retireSavedRead()
     setSettlement(null)
     setDraft(prefill.text)
     setRefusal(null)
@@ -269,16 +295,34 @@ export function NodeValueEditor({
     // A commit that changes nothing is a no-op, not a dispatch.
     if (value != null && admission.value === value) { setIsEditing(false); return }
     const seq = ++commitSeqRef.current
+    retireSavedRead()
     const beforeCommit = value
     const committedTo = admission.value
+    const readNow = () => (readCommittedValue ? readCommittedValue() : valueRef.current)
+    const isCurrent = () => mountedRef.current && seq === commitSeqRef.current
     const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
-      if (!mountedRef.current || seq !== commitSeqRef.current) return
+      if (!isCurrent()) return
+      // ⭐ A refusal on a MOVED base is not "the model kept its previous value": after a lost reply the model often
+      // already holds this very value. Read the saved model first (`needsSavedModelRead`, served capacity row 7a).
+      if (needsSavedModelRead(s, detail)) {
+        setSettlement('checking')
+        retireSavedRead()
+        cancelSavedReadRef.current = awaitSavedModelRead({
+          // Read HERE, not at commit: the refusal settles before the re-read it requested can run (a later task), so
+          // this is still the base the refused send carried. The store is touched only on this path.
+          baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
+          readBase: () => useCanvasStore.getState().lastServerGraphHash,
+          subscribe: listener => useCanvasStore.subscribe(listener),
+          beforeCommit,
+          committedTo,
+          readNow,
+          onWord: word => { if (isCurrent()) setSettlement(word) },
+        })
+        return
+      }
       // The mapping is shared with the canvas context menu's Set value, which
       // proposes through the same writer — one reading of a settlement, not two.
-      setSettlement(valueCommitSettlementWord(
-        s, beforeCommit, committedTo,
-        () => (readCommittedValue ? readCommittedValue() : valueRef.current), detail,
-      ))
+      setSettlement(valueCommitSettlementWord(s, beforeCommit, committedTo, readNow, detail))
     }
     const outcome = onCommit(committedTo, { onSendSettled })
     if (outcome === 'dispatched') {
@@ -296,7 +340,7 @@ export function NodeValueEditor({
           ? VALUE_NOT_ENCODABLE_COPY
           : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
     )
-  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue, admit])
+  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue, admit, retireSavedRead])
 
   // `nodrag nopan` and the pointer stop are not optional: without them React
   // Flow treats a drag inside the field as a node drag and the caret never

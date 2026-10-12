@@ -284,6 +284,13 @@ export interface FetchScenarioGraphOptions {
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
   /**
+   * Attempts when the read gets NO answer (its deadline passed, or the connection failed), and the pause between them.
+   * OPT-IN: only the stream-loss recovery read passes it (`STREAM_LOSS_READ`, capacity 001307: the one 8 s read gave up
+   * 2 s before CEE answered it with the saved model). Every other caller keeps one bounded wait (the rollback window in
+   * `DEFAULT_TIMEOUT_MS`). A caller abort and every answered status (404, 401/403/429, other HTTP) are never retried.
+   */
+  unansweredRetry?: { readonly attempts: number; readonly backoffMs: number }
+  /**
    * Ask for the stored chat (`conversation_turns`) — MG 5907618888: OPT-IN, so every other caller's body stays
    * byte-identical. Only the cold open sends it. A CEE without the read ignores the key (measured 30 Sep 09:0xZ on
    * served staging: same 200, same 18 keys), so this is inert until the read serves.
@@ -575,6 +582,8 @@ export async function fetchScenarioGraph(
   })
 
   const url = scenarioGraphUrl(scenarioId)
+  const unansweredAttempts = Math.max(1, opts.unansweredRetry?.attempts ?? 1)
+  let unanswered = 0
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // One deadline per attempt, chained to any caller signal so an unmount
@@ -590,7 +599,7 @@ export async function fetchScenarioGraph(
       timeoutMs > 0 ? setTimeout(() => attemptController.abort(), timeoutMs) : null
 
     const startedAt = Date.now()
-    let response: Response
+    let response: Response | null = null
     try {
       response = await fetch(url, {
         method: 'POST',
@@ -606,16 +615,24 @@ export async function fetchScenarioGraph(
           attempt,
           timedOut: !opts.signal?.aborted,
         })
-        return { status: 'unusable' }
+      } else {
+        logger.warn('scenario_graph.transport_failure', {
+          attempt,
+          error: (err as Error)?.message ?? 'unknown',
+        })
       }
-      logger.warn('scenario_graph.transport_failure', {
-        attempt,
-        error: (err as Error)?.message ?? 'unknown',
-      })
-      return { status: 'unusable' }
     } finally {
       if (timer !== null) clearTimeout(timer)
       opts.signal?.removeEventListener('abort', onCallerAbort)
+    }
+    if (response === null) {
+      // No answer at all. Read again only when the caller opted in and has not hung up; the 503 budget is untouched.
+      unanswered += 1
+      if (opts.signal?.aborted || unanswered >= unansweredAttempts) return { status: 'unusable' }
+      await sleep(opts.unansweredRetry?.backoffMs ?? 0)
+      if (opts.signal?.aborted) return { status: 'unusable' }
+      attempt -= 1
+      continue
     }
 
     if (response.status === 503) {

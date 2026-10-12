@@ -184,6 +184,8 @@ import {
   optionTargetReading,
   resolveBaselineOptionReference,
   resolveOptionTargets,
+  analysisViewIsStale,
+  withSavedValuesOverStaleView,
   resolveUnsetOptionTargets,
   type CeeOptionTargetsLike,
   type TargetNodeLike,
@@ -824,6 +826,8 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  /** The analysis view describes a graph other than the saved one (`analysisViewIsStale`): the saved numbers stand. */
+  const analysisViewStale = useCanvasStore(state => analysisViewIsStale(state.ceeAnalysisReady, state.lastServerGraphHash))
   /**
    * POM-3: does any option on this board DECLARE the baseline? Then the label
    * guess may not make this card (or a sibling) a second one. One derivation,
@@ -923,17 +927,18 @@ export const OptionNode = memo((props: NodeProps) => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const optionNode = nodes.find(n => n.id === props.id)
-    const targets = resolveOptionTargets(optionNode?.data, ceeOption)
+    const targets = resolveOptionTargets(optionNode?.data, ceeOption, { viewStale: analysisViewStale })
     let interventionEntries: [string, unknown][] = []
 
     if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
       // ⭐ CEE authors the display string for every intervention; print it.
       // See `joinInterventionDetails` for the measured defects this closes and
-      // why BOTH sides of a comparison must be joined the same way.
-      interventionEntries = joinInterventionDetails(
+      // why BOTH sides of a comparison must be joined the same way. On a STALE
+      // view the saved number stands (`withSavedValuesOverStaleView`).
+      interventionEntries = withSavedValuesOverStaleView(joinInterventionDetails(
         ceeOption.interventions as Record<string, unknown>,
         (ceeOption as { intervention_details?: Record<string, unknown> }).intervention_details,
-      )
+      ), (optionNode?.data as any)?.interventions, analysisViewStale)
     } else {
       // Fallback: option node data.interventions (pre-CEE state)
       const nodeInterventions = (optionNode?.data as any)?.interventions
@@ -974,7 +979,7 @@ export const OptionNode = memo((props: NodeProps) => {
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-  }, [ceeAnalysisReady, props.id, nodes])
+  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale])
 
   // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
   // "What this option changes:" block needs the FULL built list so its
@@ -1201,6 +1206,7 @@ export const OptionNode = memo((props: NodeProps) => {
       const targets = resolveOptionTargets(
         n.data as Record<string, unknown> | undefined,
         ceeOpt as CeeOptionTargetsLike | undefined,
+        { viewStale: analysisViewStale },
       )
       // Row 22: the targets it NAMES with no value — kept, as `Needs input` rows.
       const unset = resolveUnsetOptionTargets(
@@ -1210,7 +1216,7 @@ export const OptionNode = memo((props: NodeProps) => {
       out.push({ id: n.id, isBaseline, targets, unsetTargets: new Set(unset.keys()), unsetSources: unset })
     }
     return out
-  }, [nodes, ceeAnalysisReady, declaredBaseline])
+  }, [nodes, ceeAnalysisReady, declaredBaseline, analysisViewStale])
 
   // Every CONCRETE change this option makes, in the shared order — computed for
   // the baseline too, whose card states no rows but must say whether it makes
@@ -1996,7 +2002,7 @@ export const OptionNode = memo((props: NodeProps) => {
           return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
         }}
         onCommit={(v, { onSendSettled }) => {
-          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st) } })
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st, detail) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st, detail) } })
           if (outcome === 'dispatched') return 'dispatched'
           return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
         }}

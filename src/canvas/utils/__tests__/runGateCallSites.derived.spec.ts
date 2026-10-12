@@ -152,8 +152,14 @@ describe('the 130 s timeout handler consumes the preview predicate (review F1, a
     // CONSTANT the handler actually renders, which no comment can impersonate,
     // and the constant's wording is pinned in deliveryUnknownHonesty.spec.tsx
     // where it can be asserted for meaning rather than for characters.
-    expect(source).toMatch(/content:\s*WAIT_EXPIRY_UNKNOWN_COPY/)
+    //
+    // Recovery Batch B (9f1627c, "a dispatched send with no reply is 'delivery
+    // unknown', not 'not delivered'"): the notice now says which it is. With a
+    // response, the wait expired (WAIT_EXPIRY_UNKNOWN_COPY); with none, delivery
+    // itself is unknown (DELIVERY_UNKNOWN_COPY). Both are copy constants.
+    expect(source).toMatch(/content:\s*responseReceived\s*\?\s*WAIT_EXPIRY_UNKNOWN_COPY\s*:\s*DELIVERY_UNKNOWN_COPY/)
     expect(source).toMatch(/from '\.\/deliveryUnknown'/)
+    expect(source).toMatch(/import\s*\{[^}]*\bDELIVERY_UNKNOWN_COPY\b[^}]*\}\s*from '\.\/transportFailure'/)
   })
 })
 
