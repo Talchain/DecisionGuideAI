@@ -37,7 +37,7 @@ const withRange = (range: unknown) => ({ ...SERVED, observedState: { ...SERVED.o
 const withPrior = (rangeMin: number, rangeMax: number) =>
   ({ ...SERVED, prior: { distribution: 'uniform', range_min: rangeMin, range_max: rangeMax } })
 
-function card(data: Record<string, unknown>, viewMode: 'standard' | 'detailed' = 'standard') {
+function card(data: Record<string, unknown>, viewMode: 'standard' | 'expert' = 'standard') {
   useCanvasStore.setState({ nodes: [{ id: ID, type: 'factor', position: { x: 0, y: 0 }, data }], edges: [], viewMode } as never)
   const { container } = render(<ReactFlowProvider><FactorNode id={ID} type="factor" data={data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
@@ -51,7 +51,7 @@ describe('the stored range is said neutrally on the canvas card', () => {
     ['confirmed (user_confirmed)', 'user_confirmed'],
     ['AI (cee_inference)', 'cee_inference'],
   ] as const)('⭐ %s: "Range: 20%%–30%% of monthly team capacity", the same words, no attribution', (_n, source) => {
-    for (const viewMode of ['standard', 'detailed'] as const) {
+    for (const viewMode of ['standard', 'expert'] as const) {
       const container = card(withRangeSource(source), viewMode)
       expect(screen.getByTestId(`factor-stored-range-${ID}`).textContent).toBe(NEUTRAL)
       expect(container.textContent).not.toContain('your range')
@@ -74,7 +74,7 @@ describe('the stored range is said neutrally on the canvas card', () => {
 
 describe('one card never states two ranges: where the prior-range line is drawn, the stored line is not', () => {
   it('a prior with the SAME bounds: only the prior-range line', () => {
-    for (const viewMode of ['standard', 'detailed'] as const) {
+    for (const viewMode of ['standard', 'expert'] as const) {
       card(withPrior(0.2, 0.3), viewMode)
       expect(screen.getByTestId(`factor-prior-range-${ID}`).textContent)
         .toBe('Your value replaces the range 20 % of monthly team capacity to 30 % of monthly team capacity')
@@ -87,7 +87,7 @@ describe('one card never states two ranges: where the prior-range line is drawn,
   // so the stored 20–30 bounds are HIDDEN, not absent. This row records exactly what renders: the prior line, in its own
   // existing words (the value's `user_override` stamp makes it "Your value replaces the range …"; unchanged here).
   it('KNOWN RESIDUAL — a prior with DIFFERENT bounds (10–50 vs stored 20–30): only the prior line renders', () => {
-    for (const viewMode of ['standard', 'detailed'] as const) {
+    for (const viewMode of ['standard', 'expert'] as const) {
       const container = card(withPrior(0.1, 0.5), viewMode)
       expect(screen.getByTestId(`factor-prior-range-${ID}`).textContent)
         .toBe('Your value replaces the range 10 % of monthly team capacity to 50 % of monthly team capacity')
