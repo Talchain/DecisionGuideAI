@@ -14,6 +14,7 @@ import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy
 import { readGoalChanceByDate, type GoalChanceTarget } from '../utils/goalChanceTarget'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
 import type { RunDeltaGoalChanceSide } from '@talchain/schemas/boundary'
+import type { CanonicalGoalChanceDetail } from '../../../canvas/runView/canonicalAnalysisView'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   at_least: 'at least',
@@ -101,11 +102,49 @@ function estimateLinkAttribution(licence: GoalChanceLicence): string {
   return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'relationship' : 'relationships'} (see Check estimates)`
 }
 
-export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null): string | null {
-  const text = unlabelledGoalChanceHeadline(licence, labelOf, wordsOf)
+export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null,
+  chanceWords?: string | null): string | null {
+  // Recovery Batch C (rulings 18 to 22): when the Run's licence carries its own words for what the chance is a chance OF
+  // (a change from today, several targets), they replace "chance of meeting your goal (target)", whose target words would
+  // misstate a change as a level. Every form is then said as each option's chance; no summary is composed here.
+  const text = chanceWords ? `In this model, on current information, each option’s ${chanceWords}:`
+    : unlabelledGoalChanceHeadline(licence, labelOf, wordsOf)
   const attribution = estimateLinkAttribution(licence)
   if (text === null || attribution === '') return text
   return text.endsWith(':') ? `${text.slice(0, -1)}${attribution}:` : `${text.slice(0, -1)}${attribution}.`
+}
+
+/**
+ * Recovery Batch C: the Run's goal-chance detail as the screen says it, in CEE's order and words
+ * (`goalChanceNotesForAgent`): with several targets, the joint's withheld line and its bound, then each target on its own;
+ * the status quo by assumption; then the licence's disclosures. A licensed joint adds no line here (each option's cell
+ * already says it). An option with no sayable label is left out of a target's line, as CEE does.
+ */
+export type GoalChanceDetailLine = { readonly kind: 'joint_withheld' | 'joint_bound' | 'target' | 'status_quo' | 'note'; readonly text: string }
+
+export function goalChanceDetailLines(
+  detail: CanonicalGoalChanceDetail, labelOf: (optionId: string) => string | null,
+  /** True when the status-quo option's own cell already says CEE's status-quo line (its "Why?"): it is not said twice. */
+  statusQuoSaidByItsCell = false,
+): GoalChanceDetailLine[] {
+  const lines: GoalChanceDetailLine[] = []
+  const targets = detail.targets
+  if (targets !== undefined) {
+    if (targets.joint.status === 'withheld') {
+      lines.push({ kind: 'joint_withheld', text: targets.joint.line })
+      if (targets.joint.frechet_line !== undefined) lines.push({ kind: 'joint_bound', text: targets.joint.frechet_line })
+    }
+    for (const t of targets.per_target) {
+      const each = t.options.flatMap((o) => {
+        const label = labelOf(o.option_id)
+        return label === null || label.trim() === '' ? [] : [`‘${label}’ ${o.display}`]
+      })
+      if (each.length > 0) lines.push({ kind: 'target', text: `On its own, the chance of ${t.words}, in this model: ${each.join('; ')}.` })
+    }
+  }
+  if (detail.status_quo !== undefined && !statusQuoSaidByItsCell) lines.push({ kind: 'status_quo', text: detail.status_quo.line })
+  for (const note of detail.notes ?? []) lines.push({ kind: 'note', text: note })
+  return lines
 }
 
 /**

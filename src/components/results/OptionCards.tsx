@@ -176,6 +176,8 @@ export interface OptionCardsProps {
   outcomeUnitSymbol?: string
   /** True when option magnitudes are normalised 0-1 scores, not user units. */
   isNormalised?: boolean
+  /** Recovery Batch C: the matching current Run's licence words for what the chance is a chance OF; null = "your goal". */
+  goalChanceWords?: string | null
 }
 
 /** Fallback description when no story headline is available */
@@ -555,6 +557,7 @@ function OptionCard({
   outcomeUnitSymbol,
   isNormalised,
   winSharesWithheld = false,
+  goalChanceWords = null,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -563,6 +566,7 @@ function OptionCard({
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
    */
   winSharesWithheld?: boolean
+  goalChanceWords?: string | null
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -880,7 +884,8 @@ function OptionCard({
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
+                {goalChanceWords ? GOAL_ANCHOR_COPY.readoutInLicenceWords(lowGoalReadout, goalChanceWords)
+                  : GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
               </span>
             </div>
           )}
@@ -1157,6 +1162,7 @@ export function OptionCards({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  goalChanceWords = null,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1497,6 +1503,7 @@ export function OptionCards({
             isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
             winSharesWithheld={winSharesAreWithheld}
+            goalChanceWords={goalChanceWords}
           />
         )
       })}

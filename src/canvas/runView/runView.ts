@@ -13,7 +13,7 @@
  *
  * Pure: no store reads. Formatters read only this view.
  */
-import type { CanonicalAnalysisView } from './canonicalAnalysisView'
+import type { CanonicalAnalysisView, CanonicalGoalChanceDetail } from './canonicalAnalysisView'
 import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
@@ -68,6 +68,11 @@ export interface RunView {
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
    */
   readonly participationOf: (optionId: string) => OptionParticipationEntry | null
+  /**
+   * Recovery Batch C: the Run's goal-chance detail (chance words, notes, status quo, several targets) from the matching
+   * canonical projection, under the cells' own freshness rule: only for a Run known to be current, else null.
+   */
+  readonly goalChanceDetail: () => CanonicalGoalChanceDetail | null
 }
 
 type Rec = Record<string, unknown>
@@ -89,6 +94,7 @@ const NO_CELL: OptionChanceCell = { kind: 'none', text: null }
 const EMPTY: RunView = {
   goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, mainDriverOf: () => null,
   chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), participationOf: () => null,
+  goalChanceDetail: () => null,
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
 const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
@@ -176,6 +182,10 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     },
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
+    goalChanceDetail: () => {
+      const held = canonicalByView.get(view)
+      return held !== undefined && held.staleness.stale === false ? held.goal_chance ?? null : null
+    },
   }
   if (canonical && matchesCanonicalRun(report, canonical)) canonicalByView.set(view, canonical)
   return view

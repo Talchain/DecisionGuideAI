@@ -407,6 +407,14 @@ export function AnalysisHeroPanel({
             {model.subline}
           </p>
         )}
+        {/* Recovery Batch C: the Run's goal-chance detail, CEE's words in CEE's order, said once beside the chances. */}
+        {model.goalChanceDetailLines && (
+          <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-goal-chance-detail">
+            {model.goalChanceDetailLines.map((line, index) => (
+              <p key={`${line.kind}-${index}`} data-line-kind={line.kind}>{dashSafe(line.text)}</p>
+            ))}
+          </div>
+        )}
         {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence.
             Present only on a withheld run that supplied one; null renders
             nothing at all, which is exactly what this panel did before the

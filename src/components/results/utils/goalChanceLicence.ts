@@ -303,10 +303,12 @@ export function goalChanceHeroSays(
   goalThreshold: number | null | undefined,
   options: ReadonlyArray<{ id: string; goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
   licence: GoalChanceLicence | null,
+  /** Recovery Batch C: the licence's own chance words; with them the sentence never says the target words, so need not. */
+  chanceWords?: string | null,
 ): boolean {
   if (licence === null || options.length < 2 || !goalChanceHeroArmOpen(goalThreshold, options)) return false
   if (!licence.optionIds.every((id) => options.some((o) => o.id === id))) return false
-  return formatGoalTarget(licence.target.value, licence.target.unit, 'level') !== null
+  return Boolean(chanceWords) || formatGoalTarget(licence.target.value, licence.target.unit, 'level') !== null
 }
 
 /**

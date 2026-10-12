@@ -60,7 +60,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
+import { goalChanceDetailLines, goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
 import { goalChanceDriverRunMessageIdentity, goalChanceRunMessages } from './goalChanceRunMessages'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
@@ -773,7 +773,10 @@ export function buildHeroModel(
   // be a row here, by id, or the arm stands aside and the chain below speaks as before.
   // One gate, shared with the WinGauge's existence line (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row,
   // the target sayable), so the line under these chance lines is never also, or never instead, under the WinGauge's.
-  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null)
+  // Recovery Batch C: the matching current Run's goal-chance detail (RunView owns the match and the freshness rule).
+  const goalChanceDetail = data.runView?.goalChanceDetail() ?? null
+  const goalChanceWords = goalChanceDetail?.chance_words ?? null
+  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null, goalChanceWords)
     && options.some(option => {
       const cell = optionChanceCellFromResults(data, option.id)
       // DL 87114's absence face earns no licence headline or driver/reason disclosure.
@@ -799,7 +802,7 @@ export function buildHeroModel(
   const summaryLicence = copyLicence !== null && copyLicence.optionIds.some(id => cellWordsOf(id) === null)
     ? { ...copyLicence, form: 'each' as const } : copyLicence
   const goalChanceHeadlineText =
-    summaryLicence === null || rows.length < 2 ? null : goalChanceHeadline(summaryLicence, goalChanceLabelOf, cellWordsOf)
+    summaryLicence === null || rows.length < 2 ? null : goalChanceHeadline(summaryLicence, goalChanceLabelOf, cellWordsOf, goalChanceWords)
 
   let headline: string
   if (rows.length === 1) {
@@ -1159,6 +1162,15 @@ export function buildHeroModel(
     goalChanceLeadLines = lines
     subline = lines.length ? lines.map(line => line.text).join(' ') : HERO_COPY.subline.compareTop
   }
+  // Recovery Batch C: said once beside the chances, whether or not the headline arm speaks (a withheld joint leaves every
+  // cell withheld, and the reason and each target's own chance must still be said).
+  const statusQuo = goalChanceDetail?.status_quo
+  const statusQuoCell = statusQuo !== undefined && options.some(o => o.id === statusQuo.option_id)
+    ? optionChanceCellFromResults(data, statusQuo.option_id) : null
+  const goalChanceDetailLinesOut = goalChanceDetail === null ? undefined : goalChanceDetailLines(goalChanceDetail, (id) => {
+    const option = options.find(o => o.id === id)
+    return option === undefined ? null : stripEncodingNotation(option.label).trim() || null
+  }, statusQuoCell !== null && 'why' in statusQuoCell && statusQuoCell.why === statusQuo?.line)
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
   // existing p10/p90/centre values ONLY, padded 5% each side (matching
@@ -1477,6 +1489,7 @@ export function buildHeroModel(
     subline,
     goalChanceHorizonLine,
     goalChanceLeadLines,
+    ...(goalChanceDetailLinesOut !== undefined && goalChanceDetailLinesOut.length > 0 ? { goalChanceDetailLines: goalChanceDetailLinesOut } : {}),
     designationWithheldReason,
     goalHorizonUntested,
     lenses,

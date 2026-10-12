@@ -402,6 +402,8 @@ export interface HeroChartModel {
   subline: string | null
   /** An option's cell and its own driver occupy successive lines; Run-wide messages have no option id. */
   goalChanceLeadLines?: ReadonlyArray<{ id?: string; kind?: 'cell' | 'driver'; text: string; why?: string }>
+  /** Recovery Batch C: the Run's goal-chance detail lines (joint withheld and its bound, each target, status quo, notes). */
+  goalChanceDetailLines?: ReadonlyArray<{ kind: 'joint_withheld' | 'joint_bound' | 'target' | 'status_quo' | 'note'; text: string }>
   /** The licence's clause actually appended to the subline; prevents a second range clause. */
   goalChanceHorizonLine?: string | null
   /**

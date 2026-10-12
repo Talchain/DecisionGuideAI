@@ -387,6 +387,9 @@ export const ResultsBody = memo(function ResultsBody({
   // isDefaultedConfidenceFromRaw), so the count cannot disagree with the pills
   // it is counting. Omitted entirely when there are no drivers: "0 of 0" is
   // not a disclosure, it is noise.
+  // Recovery Batch C: the matching current Run's licence words for what each chance is a chance OF (RunView owns the match).
+  const goalChanceWords = resultsSectionData.runView?.goalChanceDetail()?.chance_words ?? null
+
   const defaultEstimateDisclosure = useMemo(
     () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
     [resultsSectionData.drivers.drivers],
@@ -721,14 +724,16 @@ export const ResultsBody = memo(function ResultsBody({
               goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
               // ⭐ D3 cut 5 + 6: the disclosure's ONE home — here only when the hero will not say the goal-chance sentence.
               goalChanceDisclosure={goalChanceHeroSays(resultsSectionData.recommendation.goalThreshold,
-                resultsSectionData.recommendation.allOptions, resultsSectionData.goalChanceLicence ?? null)
+                resultsSectionData.recommendation.allOptions, resultsSectionData.goalChanceLicence ?? null, goalChanceWords)
                 ? null
                 : goalChanceDisclosureLines(resultsSectionData.goalChanceLicence ?? null)}
+              goalChanceWords={goalChanceWords}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The
                 lens selection is a separate id that only crowns/relabels its card. */}
             <OptionCards
+              goalChanceWords={goalChanceWords}
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
               // ROADMAP 1.223: the ENTITLEMENT, kept separate from the identity

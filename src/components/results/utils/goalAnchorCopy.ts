@@ -117,6 +117,17 @@ export const GOAL_ANCHOR_COPY = {
     `${GOAL_ANCHOR_COPY.label(isSubstitutedJoint)}, by option`,
 
   /**
+   * Recovery Batch C (rulings 18 to 22): the Run's licence carries its own words for what the chance is a chance OF ("chance
+   * of ‘Productivity’ being at least 10% higher than today at three months"); where it does, they replace "your goal".
+   */
+  labelInLicenceWords: (chanceWords: string): string =>
+    `${chanceWords.charAt(0).toUpperCase()}${chanceWords.slice(1)}, in this model`,
+  readoutInLicenceWords: (formatted: string, chanceWords: string): string => {
+    const p = `${goalProbabilityWords(formatted)} ${chanceWords}`
+    return p.charAt(0).toUpperCase() + p.slice(1)
+  },
+
+  /**
    * A5 — the no-target state. ISL computes a goal probability ONLY when a
    * success threshold was supplied, so this is not an edge case: it is the
    * state of every run the user has not set a target on.

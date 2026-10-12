@@ -107,7 +107,12 @@ describe('GoalNode — today\'s level on a change goal', () => {
   it('RED: the served reading → "Today: £45,000/month — Olumi\'s reading of ‘Monthly spend is £45k’" (never "your brief")', () => {
     const { container } = renderCard(SERVED_CUT_COSTS)
     expect(line(container)).toBe('Today: £45,000 / month — Olumi\'s reading of ‘Monthly spend is £45k’')
-    expect(container.textContent).not.toMatch(/your brief/)
+    // Today's level is Olumi's reading, never the user's brief.
+    expect(line(container)).not.toMatch(/your brief/)
+    // Recovery Batch C, SYS3 L5 (#94 6115410093): the −20% the brief wrote IS credited, on the target's own mark and
+    // nowhere else on the card (this assertion was "never 'your brief' anywhere", from AIQ 5900578934's relative rule).
+    expect(container.querySelector('[data-testid="goal-target-source-goal-1"]')?.textContent).toContain('From your brief')
+    expect((container.textContent ?? '').split('your brief').length - 1).toBe(1)
   })
 
   it('RED: after MG\'s apply (no reading, a user-stated level) → "Today: £50,000/month — you said"', () => {

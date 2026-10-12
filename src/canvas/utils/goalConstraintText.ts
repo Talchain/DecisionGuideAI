@@ -2,6 +2,7 @@ import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatStatedLimitValue, renderLimitOperator } from '../../components/results/decision-overview/statedLimits'
 import { classifyUnit, compactUnitParts, formatMoneyFigure, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
 import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
+import { isGoalTargetRow } from '../domain/goalOwnTargetRow'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
@@ -382,6 +383,8 @@ export function goalConstraintText(
   nodes: readonly { id: string; data?: unknown }[] = [],
   options: GoalConstraintTextOptions = {},
 ): string {
+  // Recovery Batch C: one of the goal's targets is said as a target, with the comparator the user stated.
+  if (isGoalTargetRow(constraint)) return goalTargetRowText(constraint, nodes, options.omitLabel === true)
   const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
   const label = (typeof constraint.label === 'string' ? constraint.label.trim() : '') || (target ? resolveElementLabel(target.data) : 'Constraint')
   // Explicit constraints may come from the brief or a panel edit; neither means verified.
@@ -510,6 +513,7 @@ export function goalConstraintShortText(
   constraint: CEEGoalConstraint,
   nodes: readonly { id: string; type?: string; data?: unknown }[] = [],
 ): string {
+  if (isGoalTargetRow(constraint)) return goalTargetRowText(constraint, nodes, false)
   const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
   const carried = typeof constraint.label === 'string' ? constraint.label.trim() : ''
   const label = carried || (target ? resolveElementLabel(target.data) : 'Constraint')
@@ -561,4 +565,41 @@ export function goalConstraintShortText(
   // pill names the metric, in which case the structured limit is the statement.
   if (subject === label && labelAlreadyStatesLimit(label)) return `${label}${origin}`
   return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
+}
+
+/**
+ * Recovery Batch C: one of the goal's TARGETS (CEE `role: 'goal_target'`), in CEE's target words (`goal-chance-licence.ts`):
+ * the comparator the user STATED ("above 15%", `operator_as_stated: '>'`), never the held `>=` the limit path renders as
+ * "≥". The subject is the measured element's own title, as on the limit pill; a change frame is said as the change.
+ * `null` when the row states no sayable comparator or figure (nothing is invented).
+ */
+const TARGET_BOUND_WORDS: Readonly<Record<string, string>> = { '>=': 'at least', '>': 'above', '<=': 'at most', '<': 'below' }
+function goalTargetRowWords(
+  constraint: CEEGoalConstraint,
+  nodes: readonly { id: string; type?: string; data?: unknown }[],
+  omitSubject: boolean,
+): string | null {
+  const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
+  const carried = typeof constraint.label === 'string' ? constraint.label.trim() : ''
+  const title = target ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+  const subject = omitSubject ? '' : title !== UNNAMED_ELEMENT_LABEL ? `${title.trim()} ` : carried ? `${carried} ` : ''
+  const change = sayableLimitChange(constraint)
+  if (change !== null) return `${subject}${sayLimitChange(change)}`
+  const row = constraint as { operator?: unknown; operator_as_stated?: unknown }
+  const stated = row.operator === '>=' && row.operator_as_stated === '>' ? '>'
+    : row.operator === '<=' && row.operator_as_stated === '<' ? '<' : row.operator
+  const words = typeof stated === 'string' ? TARGET_BOUND_WORDS[stated] : undefined
+  if (words === undefined || typeof constraint.value !== 'number' || !Number.isFinite(constraint.value)) return null
+  return `${subject}${words} ${formatLimitMagnitude(constraint.value, constraint.unit)}`
+}
+
+/** A target row as every list says it: "Target: Conversion rate above 15%" (beside a named element: "target above 15%"). */
+function goalTargetRowText(
+  constraint: CEEGoalConstraint,
+  nodes: readonly { id: string; type?: string; data?: unknown }[],
+  omitLabel: boolean,
+): string {
+  const words = goalTargetRowWords(constraint, nodes, omitLabel)
+  if (words === null) return omitLabel ? 'target not captured' : 'Target not captured'
+  return omitLabel ? `target ${words}` : `Target: ${words}`
 }

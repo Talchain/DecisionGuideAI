@@ -76,7 +76,7 @@ import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
@@ -760,11 +760,10 @@ export const GoalNode = memo((props: NodeProps) => {
    * operator, figure and unit, not by node: a `<=` bound on the goal node (the
    * headcount starter's "Delivery deadline ≤2 months") is a limit and stays.
    */
-  const statedLimits = goalStatedLimits(
-    activeConstraints,
-    props.id,
-    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit, comparator: props.data?.goal_direction } : null,
-  )
+  const statedTargetFigure = targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit, comparator: props.data?.goal_direction } : null
+  const statedLimits = goalStatedLimits(activeConstraints, props.id, statedTargetFigure)
+  // Recovery Batch C: the goal's other targets (CEE `role: 'goal_target'`) are stated as targets, never as limits.
+  const statedTargets = goalStatedTargets(activeConstraints, props.id, statedTargetFigure)
 
 
   // Science icons (spec Section 4.1)
@@ -790,6 +789,7 @@ export const GoalNode = memo((props: NodeProps) => {
     briefExtract ||
     stabilityValue !== null ||
     (statedLimits && statedLimits.length > 0) ||
+    statedTargets.length > 0 ||
     hasConstraintDefaultWarning ||
     hasThreshold
   )
@@ -835,6 +835,20 @@ export const GoalNode = memo((props: NodeProps) => {
             )}
           </div>
           <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
+        </div>
+      )}
+
+      {/* Recovery Batch C: the goal's other targets, said as targets (same neutral pill, never a limit). */}
+      {statedTargets.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {statedTargets.map((c, i) => {
+            const targetText = goalConstraintText(c, nodes)
+            return (
+              <div key={c.constraint_id ?? c.id ?? i} className="flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full border-field/40 text-text-body" data-testid="goal-target-badge" aria-label={targetText}>
+                <span className={`${typography.edgeLabel} break-words`}>{targetText}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -1173,6 +1187,18 @@ export const GoalNode = memo((props: NodeProps) => {
               pill's name, on hover AND keyboard focus (`Tooltip` opens on
               both) — the same focusable-readout pattern as the option share
               row (`role="img"` + `aria-label`, one accessible name). */}
+          {/* Recovery Batch C: the goal's other targets at rest, as targets (same neutral pill, never a limit). */}
+          {!isDetailed && statedTargets.map((c, i) => {
+            const text = goalConstraintText(c, nodes)
+            return (
+              <span key={c.constraint_id ?? c.id ?? i} aria-label={text}
+                data-testid={`goal-target-pill-${props.id}-${c.constraint_id ?? c.id ?? i}`}
+                className={`text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-[1.4] inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body`}
+              >
+                {text}
+              </span>
+            )
+          })}
           {restingLimitPills.map((l) => (
             <Tooltip key={l.key} asChild delay={NODE_TOOLTIP_DELAY_MS} content={l.name}>
               <span

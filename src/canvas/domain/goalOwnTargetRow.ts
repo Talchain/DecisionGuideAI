@@ -100,7 +100,25 @@ export function goalStatedLimits<C extends CEEGoalConstraint>(
   statedTarget: StatedGoalTargetFigure | null | undefined,
 ): C[] | null {
   if (!constraints) return null
-  return constraints.filter((c) => !constraintRestatesGoalTarget(c, goalId, statedTarget))
+  return constraints.filter((c) => !isGoalTargetRow(c) && !constraintRestatesGoalTarget(c, goalId, statedTarget))
+}
+
+/** Recovery Batch C: a `goal_constraints` row that is one of the goal's TARGETS (CEE `role: 'goal_target'`), never a limit. */
+export function isGoalTargetRow(c: Pick<CEEGoalConstraint, 'role'> | null | undefined): boolean {
+  return c?.role === 'goal_target'
+}
+
+/**
+ * Recovery Batch C: the goal's targets the card states besides the one it already prints as "Target: …" (the row that
+ * restates it is left out, exactly as `goalStatedLimits` leaves it out of the limits). The caller's own objects.
+ */
+export function goalStatedTargets<C extends CEEGoalConstraint>(
+  constraints: readonly C[] | null | undefined,
+  goalId: string,
+  statedTarget: StatedGoalTargetFigure | null | undefined,
+): C[] {
+  if (!constraints) return []
+  return constraints.filter((c) => isGoalTargetRow(c) && !constraintRestatesGoalTarget(c, goalId, statedTarget))
 }
 
 /**

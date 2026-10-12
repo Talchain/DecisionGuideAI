@@ -230,6 +230,7 @@ export function WinGauge({
   goalShares,
   goalChanceLicence = null,
   goalChanceDisclosure = null,
+  goalChanceWords = null,
 }: {
   shares: OptionWinShare[]
   /**
@@ -249,6 +250,8 @@ export function WinGauge({
    * figure) so these goal rows are where the chances are read. Rendered once, under the goal block. `null` = none.
    */
   goalChanceDisclosure?: string | null
+  /** Recovery Batch C: the matching current Run's licence words for what the chance is a chance OF; null = "your goal". */
+  goalChanceWords?: string | null
   decisionState?: DecisionState
   /**
    * ROADMAP 1.267. The LABEL of this chart was already fixed once (see the
@@ -421,7 +424,7 @@ export function WinGauge({
       role="figure"
       aria-label={
         hasGoalNumbers
-          ? GOAL_ANCHOR_COPY.byOptionAria(substituted)
+          ? goalChanceWords ? `${GOAL_ANCHOR_COPY.labelInLicenceWords(goalChanceWords)}, by option` : GOAL_ANCHOR_COPY.byOptionAria(substituted)
           : winSharesAreWithheld
             ? (winShareReasonLine ?? undefined)
             : COMPARATIVE_COPY.byOptionAria
@@ -433,7 +436,7 @@ export function WinGauge({
             className={`${typography.panelMeta} text-text-light mb-1`}
             data-testid="win-gauge-goal-heading"
           >
-            {GOAL_ANCHOR_COPY.label(substituted)}
+            {goalChanceWords ? GOAL_ANCHOR_COPY.labelInLicenceWords(goalChanceWords) : GOAL_ANCHOR_COPY.label(substituted)}
           </p>
           {/* ⭐ SUBSET DISCLOSURE — the SENTENCE only, never `withDetail`.
               The per-option goal magnitudes here are subset-INVARIANT, so the

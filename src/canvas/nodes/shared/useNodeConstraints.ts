@@ -15,7 +15,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../store'
 import { goalConstraintText } from '../../utils/goalConstraintText'
-import { goalCardShownLimits, sameConstraintRow } from '../../domain/goalOwnTargetRow'
+import { goalCardShownLimits, isGoalTargetRow, sameConstraintRow } from '../../domain/goalOwnTargetRow'
 import type { GoalTargetSource } from '../../domain/goalTarget'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
@@ -116,7 +116,8 @@ export function useNodeConstraints(nodeId: string, nodeLabel: string): NodeConst
       .filter(n => n.type === 'goal' && n.id !== nodeId)
       .flatMap(g => goalCardShownLimits(source, g.id, g.data as GoalTargetSource | undefined, isDetailed))
     return matching
-      .filter(c => !shownOnGoal.some(g => sameConstraintRow(g, c)))
+      // Recovery Batch C: a goal TARGET is never a "Limit" line; the Goal card states it as a target.
+      .filter(c => !isGoalTargetRow(c) && !shownOnGoal.some(g => sameConstraintRow(g, c)))
       .map(c => goalConstraintText(c, allNodes, { omitLabel: true }))
   }, [matching, allNodes, source, viewMode, nodeId])
 
