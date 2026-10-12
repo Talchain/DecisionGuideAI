@@ -73,9 +73,10 @@ function resultsText(data: ResultsSectionDataReturn): string {
   return text
 }
 
-function canvasCardsText(): string {
+/** Every option and factor card, in one view. The store's Detailed view mode is 'expert' (store.ts `ViewMode`). */
+function canvasCardsTextIn(viewMode: 'standard' | 'expert'): string {
   const out: string[] = []
-  for (const viewMode of ['standard', 'detailed'] as const) {
+  {
     useCanvasStore.setState({ viewMode } as never)
     for (const node of useCanvasStore.getState().nodes.filter(n => n.type === 'option' || n.type === 'factor')) {
       const Card = node.type === 'option' ? OptionNode : FactorNode
@@ -88,6 +89,9 @@ function canvasCardsText(): string {
   }
   return out.join('\n')
 }
+
+/** Both views: Standard, then Detailed. */
+const canvasCardsText = (): string => [canvasCardsTextIn('standard'), canvasCardsTextIn('expert')].join('\n')
 
 /**
  * The Reasoning tab, with every collapsed section opened (a closed section is unmounted, so its words would hide). Used
@@ -155,6 +159,13 @@ describe('run 4: no surface composes a leader claim from a win share (the class,
     const text = reasoningText(await servedData())
     expect(text).toContain('Changes the most-supported option in this model46% of runs')
     expect(leaderLines(text).some(l => l.includes('Changes the most-supported option in this model'))).toBe(true)
+  })
+
+  it('CONTRAST: the Detailed pass really renders the Detailed cards (the census sees text Standard does not)', async () => {
+    await servedData()
+    const standard = canvasCardsTextIn('standard')
+    const detailed = canvasCardsTextIn('expert')
+    expect(detailed).not.toBe(standard)
   })
 
   it('CONTRAST: the served goal chance still renders verbatim on the hero', async () => {
