@@ -231,6 +231,7 @@ export function WinGauge({
   goalChanceLicence = null,
   goalChanceDisclosure = null,
   goalChanceWords = null,
+  goalChancesNotCurrent = null,
 }: {
   shares: OptionWinShare[]
   /**
@@ -252,6 +253,11 @@ export function WinGauge({
   goalChanceDisclosure?: string | null
   /** Recovery Batch C: the matching current Run's licence words for what the chance is a chance OF; null = "your goal". */
   goalChanceWords?: string | null
+  /**
+   * Recovery Batch C (#2747 r1): set when the Run is not known to be current (RunView `chancesNotCurrent`). No figure is
+   * quoted, and the block says CEE's own sentence (`line`, e.g. run again) or nothing: never "unlocks when the engine…".
+   */
+  goalChancesNotCurrent?: { readonly line: string | null } | null
   decisionState?: DecisionState
   /**
    * ROADMAP 1.267. The LABEL of this chart was already fixed once (see the
@@ -521,7 +527,13 @@ export function WinGauge({
         //    gate), same finite-number guard as its threshold read, one
         //    register key for both surfaces. No CTA — nothing unlocks it.
         // 3. Genuinely no target: the invitation, with its route.
-        goalFitWithheld ? (
+        goalChancesNotCurrent !== null ? (
+          goalChancesNotCurrent.line === null ? null : (
+            <p className={`${typography.panelMeta} text-text-light mb-2`} data-testid="win-gauge-goal-not-current">
+              {goalChancesNotCurrent.line}
+            </p>
+          )
+        ) : goalFitWithheld ? (
           <div className="mb-2" data-testid="win-gauge-goal-not-scored">
             <p className={`${typography.panelMeta} text-text-light`}>
               {GOAL_ANCHOR_COPY.notScored}

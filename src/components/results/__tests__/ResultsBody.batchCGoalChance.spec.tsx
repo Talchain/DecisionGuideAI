@@ -47,6 +47,23 @@ describe('ResultsBody: the Batch C licence, said once and alike on every mounted
     expect(gauge).not.toMatch(/\b60%|\b70%/)
   })
 
+  it('#2747 r1 B5 (stale): a Run not known to be current quotes no chance anywhere; the gauge says CEE\'s line, not "unlocks"', () => {
+    const j = marketingJourney('licensed')
+    const RUN_AGAIN = 'Run the analysis again to see the chance.'
+    seedJourney(j, { ...j.canonical, staleness: { ...(j.canonical.staleness as object), stale: true }, face_when_stale: RUN_AGAIN })
+    const { result, unmount } = renderHook(() => useResultsSectionData())
+    const data = result.current
+    unmount()
+    // The licence still holds 35 / 48, but no surface may quote it for a stale Run.
+    expect(data.runView!.chanceOf('hire_manager')).toEqual({ kind: 'none' })
+    expect(data.recommendation.allOptions.every(o => o.goalProbability == null)).toBe(true)
+    render(<ResultsBody resultsSectionData={data} tornadoData={{ rows: [], expectedOutcome: null }} onSendMessage={() => {}} expertMode={false} />)
+    expect(screen.queryByTestId('goal-pct-hire_manager')).toBeNull()
+    expect(screen.getByTestId('win-gauge-goal-not-current')).toHaveTextContent(RUN_AGAIN)
+    expect(screen.queryByTestId('win-gauge-goal-producer-gap')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/\b35%|\b48%/)
+  })
+
   it('item 1 (marketing, joint withheld): the hero says the withheld line, the bound, then each target, once on the surface', () => {
     seedJourney(marketingJourney('withheld'))
     mount()

@@ -70,7 +70,7 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { licensedOptionChanceLines, runViewOf } from '../../canvas/runView/runView'
+import { licensedGoalChanceDetailLines, licensedOptionChanceLines, runViewOf } from '../../canvas/runView/runView'
 import { goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
@@ -465,9 +465,13 @@ function V5AnalysisResultBlockImpl({
   const goalChanceLicence = blockRunView.goalChance
   const goalChanceRange = blockRunView.goalChanceRange
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
+  // Recovery Batch C (#2747 r1): THIS Run's own stored words for what the chance is OF, its status quo, each target
+  // and its notes (the conditions the chance leaves out), never the generic "your goal".
+  const goalChanceDetail = blockRunView.licenceGoalChanceDetail()
   const pointGoalChanceLines = goalChanceLicence === null
     ? null
-    : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf)
+    : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, [], {}, false, undefined,
+      goalChanceDetail === null ? undefined : { chanceWords: goalChanceDetail.chance_words, statusQuo: goalChanceDetail.status_quo })
   const goalChanceLines = pointGoalChanceLines === null || goalChanceLicence === null
     ? null
     : goalChanceLicence.optionIds.map((id, index) => {
@@ -479,6 +483,8 @@ function V5AnalysisResultBlockImpl({
   const shownGoalChanceLines = goalChanceLines?.every((line): line is string => typeof line === 'string')
     ? goalChanceLines
     : null
+  const goalChanceDetailLinesShown = goalChanceDetail === null ? []
+    : licensedGoalChanceDetailLines(goalChanceDetail, goalChanceLabelOf, shownGoalChanceLines !== null)
   /** Position of a win-share key (an option id or its label) among canvas nodes. */
   const canvasRank = (key: string): number => {
     let i = 0
@@ -511,6 +517,7 @@ function V5AnalysisResultBlockImpl({
   // the summary would lose the only account of the run. The `v5-analysis-result`
   // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
   const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse && shownGoalChanceLines === null
+    && goalChanceDetailLinesShown.length === 0
   // ⭐ THE FOLD CLOSES THE RESULT (Paul's test, 27 Sep, AIC B4): it sat ABOVE the result's own content, so under a
   // reply it stacked as a third disclosure below "Show more" and "N questions…", in a caret style of its own. Content
   // first, the fold last, in the chat's own chevron — as "Show less" closes an answer (#2169). The words are unchanged.
@@ -746,6 +753,15 @@ function V5AnalysisResultBlockImpl({
           {goalChanceLicence!.optionIds.map((id, index) => (
             <li key={id} className={`${typography.chatBody} ${PROSE_WRAP}`} data-option-id={id}>
               {shownGoalChanceLines[index]}
+            </li>
+          ))}
+        </ul>
+      )}
+      {goalChanceDetailLinesShown.length > 0 && (
+        <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-goal-chance-detail">
+          {goalChanceDetailLinesShown.map((line, index) => (
+            <li key={`${line.kind}-${index}`} className={`${typography.chatBody} ${PROSE_WRAP}`} data-line-kind={line.kind}>
+              {line.text}
             </li>
           ))}
         </ul>

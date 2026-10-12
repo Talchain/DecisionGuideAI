@@ -13,11 +13,11 @@
  *
  * Pure: no store reads. Formatters read only this view.
  */
-import type { CanonicalAnalysisView, CanonicalGoalChanceDetail } from './canonicalAnalysisView'
-import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
+import { parseCanonicalGoalChance, type CanonicalAnalysisView, type CanonicalGoalChanceDetail } from './canonicalAnalysisView'
+import { readGoalChanceLicence, goalChanceDriverOf, GOAL_CHANCE_LICENSED, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
-import { goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
+import { goalChanceDetailLines, goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
 /** CEE 1c's ACKed withheld face; DL 87114: static absence, never a derived reason. */
@@ -73,6 +73,17 @@ export interface RunView {
    * canonical projection, under the cells' own freshness rule: only for a Run known to be current, else null.
    */
   readonly goalChanceDetail: () => CanonicalGoalChanceDetail | null
+  /**
+   * Recovery Batch C (#2747 r1): the same parts read from THIS Run's own stored licence record (a persisted chat card says
+   * the Run it belongs to, never today's), or null when the record carries none or any part is malformed.
+   */
+  readonly licenceGoalChanceDetail: () => CanonicalGoalChanceDetail | null
+  /**
+   * Recovery Batch C (#2747 r1): true when a matching canonical projection says this Run is not known to be current;
+   * `chanceOf` then quotes no figure (the cells' own freshness rule), and `notCurrentLine` is CEE's sentence, if any.
+   */
+  readonly chancesNotCurrent: () => boolean
+  readonly notCurrentLine: () => string | null
 }
 
 type Rec = Record<string, unknown>
@@ -94,7 +105,42 @@ const NO_CELL: OptionChanceCell = { kind: 'none', text: null }
 const EMPTY: RunView = {
   goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, mainDriverOf: () => null,
   chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), participationOf: () => null,
-  goalChanceDetail: () => null,
+  goalChanceDetail: () => null, licenceGoalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
+}
+
+/** CEE `sayDisplayedPct` (goal-targets-joint.ts): a whole percentage as the screen says it. */
+const sayDisplayedPct = (pct: number): string => pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
+
+/** The Batch C parts of the Run's one licence record, in the canonical view's shape (CEE `canonicalGoalChanceDetail`). */
+function licenceRecordDetail(warnings: unknown): CanonicalGoalChanceDetail | null {
+  if (!Array.isArray(warnings)) return null
+  const records = warnings.filter(w => isRec(w) && w.code === GOAL_CHANCE_LICENSED)
+  if (records.length !== 1) return null
+  const r = records[0] as Rec
+  const t = r.targets
+  const targets = isRec(t) && isRec(t.joint) && Array.isArray(t.per_target) ? {
+    joint: t.joint.status === 'licensed' ? { status: 'licensed', words: t.joint.words }
+      : { status: t.joint.status, line: t.joint.line, ...(t.joint.frechet_line === undefined ? {} : { frechet_line: t.joint.frechet_line }) },
+    per_target: t.per_target.map(row => isRec(row) && isRec(row.pct_by_option) ? { constraint_id: row.constraint_id, words: row.words,
+      options: Object.entries(row.pct_by_option).map(([option_id, pct]) => ({ option_id,
+        display: typeof pct === 'number' && Number.isInteger(pct) && pct >= 0 && pct <= 100 ? sayDisplayedPct(pct) : undefined })) } : row),
+  } : t
+  const raw = {
+    ...(r.chance_words === undefined ? {} : { chance_words: r.chance_words }),
+    ...(r.notes === undefined ? {} : { notes: r.notes }),
+    ...(r.status_quo === undefined ? {} : { status_quo: r.status_quo }),
+    ...(t === undefined ? {} : { targets }),
+  }
+  if (Object.keys(raw).length === 0) return null
+  return parseCanonicalGoalChance(raw) ?? null
+}
+
+/**
+ * The persisted chat card's Batch C lines (CEE's words, the screen's order), for THIS Run: the joint's withheld line and
+ * bound, each target on its own, then the notes. The status-quo line is left to the option lines when they say it.
+ */
+export function licensedGoalChanceDetailLines(...args: Parameters<typeof goalChanceDetailLines>): ReturnType<typeof goalChanceDetailLines> {
+  return goalChanceDetailLines(...args)
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
 const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
@@ -170,7 +216,12 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     goalChance: licence,
     goalChanceRange: range,
     unlicensedGoalFigures: unlicensed.size > 0,
-    chanceOf: (optionId) => chances.get(optionId) ?? NONE,
+    chanceOf: (optionId) => {
+      // Recovery Batch C (#2747 r1): the cells' freshness rule holds for the figure too; a Run not known to be current
+      // quotes no chance on any surface (WinGauge, cards), exactly as its canonical cell says none.
+      const held = canonicalByView.get(view)
+      return held !== undefined && held.staleness.stale !== false ? NONE : chances.get(optionId) ?? NONE
+    },
     mainDriverOf: (optionId) => {
       const held = canonicalByView.get(view)
       if (held && held.staleness.stale !== null) {
@@ -185,6 +236,15 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     goalChanceDetail: () => {
       const held = canonicalByView.get(view)
       return held !== undefined && held.staleness.stale === false ? held.goal_chance ?? null : null
+    },
+    licenceGoalChanceDetail: () => licenceRecordDetail(warnings),
+    chancesNotCurrent: () => {
+      const held = canonicalByView.get(view)
+      return held !== undefined && held.staleness.stale !== false
+    },
+    notCurrentLine: () => {
+      const held = canonicalByView.get(view)
+      return held !== undefined && held.staleness.stale === true && held.run !== null ? held.face_when_stale ?? null : null
     },
   }
   if (canonical && matchesCanonicalRun(report, canonical)) canonicalByView.set(view, canonical)

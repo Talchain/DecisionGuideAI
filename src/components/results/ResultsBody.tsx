@@ -389,6 +389,9 @@ export const ResultsBody = memo(function ResultsBody({
   // not a disclosure, it is noise.
   // Recovery Batch C: the matching current Run's licence words for what each chance is a chance OF (RunView owns the match).
   const goalChanceWords = resultsSectionData.runView?.goalChanceDetail()?.chance_words ?? null
+  // Recovery Batch C (#2747 r1): a Run not known to be current quotes no chance; the gauge says CEE's line instead.
+  const goalChancesNotCurrent = resultsSectionData.runView?.chancesNotCurrent() === true
+    ? { line: resultsSectionData.runView.notCurrentLine() } : null
 
   const defaultEstimateDisclosure = useMemo(
     () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
@@ -728,6 +731,7 @@ export const ResultsBody = memo(function ResultsBody({
                 ? null
                 : goalChanceDisclosureLines(resultsSectionData.goalChanceLicence ?? null)}
               goalChanceWords={goalChanceWords}
+              goalChancesNotCurrent={goalChancesNotCurrent}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The

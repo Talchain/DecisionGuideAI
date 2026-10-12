@@ -161,6 +161,8 @@ export function goalChanceOptionLines(
   driverLines: Readonly<Record<string, string>> = {},
   includeQuotedDrivers = false,
   cellOf?: (id: string) => { readonly kind: 'figure' | 'range' | 'withheld' | 'none'; readonly text: string | null },
+  /** Recovery Batch C (#2747 r1): the Run's own words for what the chance is OF, and its status quo, from its licence. */
+  batchC?: { readonly chanceWords?: string; readonly statusQuo?: { readonly option_id: string; readonly line: string } },
 ): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
@@ -187,13 +189,16 @@ export function goalChanceOptionLines(
     if (label === null) return null
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
     if (licence.withheldOptionIds.includes(id)) {
-      lines.push(`‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`)
+      lines.push(batchC?.statusQuo?.option_id === id ? batchC.statusQuo.line
+        : batchC?.chanceWords ? `‘${label}’: Olumi can’t yet say its ${batchC.chanceWords}, in this model.`
+          : `‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`)
       continue
     }
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
     const share = shareByDateWords(licence.target)
-    const chance = share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
+    const chance = batchC?.chanceWords ? `${batchC.chanceWords}, in this model`
+      : share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
     // card never says "see its downside", because a downside is not always beside this line.
     const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${GOAL_CHANCE_SPREAD_NOTE}` : ''

@@ -156,7 +156,12 @@ export const GOAL_CONSTRAINTS_COPY = {
   readOnly: 'Shown here, not edited here.',
   /** The narrow structural fact. No transport claim. See the header. */
   unattached: "Doesn't match an element in this model.",
+  /** Recovery Batch C: the goal's other targets (CEE `role: 'goal_target'`), listed apart from its limits. */
+  targetsHeading: 'Targets',
 } as const
+
+export const GOAL_TARGETS_SECTION_TESTID = 'model-goal-targets'
+export const GOAL_TARGET_ROW_TESTID = (constraintId: string): string => `model-goal-target-${constraintId}`
 
 /**
  * Stable identity for a row: `constraint_id`, else the legacy `id`, else the
@@ -230,13 +235,37 @@ export function GoalConstraintsSection({
         : constraints
   // Recovery Batch C: one of the goal's TARGETS (CEE `role: 'goal_target'`) is not a limit, so it is never listed under
   // "Limits"; the goal card states it as a target.
-  const effectiveConstraints = carriedConstraints?.filter(c => !isGoalTargetRow(c))
+  const effectiveConstraints = carriedConstraints?.filter(c => !isGoalTargetRow(c)) ?? []
+  // The goal's OTHER targets are listed as targets; its own row restates the target the outline's goal row states.
+  const goalIds = new Set(nodes.filter(n => {
+    const d = n.data as { kind?: unknown; type?: unknown } | undefined
+    return d?.kind === 'goal' || d?.type === 'goal'
+  }).map(n => n.id))
+  const otherTargets = carriedConstraints?.filter(c => isGoalTargetRow(c) && !(typeof c.node_id === 'string' && goalIds.has(c.node_id))) ?? []
 
   // Absence is absence. A model with no recorded limit renders exactly as it
   // did before this component existed.
-  if (!Array.isArray(effectiveConstraints) || effectiveConstraints.length === 0) return null
+  if (effectiveConstraints.length === 0 && otherTargets.length === 0) return null
 
   return (
+    <>
+    {otherTargets.length > 0 && (
+      <section data-testid={GOAL_TARGETS_SECTION_TESTID} aria-label={GOAL_CONSTRAINTS_COPY.targetsHeading}
+        className="border-b border-panel-border py-2.5 space-y-1.5">
+        <h3 className={`${typography.panelHeader} text-text-header`}>{GOAL_CONSTRAINTS_COPY.targetsHeading}</h3>
+        <ul className="space-y-1.5 list-none p-0 m-0">
+          {otherTargets.map((constraint, index) => {
+            const identity = constraintIdentity(constraint, index)
+            return (
+              <li key={identity} data-testid={GOAL_TARGET_ROW_TESTID(identity)} className="py-1.5">
+                <span className={`${typography.panelBody} text-text-body break-words`}>{goalConstraintText(constraint, nodes)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    )}
+    {effectiveConstraints.length > 0 && (
     <section
       data-testid={GOAL_CONSTRAINTS_SECTION_TESTID}
       aria-label={GOAL_CONSTRAINTS_COPY.heading}
@@ -355,6 +384,8 @@ export function GoalConstraintsSection({
         {GOAL_CONSTRAINTS_COPY.readOnly}
       </p>
     </section>
+    )}
+    </>
   )
 }
 

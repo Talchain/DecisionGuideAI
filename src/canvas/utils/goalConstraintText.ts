@@ -288,7 +288,9 @@ interface LimitChange {
  */
 function limitChangeOf(constraint: CEEGoalConstraint, quantityFrame?: unknown): LimitChange | null {
   const frame = limitChangeFrameOf(constraint)
-  const { operator, value } = constraint as { operator?: unknown; value?: unknown }
+  const { value } = constraint as { value?: unknown }
+  // Recovery Batch C (#2747 r1): the comparator the user STATED ("< −20%" held as `<=`) is the one said: "more than".
+  const operator = statedComparatorOf(constraint)
   if (frame === null || typeof value !== 'number' || !Number.isFinite(value)) return null
   if (operator !== '<=' && operator !== '<' && operator !== '>=' && operator !== '>') return null
   const rising = value >= 0
@@ -585,14 +587,28 @@ function goalTargetRowWords(
   const carried = typeof constraint.label === 'string' ? constraint.label.trim() : ''
   const title = target ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
   const subject = omitSubject ? '' : title !== UNNAMED_ELEMENT_LABEL ? `${title.trim()} ` : carried ? `${carried} ` : ''
+  // The limit path's order (#2747 r1): the change first, then the reader's audited figure, then their quoted words; a
+  // change is never said as a level, and a percent figure with no audit is never reconstructed (100× out).
   const change = sayableLimitChange(constraint, (target?.data as { quantity_frame?: unknown } | undefined)?.quantity_frame)
   if (change !== null) return `${subject}${sayLimitChange(change)}`
-  const row = constraint as { operator?: unknown; operator_as_stated?: unknown }
-  const stated = row.operator === '>=' && row.operator_as_stated === '>' ? '>'
-    : row.operator === '<=' && row.operator_as_stated === '<' ? '<' : row.operator
+  const quote = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
+  const quoted = quote ? `${subject ? `${subject.trim()} · ` : ''}\u201c${quote}\u201d` : null
+  if (limitChangeFrameOf(constraint) !== null) return quoted
+  const stated = statedComparatorOf(constraint)
   const words = typeof stated === 'string' ? TARGET_BOUND_WORDS[stated] : undefined
-  if (words === undefined || typeof constraint.value !== 'number' || !Number.isFinite(constraint.value)) return null
+  if (words === undefined) return null
+  const audit = constraint.provenance_unit_normalised
+  if (audit && hasAuditedFigure(constraint)) return `${subject}${words} ${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}`
+  if (goalConstraintTextUsesQuote(constraint)) return quoted
+  if (typeof constraint.value !== 'number' || !Number.isFinite(constraint.value)) return null
   return `${subject}${words} ${formatLimitMagnitude(constraint.value, constraint.unit)}`
+}
+
+/** The comparator as STATED: `operator_as_stated` narrows a held `<=`/`>=` to `<`/`>` (CEE `statedOperatorOf`). */
+function statedComparatorOf(constraint: CEEGoalConstraint): unknown {
+  const row = constraint as { operator?: unknown; operator_as_stated?: unknown }
+  return row.operator === '>=' && row.operator_as_stated === '>' ? '>'
+    : row.operator === '<=' && row.operator_as_stated === '<' ? '<' : row.operator
 }
 
 /** A target row as every list says it: "Target: Conversion rate above 15%" (beside a named element: "target above 15%"). */
