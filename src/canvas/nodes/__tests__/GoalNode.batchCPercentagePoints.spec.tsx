@@ -30,7 +30,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: v
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { GoalNode } from '../GoalNode'
-import { formatGoalChangeBound } from '../../../components/results/utils/formatGoalTarget'
+import { formatGoalChangeBound, formatGoalTarget } from '../../../components/results/utils/formatGoalTarget'
 import { resolveGoalTarget } from '../../domain/goalTarget'
 import { goalConstraintText } from '../../utils/goalConstraintText'
 import { computeSuccessState } from '../../components/pre-analysis-v3/selectors/computeSuccessState'
@@ -96,6 +96,9 @@ describe('a % change_abs target is said in percentage points only on a LEVEL qua
     expect(computeSuccessState(goalNode(noFrame), null, null, null)).toMatchObject({ isSet: false, displayText: null })
     expect(resolveGoalTarget(noFrame)).toBeNull()
     expect(targetRow()).toBe('Target not captured')
+    // The formatters themselves never guess either (defence in depth behind the resolver).
+    expect(formatGoalTarget(10, '%', 'change_abs')).toBeNull()
+    expect(formatGoalChangeBound(10, '%', 'change_abs', '>=')).toBeNull()
   })
 
   it('CONTROLS: change_rel is a fraction of today whatever the quantity; a plain LIMIT keeps CEE\'s limit sentence; 1 point', () => {
