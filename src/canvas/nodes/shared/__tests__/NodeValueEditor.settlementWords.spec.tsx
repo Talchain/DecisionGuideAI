@@ -202,81 +202,96 @@ describe('a refusal on a moved base reads the saved model; nothing else changes'
 })
 
 /**
- * B UI's delta check on c72ec673 (BLOCKING): a local scenario switch keeps a same-id card mounted, and the card's read is
- * by node id, so after a refused edit in scenario A it read scenario B's value: a false "Saved" or a false "Not saved"
- * for A's edit. The watch now ends silently, with no receipt, once the scenario is not the one the edit was sent in.
+ * B UI's delta checks on c72ec673 and cbeefd21 (BLOCKING ×2): a local scenario switch keeps a same-id card mounted, so the
+ * card's settlement state leaked across scenarios — a read of B's value for A's refused edit, an A→B→A switch before the
+ * refusal that a scenario-id equality let through, and a completed receipt that stayed on B. The class: the editor's
+ * state is not scoped to the scenario. Now the editor is keyed by the scenario (any switch remounts it).
+ *
+ * GENERATIVE: every switch point in the card's flow × {A→B, A→B→A} × every read outcome. The flow is commit → the
+ * refusal (the watch starts here, "Checking…") → the read (the base moves) → the receipt. After any switch, nothing from
+ * the other scenario's edit shows: no receipt and no "Checking…". With no switch, each genuine word still shows.
  */
-describe('a scenario switch ends the card\'s saved-model watch silently', () => {
+describe('a scenario switch, at any point of the flow, leaves no word from the other scenario on the card', () => {
+  type Point = 'after-commit' | 'after-refusal' | 'as-the-read-lands' | 'after-receipt'
+  type Kind = 'A→B' | 'A→B→A'
+  const POINTS: readonly Point[] = ['after-commit', 'after-refusal', 'as-the-read-lands', 'after-receipt']
+  const KINDS: readonly Kind[] = ['A→B', 'A→B→A']
+  const OUTCOMES = [
+    ['saved', COMMITTED, 'Saved. The model holds this value.'],
+    ['kept', BEFORE, 'Not saved. The model kept its previous value.'],
+    ['third', 80000, 'The scenario changed while I was saving, so nothing was saved. Try again.'],
+  ] as const
   const start = useCanvasStore.getState()
-  const inScenarioA = () => act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-3' } as never) })
-  const restore = () => act(() => { useCanvasStore.setState({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash } as never) })
-  async function switchToB(hash: string) {
-    await act(async () => {
-      useCanvasStore.setState({ currentScenarioId: 'scenario-b', lastServerGraphHash: hash } as never)
-      await new Promise(resolve => setTimeout(resolve, 5))
-    })
+  const set = (patch: Record<string, unknown>) => useCanvasStore.setState(patch as never)
+  /** Each switch is its own user action, rendered before the next (opening a scenario is never batched with leaving it). */
+  const doSwitch = async (kind: Kind, aBase = 'a-revision-3') => {
+    await act(async () => { set({ currentScenarioId: 'scenario-b', lastServerGraphHash: 'b-graph-0001' }); await Promise.resolve() })
+    // Back to A on the base it left: an equality on the scenario id alone would pass here.
+    if (kind === 'A→B→A') {
+      await act(async () => { set({ currentScenarioId: 'scenario-a', lastServerGraphHash: aBase }); await Promise.resolve() })
+    }
   }
 
-  it.each([
-    ['B holds the typed value (a false "Saved")', COMMITTED],
-    ['B holds another value (a false "Not saved")', 99000],
-  ])('RED on c72ec673: refused in A, then the person opens B, where %s → no receipt at all', async (_case, inB) => {
-    inScenarioA()
-    try {
-      let held: number | null = BEFORE
-      const { onCommit, settles } = dispatchingAuthority()
-      renderEditor(onCommit, () => held)
-      commitTo(COMMITTED)
-      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
-      expect(word()?.textContent).toBe('Checking the saved model…')
-      held = inB
-      // The switch itself ends the watch: no "Checking" about A's edit is left on B, even before B's graph is read.
-      await switchToB('a-revision-3')
-      expect(word()).toBeNull()
-      await switchToB('b-graph-0001')
-      expect(word()).toBeNull()
-      expect(screen.queryByText(/^Saved\.|^Not saved\.|scenario changed/)).toBeNull()
-    } finally {
-      restore()
+  async function run(point: Point | null, kind: Kind, held: number): Promise<string | null> {
+    act(() => set({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-3' }))
+    let value: number | null = BEFORE
+    const { onCommit, settles } = dispatchingAuthority()
+    renderEditor(onCommit, () => value)
+    const maybe = async (here: Point) => {
+      if (point !== here) return
+      await doSwitch(kind, here === 'after-receipt' ? 'a-revision-4' : 'a-revision-3')
+      // Right after the switch, nothing from A's edit is on the card.
+      expect(word(), `right after a ${kind} switch ${here}`).toBeNull()
     }
-  })
-
-  it('committed in A, the person opens B before the refusal arrives → no receipt and no "Checking"', async () => {
-    inScenarioA()
-    try {
-      let held: number | null = BEFORE
-      const { onCommit, settles } = dispatchingAuthority()
-      renderEditor(onCommit, () => held)
-      commitTo(COMMITTED)
-      await switchToB('b-graph-0001')
-      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
-      expect(word()).toBeNull()
-      held = COMMITTED
-      await switchToB('b-graph-0002')
-      expect(word()).toBeNull()
-    } finally {
-      restore()
-    }
-  })
-
-  it('CONTRAST: the same read in A itself still says saved', async () => {
-    inScenarioA()
-    try {
-      let held: number | null = BEFORE
-      const { onCommit, settles } = dispatchingAuthority()
-      renderEditor(onCommit, () => held)
-      commitTo(COMMITTED)
-      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
-      held = COMMITTED
+    commitTo(COMMITTED)
+    await maybe('after-commit')
+    act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+    await maybe('after-refusal')
+    value = held
+    if (point === 'as-the-read-lands') {
+      // The base moves and, in the same task, the person opens B (the read is still scheduled).
       await act(async () => {
-        useCanvasStore.setState({ lastServerGraphHash: 'a-revision-4' } as never)
+        set({ lastServerGraphHash: 'a-revision-4' })
+        set({ currentScenarioId: 'scenario-b', lastServerGraphHash: 'b-graph-0001' })
         await new Promise(resolve => setTimeout(resolve, 5))
       })
-      expect(word()?.textContent).toBe('Saved. The model holds this value.')
-    } finally {
-      restore()
+      if (kind === 'A→B→A') {
+        await act(async () => { set({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-4' }); await new Promise(resolve => setTimeout(resolve, 5)) })
+      }
+      expect(word(), `right after a ${kind} switch as the read lands`).toBeNull()
+    } else {
+      await act(async () => {
+        set({ lastServerGraphHash: 'a-revision-4' })
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
     }
-  })
+    await maybe('after-receipt')
+    return word()?.textContent ?? null
+  }
+
+  for (const point of POINTS) {
+    for (const kind of KINDS) {
+      for (const [name, held] of OUTCOMES) {
+        it(`${kind} ${point}, the model holding the ${name} value → no receipt and no "Checking…"`, async () => {
+          try {
+            expect(await run(point, kind, held)).toBeNull()
+          } finally {
+            act(() => set({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash }))
+          }
+        })
+      }
+    }
+  }
+
+  for (const [name, held, said] of OUTCOMES) {
+    it(`CONTRAST, no switch: the model holding the ${name} value → "${said}"`, async () => {
+      try {
+        expect(await run(null, 'A→B', held)).toBe(said)
+      } finally {
+        act(() => set({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash }))
+      }
+    })
+  }
 })
 
 describe('opening the editor', () => {

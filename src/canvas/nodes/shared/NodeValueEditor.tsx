@@ -211,7 +211,18 @@ export interface NodeValueEditorProps {
   trailing?: React.ReactNode
 }
 
-export function NodeValueEditor({
+/**
+ * ⭐ ONE SCENARIO PER EDITOR (B UI delta checks on c72ec673 and cbeefd21). Everything this editor holds after a commit
+ * (the saved-model watch, "Checking…", a receipt) is about the scenario the edit was sent in, and a local scenario switch
+ * keeps a same-id card mounted. So the editor is keyed by the scenario: any switch, A→B or A→B→A, remounts it, and the
+ * unmount cancels the watch, retires the commit's settlement callback and drops every settlement word.
+ */
+export function NodeValueEditor(props: NodeValueEditorProps) {
+  const scenarioId = useCanvasStore((state) => state.currentScenarioId)
+  return <NodeValueEditorInScenario key={scenarioId ?? 'no-scenario'} {...props} />
+}
+
+function NodeValueEditorInScenario({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
   restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed,
 }: NodeValueEditorProps) {
@@ -289,30 +300,23 @@ export function NodeValueEditor({
     const committedTo = admission.value
     const readNow = () => (readCommittedValue ? readCommittedValue() : valueRef.current)
     const isCurrent = () => mountedRef.current && seq === commitSeqRef.current
-    // The scenario this edit was sent in. A local scenario switch keeps a same-id card mounted, and the read below is by
-    // node id, so in another scenario it would read that scenario's value: the watch then ends silently, with no receipt
-    // (B UI's delta check on c72ec673).
-    const scenarioOfSend = useCanvasStore.getState().currentScenarioId
-    const inScenarioOfSend = () => useCanvasStore.getState().currentScenarioId === scenarioOfSend
     const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
       if (!isCurrent()) return
       // ⭐ A refusal on a MOVED base is not "the model kept its previous value": after a lost reply the model often
       // already holds this very value. Read the saved model first (`needsSavedModelRead`, served capacity row 7a).
       if (needsSavedModelRead(s, detail)) {
-        retireSavedRead()
-        const leaveSilently = () => { retireSavedRead(); if (isCurrent()) setSettlement(null) }
-        if (!inScenarioOfSend()) { leaveSilently(); return }
         setSettlement('checking')
+        retireSavedRead()
         cancelSavedReadRef.current = awaitSavedModelRead({
           // Read HERE, not at commit: the refusal settles before the re-read it requested can run (a later task), so
           // this is still the base the refused send carried. The store is touched only on this path.
           baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
           readBase: () => useCanvasStore.getState().lastServerGraphHash,
-          subscribe: listener => useCanvasStore.subscribe(() => { if (inScenarioOfSend()) listener(); else leaveSilently() }),
+          subscribe: listener => useCanvasStore.subscribe(listener),
           beforeCommit,
           committedTo,
           readNow,
-          onWord: word => { if (!isCurrent()) return; if (inScenarioOfSend()) setSettlement(word); else setSettlement(null) },
+          onWord: word => { if (isCurrent()) setSettlement(word) },
         })
         return
       }
