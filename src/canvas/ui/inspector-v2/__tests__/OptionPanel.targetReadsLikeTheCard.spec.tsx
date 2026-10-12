@@ -316,6 +316,41 @@ describe('(a) the SAME display source as the card — CEE’s analysis_ready, jo
   })
 })
 
+describe('a STALE analysis view never overrides the saved target (recovery Batch B, served capacity row 7a)', () => {
+  // Served `live/runs/2026-10-12T020148Z/capacity`: after a lost reply the UI's view still described the graph before
+  // the edit, while the saved graph (re-read, then reloaded) held the new value; the card printed the view's figure.
+  // Here the view's `current_graph_hash` is not the store's write base ('gh-witness'), so the saved 0.7 stands.
+  it('RED on 84c7d3a: the saved £84,000 shows on the inspector AND the card, never the stale view\'s "£90k"', async () => {
+    const option = seed(
+      { [F_COST]: { value: 0.7, source: 'user_specified' } },
+      {
+        current_graph_hash: 'gh-before-the-edit',
+        options: [{ id: OPTION_ID, interventions: { [F_COST]: 0.75 }, intervention_details: { [F_COST]: { display_value: '£90k' } } }],
+      },
+    )
+    const card = await cardRows(renderCard(option.data))
+    const dialog = openInspector()
+
+    expect(cardTarget(card, F_COST)).toContain('£84,000')
+    expect(readout(dialog, F_COST)).toContain('£84,000')
+    expect(row(dialog, F_COST).textContent ?? '').not.toContain('£90k')
+    expect(row(dialog, F_COST).textContent).toContain('Set by you')
+  })
+
+  it('NEGATIVE: the view of the SAVED graph keeps CEE\'s reading (a different value keeps the producer\'s entry)', async () => {
+    const option = seed(
+      { [F_COST]: { value: 0.7, source: 'user_specified' } },
+      {
+        current_graph_hash: 'gh-witness',
+        options: [{ id: OPTION_ID, interventions: { [F_COST]: 0.75 }, intervention_details: { [F_COST]: { display_value: '£90k' } } }],
+      },
+    )
+    const card = await cardRows(renderCard(option.data))
+    expect(cardTarget(card, F_COST)).toBe('£90k')
+    expect(readout(openInspector(), F_COST)).toContain('£90k')
+  })
+})
+
 describe('readingShowsModelValue — the box stands beside a reading only when the reading prints its number', () => {
   it.each<[string, number, boolean]>([
     ['Low (0.1)', 0.1, true],

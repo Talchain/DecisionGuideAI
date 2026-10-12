@@ -72,11 +72,16 @@ export interface TargetNodeLike {
 export function resolveOptionTargets(
   optionData: Record<string, unknown> | null | undefined,
   ceeOpt: CeeOptionTargetsLike | null | undefined,
+  opts: { viewStale?: boolean } = {},
 ): Map<string, ResolvedOptionTarget> {
   const raw = ceeOpt?.interventions && typeof ceeOpt.interventions === 'object'
-    ? joinInterventionDetails(
-        ceeOpt.interventions as Record<string, unknown>,
-        ceeOpt.intervention_details as Record<string, unknown> | undefined,
+    ? withSavedValuesOverStaleView(
+        joinInterventionDetails(
+          ceeOpt.interventions as Record<string, unknown>,
+          ceeOpt.intervention_details as Record<string, unknown> | undefined,
+        ),
+        optionData?.interventions,
+        opts.viewStale === true,
       )
     : Object.entries((optionData?.interventions ?? {}) as Record<string, unknown>)
   const ownInterventions = (optionData?.interventions ?? {}) as Record<string, unknown>
@@ -103,6 +108,42 @@ export function resolveOptionTargets(
       raw_value: details?.raw_value, unit: details?.unit })
   }
   return targets
+}
+
+/**
+ * Is this analysis view about a graph OTHER than the saved one?
+ *
+ * `ceeAnalysisReady` is written only by a turn the UI ingested, and a reload restores it from local persistence checked
+ * by node identity alone. The write base (`lastServerGraphHash`) moves with every turn AND every read of the saved
+ * graph. The two are one hash family (`analysis_ready.current_graph_hash` is byte-identical to the turn's `graph_hash`,
+ * `applyV5State`). Unknown on either side → not stale, and the existing rule stands.
+ */
+export function analysisViewIsStale(ready: unknown, savedGraphHash: string | null | undefined): boolean {
+  const viewHash = (ready as { current_graph_hash?: unknown } | null | undefined)?.current_graph_hash
+  return typeof viewHash === 'string' && viewHash.length > 0 &&
+    typeof savedGraphHash === 'string' && savedGraphHash.length > 0 && viewHash !== savedGraphHash
+}
+
+/**
+ * ⭐ ON A STALE VIEW, THE SAVED MODEL'S NUMBER STANDS (recovery Batch B; served `live/runs/2026-10-12T020148Z/capacity`,
+ * row 7a). "Add one specialist" 1 → 2: the reply was lost, so `ceeAnalysisReady` kept the pre-edit view (0.1,
+ * "1 specialists", graph 94902edbc47c5776) while the saved graph (175a3ae98f06785f, re-read after the retry's 409 and
+ * again on reload) held 0.2. The card read "0 → 1 specialists" through a reload. Only on a STALE view, and only where
+ * the option's own saved number differs, the node's entry replaces CEE's, and CEE's reading (which describes the other
+ * number) goes with it. A current view keeps the rule above: a different value keeps the producer's entry.
+ */
+export function withSavedValuesOverStaleView(
+  entries: [string, unknown][],
+  ownInterventions: unknown,
+  viewStale: boolean,
+): [string, unknown][] {
+  if (!viewStale || !ownInterventions || typeof ownInterventions !== 'object') return entries
+  const own = ownInterventions as Record<string, unknown>
+  return entries.map(([fid, entry]): [string, unknown] => {
+    const saved = unwrapInterventionValue(own[fid]).value
+    const viewed = unwrapInterventionValue(entry).value
+    return saved != null && viewed != null && Math.abs(saved - viewed) > 1e-9 ? [fid, own[fid]] : [fid, entry]
+  })
 }
 
 /**
