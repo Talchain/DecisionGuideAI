@@ -1,0 +1,94 @@
+{
+ "_source": "live/runs/2026-10-12T214005Z/capacity (run 5; UI 3e3615e5, CEE 551258bb): step 3 = turns/02.json, step 6 = turns/06.json; run_delta verbatim from step 6",
+ "labels": {
+  "keep_current_staffing": "Keep current staffing",
+  "add_one_specialist": "Add one specialist",
+  "add_half_time_specialist": "Add half-time specialist"
+ },
+ "step3_face": "‘Add one specialist’: about 37% chance of meeting your goal, in this model, using Olumi's estimates for 1 starting value and 3 relationships (see Check estimates).",
+ "step6_face": "‘Add one specialist’: about 63% chance of meeting your goal, in this model, using Olumi's estimates for 1 starting value and 3 relationships (see Check estimates). In its worst 1 in 20 runs of this model, ‘Add one specialist’ falls short of your target by 20 tickets per week or more.",
+ "run_delta": {
+  "attribution_case": "C1_attributable",
+  "pair_provenance": {
+   "seed_equal": true,
+   "hash_equal": false,
+   "builds_equal": "equal",
+   "n_equal": true
+  },
+  "leader": {
+   "changed": false,
+   "prior_leading_option_id": "add_one_specialist",
+   "current_leading_option_id": "add_one_specialist",
+   "noise_verdict": "not_noise_qualified"
+  },
+  "win_probabilities": [
+   {
+    "option_id": "add_one_specialist",
+    "prior": 0.87985,
+    "current": 0.87985,
+    "noise_verdict": "within_noise"
+   },
+   {
+    "option_id": "keep_current_staffing",
+    "prior": 0.12015,
+    "current": 0.12015,
+    "noise_verdict": "within_noise"
+   }
+  ],
+  "goal_chances": [
+   {
+    "option_id": "keep_current_staffing",
+    "prior": {
+     "kind": "withheld"
+    },
+    "current": {
+     "kind": "withheld"
+    }
+   },
+   {
+    "option_id": "add_one_specialist",
+    "prior": {
+     "kind": "point",
+     "pct": 37,
+     "rounding": "whole"
+    },
+    "current": {
+     "kind": "point",
+     "pct": 63,
+     "rounding": "whole"
+    }
+   }
+  ],
+  "flip_thresholds": [],
+  "endpoints": {
+   "prior": {
+    "run_id": "8cd34b270f95b217fd7eeca39e7f003c121c6005d63782314a586c2bdc051735",
+    "computed_at": "2026-10-12T21:56:48.894Z"
+   },
+   "current": {
+    "run_id": "cfe36c646c1a6a2987cdfd48a2831fbb1c152ead9716ba468f82babf0071e7b8",
+    "computed_at": "2026-10-12T21:58:21.518Z"
+   }
+  },
+  "input_coverage": "complete",
+  "input_changes": [
+   {
+    "entity_kind": "option_setting",
+    "entity_id": "additional_specialists",
+    "option_id": "add_one_specialist",
+    "field": "value",
+    "label_before": "Additional specialists",
+    "label_after": "Additional specialists",
+    "before": {
+     "raw": 1,
+     "unit": "specialists"
+    },
+    "after": {
+     "raw": 2,
+     "unit": "specialists"
+    },
+    "change": "changed"
+   }
+  ]
+ }
+}

@@ -32,7 +32,7 @@
  */
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewViewModel, ChecksCode } from './analysisNewTypes'
-import type { RunDeltaInputRow, RunDeltaView } from './runDeltaView'
+import { pairShowsAGoalChance, type RunDeltaInputRow, type RunDeltaView } from './runDeltaView'
 import { linkRowText } from './runDeltaLinkWords'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -402,6 +402,9 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
 /** What moved since the last run, from the producer's own noise verdicts; null when they license nothing. */
 function movementSentence(view: RunDeltaView, leads: boolean): string | null {
   if (view.movementsUnavailable || view.movements.length === 0) return null
+  // Run-5 judge (DL ruling, 12 Oct): every arm below is read from the WIN SHARES. Where the pair shows a goal chance,
+  // none is said: "No option moved…" stood beside a chance that moved 37% → 63% (capacity step 6). No words replace it.
+  if (pairShowsAGoalChance(view)) return null
   const words = leads ? COMMITMENT_COPY.sinceLastRun : COMMITMENT_COPY.sinceLastRun.after
   const signal = view.movements.filter((m) => m.noiseVerdict === 'signal' && m.mayShowMagnitude)
   // ⛔ NO IMPLIED CAUSE (AIQ CR on #2368, rule 5920669246: C2–C5 never imply a cause). After the input sentence

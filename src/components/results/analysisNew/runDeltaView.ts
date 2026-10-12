@@ -115,6 +115,21 @@ export interface RunDeltaGoalChanceRow {
   readonly current: RunDeltaGoalChanceSide
 }
 
+/**
+ * ⭐ DOES THIS PAIR SHOW A GOAL CHANCE? True when any option's chance of meeting the goal was licensed (a `point` or a
+ * `range`) on either Run of the pair, as each Run's own licence showed it (`goalChances`, schemas 0.81.0).
+ *
+ * Run-5 judge, operator finding (DL ruling, 12 Oct): capacity step 6 said "No option moved beyond ordinary run-to-run
+ * variation." beside a goal chance that moved 37% → 63%; only the WIN SHARE was unchanged (0.87985 both Runs). Where a
+ * goal chance is shown, a movement claim read from the win shares is not said at all (`movementSentence`,
+ * `runChangesSummaryLines`). Positive evidence only: `withheld` and `not_recorded` sides show no chance.
+ */
+export function pairShowsAGoalChance(view: Pick<RunDeltaView, 'goalChances'>): boolean {
+  const shown = (side: RunDeltaGoalChanceSide): boolean => side.kind === 'point' || side.kind === 'range'
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: whether either side is licensed (kind only), to omit a win-share claim; no number leaves the line
+  return (view.goalChances ?? []).some((row) => shown(row.prior) || shown(row.current))
+}
+
 export interface RunDeltaView {
   /** PART A. */
   readonly comparability: string

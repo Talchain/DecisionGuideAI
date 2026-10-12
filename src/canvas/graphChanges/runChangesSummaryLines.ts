@@ -11,7 +11,7 @@
  * `noiseQualifier`, `WHATS_CHANGED_NO_PAIRS`). It computes no diff, names no cause the producer did not send, and states
  * an option's share only where `winShareGate` allows one. Pure, so a spec binds every branch by identity.
  */
-import { INPUT_ROWS_SHOWN_FIRST, type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
+import { INPUT_ROWS_SHOWN_FIRST, pairShowsAGoalChance, type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 import {
   emptyInputsText,
   inputRowText,
@@ -71,9 +71,12 @@ export function runChangesSummaryLines(
   const signal = view.movements.filter((m) => m.noiseVerdict === 'signal')
   let movedNote: string | null = null
   let movedAll: string[] = []
-  // ⛔ ORDER IS THE CONTRACT: a withheld share outranks everything (no option's share is stated, not even "beyond
-  // noise"); then the producer's "no pairs"; then signal; else the ONE noise sentence for the whole set.
-  if (winSharesWithheld) movedNote = winShareWithheldReason
+  // ⛔ ORDER IS THE CONTRACT: a pair that shows a goal chance outranks everything (Run-5 judge, DL ruling 12 Oct: the
+  // Moved line is read from the WIN SHARES, and "Too small to tell apart…" stood beside a chance that moved 37% → 63%,
+  // so no Moved line is drawn and no words replace it); then a withheld share (no option's share is stated, not even
+  // "beyond noise"); then the producer's "no pairs"; then signal; else the ONE noise sentence for the whole set.
+  if (pairShowsAGoalChance(view)) movedNote = null
+  else if (winSharesWithheld) movedNote = winShareWithheldReason
   else if (view.movementsUnavailable) movedNote = noPairsText(view)
   else if (signal.length > 0) movedAll = signal.map((m) => movementText(m))
   else if (view.movements.length > 0) {
