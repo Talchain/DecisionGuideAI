@@ -83,12 +83,12 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden, glyphCounterScale, labelCounterScale } from '../utils/zoomLegibility'
 import {
-  fragileEdgeSentence,
+  FRAGILE_CUE_SENTENCE,
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
   edgeArrowSentence,
@@ -547,12 +547,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return isEdgeFragileFn(id, source, target, fragileEdges, fragileMatchCtx)
   }, [isResultsMode, comparisonShown, report, id, source, target, fragileMatchCtx])
 
-  // T7: Switch probability for fragile edge badge tooltip + hover popover
-  const fragileEdgeSwitchProb = useMemo(() => {
-    if (!isFragileEdge || !report?.robustness) return null
-    const fragileEdges = report.robustness.fragile_edges || []
-    return getFragileEdgeSwitchProbability(id, source, target, fragileEdges, fragileMatchCtx)
-  }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   // E4 (graph-visuals): the SINGLE most fragile relationship earns a fragility
   // badge in the default (standard) view too, so the top flip risk is visible
@@ -588,7 +582,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const modelChangedSinceRun = useModelChangedSinceRunLight()
 
   /**
-   * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
+   * The fragility sentence — ONE owner (`connectorCopy.FRAGILE_CUE_SENTENCE`; `fragileEdgeSentence` went in #2747 r2,
    * moved there verbatim), three readers here: the cue's accessible name, the
    * cue's `title`, and the chip container's composed title and name — PLUS
    * the popover's fragility line below, which reads this SAME variable rather
@@ -602,7 +596,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * never a fallback (pinned by StyledEdge.fragilePresence.spec).
    */
   const fragileSentence =
-    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + fragileEdgeSentence(fragileEdgeSwitchProb)
+    // #2747 re-scope 2 round 2: the cue sentence alone, no switch-probability figure (connectorCopy).
+    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + FRAGILE_CUE_SENTENCE
 
   /**
    * Every edge whose chip will carry a fragility ROW, graph-wide.
@@ -3259,12 +3254,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 figure (`getFragileEdgeSwitchProbability`), not a strength.
 
                 So the cue is the icon alone, at the design reference's
-                "consequential relationship" position in the chip, and the
-                figure rides its NAME and TITLE inside the sentence that says
-                what it is (`fragileEdgeSentence`: "NN% chance the result flips
-                if this relationship changes"). The hover popover states it too,
-                as "NN% flip risk". Nothing about WHICH figure is shown changed:
-                measured only, never the marginal quantity.
+                "consequential relationship" position in the chip, and its NAME
+                and TITLE carry the cue sentence (`FRAGILE_CUE_SENTENCE`). Since
+                #2747 re-scope 2 round 2 no figure rides it: the "NN% flip risk"
+                clause from `switch_probability` is gone (no CEE wording or Run
+                authority for it in C).
 
                 `role="img"` + `aria-label` because an icon-only mark must be
                 named for assistive tech; `title` because a pointer user needs

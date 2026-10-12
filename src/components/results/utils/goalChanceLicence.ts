@@ -18,7 +18,7 @@
  */
 
 import { readGoalChanceHorizonLine } from './goalChanceRange'
-import { goalChanceTargetBound, readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
+import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
 export type { GoalChanceComparator } from './goalChanceTarget'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
@@ -325,13 +325,13 @@ export function goalChanceHeroSays(
   goalThreshold: number | null | undefined,
   options: ReadonlyArray<{ id: string; goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
   licence: GoalChanceLicence | null,
-  /** Recovery Batch C: the licence's own chance words; with them the sentence never says the target words, so need not. */
-  chanceWords?: string | null,
 ): boolean {
   if (licence === null || options.length < 2 || !goalChanceHeroArmOpen(goalThreshold, options)) return false
-  if (!licence.optionIds.every((id) => options.some((o) => o.id === id))) return false
-  // #2747 re-scope 2 (U2, finding 3): the target is sayable in its OWN frame, never checked as a level.
-  return Boolean(chanceWords) || goalChanceTargetBound(licence.target) !== null
+  // #2747 re-scope 2 round 2 (DL rules C and D; LABEL, DON'T WITHHOLD): the arm opens on CEE's licence alone. It used to
+  // need the target sayable in the UI's own words (`goalChanceTargetBound`, which read a missing frame as a level); the UI
+  // now words no target and composes no chance sentence, so there is nothing left to check: each option's cell is CEE's
+  // served face, and the headline needs CEE's chance words (`goalChanceHeadline`).
+  return licence.optionIds.every((id) => options.some((o) => o.id === id))
 }
 
 /*

@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { buildRunView } from '../../../../canvas/runView/runView'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
-import { HERO_COPY } from '../heroCopy'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { goalChanceHeroArmOpen } from '../../utils/goalChanceLicence'
@@ -81,11 +80,13 @@ describe('WS5 constrained goal-fit acceptance', () => {
   it('constrained and unconstrained rows and details equal their RunView cells without joint words', () => {
     assertRows(false)
   })
-  it('all-constrained goal-only cells carry the goal-only caption', () => {
+  // #2747 re-scope 2 round 2 (rule C): caption.goalOnly is deleted (the Goal fit lens draws no caption). Was "all-constrained
+  // goal-only cells carry the goal-only caption"; the no-joint-words half is kept on the whole panel.
+  it('all-constrained goal-only cells: no caption, and no joint words anywhere on the panel', () => {
     const data = assertRows(true)
     // C-FALSE: constraint presence cannot license joint words beside goal-only cells (DL r6).
-    expect(screen.getByTestId('hero-caption').textContent).toBe(HERO_COPY.caption.goalOnly)
-    expect(screen.getByTestId('hero-caption').textContent).not.toMatch(JOINT_WORDS)
+    expect(screen.queryByTestId('hero-caption')).toBeNull()
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toMatch(JOINT_WORDS)
     expect(goalChanceHeroArmOpen(data.recommendation.goalThreshold, data.recommendation.allOptions)).toBe(false)
   })
   it('keeps the measured selector basis: goal and joint remain distinct quantities', () => {

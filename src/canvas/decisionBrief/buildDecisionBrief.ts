@@ -1,5 +1,3 @@
-import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
-import { runViewOf } from '../runView/runView'
 /**
  * ⭐ THE DECISION BRIEF — ONE PURE FUNCTION FROM THE SAVED READ TO WHAT THE BRIEF SAYS.
  *
@@ -12,7 +10,8 @@ import { runViewOf } from '../runView/runView'
  * Every figure and every source word comes from an owner that already exists, called here rather than respelled:
  *   · the result block → `mapV5AnalysisToReport` (the turn/poll legs' mapper), with the read's stored goal-certainty
  *     and option-participation facts, exactly as `applyScenarioAnalysisRead` calls it;
- *   · an option's goal figure → RunView’s chance cell, including its withheld/range words;
+ *   · no option's goal chance (#2747 re-scope 2 round 2, U0: a chance is shown only on the journey surfaces, from CEE's
+ *     served cells; the brief, its copied text and its printable page point to the Results tab instead);
  *   · goal target and its source → `resolveGoalTarget` / `goalTargetSourceMark` / `formatGoalTarget`;
  *   · a factor's level and its source → `factorValueSourceMark` (the card's rule chain);
  *   · limits → `selectStatedLimits` / `goalConstraintText`, and what the Run could say about them →
@@ -20,7 +19,7 @@ import { runViewOf } from '../runView/runView'
  *   · withheld goal figures → `readGoalIdentityWithheld` and the goal-certainty `say` (the producer's words).
  *
  * ── IT STAYS HONEST ABOUT CURRENCY ──────────────────────────────────────────
- * The Run's figures (chances, drivers, limit checks) are carried ONLY when the read says the Run is current for
+ * The Run's figures (drivers, limit checks) are carried ONLY when the read says the Run is current for
  * this saved version: `run_state.kind === 'complete_current'`, a result block present, no rerun asked for, the
  * analysis not marked unusable, and the read's own "held Run is not current" rule (`heldRunIsNotCurrentPerRead`)
  * silent. Anything else says why in words and carries no figure as current.
@@ -41,9 +40,7 @@ import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { selectStatedLimits } from '../../components/results/decision-overview/statedLimits'
 import { buildLimitVerdictView } from '../../components/results/analysisNew/limitVerdictView'
 import { goalProbabilityDetails, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
-import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
 import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
-import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 import type { DecisionRecord } from '../../components/results/modals'
 import {
@@ -54,7 +51,6 @@ import {
   storageSentenceFor,
 } from '../../components/results/analysisNew/sections/DecisionRecorded'
 import { ANALYSIS_NEW_COPY } from '../../components/results/analysisNew/analysisNewCopy'
-import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 
 // ─── Input ──────────────────────────────────────────────────────────────────
 
@@ -119,17 +115,6 @@ export interface BriefRun {
   readonly computedAtText: string | null
 }
 
-export interface BriefOptionChance {
-  readonly optionId: string
-  readonly optionLabel: string
-  /** "About 42% chance of meeting your goal, in this model", or null when no figure may be shown. */
-  readonly chanceText: string | null
-  /** The caveat the chooser requires beside a shown figure (e.g. measured from Olumi's estimate). */
-  readonly caveat: string | null
-  /** Why no figure is shown, in words, when `chanceText` is null. */
-  readonly withheldText: string | null
-}
-
 export interface BriefDriver {
   readonly nodeId: string
   readonly label: string
@@ -162,9 +147,10 @@ export interface DecisionBriefModel {
   readonly limits: readonly BriefLimit[]
   readonly figures: readonly BriefFigure[]
   readonly run: BriefRun
-  /** Per-option Run figures — EMPTY unless `run.status === 'current'`, and EMPTY when no option has a figure. */
-  readonly chances: readonly BriefOptionChance[]
-  /** On a current Run where no option has a figure: ONE line in place of a row per option (the reasons are in `withheld`). */
+  /**
+   * On a current Run: ONE line saying where the Run's chances are shown (#2747 re-scope 2 round 2, U0). The brief carries
+   * no chance figure; producer reasons for a withheld goal figure stay in `withheld`. Null otherwise.
+   */
   readonly chancesNote: string | null
   /** Top drivers of the Run — EMPTY unless `run.status === 'current'`. */
   readonly drivers: readonly BriefDriver[]
@@ -179,18 +165,17 @@ export interface DecisionBriefModel {
 export const DECISION_BRIEF_COPY = {
   runCurrent: 'These figures come from the latest Run of this saved version.',
   runStale: 'The model has changed since the latest Run, so that Run’s figures are not shown here.',
-  runStaleNeed: 'I need a fresh Run of this version before I can show its chances and drivers.',
+  runStaleNeed: 'I need a fresh Run of this version before I can show what drives its result.',
   runRunning: 'A Run of this version has not finished yet.',
   runNeverRun: 'This version has not been run yet.',
-  runNeverRunNeed: 'I need a Run of this version before I can show chances or drivers.',
+  runNeverRunNeed: 'I need a Run of this version before I can show what drives the result.',
   runBlocked: 'This version cannot be run as it stands.',
   runRefused: 'The latest Run of this version was declined.',
   runUnknown: 'I can’t tell whether a Run is current for this version, so no figures are shown as current.',
   runUnusable: 'The latest Run of this version can’t be relied on, so its figures are not shown.',
-  goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
-  chanceTail: 'chance of meeting your goal, in this model',
-  noFigure: 'No figure for this option on this Run.',
-  noChances: 'No option has a figure for reaching your target on this Run. The reasons are below.',
+  goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before a Run can work out each option’s chance of meeting it.`,
+  // #2747 re-scope 2 round 2 (U0): the brief shows no chance; the Run's own words for them are on the Results tab.
+  chancesWhere: 'The Run’s chances are shown on the Results tab, in the Run’s own words; this brief does not repeat them.',
 } as const
 
 // ─── Graph reading (allowlisted fields) ─────────────────────────────────────
@@ -397,7 +382,6 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
   }
 
   const { run, withheld } = runOf(read)
-  const chances: BriefOptionChance[] = []
   let chancesNote: string | null = null
   const drivers: BriefDriver[] = []
 
@@ -408,15 +392,13 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
       optionParticipation: readOptionParticipation(read.optionParticipation),
     })
     const widened = report as unknown as {
-      option_probabilities?: Record<string, GoalProbabilityInput & { status?: OptionComputeStatus }>
+      option_probabilities?: Record<string, GoalProbabilityInput>
       drivers?: { label?: unknown; nodeId?: unknown }[]
     }
-    // Keep the staging complete-field population: returned options with a usable computation.
-    // Taken-out or failed options do not suppress the compared options’ figures.
-    let fieldIncomplete = false
-    const optionProbabilities = widened.option_probabilities
-    const view = runViewOf(report, parseCanonicalAnalysisView(read.canonicalAnalysisView))
-    const context = { goalChanceHeroSays: view.goalChance !== null, labelOf: (id: string) => byId.get(id)?.label ?? null }
+    // #2747 re-scope 2 round 2 (Codex r1 blocking 3; U0): no option's chance is carried. It printed RunView's cell text
+    // (17% / 18% / 19%) here, in the copied text and on the printable page, off the journey path. The producer's reasons
+    // for a withheld goal figure are reasoning, not figures, and stay below.
+    chancesNote = DECISION_BRIEF_COPY.chancesWhere
 
     // Goal figures withheld for the whole Run (PLoT #416): one reason, in the producer's words.
     const identityWithheld = readGoalIdentityWithheld(report)
@@ -428,28 +410,9 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     }
 
     for (const opt of optionNodes) {
-      const details = goalProbabilityDetails(optionProbabilities?.[opt.id])
-      const cell = view.chanceCellOf(opt.id, { ...context,
-        goalFiguresWithheldMessage: identityWithheld?.message, goalCertaintyUnearned: details.goalCertaintyUnearned,
-      })
-      const hasFigure = cell.kind === 'figure' || cell.kind === 'range'
-      const entry = optionProbabilities?.[opt.id]
-      if (!hasFigure && isAnalysedOption(optionProbabilities, opt.id) && !optionComputationFailed(entry?.status)) {
-        fieldIncomplete = true
-      }
-      chances.push({ optionId: opt.id, optionLabel: opt.label,
-        chanceText: cell.kind === 'figure' || cell.kind === 'range' ? cell.text : null,
-        caveat: cell.kind === 'figure' || cell.kind === 'range' ? goalFitBaseCaveatCopy(details.baseCaveat) : null,
-        withheldText: hasFigure ? null : cell.kind === 'withheld' ? cell.text : DECISION_BRIEF_COPY.noFigure,
-      })
+      const details = goalProbabilityDetails(widened.option_probabilities?.[opt.id])
       if (details.goalCertaintyUnearned) withheld.push({ id: `goal:certainty:${opt.id}`,
         text: details.goalCertaintyUnearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK, nodeId: opt.id })
-    }
-    // A partial field would present a ranking over a subset as a ranking over the options.
-    // Preserve the once-only no-figure note; producer reasons stay in `withheld`.
-    if (fieldIncomplete || (chances.length > 0 && chances.every(c => c.chanceText === null))) {
-      chances.length = 0
-      chancesNote = DECISION_BRIEF_COPY.noChances
     }
 
     for (const d of widened.drivers ?? []) {
@@ -475,7 +438,6 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     limits,
     figures,
     run,
-    chances,
     chancesNote,
     drivers,
     withheld,
@@ -518,9 +480,6 @@ export function decisionBriefToText(brief: DecisionBriefModel): string {
   }
   lines.push('Latest Run')
   lines.push(`- ${brief.run.statement}`)
-  for (const c of brief.chances) {
-    lines.push(`- ${c.optionLabel}: ${c.chanceText ?? c.withheldText ?? DECISION_BRIEF_COPY.noFigure}${c.caveat ? ` (${c.caveat})` : ''}`)
-  }
   if (brief.chancesNote) lines.push(`- ${brief.chancesNote}`)
   lines.push('')
   if (brief.record) {

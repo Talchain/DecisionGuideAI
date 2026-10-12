@@ -89,6 +89,8 @@ function renderCards(options: OptionResult[], props: Record<string, unknown> = {
       hasLeadingOption
       hasGoalThreshold
       stableNumbers={{ [ANALYSED_A]: 1, [ANALYSED_B]: 2, [NOT_ANALYSED]: 3 }}
+      // #2747 re-scope 2 round 2 (rule C): the goal readout is CEE's served cell; the never-analysed option has none.
+      goalCellOf={(id: string) => (id === NOT_ANALYSED ? null : { display: 'about 40%', face: null })}
       {...props}
     />,
   )

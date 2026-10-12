@@ -139,7 +139,13 @@ function computedTrueZero(): OptionResult {
  */
 function renderField(options: OptionResult[]) {
   return render(
-    <OptionCards options={options} hasLeadingOption={true} hasGoalThreshold={true} />,
+    <OptionCards
+      options={options}
+      hasLeadingOption={true}
+      hasGoalThreshold={true}
+      // #2747 re-scope 2 round 2 (rule C): the goal readout is CEE's served cell; the failed option has none.
+      goalCellOf={(id: string) => (id === FAILED ? null : { display: 'about 40%', face: null })}
+    />,
   )
 }
 

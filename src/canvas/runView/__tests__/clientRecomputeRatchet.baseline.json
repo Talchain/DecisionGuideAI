@@ -108,7 +108,7 @@
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/nodes/GoalNode.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/canvas/ui/inspector-v2/panels/GoalPanel.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/components/results/analysisNew/buildAnalysisNewViewModel.ts","call":2,"read":0,"def":0,"sanctioned":false},
-    {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/components/results/OptionCards.tsx","call":1,"read":0,"def":0,"sanctioned":false},
+    {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/components/results/OptionCards.tsx","call":0,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/components/results/RangeVisualization.tsx","call":1,"read":0,"def":0,"sanctioned":false},
     {"class":"CHANCE","symbol":"formatGoalProbability","file":"src/components/results/utils/displayFloors.ts","call":0,"read":0,"def":1,"sanctioned":false},
     {"class":"CHANCE","symbol":"fromOptionProbabilities","file":"src/lib/discriminationFallback.ts","call":0,"read":0,"def":1,"sanctioned":false},

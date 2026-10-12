@@ -33,15 +33,13 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, props: Partial<Par
 }
 
 describe('AnalysisHeroPanel — content', () => {
-  it('renders the headline, tension subline, and goal readouts from response values', () => {
+  // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption; with no producer band the
+  // headline and subline name no option. Was "renders the headline, tension subline, and goal readouts …".
+  it('renders the neutral headline and subline, and the goal readouts from response values', () => {
     const data = makeHeroData()
     renderPanel(chartModel(data))
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
-    )
-    expect(screen.getByTestId('hero-subline')).toHaveTextContent(
-      'Two developers has the highest expected outcome: 68.',
-    )
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+    expect(screen.getByTestId('hero-subline')).toHaveTextContent('Compare the top options before deciding.')
     // Goal-fit is the default lens: rendered joint probabilities equal the
     // response values (0.34 → 34%, 0.49 → 49%).
     expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()

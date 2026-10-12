@@ -9,6 +9,12 @@ import { withCanonicalTestCells } from './helpers/canonicalTestCells'
  * with no record (the hero says what it said before), and a record that disagrees with itself (not read).
  *
  * Lives in the hero's own directory: `inertness.spec.ts` forbids importing the hero from anywhere else.
+ *
+ * #2747 re-scope 2 round 2 (DL rules C and D, 12 Oct): the hero composes no goal-chance sentence of its own. c6's
+ * headlines ("‘X’ has the highest chance of meeting your goal (at least £1,200,000): about 62%, against …", "have similar
+ * chances …", "each option’s chance of meeting your goal (at least £1,200,000):") put the UI's own target words around the
+ * figures; without CEE's served `chance_words` (none in these fixtures) the arm takes the neutral headline, and the lines —
+ * each option's own cell, verbatim — still lead (LABEL, DON'T WITHHOLD). The headline halves below are rewritten to that.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
@@ -67,16 +73,15 @@ afterEach(() => resetPaulRun())
 
 const GOAL = { [CONVERTIBLE]: 0.62, [ANGEL]: 0.41, [OUTREACH]: 0.2 }
 const FORBIDDEN = /chance of (success|reaching|hitting|target|achieving)|likely to reach target|probability of (success|reaching|hitting|meeting)/i
+const NEUTRAL = 'Here is how your options compare.'
 const CONTEST = /\bwinners?\b|\bleads\b|\bahead\b|\bbest\b|recommend|scored highest/i
 
 describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE decides; the UI renders by identity)', () => {
-  it('H1 on a WITHHELD win-share Run: CEE licensed "highest" → c6\'s sentence, the stated target, CEE\'s figures', () => {
+  it('H1 on a WITHHELD win-share Run: CEE licensed "highest" → the hero composes no superlative of its own; the cells lead', () => {
     seed(GOAL, licenceRecord('highest', { [OUTREACH]: 20, [ANGEL]: 41, [CONVERTIBLE]: 62 }, { leader_option_id: CONVERTIBLE, next_option_id: ANGEL }))
     const model = heroModel()
-    expect(model.headline).toBe(
-      `In this model, on current information, ‘${CONVERTIBLE_LABEL}’ has the highest chance of meeting your goal (at least £1,200,000): `
-      + `about 62%, against about 41% for ‘${labelOf(ANGEL)}’.`,
-    )
+    expect(model.headline).toBe(NEUTRAL)
+    expect(model.subline).toContain(`‘${CONVERTIBLE_LABEL}’: about 62% chance of meeting your goal, in this model.`)
     expect(model.headline).not.toMatch(FORBIDDEN)
     expect(model.headline).not.toMatch(CONTEST)
   })
@@ -89,7 +94,7 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
   it('EACH (no superlative): the headline ends in a colon and the lines follow in the MODEL\'s order, never ranked by chance', () => {
     seed(GOAL, licenceRecord('each', { [OUTREACH]: 20, [ANGEL]: 41, [CONVERTIBLE]: 62 }))
     const model = heroModel()
-    expect(model.headline).toBe('In this model, on current information, each option’s chance of meeting your goal (at least £1,200,000):')
+    expect(model.headline).toBe(NEUTRAL)
     expect(model.subline).toBe(MODEL_ORDER.map((id) => `‘${labelOf(id)}’: about ${({ [OUTREACH]: 20, [ANGEL]: 41, [CONVERTIBLE]: 62 } as Record<string, number>)[id]}% chance of meeting your goal, in this model.`).join(' '))
     expect(model.subline).not.toMatch(CONTEST)
   })
@@ -98,8 +103,7 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     seed({ [OUTREACH]: 0.004, [ANGEL]: 0.43, [CONVERTIBLE]: 0.48 },
       licenceRecord('similar', { [OUTREACH]: 0, [ANGEL]: 43, [CONVERTIBLE]: 48 }, { similar_option_ids: [ANGEL, CONVERTIBLE] }))
     const model = heroModel()
-    expect(model.headline).toBe(`In this model, on current information, ‘${labelOf(ANGEL)}’ and ‘${CONVERTIBLE_LABEL}’ have similar `
-      + 'chances of meeting your goal (at least £1,200,000): about 43% and about 48%.')
+    expect(model.headline).toBe(NEUTRAL)
     expect(model.headline).not.toMatch(CONTEST)
     expect(model.headline).not.toMatch(/highest|most likely|strongest/i)
     // C-CELL: headline quotes do not remove these options' own labelled cells.
@@ -155,7 +159,7 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     const existence = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
     expect(heldLicence()?.summaryWithheld).toEqual({ cause: 'olumi_existence_assumption', form: 'highest' })
     const model = heroModel()
-    expect(model.headline).toMatch(/^In this model, on current information, each option’s chance of meeting your goal/)
+    expect(model.headline).toBe(NEUTRAL)
     expect(model.subline).toBe(EXISTENCE_CELLS)
     expect(model.subline).not.toContain(why)
     expect(model.subline).not.toContain(existence)
@@ -167,7 +171,7 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     const { [ANGEL]: _withheld, ...rest } = GOAL
     seed(rest, licenceRecord('each', { [OUTREACH]: 20, [CONVERTIBLE]: 62 }, { withheld_option_ids: [ANGEL] }))
     const model = heroModel()
-    expect(model.headline).toBe('In this model, on current information, each option’s chance of meeting your goal (at least £1,200,000):')
+    expect(model.headline).toBe(NEUTRAL)
     expect(model.subline).toBe([
       `‘${labelOf(OUTREACH)}’: about 20% chance of meeting your goal, in this model.`,
       `‘${labelOf(ANGEL)}’: Olumi can’t yet say its chance of meeting your goal, in this model.`,

@@ -16,6 +16,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult, HingeInfo } from '../types'
 
+/** #2747 re-scope 2 round 2 (rule C): CEE's served cell per option — the card's goal readout says this, verbatim. */
+const servedCell = (id: string) => ({ display: id === 'option-1' ? 'about 75%' : 'about 55%', face: null })
+
 const mockOptions: OptionResult[] = [
   {
     id: 'option-1',
@@ -156,20 +159,28 @@ describe('OptionCards', () => {
     })
 
     // #2747 re-scope 2 (U0 rewrite, DL 12 Oct): the goal row keeps its readouts but no UI label ("Hits target"): only CEE's
-    // served words may label a chance (none are passed here, so no caption).
-    it('draws the goal row when hasGoalThreshold is true, with no UI label', () => {
+    // served words may label a chance (no face is passed here, so no caption). Round 2 (rule C): each readout is CEE's
+    // served display verbatim, never the UI's own rounding of the figure.
+    it('draws the goal row when hasGoalThreshold is true, with no UI label, in CEE\'s served display', () => {
       render(
         <OptionCards
           options={mockOptions}
           winnerId="option-1"
           hasGoalThreshold={true}
+          goalCellOf={servedCell}
         />
       )
 
       expect(screen.queryAllByText('Hits target')).toHaveLength(0)
       expect(screen.getAllByTestId(/^goal-readout-/)).toHaveLength(2)
-      expect(screen.getByText('75%')).toBeInTheDocument()
-      expect(screen.getByText('55%')).toBeInTheDocument()
+      expect(screen.getByText('about 75%')).toBeInTheDocument()
+      expect(screen.getByText('about 55%')).toBeInTheDocument()
+      expect(screen.queryByText('75%')).not.toBeInTheDocument()
+    })
+
+    it('round 2 (rule C): with no served cell the card draws no goal row, whatever its figure', () => {
+      render(<OptionCards options={mockOptions} winnerId="option-1" hasGoalThreshold={true} />)
+      expect(screen.queryAllByTestId(/^goal-readout-/)).toHaveLength(0)
     })
 
     it('hides "Hits target" when hasGoalThreshold is false', () => {
@@ -460,6 +471,7 @@ describe('OptionCards', () => {
           winnerId="option-1"
           hasGoalThreshold={true}
           decisionState="robust"
+          goalCellOf={servedCell}
         />
       )
 

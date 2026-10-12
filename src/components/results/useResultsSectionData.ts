@@ -2405,8 +2405,6 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         goalFitIsModelledBasis,
         goalFitBaseCaveat,
         ...(details.goalCertaintyUnearned ? { goalCertaintyUnearned: details.goalCertaintyUnearned } : {}),
-        goalFitIsSubstitutedJoint: false,
-        goalFitWithheld: chance.kind === 'withheld' || (goalProbability === null && details.jointGoalPresent),
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
         ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),

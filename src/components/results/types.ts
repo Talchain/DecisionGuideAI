@@ -302,36 +302,8 @@ export interface OptionResult {
   goalFitBaseCaveat?: GoalFitBaseCaveat | null
   /** CEE #2270/#2280: this option's 0/1 goal figure is UNEARNED (withheld by the chooser); the producer's sentence. */
   goalCertaintyUnearned?: { say: string | null } | null
-  /**
-   * Goal-probability IDENTITY: true when the rendered `goalProbability` is
-   * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
-   *
-   * ⚠ L62 (2026-08-04): this is now ALWAYS FALSE on every live payload, and
-   * the field is retained only so the surfaces that branch on it keep
-   * compiling. `selectGoalProbability` no longer substitutes — the joint
-   * figure is withheld from the goal-fit slot entirely (see that module's L62
-   * block for why the wire cannot justify the substitution). A rendered
-   * `goalProbability` is therefore always a quantity that earns the
-   * possessive. Retiring this field and the substituted-voice copy it selects
-   * is a follow-up; it is NOT done here because it touches a dozen surfaces
-   * and this change is a P0 truth fix, not a refactor.
-   *
-   * Set from `!selectGoalProbability(...).mayUsePossessiveGoalFraming` on a
-   * present number; never re-derived at a render site.
-   */
-  goalFitIsSubstitutedJoint?: boolean
-  /**
-   * ⭐ L62 — true when this run DID carry a `probability_of_joint_goal` and the
-   * selector refused to put it in the goal-fit slot (basis
-   * `'joint_goal_withheld'`).
-   *
-   * The distinction it carries is one no other field can: `goalProbability`
-   * being null means "no goal number", which is ALSO the state of a run where
-   * the user set no target. Those need different sentences — offering "Set a
-   * success target" to someone who set one is its own small untruth. Surfaces
-   * read this so they never offer `GOAL_ANCHOR_COPY.noTarget` here.
-   */
-  goalFitWithheld?: boolean
+  // #2747 re-scope 2 (DL-approved cut): `goalFitIsSubstitutedJoint` (its only writer set `false` in C) and `goalFitWithheld`
+  // (written, never read) are deleted.
   /**
    * ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — true when this option node was NOT
    * in the analysis at all: the run returned per-option results and carried no

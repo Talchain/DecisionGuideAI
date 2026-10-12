@@ -48,7 +48,6 @@ import {
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
-import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
   DOWNSIDE_HEADING_COPY,
@@ -171,10 +170,17 @@ export interface OptionCardsProps {
   /** True when option magnitudes are normalised 0-1 scores, not user units. */
   isNormalised?: boolean
   /**
-   * #2747 re-scope 2 (U2, DL ruling 12 Oct): CEE's served words for an option's goal chance (its current canonical cell's
-   * face, verbatim), the only caption the card's goal row may carry; null when none is served (no caption).
+   * #2747 re-scope 2 (U2, DL rulings 12 Oct): CEE's served cell for an option's goal chance, verbatim: `display` is the
+   * goal row's readout ("about 64%", "more than 99%") and `face` its caption. The card formats no number of its own; with
+   * no served figure cell the goal row is not drawn.
    */
-  goalFaceOf?: (optionId: string) => string | null
+  goalCellOf?: (optionId: string) => ServedGoalCell | null
+}
+
+/** CEE's served figure cell for one option, as the card says it: the display string and, when served, the face. */
+export interface ServedGoalCell {
+  readonly display: string
+  readonly face: string | null
 }
 
 /** Fallback description when no story headline is available */
@@ -552,7 +558,7 @@ function OptionCard({
   outcomeUnitSymbol,
   isNormalised,
   winSharesWithheld = false,
-  goalFace = null,
+  goalCell = null,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -561,8 +567,8 @@ function OptionCard({
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
    */
   winSharesWithheld?: boolean
-  /** CEE's served words for this option's goal chance (see OptionCardsProps.goalFaceOf); null = no caption. */
-  goalFace?: string | null
+  /** CEE's served cell for this option's goal chance (see OptionCardsProps.goalCellOf); null = no goal row. */
+  goalCell?: ServedGoalCell | null
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -653,25 +659,14 @@ function OptionCard({
     : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
   // THE POSSESSIVE GATE (ROADMAP 2.282) is gone with the card's own goal wording (#2747 re-scope 2): the goal row's only
-  // words are CEE's served face (`goalFace`), so there is no UI phrase left to switch.
+  // words are CEE's served cell (`goalCell`), so there is no UI phrase left to switch.
 
   // ───────────────────────────────────────────────────────────────────────
   // ⭐ ONE READOUT PER REGISTER PER CARD (ROADMAP 2.333) — N11
   // ───────────────────────────────────────────────────────────────────────
-  // Every surface on this card that states a number states one of exactly
-  // these two strings. Not "computes it the same way" — states the SAME
-  // string, because there is only one.
-  //
-  // Both go through their register's shared primitive with the option's own
-  // `nValidSamples`, which the response mapper already carries off
-  // `outcome.n_valid_samples`. Passing it to only ONE of them is the
-  // half-fix that leaves a card printing a resolved figure in the header and
-  // a floored one in the row below, so both take it or neither does.
-  const goalReadout = formatGoalProbability(
-    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
-    option.goalProbability as number,
-    option.nValidSamples,
-  )
+  // #2747 re-scope 2 round 2 (DL rule C, 12 Oct): the goal register's readout is CEE's served display string, verbatim
+  // (`goalCell.display`). It was `formatGoalProbability(goalProbability)`, which printed "100%" beside CEE's
+  // "more than 99%" (Codex r1 blocking 1): a chance becomes text only as CEE served it.
   // Byte-identical to the expression the header readout has always used
   // (:609 before this change) — now hoisted so the header and the "Wins" row
   // are literally the same value rather than two evaluations of one rule.
@@ -810,19 +805,19 @@ function OptionCard({
               phrase beside a chance reads as certainty. (The substituted-joint caption went with it: no producer path
               sets `goalFitIsSubstitutedJoint` in C.) */}
           {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view */}
-          {goalFace !== null && option.goalProbability != null && (
+          {goalCell !== null && goalCell.face !== null && option.goalProbability != null && (
             <p
               className={`${typography.panelMeta} text-text-light`}
               data-testid={`goal-chance-face-${option.id}`}
             >
-              {goalFace}
+              {goalCell.face}
             </p>
           )}
-          <StatBar
+          {goalCell !== null && <StatBar
             // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
             value={option.goalProbability}
-            // The card's one goal readout (N11); the low-goal badge that restated it went in #2747 re-scope 2.
-            readout={goalReadout}
+            // The card's one goal readout (N11): CEE's served display, verbatim (round 2, rule C).
+            readout={goalCell.display}
             testId={`goal-readout-${option.id}`}
             // No UI label beside the chance (#2747 re-scope 2): the caption above is CEE's words. `null` omits the column.
             label={null}
@@ -831,7 +826,7 @@ function OptionCard({
             isLeader={isWinner && !designationsWithheld}
             color="info"
             neutralised={neutralised}
-          />
+          />}
           {/* #2747 re-scope 2 (U2): no low-goal badge in C. It restated the readout above in a chance sentence the UI
               composed ("About N% chance of meeting your goal", or of the Run's chance words without CEE's "in this
               model" and provisional clause), on a threshold the UI chose. CEE's served cell says the chance. */}
@@ -1092,7 +1087,7 @@ export function OptionCards({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
-  goalFaceOf,
+  goalCellOf,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1440,7 +1435,7 @@ export function OptionCards({
             // #2747 re-scope 2 (DL ruling (A)): no card shows a win share in C, permitted or not (no header figure, no fill
             // bar). CEE serves no wording or Run authority for it. The leader entitlement above is unchanged.
             winSharesWithheld
-            goalFace={goalFaceOf?.(option.id) ?? null}
+            goalCell={goalCellOf?.(option.id) ?? null}
           />
         )
       })}

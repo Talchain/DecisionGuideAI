@@ -34,6 +34,12 @@
  * construction rather than merely absent — the two strings can no longer be
  * computed twice, so they cannot differ.
  *
+ * ⚠ #2747 re-scope 2 round 2 (Codex r1 blocking 1; DL rule C, 12 Oct): the card's goal readout is now CEE's served display,
+ * verbatim (`OptionCards.goalCellOf`), never the UI's own formatting of the figure (`formatGoalProbability` printed "100%"
+ * beside CEE's "more than 99%"). So N11 holds more strongly: the readout is ONE string, and the UI computes it nowhere.
+ * Rows below that pinned the UI formatter's output now pin CEE's display; the sample-count rows pin that it no longer
+ * matters. Deleted: T-2334-1b (five distinct sub-1% readouts — the UI formatter's resolution; CEE's display decides it).
+ *
  * Scope limit (trap 3): jsdom pins string identity and presence/absence
  * only. Nothing here claims anything about layout, adjacency or visibility —
  * the "2cm apart" framing above is from the walk photograph, not from this
@@ -41,7 +47,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult } from '../types'
 
@@ -72,9 +78,18 @@ function makeOption(overrides: Partial<OptionResult> = {}): OptionResult {
   }
 }
 
-function renderCards(options: OptionResult[]) {
-  return render(<OptionCards options={options} winnerId={options[0]?.id} hasGoalThreshold />)
+/** Round 2 (rule C): each card's goal readout is CEE's served display for that option, passed through `goalCellOf`. */
+function renderCards(options: OptionResult[], served: Readonly<Record<string, string>> = {}) {
+  return render(
+    <OptionCards
+      options={options}
+      winnerId={options[0]?.id}
+      hasGoalThreshold
+      goalCellOf={(id) => (served[id] !== undefined ? { display: served[id], face: null } : null)}
+    />,
+  )
 }
+const SUB_ONE = { a: 'less than 1%', b: 'less than 1%' }
 
 describe('positive control — the harness renders a non-degenerate card (trap 13)', () => {
   it('shows a mid-range goal probability on every goal surface before any sub-1% claim', () => {
@@ -84,8 +99,8 @@ describe('positive control — the harness renders a non-degenerate card (trap 1
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.34, winProbability: 0.34, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.2, winProbability: 0.2, isRecommended: false, nValidSamples: WALK_N }),
-    ])
-    expect(screen.getByTestId('goal-readout-a').textContent).toBe('34%')
+    ], { a: 'about 34%', b: 'about 20%' })
+    expect(screen.getByTestId('goal-readout-a').textContent).toBe('about 34%')
     // #2747 re-scope 2 (U0, DL ruling (A)): the card prints no win share in C, so no header win readout.
     expect(screen.queryByTestId('win-pct-a')).toBeNull()
   })
@@ -101,34 +116,36 @@ describe('T-2333-2 — N11: the goal readout is ONE string, and no low-goal badg
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.0007, winProbability: 0.65, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.0004, winProbability: 0.35, isRecommended: false, nValidSamples: WALK_N }),
-    ])
+    ], SUB_ONE)
     const card = screen.getByTestId('option-card-a')
+    expect(within(card).getByTestId('goal-readout-a')).toBeTruthy() // the row is drawn, so the absence below is not vacuous
     expect(card.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
   })
 
-  it('says the readout from the shared formatter, and no low-goal badge (re-scope 2)', () => {
+  it('says CEE\'s served display verbatim, never the UI formatter\'s figure, and no low-goal badge (round 2, rule C)', () => {
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.0007, winProbability: 0.65, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.0004, winProbability: 0.35, isRecommended: false, nValidSamples: WALK_N }),
-    ])
+    ], SUB_ONE)
     const card = screen.getByTestId('option-card-a')
     const statReadout = within(card).getByTestId('goal-readout-a').textContent
 
-    // Executed against the real formatter at this tip: 0.0007 at n=10000.
-    expect(statReadout).toBe('0.1%')
+    // The UI formatter would have printed '0.1%' for 0.0007 at n=10000; the card says CEE's words instead.
+    expect(statReadout).toBe('less than 1%')
+    expect(card.textContent ?? '').not.toContain('0.1%')
     expect(within(card).queryByTestId('low-goal-warning-a')).toBeNull()
     expect(card.textContent ?? '').not.toMatch(/chance of meeting your goal/)
   })
 
-  it('keeps the floor readout when the run carries no sample count, with no badge', () => {
-    // The no-resolution fallback still agrees with itself — the register's
-    // older guarantee, re-pinned so the new arm cannot regress it.
+  // Round 2 (rule C): was "keeps the floor readout when the run carries no sample count"; the UI's '< 1%' fallback is gone.
+  it('the readout does not depend on the Run\'s sample count: CEE\'s display with none, and no badge', () => {
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.0007, winProbability: 0.65, nValidSamples: undefined }),
       makeOption({ id: 'b', goalProbability: 0.0004, winProbability: 0.35, isRecommended: false }),
-    ])
+    ], SUB_ONE)
     const card = screen.getByTestId('option-card-a')
-    expect(within(card).getByTestId('goal-readout-a').textContent).toBe('< 1%')
+    expect(within(card).getByTestId('goal-readout-a').textContent).toBe('less than 1%')
+    expect(card.textContent ?? '').not.toContain('< 1%')
     expect(within(card).queryByTestId('low-goal-warning-a')).toBeNull()
   })
 })
@@ -175,6 +192,7 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
 
   // #2747 re-scope 2 (U0, DL ruling (A)): was 'threads the sample count to BOTH registers, not just the goal row'; the win
   // register is not printed in C, so the row pins the goal row's resolved readout and the win readout's absence.
+  // Round 2 (rule C): the goal row says CEE's display, so there is no sample count to thread; the win half is unchanged.
   it('threads the sample count to the goal row; no win register is printed', () => {
     // Guards the half-fix: passing `nValidSamples` to the goal readout and
     // `undefined` to the win readout would leave one register resolved and
@@ -182,9 +200,9 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
     renderCards([
       makeOption({ id: 'a', goalProbability: 0.0007, winProbability: 0.0001, nValidSamples: WALK_N }),
       makeOption({ id: 'b', goalProbability: 0.0004, winProbability: 0.9, isRecommended: false, nValidSamples: WALK_N }),
-    ])
+    ], SUB_ONE)
     const card = screen.getByTestId('option-card-a')
-    expect(within(card).getByTestId('goal-readout-a').textContent).toBe('0.1%')
+    expect(within(card).getByTestId('goal-readout-a').textContent).toBe('less than 1%')
     expect(within(card).queryByTestId('win-pct-a')).toBeNull()
     expect(card.textContent ?? '').not.toContain('0.01%')
   })
@@ -220,35 +238,6 @@ describe('absent ≠ zero — the readouts are computed eagerly, so pin what hap
   })
 })
 
-describe('T-2334-1b — five sub-1% options render five DISTINCT card readouts', () => {
-  it('makes the ordering legible on the option cards, not just the Model tab', () => {
-    // PC4 on this surface: the walk's quintet collapsed to five identical
-    // "< 1%" strings, so the status-quo-lowest signature was invisible.
-    //
-    // NOTE the `Show all` click. `OptionCards` renders `TOP_N = 2` cards
-    // until the user expands, so a five-option assertion that skips the
-    // toggle finds three missing testids and fails for a reason that has
-    // nothing to do with formatting. Expanding is what a user comparing five
-    // options actually does, and it is the state the claim is about.
-    const quintet = [0.0007, 0.0001, 0.0004, 0, 0.0002]
-    renderCards(
-      quintet.map((p, i) =>
-        makeOption({
-          id: `o${i}`,
-          label: `Option ${i}`,
-          goalProbability: p,
-          // Descending, so the display sort keeps producer order and the
-          // expected array below stays readable.
-          winProbability: 0.2 - i * 0.01,
-          nValidSamples: WALK_N,
-          isRecommended: i === 0,
-        }),
-      ),
-    )
-    fireEvent.click(screen.getByTestId('option-cards-toggle'))
-
-    const readouts = quintet.map((_, i) => screen.getByTestId(`goal-readout-o${i}`).textContent)
-    expect(readouts).toEqual(['0.1%', '0.01%', '0.04%', '<0.01%', '0.02%'])
-    expect(new Set(readouts).size).toBe(quintet.length)
-  })
-})
+// #2747 re-scope 2 round 2 (rule C): describe deleted — "T-2334-1b — five sub-1% options render five DISTINCT card readouts"
+// (1 row, "makes the ordering legible on the option cards, not just the Model tab"). Its only subject was the UI formatter's
+// sample-count resolution ('0.1%', '0.01%', '<0.01%'); the card now says CEE's served display, whose resolution is CEE's.

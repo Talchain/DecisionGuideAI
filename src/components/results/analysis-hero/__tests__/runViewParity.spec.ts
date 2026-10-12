@@ -8,8 +8,6 @@ import { describe, expect, it } from 'vitest'
 import { runViewOf } from '../../../../canvas/runView/runView'
 import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
-import { goalChanceOptionLines } from '../goalChanceCopy'
-import { gateWordsOf } from './helpers/gateWords'
 
 const C3 = {
   code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
@@ -28,14 +26,17 @@ const CANONICAL = parseCanonicalAnalysisView({
 })
 
 describe('RunView parity with the direct licence read', () => {
-  it('C3: the option lines are byte-identical, and the view\'s figure words are the lines\' figure words', () => {
+  // #2747 re-scope 2 round 2 (rule C): was "C3: the option lines are byte-identical, and the view's figure words are the
+  // lines' figure words"; the lines (`goalChanceOptionLines`) are deleted, so the parity is now the licence itself, and the
+  // view's figure words are CEE's served display, verbatim.
+  it('C3: the view\'s licence equals the direct read, and its figure words are CEE\'s served display', () => {
     const view = runViewOf(REPORT, CANONICAL)
-    const lines = goalChanceOptionLines(view.goalChance!, labelOf, gateWordsOf(view.goalChance!))!
-    expect(lines).toEqual(goalChanceOptionLines(readGoalChanceLicence([C3])!, labelOf, gateWordsOf(readGoalChanceLicence([C3])!)))
+    expect(view.goalChance).toEqual(readGoalChanceLicence([C3]))
     for (const id of C3.option_ids) {
       const chance = view.chanceOf(id)
       expect(chance.kind).toBe('figure')
-      expect(lines.some((l) => l.startsWith(`‘${LABELS[id]}’: ${chance.kind === 'figure' ? chance.words : ''} `))).toBe(true)
+      expect(chance.kind === 'figure' ? chance.words : null).toBe('less than 1%')
+      expect(labelOf(id)).not.toBeNull()
     }
   })
 

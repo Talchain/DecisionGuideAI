@@ -145,7 +145,8 @@ function OptionRangeBar({
       return GOAL_ANCHOR_COPY.phrase(
         // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
         formatGoalProbability(option.goalProbability, option.nValidSamples),
-        option.goalFitIsSubstitutedJoint === true,
+        // #2747 re-scope 2: never a substituted joint figure in C (the field that said so is deleted; its writer was `false`).
+        false,
       )
     }
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance

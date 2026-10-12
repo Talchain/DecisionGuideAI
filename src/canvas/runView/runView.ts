@@ -17,7 +17,7 @@ import type { CanonicalAnalysisCell, CanonicalAnalysisView, CanonicalGoalChanceD
 import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
-import { goalChanceDetailLines, goalChanceOptionLines } from '../../components/results/analysis-hero/goalChanceCopy'
+import { goalChanceDetailLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
 /** CEE 1c's ACKed withheld face; DL 87114: static absence, never a derived reason. */
@@ -174,13 +174,6 @@ function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView, by: 
     && typeof computedAt === 'string' && computedAt.length > 0 && run.computed_at === computedAt
 }
 
-/**
- * Historical chat result-block presentation from persisted enrichment (DL: later).
- * This wrapper is outside RunView cell resolution.
- */
-export function licensedOptionChanceLines(...args: Parameters<typeof goalChanceOptionLines>): ReturnType<typeof goalChanceOptionLines> {
-  return goalChanceOptionLines(...args)
-}
 
 /** Producer cell text, or the static DL 87114 absence state for an eligible held Run. */
 export function optionChanceCell(view: RunView, optionId: string, ctx: OptionChanceCellContext): OptionChanceCell {

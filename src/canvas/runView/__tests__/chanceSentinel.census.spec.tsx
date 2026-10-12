@@ -19,17 +19,32 @@
  *
  * SCOPE: the surfaces listed in SURFACES and FUNCTIONS, mounted in jsdom: presence and absence of strings and aria, not
  * layout. The lint rule (`chance-gate/no-raw-chance-read`) stays as a regression aid and claims no completeness.
+ *
+ * ⭐ ROUND 2 (Codex r1 FAIL on 369c17d0; DL A–D, 12 Oct): the census's inputs are DERIVED and its reading is exhaustive.
+ *  - Every surface is read in every state a person reaches without typing: each disclosure opened AND each tab selected in
+ *    turn (`exploreSurface`); Detailed view, technical detail and expert mode are rows of their own.
+ *  - A: the chance-like payload fields come from the schema types, their docs and what production reads
+ *    (`payloadChanceFields`); each is seeded with a sentinel or excluded with a stated reason (FIELD_DISPOSITION).
+ *  - B: the surfaces come from the production import closure (`chanceReaderComponents`): each must RENDER in a row (read off
+ *    React's fiber tree) or be excluded with a checked reason; every copy / print / download / share path is censused or
+ *    excluded (`textBuilderFiles`, BUILDER_DISPOSITION).
+ *  - C: on a journey surface a chance becomes text only as CEE's served string, verbatim: with CEE's strings removed, no
+ *    served figure and no rounding of a raw field is left; form (f) holds CEE's boundary displays ("less than 1%", "more than
+ *    99%") over 0.0031 / 0.9973, counted against form (d) as baseline.
+ *  - D: form (f)'s licence target carries no frame; no reader may say it as a level.
  */
 import '@testing-library/jest-dom/vitest'
 import type { ComponentProps } from 'react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { ReactFlowProvider } from '@xyflow/react'
+import { Position, ReactFlowProvider } from '@xyflow/react'
 
-vi.mock('@xyflow/react', async importOriginal => ({ ...await importOriginal<typeof import('@xyflow/react')>(), Handle: () => null }))
+vi.mock('@xyflow/react', async importOriginal => ({ ...await importOriginal<typeof import('@xyflow/react')>(), Handle: () => null,
+  // The canvas edge's label row (its fragility cue) renders inline: outside a full <ReactFlow> there is no label layer.
+  EdgeLabelRenderer: ({ children }: { children?: unknown }) => children }))
 vi.mock('../../../contexts/AuthContext', async importOriginal => ({
   ...await importOriginal<typeof import('../../../contexts/AuthContext')>(),
   useAuth: () => ({ authenticated: false, user: null }),
@@ -73,16 +88,28 @@ import { ComparisonCanvasLayout } from '../../components/ComparisonCanvasLayout'
 import { useComparisonStore } from '../../stores/comparisonStore'
 import SharedBriefPage from '../../../pages/SharedBriefPage'
 import { buildAskAiQuestion } from '../../conversation/askAi'
-import { buildSnapshotFromV5Analysis } from '../../stores/v5RunSnapshotFactory'
 import { renderTimelineSummary } from '../../journey/renderTimelineSummary'
+import { EdgePanel } from '../../ui/inspector-v2/panels/EdgePanel'
+import { StyledEdge } from '../../edges/StyledEdge'
+import { ModelTabBody } from '../../components/ModelTabBody'
+import { mapRobustness } from '../../../lib/mappers/mapRobustness'
+import { buildDecisionBrief, decisionBriefToText } from '../../decisionBrief/buildDecisionBrief'
+import { decisionBriefToHtml } from '../../decisionBrief/decisionBriefHtml'
+import { DecisionBriefView } from '../../decisionBrief/DecisionBriefView'
+import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import {
-  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_DISPLAY, LOW_FACE, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
+  A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
+  BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
 } from './helpers/chanceSentinels'
-import { openEveryDisclosure, readSurface } from './helpers/sentinelScan'
+import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
+import { chanceReaderComponents, componentNamesOf, payloadChanceFields, productionModules, sourceFiles, textBuilderFiles } from './helpers/censusDerivation'
 
 type Form = SentinelForm
+/** Every component name React rendered in any census row (round 2, B): read by the surface derivation at the end. */
+const RENDERED = new Set<string>()
 interface Surface {
   readonly name: string
   /** U0: a journey-path surface, which keeps chances from CEE's served cells only. */
@@ -129,6 +156,10 @@ const nodeProps = <P,>(id: string, type: string): P => {
     zIndex: 0, deletable: true, selectable: true, draggable: true } as unknown as P
 }
 const panel = { techMode: false, onClose: () => {}, onNavigate: () => {} }
+/** The inspector with the person's "Show technical detail" toggle on (InspectorShell's tech toggle). */
+const techPanel = { ...panel, techMode: true }
+/** The canvas in Detailed view (the person's view toggle, `viewMode: 'expert'`): each card draws its details inline. */
+const detailed = () => act(() => { useCanvasStore.setState({ viewMode: 'expert' } as never) })
 /** `leading`: the Run's named leader. A null leader hides the share row on its own, so a leader-named card is censused too. */
 const chatBlock = (leading: string | null = null) => {
   const b = sentinelBlock(seededForm()) as { enrichment: unknown; win_probabilities: unknown }
@@ -137,18 +168,51 @@ const chatBlock = (leading: string | null = null) => {
 }
 const win = (id: string) => RAW.win_probability[id as keyof typeof RAW.win_probability]
 const label = (id: string) => LABEL[id as keyof typeof LABEL]
+/** The Results tab's sensitivity rows (outcome values, not chances), so the drivers lens draws its chart. */
+const TORNADO = { rows: [{ factorKey: 'ramp_up', label: 'Ramp-up time', lowOutcome: 109, highOutcome: 116, canFocus: true, matchedNodeId: 'ramp_up',
+  direction: 'negative' as const }], expectedOutcome: 112 }
+/** The saved read CEE answers for the seeded scenario (graph, analysis verdict, canonical view, Run block): the brief's input. */
+const savedRead = () => ({
+  graph: { goal_node_id: 'productivity', nodes: NODES.map(n => ({ ...(n.data as Record<string, unknown>), id: n.id, kind: n.type })),
+    edges: EDGES.map(e => ({ from: e.source, to: e.target })) },
+  graphHash: GRAPH_HASH, analysisState: AnalysisStateV1Schema.parse(useCanvasStore.getState().analysisStateV1),
+  canonicalAnalysisView: sentinelCanonical(seededForm()), analysisResult: sentinelBlock(seededForm()),
+})
+/** The same words in every form (typed per form, so a new form fails to compile here rather than going unchecked). */
+const sayInEveryForm = (words: readonly string[]): Record<Form, readonly string[]> =>
+  ({ withheld: words, licensed: words, same_bounds: words, agreeing_low: words, no_words: words, boundary: words })
+/** The fragile link the edge rows mount (its id is the producer's fragile_edges key). */
+const FRAGILE_EDGE_PROPS = {
+  id: 'ramp_up->productivity', source: 'ramp_up', target: 'productivity', sourceX: 0, sourceY: 0, targetX: 100, targetY: 100,
+  sourcePosition: Position.Right, targetPosition: Position.Left, selected: false, data: { ...DEFAULT_EDGE_DATA },
+} as unknown as ComponentProps<typeof StyledEdge>
+const FACES_OF: Readonly<Record<Form, readonly string[]>> = {
+  withheld: [WHY_A, WHY_B, SQ_LINE], licensed: [FACE_A, FACE_B, SQ_LINE], same_bounds: [FACE_A, FACE_B_SAME, SQ_LINE],
+  agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_LINE],
+  boundary: [BOUNDARY_FACE[A], BOUNDARY_FACE[B], BOUNDARY_FACE[SQ]],
+}
 
 const SURFACES: readonly Surface[] = [
   {
     name: 'Analysis tab (ResultsBody: hero, option cards, range lines, goal block)', u0: true,
-    mount: () => render(<ResultsBody resultsSectionData={sectionData()} tornadoData={{ rows: [], expectedOutcome: null }}
+    mount: () => render(<ResultsBody resultsSectionData={sectionData()} tornadoData={TORNADO}
       onSendMessage={() => {}} expertMode={false} />).container,
-    says: { withheld: [WHY_A, WHY_B, SQ_LINE], licensed: [FACE_A, FACE_B, SQ_LINE], same_bounds: [FACE_A, FACE_B_SAME, SQ_LINE],
-      agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_LINE] },
+    says: FACES_OF,
     // Every option's figure passes the gate, so each Results card draws its goal row (and, before C, a low-chance badge).
-    reaches: { agreeing_low: [`goal-readout-${A}`, `goal-readout-${B}`] },
-    // Each card's goal row is captioned by CEE's own face for that option (DL 12 Oct), on the card itself.
-    saysWithin: { agreeing_low: [[`option-card-${A}`, LOW_FACE[A]], [`option-card-${B}`, LOW_FACE[B]]] },
+    reaches: { agreeing_low: [`goal-readout-${A}`, `goal-readout-${B}`], boundary: [`goal-readout-${A}`, `goal-readout-${B}`] },
+    // Each card's goal row is captioned by CEE's own face for that option (DL 12 Oct), on the card itself; its readout is CEE's
+    // display string itself (round 2, rule C: "more than 99%", never "100%").
+    saysWithin: { agreeing_low: [[`option-card-${A}`, LOW_FACE[A]], [`option-card-${B}`, LOW_FACE[B]]],
+      boundary: [[`goal-readout-${A}`, BOUNDARY_DISPLAY[A]], [`goal-readout-${B}`, BOUNDARY_DISPLAY[B]],
+        [`option-card-${B}`, BOUNDARY_FACE[B]]] },
+  },
+  {
+    // Expert mode is the person's own toggle: each card adds its range bar (OptionRangeBar) and its expert detail.
+    name: 'Analysis tab, expert mode (ResultsBody expertMode)', u0: true,
+    mount: () => render(<ResultsBody resultsSectionData={sectionData()} tornadoData={TORNADO}
+      onSendMessage={() => {}} expertMode />).container,
+    says: FACES_OF,
+    reaches: { boundary: [`goal-readout-${A}`, `goal-readout-${B}`] },
   },
   {
     name: 'Reasoning tab (AnalysisNewTabBody: decision matrix, options comparison, glance, commitment, model strip)', u0: false,
@@ -158,14 +222,12 @@ const SURFACES: readonly Surface[] = [
   {
     name: 'chat analysis card (V5AnalysisResultBlock)', u0: true,
     mount: () => render(<V5AnalysisResultBlock block={chatBlock()} />).container,
-    says: { withheld: [WHY_A, WHY_B, SQ_LINE], licensed: [FACE_A, FACE_B, SQ_LINE], same_bounds: [FACE_A, FACE_B_SAME, SQ_LINE],
-      agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_LINE] },
+    says: FACES_OF,
   },
   {
     name: 'chat analysis card, the Run names a leader (V5AnalysisResultBlock)', u0: true,
     mount: () => render(<V5AnalysisResultBlock block={chatBlock(A)} />).container,
-    says: { withheld: [WHY_A, WHY_B, SQ_LINE], licensed: [FACE_A, FACE_B, SQ_LINE], same_bounds: [FACE_A, FACE_B_SAME, SQ_LINE],
-      agreeing_low: [LOW_FACE[A], LOW_FACE[B], LOW_FACE[SQ]], no_words: [FACE_A, FACE_B, SQ_LINE] },
+    says: FACES_OF,
   },
   {
     name: 'chat comparison card (V5ComparisonBlock)', u0: false, minText: 10,
@@ -251,7 +313,13 @@ const SURFACES: readonly Surface[] = [
     name: 'Model tab v2 (ModelTabV2Panel)', u0: false, minText: 10,
     mount: () => render(<ModelTabV2Panel nodes={NODES as never} edges={EDGES as never} goalThreshold={10} />).container,
   },
-  { name: 'goal inspector (GoalPanel)', u0: false, minText: 10, mount: () => render(<GoalPanel nodeId="productivity" {...panel} />).container },
+  {
+    // Round 2 (DL's condition on D): the canvas target formatter (`formatGoalTarget` / `formatGoalChangeBound`, exempt from D
+    // because its callers pass the goal's own target, never a Run field) is live here, positively: the inspector says the
+    // target in its own frame in every form, while every chance check on this row stays empty.
+    name: 'goal inspector (GoalPanel)', u0: false, minText: 10, mount: () => render(<GoalPanel nodeId="productivity" {...panel} />).container,
+    says: sayInEveryForm(['up at least 10% from today']),
+  },
   { name: 'option inspector (OptionPanel)', u0: false, minText: 10, mount: () => render(<OptionPanel nodeId={A} {...panel} />).container },
   { name: 'decision inspector (DecisionPanel)', u0: false, minText: 10, mount: () => render(<DecisionPanel nodeId="decide" {...panel} />).container },
   { name: 'outcome inspector (OutcomePanel)', u0: false, minText: 5, mount: () => render(<OutcomePanel nodeId="delivery" {...panel} />).container },
@@ -274,6 +342,69 @@ const SURFACES: readonly Surface[] = [
       return view.container
     },
   },
+  {
+    // Round 2 (B): Detailed view draws each card's second layer inline (the goal card's "Decision stability N%", which the
+    // Standard view's retired popover never shows); the person switches to it with the canvas view toggle.
+    name: 'canvas cards, Detailed view (OptionNode ×3, GoalNode, DecisionNode, OutcomeNode)', u0: false, minText: 10,
+    mount: () => {
+      detailed()
+      return render(<ReactFlowProvider><OptionChanceCellProvider>
+        {[A, B, SQ].map(id => <OptionNode key={id} {...nodeProps<ComponentProps<typeof OptionNode>>(id, 'option')} />)}
+        <GoalNode {...nodeProps<ComponentProps<typeof GoalNode>>('productivity', 'goal')} />
+        <DecisionNode {...nodeProps<ComponentProps<typeof DecisionNode>>('decide', 'decision')} />
+        <OutcomeNode {...nodeProps<ComponentProps<typeof OutcomeNode>>('delivery', 'outcome')} />
+      </OptionChanceCellProvider></ReactFlowProvider>).container
+    },
+  },
+  {
+    // Round 2 (B): each inspector with "Show technical detail" on (its technical disclosures drawn).
+    name: 'inspectors, technical detail on (Goal, Option, Decision, Outcome, Risk and Edge panels)', u0: false, minText: 10,
+    mount: () => render(<>
+      <GoalPanel nodeId="productivity" {...techPanel} /><OptionPanel nodeId={A} {...techPanel} /><DecisionPanel nodeId="decide" {...techPanel} />
+      <OutcomePanel nodeId="delivery" {...techPanel} /><RiskPanel nodeId="delay_risk" {...techPanel} />
+      <EdgePanel edgeId="ramp_up->productivity" {...techPanel} />
+    </>).container,
+  },
+  {
+    // Round 2 (B): the canvas edge in Detailed view (every fragile link badges there).
+    name: 'canvas edge, a fragile link, Detailed view (StyledEdge)', u0: false, minText: -1,
+    mount: () => {
+      detailed()
+      return render(<ReactFlowProvider><svg><StyledEdge {...FRAGILE_EDGE_PROPS} /></svg></ReactFlowProvider>).container
+    },
+  },
+  {
+    // Round 2 (Codex r1 blocking 4): the edge inspector printed the fragile link's switch figure ("86% flip risk").
+    name: 'edge inspector, a fragile link (EdgePanel)', u0: false, minText: 10,
+    mount: () => render(<EdgePanel edgeId="ramp_up->productivity" {...panel} />).container,
+  },
+  {
+    // Round 2 (B): the canvas edge's fragility cue (its name, title and hover line) carried "(86% flip risk)".
+    // The edge draws no text of its own here: its cue speaks through its name and title (aria), and the reach proves it drew.
+    name: 'canvas edge, a fragile link (StyledEdge)', u0: false, minText: -1,
+    mount: () => render(<ReactFlowProvider><svg><StyledEdge {...FRAGILE_EDGE_PROPS} /></svg></ReactFlowProvider>).container,
+    reaches: { withheld: ['edge-fragile-tag'], licensed: ['edge-fragile-tag'], same_bounds: ['edge-fragile-tag'],
+      agreeing_low: ['edge-fragile-tag'], no_words: ['edge-fragile-tag'], boundary: ['edge-fragile-tag'] },
+  },
+  {
+    // Round 2 (A): the flip-analysis block carries its current winner's share (`current_winner.probability`).
+    name: 'chat flip-analysis block (InlineBlocks "flip_analysis")', u0: false, minText: 10,
+    mount: () => render(<InlineBlocks blocks={[sentinelFlipAnalysisBlock() as never]} />).container,
+  },
+  {
+    // Round 2 (B): the dock's Model tab is ModelTabBody (its own health and robustness sections around the v2 panel),
+    // mounted with the props OutputsDock passes; expert on, the person's own toggle.
+    name: 'canvas dock Model tab (ModelTabBody, as OutputsDock mounts it)', u0: false, minText: 10,
+    mount: () => render(<ModelTabBody showDebug={false} hasDiagnostics={false} diagnostics={null} hasTrim={false} effectiveCorrelationId={null}
+      correlationMismatch={false} correlationIdHeader={null} nodes={NODES as never} edges={EDGES as never}
+      robustness={mapRobustness((sentinelReport(seededForm()) as { robustness?: never }).robustness, { sourcePath: 'top_level' } as never)}
+      ceeQuality={null} expertMode onToggleExpert={() => {}} onSendMessage={() => {}} />).container,
+  },
+  {
+    // Round 2 (Codex r1 blocking 3): the decision brief printed each option's chance (17% / 18% / 19%) off the journey path.
+    name: 'decision brief panel (DecisionBriefView, from the saved read)', u0: false, minText: 10,
+    mount: () => render(<DecisionBriefView brief={buildDecisionBrief(savedRead() as never)} onShowNode={() => {}} />).container,
+  },
 ]
 
 /** Builders whose output reaches a person or the AI. Each returns what it says. */
@@ -281,18 +412,17 @@ const FUNCTIONS: ReadonlyArray<readonly [string, () => string]> = [
   ['ask-AI questions (buildAskAiQuestion: explain the goal and an option, with options)', () =>
     [buildAskAiQuestion({ intent: 'explain', nodeIds: ['productivity'], includeOptions: true } as never).question,
       buildAskAiQuestion({ intent: 'explain', nodeIds: [A], includeOptions: true } as never).question].join(' | ')],
-  ['analysis snapshot record (buildSnapshotFromV5Analysis → buildAnalysisSnapshot)', () => {
-    const snapshot = buildSnapshotFromV5Analysis({ enrichment: (sentinelBlock() as { enrichment: unknown }).enrichment, responseHash: RUN_ID,
-      nodes: NODES as never, edges: EDGES as never, runNumber: 2, events: [], previousSnapshotTimestamp: null } as never)
-    expect(snapshot, 'the sentinel enrichment must make a snapshot (else this row is vacuous)').not.toBeNull()
-    return JSON.stringify(snapshot)
-  }],
+  // Round 2: the analysis snapshot record is no longer a row here. It reaches neither a person nor the AI: production reads
+  // only its run count and latest timestamp (checked in the derivation block below, "the analysis snapshot record").
   ['journey timeline summary (renderTimelineSummary)', () => renderTimelineSummary([{ id: 'e1', event_type: 'analysis_run', source: 'ai',
     created_at: '2026-10-12T02:00:00Z', details: { winner: label(A), probability: Math.round(win(A) * 100), robustness: 'moderate' } }] as never)],
+  // Round 2 (Codex r1 blocking 3): the brief's copied text and its printable page carried the same chances.
+  ['decision brief, copied text (decisionBriefToText)', () => decisionBriefToText(buildDecisionBrief(savedRead() as never))],
+  ['decision brief, printable page (decisionBriefToHtml)', () => decisionBriefToHtml(buildDecisionBrief(savedRead() as never))],
 ]
 
 /** The hiring target is a CHANGE (10% higher than today); "at least 10%" with no reference to today reads as a level. */
-const LEVEL_MISREADING = /\bat least 10%(?! higher than today| from today)/
+const LEVEL_MISREADING = /\bat least 10%(?! higher than today| from today| above today)/
 const levelHits = (said: string): string[] => {
   const m = LEVEL_MISREADING.exec(said)
   return m === null ? [] : [said.slice(Math.max(0, m.index - 60), m.index + 30)]
@@ -327,6 +457,7 @@ describe('CONTROLS: the sentinel Run is what the census says it is', () => {
     expect(sentinelHits(SERVED_FIGURES.join(' '))).toEqual([])
     expect(levelHits('Goal: at least 10%')).not.toEqual([])
     expect(levelHits('at least 10% higher than today')).toEqual([])
+    expect(levelHits('Productivity at least 10% above today')).toEqual([])
   })
 
   it('the raw fields reach the store the surfaces read (the mapper carried them)', () => {
@@ -367,56 +498,95 @@ describe('CONTROLS: the sentinel Run is what the census says it is', () => {
 const FORM_TITLE: Readonly<Record<Form, string>> = { withheld: '(a) canonical cells WITHHELD', licensed: '(b) canonical cells LICENSED',
   same_bounds: '(c) LICENSED, the range\'s served bounds = its raw bounds (finding 2)',
   agreeing_low: '(d) LICENSED, the licence and the cell agree on a figure under 10% (value-dependent branches)',
-  no_words: '(e) LICENSED, CEE serves no chance words (the UI\'s target words are the only words)' }
-const LOW_FIGURES = Object.values(LOW_DISPLAY).map(d => d.replace('about ', ''))
+  no_words: '(e) LICENSED, CEE serves no chance words (the UI\'s target words are the only words)',
+  boundary: '(f) LICENSED at CEE\'s boundary displays ("less than 1%", "more than 99%"), the highest named, no chance words, no target frame (rules C, D)' }
+const FORMS = ['withheld', 'licensed', 'same_bounds', 'agreeing_low', 'no_words', 'boundary'] as const
+type Rec = Record<string, unknown>
+/** Every string CEE served for the Run in this form (its canonical view and its licence): the only text a chance may become. */
+function servedStrings(form: Form): string[] {
+  const out = new Set<string>()
+  const walk = (v: unknown): void => {
+    if (typeof v === 'string') { if (v.length >= 3 && /\s|%/.test(v)) out.add(v); return }
+    if (Array.isArray(v)) { v.forEach(walk); return }
+    if (v !== null && typeof v === 'object') Object.values(v).forEach(walk)
+  }
+  walk(sentinelCanonical(form))
+  const licence = (((sentinelBlock(form) as Rec).enrichment as Rec).inference_warnings as Rec[]).find(w => w.code === 'GOAL_CHANCE_LICENSED')
+  walk({ ...licence, message: undefined })
+  return [...out]
+}
+/** The chance figures in CEE's served strings for a form ("64%"; "more than 99%" → "99%"), as a surface could show them. */
+function servedFigures(form: Form): string[] {
+  const figures = new Set<string>()
+  for (const words of servedStrings(form)) for (const m of words.matchAll(/(?<![\d.])\d+(?:\.\d+)?\s*%/g)) figures.add(m[0].replace(/\s+/g, ''))
+  // The target's own size ("at least 10% higher than today") is CEE's words for what the chance is OF, not a chance.
+  figures.delete('10%')
+  return [...figures]
+}
+/** With every cell withheld, no licensed form's figure may appear either. */
+const figuresFor = (form: Form): string[] => (form === 'withheld' ? servedFigures('licensed') : servedFigures(form))
 /** A served figure, matched whole ("6%" is not inside "86%"). */
 const figureAt = (said: string, f: string): number => new RegExp(`(?<![\\d.])${f.replace('.', '\\.')}`).exec(said)?.index ?? -1
-for (const form of ['withheld', 'licensed', 'same_bounds', 'agreeing_low', 'no_words'] as const) {
+const around = (said: string, i: number): string => said.slice(Math.max(0, i - 60), i + 30)
+/** Form (d)'s count of each boundary rounding per surface: the baseline form (f) is held to (round 2, rule C). */
+const BOUNDARY_BASELINE = new Map<string, number[]>()
+for (const form of FORMS) {
   describe(`${FORM_TITLE[form]}: what every mounted surface says`, () => {
     for (const surface of SURFACES) {
       it(`${surface.name}${surface.u0 ? ' [U0]' : ''}`, async () => {
         const hash = seedSentinel(form)
         const root = await surface.mount(hash)
         openEveryDisclosure(root)
-        const { text, spaced, aria } = readSurface(root)
-        // Negative checks read the run of text, the element-separated text and the aria (`readSurface`).
-        const said = `${text} || ${spaced} || ${aria}`
-        expect(text.length, 'the surface rendered nothing: the census would be vacuous').toBeGreaterThan(surface.minText ?? 40)
-        // SAME_BOUNDS: on a journey-path surface the range bounds are CEE's served words (FACE_B_SAME), not a raw read.
-        const raw = sentinelHits(said, form === 'same_bounds' && surface.u0 ? ['range_low_pct', 'range_high_pct'] : [])
-        expect.soft(raw, `a raw probability-like field reached the screen: ${raw.join(' ; ')}`).toEqual([])
-        const level = levelHits(said)
-        expect.soft(level, `the CHANGE target said as a level: ${level.join(' ; ')}`).toEqual([])
-        const servedFigures = form === 'same_bounds' ? [...SERVED_FIGURES.filter(f => f !== '18%' && f !== '26%'), '23%', '29%']
-          : form === 'agreeing_low' ? [...SERVED_FIGURES.filter(f => !['64%', '18%', '26%'].includes(f)), ...LOW_FIGURES] : SERVED_FIGURES
-        if (!surface.u0 || form === 'withheld') {
-          const served = servedFigures.filter(f => figureAt(said, f) >= 0).map(f => said.slice(Math.max(0, figureAt(said, f) - 60), figureAt(said, f) + 10))
-          expect.soft(served, `${surface.u0 ? 'a figure with every cell withheld' : 'a chance figure off the journey path (U0)'}: ${served.join(' ; ')}`).toEqual([])
-        }
-        if (surface.u0 || form !== 'withheld') {
-          const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null)
-            .map(m => said.slice(Math.max(0, m.index - 50), m.index + 40))
-          expect.soft(generic, `a UI-composed chance phrase: ${generic.join(' ; ')}`).toEqual([])
-          const labels = UI_CHANCE_LABELS.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null)
-            .map(m => said.slice(Math.max(0, m.index - 40), m.index + 40))
-          expect.soft(labels, `a UI-composed label beside a chance (only CEE's served words may label it): ${labels.join(' ; ')}`).toEqual([])
-        }
-        for (const words of surface.says?.[form] ?? []) expect.soft(text, 'CEE\'s served words, verbatim').toContain(words)
+        // The branch a form exists to reach, and words bound to an element, are read in the surface's first state.
         for (const id of surface.reaches?.[form] ?? []) expect.soft(root.querySelector(`[data-testid="${id}"]`), `the form's branch is drawn: ${id}`).not.toBeNull()
         for (const [id, words] of surface.saysWithin?.[form] ?? []) {
           expect.soft(root.querySelector(`[data-testid="${id}"]`)?.textContent ?? '', `${id} says CEE's served words itself`).toContain(words)
         }
-        if (surface.u0 && form === 'licensed') expect.soft(text).toContain(DISPLAY_A.replace('about ', ''))
-        // A figure the gate passed is said in CEE's words: "about 6%" appears only inside CEE's served face, never in a
-        // chance sentence the UI worded itself (the low-chance badge's "About 6% chance of …", without "in this model" or
-        // the provisional clause).
-        if (surface.u0 && form === 'agreeing_low') {
-          for (const id of [A, B, SQ] as const) {
-            const rest = text.split(LOW_FACE[id]).join(' ‖ ')
-            const worded = [...rest.matchAll(new RegExp(LOW_DISPLAY[id], 'gi'))].map(m => rest.slice(Math.max(0, m.index - 30), m.index + 90))
-            expect.soft(worded, `a chance figure worded by the UI, outside CEE's face: ${worded.join(' ; ')}`).toEqual([])
-          }
+        // Then every state a person can reach without typing: each disclosure open, each tab in turn (round 2, B).
+        const { text, spaced, aria } = exploreSurface(root, () => {
+          for (const el of [...document.body.children]) for (const n of renderedComponentNames(el)) RENDERED.add(n.replace(/\d+$/, ''))
+        })
+        const said = `${text} || ${spaced} || ${aria}`
+        expect(text.length, 'the surface rendered nothing: the census would be vacuous').toBeGreaterThan(surface.minText ?? 40)
+        const licensedU0 = surface.u0 && form !== 'withheld'
+        const served = servedStrings(form)
+        // ⭐ RULE C (round 2): a chance becomes text only as CEE served it. On a journey surface, what is left once CEE's
+        // served strings are removed holds no rounding of a raw field and no served figure (nothing re-rounded, re-worded or
+        // cut out of a served string). Off the journey path no served string may appear at all, so the whole text is read.
+        const unserved = licensedU0 ? withoutServed(`${text} || ${aria}`, served) : said
+        const raw = [...new Set([...sentinelHits(unserved),
+          ...(licensedU0 ? sentinelHits(withoutServed(spaced, served), form === 'same_bounds' ? ['range_low_pct', 'range_high_pct'] : []) : [])])]
+        expect.soft(raw, `a raw probability-like field reached the screen: ${raw.join(' ; ')}`).toEqual([])
+        // The boundary roundings ("100%", "0%", "99%"…) are also ordinary figures a surface prints for other things (a factor's
+        // influence scale "always shows 100%", a link's belief slider, an outcome of 0), so they are counted against the SAME
+        // surface in form (d), where no chance is near a boundary: any occurrence beyond that baseline is a boundary chance.
+        const counts = BOUNDARY_VARIANTS.map(re => (unserved.match(new RegExp(re.source, 'g')) ?? []).length)
+        if (form === 'agreeing_low') BOUNDARY_BASELINE.set(surface.name, counts)
+        if (form === 'boundary') {
+          const base = BOUNDARY_BASELINE.get(surface.name)
+          expect(base, 'form (d) ran first for this surface (the boundary baseline)').toBeDefined()
+          const extra = BOUNDARY_VARIANTS.flatMap((re, i) => counts[i] > (base?.[i] ?? 0)
+            ? [`${re.source} ×${counts[i]} (baseline ${base?.[i] ?? 0}) "${around(unserved, re.exec(unserved)?.index ?? 0)}"`] : [])
+          expect.soft(extra, `a rounding of a boundary chance that is not CEE's display: ${extra.join(' ; ')}`).toEqual([])
         }
+        const level = levelHits(said)
+        expect.soft(level, `the CHANGE target said as a level: ${level.join(' ; ')}`).toEqual([])
+        const figures = figuresFor(form)
+        if (licensedU0) {
+          const worded = figures.filter(f => figureAt(unserved, f) >= 0).map(f => around(unserved, figureAt(unserved, f)))
+          expect.soft(worded, `a served figure outside CEE's served strings (re-worded or re-rounded by the UI): ${worded.join(' ; ')}`).toEqual([])
+        } else {
+          const shown = figures.filter(f => figureAt(said, f) >= 0).map(f => around(said, figureAt(said, f)))
+          expect.soft(shown, `${surface.u0 ? 'a figure with every cell withheld' : 'a chance figure off the journey path (U0)'}: ${shown.join(' ; ')}`).toEqual([])
+        }
+        if (surface.u0 || form !== 'withheld') {
+          const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null).map(m => around(said, m.index))
+          expect.soft(generic, `a UI-composed chance phrase: ${generic.join(' ; ')}`).toEqual([])
+          const labels = UI_CHANCE_LABELS.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null).map(m => around(said, m.index))
+          expect.soft(labels, `a UI-composed label beside a chance (only CEE's served words may label it): ${labels.join(' ; ')}`).toEqual([])
+        }
+        for (const words of surface.says?.[form] ?? []) expect.soft(text, 'CEE\'s served words, verbatim').toContain(words)
+        if (surface.u0 && form === 'licensed') expect.soft(text).toContain(DISPLAY_A.replace('about ', ''))
       })
     }
     for (const [name, say] of FUNCTIONS) {
@@ -426,9 +596,160 @@ for (const form of ['withheld', 'licensed', 'same_bounds', 'agreeing_low', 'no_w
         expect(said.length).toBeGreaterThan(10)
         const raw = sentinelHits(said)
         expect(raw, `a raw probability-like field: ${raw.join(' ; ')}`).toEqual([])
-        expect([...SERVED_FIGURES, ...LOW_FIGURES].filter(f => figureAt(said, f) >= 0)).toEqual([])
+        expect(figuresFor(form).filter(f => figureAt(said, f) >= 0)).toEqual([])
+        if (form === 'boundary') expect(BOUNDARY_VARIANTS.filter(re => re.test(said)).map(String)).toEqual([])
         expect(levelHits(said)).toEqual([])
       })
     }
   })
 }
+
+/**
+ * ⭐⭐ ROUND 2 — THE DERIVATIONS ARE THE PROOF (DL A and B, 12 Oct). The census's inputs are derived from the code at test
+ * time (`helpers/censusDerivation.ts`), and each derived item must be ACCOUNTED FOR here: seeded and checked, or excluded
+ * with a stated reason. A new chance-like payload field, a new component that reads one, or a new copy / print / download /
+ * share path turns this RED until it is censused or its exclusion is written down.
+ */
+type FieldDisposition = { readonly seeded: readonly number[] } | { readonly excluded: string }
+const NOT_A_NUMBER = 'not a number on the wire (an id, a label, a flag or a source name): no figure to render'
+const DEBUG_ONLY = 'read only by the developer diagnostics panel, which mounts only with the ?diag opt-in (`debugPanelVisibility.ts`) and shows raw payloads by design'
+const OUTCOME_QUANTITY = 'an outcome quantity in the outcome\'s own unit (its doc matched "percentile"), not a chance'
+const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
+  probability_of_goal: { seeded: [RAW.probability_of_goal[A]] },
+  probability_of_joint_goal: { seeded: [RAW.probability_of_joint_goal[A]] },
+  win_probability: { seeded: [RAW.win_probability[A]] },
+  win_probabilities: { seeded: [RAW.win_probability[B]] },
+  option_probabilities: { seeded: [RAW.probability_of_goal[B]] },
+  pct_by_option: { seeded: [RAW.pct_by_option[A]] },
+  pct_if_side: { seeded: [RAW.driver_pct_if_side] },
+  low_pct: { seeded: [RAW.range_low_pct] },
+  high_pct: { seeded: [RAW.range_high_pct] },
+  pct: { seeded: [RAW.run_delta_prior] },
+  goal_chances: { seeded: [RAW.run_delta_current] },
+  prob_satisfied: { seeded: [RAW.prob_satisfied] },
+  constraint_probabilities: { seeded: [RAW.constraint_probability_by_option] },
+  conditional_probabilities: { seeded: [RAW.conditional_probability, RAW.marginal_probability] },
+  conditional_winners: { seeded: [RAW.conditional_win.high, RAW.conditional_win.low] },
+  probability: { seeded: [RAW.constraint_probability] },
+  switch_probability: { seeded: [RAW.switch_probability] },
+  marginal_switch_probability: { seeded: [RAW.marginal_switch_probability] },
+  evpi_percentage_points: { seeded: [RAW.evpi_percentage_points] },
+  recommendation_stability: { seeded: [RAW.recommendation_stability] },
+  p_win_sensitivity: { seeded: [RAW.p_win_sensitivity] },
+  current_winner: { seeded: [RAW.current_winner_probability] },
+  gap: { seeded: [RAW.near_tie_gap] },
+  goal_probability: { excluded: 'the PLoT v1/v2 direct adapters\' name for probability_of_goal; the deployed Run arrives as CEE\'s V5 block (mapV5AnalysisToReport), which carries probability_of_goal, seeded above' },
+  exists_probability: { excluded: 'a model INPUT: the belief that a link exists, authored by the person or by Olumi and shown with its source; not a Run result' },
+  probability_threshold: { excluded: 'a configured threshold of the structural-challenge check (an input), not a result' },
+  threshold: { excluded: 'an input: the person\'s target or limit, or a configured near-tie / flip threshold; not a result' },
+  goal_threshold: { excluded: 'the person\'s own target (an input), not a chance' },
+  probes_used: { excluded: 'a count of the flip search\'s probes, not a share' },
+  mean_outcome: { excluded: OUTCOME_QUANTITY }, downside: { excluded: OUTCOME_QUANTITY }, p05: { excluded: OUTCOME_QUANTITY },
+  p10: { excluded: OUTCOME_QUANTITY }, p50: { excluded: OUTCOME_QUANTITY }, p90: { excluded: OUTCOME_QUANTITY },
+  winner_pct: { excluded: DEBUG_ONLY }, defaulted_percentage: { excluded: DEBUG_ONLY }, confidence_unique_values: { excluded: DEBUG_ONLY },
+  never_truncate_key_max_length: { excluded: DEBUG_ONLY }, rank_displayed: { excluded: DEBUG_ONLY }, win_probability_displayed: { excluded: DEBUG_ONLY },
+  chance_words: { excluded: 'CEE\'s served words (rule C: the only text a chance becomes); not a number' },
+  goal_chance: { excluded: 'CEE\'s served goal-chance detail (its words and displays, which are CEE\'s served strings above); not a number' },
+  alt_winner_label: { excluded: NOT_A_NUMBER }, alternative_winner: { excluded: NOT_A_NUMBER }, alternative_winner_id: { excluded: NOT_A_NUMBER },
+  alternative_winner_label: { excluded: NOT_A_NUMBER }, percentiles_source: { excluded: NOT_A_NUMBER }, robust_winner: { excluded: NOT_A_NUMBER },
+  shareable_url: { excluded: NOT_A_NUMBER }, shared_at: { excluded: NOT_A_NUMBER }, shared_mechanism: { excluded: NOT_A_NUMBER },
+  switch_reading: { excluded: NOT_A_NUMBER }, switch_reason: { excluded: NOT_A_NUMBER }, win_probabilities_unavailable: { excluded: NOT_A_NUMBER },
+  winner_flips: { excluded: NOT_A_NUMBER }, winner_id: { excluded: NOT_A_NUMBER }, winner_label: { excluded: NOT_A_NUMBER },
+}
+
+type SurfaceDisposition = 'rendered' | { readonly excluded: string }
+const productionSources = (): Array<[string, string]> => [...productionModules()].map(f => [f, sourceFiles().get(f) ?? ''])
+const NOT_RENDERED_HELPER_ONLY = 'never rendered: production imports only its helpers (no `<Name` JSX of it in a production file; checked below)'
+const SURFACE_DISPOSITION: Readonly<Record<string, SurfaceDisposition>> = {
+  'src/components/debug/PayloadLabTab.tsx': { excluded: DEBUG_ONLY },
+  'src/components/debug/tabs/SummaryTab.tsx': { excluded: DEBUG_ONLY },
+  'src/components/results/RangeVisualization.tsx': { excluded: NOT_RENDERED_HELPER_ONLY },
+}
+
+const BUILDER_DISPOSITION: Readonly<Record<string, string>> = {
+  'src/canvas/decisionBrief/DecisionBriefTrigger.tsx': 'censused: FUNCTIONS "decision brief, copied text" and "decision brief, printable page"; the panel is a SURFACE',
+  'src/canvas/ErrorBoundary.tsx': 'copies the crash report (error, stack, logs, URL, the autosaved graph); no Run field',
+  'src/canvas/components/ImportExportDialog.tsx': 'downloads the graph (`exportCanvasData({ nodes, edges })`); no Run field',
+  'src/canvas/components/ModelTabBody.tsx': 'copies the model\'s inputs (labels, values, link strengths and their sources); no Run field; the tab is a SURFACE',
+  'src/canvas/components/SnapshotManager.tsx': 'copies or downloads a saved graph snapshot (`persist.saveSnapshot({ nodes, edges })`); no Run field',
+  'src/canvas/components/model-tab/StreamingDiagnostics.tsx': 'copies a correlation id',
+  'src/canvas/conversation/zones/MessageMenu.tsx': 'copies a chat message\'s own text verbatim (CEE\'s words or the person\'s); composes nothing',
+  'src/canvas/export/exportScenario.ts': 'downloads the scenario\'s metadata and graph; no Run field',
+  'src/canvas/utils/safeRichText.ts': 'names `mailto:` only in its safe-link allowlist; builds no export',
+  'src/lib/markdown.ts': 'names `mailto:` only in its safe-link allowlist; builds no export',
+  'src/components/CanvasDrawer.tsx': 'downloads the sandbox drawer\'s notes (`exportSnapshot: JSON.stringify({ notes })`)',
+  'src/components/RunReportDrawer.tsx': 'only on the legacy, unlinked /plot-legacy and /sandbox-v1 routes (the v1 engine sandbox, not the journey; listed in the handback)',
+  'src/components/results/AdvancedSection.tsx': 'copies the Run\'s response hash; the section is censused inside the Analysis tab',
+  'src/lib/export.ts': 'the sandbox stream panel\'s token export (plain text, JSON, Markdown of streamed tokens); no Run field',
+  'src/pages/PanelSetupPage.tsx': 'copies a collaboration round\'s invite text',
+  'src/poc/AppPoC.tsx': 'downloads the sandbox graph state (`nodes`, `edges`, `renames`)',
+  'src/poc/export/exportCanvas.ts': 'serialises the canvas\'s rendered SVG: its text is what the censused canvas cards and edges render',
+  'src/routes/CanvasMVP.tsx': 'copies a share URL',
+  'src/utils/clipboard.ts': 'a helper; its callers copy a draft-error report (PreAnalysisPanel) or debug JSON (BoundaryCard, JsonViewer)',
+  'src/components/DebugTray.tsx': DEBUG_ONLY,
+  'src/components/debug/PayloadLabTab.tsx': DEBUG_ONLY,
+  'src/components/debug/components/JsonViewer.tsx': DEBUG_ONLY,
+  'src/components/debug/tabs/DataFlowTab.tsx': DEBUG_ONLY,
+  'src/components/debug/tabs/PipelineTab.tsx': DEBUG_ONLY,
+  'src/components/debug/tabs/RawTab.tsx': DEBUG_ONLY,
+  'src/components/debug/utils/exportBundle.ts': DEBUG_ONLY,
+}
+
+describe('⭐⭐ ROUND 2: the census inputs are DERIVED, and every derived item is accounted for (DL A and B)', () => {
+  it('A: every chance-like numeric payload field (schema types, their docs, and what production reads) is seeded or excluded', () => {
+    const derived = payloadChanceFields()
+    const missing = [...derived.keys()].filter(f => !(f in FIELD_DISPOSITION))
+    const stale = Object.keys(FIELD_DISPOSITION).filter(f => !derived.has(f))
+    expect(missing, `derived fields with no disposition: ${missing.map(f => `${f} [${[...derived.get(f)!].join(',')}]`).join(' ; ')}`).toEqual([])
+    expect(stale, 'dispositions for fields the derivation no longer finds').toEqual([])
+    // Contrast: the derivation sees the fields the round-1 census already seeded.
+    for (const f of ['probability_of_goal', 'win_probability', 'switch_probability', 'pct_by_option']) expect(derived.has(f), f).toBe(true)
+    // Every seeded field's sentinel reaches what the surfaces read (Run block, mapped report, canonical view, run delta, chat).
+    seedSentinel('licensed')
+    const store = JSON.stringify([sentinelBlock('licensed'), useCanvasStore.getState().results?.report, sentinelCanonical('licensed'),
+      useCanvasStore.getState().runDelta, sentinelFlipAnalysisBlock(), (useCanvasStore.getState().results?.report as Rec | undefined)?.goal_constraints])
+    for (const [field, d] of Object.entries(FIELD_DISPOSITION)) {
+      if ('seeded' in d) for (const v of d.seeded) expect(store, `${field}: its sentinel ${v} is seeded where the surfaces read it`).toContain(String(v))
+      else expect(d.excluded.length, `${field}: an exclusion states its reason`).toBeGreaterThan(20)
+    }
+  }, 60000)
+
+  it('B: every production component that reads a chance-like field is RENDERED by a census row, or excluded with a reason', () => {
+    const derived = chanceReaderComponents()
+    const notRendered: string[] = []
+    for (const file of derived) {
+      const d = SURFACE_DISPOSITION[file] ?? 'rendered'
+      const names = componentNamesOf(file)
+      if (d === 'rendered') {
+        if (!names.some(n => RENDERED.has(n))) notRendered.push(`${file} (${names.join(', ')})`)
+      } else if (d.excluded === NOT_RENDERED_HELPER_ONLY) {
+        // The claim is checked, not asserted: no production file draws any of its components.
+        const prod = [...productionSources()].filter(([f]) => f !== file)
+        for (const n of names) expect(prod.filter(([, t]) => new RegExp(`<${n}[\\s/>]`).test(t)).map(([f]) => f), `${file}: <${n}> is drawn`).toEqual([])
+      }
+    }
+    expect(notRendered, `chance-reading components no census row rendered: ${notRendered.join(' ; ')}`).toEqual([])
+    expect(Object.keys(SURFACE_DISPOSITION).filter(f => !derived.includes(f)), 'dispositions for files the derivation no longer finds').toEqual([])
+    // Contrast: the derivation finds the surfaces the census mounts by name.
+    for (const f of ['src/components/results/OptionCards.tsx', 'src/v5/blocks/V5AnalysisResultBlock.tsx']) expect(derived, f).toContain(f)
+  }, 60000)
+
+  it('the analysis snapshot record reaches no person or AI: production reads only its run count and latest timestamp', () => {
+    // The record carries raw Run fields (it is a stored record, not text). Its store's readers outside its own module may
+    // only add, clear, count or read the latest timestamp; a reader of its figures would have to be censused here.
+    const readers = productionSources().filter(([f, t]) => f !== 'src/canvas/stores/analysisSnapshotStore.ts' && t.includes('useAnalysisSnapshotStore'))
+    expect(readers.length, 'contrast: the store is used in production').toBeGreaterThan(0)
+    const uses = readers.flatMap(([f, t]) => [...t.matchAll(/(?:useAnalysisSnapshotStore\.getState\(\)|snapshotStore)\.(\w+)\(\)?(?:\?\.(\w+))?/g)]
+      .map(m => `${f}: ${m[1]}${m[2] ? `().${m[2]}` : ''}`))
+    expect(uses.filter(u => !/: (?:addSnapshot|clearSnapshots|getRunCount|getLatest\(\)\.timestamp)$/.test(u)), 'a reader of the snapshot record\'s figures').toEqual([])
+  }, 60000)
+
+  it('B: every production copy / print / download / share path is censused or excluded with a reason', () => {
+    const derived = textBuilderFiles()
+    expect(derived.filter(f => !(f in BUILDER_DISPOSITION)), 'builder paths with no disposition').toEqual([])
+    expect(Object.keys(BUILDER_DISPOSITION).filter(f => !derived.includes(f)), 'dispositions for paths the derivation no longer finds').toEqual([])
+    expect(derived, 'contrast: the brief\'s copy-and-print trigger is derived').toContain('src/canvas/decisionBrief/DecisionBriefTrigger.tsx')
+  }, 60000)
+})
+
+afterAll(() => { if (process.env.CENSUS_DUMP) writeFileSync(process.env.CENSUS_DUMP, JSON.stringify([...RENDERED].sort())) })

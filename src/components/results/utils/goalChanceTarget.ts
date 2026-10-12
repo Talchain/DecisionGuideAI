@@ -1,6 +1,3 @@
-import { formatGoalChangeBound, formatGoalTarget } from './formatGoalTarget'
-import { goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
-
 export type GoalChanceComparator = 'at_least' | 'above' | 'at_most' | 'below'
 export interface GoalChanceTarget {
   readonly comparator: GoalChanceComparator
@@ -8,8 +5,8 @@ export interface GoalChanceTarget {
   readonly unit: string
   readonly by_date?: string
   /**
-   * #2747 re-scope 2 (U2, finding 3): the frame CEE's licence states the target in (`change_abs` / `change_rel`), carried
-   * as written so a frame this UI cannot read fails closed in the formatter. CEE writes none for a level target.
+   * #2747 re-scope 2 (U2, finding 3): the frame CEE's licence states the target in (`level` / `change_abs` / `change_rel`),
+   * carried as written. No UI reader words the target from it (round 2, rulings C and D): CEE's chance words do.
    */
   readonly frame?: string
 }
@@ -34,23 +31,9 @@ export function readGoalChanceTarget(value: unknown): GoalChanceTarget | null {
   }
 }
 
-const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
-  at_least: 'at least',
-  above: 'above',
-  at_most: 'at most',
-  below: 'below',
-}
-const HELD: Readonly<Record<GoalChanceComparator, '>=' | '>' | '<=' | '<'>> = { at_least: '>=', above: '>', at_most: '<=', below: '<' }
-
-/**
- * #2747 re-scope 2 (U2, finding 3): the target as the user stated it, in ITS OWN frame — "at least 400 tickets" for a
- * level, "up at least 10% from today" for a change — never a change read as a level ("at least 10%"). The licence carries
- * no quantity frame, so a `%` absolute change, whose size cannot then be said, is `null`, as is an unread frame.
+/*
+ * #2747 re-scope 2 round 2 (DL rules C and D, 12 Oct; Codex r1 blocking 2): `goalChanceTargetBound` is deleted. It worded
+ * the licence's target itself, and a target with no frame came out as a level ("at least 10%" for a change). The hero now
+ * says CEE's `chance_words` or no goal-chance sentence, so nothing in the UI words a chance's target: a missing frame
+ * reaches no reader, and there is no default.
  */
-export function goalChanceTargetBound(target: GoalChanceTarget): string | null {
-  if (goalTargetChangeFrameOf(target.frame) !== null) {
-    return formatGoalChangeBound(target.value, target.unit, target.frame, HELD[target.comparator], undefined)
-  }
-  const figure = formatGoalTarget(target.value, target.unit, target.frame, undefined)
-  return figure === null ? null : `${COMPARATOR_WORDS[target.comparator]} ${figure}`
-}

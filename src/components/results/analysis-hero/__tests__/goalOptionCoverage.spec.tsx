@@ -152,6 +152,16 @@ function pointsMarkupWithCells(data: ReturnType<typeof fromTurn>) {
     const button = readout.closest('button')!
     button.className = button.className.replace('grid-cols-[1.5rem_minmax(0,1fr)_auto_0.875rem]', 'grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem]')
   }
+  // #2747 re-scope 2 round 2 (DL rules C and D): authorise the headline and the lens caption only. The frozen base headline is the UI's own
+  // composition around its own target words ("each option’s chance of meeting your goal (at least £126,000 / month):"); with
+  // no CEE chance words served (none in t1b) the hero says the neutral headline. Every other byte stays frozen.
+  const headline = template.content.querySelector('[data-testid="hero-headline"]')!
+  expect(headline.textContent).toBe('In this model, on current information, each option’s chance of meeting your goal (at least £126,000 / month):')
+  headline.textContent = 'Here is how your options compare.'
+  // …and the Goal fit lens caption, the UI's own words for what each value is a chance of (deleted with caption.goalOnly).
+  const caption = template.content.querySelector('[data-testid="hero-caption"]')!
+  expect(caption.textContent).toBe('Each value is the chance that option meets every target this run scored.')
+  caption.closest('p')!.remove()
   return template.innerHTML
 }
 // C-CELL: the lead now has separate labelled cell lines, tested independently of the retained markup control.

@@ -62,9 +62,9 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
         canonicalAnalysisView: (body as any).canonical_analysis_view,
       })
       expect(brief.run.status).toBe('current')
-      // These served Runs have a partial chance field; staging suppresses the brief's full set.
-      expect(brief.chances).toEqual([])
-      expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+      // #2747 re-scope 2 round 2: the brief repeats no chance (it is off U0); on a current Run it points at the Results tab.
+      expect('chances' in brief).toBe(false)
+      expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
       const rows = buildGoalFitRows(options, report.option_probabilities, view, { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, goalFiguresWithheldMessage: data.recommendation.goalFiguresWithheldMessage, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
       if (canonical === null) {
         expect(rows).not.toBeNull()
@@ -130,8 +130,9 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
   }
   expect(Object.values(report.option_probabilities ?? {}).some((row: any) => row.goal_probability === 0.734)).toBe(true)
   const brief = buildDecisionBrief({ graph: body.graph, graphHash: body.graph_hash, analysisState: body.analysis_state, analysisResult: body.analysis_result })
-  expect(brief.chances).toEqual([])
-  expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+  // #2747 re-scope 2 round 2: the brief repeats no chance (it is off U0), so no raw figure can reach it.
+  expect('chances' in brief).toBe(false)
+  expect(JSON.stringify(brief)).not.toMatch(/0\.734|73(?:\.4)?\s?%/)
   for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
   expect(data.recommendation.allOptions.every(row => row.goalProbability === null)).toBe(true)
   expect(fromOptionProbabilities(report.option_probabilities as never, {}, runViewOf(report))).toEqual([])

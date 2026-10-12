@@ -173,13 +173,11 @@ describe('WS5 real served chance cells', () => {
     const data = await from(figures)
     const option = data.recommendation.allOptions.find(o => o.id === X)!
     option.goalFitIsModelledBasis = true
-    option.goalFitIsSubstitutedJoint = true
     const model = heroParity(data)
     const row = model.rows.find(r => r.id === X)!
     fireEvent.click(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('button')!)
     expect(screen.getByTestId('hero-detail-goal-fit-caveat')).toHaveTextContent(GOAL_FIT_BASIS_CAVEAT_COPY)
     expect(screen.getByTestId('hero-detail-goal-fit').textContent).toBe('about 69%')
-    expect(screen.getByTestId('hero-detail-goal-fit').textContent).not.toBe(HERO_COPY.detail.goalFitJointBasis('about 69%'))
     expect(row.goal.readout).toBe(data.runView!.chanceCellOf(X, ctx(data)).text)
   })
   // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct; staging measurement /private/tmp/ws5-core-constrained.md)
@@ -203,12 +201,10 @@ describe('WS5 real served chance cells', () => {
     const { useCanonicalAnalysisViewStore: store } = await import(STORE)
     store.getState().adopt(figures.j.scenario_id, canonical as never)
     const d = renderHook(() => useResultsSectionData()).result.current
-    d.recommendation.allOptions.find(o => o.id === X)!.goalFitIsSubstitutedJoint = true
     expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual({ kind: 'figure', text: 'about 71%' })
     const model = heroParity(d)
     // #2747 re-scope 2 (U0): the server fragment verbatim, never re-worded into the UI's joint-basis sentence.
     expect(model.rows.find(r => r.id === X)!.detail.goalFit).toBe('about 71%')
-    expect(model.rows.find(r => r.id === X)!.detail.goalFit).not.toBe(HERO_COPY.detail.goalFitJointBasis('about 71%'))
     cardParity(d, X)
   })
   it.each(['figure', 'range'] as const)('R2-1 known copy gap SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): canonical %s without any licensed line renders display', async kind => {
@@ -324,10 +320,11 @@ describe('WS5 real served chance cells', () => {
     expect(model.kind).toBe('chart')
     if (model.kind !== 'chart') throw new Error('Expected chart')
     expect(model.headline).not.toContain('69%')
-    if (kind === 'figure') {
-      expect(model.headline).toContain('about 71%, against about 46%')
-      expect(model.headline).not.toContain('against 10%')
-    } else expect(model.headline).not.toMatch(/\d+%/)
+    // #2747 re-scope 2 round 2 (rule C): the UI composes no "highest" sentence ("…: about 71%, against about 46%"), so the
+    // headline carries no figure in any kind; the canonical figure cell still reaches the hero, verbatim, in its lead line.
+    expect(model.headline).not.toMatch(/\d+%/)
+    if (kind === 'figure') expect(model.subline).toContain('about 71%')
+    else expect(model.subline ?? '').not.toContain('about 71%')
   })
 
 })

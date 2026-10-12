@@ -53,12 +53,6 @@ import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
 import { hasClearInfluenceLeader } from '../driverDisplayModel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
-// `SUB_ONE_PERCENT_FLOOR` is still imported, and deliberately: it no longer
-// formats anything here, but it still GATES the no-option-on-track headline
-// (`allGoalBelowFloor`). That gate is a semantic threshold about the raw
-// values — "is any option meaningfully on track" — not a display rule, so it
-// keeps reading the constant even though the readouts now resolve finer.
-import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { selectGoalLeader } from '../utils/selectGoalLeader'
 import { goalChanceDetailLines, goalChanceHeadline } from './goalChanceCopy'
 import { goalChanceDriverRunMessageIdentity, goalChanceRunMessages } from './goalChanceRunMessages'
@@ -693,16 +687,10 @@ export function buildHeroModel(
     outcomeLeaderRow.outcome.readout !== HERO_COPY.readout.missing &&
     outcomeLeaderRow.outcome.readout === outcomeRunnerUpRow.outcome.readout
 
-  // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
-  // "< 1%" readouts, no new threshold): when EVERY row carries a goal
-  // probability below the floor, no option is meaningfully on track, so the
-  // hero declines to crown a goal-fit leader at all — headline and goal-lens
-  // highlight both switch to the no-option-on-track state. Mixed coverage
-  // (any row without a goal value) falls through to the normal branches.
-  // (rows is never empty here — the empty-options case returned above.)
-  const allGoalBelowFloor = rows.every(
-    (r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR,
-  )
+  // #2747 re-scope 2 round 2 (DL rule C): the hero makes no goal claim of its own. The no-option-on-track headline
+  // (every gated figure under the 1% floor → "No option is currently on track to meet every target this run scored.") and
+  // the goal-fit crown headline ("… meets every target this run scored in the most model runs (64%)", the served figure
+  // with its "about" cut) were UI chance sentences; each option's cell says its chance in CEE's words.
 
   // UI-SEM-072: goal-fit crown = the goalProbability ARGMAX, honestly gated.
   // The goal-attainment headline and the goal-lens "(Leads on this
@@ -763,46 +751,31 @@ export function buildHeroModel(
   // `designationsWithheld`. Only where the user stated a target (UI-SEM-071) and the goal figure is the goal's own chance
   // (with limits the hero's goal value can be the joint, which these words do not describe). Every licensed option must
   // be a row here, by id, or the arm stands aside and the chain below speaks as before.
-  // One gate, shared with the WinGauge's existence line (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row,
-  // the target sayable), so the line under these chance lines is never also, or never instead, under the WinGauge's.
+  // One gate (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row). Round 2: the target need not be
+  // sayable in the UI's words any more (it words none); only the headline needs CEE's chance words.
   // Recovery Batch C: the matching current Run's goal-chance detail (RunView owns the match and the freshness rule).
   const goalChanceDetail = data.runView?.goalChanceDetail() ?? null
   const goalChanceWords = goalChanceDetail?.chance_words ?? null
-  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null, goalChanceWords)
+  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null)
     && options.some(option => {
       const cell = optionChanceCellFromResults(data, option.id)
       // DL 87114's absence face earns no licence headline or driver/reason disclosure.
       return cell.kind !== 'none' && cell.text !== CHANCE_NOT_SHOWN_YET
     })
     ? (data.goalChanceLicence ?? null) : null
-  const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
-  const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
-  const cellWordsOf = (id: string): string | null => {
-    const cell = optionChanceCellFromResults(data, id)
-    if (cell.kind !== 'figure') return null
-    const label = options.find(o => o.id === id)?.label
-    const prefix = label === undefined ? '' : `‘${stripEncodingNotation(label)}’: `
-    const figure = prefix !== '' && cell.text.startsWith(prefix) ? cell.text.slice(prefix.length) : cell.text
-    return figure.match(/^(?:less than |more than |about |[<>])?\d+(?:\.\d+)?\s*%/)?.[0] ?? null
-  }
   // A driver line quotes chances, so only the gated driver (RunView.mainDriverOf) is said; never the licence's own (#2747).
   const gatedDriverOf = (id: string) => data.runView?.mainDriverOf(id) ?? null
-  const copyLicence = goalChanceLicence
-  const summaryLicence = copyLicence !== null && copyLicence.optionIds.some(id => cellWordsOf(id) === null)
-    ? { ...copyLicence, form: 'each' as const } : copyLicence
-  const goalChanceHeadlineText =
-    summaryLicence === null || rows.length < 2 ? null : goalChanceHeadline(summaryLicence, goalChanceLabelOf, cellWordsOf, goalChanceWords)
+  // #2747 re-scope 2 round 2 (DL: LABEL, DON'T WITHHOLD): the goal-chance arm speaks whenever CEE licensed the chances —
+  // each option's cell and CEE's driver sentence lead, verbatim. Only the headline needs CEE's chance words; without them
+  // the arm takes the neutral headline rather than composing one, and never falls back to a leader claim.
+  const goalChanceArmSpeaks = goalChanceLicence !== null && rows.length >= 2
+  const goalChanceHeadlineText = goalChanceArmSpeaks ? goalChanceHeadline(goalChanceLicence, goalChanceWords) : null
 
   let headline: string
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
-  } else if (goalChanceHeadlineText !== null) {
-    headline = goalChanceHeadlineText
-  } else if (allGoalBelowFloor) {
-    // C-FALSE (DL ruling 8 Oct): goal-only figures never license joint words.
-    headline = HERO_COPY.headline.noneOnTrack
-  } else if (goalLeaderRow && cellWordsOf(goalLeaderRow.id) !== null) {
-    headline = HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), cellWordsOf(goalLeaderRow.id)!.replace(/^about /, ''))
+  } else if (goalChanceArmSpeaks) {
+    headline = goalChanceHeadlineText ?? HERO_COPY.headline.noLeader
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
@@ -1022,8 +995,9 @@ export function buildHeroModel(
   // visible (centres without ranges leave it hidden, so the hero must not
   // assert an expected-outcome comparison it cannot show).
   let subline: string | null = null
+  // No goal claim is headlined in C (round 2, above), so every claimed row is the analysis leader's.
   const bandedNoGoalClaim =
-    rows.length > 1 && !allGoalBelowFloor && !goalLeaderRow && headlineRow != null
+    rows.length > 1 && headlineRow != null
   if (bandedNoGoalClaim && (leaderBand === 'none' || leaderBand === null)) {
     // State C: no leader was claimed, so no divergence exists to state —
     // the companion line points at the comparison without risking a name.
@@ -1038,7 +1012,7 @@ export function buildHeroModel(
     // analysis leader. The tension/aligned subline must describe the
     // headlined row, or it would state a divergence about an option the
     // headline never mentioned.
-    const claimedRow = goalLeaderRow ?? headlineRow
+    const claimedRow = headlineRow
     if (topOutcomesReadoutTied) {
       // UI-SEM-070: the top-two options render the SAME readout, so no outcome
       // winner is claimable in ANY branch — no-option-on-track, aligned or
@@ -1067,12 +1041,6 @@ export function buildHeroModel(
       // SUBSTITUTES rather than deletes: the sweep proved the surface
       // renders, so an empty subline would be its own regression.
       subline = HERO_COPY.subline.compareTop
-    } else if (allGoalBelowFloor) {
-      // No leader was claimed; the outcome fact is the one honest pointer.
-      subline = HERO_COPY.subline.highestOutcome(
-        safeLabel(outcomeLeaderRow),
-        outcomeLeaderRow.outcome.readout,
-      )
     } else if (claimedRow) {
       // Aligned case per band (producer band or UI-SEM-060 fallback —
       // whichever sourced leaderBand above): state B names the runner-up as
@@ -1111,7 +1079,7 @@ export function buildHeroModel(
   // Each option keeps its own labelled cell followed by its own driver, then separate Run-wide lines.
   let goalChanceHorizonLine: string | null = null
   let goalChanceLeadLines: HeroChartModel['goalChanceLeadLines']
-  if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
+  if (goalChanceArmSpeaks && goalChanceLicence !== null) {
     // #2747 re-scope 2 (U2): what each chance rests on most is CEE's own sentence (`main_driver.detail`), verbatim; a
     // driver CEE gave no sentence for says nothing (its figure is never worded here).
     const driverRunIdentities = new Set<string>()

@@ -9,7 +9,8 @@
  *    the screen can only have come from the served string;
  *  - SAME_BOUNDS: as LICENSED, but the range cell's served bounds ARE the raw range's (23–29%), the checker's finding-2
  *    reproduction: a surface that composes its own range sentence from the bounds is then visible by its WORDS.
- * The outcome values (means 12 / 9 / 0, ±3) are model outcomes, not chances; no sentinel or served figure is one of them.
+ * The outcome values (means 112 / 210 / 300, ±3) are model outcomes, not chances; they are printed in the goal's unit (%)
+ * on some surfaces, so no outcome value, band or bound is a sentinel, a served figure or a boundary rounding (round 2).
  *
  * SELF-AUTHORED, not served evidence: it tests what the UI does with raw numbers. The words follow CEE's shapes (the face
  * rule `‘label’: about N% <chance words>, in this model.`, the status-quo line, the range display) but are fixture words.
@@ -34,11 +35,15 @@ export const B = 'opt_birch'
 export const SQ = 'carry_on'
 export const LABEL = { [A]: 'Alder plan', [B]: 'Birch plan', [SQ]: 'Carry on as now' } as const
 
-/** The raw fields, each with a unique value (fractions as the wire carries them; whole percents where the wire does). */
+/**
+ * The raw fields, each with a unique value (fractions as the wire carries them; whole percents where the wire does).
+ * Round 2 (rule C): every fraction's hundredths part is under .5, so its floor and its rounding are the same whole percent
+ * and every rounding variant a surface could print ("37%", "37.2", "37.19", "0.37", "0.372", "0.3719") is attributable.
+ */
 export const RAW = {
-  probability_of_goal: { [A]: 0.3719, [B]: 0.2683, [SQ]: 0.1347 },
-  probability_of_joint_goal: { [A]: 0.4391, [B]: 0.3861 },
-  win_probability: { [A]: 0.5273, [B]: 0.3317, [SQ]: 0.1411 },
+  probability_of_goal: { [A]: 0.3719, [B]: 0.2713, [SQ]: 0.1347 },
+  probability_of_joint_goal: { [A]: 0.4413, [B]: 0.3913 },
+  win_probability: { [A]: 0.5317, [B]: 0.3317, [SQ]: 0.1411 },
   root_probability_of_goal: 0.7836,
   pct_by_option: { [A]: 71, [B]: 62 },
   per_target_productivity: { [A]: 76, [B]: 68 },
@@ -47,17 +52,24 @@ export const RAW = {
   range_high_pct: 29,
   driver_pct_if_side: 17,
   constraint_probability: 0.8423,
-  conditional_probability: 0.9167,
+  conditional_probability: 0.9217,
   marginal_probability: 0.6613,
   run_delta_prior: 47,
   run_delta_current: 58,
   run_delta_win: { priorA: 0.6143, currentA: 0.6529, priorB: 0.2219, currentB: 0.1906 },
   snapshot_headline_share: 0.4812,
-  conditional_win: { high: 0.6871, low: 0.4129 },
-  prob_satisfied: 0.5389,
+  conditional_win: { high: 0.6917, low: 0.4129 },
+  prob_satisfied: 0.5419,
   constraint_probability_by_option: 0.4627,
   joint_probability: 0.3121,
   switch_probability: 0.8619,
+  // Round 2 (A): fields the schema-derived census found unseeded.
+  marginal_switch_probability: 0.7419,
+  recommendation_stability: 0.5913,
+  evpi_percentage_points: 43,
+  p_win_sensitivity: 0.2511,
+  current_winner_probability: 0.3512,
+  near_tie_gap: 0.2814,
 } as const
 
 /** CEE's `user_link_existence.one_in` ("a 1-in-N chance each"): a count, so it has its own renderings. */
@@ -76,18 +88,23 @@ export const SENTINELS: readonly Sentinel[] = Object.entries(RAW).flatMap(([fiel
   return typeof v === 'number' ? [one(v)] : Object.values(v as Record<string, number>).map(one)
 })
 
-/** The renderings of one sentinel that a surface could produce. */
+/** The renderings of one sentinel that a surface could produce: every rounding of it (round 2, rule C). */
 export function sentinelPatterns(s: Sentinel): RegExp[] {
   const p = s.pct
   const out = [
     new RegExp(`(?<![\\d.])${p}(?:\\.\\d+)?\\s*%`),
     new RegExp(`(?<![\\d.])${p}\\s+(?:in|out of)\\s+100\\b`),
+    // Percentage points ("43 points", "43 pp", "43 percentage points"): a change in a chance, said as a figure.
+    new RegExp(`(?<![\\d.])${p}(?:\\.\\d+)?\\s*(?:percentage points|points|pp)\\b`),
   ]
   if (s.fraction !== null) {
-    // The raw value itself, as a stored record or a payload carries it ("0.5273").
+    // The raw value itself, as a stored record or a payload carries it ("0.5317"), and every rounding of it: the
+    // fraction to two and three places ("0.53", "0.532"), the percent to one and two places ("53.2", "53.17").
     out.push(new RegExp(`(?<![\\d.])${String(s.fraction).replace('.', '\\.')}(?!\\d)`))
     out.push(new RegExp(`(?<![\\d.])0\\.${String(Math.round(s.fraction * 100)).padStart(2, '0')}(?!\\d*%)`))
+    out.push(new RegExp(`(?<![\\d.])${s.fraction.toFixed(3).replace('.', '\\.')}(?!\\d)`))
     out.push(new RegExp(`(?<![\\d.])${(s.fraction * 100).toFixed(1).replace('.', '\\.')}(?!\\d)`))
+    out.push(new RegExp(`(?<![\\d.])${(s.fraction * 100).toFixed(2).replace('.', '\\.')}(?!\\d)`))
   }
   if (s.banded) {
     const band = Math.max(5, Math.min(95, Math.round(p / 5) * 5))
@@ -148,7 +165,29 @@ export const LOW_FACE = {
  * NO_WORDS: licensed as (b), but CEE serves no `chance_words` (the licence and the canonical view): the UI's own target words
  * are then the only words for what the chance is OF, so the target-in-its-own-frame readers (finding 3) are on the screen.
  */
-export type SentinelForm = 'withheld' | 'licensed' | 'same_bounds' | 'agreeing_low' | 'no_words'
+export type SentinelForm = 'withheld' | 'licensed' | 'same_bounds' | 'agreeing_low' | 'no_words' | 'boundary'
+
+/**
+ * BOUNDARY (round 2, rule C; Codex r1 blocking 1 and 2): CEE's boundary displays, "less than 1%" and "more than 99%",
+ * over raw values whose roundings a surface could print instead (0.0031 → "0%", "0.3%", "0.31", "0.003", "< 1%";
+ * 0.9973 → "100%", "99.7%", "99.73", "0.997", "99%"). The licence's figures agree with the cells, so the gate passes every
+ * one (the Results cards draw their goal rows); the licence names the highest (`highest`, B over A), so leader-dependent
+ * branches are on the screen; CEE serves no chance words; and the licence's target carries NO frame, so a reader that
+ * defaulted a missing frame to a level would be on the screen too.
+ */
+export const BOUNDARY_RAW = { [A]: 0.0031, [B]: 0.9973 } as const
+export const BOUNDARY_DISPLAY = { [A]: 'less than 1%', [B]: 'more than 99%', [SQ]: 'about 4%' } as const
+export const BOUNDARY_FACE = {
+  [A]: `‘Alder plan’: ${BOUNDARY_DISPLAY[A]} ${CHANCE_WORDS}, in this model, ${PROVISIONAL}.`,
+  [B]: `‘Birch plan’: ${BOUNDARY_DISPLAY[B]} ${CHANCE_WORDS}, in this model.`,
+  [SQ]: `‘Carry on as now’: ${BOUNDARY_DISPLAY[SQ]} ${CHANCE_WORDS}, in this model.`,
+} as const
+/** Every rounding of the boundary raw values that is not CEE's served display (checked outside CEE's served strings). */
+export const BOUNDARY_VARIANTS: readonly RegExp[] = [
+  /(?<![\d.])0(?:\.\d+)?\s*%/, /(?<![\d.])0\.31(?!\d)/, /(?<![\d.])0\.003(?!\d)/, /(?<![\d.])0\.0031(?!\d)/, /<\s*1\s*%/,
+  /(?<![\d.])1\s*%/, /(?<![\d.])100(?:\.\d+)?\s*%/, /(?<![\d.])99(?:\.\d+)?\s*%/, /(?<![\d.])99\.7(?!\d)/, /(?<![\d.])99\.73(?!\d)/,
+  /(?<![\d.])0\.997(?!\d)/, /(?<![\d.])0\.9973(?!\d)/, /(?<![\d.])1\.00(?!\d)/,
+]
 
 // ─── CEE's served strings (WITHHELD form): no figure anywhere. ───
 export const WITHHELD_FACE = 'Chance not shown yet'
@@ -158,7 +197,12 @@ export const JOINT_WITHHELD_LINE = 'The chance of meeting both together isn’t 
 export const DRIVER_NONE_REASON = 'No main driver is recorded for a chance that is not shown.'
 
 /** UI-composed chance phrases that must not appear where served words exist. */
-export const GENERIC_CHANCE_PHRASES = [/chance of meeting your goal/i, /\byour goal\b/i, /chance of meeting (?:the|this) goal/i]
+export const GENERIC_CHANCE_PHRASES = [/chance of meeting your goal/i, /chance of meeting (?:the|this) goal/i,
+  // "your goal" beside a chance or a figure (round 2: a sentence about the goal that says no chance, such as the Model tab's
+  // "no connector path shown to your goal", is not a chance phrase).
+  /(?:chance|likel\w*|probab\w*|\d\s*%)[^.]{0,60}\byour goal\b|\byour goal\b[^.]{0,40}(?:chance|likel\w*|probab\w*|\d\s*%)/i,
+  // Round 2: the joint register the UI's own goal claims used ("meets every target this run scored", "on track to meet").
+  /every target this run scored/i, /\bon track to meet\b/i]
 /** UI-composed labels a surface has set beside a chance (DL 12 Oct: a label beside a chance is CEE's served words or none). */
 export const UI_CHANCE_LABELS = [/\bHits target\b/i]
 
@@ -200,13 +244,17 @@ const TARGET_ROWS = [
 
 /** The raw Run: every field above, through the real V5 block shape. */
 export function sentinelBlock(form: SentinelForm = 'licensed'): Rec {
+  const agreeing = form === 'agreeing_low' || form === 'boundary'
   const licence = {
-    code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
-    option_ids: [A, B, SQ], pct_by_option: form === 'agreeing_low' ? { ...LOW_PCT } : { ...RAW.pct_by_option },
-    withheld_option_ids: form === 'agreeing_low' ? [] : [SQ],
-    target: { comparator: 'at_least', value: 10, unit: '%', frame: 'change_abs' },
-    ...(form === 'no_words' ? {} : { chance_words: CHANCE_WORDS }), notes: NOTES,
-    ...(form === 'agreeing_low' ? {} : { status_quo: { option_id: SQ, line: SQ_LINE } }),
+    code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: form === 'boundary' ? 'highest' : 'each',
+    option_ids: [A, B, SQ], pct_by_option: form === 'agreeing_low' ? { ...LOW_PCT } : form === 'boundary' ? { [A]: 0, [B]: 100, [SQ]: LOW_PCT[SQ] }
+      : { ...RAW.pct_by_option },
+    withheld_option_ids: agreeing ? [] : [SQ],
+    ...(form === 'boundary' ? { leader_option_id: B, next_option_id: A } : {}),
+    // BOUNDARY: the target carries no frame (Codex r1 blocking 2's reproduction), so no reader may default it to a level.
+    target: form === 'boundary' ? { comparator: 'at_least', value: 10, unit: '%' } : { comparator: 'at_least', value: 10, unit: '%', frame: 'change_abs' },
+    ...(form === 'no_words' || form === 'boundary' ? {} : { chance_words: CHANCE_WORDS }), notes: NOTES,
+    ...(agreeing ? {} : { status_quo: { option_id: SQ, line: SQ_LINE } }),
     user_link_existence: { links: 2, one_in: ONE_IN },
     driver_by_option: { [A]: { kind: 'factor_value', factor_id: 'ramp_up', side: 'high', cut_value: 4, cut_unit: 'months',
       pct_if_side: RAW.driver_pct_if_side, authored_by: 'olumi' } },
@@ -222,24 +270,33 @@ export function sentinelBlock(form: SentinelForm = 'licensed'): Rec {
       kind: 'link_strength', from: 'ramp_up', to: 'productivity', among: 'all' } } }
   const precision = { probability_of_joint_goal_precision: { n_informative: 10000, standard_error: 0.005 } }
   return {
-    type: 'analysis_result', run_id: RUN_ID, computed_against_hash: GRAPH_HASH, summary: 'Sentinel run', leading_option_id: null,
+    // BOUNDARY names CEE's leader (B, as its licence does), so the leader-dependent sections (the stress test) draw.
+    type: 'analysis_result', run_id: RUN_ID, computed_against_hash: GRAPH_HASH, summary: 'Sentinel run',
+    leading_option_id: form === 'boundary' ? B : null,
     win_probabilities: { [LABEL[A]]: RAW.win_probability[A], [LABEL[B]]: RAW.win_probability[B], [LABEL[SQ]]: RAW.win_probability[SQ] },
     enrichment: {
       option_comparison: [
-        entry(A, { probability_of_goal: RAW.probability_of_goal[A], probability_of_joint_goal: RAW.probability_of_joint_goal[A], ...precision,
-          win_probability: RAW.win_probability[A], outcome: outcome(12),
+        entry(A, { probability_of_goal: form === 'boundary' ? BOUNDARY_RAW[A] : RAW.probability_of_goal[A], probability_of_joint_goal: RAW.probability_of_joint_goal[A], ...precision,
+          win_probability: RAW.win_probability[A], outcome: outcome(112),
           // The per-limit fields (`prob_satisfied`, `constraint_probabilities`, `joint_probability`), as the producer's entry carries them.
           constraint_probabilities: { 'target:morale': RAW.constraint_probability_by_option },
           constraint_analysis: { constraints: [{ constraint_id: 'target:morale', node_id: 'morale', label: 'Morale', direction: 'min',
             threshold: 6, prob_satisfied: RAW.prob_satisfied }], joint_probability: RAW.joint_probability } }),
-        entry(B, { probability_of_goal: RAW.probability_of_goal[B], probability_of_joint_goal: RAW.probability_of_joint_goal[B], ...precision,
-          win_probability: RAW.win_probability[B], outcome: outcome(9) }),
-        entry(SQ, { probability_of_goal: RAW.probability_of_goal[SQ], win_probability: RAW.win_probability[SQ], outcome: outcome(0) }),
+        entry(B, { probability_of_goal: form === 'boundary' ? BOUNDARY_RAW[B] : RAW.probability_of_goal[B], probability_of_joint_goal: RAW.probability_of_joint_goal[B], ...precision,
+          win_probability: RAW.win_probability[B], outcome: outcome(210) }),
+        entry(SQ, { probability_of_goal: RAW.probability_of_goal[SQ], win_probability: RAW.win_probability[SQ], outcome: outcome(300) }),
       ],
-      factor_sensitivity: [{ factor_id: 'ramp_up', factor_label: 'Ramp-up time', elasticity: -0.21, direction: 'negative' }],
+      factor_sensitivity: [{ factor_id: 'ramp_up', factor_label: 'Ramp-up time', elasticity: -0.21, direction: 'negative',
+        evpi_percentage_points: RAW.evpi_percentage_points }],
+      // The value-of-information block's per-factor win sensitivity (an open record shape at the producer).
+      p_win_sensitivity: [{ factor_id: 'ramp_up', factor_label: 'Ramp-up time', p_win_delta: RAW.p_win_sensitivity }],
       // A fragile link with its measured switch probability and the option it would switch towards (robustness lens, hero).
       robustness: { fragile_edges: [{ edge_id: 'ramp_up->productivity', from_id: 'ramp_up', to_id: 'productivity', from_label: 'Ramp-up time',
-        to_label: 'Productivity', switch_probability: RAW.switch_probability, alternative_winner_id: B, alternative_winner_label: LABEL[B] }] },
+        to_label: 'Productivity', switch_probability: RAW.switch_probability, marginal_switch_probability: RAW.marginal_switch_probability,
+        alternative_winner_id: B, alternative_winner_label: LABEL[B] }],
+        // The share of runs the recommendation holds, and the near-tie gap between the top two: win-share figures (A).
+        recommendation_stability: RAW.recommendation_stability,
+        near_tie: { is_tie: false, top_option_id: A, second_option_id: B, tied_option_ids: [], gap: RAW.near_tie_gap, threshold: 0.05 } },
       // The Analysis tab's conditional-scenario cards (ConditionalWinnerCards) draw each side's win share.
       conditional_winners: [{ factor_id: 'ramp_up', factor_label: 'Ramp-up time', split_value: 4, split_unit: 'months', winner_flips: true,
         high_bucket: { winner_id: A, winner_label: LABEL[A], win_probability: RAW.conditional_win.high },
@@ -272,18 +329,21 @@ export function sentinelCanonical(form: SentinelForm): Rec {
   return { ...base,
     options: [
       { option_id: A, cell: form === 'agreeing_low' ? { kind: 'figure', display: LOW_DISPLAY[A], face: LOW_FACE[A] }
+        : form === 'boundary' ? { kind: 'figure', display: BOUNDARY_DISPLAY[A], face: BOUNDARY_FACE[A] }
         : { kind: 'figure', display: DISPLAY_A, face: FACE_A }, main_driver: { kind: 'available', driver, detail: DRIVER_DETAIL_A } },
       // A driver record with NO served detail: its raw figure must never become a sentence.
       { option_id: B, cell: form === 'same_bounds'
         ? { kind: 'range', display: DISPLAY_B_SAME, face: FACE_B_SAME, detail: { range: DISPLAY_B_SAME } }
         : form === 'agreeing_low' ? { kind: 'figure', display: LOW_DISPLAY[B], face: LOW_FACE[B] }
+        : form === 'boundary' ? { kind: 'figure', display: BOUNDARY_DISPLAY[B], face: BOUNDARY_FACE[B] }
         : { kind: 'range', display: DISPLAY_B, face: FACE_B, detail: { range: DISPLAY_B } }, main_driver: { kind: 'available', driver: { ...driver, factor_id: 'morale' } } },
-      form === 'agreeing_low'
-        ? { option_id: SQ, cell: { kind: 'figure', display: LOW_DISPLAY[SQ], face: LOW_FACE[SQ] }, main_driver: { kind: 'none_licensed', reason: DRIVER_NONE_REASON } }
+      form === 'agreeing_low' || form === 'boundary'
+        ? { option_id: SQ, cell: { kind: 'figure', display: LOW_DISPLAY[SQ], face: form === 'boundary' ? BOUNDARY_FACE[SQ] : LOW_FACE[SQ] },
+          main_driver: { kind: 'none_licensed', reason: DRIVER_NONE_REASON } }
         : sq,
     ],
-    goal_chance: { ...(form === 'no_words' ? {} : { chance_words: CHANCE_WORDS }), notes: NOTES,
-      ...(form === 'agreeing_low' ? {} : { status_quo: { option_id: SQ, line: SQ_LINE } }),
+    goal_chance: { ...(form === 'no_words' || form === 'boundary' ? {} : { chance_words: CHANCE_WORDS }), notes: NOTES,
+      ...(form === 'agreeing_low' || form === 'boundary' ? {} : { status_quo: { option_id: SQ, line: SQ_LINE } }),
       targets: { joint: { status: 'licensed', words: JOINT_WORDS }, per_target: [
         { constraint_id: 'target:productivity', words: PER_TARGET_WORDS.productivity,
           options: [{ option_id: A, display: PER_TARGET_DISPLAY.productivity[A] }, { option_id: B, display: PER_TARGET_DISPLAY.productivity[B] }] },
@@ -357,4 +417,12 @@ export function resetSentinel(): void {
     lens: { ...useCanvasStore.getState().lens, active: 'full' },
   } as never)
   useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
+}
+
+/** The chat's flip-analysis block (`flip_analysis`), with its current winner's share as a sentinel (A: `current_winner`). */
+export function sentinelFlipAnalysisBlock(): Rec {
+  return { type: 'flip_analysis', narrative: 'What could change the result.',
+    current_winner: { id: A, label: LABEL[A], probability: RAW.current_winner_probability },
+    flip_conditions: [{ assumption: 'Ramp-up time', current_value: '3 months', flip_threshold: '4 months', direction: 'rises',
+      alternative_winner: LABEL[B] }] }
 }

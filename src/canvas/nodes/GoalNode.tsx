@@ -39,7 +39,6 @@ import {
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
-import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
@@ -57,8 +56,6 @@ import {
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
-import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
-import { getStabilityClassification } from '../../lib/stability'
 import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
@@ -433,7 +430,6 @@ export const GoalNode = memo((props: NodeProps) => {
   const confirmReadingName = `${confirmReadingOffer?.label}: ${confirmReadingWords}`
   useEffect(() => { setConfirmReadingNotice(null) }, [bar?.state_key])
   const metadata = NODE_REGISTRY.goal
-  const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
   const nodes = useCanvasStore(state => state.nodes)
   const report = useCanvasStore(state => state.results.report)
@@ -450,15 +446,9 @@ export const GoalNode = memo((props: NodeProps) => {
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
 
-  const robustnessData = useMemo(() => {
-    if (!isPostAnalysis || !report) return null
-    const robustness = (report as any)?.robustness
-    if (!robustness) return null
-    const stability: number | null = typeof (robustness.recommendation_stability ?? robustness.recommendationStability) === 'number'
-      ? (robustness.recommendation_stability ?? robustness.recommendationStability) : null
-    const level: string | null = robustness.level ?? robustness.robustness_level ?? null
-    return { stability, level }
-  }, [report, isPostAnalysis])
+  // #2747 re-scope 2 round 2 (DL ruling (A), rule C): no "Decision stability N%" on the goal card. It printed the Run's
+  // `recommendation_stability` (the share of runs in which the recommendation holds, a win-share figure CEE serves no
+  // wording or Run authority for) in Detailed view; the census reads Detailed view since round 2.
 
   // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
   // Hero's Success-target field commits via setGoalThresholdAndUpdateNode,
@@ -554,21 +544,6 @@ export const GoalNode = memo((props: NodeProps) => {
   // across two components and 13 existing consumers — not a line in this file.
   // Recorded here rather than left as a silent asymmetry.
 
-  const stabilityClassification = useMemo(() =>
-    getStabilityClassification(robustnessData?.stability),
-    [robustnessData?.stability]
-  )
-  const stabilityBarColour = useMemo((): DataBarColour => {
-    const level = robustnessData?.level ?? stabilityClassification?.level
-    switch (level) {
-      case 'high': return 'success'
-      case 'moderate': return 'goal'
-      case 'low': case 'very_low': return 'warning'
-      default: return 'goal'
-    }
-  }, [robustnessData, stabilityClassification])
-
-  const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
 
   const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
   const postAnalysisConstraints = useCanvasStore(state =>
@@ -749,7 +724,6 @@ export const GoalNode = memo((props: NodeProps) => {
   // realistic?" coaching chip).
   const hasLayer2 = (
     briefExtract ||
-    stabilityValue !== null ||
     (statedLimits && statedLimits.length > 0) ||
     statedTargets.length > 0 ||
     hasConstraintDefaultWarning ||
@@ -774,31 +748,6 @@ export const GoalNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* Stability bar — stale-dimmed when the model changed since the run */}
-      {stabilityValue !== null && (
-        <div
-          className={`mb-1`}
-        >
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
-            <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
-            {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-              /* Contract v3.1 PILL-12: the same state-word anatomy as the
-                 no-target chip. Vertical padding stays 0 (as before) so this
-                 row, which the pill sets the height of, does not grow in
-                 Detailed view: 16.3px at 1x, from 17.1px. */
-              <span
-                data-testid="goal-stability-marginal"
-                className={GOAL_STATE_WORD_CLASSES}
-                style={{ ...GOAL_STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
-              >
-                Marginal
-              </span>
-            )}
-          </div>
-          <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
-        </div>
-      )}
 
       {/* Recovery Batch C: the goal's other targets, said as targets (same neutral pill, never a limit). */}
       {statedTargets.length > 0 && (

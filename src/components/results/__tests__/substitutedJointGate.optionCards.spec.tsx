@@ -35,12 +35,11 @@
  * `probability_of_goal` absent, no `constraint_analysis`,
  * `goal_fit_basis.scored_from === 'modelled_outcome_distribution'`.
  *
- * ⚠ AND THE FLAG IS NOT HAND-SET. `goalFitIsSubstitutedJoint` here is
- * derived by calling the REAL `selectGoalProbability` on those raw bytes and
- * reading its `basis`, with the SAME expression `useResultsSectionData` uses
- * (`basis === 'joint_goal_substituted'`). A hand-set `true` would pin a
- * boolean this spec invented; this pins the live producer shape through the
- * real chooser into the real component. Test 1 is the anti-vacuity control
+ * ⚠ AND THE FIGURE IS NOT HAND-SET. The option's goal figure is derived by
+ * calling the REAL `selectGoalProbability` on those raw bytes (#2747 re-scope 2
+ * deleted the `goalFitIsSubstitutedJoint` flag this paragraph used to cover). A
+ * hand-set value would pin a number this spec invented; this pins the live
+ * producer shape through the real chooser into the real component. Test 1 is the anti-vacuity control
  * (CLAUDE.md trap 13): it proves the fixture is genuinely IN the state under
  * test before any copy is asserted about it — if a future selector change
  * stopped substituting, that control REDs rather than the copy tests passing
@@ -157,11 +156,9 @@ const WITNESSED_OUTCOMES = [
 /**
  * The hook's mapping, and ONLY the hook's mapping.
  *
- * `goalProbability`, `goalFitIsModelledBasis` and `goalFitIsSubstitutedJoint`
- * all come out of the real selector's return value — the last one via the
- * exact expression at `useResultsSectionData.ts` ("Which quantity
- * `goalProbability` actually IS, carried to the render layer"). Nothing about
- * the substitution decision is re-derived here.
+ * `goalProbability` and `goalFitIsModelledBasis` come out of the real selector's return value. Nothing about the
+ * substitution decision is re-derived here. (#2747 re-scope 2: `goalFitIsSubstitutedJoint` is deleted; its writer was
+ * `false` in C.)
  */
 function toOptionResults(
   producerOptions: ReadonlyArray<
@@ -180,10 +177,6 @@ function toOptionResults(
       nValidSamples: 10000,
       goalProbability: goalDecision.goalProbability,
       goalFitIsModelledBasis: goalDecision.goalFitIsModelledBasis,
-      // L62: the hook's expression, verbatim — the owner's PERMISSION on a
-      // present number, not a basis literal.
-      goalFitIsSubstitutedJoint:
-        goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
     } as OptionResult
   })
 }
@@ -193,9 +186,11 @@ function withRealGoalProbability(value: number) {
   return WITNESSED_PRODUCER_OPTIONS.map((o) => ({ ...o, probability_of_goal: value }))
 }
 
-function renderCards(options: OptionResult[]) {
+/** #2747 re-scope 2 round 2 (rule C): the card's goal row says CEE's served cell; `display` is its readout, verbatim. */
+function renderCards(options: OptionResult[], servedDisplay: string | null = null) {
   return render(
-    <OptionCards options={options} winnerId="opt_hybrid" hasGoalThreshold />,
+    <OptionCards options={options} winnerId="opt_hybrid" hasGoalThreshold
+      goalCellOf={() => (servedDisplay === null ? null : { display: servedDisplay, face: null })} />,
   )
 }
 
@@ -218,7 +213,6 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
 
     // And the withhold survives the hook's mapping into the prop the card reads.
     const mapped = toOptionResults(WITNESSED_PRODUCER_OPTIONS)
-    expect(mapped.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
     expect(mapped[0].goalProbability).toBeNull()
   })
 
@@ -261,12 +255,12 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     // 0.55 is the honest answer the witness derived for the leading option
     // once the frame is stamped ("is the uplift >= £2M?").
     const options = toOptionResults(withRealGoalProbability(0.55))
-    expect(options.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
 
-    const { container } = renderCards(options)
+    // Round 2 (rule C): the readout is CEE's served display string itself, never a figure the card rounds.
+    const { container } = renderCards(options, 'about 55%')
     const text = container.textContent ?? ''
 
-    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toMatch(/\d%/)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toBe('about 55%')
     expect(text).not.toContain(POSSESSIVE_BAR_LABEL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.label(true))
     expect(container.querySelectorAll('[data-testid^="goal-fit-substituted-label-"]'))
@@ -277,12 +271,11 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
   // now pins the card's readout and the badge's absence, still never the substituted joint wording.
   it('positive control: a REAL probability_of_goal below the low-goal threshold keeps its readout, with no low-goal badge', () => {
     const options = toOptionResults(withRealGoalProbability(0.055))
-    expect(options.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
 
-    const { container } = renderCards(options)
+    const { container } = renderCards(options, 'about 6%')
     const text = container.textContent ?? ''
 
-    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toMatch(/\d%/)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toBe('about 6%')
     expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('6%', true))
     expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]')).toHaveLength(0)
@@ -301,7 +294,8 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
       { options: toOptionResults(withRealGoalProbability(0.055)), expectReadout: true },
     ]
     for (const { options, expectReadout } of cases) {
-      const { container, unmount } = renderCards(options)
+      // CEE serves a cell in both arms; the withheld arm still draws no row, because the gate passed no figure.
+      const { container, unmount } = renderCards(options, 'about 6%')
       const text = container.textContent ?? ''
       const possessive = text.includes(POSSESSIVE_BADGE_TAIL) || text.includes(POSSESSIVE_BAR_LABEL)
       const withheldVoice =

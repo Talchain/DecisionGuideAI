@@ -3394,7 +3394,6 @@ function buildOptionsComparison(
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     const rawGoal = o.goalProbability
     const goalValue =
-      o.goalFitIsSubstitutedJoint !== true &&
       typeof rawGoal === 'number' &&
       Number.isFinite(rawGoal)
         ? rawGoal

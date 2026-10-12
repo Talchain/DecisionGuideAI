@@ -501,9 +501,28 @@ describe('SharedBriefPage', () => {
       expect(screen.getByTestId('shared-snapshot-analysis')).toBeInTheDocument()
     })
 
-    // #2747 re-scope 2 (DL ruling (A)): row deleted — "survives an analysis whose arrays are the wrong type": its only
-    // assertion was the stored headline ("A sentence.") rendering in the analysis section, and the page reads no stored
-    // headline in C.
+    // #2747 re-scope 2 round 2 (DL E, non-blocking): RESTORED. Its anchor was the stored headline ("A sentence."), which
+    // the page no longer reads in C; the anchor is now the one field left well-typed, so the row still proves the page
+    // survives every other field being the wrong type (and the section is not empty agreeing with itself).
+    it('survives an analysis whose arrays are the wrong type', async () => {
+      mockGetSharedSnapshotBySlug.mockResolvedValue({
+        ...SNAPSHOT,
+        analysis: {
+          headline: 'A sentence.',
+          options: 'not-an-array',
+          top_drivers: { nope: true },
+          what_would_change: ['Local demand → Revenue'],
+          key_assumptions: null,
+          robustness_caveat: 'not-an-object',
+        },
+      })
+      renderPage()
+
+      const section = await screen.findByTestId('shared-snapshot-analysis')
+      expect(within(section).getByText('Local demand → Revenue')).toBeInTheDocument()
+      expect(within(section).queryByText('A sentence.')).not.toBeInTheDocument()
+      expect(section.textContent ?? '').not.toMatch(/not-an-array|not-an-object|nope/)
+    })
   })
 
   it('shows a not-found state for an unknown or expired slug', async () => {

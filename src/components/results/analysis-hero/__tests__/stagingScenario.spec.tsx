@@ -129,11 +129,13 @@ describe('staging scenario — model truth', () => {
     expect(m.rows.map((r) => r.index)).toEqual([1, 2, 3, 4])
   })
 
-  it('states the goal truth: no option on track, outcome leader named in the subline', () => {
+  // #2747 re-scope 2 round 2 (rule C): was "states the goal truth: no option on track, outcome leader named in the subline".
+  // The hero says no on-track sentence of its own (headline.noneOnTrack is deleted); each row says CEE's cell, verbatim.
+  it('states no goal claim of its own: the neutral headline and subline, no crown, the outcome highlight kept', () => {
     const data = stagingData()
     const m = stagingModel(data)
-    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
-    expect(m.subline).toBe('In this model, Use Virtual Assistant Service has the highest expected outcome: 0.4%.')
+    expect(m.headline).toBe('Here is how your options compare.')
+    expect(m.subline).toBe('Compare the top options before deciding.')
     // No goal-fit leader ring; the outcome highlight stays factual.
     expect(m.leaders.goal).toBeNull()
     expect(m.leaders.outcome).toBe('opt_virtual')
@@ -193,12 +195,11 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
   })
 
-  it('Goal fit still communicates the licensed target shortfall with the no-on-track headline', () => {
+  // #2747 re-scope 2 round 2 (rule C): was "…with the no-on-track headline"; the shortfall is said by the cells, in CEE's words.
+  it('Goal fit still communicates the licensed target shortfall, in each row\'s own cell', () => {
     const data = stagingData()
     renderHero(data) // Goal fit is the default lens for this run.
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'No option is currently on track to meet every target this run scored.',
-    )
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
     // C-CELL: read the licensed text from the same report used for the model.
     for (const row of stagingModel(data).rows) {
       expect(within(screen.getByTestId(`hero-option-row-${row.index}`)).getByText(chanceCellOf(data, row.id).text!)).toBeInTheDocument()
@@ -211,7 +212,8 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
   })
 
   it('hero row 1 is the same option OptionCards ranks first, and both surfaces share one scale', () => {
-    renderHero()
+    const data = stagingData()
+    renderHero(data)
     expect(screen.getByTestId('hero-option-row-1')).toHaveAttribute(
       'data-option-id',
       'opt_hire_fulltime',
@@ -224,6 +226,11 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
         winnerId="opt_hire_fulltime"
         hasGoalThreshold
         expertMode
+        // #2747 re-scope 2 round 2 (rule C): the cards' goal readout is CEE's served display, as ResultsBody passes it.
+        goalCellOf={(id) => {
+          const cell = data.runView?.servedCellOf(id) ?? null
+          return cell?.kind === 'figure' ? { display: cell.display, face: cell.face ?? null } : null
+        }}
       />,
     )
     const cardsText = cards.container.textContent ?? ''
@@ -241,8 +248,16 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000.
     // #2747 re-scope 2 (U0 rewrite): the cards' low-goal badge ("Less than 0.03% chance of meeting your goal") is gone in
     // C; the cards' goal readout carries the same resolved floor, and no UI-worded chance sentence.
+    // Round 2 (rule C): both surfaces now say CEE's served words, so they cannot disagree: each card's readout IS the
+    // option's served display, and the hero row says the same option's served cell.
     const readouts = within(cards.container).getAllByTestId(/^goal-readout-/).map((el) => el.textContent ?? '')
-    expect(readouts.some((t) => /0\.03%/.test(t))).toBe(true)
+    expect(readouts.length).toBeGreaterThan(0)
+    for (const el of within(cards.container).getAllByTestId(/^goal-readout-/)) {
+      const id = el.getAttribute('data-testid')!.replace(/^goal-readout-/, '')
+      const served = data.runView?.servedCellOf(id)
+      expect(el.textContent).toBe(served?.kind === 'figure' ? served.display : '<no served figure>')
+    }
+    expect(readouts.some((t) => /0\.03%/.test(t))).toBe(false) // the UI formatter's resolved floor is not said
     expect(cardsText).not.toMatch(/chance of meeting your goal/)
   })
 

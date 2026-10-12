@@ -4,7 +4,7 @@ import { buildRunView, runViewFromParts, type OptionChanceCellContext } from '..
 import { goalProbabilityWords } from '../../../utils/goalAnchorCopy'
 import { readGoalChanceRange, type GoalChanceRange, type GoalChanceRangeEntry } from '../../../utils/goalChanceRange'
 import type { CanonicalAnalysisView, CanonicalAnalysisCell } from '../../../../../canvas/runView/canonicalAnalysisView'
-import { goalChanceOptionLines } from '../../goalChanceCopy'
+import { fixtureOptionLines } from './fixtureOptionLines'
 import { gateWordsOf } from './gateWords'
 
 /** SELF-AUTHORED UI fixtures, not served evidence. Positive display tests explicitly supply
@@ -30,7 +30,7 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
   const range = data.goalChanceRange ?? data.runView?.goalChanceRange ?? rawRange
   const options = data.recommendation.allOptions
   const labelOf = (id: string) => options.find(o => o.id === id)?.label ?? null
-  const lines = data.goalChanceLicence ? goalChanceOptionLines(data.goalChanceLicence, labelOf, gateWordsOf(data.goalChanceLicence)) : null
+  const lines = data.goalChanceLicence ? fixtureOptionLines(data.goalChanceLicence, labelOf, gateWordsOf(data.goalChanceLicence)) : null
   const canonical: CanonicalAnalysisView = {
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
     run,
