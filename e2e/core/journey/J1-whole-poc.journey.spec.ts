@@ -1282,23 +1282,55 @@ async function capacityRun(page: Page, brief: string, label: string) {
   const results = page.getByTestId('results-body-stale-wrapper')
   await expect(results).toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
   await expect(results).not.toHaveAttribute('aria-busy', 'true')
-  const matrix = results.getByTestId('decision-matrix')
-  await expect(matrix).toBeVisible()
-  if (await matrix.getAttribute('data-section-open') !== 'true') await matrix.getByTestId('decision-matrix-toggle').click()
-  const stamp = matrix.getByTestId('decision-matrix-stamp')
-  expect(held.analysis_state?.run_state?.computed_at).toBeTruthy()
-  await expect(stamp).toHaveAttribute('data-computed-at', held.analysis_state.run_state.computed_at)
-  for (const option of options) {
-    await expect(matrix.getByTestId(`decision-matrix-row-${option.id}`).getByRole('rowheader')).toHaveText(option.label)
-  }
   const canonical = held.canonical_analysis_view
+  expect(held.analysis_state?.run_state?.computed_at).toBeTruthy()
   expect(canonical?.run?.graph_hash_at_run).toBe(analysis.computed_against_hash)
   expect(canonical?.run?.computed_at).toBe(held.analysis_state.run_state.computed_at)
   expect(canonical.run.run_id).toBeTruthy()
-  await expect(stamp).toHaveAttribute('data-run-id', canonical.run.run_id)
-  writeEvidence(`${label}-run.json`, { scenarioId, graph, analysis, canonical, computedAt: held.analysis_state.run_state.computed_at })
+  expect(canonical.run.run_id).toBe(held.current_read?.run_delta?.endpoints?.current?.run_id)
+  // This is the TURN projection adopted by applyV5State, not a second, unbound READ.
+  expect(turn.body?.canonical_analysis_view?.run).toEqual(canonical.run)
+  expect(turn.body?.canonical_analysis_view?.options).toEqual(canonical.options)
+  // The rendered dock carries the report's response hash (not the graph hash).
+  // Its report retains the producer graph hash and timestamp; the old matrix stamp is not mounted.
+  await expect.poll(() => page.evaluate(() => {
+    const state = (window as any).useCanvasStore.getState()
+    const report = state.results.report
+    return { scenarioId: state.currentScenarioId, hash: report?.computed_against_hash, computedAt: report?.meta?.computed_at }
+  })).toEqual({ scenarioId, hash: analysis.computed_against_hash, computedAt: canonical.run.computed_at })
+  const responseHash = await page.evaluate(() => (window as any).useCanvasStore.getState().results.report.model_card.response_hash)
+  await expect(page.getByTestId('analysis-new-tab-body')).toHaveAttribute('data-run-identity', responseHash)
+  for (const option of options) {
+    // Refused goal lenses have no hero rows; the dock's option cards still bind every option by id and exact label.
+    const card = results.getByTestId(`option-card-${option.id}`)
+      .or(results.getByTestId(`option-card-not-analysed-${option.id}`))
+      .or(results.getByTestId(`option-card-not-computed-${option.id}`))
+    await expect(card).toHaveCount(1)
+    await expect(card).toHaveAttribute('data-option-id', option.id)
+    await expect(card.getByText(option.label, { exact: true })).toBeVisible()
+  }
+  const briefSection = results.getByTestId('decision-brief-section')
+  const briefToggle = briefSection.getByTestId('decision-brief-toggle')
+  await expect(briefToggle).toBeVisible()
+  if (await briefToggle.getAttribute('aria-expanded') !== 'true') {
+    await expect(briefToggle).toHaveText('Show all brief details')
+    await briefToggle.click()
+  }
+  await expect(briefToggle).toHaveAttribute('aria-expanded', 'true')
+  const briefDetails = await briefSection.getByTestId('decision-brief-groups').innerText()
+  await results.getByTestId('how-computed-trigger').click()
+  const howComputed = page.getByTestId('how-computed-modal')
+  await expect(howComputed).toBeVisible()
+  await expect(howComputed.getByRole('heading', { name: 'How these numbers are computed', exact: true })).toBeVisible()
+  const methodDetails = await howComputed.getByTestId('how-computed-card').innerText()
+  await howComputed.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(howComputed).toHaveCount(0)
+  writeEvidence(`${label}-run.json`, {
+    scenarioId, graph, analysis, canonical, computedAt: held.analysis_state.run_state.computed_at,
+    responseHash, briefDetails, methodDetails,
+  })
   assertBoundaryClean(`${label} Run`)
-  return { results, matrix, analysis, canonical, goal, options }
+  return { results, analysis, canonical, goal, options }
 }
 
 // Separate tests outside the serial group: an old J2 expectation cannot skip these cases.
@@ -1306,7 +1338,7 @@ async function capacityRun(page: Page, brief: string, label: string) {
 // deployed CEE (50530b5f) admission demotes a same-unit 1/1 definition to a placeholder (admit-model.ts:4364, link-effect.ts:514),
 // so goal figures are withheld. Batch A fixes admission, moves tuple.json to its candidate and re-records; then BOTH become live.
 test.fixme('J1 positive · level-target chance is the named option’s probability_of_goal, not its win share', async ({ page }) => {
-  const { matrix, analysis, canonical, options } = await capacityRun(page, LEVEL_BRIEF, 'j1-level')
+  const { results, analysis, canonical, options } = await capacityRun(page, LEVEL_BRIEF, 'j1-level')
   const option = options[1] // Add one specialist, selected by exact label above, before reading any result values.
   const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)
   expect(rows, '[j1-level] Run must contain exactly the named option').toHaveLength(1)
@@ -1318,35 +1350,78 @@ test.fixme('J1 positive · level-target chance is the named option’s probabili
   expect(typeof winShare).toBe('number')
   expect(Number.isFinite(winShare)).toBe(true)
   expect(probability, '[j1-level] this named option must distinguish goal chance from win share').not.toBe(winShare)
-  await expect(matrix.getByRole('columnheader', { name: 'Chance of meeting your goal, in this model', exact: true })).toBeVisible()
-  const cell = matrix.getByTestId(`decision-matrix-chance-${option.id}`)
-  const face = cell.locator(':scope > span').first()
-  await expect(face).toBeVisible()
+  await results.getByTestId('hero-lens-tab-goal').click()
+  const heroRow = (id: string) => results.getByTestId(/^hero-option-row-/).and(results.locator(`[data-option-id="${id}"]`))
+  const row = heroRow(option.id)
+  await expect(row).toHaveCount(1)
+  await expect(row.getByTestId('hero-row-label')).toHaveText(option.label)
+  const cardChance = page.getByTestId(`option-win-readout-${option.id}`)
+  await expect(cardChance).toBeVisible()
   const cells = canonical.options.filter((r: any) => r.option_id === option.id)
   expect(cells).toHaveLength(1)
-  const point = cells[0].cell
-  // Numeric point only: neither an inequality, a range nor an absence can pass.
-  expect(point.kind).toBe('figure')
-  expect(point.display).toMatch(/^(?:about )?\d+(?:\.\d+)?%$/i)
-  await expect(face).toHaveText(point.face ?? point.display)
-  const faceText = await face.innerText()
-  expect(faceText).toContain(point.display)
-  const displayed = Number(faceText.match(/(?:about )?(\d+(?:\.\d+)?)%/i)![1])
-  const licences = (analysis.enrichment?.inference_warnings ?? []).filter((w: any) => w.code === 'GOAL_CHANCE_LICENSED')
-  expect(licences).toHaveLength(1)
-  const rounding = licences[0].display_rounding_by_option?.[option.id] ?? 'whole'
-  expect(['whole', 'nearest_5']).toContain(rounding)
-  // Compare the raw payload at the display's declared precision; do not use the UI formatter as the oracle.
-  const displayedPercent = (p: number) => rounding === 'whole' ? Math.round(p * 100)
+  const cell = cells[0].cell
+  expect(['figure', 'range']).toContain(cell.kind)
+  const expectedFace = `‘${option.label}’: ${cell.display} chance of meeting your goal, in this model.`
+  expect(cell.face).toBe(expectedFace)
+  await expect(cardChance).toHaveText(expectedFace)
+  // The row readout has no test id; scope exact text to the option-id-bound row.
+  await expect(row.getByText(expectedFace, { exact: true })).toBeVisible()
+  await expect(row.getByTestId('hero-row-number')).toHaveCount(0)
+  const rowText = await row.innerText()
+  expect(rankingWord(rowText, [option.label])).toBeNull()
+  expect(ownWordsRemoved(rowText, [option.label])).not.toMatch(/\b(?:rank(?:ed|ing)?|leader|leading|wins?|winning|put forward)\b/i)
+  await expect(results.getByTestId('hero-caption')).toHaveText('Each value is the chance that option meets every target this run scored.')
+  // The status quo has no Monte Carlo chance: only its absence face is asserted.
+  await expect(page.getByTestId(`option-win-readout-${options[0].id}`)).toHaveText('Chance not shown yet')
+  await expect(heroRow(options[0].id).getByText('Chance not shown yet', { exact: true })).toBeVisible()
+  const displayedPercent = (p: number, rounding: string) => rounding === 'whole' ? Math.round(p * 100)
     : p > 0 && p < 1 ? Math.max(5, Math.min(95, Math.round(p * 20) * 5)) : p * 100
-  expect(displayed, '[j1-level] visible chance differs from this option’s probability_of_goal').toBe(displayedPercent(probability))
-  expect(displayed, '[j1-level] visible chance is the option’s win share').not.toBe(displayedPercent(winShare))
-  writeEvidence('j1-level-chance.json', { optionId: option.id, optionLabel: option.label, probability, winShare, rounding, displayed, dom: await cell.innerText() })
+  let displayEvidence: Record<string, any>
+  if (cell.kind === 'figure') {
+    expect(cell.display).toMatch(/^(?:about )?\d+(?:\.\d+)?%$/i)
+    const displayed = Number(cell.display.match(/(\d+(?:\.\d+)?)%/)![1])
+    const licences = (analysis.enrichment?.inference_warnings ?? []).filter((w: any) => w.code === 'GOAL_CHANCE_LICENSED')
+    expect(licences).toHaveLength(1)
+    const rounding = licences[0].display_rounding_by_option?.[option.id] ?? 'whole'
+    expect(['whole', 'nearest_5']).toContain(rounding)
+    // Independent arithmetic at the producer's declared precision, not the UI formatter.
+    expect(displayed, '[j1-level] visible chance differs from this option’s probability_of_goal').toBe(displayedPercent(probability, rounding))
+    expect(displayed, '[j1-level] visible chance is the option’s win share').not.toBe(displayedPercent(winShare, rounding))
+    displayEvidence = { displayed, rounding }
+  } else {
+    // canonical-analysis-view.ts projects detail.range from goal-chance-range-agent.ts.
+    // goal-chance-range.ts: conditional groups for ONE unsized link, each rounded at its own step.
+    // This is not a confidence interval around the marginal point (strength groups can omit the middle;
+    // even existence-group endpoint rounding need not enclose the rounded marginal).
+    expect(cell.detail.range).toBe(cell.display)
+    expect(cell.display).toMatch(/^between about \d+% and \d+%$/)
+    const bounds = cell.detail.range.match(/^between about (\d+)% and (\d+)%$/)!
+    const low = Number(bounds[1]), high = Number(bounds[2])
+    const records = (analysis.enrichment?.inference_warnings ?? []).filter((w: any) => w.code === 'GOAL_CHANCE_RANGE')
+    expect(records).toHaveLength(1)
+    expect(records[0].option_ids).toContain(option.id)
+    const range = records[0].range_by_option[option.id]
+    expect(['link_strength', 'link_existence']).toContain(range.kind)
+    expect(cell.detail.depends_on.kind).toBe(range.kind)
+    expect([low, high]).toEqual([range.low_pct, range.high_pct])
+    expect(low).toBeGreaterThanOrEqual(0)
+    expect(low).toBeLessThan(high)
+    expect(high).toBeLessThanOrEqual(100)
+    for (const [bound, rounding] of [[low, range.low_rounding], [high, range.high_rounding]] as const) {
+      expect(['whole', 'nearest_5']).toContain(rounding)
+      expect(bound, '[j1-level] a visible range endpoint is the option’s win share').not.toBe(displayedPercent(winShare, rounding))
+    }
+    displayEvidence = { low, high, range, roundedProbability: Math.round(probability * 100), containmentGuaranteed: false }
+  }
+  writeEvidence('j1-level-chance.json', {
+    optionId: option.id, optionLabel: option.label, probability, winShare, canonicalCell: cell,
+    ...displayEvidence, dom: await cardChance.innerText(), analysisRow: rowText,
+  })
   assertBoundaryClean('j1-level end')
 })
 
 test.fixme('J1 refusal · no target means no chance, with a reason and an actionable next step', async ({ page }) => {
-  const { results, matrix, analysis, canonical, options } = await capacityRun(page, NO_TARGET_BRIEF, 'j1-no-target')
+  const { results, analysis, canonical, options } = await capacityRun(page, NO_TARGET_BRIEF, 'j1-no-target')
   for (const option of options) {
     const rows = (analysis.enrichment?.option_comparison ?? []).filter((r: any) => r.option_id === option.id)
     expect(rows).toHaveLength(1)
@@ -1354,9 +1429,15 @@ test.fixme('J1 refusal · no target means no chance, with a reason and an action
     const cells = canonical.options.filter((r: any) => r.option_id === option.id)
     expect(cells).toHaveLength(1)
     expect(['none', 'withheld']).toContain(cells[0].cell.kind)
-    const cell = matrix.getByTestId(`decision-matrix-chance-${option.id}`)
-    await expect(cell).toBeVisible()
-    await expect(cell).not.toContainText(/\d+(?:\.\d+)?\s*%/)
+    // The always-mounted card slot also covers options whose chance readout is absent.
+    const slot = page.getByTestId(`option-share-slot-${option.id}`)
+    await expect(slot).toHaveCount(1)
+    await expect(slot).not.toContainText(/\d+(?:\.\d+)?\s*%/)
+    const card = results.getByTestId(`option-card-${option.id}`)
+      .or(results.getByTestId(`option-card-not-analysed-${option.id}`))
+      .or(results.getByTestId(`option-card-not-computed-${option.id}`))
+    await expect(card).toBeVisible()
+    await expect(card).not.toContainText(/\d+(?:\.\d+)?\s*%/)
   }
   // Open the goal lens by identity, not by finding text that happens to mention a target.
   await results.getByTestId('hero-lens-tab-goal').click()
@@ -1369,6 +1450,6 @@ test.fixme('J1 refusal · no target means no chance, with a reason and an action
   await expect(next).toHaveText('Define success')
   await expect(results.getByTestId('hero-chart-rows')).toHaveCount(0)
   await expect(results.getByTestId('goal-chance-range-lines')).toHaveCount(0)
-  writeEvidence('j1-no-target-refusal.json', { optionIds: options.map(o => o.id), reason: await reason.innerText(), nextStep: await next.innerText(), matrix: await matrix.innerText() })
+  writeEvidence('j1-no-target-refusal.json', { optionIds: options.map(o => o.id), reason: await reason.innerText(), nextStep: await next.innerText(), options: await results.getByTestId(/^option-card-/).allInnerTexts(), chanceSlots: await page.getByTestId(/^option-share-slot-/).allInnerTexts() })
   assertBoundaryClean('j1-no-target end')
 })

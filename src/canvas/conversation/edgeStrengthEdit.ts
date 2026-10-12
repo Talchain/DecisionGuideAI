@@ -107,6 +107,7 @@
 import type { Edge } from '@xyflow/react'
 
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
+import { isUnsizedRelationship } from '../domain/edgeProvenance'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import type { WireSystemEvent } from './types'
 
@@ -318,7 +319,7 @@ export function buildEdgeStrengthConfirmEvent({
 }: {
   edge: Edge | undefined | null
 }): WireSystemEvent | null {
-  if (!edge) return null
+  if (!edge || isUnsizedRelationship(edge.data as Record<string, unknown> | undefined)) return null
   const from = edge.source
   const to = edge.target
   if (!isCanonicalEndpointId(from) || !isCanonicalEndpointId(to)) return null
