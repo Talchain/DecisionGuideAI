@@ -69,7 +69,8 @@ describe('didValueCommitRevert', () => {
 describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
   it('the settlement words are different sentences', () => {
     const said = new Set(Object.values(VALUE_COMMIT_SETTLEMENT_COPY).map((c) => c.message))
-    expect(said.size).toBe(5)
+    // Seven words since recovery Batch B added the moved-base read: 'checking' and 'saved'.
+    expect(said.size).toBe(7)
   })
 
   it('role=alert on a confirmed refusal, never the uncertain states', () => {
@@ -77,6 +78,8 @@ describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
     expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.role).toBe('alert')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.saving.role).toBe('status')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.role).toBe('status')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.checking.role).toBe('status')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.saved.role).toBe('status')
   })
 
   it('not_applied is byte-identical to FactorControllablePanel’s own sentence (straight apostrophe)', () => {

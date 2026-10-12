@@ -11,6 +11,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeValueEditor } from '../NodeValueEditor'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
+import { SAVED_MODEL_READ_TIMEOUT_MS } from '../../../conversation/valueCommitSettlement'
 
 const BEFORE = 60000
 const COMMITTED = 70000
@@ -148,6 +149,43 @@ describe('the settlement word after a dispatched commit', () => {
     act(() => settles[0]('refused'))
     expect(errors).not.toHaveBeenCalled()
     errors.mockRestore()
+  })
+})
+
+/**
+ * Recovery Batch B (served capacity row 7a): only a refusal on a MOVED base waits for the saved model. Every other
+ * refusal keeps its immediate word, and a read that never comes ends on the cannot-confirm line, never "Not saved".
+ */
+describe('a refusal on a moved base reads the saved model; nothing else changes', () => {
+  it('NEGATIVE: a stopped turn (fence verdict) is still "Not saved" at once — the model did not move', () => {
+    const { onCommit, settles } = dispatchingAuthority()
+    renderEditor(onCommit)
+    commitTo(COMMITTED)
+    act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'turn_fence_stopped' }))
+    expect(word()?.textContent).toMatch(/^Not saved\./)
+  })
+
+  it('NEGATIVE: a request the server declined outright is still "Not saved" at once', () => {
+    const { onCommit, settles } = dispatchingAuthority()
+    renderEditor(onCommit)
+    commitTo(COMMITTED)
+    act(() => settles[0]('refused', { refusal: 'declined', reason: 'system_event_refused_no_write' }))
+    expect(word()?.textContent).toMatch(/^Not saved\./)
+  })
+
+  it('a moved-base refusal whose saved model is never read ends on "Could not confirm", never "Not saved"', () => {
+    vi.useFakeTimers()
+    try {
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit)
+      commitTo(COMMITTED)
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      expect(word()?.textContent).toBe('Checking the saved model…')
+      act(() => { vi.advanceTimersByTime(SAVED_MODEL_READ_TIMEOUT_MS) })
+      expect(word()?.textContent).toBe('Could not confirm. It may not have reached the model.')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

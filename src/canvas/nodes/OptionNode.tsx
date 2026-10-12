@@ -1996,7 +1996,7 @@ export const OptionNode = memo((props: NodeProps) => {
           return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
         }}
         onCommit={(v, { onSendSettled }) => {
-          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st) } })
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st, detail) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st, detail) } })
           if (outcome === 'dispatched') return 'dispatched'
           return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
         }}
