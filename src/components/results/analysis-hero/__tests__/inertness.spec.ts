@@ -36,6 +36,9 @@ const TEST_IMPORTERS = new Set([
   // Run-4 class census (#2748, DL 12 Oct): applies run-4 capacity's served read through the hero's real-read test
   // helper (test data only); the hero mounts only through ResultsBody, the authorised mount.
   join(SRC, 'components', 'results', '__tests__', 'noLeaderWordsCensus.run4.spec.tsx'),
+  // Run-5 F4 (DL 12 Oct): applies run-5 hiring's served read through the hero's real-read test helper (test data only)
+  // and renders the canvas option card; it mounts no hero.
+  join(SRC, 'canvas', 'nodes', '__tests__', 'OptionNode.servedWhy.run5.spec.tsx'),
 ])
 
 // Pure-copy readers (7 Oct, A1 decision matrix): they say the hero's goal-chance WORDS so the Run tells one

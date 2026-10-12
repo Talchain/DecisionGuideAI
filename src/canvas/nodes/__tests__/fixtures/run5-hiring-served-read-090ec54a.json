@@ -1,0 +1,1958 @@
+{
+ "schema": "scenario_graph.v1",
+ "proposal_fields": {
+  "version": 1,
+  "graph_hash": "090ec54a872c91d3",
+  "proposals": [
+   {
+    "proposal_id": "gmh_5c992128c7bf",
+    "revision": "be063e25-9427-44ea-b706-4cec4c0e56b5",
+    "digest": "572c4ecee63efe8ed23ab650a04aa2ca",
+    "approve_action": {
+     "id": "agent-approve-proposal:gmh_5c992128c7bf",
+     "label": "Approve 2 changes",
+     "message": "Yes, add factor 'Non-development share of team capacity' and link 'Non-development share of team capacity' to 'Productivity'.",
+     "detail": "Add factor 'Non-development share of team capacity'\nLink 'Non-development share of team capacity' to 'Productivity'"
+    },
+    "decline_action": {
+     "id": "agent-decline-proposal:gmh_5c992128c7bf",
+     "label": "Not now",
+     "message": "Not now."
+    },
+    "issued_turn_id": "d82b8e5c-dcbd-4d51-87f2-a90b64a8a2c6",
+    "fields": [
+     {
+      "field_id": "link_strength:fac_non_development_share_of_team_capacity::productivity",
+      "kind": "link_strength",
+      "from_id": "fac_non_development_share_of_team_capacity",
+      "to_id": "productivity",
+      "from_label": "Non-development share of team capacity",
+      "to_label": "Productivity",
+      "direction": "negative",
+      "current": {
+       "band": "strong",
+       "source": "placeholder"
+      },
+      "allowed_bands": [
+       "slight",
+       "moderate",
+       "strong",
+       "very_strong"
+      ],
+      "editable": true
+     }
+    ],
+    "missing": []
+   }
+  ]
+ },
+ "changed_since_run": {
+  "version": 1,
+  "since_run_id": "3856e9aff4dee22b9f97175559cae14130e93c583cdb032e3f6655d8077d5f36",
+  "node_ids": [],
+  "links": [],
+  "unattributed_changes": 0,
+  "complete": true
+ },
+ "scenario_id": "603b2c3a-9ee4-4737-896a-52dc40e664c2",
+ "graph": {
+  "edges": [
+   {
+    "to": "hire_a_tech_lead",
+    "from": "should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "hire_two_developers",
+    "from": "should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "continue_as_now",
+    "from": "should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "tech_lead_headcount",
+    "from": "hire_a_tech_lead",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "hiring_spend",
+    "from": "hire_a_tech_lead",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "developer_headcount",
+    "from": "hire_two_developers",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "hiring_spend",
+    "from": "hire_two_developers",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "tech_lead_headcount",
+    "from": "continue_as_now",
+    "origin": "repair",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "hiring_spend",
+    "from": "continue_as_now",
+    "origin": "repair",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "developer_headcount",
+    "from": "continue_as_now",
+    "origin": "repair",
+    "strength": {
+     "std": 0.01,
+     "mean": 1
+    },
+    "provenance": {
+     "source": "cee_hypothesis",
+     "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+    },
+    "effect_direction": "positive",
+    "exists_probability": 1
+   },
+   {
+    "to": "productivity",
+    "from": "tech_lead_headcount",
+    "strength": {
+     "std": 0.35000000000000003,
+     "mean": 0.7000000000000001
+    },
+    "defaulted": true,
+    "provenance": {
+     "basis": "A technical lead is provisionally expected to remove coordination and technical-decision bottlenecks by the end of month three.",
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 7,
+      "amount_unit": "%",
+      "strength_mean": 0.7000000000000001,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "people"
+     }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "to": "productivity",
+    "from": "developer_headcount",
+    "strength": {
+     "std": 0.45,
+     "mean": 0.9
+    },
+    "defaulted": true,
+    "provenance": {
+     "basis": "Each additional developer is provisionally expected to add productive capacity by the end of month three after recruitment and onboarding.",
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 3,
+      "amount_unit": "%",
+      "strength_mean": 0.9,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "people"
+     }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "to": "code_quality_score",
+    "from": "tech_lead_headcount",
+    "strength": {
+     "std": 0.39999999999999997,
+     "mean": 0.7999999999999999
+    },
+    "defaulted": true,
+    "provenance": {
+     "basis": "The stated lack of leadership suggests a technical lead would improve review, standards and architectural decisions.",
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 8,
+      "amount_unit": "score out of 100",
+      "strength_mean": 0.7999999999999999,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "people"
+     }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "to": "code_quality_erosion",
+    "from": "developer_headcount",
+    "strength": {
+     "std": 0.075,
+     "mean": 0.3
+    },
+    "defaulted": true,
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reviewed_by_user": {
+      "at": "2026-10-12T21:43:22.205Z",
+      "band": "moderate",
+      "intent": "confirm"
+     }
+    },
+    "std_defaulted": true,
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   },
+   {
+    "to": "code_quality_score",
+    "from": "code_quality_erosion",
+    "strength": {
+     "std": 0.075,
+     "mean": -0.3
+    },
+    "defaulted": true,
+    "provenance": {
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "reviewed_by_user": {
+      "at": "2026-10-12T21:43:22.214Z",
+      "band": "moderate",
+      "intent": "confirm"
+     }
+    },
+    "std_defaulted": true,
+    "effect_direction": "negative",
+    "exists_probability": 0.8
+   },
+   {
+    "to": "productivity",
+    "from": "code_quality_score",
+    "strength": {
+     "std": 0.15,
+     "mean": 0.3
+    },
+    "defaulted": true,
+    "provenance": {
+     "basis": "Higher code quality is provisionally expected to reduce rework and preserve delivery productivity.",
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 0.3,
+      "amount_unit": "%",
+      "strength_mean": 0.3,
+      "per_source_change": 1,
+      "strength_mean_frame": "edge_strength",
+      "per_source_change_unit": "score out of 100"
+     }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+   }
+  ],
+  "nodes": [
+   {
+    "id": "should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin",
+    "ref": "D1",
+    "kind": "decision",
+    "label": "Should I hire a Tech lead or two developers to increase productivity by at…",
+    "provenance": "from_brief",
+    "description": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?"
+   },
+   {
+    "id": "productivity",
+    "ref": "G1",
+    "kind": "goal",
+    "label": "Productivity",
+    "provenance": "from_brief",
+    "goal_direction": ">=",
+    "goal_threshold": 0.1,
+    "quantity_frame": "change",
+    "threshold_source": "brief_extraction",
+    "goal_target_basis": {
+     "source": "olumi_reading",
+     "reference": "today",
+     "target_raw": 10,
+     "denominator": "today's productivity",
+     "effect_unit": "% of today's productivity",
+     "period_kind": "at_end",
+     "target_frame": "change_abs",
+     "also_required": [
+      "maintaining code quality"
+     ],
+     "period_months": 3,
+     "quantity_frame": "change",
+     "effects_at_period_end": false
+    },
+    "goal_threshold_cap": 100,
+    "goal_threshold_raw": 10,
+    "goal_threshold_unit": "%",
+    "goal_threshold_frame": "change_abs",
+    "goal_deadline_as_stated": "three months",
+    "goal_threshold_cap_provenance": "metric_scale"
+   },
+   {
+    "id": "hire_a_tech_lead",
+    "ref": "O1",
+    "kind": "option",
+    "label": "Hire a Tech lead",
+    "provenance": "from_brief",
+    "interventions": {
+     "hiring_spend": {
+      "cap": 300000,
+      "unit": "GBP",
+      "value": 0.4000033333333333,
+      "source": "user_specified",
+      "raw_value": 120001,
+      "target_match": {
+       "node_id": "hiring_spend",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     },
+     "tech_lead_headcount": {
+      "unit": "people",
+      "value": 0.1,
+      "source": "cee_hypothesis",
+      "raw_value": 1,
+      "target_match": {
+       "node_id": "tech_lead_headcount",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "hire_two_developers",
+    "ref": "O2",
+    "kind": "option",
+    "label": "Hire two developers",
+    "provenance": "from_brief",
+    "interventions": {
+     "hiring_spend": {
+      "unit": "GBP",
+      "value": 0.5333333333333333,
+      "source": "cee_hypothesis",
+      "raw_value": 160000,
+      "target_match": {
+       "node_id": "hiring_spend",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     },
+     "developer_headcount": {
+      "unit": "people",
+      "value": 0.26666666666666666,
+      "source": "cee_hypothesis",
+      "raw_value": 8,
+      "target_match": {
+       "node_id": "developer_headcount",
+       "confidence": "high",
+       "match_type": "exact_id"
+      }
+     }
+    }
+   },
+   {
+    "id": "continue_as_now",
+    "ref": "O3",
+    "kind": "option",
+    "label": "Continue as now",
+    "provenance": "ai_inferred",
+    "is_baseline": true
+   },
+   {
+    "id": "tech_lead_headcount",
+    "ref": "F1",
+    "kind": "factor",
+    "label": "Tech lead headcount",
+    "category": "controllable",
+    "provenance": "ai_inferred",
+    "scale_frame": 10,
+    "observed_state": {
+     "unit": "people",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0,
+     "extractionType": "inferred"
+    }
+   },
+   {
+    "id": "developer_headcount",
+    "ref": "F2",
+    "kind": "factor",
+    "label": "Developer headcount",
+    "category": "controllable",
+    "provenance": "unverified_brief",
+    "observed_state": {
+     "cap": 30,
+     "unit": "people",
+     "value": 0.2,
+     "source": "cee_inference",
+     "raw_value": 6,
+     "declared_scale": "unit_interval",
+     "extractionType": "inferred",
+     "user_material_unverified": true
+    }
+   },
+   {
+    "id": "hiring_spend",
+    "ref": "F3",
+    "kind": "factor",
+    "label": "Hiring spend",
+    "category": "controllable",
+    "provenance": "ai_inferred",
+    "scale_frame": 300000,
+    "observed_state": {
+     "unit": "GBP",
+     "value": 0,
+     "source": "cee_inference",
+     "raw_value": 0,
+     "extractionType": "inferred"
+    }
+   },
+   {
+    "id": "code_quality_score",
+    "ref": "F4",
+    "kind": "factor",
+    "label": "Code quality score",
+    "category": "observable",
+    "provenance": "ai_inferred",
+    "scale_frame": 100,
+    "observed_state": {
+     "unit": "score out of 100",
+     "value": 0.8,
+     "source": "cee_inference",
+     "raw_value": 80,
+     "extractionType": "inferred"
+    }
+   },
+   {
+    "id": "code_quality_erosion",
+    "ref": "R1",
+    "kind": "risk",
+    "label": "Code quality erosion",
+    "provenance": "ai_inferred"
+   }
+  ],
+  "ref_high_water": {
+   "D": 1,
+   "F": 4,
+   "G": 1,
+   "O": 3,
+   "R": 1
+  },
+  "goal_constraints": [
+   {
+    "unit": "GBP",
+    "label": "Hiring spend",
+    "value": 200000,
+    "node_id": "hiring_spend",
+    "operator": "<=",
+    "provenance": "explicit",
+    "value_frame": "level",
+    "constraint_id": "agent-lane:hiring_spend:<="
+   }
+  ]
+ },
+ "graph_present": true,
+ "brief_text": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality? We have an urgent launch date in the next three months. We currently have six mid-weight developers, so we're lacking leadership. Our budget is £200,000, but we'd like to spend less.",
+ "scenario_created_at": "2026-10-12T21:40:16.18982+00:00",
+ "graph_identity_hash": {
+  "kind": "graph_identity_hash",
+  "value": "1e0003e5b96c01de5f1887e9e9eb04ea8f84f09b7e034e431b730c62965fd04f",
+  "algorithm": "sha256",
+  "projection_version": "identity.v1",
+  "graph_schema_version": "graph_v3",
+  "normaliser_version": "1"
+ },
+ "graph_hash": "090ec54a872c91d3",
+ "layout_present": false,
+ "not_modelled": {
+  "schema": "not_modelled.v1",
+  "status": "derived",
+  "unavailable_reason": null,
+  "scope": {
+   "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+   "model_surface": [
+    "node and option values, caps, units, labels and encoding maps"
+   ],
+   "prose_surface": [
+    "coaching cards",
+    "draft warnings",
+    "validation warnings"
+   ],
+   "excluded_from_search": [
+    "bare numbers carrying no unit, currency or percent sign",
+    "everything in not_tracked"
+   ]
+  },
+  "quantities": {
+   "total": 2,
+   "in_model": 2,
+   "in_model_anchored": 2,
+   "in_model_unanchored": 0,
+   "prose_only": 0,
+   "absent": 0,
+   "truncated": false,
+   "items": [
+    {
+     "literal": "10%",
+     "kind": "percent",
+     "char_offset": 81,
+     "verdict": "in_model",
+     "matched_node_id": "productivity",
+     "stated_kind": "figure"
+    },
+    {
+     "literal": "£200,000,",
+     "kind": "money",
+     "char_offset": 262,
+     "verdict": "in_model",
+     "matched_node_id": "hiring_spend",
+     "stated_kind": "figure"
+    }
+   ]
+  },
+  "stated_kinds": {
+   "status": "derived",
+   "tally": {
+    "goal": 0,
+    "option": 0,
+    "constraint": 0,
+    "figure": 2,
+    "evidence": 0,
+    "assumption": 0,
+    "disagreement": 0,
+    "correction": 0
+   },
+   "sourced": [
+    "constraint",
+    "figure"
+   ],
+   "unsourced": [
+    "goal",
+    "option",
+    "evidence",
+    "assumption",
+    "disagreement",
+    "correction"
+   ],
+   "producers": {
+    "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+    "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+   }
+  },
+  "declared_exclusions": {
+   "status": "not_recorded",
+   "items": []
+  },
+  "inferred_factors": {
+   "status": "derived",
+   "items": [
+    {
+     "node_id": "tech_lead_headcount",
+     "label": "Tech lead headcount"
+    },
+    {
+     "node_id": "developer_headcount",
+     "label": "Developer headcount"
+    },
+    {
+     "node_id": "code_quality_score",
+     "label": "Code quality score"
+    }
+   ]
+  },
+  "not_tracked": [
+   "competing_or_dissenting_proposals",
+   "corrections_and_second_thoughts",
+   "named_evidence_sources_and_their_pedigree",
+   "qualitative_constraints_and_rules",
+   "stated_confidence_and_self_flagged_weakness",
+   "statements_the_drafting_model_did_not_report_discarding"
+  ]
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-12T21:47:52.201Z"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": true,
+   "separation": "separated"
+  },
+  "robustness": {
+   "aggregate_level": "low"
+  },
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "analysis_result": {
+  "type": "analysis_result",
+  "summary": "Hire a Tech lead gave the highest productivity in 66% of runs of this model, but treat this as provisional: it rests heavily on how much Developer headcount changes Productivity. The result is not yet robust — small changes could flip it. 'Continue as now' was analysed as no change — the factors it compares against were held at the values your model records today. I supplied 12 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.",
+  "leading_option_id": "hire_a_tech_lead",
+  "win_probabilities": {
+   "Continue as now": 0.011199999999999998,
+   "Hire a Tech lead": 0.6645499999999999,
+   "Hire two developers": 0.32425000000000004
+  },
+  "enrichment": {
+   "option_comparison": [
+    {
+     "id": "hire_a_tech_lead",
+     "label": "Hire a Tech lead",
+     "status": "computed",
+     "outcome": {
+      "p10": 0.21714083778719,
+      "p50": 0.44211108950964917,
+      "p90": 0.7117142867327829,
+      "std": 0.1974084931095552,
+      "mean": 0.4569632668607839,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "option_id": "hire_a_tech_lead",
+     "option_label": "Hire a Tech lead",
+     "win_probability": 0.6645499999999999,
+     "constraint_margins": [
+      {
+       "constraint_id": "agent-lane:hiring_spend:<="
+      }
+     ],
+     "constraint_probabilities": {
+      "agent-lane:hiring_spend:<=": 1
+     },
+     "constraints_decision_grade": true,
+     "constraint_probabilities_precision": {
+      "agent-lane:hiring_spend:<=": {
+       "n_informative": 10000,
+       "standard_error": 0
+      }
+     }
+    },
+    {
+     "id": "hire_two_developers",
+     "label": "Hire two developers",
+     "status": "computed",
+     "outcome": {
+      "p10": 0.17711841045466847,
+      "p50": 0.42854540019464427,
+      "p90": 0.6745082660483432,
+      "std": 0.19028507384691332,
+      "mean": 0.4281653219452076,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "option_id": "hire_two_developers",
+     "option_label": "Hire two developers",
+     "win_probability": 0.32425000000000004,
+     "constraint_margins": [],
+     "constraint_probabilities": {},
+     "constraints_decision_grade": true,
+     "constraint_probabilities_precision": {}
+    },
+    {
+     "id": "continue_as_now",
+     "label": "Continue as now",
+     "status": "computed",
+     "outcome": {
+      "p10": 0.15304324254680235,
+      "p50": 0.3651975786161712,
+      "p90": 0.6254181843640891,
+      "std": 0.1862267402901323,
+      "mean": 0.3809743690760254,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": 0.10103157988227952,
+      "cvar_10": 0.08688750778695624,
+      "expected_regret": 0.10474996736897471
+     },
+     "option_id": "continue_as_now",
+     "option_label": "Continue as now",
+     "win_probability": 0.011199999999999998,
+     "constraint_margins": [
+      {
+       "constraint_id": "agent-lane:hiring_spend:<="
+      }
+     ],
+     "probability_of_goal": 0,
+     "constraint_probabilities": {
+      "agent-lane:hiring_spend:<=": 1
+     },
+     "probability_of_joint_goal": 1,
+     "constraints_decision_grade": true,
+     "probability_of_goal_drivers": {
+      "method": "tercile_conditional_v1",
+      "drivers": [],
+      "n_dropped": 14,
+      "n_compared": 0,
+      "min_group_n": 30,
+      "n_candidates": 14,
+      "dropped_by_reason": {
+       "no_variance": 0,
+       "zero_spread": 0,
+       "set_by_option": 0,
+       "outcome_constant": 14,
+       "group_below_min_n": 0,
+       "non_finite_values": 0,
+       "set_by_option_upstream": 0,
+       "tied_at_tercile_boundary": 0
+      }
+     },
+     "probability_of_goal_precision": {
+      "basis": "simulation_precision",
+      "n_met": 0,
+      "method": "wilson_score",
+      "n_informative": 10000,
+      "interval_lower": 0,
+      "interval_upper": 0.00038399837067659557,
+      "confidence_level": 0.95
+     },
+     "constraint_probabilities_precision": {
+      "agent-lane:hiring_spend:<=": {
+       "n_informative": 10000,
+       "standard_error": 0
+      }
+     },
+     "probability_of_joint_goal_precision": {
+      "n_informative": 10000,
+      "standard_error": 0
+     }
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "code_quality_score",
+     "confidence": 0.64605,
+     "elasticity": 0.3191489361702127,
+     "evpi_method": "heuristic",
+     "driver_label": "biggest",
+     "factor_label": "Code quality score",
+     "value_source": "cee_inference",
+     "evidence_hint": false,
+     "influence_rank": 3,
+     "rank_flip_rate": 0,
+     "importance_rank": 1,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.39893617021276595,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0.3,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.9
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "evpi_percentage_points": 0
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "tech_lead_headcount",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Tech lead headcount",
+     "value_source": "cee_inference",
+     "influence_rank": 1,
+     "rank_flip_rate": 0,
+     "importance_rank": 2,
+     "influence_basis": "isl_structural",
+     "influence_score": 1,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "default"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "developer_headcount",
+     "confidence": 0.44815,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Developer headcount",
+     "value_source": "cee_inference",
+     "influence_rank": 2,
+     "rank_flip_rate": 0,
+     "importance_rank": 3,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.9287234042553193,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "isolated",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "default"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "hiring_spend",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "minor",
+     "factor_label": "Hiring spend",
+     "value_source": "cee_inference",
+     "influence_rank": 4,
+     "rank_flip_rate": 0,
+     "importance_rank": 4,
+     "influence_basis": "isl_structural",
+     "influence_score": 0,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "default"
+    }
+   ],
+   "robustness": {
+    "level": "low",
+    "near_tie": {
+     "gap": 0.3402999999999998,
+     "is_tie": false,
+     "threshold": 0.1,
+     "top_option_id": "hire_a_tech_lead",
+     "tied_option_ids": [
+      "hire_a_tech_lead"
+     ],
+     "second_option_id": "hire_two_developers"
+    },
+    "is_robust": false,
+    "confidence": 0.6645499999999999,
+    "robust_edges": [
+     {
+      "to_id": "code_quality_score",
+      "edge_id": "code_quality_erosion->code_quality_score",
+      "from_id": "code_quality_erosion",
+      "to_label": "Code quality score",
+      "from_label": "Code quality erosion",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     },
+     {
+      "to_id": "code_quality_erosion",
+      "edge_id": "developer_headcount->code_quality_erosion",
+      "from_id": "developer_headcount",
+      "to_label": "Code quality erosion",
+      "from_label": "Developer headcount",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     }
+    ],
+    "fragile_edges": [
+     {
+      "to_id": "productivity",
+      "edge_id": "developer_headcount->productivity",
+      "from_id": "developer_headcount",
+      "visible": false,
+      "severity": "warning",
+      "to_label": "Productivity",
+      "from_label": "Developer headcount",
+      "switch_probability": 0.024,
+      "alternative_winner_id": "hire_two_developers",
+      "alternative_winner_label": "Hire two developers",
+      "marginal_switch_probability": 0.24
+     }
+    ],
+    "display_verdict": "fragile",
+    "confidence_basis": "recommendation_stability_uncalibrated",
+    "recommended_option_id": "hire_a_tech_lead",
+    "display_verdict_reason": "small changes to your assumptions could change the most-supported option",
+    "recommended_option_label": "Hire a Tech lead",
+    "recommended_option_compliance": "compliant",
+    "recommended_option_compliance_reason": "this option met every limit you set, in all the scenarios we tested"
+   },
+   "option_comparison_status": "computed",
+   "conditional_probabilities": [],
+   "edge_e_values": [
+    {
+     "to_id": "productivity",
+     "e_value": 1,
+     "edge_id": "tech_lead_headcount::productivity",
+     "from_id": "tech_lead_headcount",
+     "to_label": "Productivity",
+     "flip_mean": 0.342,
+     "stability": {
+      "n_seeds": 10,
+      "band_max": 0.529902,
+      "band_min": -0.311591,
+      "band_width": 0.841493,
+      "band_median": -1e-06,
+      "n_seeds_flipped": 9,
+      "seed_flip_means": [
+       0.369703,
+       -1e-06,
+       0.515789,
+       -1e-06,
+       null,
+       0.529902,
+       -0.11703,
+       -0.311591,
+       0.505103,
+       -0.020954
+      ]
+     },
+     "from_label": "Tech lead headcount",
+     "current_mean": 0.7000000000000001,
+     "flip_direction": "decrease"
+    },
+    {
+     "to_id": "code_quality_score",
+     "e_value": 1,
+     "edge_id": "tech_lead_headcount::code_quality_score",
+     "from_id": "tech_lead_headcount",
+     "to_label": "Code quality score",
+     "flip_mean": -0.393335,
+     "stability": {
+      "n_seeds": 10,
+      "band_max": 0,
+      "band_min": -0.60659,
+      "band_width": 0.60659,
+      "band_median": -0.540169,
+      "n_seeds_flipped": 3,
+      "seed_flip_means": [
+       null,
+       0,
+       -0.60659,
+       -0.540169,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     "from_label": "Tech lead headcount",
+     "current_mean": 0.7999999999999999,
+     "flip_direction": "decrease"
+    },
+    {
+     "to_id": "productivity",
+     "e_value": 1,
+     "edge_id": "code_quality_score::productivity",
+     "from_id": "code_quality_score",
+     "to_label": "Productivity",
+     "flip_mean": -0.11628,
+     "stability": {
+      "n_seeds": 10,
+      "band_max": 0.70539,
+      "band_min": -0.19811,
+      "band_width": 0.9035,
+      "band_median": -1e-06,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       -1e-06,
+       -0.131916,
+       null,
+       -0.19811,
+       0.587295,
+       null,
+       null,
+       0.70539,
+       null
+      ]
+     },
+     "from_label": "Code quality score",
+     "current_mean": 0.3,
+     "flip_direction": "decrease"
+    }
+   ],
+   "inference_warnings": [
+    {
+     "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+     "message": "3 edge E-value entries were omitted from edge_e_values: 3 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+     "severity": "info"
+    },
+    {
+     "code": "GOAL_FIGURES_TARGET_NOT_TESTABLE",
+     "detail": {
+      "reason": "effects_at_period_end_unstated"
+     },
+     "message": "The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then.",
+     "node_ids": [
+      "productivity"
+     ],
+     "severity": "warning",
+     "option_ids": [
+      "hire_a_tech_lead",
+      "hire_two_developers"
+     ],
+     "withheld_claims": [
+      "goal_probability",
+      "joint_probability",
+      "downside"
+     ]
+    }
+   ],
+   "confidence_tier": "fair",
+   "flip_thresholds": [],
+   "decision_brief": {
+    "options": [
+     {
+      "rank": 1,
+      "label": "Hire a Tech lead",
+      "option_id": "hire_a_tech_lead",
+      "win_probability": 0.6645499999999999
+     },
+     {
+      "rank": 2,
+      "label": "Hire two developers",
+      "option_id": "hire_two_developers",
+      "win_probability": 0.32425000000000004
+     },
+     {
+      "rank": 3,
+      "label": "Continue as now",
+      "option_id": "continue_as_now",
+      "win_probability": 0.011199999999999998
+     }
+    ],
+    "version": "1",
+    "brief_id": "40bfd297-e4f0-41c2-8b36-999f09b90809",
+    "headline": "Hire a Tech lead currently leads by 34 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+    "warnings": [
+     {
+      "code": "GRAPH_DISCONNECTED",
+      "message": "Graph has 2 disconnected components",
+      "severity": "warning"
+     },
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     },
+     {
+      "code": "MISSING_RISK_PATHWAY",
+      "message": "No risk factors materially affect your goal. What could go wrong?",
+      "severity": "warning"
+     }
+    ],
+    "created_at": "2026-10-12T21:47:57.176Z",
+    "robustness": "fragile",
+    "top_drivers": [
+     {
+      "direction": "positive",
+      "sensitivity": 0.3191489361702127,
+      "factor_label": "Code quality score"
+     }
+    ],
+    "warning_codes": [],
+    "headline_banded": {
+     "band": "slightly_ahead",
+     "text": "Hire a Tech lead is slightly ahead.",
+     "doctrine": "provisional_doctrine_v0",
+     "leader_label": "Hire a Tech lead",
+     "runner_up_label": "Hire two developers",
+     "leader_option_id": "hire_a_tech_lead",
+     "robustness_gated": true,
+     "runner_up_option_id": "hire_two_developers",
+     "win_probability_gap": 0.3402999999999998
+    },
+    "key_assumptions": [
+     "Code quality score"
+    ],
+    "analysis_summary": {
+     "leading_option": "Hire a Tech lead",
+     "robustness_band": "fragile",
+     "win_probability": 0.6645499999999999
+    },
+    "robustness_caveat": {
+     "text": "This run was sensitive to the changes we tested. Small changes to your assumptions could change the most-supported option.",
+     "basis": "is_robust",
+     "doctrine": "provisional_doctrine_v0"
+    },
+    "what_would_change": [],
+    "defaulted_assumptions": []
+   },
+   "factor_evppi": [
+    {
+     "evppi": 0,
+     "units": "outcome",
+     "method": "regression_evppi_v1",
+     "status": "below_resolution",
+     "evppi_raw": 0,
+     "factor_id": "code_quality_score",
+     "n_samples": 10000,
+     "clamped_low": false,
+     "noise_floor": 1.1e-05,
+     "clamped_high": false,
+     "status_reason": "at_or_below_noise_floor",
+     "regression_degree": 4,
+     "correlation_active": false,
+     "baseline_max_expected_utility": 0.456963,
+     "conditional_max_expected_utility": 0.456963
+    }
+   ],
+   "decision_evpi": 0.0287610695842162,
+   "p_win_sensitivity": [
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": false,
+     "factor_id": "tech_lead_headcount",
+     "n_samples": 2000,
+     "metric_type": "p_joint_goal",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 1,
+     "perfect_metric": 1,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": false,
+     "factor_id": "developer_headcount",
+     "n_samples": 2000,
+     "metric_type": "p_joint_goal",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 1,
+     "perfect_metric": 1,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": false,
+     "factor_id": "hiring_spend",
+     "n_samples": 2000,
+     "metric_type": "p_joint_goal",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 1,
+     "perfect_metric": 1,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    },
+    {
+     "method": "p_win_delta_at_mean_v1",
+     "status": "below_resolution",
+     "clamped": false,
+     "factor_id": "code_quality_score",
+     "n_samples": 2000,
+     "metric_type": "p_joint_goal",
+     "noise_floor": 0.03099,
+     "p_win_delta": 0,
+     "current_metric": 1,
+     "perfect_metric": 1,
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta_percentage_points": 0
+    }
+   ],
+   "critiques": [
+    {
+     "id": "critique_6362127f37d0",
+     "code": "GRAPH_DISCONNECTED",
+     "severity": "warning",
+     "source": "isl",
+     "blocks_analysis": false,
+     "user_message": "Some parts of the model are not connected to your goal. Link them through to your goal, or remove them."
+    }
+   ],
+   "conditional_winners": [
+    {
+     "factor_id": "developer_headcount",
+     "low_bucket": {
+      "winner_id": "hire_two_developers",
+      "runner_up_id": "hire_a_tech_lead",
+      "winner_label": "Hire two developers",
+      "runner_up_label": "Hire a Tech lead",
+      "win_probability": 0.5628
+     },
+     "split_unit": "people",
+     "high_bucket": {
+      "winner_id": "hire_a_tech_lead",
+      "runner_up_id": "hire_two_developers",
+      "winner_label": "Hire a Tech lead",
+      "runner_up_label": "Hire two developers",
+      "win_probability": 0.8976
+     },
+     "split_value": 0.19952174826730842,
+     "factor_label": "Developer headcount",
+     "winner_flips": true
+    }
+   ],
+   "flip_thresholds_status": "unavailable"
+  },
+  "computed_against_hash": "090ec54a872c91d3"
+ },
+ "canonical_analysis_view": {
+  "schema": "canonical_analysis_view.v1",
+  "source": "stored_run_facts",
+  "run": {
+   "run_id": "3856e9aff4dee22b9f97175559cae14130e93c583cdb032e3f6655d8077d5f36",
+   "graph_hash_at_run": "090ec54a872c91d3",
+   "computed_at": "2026-10-12T21:47:52.201Z"
+  },
+  "staleness": {
+   "stale": false,
+   "revision": 4,
+   "run_revision": 4,
+   "run_revision_source": "recorded",
+   "basis": "analysis_graph_hash_interim",
+   "reason": "graph_hash_match",
+   "limitation": "Hash equality cannot detect brief, framing or stage changes."
+  },
+  "leader_licence": "permitted_with_caveat",
+  "options": [
+   {
+    "option_id": "hire_a_tech_lead",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "GOAL_FIGURES_TARGET_NOT_TESTABLE",
+       "message": "The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then."
+      }
+     ],
+     "face": "Chance not shown yet",
+     "why": "The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then."
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "hire_two_developers",
+    "cell": {
+     "kind": "withheld",
+     "reasons": [
+      {
+       "code": "GOAL_FIGURES_TARGET_NOT_TESTABLE",
+       "message": "The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then."
+      }
+     ],
+     "face": "Chance not shown yet",
+     "why": "The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then."
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   },
+   {
+    "option_id": "continue_as_now",
+    "cell": {
+     "kind": "none"
+    },
+    "main_driver": {
+     "kind": "not_recorded"
+    }
+   }
+  ]
+ },
+ "current_read": {
+  "analysis_ready": {
+   "options": [
+    {
+     "option_id": "hire_a_tech_lead",
+     "label": "Hire a Tech lead",
+     "status": "ready",
+     "interventions": {
+      "hiring_spend": 0.4000033333333333,
+      "tech_lead_headcount": 0.1
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "hiring_spend": {
+       "display_value": "£120k",
+       "normalised_value": 0.4000033333333333,
+       "raw_value": 120001,
+       "unit": "GBP"
+      },
+      "tech_lead_headcount": {
+       "display_value": "1 people",
+       "normalised_value": 0.1,
+       "raw_value": 1,
+       "unit": "people"
+      }
+     },
+     "raw_interventions": {
+      "hiring_spend": 120001,
+      "tech_lead_headcount": 1
+     },
+     "status_reason": "2 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "hire_two_developers",
+     "label": "Hire two developers",
+     "status": "ready",
+     "interventions": {
+      "hiring_spend": 0.5333333333333333,
+      "developer_headcount": 0.26666666666666666
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "hiring_spend": {
+       "display_value": "£160k",
+       "normalised_value": 0.5333333333333333,
+       "raw_value": 160000,
+       "unit": "GBP"
+      },
+      "developer_headcount": {
+       "display_value": "8 people",
+       "normalised_value": 0.26666666666666666,
+       "raw_value": 8,
+       "unit": "people"
+      }
+     },
+     "raw_interventions": {
+      "hiring_spend": 160000,
+      "developer_headcount": 8
+     },
+     "status_reason": "2 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "continue_as_now",
+     "label": "Continue as now",
+     "status": "ready",
+     "interventions": {},
+     "is_baseline": true,
+     "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+    }
+   ],
+   "goal_node_id": "productivity",
+   "status": "ready",
+   "goal_threshold": 0.1,
+   "goal_threshold_raw": 10,
+   "goal_threshold_unit": "%",
+   "goal_threshold_cap": 100,
+   "goal_threshold_cap_provenance": "metric_scale",
+   "bias_findings": [],
+   "may_run": true,
+   "analysis_admission": {
+    "structurally_analysable": true,
+    "missing_important_inputs": [],
+    "semantic_quality_sufficient": false,
+    "permitted_analysis_mode": "quantified_provisional",
+    "reasons": [
+     {
+      "field": "structurally_analysable",
+      "code": "READY_TO_COMPARE",
+      "message": "Analysis can run on this model as it stands."
+     },
+     {
+      "field": "semantic_quality_sufficient",
+      "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+      "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+     },
+     {
+      "field": "permitted_analysis_mode",
+      "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+      "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+     }
+    ],
+    "graph_hash": "090ec54a872c91d32342ad49489b1e2bb1237d449fbaf242f53cfd43447ce696",
+    "semantic_signals": {
+     "confidence_parameters_total": 12,
+     "confidence_parameters_user_stated": 0,
+     "confidence_parameters_machine_authored": 9,
+     "confidence_parameters_unattributed": 3,
+     "material_parameters_total": 9,
+     "material_parameters_user_stated": 0,
+     "intervened_factor_baselines_total": 3,
+     "intervened_factor_baselines_user_stated": 0,
+     "material_parameters_awaiting_user_node_ids": [
+      "tech_lead_headcount",
+      "developer_headcount",
+      "code_quality_score"
+     ],
+     "goal_target_stated": true
+    }
+   },
+   "freshness": "fresh",
+   "freshness_reason": "agent_readback_run_state_current",
+   "graph_hash_at_run": "090ec54a872c91d3",
+   "current_graph_hash": "090ec54a872c91d3",
+   "computed_at": "2026-10-12T21:47:52.201Z"
+  },
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-12T21:47:52.201Z"
+  },
+  "computed_against_hash": "090ec54a872c91d3",
+  "current_analysis_hash": "090ec54a872c91d3",
+  "figures": [],
+  "run_delta": {
+   "attribution_case": "C1_attributable",
+   "pair_provenance": {
+    "seed_equal": true,
+    "hash_equal": false,
+    "builds_equal": "equal",
+    "n_equal": true
+   },
+   "leader": {
+    "changed": false,
+    "current_leading_option_id": "hire_a_tech_lead",
+    "noise_verdict": "not_noise_qualified"
+   },
+   "win_probabilities": [],
+   "goal_chances": [
+    {
+     "option_id": "hire_a_tech_lead",
+     "prior": {
+      "kind": "withheld"
+     },
+     "current": {
+      "kind": "withheld"
+     }
+    },
+    {
+     "option_id": "hire_two_developers",
+     "prior": {
+      "kind": "withheld"
+     },
+     "current": {
+      "kind": "withheld"
+     }
+    },
+    {
+     "option_id": "continue_as_now",
+     "prior": {
+      "kind": "withheld"
+     },
+     "current": {
+      "kind": "withheld"
+     }
+    }
+   ],
+   "flip_thresholds": [],
+   "endpoints": {
+    "prior": {
+     "run_id": "77b6e8f889d3c9a9a8d96f4bb0d75874e7b6111bac3a418921433b2136a3ed6d",
+     "computed_at": "2026-10-12T21:43:37.297Z"
+    },
+    "current": {
+     "run_id": "3856e9aff4dee22b9f97175559cae14130e93c583cdb032e3f6655d8077d5f36",
+     "computed_at": "2026-10-12T21:47:52.201Z"
+    }
+   },
+   "input_coverage": "complete",
+   "input_changes": [
+    {
+     "entity_kind": "option_setting",
+     "entity_id": "hiring_spend",
+     "option_id": "hire_a_tech_lead",
+     "field": "value",
+     "label_before": "Hiring spend",
+     "label_after": "Hiring spend",
+     "before": {
+      "raw": 120000,
+      "unit": "GBP"
+     },
+     "after": {
+      "raw": 120001,
+      "unit": "GBP"
+     },
+     "change": "changed"
+    }
+   ],
+   "win_probabilities_unavailable": "prior_withheld"
+  },
+  "run_id": "3856e9aff4dee22b9f97175559cae14130e93c583cdb032e3f6655d8077d5f36"
+ },
+ "analysis_constraint_verdict_state": "evaluated_feasible",
+ "analysis_leader_limit_risks": [],
+ "analysis_limit_verdicts": {
+  "per_limit": [
+   {
+    "constraint_id": "agent-lane:hiring_spend:<=",
+    "state": "estimate_only",
+    "reason": "level_olumi_estimate"
+   }
+  ],
+  "joint": {
+   "state": "estimate_only"
+  }
+ },
+ "analysis_goal_certainty": [
+  {
+   "option_id": "continue_as_now",
+   "probability_of_goal": 0,
+   "earned": true
+  }
+ ],
+ "analysis_option_participation": [],
+ "analysis_run_option_set": {
+  "leftOut": [],
+  "sent": [
+   {
+    "option_id": "hire_a_tech_lead",
+    "label": "Hire a Tech lead"
+   },
+   {
+    "option_id": "hire_two_developers",
+    "label": "Hire two developers"
+   },
+   {
+    "option_id": "continue_as_now",
+    "label": "Continue as now"
+   }
+  ]
+ },
+ "analysis_identity_run_use": {
+  "withdrawn_node_ids": []
+ },
+ "analysis_admission": {
+  "admitted": true,
+  "permitted_analysis_mode": "quantified_provisional",
+  "semantic_quality_sufficient": false,
+  "reason_codes": [
+   "READY_TO_COMPARE",
+   "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED"
+  ],
+  "missing_input_codes": [],
+  "missing_input_count": 0,
+  "inputs_demanded_of_user": 0,
+  "inputs_waived_by_exclusion": 0,
+  "graph_hash": "090ec54a872c91d32342ad49489b1e2bb1237d449fbaf242f53cfd43447ce696",
+  "semantic_signals": {
+   "material_parameters_awaiting_user_node_ids": [
+    "tech_lead_headcount",
+    "developer_headcount",
+    "code_quality_score"
+   ]
+  }
+ },
+ "conversation_turns": [
+  {
+   "turn_id": "ed43c9d3-fa11-434e-982d-8a9949299e8f",
+   "created_at": "2026-10-12T21:41:07.541016+00:00",
+   "user_message": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality? We have an urgent launch date in the next three months. We currently have six mid-weight developers, so we're lacking leadership. Our budget is £200,000, but we'd like to spend less.",
+   "assistant_message": "I’ve mapped the choice, but the first pass cannot answer the three‑month launch question yet.\n\n- Your target is productivity up at least 10%; spend is capped at £200,000.\n- It includes code-quality erosion as a risk; continuing holds today’s values.\n- The model uses Olumi estimates for costs, quality and delivery effects, not your evidence.\n\nThis run doesn’t show a target chance for some options. The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then.\n\nWhat are the expected start dates for each hiring route, including recruitment, notice and onboarding?\n\nOlumi's estimates: 8, see Check estimates.\n\nNot shown yet; why is under More detail\n\nQuestions this model does not answer yet: Does \"Productivity\" get there within 3 months? The model holds no deadline yet, so no result answers that. What is \"Hiring spend\" today, and what would it be under \"Hire a Tech lead\" and \"Hire two developers\"? Your limit (at most £200,000) can only be checked against Olumi's figures (£0 today, and £120,000 under \"Hire a Tech lead\" and £160,000 under \"Hire two developers\"), not figures you gave, until you give yours. 8 more questions remain unresolved."
+  },
+  {
+   "turn_id": "38a39dcc-ef86-4614-a9fe-15cd3d6b3aac",
+   "created_at": "2026-10-12T21:41:32.470178+00:00",
+   "user_message": "Why can I barely see any of the connections between the factors, risks and outcome? Is this a UI or a data issue?",
+   "assistant_message": "The connections are present in the data; this looks more like a display issue, but I can’t confirm it.\n\n- Six links connect factors, risk and Productivity.\n- All options have paths to the goal.\n- Two risk-related links remain unsized, not absent.\n\nThe model reports no unconnected nodes. I can verify that structure, but not how the canvas renders it.\n\nCan you share a screenshot showing the faint or missing connections?\n\nWhy? Assumption-based planning: name the load-bearing assumption, test it, and replace a guessed number with the decision-maker's own judgement where the choice depends on it."
+  },
+  {
+   "turn_id": "0c04830e-b105-4c5c-8662-6f558e6f868a",
+   "created_at": "2026-10-12T21:41:55.025453+00:00",
+   "user_message": "Run analysis",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Olumi's estimates: 8, see Check estimates.\n\nYour results are ready. You can view them now or ask me to explain them.\n\nThis run doesn’t show a target chance for some options. The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then."
+  },
+  {
+   "turn_id": "6e6ba2c4-570c-4c93-9f05-65cf10288d2c",
+   "created_at": "2026-10-12T21:42:14.129154+00:00",
+   "user_message": "Explain this result",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Olumi's estimates: 8, see Check estimates.\n• What’s each option’s likely range for ‘Hiring spend’?\n\nThe comparison remains unresolved.\n\nThis run doesn’t show a target chance for some options. The chance of reaching your target for ‘Productivity’ (up at least 10% from today) by month three isn’t shown: the model has not established how much of these effects would be in place by then.\n\nFor ‘Hire a Tech lead’ and ‘Hire two developers’ it isn’t shown: it uses a single Olumi figure for ‘Hiring spend’.\n\nThis comparison turns on the links from ‘Code quality erosion’ to ‘Code quality score’ and from ‘Developer headcount’ to ‘Code quality erosion’, whose strengths aren't sized in the model yet. Set them to see how much they matter."
+  },
+  {
+   "turn_id": "e8d0b0ea-8bed-44d5-a3f3-ee6e842689d2",
+   "created_at": "2026-10-12T21:43:07.970682+00:00",
+   "user_message": "There seems to be so much data missing from this model. Why have you not made good assumptions and asked me sensible questions to resolve this?",
+   "assistant_message": "You’re right: I supplied estimates, but didn’t clearly separate working assumptions from questions that still needed answers.\n\n- Developer headcount → Code quality erosion: moderate.\n- Code quality erosion → Code quality score: moderate.\n\nBoth are Olumi’s provisional estimates, offered for approval—not evidence. They assume extra coordination strain can erode quality; they don’t resolve timing or validate spending.\n\nThe proposed change is “Record these 2 link strengths”.\n\nWhen could a Tech lead and each developer realistically be fully onboarded?"
+  },
+  {
+   "turn_id": "68629af1-27c0-480c-bf0a-b16c1b1b26a7",
+   "created_at": "2026-10-12T21:43:25.918173+00:00",
+   "user_message": "Yes, record those.",
+   "assistant_message": "Recorded these 2 link strengths: \"Developer headcount\" → \"Code quality erosion\" as moderate; \"Code quality erosion\" → \"Code quality score\" as moderate. You accepted Olumi's estimate for how much \"Developer headcount\" changes \"Code quality erosion\". You accepted Olumi's estimate for how much \"Code quality erosion\" changes \"Code quality score\". Olumi’s estimates stay marked as Olumi’s, not yours: your approval applied them, it did not make them your judgement.\n\nSaved. The analysis on screen was computed before this change; run it again to see the comparison with this change."
+  },
+  {
+   "turn_id": "3509c0cd-7501-4776-900a-300bac347260",
+   "created_at": "2026-10-12T21:43:48.745062+00:00",
+   "user_message": "Run analysis",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Olumi's estimates: 8, see Check estimates.\n\nYour results are ready. You can view them now or ask me to explain them.\n\nThis run doesn’t show a target chance for some options."
+  },
+  {
+   "turn_id": "f674917d-3a22-4273-9ac6-ea61a607ee5c",
+   "created_at": "2026-10-12T21:44:03.352201+00:00",
+   "user_message": "Explain this result",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Olumi's estimates: 8, see Check estimates.\n• What’s each option’s likely range for ‘Hiring spend’?\n\nYou accepted Olumi's estimate for how much Code quality erosion changes Code quality score: moderate. You accepted Olumi's estimate for how much Developer headcount changes Code quality erosion: moderate. The comparison was rerun on the same draw.\n\nThis Run cannot put an option forward: timing and spending remain unresolved.\n- This run doesn’t show a target chance for some options.\n- Month-three effects aren’t established for your target: Productivity up at least 10% from today.\nFor ‘Hire a Tech lead’ and ‘Hire two developers’ it isn’t shown: it uses a single Olumi figure for ‘Hiring spend’.\n\nNo single option can be put forward yet, because every estimate this comparison rests on is still Olumi’s, not yours; set one of them yourself, then run the analysis again.\n\nWhy? Assumption-based planning: name the load-bearing assumption, test it, and replace a guessed number with the decision-maker's own judgement where the choice depends on it."
+  },
+  {
+   "turn_id": "c9f442bd-375b-466c-9ddd-ab02edb32d37",
+   "created_at": "2026-10-12T21:44:35.642158+00:00",
+   "user_message": "You're talking about links, but what about missing data from this decision?",
+   "assistant_message": "You’re right: filled-in estimates are not validated decision data.\n\n• Establish recruitment, onboarding and productive start dates.\n• Define today’s productivity and acceptable code quality.\n• Give your estimate\n\nHiring spend uses Olumi’s estimates: £120,000 for a Tech lead and £160,000 for two developers. Neither has a cost period or likely range recorded. The quality score of 80/100 is also Olumi’s estimate, not a measurement. I should have distinguished these gaps earlier.\n\n- For your three-month launch, how long would recruitment and onboarding take under each hiring route?"
+  },
+  {
+   "turn_id": "78c26ed7-8bbd-4184-8b2c-ace97b710751",
+   "created_at": "2026-10-12T21:44:59.376508+00:00",
+   "user_message": "Let's work through this together. What's the most important thing that we should review first?",
+   "assistant_message": "Start with **when each hiring route could become productive**.\n\n• Give your estimate\n\n- Separate recruitment time from onboarding time.\n- Check contribution before your three-month launch.\n\nA hire could improve longer-term productivity without helping the urgent launch. Timing therefore needs checking before interpreting estimated productivity gains as gains available by launch.\n\nFor a Tech lead and each developer, how long do you expect recruitment and onboarding to take?"
+  },
+  {
+   "turn_id": "d53153db-435c-4662-a489-179370864fb8",
+   "created_at": "2026-10-12T21:45:27.962148+00:00",
+   "user_message": "If we think of our development team's monthly capacity, currently they spend between 20% and 30% of their time on non-development tasks (e.g., meetings, admin, and other distractions that are not writing code).",
+   "assistant_message": "That’s useful baseline data: **20–30% of the team’s monthly time goes on non-development tasks**.\n\n• Give your estimate\n\n- Separate necessary coordination from avoidable overhead.\n- Keep total overhead distinct from recoverable time.\n\nThis doesn’t mean a hire could recover all that time—some meetings and coordination may support code quality.\n\nTo add this baseline without inventing a midpoint, what working percentage would you use within your 20–30% range?"
+  },
+  {
+   "turn_id": "f6fc3220-4b1b-48b5-9934-e727c75b47c7",
+   "created_at": "2026-10-12T21:45:59.851203+00:00",
+   "user_message": "What updates do we need to make based on this, then?",
+   "assistant_message": "We need to represent **today’s workload** separately from what hiring could change.\n\n• Give your estimate\n\n- Add non-development time, preserving your 20–30% range.\n- Specify each hiring route’s effect on it.\n\nThe model currently lacks this factor. Your range is baseline information—not an estimated productivity gain. We still need to distinguish avoidable overhead from coordination that supports code quality.\n\nTo prepare the baseline update without inventing a midpoint, which single working percentage should we use for today’s non-development time?"
+  },
+  {
+   "turn_id": "f59a56b4-9d9c-43b0-af5f-020278ddd0a9",
+   "created_at": "2026-10-12T21:46:32.97473+00:00",
+   "user_message": "Okay, make these updates now.",
+   "assistant_message": "I need one figure before I can prepare the baseline update.\n\n• Give your estimate\n\n- Preserve your stated 20–30% range.\n- Leave each hiring route’s effect unspecified.\n\nThe range doesn’t select a single starting value, and we haven’t established how either hire changes non-development time. I shouldn’t invent those figures or treat all non-development time as recoverable.\n\nWhich single percentage within 20–30% should we use as today’s working baseline?"
+  },
+  {
+   "turn_id": "d82b8e5c-dcbd-4d51-87f2-a90b64a8a2c6",
+   "created_at": "2026-10-12T21:46:59.862477+00:00",
+   "user_message": "I was defining it as a capacity. Let's go with 25%.",
+   "assistant_message": "I’ve prepared this change: add factor 'Non-development share of team capacity' and link 'Non-development share of team capacity' to 'Productivity'.\n\n‘Non-development share of team capacity’ is 25% of monthly team capacity, the figure you gave, within your range of 20% of monthly team capacity to 30% of monthly team capacity (“If we think of our development team's monthly capacity, currently they spend between 20% and 30% of their time on non-development tasks (e.g., meetings, admin, and other distractions that are not writing code).”), and affects Productivity (lowers it).\n\nHow strongly each acts is not known yet: Olumi uses a placeholder strength for the link, not an estimate, for you to correct.\n\nApprove these 2 changes?"
+  },
+  {
+   "turn_id": "acb5a685-d846-44dc-b796-49548b33161b",
+   "created_at": "2026-10-12T21:47:15.910437+00:00",
+   "user_message": "Before we go further, remind me: how many developers do we have today, and what budget did I give you?",
+   "assistant_message": "You have **six mid-weight developers** today, and you gave a **£200,000 budget ceiling**, while saying you’d like to spend less."
+  },
+  {
+   "turn_id": "7845a6d9-87bf-4eec-84d0-ca93b65826f6",
+   "created_at": "2026-10-12T21:47:33.534516+00:00",
+   "user_message": "Remind me what I told you at the start: how many developers do we have now, what is our budget, and how did I feel about spending it?",
+   "assistant_message": "At the start, you said:\n- You currently have **six mid-weight developers**.\n- Your budget is **£200,000**.\n- You’d **like to spend less**—the budget is a ceiling, not a spending target."
+  },
+  {
+   "turn_id": "903b06f5-ddd9-4e1d-bc0f-dd3e3e762bd9",
+   "created_at": "2026-10-12T21:48:03.671936+00:00",
+   "user_message": "Run analysis",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Olumi's estimates: 8, see Check estimates.\n\nThese figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nYour results are ready. You can view them now or ask me to explain them.\n\nThis comparison uses Olumi’s estimates for \"Tech lead headcount\", \"Code quality score\". \"Developer headcount\": Not confirmed from your brief These are factor starting values on the comparison’s paths. Other model assumptions may also affect the result.\n\nThis run doesn’t show a target chance for some options."
+  },
+  {
+   "turn_id": "cb7172e8-5df0-40e1-9ebb-3c46d39c126a",
+   "created_at": "2026-10-12T21:48:13.878227+00:00",
+   "user_message": "Explain this result",
+   "assistant_message": "Not shown yet; why is under More detail\n\n• Small changes could change the comparison\n• Olumi's estimates: 8, see Check estimates.\n\nThese figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nThe value of ‘Hiring spend’ for the option ‘Hire a Tech lead’ changed: 120000 GBP → 120001 GBP. That was what held the comparison back, so Olumi can now compare the options.\n\nThe comparison is provisional and does not establish whether hiring would meet your three-month target.\n- This run doesn’t show a target chance for some options.\n- Overall robustness is low; the comparison rests on unconfirmed Olumi estimates.\n- Budget feasibility is estimate-only against your ceiling of at most £200,000.\nThe model has not established how much of the hiring effects would be in place by month three, so it cannot confirm “up at least 10% from today” for either hiring option. Establishing that timing would help test the target.\n\nThe result is not yet robust — small changes could flip it.",
+   "suggested_actions": [
+    {
+     "id": "agent-next-pre-mortem",
+     "label": "Run a pre-mortem",
+     "message": "Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?"
+    },
+    {
+     "id": "agent-next-what-would-change",
+     "label": "What would change this?",
+     "message": "What would most likely change this result?"
+    },
+    {
+     "id": "agent-next-strengthen",
+     "label": "Strengthen the model",
+     "message": "What would most strengthen this model?"
+    }
+   ]
+  }
+ ],
+ "action_bar": {
+  "v": 1,
+  "state_key": "b303061b315f5024",
+  "revision": {
+   "graph_hash": "090ec54a872c91d3",
+   "run_key": "3f65d0531b80cefa"
+  },
+  "priority": [
+   {
+    "action_id": "test_link",
+    "label": "Test link",
+    "icon": "Unlink",
+    "group": "method",
+    "press_id": "agent-test-without-link:[\"developer_headcount\",\"productivity\"]",
+    "user_line": "Test without this link",
+    "enabled": true,
+    "why_now": "This result is most sensitive to one link: see what happens without it.",
+    "target": {
+     "kind": "link",
+     "from_id": "developer_headcount",
+     "to_id": "productivity"
+    },
+    "offer_key": "b13dd82ca5ef0ad8"
+   }
+  ],
+  "standard": [
+   {
+    "action_id": "review",
+    "label": "Review",
+    "icon": "ListChecks",
+    "group": "review",
+    "press_id": "agent-next-review-decision",
+    "user_line": "Review this decision: what should I check before relying on it?",
+    "enabled": true,
+    "why_now": "Lists what this result rests on before you rely on it.",
+    "offer_key": "f3119d9ec9b36d34"
+   },
+   {
+    "action_id": "what_changes",
+    "label": "What changes",
+    "icon": "SlidersHorizontal",
+    "group": "method",
+    "press_id": "agent-next-what-would-change",
+    "user_line": "What would most likely change this result?",
+    "enabled": true,
+    "why_now": "Shows what would have to change for this result to change.",
+    "offer_key": "fc06ed255fef3c0f"
+   },
+   {
+    "action_id": "pre_mortem",
+    "label": "Pre-mortem",
+    "icon": "ClipboardList",
+    "group": "method",
+    "press_id": "agent-next-pre-mortem",
+    "user_line": "Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?",
+    "enabled": false,
+    "disabled_reason": "Waiting for your yes on the suggested change. Approve it, or change something first.",
+    "offer_key": "e897fde0f36d8269"
+   }
+  ],
+  "more": [
+   {
+    "action_id": "more_options",
+    "label": "More options",
+    "icon": "GitFork",
+    "group": "gap",
+    "press_id": "agent-next-widen",
+    "user_line": "Suggest options I haven’t considered.",
+    "enabled": true,
+    "why_now": "Find options you haven’t considered yet.",
+    "offer_key": "b5c1cc6a81a62b28"
+   },
+   {
+    "action_id": "frame_brief",
+    "label": "Frame brief",
+    "icon": "FileText",
+    "group": "gap",
+    "press_id": "act:frame_brief",
+    "user_line": "Help me frame my brief: what is missing from it?",
+    "enabled": true,
+    "why_now": "See what your brief has and what it is missing.",
+    "offer_key": "466fd17b38040ab7"
+   },
+   {
+    "action_id": "more_risks",
+    "label": "More risks",
+    "icon": "ShieldAlert",
+    "group": "gap",
+    "press_id": "agent-next-suggest-risks",
+    "user_line": "Suggest risks I haven't considered.",
+    "enabled": true,
+    "why_now": "Find risks you haven’t considered yet.",
+    "offer_key": "e0d633a4ae6faada"
+   },
+   {
+    "action_id": "bias_anchoring",
+    "label": "Anchoring",
+    "icon": "Anchor",
+    "group": "method",
+    "press_id": "act:bias_anchoring",
+    "user_line": "Walk me through where a first number could be pulling my estimates.",
+    "enabled": true,
+    "why_now": "Test Olumi’s figures against your own evidence.",
+    "offer_key": "9a95ae23d3b4c84e"
+   },
+   {
+    "action_id": "check_estimates",
+    "label": "Check estimates",
+    "icon": "BadgeCheck",
+    "group": "review",
+    "press_id": "act:check_estimates",
+    "user_line": "Show me Olumi's estimates that this result rests on.",
+    "enabled": true,
+    "why_now": "See the Olumi estimates feeding this result.",
+    "offer_key": "cbce25cac84a826c"
+   },
+   {
+    "action_id": "bias_check",
+    "label": "Bias check",
+    "icon": "ScanSearch",
+    "group": "method",
+    "press_id": "act:bias_check",
+    "user_line": "Where could a common reasoning pattern bite in this model?",
+    "enabled": true,
+    "why_now": "See where common reasoning patterns could bite in this model.",
+    "offer_key": "3052d30f97fa644b"
+   }
+  ],
+  "bias_risk": {
+   "v": 1,
+   "items": [
+    {
+     "claim_id": "DSK-B-001",
+     "name": "Anchoring",
+     "why": "Olumi’s starting figure for ‘Code quality score’ could pull later estimates towards it.",
+     "action_id": "bias_anchoring",
+     "press_id": "act:bias_anchoring",
+     "offer_key": "9a95ae23d3b4c84e",
+     "science": {
+      "claim_id": "DSK-B-001",
+      "claim_title": "Anchoring and insufficient adjustment",
+      "evidence_strength": "strong"
+     }
+    }
+   ]
+  }
+ },
+ "request_id": "faf60ddf-b1fd-4b59-8b4a-87df0283b32f"
+}

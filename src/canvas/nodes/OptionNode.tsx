@@ -1389,6 +1389,11 @@ export const OptionNode = memo((props: NodeProps) => {
 
   // The canvas provider carries Results' chance and basis metadata for this option.
   const chanceCell = useOptionChanceCell(props.id)
+  // Run-5 judge F4 (DL, 12 Oct): a withheld cell's own `why` from CEE (hiring's period sentence), verbatim, the same
+  // words the Results hero shows. Said beneath the face in Layer 2 (Detailed inline; the Standard popover) and in the
+  // readout's tooltip; the one-line share slot stays as it is. Nothing when CEE sends no `why`, or it repeats the face.
+  const chanceWhy = chanceCell.kind === 'withheld' && typeof chanceCell.why === 'string' && chanceCell.why.trim() !== ''
+    && chanceCell.why !== chanceCell.text ? chanceCell.why : null
 
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
@@ -1575,6 +1580,11 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
+      {isPostAnalysis && chanceWhy !== null && (
+        <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`option-win-why-${props.id}`}>
+          {chanceWhy}
+        </p>
+      )}
       {/* Basis caveats qualify only the same licensed figure Results displays. */}
       {isPostAnalysis && chanceCell.kind === 'figure' &&
         goalFitBaseCaveatCopy(chanceCell.goalFitBaseCaveat) !== null && (
@@ -1669,7 +1679,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, chanceCell, props.id, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, chanceCell, chanceWhy, props.id, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -1876,7 +1886,7 @@ export const OptionNode = memo((props: NodeProps) => {
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
   const chanceReadoutDescription = chanceText === null ? ''
-    : [`${resultCaption} · ${chanceText}`, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
+    : [`${resultCaption} · ${chanceText}`, chanceWhy, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
 
   /**
    * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER.
