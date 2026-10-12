@@ -1,7 +1,7 @@
 import { parseCanonicalAnalysisView } from '../../../../canvas/runView/canonicalAnalysisView'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import figures from './fixtures/cee-94b2554d-served-read-b38d1c80.json'
 import served from '../../../../canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
@@ -15,8 +15,6 @@ import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonic
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
-import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
-import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
 import { OptionNode } from '../../../../canvas/nodes/OptionNode'
 import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
 
@@ -39,7 +37,7 @@ function apply(response: Awaited<ReturnType<typeof turn>>, scenarioId = served.s
   return applyV5State(response, { ...store, currentResultsHash: null }, { turnScenarioId: scenarioId })
 }
 
-it('T1: parsed Run TURN adopts its view and mounted card/hero/matrix show served faces without reload', async () => {
+it('T1: parsed Run TURN adopts its view and the mounted hero shows served faces without reload (no card chance in C)', async () => {
   await applyRealRead({ j: served })
   useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
   useCanvasStore.setState({ results: { status: 'idle', report: null } } as never)
@@ -52,19 +50,16 @@ it('T1: parsed Run TURN adopts its view and mounted card/hero/matrix show served
   expect(model.kind).toBe('chart')
   if (model.kind !== 'chart') throw new Error('Expected chart')
   render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={served.canonical_analysis_view.options.map(o => o.option_id)} run={{}} isStale={false} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
+  // #2747 re-scope 2 (U0): the decision matrix is removed in C and the canvas card shows no chance; the hero says the face.
   for (const option of served.canonical_analysis_view.options) {
     const text = option.cell.face
     const row = model.rows.find(r => r.id === option.option_id)!
     expect(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent).toBe(text)
-    expect(screen.getByTestId(`decision-matrix-chance-${option.option_id}`).querySelector('span')!.textContent).toBe(text)
     const node = useCanvasStore.getState().nodes.find(n => n.id === option.option_id)!
     const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
       selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    expect(screen.getByTestId(`option-win-readout-${node.id}`).textContent).toBe(text)
+    expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
     card.unmount()
   }
 })
@@ -84,7 +79,7 @@ it('T3: a TURN dispatched for B cannot replace current A view', async () => {
   act(() => { apply(response, 'scenario-B') })
   expect(useCanonicalAnalysisViewStore.getState()).toBe(before)
 })
-it.each(['licensed', 'goal-figures-only'] as const)('D1/A1/A2: %s report with no matching view shows only the static absence face on card/hero/matrix', async source => {
+it.each(['licensed', 'goal-figures-only'] as const)('D1/A1/A2: %s report with no matching view shows only the static absence face on the hero (nothing on the card in C)', async source => {
   await applyRealRead(figures)
   if (source === 'goal-figures-only') {
     const state = useCanvasStore.getState()
@@ -103,13 +98,7 @@ it.each(['licensed', 'goal-figures-only'] as const)('D1/A1/A2: %s report with no
   if (model.kind !== 'chart') throw new Error('Expected chart')
   const hero = render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
   expect(hero.container.textContent).not.toMatch(/chance of meeting|can’t yet say its chance|Run the analysis again to see the chance/)
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={data.recommendation.allOptions.map(o => o.id)} run={{}} isStale={false} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
   for (const option of data.recommendation.allOptions) {
-    const matrixCell = screen.getByTestId(`decision-matrix-chance-${option.id}`)
-    expect(matrixCell.querySelector('span')!.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(matrixCell.textContent).not.toMatch(/%|Why\?/)
     const row = model.rows.find(r => r.id === option.id)!
     const heroCell = screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right')!
     expect(heroCell.querySelector('span')!.textContent).toBe(CHANCE_NOT_SHOWN_YET)
@@ -118,9 +107,8 @@ it.each(['licensed', 'goal-figures-only'] as const)('D1/A1/A2: %s report with no
     const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
       selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    const readout = screen.getByTestId(`option-win-readout-${node.id}`)
-    expect(readout.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(readout.textContent).not.toMatch(/%|Why\?/)
+    // #2747 re-scope 2 (U0): the canvas card shows no chance in C, not even the absence face.
+    expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
     card.unmount()
   }
 })

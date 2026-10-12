@@ -76,7 +76,15 @@
 import { unnamedCurrencyWords } from '../../../utils/unnamedCurrencyUnit'
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
-import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
+import { goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, isGoalPercentUnit, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
+
+/**
+ * #2747 re-scope (DL, after Codex round 2): THE ONE RULE FOR TARGET TEXT. When `formatGoalTarget` / `formatGoalChangeBound`
+ * cannot say a target (an unread frame, or a % change whose quantity frame is absent), the surface says this, never the
+ * bare stored number. Callers that pass a frame also pass the goal's `quantityFrame` (census:
+ * `__tests__/goalTargetText.census.spec.ts`).
+ */
+export const TARGET_NOT_CAPTURED = 'Target not captured'
 
 /**
  * Render a goal target magnitude with its unit.
@@ -85,10 +93,12 @@ import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread,
  * @param unit  - the unit string as the producer sent it (may be absent)
  * @param frame - the node's `goal_threshold_frame` (`@talchain/schemas` 0.61.0). A change from today is said as the
  *                change (R1 S4-core, below); absent, `level`, legacy `delta` or unknown → the level, byte-identical.
+ * @param quantityFrame - what the goal's value measures (`NodeV3.quantity_frame`; `goalQuantityFrameOf`): a `change_abs`
+ *                in `%` on a `level` quantity is said in percentage points.
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown): string | null {
+export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown, quantityFrame?: unknown): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
 
   /**
@@ -103,7 +113,9 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
   if (goalTargetFrameIsUnread(frame)) return null
   const change = goalTargetChangeFrameOf(frame)
   if (change !== null) {
-    const { direction, size } = goalChangeParts(value, unit, change)
+    // Recovery Batch C (C CEE 6e3bce10): a % change_abs with no quantity frame has no sayable size; never a default.
+    if (change === 'change_abs' && isGoalPercentUnit(unit) && goalQuantityFrameOf(quantityFrame) === null) return null
+    const { direction, size } = goalChangeParts(value, unit, change, quantityFrame)
     return `${direction} ${size} from today`
   }
 
@@ -194,12 +206,18 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
   return `${value.toLocaleString()} ${canonical}`
 }
 
-function goalChangeParts(value: number, unit: string | null | undefined, change: GoalTargetChangeFrame): { direction: string; size: string } {
+function goalChangeParts(
+  value: number, unit: string | null | undefined, change: GoalTargetChangeFrame, quantityFrame?: unknown,
+): { direction: string; size: string } {
+  const n = Number(Math.abs(value).toPrecision(12))
   return {
     direction: value < 0 ? 'down' : 'up',
     size: change === 'change_rel'
       ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
-      : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
+      // Recovery Batch C (C CEE round 1, item 1): a change in a % LEVEL is in points (75% + 10 points = 85%, not 82.5%).
+      : goalQuantityFrameOf(quantityFrame) === 'level' && isGoalPercentUnit(unit)
+        ? `${n} percentage point${n === 1 ? '' : 's'}`
+        : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
   }
 }
 
@@ -213,11 +231,14 @@ function goalChangeParts(value: number, unit: string | null | undefined, change:
  * no typed objective sense reaches this surface to contradict it.
  * `null` — say no number — for a level, an unread frame, a non-finite or zero change, or no readable comparator.
  */
-export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, comparator: unknown): string | null {
+export function formatGoalChangeBound(
+  value: number, unit: string | null | undefined, frame: unknown, comparator: unknown, quantityFrame?: unknown,
+): string | null {
   const change = goalTargetChangeFrameOf(frame)
   const held = goalHeldComparatorOf(comparator)
   if (change === null || held === null || typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
-  const { direction, size } = goalChangeParts(value, unit, change)
+  if (change === 'change_abs' && isGoalPercentUnit(unit) && goalQuantityFrameOf(quantityFrame) === null) return null
+  const { direction, size } = goalChangeParts(value, unit, change, quantityFrame)
   const strict = held === '>' || held === '<'
   // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.
   const floor = (held === '>=' || held === '>') === (value > 0)

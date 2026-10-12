@@ -115,6 +115,7 @@ export function readGoalCertainty(raw: unknown): readonly GoalCertaintyEntry[] |
   if (!parsed.success) return null
   return parsed.data.map((d) => ({
     optionId: d.option_id,
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     endpoint: d.probability_of_goal,
     earned: d.earned,
     say: d.earned ? null : (d.say ?? null),

@@ -67,7 +67,8 @@ describe('Visual contract: Indeterminate state', () => {
     expect(container.querySelectorAll('.border-success')).toHaveLength(0)
   })
 
-  it('Brief 5.4 P6: rank badges absent in indeterminate state (dedup — win% shown right-aligned)', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was '… (dedup — win% shown right-aligned)'; no win% is shown in C.
+  it('Brief 5.4 P6: rank badges absent in indeterminate state (and, in C, no win% either)', () => {
     // Phase 6: rank badge hidden when neutralised; win% is shown once via win-pct-*.
     render(
       <OptionCards
@@ -80,11 +81,13 @@ describe('Visual contract: Indeterminate state', () => {
 
     expect(screen.queryByTestId('rank-marker-opt-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('rank-marker-opt-b')).not.toBeInTheDocument()
-    // Canonical win% still present right-aligned
-    expect(screen.getByTestId('win-pct-opt-a')).toHaveTextContent('65%')
+    // #2747 re-scope 2 (U0, DL ruling (A)): no win% right-aligned either
+    expect(screen.queryByTestId('win-pct-opt-a')).not.toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt-a').textContent).not.toContain('65%')
   })
 
-  it('Brief 5.4 P6: win-pct element present; rank badge text "#N of N" absent in indeterminate', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'Brief 5.4 P6: win-pct element present; …'; no win-pct element in C.
+  it('Brief 5.4 P6: win-pct element absent; rank badge text "#N of N" absent in indeterminate', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -94,7 +97,7 @@ describe('Visual contract: Indeterminate state', () => {
       />
     )
 
-    expect(screen.getByTestId('win-pct-opt-a')).toHaveTextContent('65%')
+    expect(screen.queryByTestId('win-pct-opt-a')).not.toBeInTheDocument()
     expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
   })
 

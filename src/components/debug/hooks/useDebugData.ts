@@ -2255,6 +2255,7 @@ export function extractDiagnosticChecks(
   )
 
   const responseHash = typeof plot?.response_hash === 'string' ? plot.response_hash : ''
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
   const conditionalProbs = Array.isArray(plot?.conditional_probabilities) ? plot.conditional_probabilities as unknown[] : []
 
   return {
@@ -2571,13 +2572,16 @@ function extractWinningOption(
 
   const sortedOptions = [...islOptions]
     .filter((o): o is IslOption => typeof o === 'object' && o !== null)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
     .filter(o => typeof o.win_probability === 'number')
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
     .sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
 
   if (sortedOptions.length === 0) return null
 
   const winner = sortedOptions[0]
   const winnerId = winner.option_id ?? winner.id ?? ''
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
   const winProb = (winner.win_probability ?? 0) * 100
 
   // Prefer option_label (option_comparison format), then label, then ID
@@ -2628,6 +2632,7 @@ function extractWinningOption(
     runnerUp = {
       id: secondId,
       label: secondLabel,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
       win_probability: (second.win_probability ?? 0) * 100,
     }
   }

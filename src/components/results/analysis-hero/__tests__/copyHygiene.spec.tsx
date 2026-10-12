@@ -53,12 +53,12 @@ const UI_COPY: string[] = [
   HERO_COPY.fixtureBanner,
   HERO_COPY.ghostLegend,
   HERO_COPY.headline.goalWithLimits(L, N),
-  HERO_COPY.headline.goalOnly(L, N),
+  // #2747 re-scope 2 round 2: headline.goalOnly / headline.noneOnTrack / caption.goalOnly / detail.goalFitJointBasis are
+  // deleted (the UI's own goal-chance sentences; rule C), so they leave this corpus.
   HERO_COPY.headline.mostLikelyStrongest(L, N),
   HERO_COPY.headline.slightlyAhead(L),
   HERO_COPY.headline.noClearLeader,
   HERO_COPY.headline.outcomeLeader(L, V),
-  HERO_COPY.headline.noneOnTrack,
   HERO_COPY.headline.noneOnTrackWithLimits,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
@@ -72,7 +72,6 @@ const UI_COPY: string[] = [
   HERO_COPY.factorFallback,
   ...Object.values(HERO_COPY.axis).flatMap((a) => [a.left, a.mid, a.right]),
   HERO_COPY.caption.goalWithLimits,
-  HERO_COPY.caption.goalOnly,
   HERO_COPY.caption.outcome,
   HERO_COPY.caption.outcomeOverlap,
   HERO_COPY.caption.outcomeSingleRange,
@@ -92,7 +91,6 @@ const UI_COPY: string[] = [
   HERO_COPY.detail.range('54', '82'),
   HERO_COPY.detail.goalFit('34%'),
   HERO_COPY.detail.goalFitWithLimits('34%'),
-  HERO_COPY.detail.goalFitJointBasis('34%'),
   HERO_COPY.footer.mainReason('Team capacity'),
   // BOTH BRANCHES of the main-driver claim are swept, on the same rule the
   // flip-risk pair below already follows: a tie-hedged sentence is user-facing

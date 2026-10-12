@@ -9,7 +9,6 @@ import { memo, useMemo } from 'react'
 import { useResultsSectionData } from '../../../../components/results/useResultsSectionData'
 import { rankingWasWithheld } from '../../../../components/results/leaderDesignation'
 import { useCanvasStore } from '../../../store'
-import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
@@ -27,16 +26,11 @@ import { DriversList, type DriverItem } from '../shared/DriversList'
 import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
-import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../../../domain/elementLabel'
-import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
-import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
-import { useRunCurrency, optionResultCaption } from '../../../nodes/shared/runCurrency'
-import { formatWinProbability } from '../../../utils/labelUtils'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -82,13 +76,6 @@ function OptionComparisonSection({
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
   const comparisons = r?.option_comparison as OptionComparisonEntry[] | undefined
-  // The option card's caption owner (F5): `Last run` once the model has changed
-  // since this run, never a hard-coded `Current model`.
-  const resultCaption = optionResultCaption(useRunCurrency()) ?? OPTION_RESULT_COPY.unconfirmed
-  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds each option's share and bar; the
-  // section says why once instead (`winShareGate.ts`). Order stays canvas order (`rankingWithheld`).
-  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
-  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
 
   if (status === 'error' || status === 'failed') return null
 
@@ -108,6 +95,7 @@ function OptionComparisonSection({
   // row L2; #69 5827943157). The shares stay: each card shows its own.
   const sorted = rankingWithheld
     ? [...comparisons].sort((a, b) => canvasRank(a.option_id) - canvasRank(b.option_id))
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     : [...comparisons].sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
   function canvasRank(id: string): number {
     const i = canvasOptionOrder.indexOf(id)
@@ -116,11 +104,8 @@ function OptionComparisonSection({
 
   return (
     <div className="space-y-1.5" data-testid="option-comparison-section">
-      {winSharesWithheld && winShareWithheldReason !== null && (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="outcome-panel-not-ranked">
-          {winShareWithheldReason}
-        </p>
-      )}
+      {/* #2747 re-scope 2 (DL ruling (A)): no option's win share is said here in C (no "supported by N% of runs", no share
+          bar); CEE serves no wording or Run authority for it. The order stays the producer's, under its leader licence. */}
       {sorted.map(opt => {
         const outcome = opt.outcome
         const hasPrediction = outcome && (outcome.mean != null || outcome.p10 != null)
@@ -135,23 +120,6 @@ function OptionComparisonSection({
               <span className={`${typography.panelBody} text-text-body truncate`}>
                 {opt.option_label ?? opt.option_id}
               </span>
-              {/* ⛔ READ "99% win" UNTIL NOW — a contest-frame survivor of
-                  #1281, and it survived because the only literal on the line is
-                  the two-word tail `% win`. The guard is in scope here; its ban
-                  list carries `wins` and the singular walked past, and no grep
-                  for a contest SENTENCE matches a fragment assembled across an
-                  interpolation boundary.
-
-                  ⭐ ONE NOUN PER IDEA. This is the same quantity the option
-                  card captions `Current model` — by reference, so the register stays
-                  the single authority and this cannot drift back. And by the
-                  card's own currency owner (F5, 27 Sep): `Last run` once the
-                  model has changed since the run. */}
-              {!winSharesWithheld && opt.win_probability != null && (
-                <span className={`${typography.panelMeta} shrink-0 text-option`}>
-                  {resultCaption} · {OPTION_RESULT_COPY.share(formatWinProbability(opt.win_probability))}
-                </span>
-              )}
             </div>
             {hasPrediction && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>
@@ -163,18 +131,6 @@ function OptionComparisonSection({
             )}
             {!hasPrediction && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>{EMPTY_STATES.noPrediction}</div>
-            )}
-            {!winSharesWithheld && opt.win_probability != null && (
-              <div className="mt-1">
-                {/* ⚠⚠ THIS STRING REACHES ONLY ASSISTIVE-TECHNOLOGY USERS.
-                    `DataBar` renders `label` EXCLUSIVELY as `aria-label` on its
-                    `role="progressbar"`; a sighted reader sees a coloured bar
-                    and no words. So the contest frame was retired from what the
-                    product SHOWS and left in what it SAYS — the ruling applied
-                    to one channel and not the other, which is the harder half
-                    to notice and the easier half to leave. */}
-                <DataBar value={opt.win_probability} label={COMPARATIVE_COPY.label} colour="info" />
-              </div>
             )}
             {techMode && opt.expected_outcome != null && (
               <div className={`${typography.panelMeta} text-text-light mt-0.5`}>

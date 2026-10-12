@@ -1,6 +1,10 @@
 /**
  * V5AnalysisResultBlock — leader identity-space resolution (ROADMAP 1.222).
  *
+ * #2747 re-scope 2 (DL ruling (A)): the pill row whose leader mark this file pinned is gone from the card in C.
+ * The rows that pinned it are deleted in place (each leaves a comment); the label-keyed leader row is rewritten as
+ * the absence check, and the no-row negatives and the crash-resistance rows stay.
+ *
  * DEFECT: `leading_option_id` is an option ID (`opt_mac`); `block.win_probabilities`
  * is keyed by option LABEL (`"Standardise on MacBook Pro"`) on real staging
  * payloads. The component compared the map KEY to `leading_option_id`, so
@@ -22,7 +26,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
 
@@ -86,14 +90,7 @@ function permittingNearTie(): Record<string, unknown> {
   }
 }
 
-/** enrichment.decision_brief.options[] as the captured wire carries it. */
-function decisionBriefOptions(): Array<Record<string, unknown>> {
-  return [
-    { option_id: 'opt_mac', label: MAC, win_probability: 0.4276666666666667, rank: 1 },
-    { option_id: 'opt_dell', label: DELL, win_probability: 0.32341666666666663, rank: 2 },
-    { option_id: 'opt_status_quo', label: STATUS_QUO, win_probability: 0.24891666666666665, rank: 3 },
-  ]
-}
+// #2747 re-scope 2: the `decision_brief.options[]` fixture went with the only row that used it, below.
 
 /** Label-keyed win_probabilities — the real staging shape. */
 function labelKeyedProbs(): Record<string, number> {
@@ -118,81 +115,40 @@ function block(overrides: Partial<V5AnalysisResultBlockType> = {}): V5AnalysisRe
   }
 }
 
-function pills(): HTMLElement[] {
-  return within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem')
-}
-
-function leaderPills(): HTMLElement[] {
-  return pills().filter((p) => p.getAttribute('data-leader') === 'true')
-}
-
 describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
-  it('marks the leader when win_probabilities is keyed by LABEL and leading_option_id is an ID', () => {
-    // RED before the fix: `optionKey === block.leading_option_id` never matched,
-    // so this found zero leader pills.
+  // #2747 re-scope 2 (U0 rewrite): was "marks the leader when win_probabilities is keyed by LABEL and
+  // leading_option_id is an ID". The same leader-named mount (the real staging keying), which used to SHOW the pill
+  // row with its leader marked, now pins that C shows no win share (DL ruling (A)).
+  it('a leader named (LABEL-keyed shares, ID leader): still no win-share row in C (ruling (A))', () => {
     render(<V5AnalysisResultBlock block={block()} />)
-
-    const leaders = leaderPills()
-    expect(leaders).toHaveLength(1)
-    expect(leaders[0]).toHaveTextContent(MAC)
-  })
-
-  it('hoists the leader to first position even when it is not the highest key by sort order', () => {
-    // RED before the fix: the comparator's leader clause never fired, so the
-    // list came back in pure descending-probability order. Give the leader a
-    // LOWER probability than another option so descending order alone cannot
-    // produce a passing result — the leader clause is the only thing that can.
-    render(
-      <V5AnalysisResultBlock
-        block={block({
-          win_probabilities: { [DELL]: 0.61, [MAC]: 0.22, [STATUS_QUO]: 0.17 },
-        })}
-      />,
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+      'MacBook Pro leads on total cost of ownership.',
     )
-
-    const rendered = pills()
-    expect(rendered[0]).toHaveTextContent(MAC)
-    expect(rendered[0].getAttribute('data-leader')).toBe('true')
-    // The remainder stay in descending probability order.
-    expect(rendered[1]).toHaveTextContent(DELL)
-    expect(rendered[2]).toHaveTextContent(STATUS_QUO)
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
-  it('resolves via decision_brief.options[] when option_comparison is absent', () => {
-    render(
-      <V5AnalysisResultBlock
-        block={block({
-          enrichment: {
-            decision_brief: { options: decisionBriefOptions() },
-            robustness: { near_tie: permittingNearTie() },
-          },
-        })}
-      />,
-    )
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "hoists the leader to first position even when it is not the highest key by sort order".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-    const leaders = leaderPills()
-    expect(leaders).toHaveLength(1)
-    expect(leaders[0]).toHaveTextContent(MAC)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "resolves via decision_brief.options[] when option_comparison is absent".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('still marks the leader when win_probabilities is keyed by option_id', () => {
-    // The other identity space must keep working — the fix is additive, not a swap.
-    render(
-      <V5AnalysisResultBlock
-        block={block({
-          win_probabilities: { opt_dell: 0.32, opt_mac: 0.43, opt_status_quo: 0.25 },
-        })}
-      />,
-    )
-
-    const leaders = leaderPills()
-    expect(leaders).toHaveLength(1)
-    expect(leaders[0]).toHaveTextContent('opt_mac')
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "still marks the leader when win_probabilities is keyed by option_id".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
   describe('fails closed — must never become an OVER-claim (guards 1.223)', () => {
     // UI-SEM-097: a run that named no leader shows no win-share row at all,
     // so there is nothing left to mark. This is stronger than "no leader pill".
+    // #2747 re-scope 2: the three no-row negatives below are kept as written. They still hold, now because C shows no
+    // win-share row on any Run (DL ruling (A)), not only on a run that named no leader.
     it('marks NO leader, and ranks nothing, when leading_option_id is null, label-keyed', () => {
       render(<V5AnalysisResultBlock block={block({ leading_option_id: null })} />)
       expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
@@ -215,52 +171,25 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
       expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
     })
 
-    it('marks NO leader when the leader label is shared by two options', () => {
-      // A label-keyed Record cannot disambiguate two options sharing a label.
-      // Marking both pills is false precision; marking neither is an honest miss.
-      const shared = 'Standardise on a laptop'
-      render(
-        <V5AnalysisResultBlock
-          block={block({
-            win_probabilities: { [shared]: 0.55, [STATUS_QUO]: 0.45 },
-            enrichment: {
-              // Per-entry win probabilities are supplied here so the shared
-              // verdict resolves and PERMITS a leader. Without them only one
-              // option would be comparable, the verdict would be 'unknown',
-              // and this case would pass for that reason instead of for the
-              // duplicate-label guard it exists to prove.
-              option_comparison: [
-                { id: 'opt_mac', option_id: 'opt_mac', label: shared, option_label: shared, win_probability: 0.55 },
-                { id: 'opt_dell', option_id: 'opt_dell', label: shared, option_label: shared, win_probability: 0.3 },
-                {
-                  id: 'opt_status_quo',
-                  option_id: 'opt_status_quo',
-                  label: STATUS_QUO,
-                  option_label: STATUS_QUO,
-                  win_probability: 0.15,
-                },
-              ],
-              robustness: { near_tie: permittingNearTie() },
-            },
-          })}
-        />,
-      )
-      expect(leaderPills()).toHaveLength(0)
-    })
+    // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+    // "marks NO leader when the leader label is shared by two options".
+    // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+    // chat analysis card, with and without a named leader.
 
-    it('marks NO leader when leading_option_id resolves to no option at all', () => {
-      render(<V5AnalysisResultBlock block={block({ leading_option_id: 'opt_ghost' })} />)
-      expect(pills()).toHaveLength(3)
-      expect(leaderPills()).toHaveLength(0)
-    })
+    // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+    // "marks NO leader when leading_option_id resolves to no option at all".
+    // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+    // chat analysis card, with and without a named leader.
   })
 
   describe('does not crash when enrichment members are absent (withheld turns)', () => {
     it('renders with no enrichment at all', () => {
       render(<V5AnalysisResultBlock block={block({ enrichment: undefined })} />)
-      expect(pills()).toHaveLength(3)
-      // No id↔label source ⇒ only the id itself can match; keys are labels ⇒ honest miss.
-      expect(leaderPills()).toHaveLength(0)
+      // #2747 re-scope 2 (mixed row, DL ruling (A)): the pill assertions are deleted (3 pills, none marked leader: the
+      // card shows no win-share row in C). Their "it rendered" control moves to the summary, which still renders.
+      expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+        'MacBook Pro leads on total cost of ownership.',
+      )
     })
 
     it('renders when decision_brief is present but stripped of options', () => {
@@ -284,8 +213,11 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
           block={block({ enrichment: { option_comparison: 'unavailable' } })}
         />,
       )
-      expect(pills()).toHaveLength(3)
-      expect(leaderPills()).toHaveLength(0)
+      // #2747 re-scope 2 (mixed row, DL ruling (A)): the pill assertions are deleted (3 pills, none marked leader: the
+      // card shows no win-share row in C). Their "it rendered" control moves to the summary, which still renders.
+      expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+        'MacBook Pro leads on total cost of ownership.',
+      )
     })
   })
 })

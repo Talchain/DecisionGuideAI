@@ -22,6 +22,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
+import { FRAGILE_CUE_SENTENCE } from '../connectorCopy'
 
 let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
@@ -152,7 +153,7 @@ describe('StyledEdge — one placed chip per edge', () => {
     // ⭐ 23 Sep 2026: the row is now the DISCREET cue (Experience Design's
     // locked grammar) — it paints no figure; the sentence rides its name.
     expect(tag!.textContent ?? '').not.toMatch(/\d/)
-    expect(tag!.getAttribute('aria-label')).toContain('49% flip risk')
+    expect(tag!.getAttribute('aria-label')).toBe(FRAGILE_CUE_SENTENCE) // #2747 r2: the Run's switch figure is not shown in C
     // …and no strength row, because this edge is not in the persistent set.
     expect(strengthText(container)).toBeNull()
   })
@@ -167,7 +168,7 @@ describe('StyledEdge — one placed chip per edge', () => {
     expect(el.contains(strengthText(container)!)).toBe(true)
     expect(el.contains(fragileTag(container)!)).toBe(true)
     expect(strengthText(container)!.textContent).toContain('boost')
-    expect(fragileTag(container)!.getAttribute('aria-label')).toContain('49% flip risk')
+    expect(fragileTag(container)!.getAttribute('aria-label')).toBe(FRAGILE_CUE_SENTENCE) // #2747 r2: the Run's switch figure is not shown in C
   })
 
   it('THE DELETED OFFSET: no element in the tree is transformed to labelX + 30', () => {
@@ -196,13 +197,14 @@ describe('StyledEdge — one placed chip per edge', () => {
     // sentences in one title; the strength sentence is the referent, and it is
     // asserted here in the same form the inspector panel would show for 0.6.
     expect(containerTitle).toContain('Strong boost')
-    expect(containerTitle).toContain('49% flip risk')
+    expect(containerTitle).toContain(FRAGILE_CUE_SENTENCE)
+    expect(containerTitle).not.toContain('49%') // #2747 r2: the Run's switch figure is not shown in C
 
     // Each row keeps its own owner and its own title — the chip is a
     // container, not a fourth signal.
     expect(fragileTag(container)!.getAttribute('title')).toBe(
       // Paul 23 Sep contract feedback point 4: the cue's sentence, no "Sensitive" label.
-      "If this connection's strength changes, the current model comparison could change (49% flip risk)",
+      FRAGILE_CUE_SENTENCE,
     )
   })
 

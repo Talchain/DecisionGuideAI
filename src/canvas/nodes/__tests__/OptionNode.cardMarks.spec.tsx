@@ -7,7 +7,6 @@ import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const attentionFixture = vi.hoisted(() => ({ active: false }))
 vi.mock('../shared/useNodeAttention', () => ({ useNodeAttention: () => ({ reasons: attentionFixture.active ? [{ kind: 'fragile_link', order: 1, label: 'The comparison depends on a link from here. How sure are you of it?' }] : [], marked: attentionFixture.active, markedCount: 1, candidateCount: 1, fromLastRun: null }) }))
@@ -46,26 +45,11 @@ it('share-withheld: exact words become a bottom glyph; permitted is the contrast
   expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
   cleanup(); seed()
   expect(screen.queryByTestId(`option-not-ranked-${node.id}`)).toBeNull()
-  expect(screen.getByTestId(`option-win-readout-${node.id}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
+  // #2747 re-scope 2 (U0): the permitted contrast's chance readout ("41%") is deleted — the canvas card shows no chance in C.
 })
-it.each([false, true])('the visible Last run caption precedes the retained chance once (detailed %s); current is the contrast', (detailed) => {
-  seed({ changed: true, detailed })
-  const caption = screen.getByTestId(`option-win-anchor-${node.id}`)
-  const readout = screen.getByTestId(`option-win-readout-${node.id}`)
-  expect(caption).toHaveAttribute('aria-label', 'Last run')
-  expect(caption).toHaveTextContent('Last run')
-  expect(caption.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(screen.getAllByTestId(`option-win-anchor-${node.id}`)).toHaveLength(1)
-  // WS5-1: the caption is visible in the chance slot, and continues to carry the single status description.
-  expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
-  expect(caption).toHaveAttribute('aria-description', 'Also: no new comparison yet')
-  expect(screen.getByTestId(`option-bottom-marks-${node.id}`).querySelectorAll('[data-card-mark="last-run"],[data-card-mark="no-new-comparison"]')).toHaveLength(0)
-  expect(readout).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
-  expect(screen.getByTestId(`option-analysis-currency-${node.id}`).getAttribute('aria-label')).not.toContain('of runs')
-  cleanup(); seed()
-  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveTextContent('Current model')
-  expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
-})
+// #2747 re-scope 2 (U0): row deleted — "the visible Last run caption precedes the retained chance": its only subject, the
+// chance-slot caption beside the retained chance, is removed in C (the card shows no chance). The current-run negative
+// (no stale mark) stays pinned in OptionNode.optionStates.spec.tsx row 22c.
 it('not-analysed chip becomes a glyph; computed is the contrast', () => {
   seed({ leftOut: true })
   mark(`option-not-analysed-chip-${node.id}`, 'not-analysed', 'Not analysed')

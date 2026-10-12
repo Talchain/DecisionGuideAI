@@ -15,7 +15,8 @@ import {
 } from '../buildResultsVM'
 import { groupActionItems } from '../utils/groupActionItems'
 import { humaniseCritique } from '../utils/humaniseCritique'
-import { buildSegmentColorMap, WIN_GAUGE_COLORS, WIN_GAUGE_COLORS_INDETERMINATE } from '../WinGauge'
+// #2747 re-scope 2 (DL ruling (A)): WinGauge is deleted; the cards' rank palette moved, unchanged, to optionRankColors.
+import { buildOptionRankColorMap, OPTION_RANK_COLORS } from '../optionRankColors'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   DecisionResultData,
@@ -482,34 +483,39 @@ describe('Golden payload regression tests', () => {
   })
 
   // 10. V14.3: WinGauge and OptionCard colour consistency
-  describe('WinGauge and OptionCard colour consistency', () => {
-    it('buildSegmentColorMap assigns winner the first colour (robust)', () => {
-      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
+  // #2747 re-scope 2 (DL ruling (A)): WinGauge is deleted; these rows now pin the option cards' rank palette in its new
+  // home (`optionRankColors.ts`: buildSegmentColorMap → buildOptionRankColorMap, WIN_GAUGE_COLORS → OPTION_RANK_COLORS).
+  describe('OptionCard rank colour palette (moved from WinGauge)', () => {
+    it('buildOptionRankColorMap assigns winner the first colour (robust)', () => {
+      const colorMap = buildOptionRankColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
       // Winner (opt_build) gets first colour = var(--success)
-      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS[0])
+      expect(colorMap['opt_build']).toBe(OPTION_RANK_COLORS[0])
+      expect(OPTION_RANK_COLORS[0]).toBe('var(--success)')
       // All options get a colour
       for (const opt of GOLDEN_OPTIONS) {
         expect(colorMap[opt.id]).toBeDefined()
       }
     })
 
-    it('buildSegmentColorMap assigns winner the first colour (sensitive)', () => {
-      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'sensitive')
-      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS[0])
+    it('buildOptionRankColorMap assigns winner the first colour (sensitive)', () => {
+      const colorMap = buildOptionRankColorMap(GOLDEN_OPTIONS, 'opt_build', 'sensitive')
+      expect(colorMap['opt_build']).toBe(OPTION_RANK_COLORS[0])
     })
 
+    // #2747 re-scope 2: the indeterminate palette is module-private in optionRankColors.ts, so its values are pinned
+    // literally — byte-identical to the deleted WIN_GAUGE_COLORS_INDETERMINATE[0] / [1].
     it('indeterminate state uses indeterminate palette', () => {
-      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'indeterminate')
-      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS_INDETERMINATE[0])
+      const colorMap = buildOptionRankColorMap(GOLDEN_OPTIONS, 'opt_build', 'indeterminate')
+      expect(colorMap['opt_build']).toBe('var(--info)')
       // Second option gets indeterminate second colour
       const sortedNonWinner = [...GOLDEN_OPTIONS]
         .filter(o => o.id !== 'opt_build')
         .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))
-      expect(colorMap[sortedNonWinner[0].id]).toBe(WIN_GAUGE_COLORS_INDETERMINATE[1])
+      expect(colorMap[sortedNonWinner[0].id]).toBe('var(--info-light)')
     })
 
     it('colour map has same entry count as options', () => {
-      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
+      const colorMap = buildOptionRankColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
       expect(Object.keys(colorMap).length).toBe(GOLDEN_OPTIONS.length)
     })
   })

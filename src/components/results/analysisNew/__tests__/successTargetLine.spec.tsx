@@ -76,7 +76,9 @@ describe('it shows the target the user already stated', () => {
     state.goalThreshold = 110
     state.goalThresholdRepresentation = 'raw'
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('110')
+    // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone (no target on the node) is never said as the target.
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('Target not captured')
+    expect(screen.getByTestId(`${TID}-value`)).not.toHaveTextContent('110')
     // DESIGN-GAP-v31 #22 (26 Sep, WS4): provenance comes only from a carried
     // `threshold_source`. Nothing here carries one, so the line says "Source not
     // recorded" — never "From brief", which the node did not record.
@@ -244,11 +246,12 @@ describe('it refuses to print a number it cannot express', () => {
    * that never renders a value at all. Same number, different tag, different
    * render — so the tag is provably what decides.
    */
-  it('…and DOES render the same number when it is raw', () => {
+  it('…and a raw scalar renders the value slot, as "Target not captured" (#2747 r2: never the bare stored number)', () => {
     state.goalThreshold = 0.8
     state.goalThresholdRepresentation = 'raw'
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('0.8')
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('Target not captured')
+    expect(screen.queryByTestId(`${TID}-none`)).toBeNull()
   })
 
   /**

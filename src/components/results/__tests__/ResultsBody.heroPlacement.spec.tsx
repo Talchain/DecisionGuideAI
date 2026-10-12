@@ -177,10 +177,14 @@ describe('ResultsBody — Analysis hero placement', () => {
     expect(before(focus, options), 'Focus panel still precedes options').toBe(true)
   })
 
-  it('view-bearing control: ResultsBody preserves the server figure, goal headline and recovery ownership', () => {
+  // #2747 re-scope 2 round 2 (Codex r1; rule C): the hero composes no goal claim of its own ("Option A meets every target
+  // this run scored in the most model runs (…)" went with the goalOnly arm). With no CEE chance words served, the
+  // headline is the neutral one; each row still says CEE's served cell.
+  it('view-bearing control: ResultsBody preserves the server figure, the neutral headline and recovery ownership', () => {
     for (const isStale of [false, true]) {
       const { unmount } = renderBody({ withView: true, isStale })
-      expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A meets every target this run scored in the most model runs \(.+\)\./)
+      expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+      expect(screen.getByTestId('hero-headline').textContent).not.toMatch(/every target|model runs|meets/i)
       const rows = screen.getAllByTestId(/^hero-option-row-/)
       expect(rows.length).toBe(2)
       expect(rows[0].querySelector('.text-right > span')!.textContent).toBe('about 70%')

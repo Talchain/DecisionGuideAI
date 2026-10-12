@@ -612,25 +612,10 @@ export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =
   `Option ${optionNumber} — ${ORDINAL_MINT_CLAUSE}, not a ranking`
 
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
-  {
-    noun: CURRENT_MODEL_NOUN,
-    // ⭐ Locked design (ED 11:52Z point 4; ED 5799353114 decision 2): the canvas
-    // never captions this "Support" — cards read "Current model · N% of runs".
-    // The row names the quantity in the card's words and says it is
-    // conditional on the model and its assumptions. ⛔ No "not a
-    // recommendation": the stem is banned even negated (J1 ruling). The
-    // run-share verb is "supported" (DL #87 6004906342).
-    gloss: 'on option cards “N% of runs”: the share of runs that supported this option under this model’s assumptions',
-  },
-  {
-    noun: METRIC_NOUN.chance,
-    // ⚠ THE REFERENT IS LOAD-BEARING AND WAS PRESERVED THROUGH THE RE-FRAME.
-    // This gloss said "the leading option", which names the option with the
-    // highest comparative figure — NOT any option. Dropping the qualifier to
-    // shed the race word would have widened the claim to something false.
-    // "the most-supported option" is the same referent in the new vocabulary.
-    gloss: 'how often the option supported by the most runs reached the goal target across the runs',
-  },
+  // #2747 re-scope 2 (U0): the "Current model" row ("N% of runs", the share of runs that supported an option) and the
+  // "Chance" row ("how often the option supported by the most runs reached the goal target") are gone: no canvas card
+  // shows a win share (DL ruling (A)) or a goal chance in C, and a key row that promises an absent marking is the harm
+  // this register's legend exists to prevent. Restore each with its marking (post-C).
   {
     noun: METRIC_NOUN.influence,
     // Derived from the results-surface authority rather than re-worded, and the

@@ -93,9 +93,11 @@ describe('OptionCards — an absent comparative probability is never rendered as
     ).toBeInTheDocument()
   })
 
-  it('still renders the magnitude when the run actually carries one', () => {
-    // ANTI-VACUITY: proves the assertions above can SEE a present magnitude,
-    // so "no fabricated share" is not passing because nothing renders at all.
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'still renders the magnitude when the run actually carries one'. In C the
+  // card says no win share even when the run carries one; the claim is still made, verbatim, with no magnitude.
+  it('says the claim WITHOUT a magnitude even when the run carries one (no 66%)', () => {
+    // ANTI-VACUITY: the claim itself is on screen, so "no share" is not
+    // passing because nothing renders at all.
     const { container } = render(
       <OptionCards
         options={[
@@ -107,9 +109,9 @@ describe('OptionCards — an absent comparative probability is never rendered as
         decisionState="robust"
       />,
     )
-    expect(container.textContent ?? '').toMatch(
-      /Supported in .+ of simulated scenarios/,
-    )
+    expect(container.textContent ?? '').toContain(COMPARATIVE_COPY.leadNoMagnitude)
+    expect(container.textContent ?? '').not.toMatch(/Supported in [<>]?[\d.]+% of simulated scenarios/)
+    expect(container.textContent ?? '').not.toContain('66%')
   })
 })
 
@@ -134,9 +136,11 @@ describe('OptionCards — the hinge variants carry no un-anchored superlative (F
     // The retired un-anchored superlative family — "highest ... likelihood"
     // names no basis and carries no number.
     expect(text).not.toMatch(/highest leading-option likelihood/i)
-    // The re-anchored claim is present, with its magnitude, and still names
-    // the hinge factor the variant exists to surface.
-    expect(text).toMatch(/supported in .+ of simulated scenarios/i)
+    // The re-anchored claim is present and still names the hinge factor the
+    // variant exists to surface. #2747 re-scope 2 (U0, DL ruling (A)): it carries no magnitude in C.
+    expect(text).toContain(COMPARATIVE_COPY.leadNoMagnitude)
+    expect(text).not.toMatch(/supported in .+ of simulated scenarios/i)
+    expect(text).not.toContain('66%')
     expect(text).toContain('Hiring rate')
   })
 })

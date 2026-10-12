@@ -45,7 +45,7 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
-import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
+import { isEdgeFragile, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import { isStrengthAccepted } from '../../../domain/strengthAccepted'
@@ -231,7 +231,6 @@ export const EdgePanel = memo(function EdgePanel({
   onClose,
   onNavigate,
 }: InspectorPanelProps) {
-  const [showFlipRiskDetails, setShowFlipRiskDetails] = useState(false)
   const edges = useCanvasStore(s => s.edges)
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const showToast = useShowToastSafe()
@@ -556,17 +555,6 @@ export const EdgePanel = memo(function EdgePanel({
     return entry?.e_value ?? null
   }, [edgeEValues, edgeId])
 
-  // Switch probability for fragile edge
-  const fragileEdgeSwitchProb = useMemo(() => {
-    if (!isFragile || !robustness?.fragile_edges) return null
-    return getFragileEdgeSwitchProbability(
-      edgeId ?? '',
-      edge?.source ?? '',
-      edge?.target ?? '',
-      robustness.fragile_edges as unknown[],
-      fragileMatchCtx,
-    )
-  }, [isFragile, robustness, edgeId, edge?.source, edge?.target, fragileMatchCtx])
 
   // Edit impact preview
   const { previewEdit, clearPreview } = useEditImpactPreview()
@@ -1045,19 +1033,9 @@ export const EdgePanel = memo(function EdgePanel({
                     <Activity size={13} className="text-text-body shrink-0" aria-hidden="true" />
                     {FRAGILE_CUE_SENTENCE}
                   </div>
-                  {fragileEdgeSwitchProb !== null && (
-                    <div className="mt-1.5">
-                    <p
-                      className={`${typography.panelMeta} text-text-body mt-1.5`}
-                      title={EDGE_COPY.flipRiskTooltip(Math.round(fragileEdgeSwitchProb * 100))}
-                    >
-                      {showFlipRiskDetails ? `${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : 'Some risk of changing the conclusion'}
-                    </p>
-                    <button type="button" className="text-[11px] underline" aria-expanded={showFlipRiskDetails} onClick={() => setShowFlipRiskDetails(v => !v)}>
-                      {showFlipRiskDetails ? 'Hide details' : 'Show details'}
-                    </button>
-                    </div>
-                  )}
+                  {/* #2747 re-scope 2 round 2 (Codex r1 blocking 4; DL: the LensInfoPanel ruling applies everywhere): no
+                      switch-probability figure, in text or tooltip ("86% flip risk"). CEE serves no wording or Run authority
+                      for it in C; the cue sentence above says the link matters. */}
                   {techMode && edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
                       {LINK_MARGIN_LABEL}. {linkMarginSentence(edgeEValue)}
@@ -1629,9 +1607,6 @@ export const EdgePanel = memo(function EdgePanel({
             </fieldset>
             {/* ── Expert-only model detail ───────────────────────── */}
             <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
-              {fragileEdgeSwitchProb !== null && (
-                <div>switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]</div>
-              )}
               {/* This arm is reached only when the edge is NEITHER
                   organisational NOR an intervention, so its strength IS read by
                   the analysis. Passed explicitly rather than defaulted: the

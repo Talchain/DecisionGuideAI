@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { useCanvasStore } from '../../../canvas/store'
 import type { V5AnalysisResultBlock as AnalysisBlock, V5ComparisonBlock as ComparisonBlock } from '../../../canvas/conversation/types'
 import { mapV5Block } from '../mapV5Blocks'
@@ -20,37 +20,36 @@ const comparison = (): ComparisonBlock => ({
 const initialState = useCanvasStore.getState()
 afterEach(() => { cleanup(); useCanvasStore.setState(initialState, true) })
 
-// Ignore percentages that are part of the OPTION'S OWN NAME ("Raise prices by 10%").
-// Mutation control: restoring either old formatter makes these exact row assertions RED.
-const SHARES: Record<string, string> = {
-  'Launch starter tier': '60%',
-  'Raise prices by 10%': '35%',
-  'Keep pricing as it is': '6%',
-}
+// #2747 re-scope 2: the captured share captions (SHARES) went with the pill-row assertions that read them, below.
 
 describe('chat run shares on S1 draw 1 (UI ed8889ae / CEE bdf5716)', () => {
-  it('the real analysis block labels every share, retaining the captured goal probabilities', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "the real analysis block labels every share, retaining the captured goal
+  // probabilities". The captured-goal-probabilities assertion is kept as written; the three "supported by N% of runs"
+  // pill assertions became the absence check (DL ruling (A): C shows no win share on any Run), on the same S1 capture.
+  it('the real analysis block retains the captured goal probabilities: still no win-share row in C (ruling (A))', () => {
     expect(capture.block.enrichment.option_comparison.map(option => option.probability_of_goal)).toEqual([0.331, 0.5055, 0])
     render(<V5AnalysisResultBlock block={analysis()} />)
-    const rows = within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem')
-    expect(rows).toHaveLength(3)
-    for (const row of rows) {
-      const label = row.querySelector('.font-medium')!.textContent!
-      expect(row).toHaveTextContent(`${label}· supported by ${SHARES[label]} of runs`)
-      expect(row.lastElementChild!.textContent).not.toMatch(/^\s*·\s*\d+%\s*$/)
-    }
+    // Non-vacuity: the card rendered its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary').textContent).toBe(capture.block.summary)
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    // ⚠ This capture's CEE-authored summary itself says "…in 60% of runs of this model…", rendered verbatim, so the
+    // `/of runs/` scan reads the card WITHOUT that one node (fixture unchanged; flagged to the DL). The pill caption
+    // ("supported by N% of runs") is checked across the whole card.
+    const card = screen.getByTestId('v5-analysis-result')
+    expect(card.textContent ?? '').not.toMatch(/supported by .* of runs/)
+    const cardWithoutSummary = card.cloneNode(true) as HTMLElement
+    cardWithoutSummary.querySelector('[data-testid="v5-analysis-result-summary"]')!.remove()
+    expect(cardWithoutSummary.textContent ?? '').not.toMatch(/of runs/)
   })
 
-  it('the comparison table uses the same share caption for the captured values', () => {
-    render(<V5ComparisonBlock block={comparison()} />)
-    for (const option of capture.block.enrichment.option_comparison) {
-      const cells = within(screen.getByTestId(`v5-comparison-row-${option.option_id}`)).getAllByRole('cell')
-      expect(cells[1].textContent).toBe(`supported by ${SHARES[option.label]} of runs`)
-      expect(cells[1].textContent).not.toMatch(/^\d+%$/)
-    }
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row 'the comparison table uses the same share caption for the captured values'
+  // deleted — its only subject, the chat comparison block's share column, was removed in C (V5ComparisonBlock: Option-only
+  // table; census row V5ComparisonBlock covers the absence).
 
-  it('keeps per-option chance prose verbatim and before the smaller share details', () => {
+  // #2747 re-scope 2 (mixed row, DL ruling (A)): was "keeps per-option chance prose verbatim and before the smaller
+  // share details". The pill assertions are deleted (each story headline precedes the pill row; the first pill is
+  // `text-xs`): C shows no win-share row. The verbatim per-option chance prose assertion is kept as written.
+  it('keeps per-option chance prose verbatim', () => {
     // Controlled 0.30 review twin: the scout's chances are delivered outside this
     // card. Exercise the card's existing story channel without inventing a goal formatter.
     const stories = {
@@ -63,12 +62,9 @@ describe('chat run shares on S1 draw 1 (UI ed8889ae / CEE bdf5716)', () => {
       decision_review: { produced_at: '2026-10-06T23:27:37Z', story_headlines: stories },
     } })
     render(<V5AnalysisResultBlock block={block} />)
-    const shares = screen.getByTestId('v5-analysis-result-probabilities')
     for (const row of screen.getAllByTestId('v5-analysis-result-story-headline')) {
       expect(row.lastElementChild!.textContent).toBe(stories[row.dataset.optionId as keyof typeof stories])
-      expect(row.compareDocumentPosition(shares) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
-    expect(within(shares).getAllByRole('listitem')[0].className).toContain('text-xs')
   })
 
   it('keeps the real withheld-goal run words and share suppression unchanged', () => {
@@ -79,7 +75,8 @@ describe('chat run shares on S1 draw 1 (UI ed8889ae / CEE bdf5716)', () => {
       producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' },
     } } } as unknown as Partial<ReturnType<typeof useCanvasStore.getState>>)
     render(<V5ComparisonBlock block={comparison()} />)
-    expect(screen.getByTestId('v5-comparison-not-ranked')).toHaveTextContent("An exploratory comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option.")
+    // #2747 re-scope 2 (DL ruling (A)): the `v5-comparison-not-ranked` line assertion deleted — that line was removed with
+    // the comparison block's share column in C. The no-share negative stays.
     expect(screen.queryByText(/supported by .* of runs/)).toBeNull()
   })
 })

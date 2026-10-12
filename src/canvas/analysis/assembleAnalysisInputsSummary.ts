@@ -41,6 +41,7 @@ export function assembleAnalysisInputsSummary(
 
   // Filter to options with an actual win_probability once — shared by both
   // recommendation selection and options list. Never fabricate 0.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
   const comparisonsWithProb = report.option_comparison.filter(oc => oc.win_probability != null)
   if (comparisonsWithProb.length === 0) return null
 
@@ -53,6 +54,7 @@ export function assembleAnalysisInputsSummary(
   const options = comparisonsWithProb.map(oc => ({
     id: oc.option_id,
     label: oc.option_label,
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
     win_probability: oc.win_probability as number,
   }))
 
@@ -118,6 +120,7 @@ function findRecommendation(
   if (comparisons.length === 0) return null
   let best = comparisons[0]
   for (const oc of comparisons.slice(1)) {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
     if ((oc.win_probability as number) > (best.win_probability as number)) {
       best = oc
     }
@@ -125,6 +128,7 @@ function findRecommendation(
   return {
     option_id: best.option_id,
     option_label: best.option_label,
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
     win_probability: best.win_probability as number,
   }
 }
@@ -219,6 +223,7 @@ function buildConstraintsStatus(
       // The band reuses CONSTRAINT_CONFIDENCE_THRESHOLDS — the same 0.40/0.70
       // the results panel shows the user — and keeps "not evaluated" as its own
       // answer rather than folding it into "breached".
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
       const band = getConstraintSatisfactionBand(c.prob_satisfied)
       return {
         label: c.label,
@@ -226,6 +231,7 @@ function buildConstraintsStatus(
         // Omit the number whenever there is no evaluated number to report.
         // Bound to the BAND, not to a second null-test, so the two can never
         // disagree about whether this constraint was evaluated.
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: builds the analysis-inputs summary record (no production caller); never displayed
         ...(band !== 'unevaluated' ? { probability: c.prob_satisfied } : {}),
       }
     })

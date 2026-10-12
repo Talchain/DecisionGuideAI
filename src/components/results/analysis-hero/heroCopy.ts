@@ -97,27 +97,8 @@ export const HERO_COPY = {
      */
     goalWithLimits: (label: string, readout: string) =>
       `In this model, ${label} meets your goal and limits in the most model runs (${readout}).`,
-    /**
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `caption.goalOnly` and
-     * `detail.goalFitJointBasis`. See the block above `noneOnTrack` for the
-     * full producer trace and why all three had to move together.
-     *
-     * The crown is the UNIQUE argmax of the goal probability among rows that
-     * all carry one (UI-SEM-072), clearing the sub-1% floor — so "most likely
-     * to meet" names exactly the quantity the caption below and the row detail
-     * beneath it show. It was `"{label} best fits your goal."`, which asserted
-     * a possessive over a number that, when the user has set constraints, does
-     * not involve the goal at all.
-     */
-    goalOnly: (label: string, readout: string) =>
-      // DELEGATED — this restated `GOAL_ANCHOR_COPY.headline(_, _, true)`
-      // byte-for-byte plus a full stop, which is the second copy of one claim
-      // the re-anchoring exists to remove. `sentence()` is `phrase()` plus a
-      // full stop for the same reason; this is the headline form of the same
-      // relationship, pinned in `__tests__/heroCopyDelegation.spec.ts`.
-      // Principle audit (5 Oct): said in this model, the Reasoning tab's own `implications.goalClaim` words.
-      `In this model, ${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
+    // #2747 re-scope 2 round 2: `goalOnly` (the goal-fit crown headline with the served figure's "about" cut) lost its
+    // last caller when the hero stopped composing goal claims (DL rule C).
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -161,49 +142,8 @@ export const HERO_COPY = {
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string, readout: string) =>
       `In this model, ${label} has the highest expected outcome: ${readout}.`,
-    /**
-     * Goal honesty: every option's goal probability sits below the sub-1%
-     * floor (UI-SEM-057) — crowning any option would be false, so the headline
-     * states the decision-relevant truth instead.
-     * Constraint-aware like every other goal claim: under constraints the
-     * floored figure is the JOINT (goal AND limits) probability, and the
-     * axis/caption already say "goal and limits" — the headline must match.
-     *
-     * ⭐ GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1).
-     * This string, `headline.goalOnly`, `caption.goalOnly` and
-     * `detail.goalFitJointBasis` are ONE claim on four surfaces and must stay
-     * in the same voice. They were changed together because they had drifted
-     * apart in a way the user could see in a single render: the row detail
-     * withheld the possessive while the headline and caption above it asserted
-     * it, about the same number, on every live run.
-     *
-     * WHY (as traced when this wording shipped — ⚠ L65, 2026-08-04: the
-     * every-run part is now history. L62 withholds the substituted joint
-     * figure at the selector, and PLoT #308 suppresses the frame-broken
-     * channel at source, so a number rendered here today is an honest
-     * `goal_probability`. The count/possessive restraint below stays until
-     * the interim-retirement trigger fires). The number every live V5 run
-     * rendered here was `probability_of_joint_goal`. Two live cases produced
-     * it and the UI could not tell them apart:
-     *   A. no user constraints — PLoT synthesises ONE constraint from the goal
-     *      threshold, on the goal node, `>=`, and ISL evaluates it against the
-     *      EXACT goal samples. The figure IS goal attainment, over exactly one
-     *      target, and that target is the user's own. "All targets together"
-     *      over-stated plurality on 100% of live runs.
-     *   B. user constraints present — PLoT SKIPS the synthesis and DISCARDS the
-     *      goal threshold, so the number does not involve the goal at all and
-     *      "your goal" would be false.
-     * The discriminator does not exist in contract: PLoT's attestation
-     * (`_meta.constraint_sources`) is stripped at CEE's transport keep-list,
-     * and the only local signal is an undeclared magic string on another
-     * service's internal constant. Sniffing it would be the hand-maintained
-     * mirror this family exists to remove, so the copy asserts neither a count
-     * nor a possessive and is true in BOTH cases.
-     *
-     * INTERIM: retires when CEE ships the goal verdict with an explicit
-     * measure scope and the copy can be exact.
-     */
-    noneOnTrack: 'No option is currently on track to meet every target this run scored.',
+    // #2747 re-scope 2 round 2: `noneOnTrack` ("No option is currently on track to meet every target this run scored.")
+    // lost its last caller with the hero's own goal claims (DL rule C).
     noneOnTrackWithLimits: 'No option is currently on track to meet your goal and limits.',
     singleOption: (label: string) => `${label} is your only option.`,
     noLeader: 'Here is how your options compare.',
@@ -286,15 +226,7 @@ export const HERO_COPY = {
     // Value-based wording (not "each bar"): the goal lens draws no tracks
     // (prototype v6), so the caption describes the readouts it shows.
     goalWithLimits: 'Each value is the chance that option meets your goal and limits together.',
-    /**
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `headline.goalOnly` /
-     * `headline.noneOnTrack` and `detail.goalFitJointBasis`. See the block
-     * above `noneOnTrack` for the producer trace. It was `"Each value is the
-     * chance that option hits your goal."`, which asserted the possessive the
-     * row detail directly beneath it was written to withhold.
-     */
-    goalOnly: 'Each value is the chance that option meets every target this run scored.',
+    // #2747 re-scope 2 round 2: `goalOnly` (the Goal fit lens caption) lost its only caller (DL rule C / U2).
     /** Base outcome caption — shown when TWO OR MORE rows draw p10-p90 lines. */
     outcome: 'Dots show expected outcome. Lines show the realistic range.',
     /**
@@ -353,31 +285,7 @@ export const HERO_COPY = {
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
     goalFitWithLimits: (readout: string) => `${GOAL_ANCHOR_COPY.readout(readout, false)} and limits, in this model.`,
-    /**
-     * Goal-probability IDENTITY: the voice for a row whose number is
-     * `probability_of_joint_goal` STANDING IN for an absent
-     * `goal_probability`.
-     *
-     * ⚠ CORRECTED BY L65 (2026-08-04): this comment used to add that the
-     * flagging basis (`'joint_goal_substituted'`) "on the live V5 wire, is
-     * EVERY run". True when written; false now. L62 renamed the basis
-     * `'joint_goal_withheld'` and it carries NO number, so this arm renders
-     * on no run today — dead pending the rowed retirement of the
-     * substituted-register surfaces (ROADMAP 2.399(b)); do not delete it
-     * here. When it did render, the number was shown unchanged: a copy
-     * switch, never a value transform.
-     *
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `headline.goalOnly` /
-     * `headline.noneOnTrack` and `caption.goalOnly`. See the block above
-     * `noneOnTrack` for the producer trace. It was `"...chance of meeting all
-     * targets together."`, which over-stated plurality: on the ordinary run
-     * there is exactly ONE target and it is the user's own goal threshold.
-     * "Every target" is true over a singleton and over a set, so it asserts
-     * no count — and no possessive, which would be false when the user HAS
-     * set constraints and PLoT discards the goal threshold.
-     */
-    goalFitJointBasis: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, true),
+    // #2747 re-scope 2 round 2: `goalFitJointBasis` lost its last caller in this PR (the hero detail says CEE's cell).
   },
 
   /**

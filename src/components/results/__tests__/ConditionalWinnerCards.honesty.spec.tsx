@@ -150,9 +150,7 @@ describe('ConditionalWinnerCards — withheld/neutral arm (CEE projection shape)
     expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).toMatch(/Market growth/)
     expect(body.textContent).toMatch(/42\.5%/)
-    // …and licensed anonymous probabilities…
-    expect(body.textContent).toMatch(/Above: 70%/)
-    expect(body.textContent).toMatch(/Below: 60%/)
+    // #2747 re-scope 2 (DL ruling (A)): the "Above: 70%" / "Below: 60%" share assertions deleted — no bucket win share is said in C.
     // …but NO option identity anywhere (the pre-projection fixture carries
     // both names, so this assertion discriminates).
     expect(body.textContent).not.toMatch(/Expand into Europe/)
@@ -212,16 +210,8 @@ describe('ConditionalWinnerCards — honest absence (no minted numbers)', () => 
     expect(body.textContent).not.toMatch(/%\)/)
   })
 
-  it('renders a producer-sent win_probability of 0 (positive control for absence handling)', () => {
-    const row = fullRow({
-      high_bucket: { winner_id: 'opt_expand', winner_label: 'Expand into Europe', win_probability: 0 },
-      low_bucket: { winner_id: 'opt_hold', winner_label: 'Hold position', win_probability: 1 },
-    })
-    render(<ConditionalWinnerCards winners={[row]} recommendedOptionId="opt_hold" />)
-    const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/\(0%\)/)
-    expect(body.textContent).toMatch(/\(100%\)/)
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row 'renders a producer-sent win_probability of 0' deleted — its only subject was the
+  // bucket win share "(0%)" / "(100%)", which C no longer says.
 })
 
 describe('ConditionalWinnerCards — direction binds by identity (trap 19 discriminating fixture)', () => {

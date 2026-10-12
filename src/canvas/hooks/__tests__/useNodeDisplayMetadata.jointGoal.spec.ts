@@ -1,4 +1,4 @@
-import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
+import { licensedTestReportHeld } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — the JOINT figure rides the SAME decision
  * (ROADMAP 2.296 item 5 / 2.282-C2).
@@ -65,7 +65,7 @@ function reportFor(option: Record<string, unknown>, withPointer = true) {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReport(report) } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReportHeld(report) } }))
 }
 
 function renderForGoal() {
@@ -76,19 +76,25 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('useNodeDisplayMetadata — jointGoalProbability (REAL hook)', () => {
+/**
+ * #2747 (DL ruling (a), reverses AIQ 5882498938 / ROADMAP 2.283): the hook no longer carries the legacy limits-channel
+ * joint ("all your limits hold") NUMBER: no canonical cell licenses it. It forwards only `jointGoalPresent`, for
+ * classification. CEE's licensed AND-target answer is a different claim and is not affected.
+ */
+const carriesJointNumber = (md: object) => 'jointGoalProbability' in md
+describe('useNodeDisplayMetadata — the joint figure (REAL hook): presence only, never the number', () => {
   it('control: the fixtures drive the REAL selector where this suite claims (trap 13)', () => {
     expect(selectGoalProbability(SUBSTITUTED_OPTION).jointGoalProbability).toBe(0.0054)
     expect(selectGoalProbability(REAL_GOAL_OPTION).jointGoalProbability).toBe(0.0054)
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
   })
 
-  it('RED-first: forwards the joint figure beside a REAL goal probability', () => {
+  it('#2747: beside a REAL goal probability, the joint figure is present but its number is not carried', () => {
     setReport(reportFor(REAL_GOAL_OPTION))
     const md = renderForGoal()
     expect(md.achievementProbability).toBe(0.55)
-    // The two quantities are genuinely different here, and BOTH are published.
-    expect(md.jointGoalProbability).toBe(0.0054)
+    expect(md.jointGoalPresent).toBe(true)
+    expect(carriesJointNumber(md)).toBe(false)
   })
 
   /**
@@ -102,26 +108,27 @@ describe('useNodeDisplayMetadata — jointGoalProbability (REAL hook)', () => {
    * empty. A gate that deleted the joint quantity too would break the honest
    * surface, so this pins that it does not.
    */
-  it('L62 — under withhold the joint figure is still FORWARDED, and the achievement figure is empty', () => {
+  it('L62 / #2747 — under withhold the basis still says joint_goal_withheld; the achievement figure and the joint number are both empty', () => {
     setReport(reportFor(SUBSTITUTED_OPTION))
     const md = renderForGoal()
     expect(md.achievementProbabilityBasis).toBe('joint_goal_withheld')
     expect(md.achievementProbability).toBeNull()
-    // Untouched, byte-for-byte: this is what `GoalPanel`'s "chance of hitting
-    // every target" row renders under its own honest label.
-    expect(md.jointGoalProbability).toBe(0.0054)
+    expect(md.jointGoalPresent).toBe(true)
+    expect(carriesJointNumber(md)).toBe(false)
   })
 
   it('no pointer (the 2.275 gap) → no joint figure either — nothing is read outside the owner', () => {
     setReport(reportFor(REAL_GOAL_OPTION, /* withPointer */ false))
     const md = renderForGoal()
     expect(md.achievementProbability).toBeNull()
-    expect(md.jointGoalProbability ?? null).toBeNull()
+    expect(md.jointGoalPresent ?? false).toBe(false)
+    expect(carriesJointNumber(md)).toBe(false)
   })
 
-  it('no report → null', () => {
+  it('no report → no joint figure', () => {
     setReport(null, 'idle')
     const md = renderForGoal()
-    expect(md.jointGoalProbability ?? null).toBeNull()
+    expect(md.jointGoalPresent ?? false).toBe(false)
+    expect(carriesJointNumber(md)).toBe(false)
   })
 })

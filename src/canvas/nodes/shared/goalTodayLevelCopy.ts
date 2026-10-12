@@ -6,7 +6,9 @@ import { formatGoalTarget } from '../../../components/results/utils/formatGoalTa
 import type { GoalTodayLevel } from '../../domain/goalTarget'
 
 export function goalTodayLevelCopy(t: GoalTodayLevel): string {
-  const figure = formatGoalTarget(t.level, t.unit) ?? String(t.level)
+  // #2747 r2: a level that is not a finite number is never printed (census B R2).
+  // target-text: today's LEVEL of the goal's quantity, never its target (a change target is said apart from it)
+  const figure = formatGoalTarget(t.level, t.unit) ?? 'not recorded'
   if (t.basis === 'olumi_reading' && t.quote !== null) return `Today: ${figure} — Olumi's reading of ‘${t.quote}’`
   if (t.basis === 'from_brief') return `Today: ${figure} — from your brief`
   return t.basis === 'user_confirmed' ? `Today: ${figure} — you confirmed` : `Today: ${figure} — you said`

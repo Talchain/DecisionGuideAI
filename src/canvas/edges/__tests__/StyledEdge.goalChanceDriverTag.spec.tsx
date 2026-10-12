@@ -5,6 +5,8 @@ import { Position } from '@xyflow/react'
 import { StyledEdge, EDGE_GLOW } from '../StyledEdge'
 import { GOAL_CHANCE_DRIVER_TAG } from '../../utils/goalChanceDriverLinks'
 import { useCanvasStore } from '../../store'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { focusEdgeById } from '../../utils/focusHelpers'
 
@@ -63,16 +65,30 @@ const PROPS = {
 } as unknown as ComponentProps<typeof StyledEdge>
 
 function report(drivers: Record<string, unknown> = { o1: STRENGTH }) {
-  return { inference_warnings: [{
+  return { run_id: 'run-1', inference_warnings: [{
     code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'm', form: 'each',
     option_ids: ['o1', 'o2'], pct_by_option: { o1: 62, o2: 41 },
     target: { comparator: 'at_least', value: 120000, unit: '£' }, driver_by_option: drivers,
   }] }
 }
-function seedReport(next: unknown, status: 'complete' | 'running' = 'complete') {
+/**
+ * #2747 r2: the tag is drawn only from the scenario's CURRENT canonical driver (`RunView.mainDriverOf`). CEE serves the
+ * driver it licensed for each licensed option; `canonical: false` holds the Run with no canonical view.
+ */
+function seedReport(next: unknown, status: 'complete' | 'running' = 'complete', canonical = true) {
   // Exercise the brief's non-complete 'running' contrast even though the
   // store's current status union names in-flight results 'loading'.
   useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, status: status as never, report: next as never } })
+  const licence = (next as { inference_warnings?: Record<string, any>[] } | null)?.inference_warnings?.[0]
+  const view = !canonical || !licence ? null : parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: (next as { run_id: string }).run_id, graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: (licence.option_ids as string[]).map(option_id => ({ option_id, cell: { kind: 'none' },
+      main_driver: licence.driver_by_option?.[option_id] ? { kind: 'available', driver: licence.driver_by_option[option_id] } : { kind: 'not_recorded' } })),
+  })
+  useCanonicalAnalysisViewStore.getState().adopt(useCanvasStore.getState().currentScenarioId as string, view)
 }
 function tag(container: HTMLElement) {
   return container.querySelector<HTMLButtonElement>('button[data-testid="goal-chance-driver-tag"][data-driver-tag-edge-id="e_ab"]')
@@ -133,6 +149,13 @@ describe('StyledEdge — goal-chance driver tag bound to e_ab', () => {
 
   it('CONTRAST: the same edge without a licence has no tag or marker', () => {
     seedReport({})
+    const { container } = render(<StyledEdge {...PROPS} />)
+    expect(tag(container)).toBeNull()
+    expect(marker(container)).toBeNull()
+  })
+
+  it('#2747 r2: the licence names the driver but no current canonical view holds the Run: no tag or marker', () => {
+    seedReport(report(), 'complete', false)
     const { container } = render(<StyledEdge {...PROPS} />)
     expect(tag(container)).toBeNull()
     expect(marker(container)).toBeNull()

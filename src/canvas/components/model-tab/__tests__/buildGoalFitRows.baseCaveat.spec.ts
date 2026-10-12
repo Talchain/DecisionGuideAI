@@ -1,5 +1,4 @@
-import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
-import { runViewOf } from '../../../runView/runView'
+import { licensedTestView } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ISL #207: the Model tab's goal-fit row carries the chooser's base-caveat, so
  * a renderer cannot show the figure bare (AIQ #72 5877139338).
@@ -11,7 +10,7 @@ import { buildGoalFitRows } from '../buildGoalFitRows'
 const nodes = [{ id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } }] as unknown as Node[]
 const rowFor = (goalLevelAuthor?: 'olumi' | 'unattested') => {
   const probs = { opt_a: { goal_probability: 0.41, ...(goalLevelAuthor ? { goalLevelAuthor } : {}) } }
-  return buildGoalFitRows(nodes, probs, runViewOf(licensedTestReport({ option_probabilities: probs })))?.[0]
+  return buildGoalFitRows(nodes, probs, licensedTestView({ option_probabilities: probs }))?.[0]
 }
 
 describe('buildGoalFitRows — base-caveat rides the row', () => {

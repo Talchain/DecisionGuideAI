@@ -24,7 +24,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, renderHook, screen, cleanup } from '@testing-library/react'
-import { lensFragileEdgeLabel, lensFragileRowAlternative } from '../../components/results/utils/fragileEdgeCopy'
+import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import { LensInfoPanel } from '../components/LensInfoPanel'
 import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
 import { useCanvasStore } from '../store'
@@ -59,14 +59,13 @@ describe('the fragile-edge alternative is named without a winner verb', () => {
     expect(lensFragileEdgeLabel('   ')).toBe('Sensitive')
   })
 
-  it('the lens row keeps the name, drops the arrow, and titles it with the full sentence', () => {
-    expect(lensFragileRowAlternative('Plan B')).toEqual({
-      text: 'towards Plan B',
-      title: 'The comparison could shift towards Plan B',
-    })
-  })
+  // #2747 re-scope 2 (DL ruling): row deleted — "the lens row keeps the name, drops the arrow, and titles it with the full
+  // sentence": its only subject, `lensFragileRowAlternative` (the lens row's "towards {alt}"), is deleted in C.
 
-  it('LensInfoPanel renders the row that way', () => {
+  // #2747 re-scope 2 (DL ruling): the row's "towards Plan B", its full-sentence title and its switch figure ("85%") are
+  // deleted — LensInfoPanel lists fragile links by label only in C. The no-arrow negative stays; the row's own
+  // `from → to` title is the same-render control.
+  it('LensInfoPanel renders the row with no arrow to the alternative', () => {
     localStorage.setItem('feature.graphLens', '1')
     useCanvasStore.setState({
       nodes: [
@@ -88,11 +87,10 @@ describe('the fragile-edge alternative is named without a winner verb', () => {
     } as never)
     render(<LensInfoPanel />)
     const panel = screen.getByTestId('lens-info-robustness')
-    expect(panel.textContent).toContain('towards Plan B')
+    expect(panel.querySelector('[title="Price → Revenue"]')).not.toBeNull()
+    // The label is now the row's only content, so it must read as one: an arrow, not the six characters "\u2192".
+    expect(panel.textContent).toContain('Price → Revenue')
     expect(panel.textContent).not.toMatch(/→\s*Plan B/)
-    expect(panel.querySelector('[title="The comparison could shift towards Plan B"]')).not.toBeNull()
-    // CONTROL: the row itself still renders its measured figure.
-    expect(panel.textContent).toContain('85%')
   })
 })
 

@@ -35,14 +35,28 @@ describe('the brief stamp on a goal target', () => {
     expect(computeSuccessState(goalNode(UNSTAMPED), null, null, null).attribution).toBeNull()
   })
 
-  it('AIQ 5900578934 — a RELATIVE-change target ("cut by 20%" → "£36,000 / month or less") never wears "From your brief"', () => {
+  // Recovery Batch C, SYS3 L5 (#94 6115410093): served hiring (CEE 50530b5f, scenario 68759863) stored Paul's "increase
+  // productivity by at least 10%" as this node, and the reopened card said "Source not recorded · Target: up 10% from today".
+  const HIRING = { label: 'productivity', goal_direction: '>=', threshold_source: 'brief_extraction', goal_threshold_raw: 0.1, goal_threshold_frame: 'change_rel', goal_deadline_as_stated: 'three months' }
+
+  it('L5 (served hiring): Paul\'s own "up 10% from today" wears "From your brief", and the Success row credits him', () => {
+    expect(resolveGoalTarget(HIRING)).toMatchObject({ raw: 0.1, source: 'brief', frame: 'change_rel' })
+    expect(goalTargetSourceMark(HIRING)).toMatchObject({ kind: 'brief', label: 'From your brief' })
+    expect(computeSuccessState(goalNode(HIRING), null, null, null)).toMatchObject({ displayText: 'up 10% from today', attribution: { kind: 'person' } })
+  })
+
+  it('a RELATIVE-change target is printed as the change itself, so the brief stamp holds (supersedes AIQ 5900578934 for the relative print)', () => {
     const CUT = { label: 'Monthly cloud bill', goal_threshold_raw: -0.2, goal_threshold_unit: '£/month', goal_threshold_frame: 'change_rel', goal_direction: '<=', threshold_source: 'brief_extraction', goal_baseline_raw: 45000 }
-    expect(resolveGoalTarget(CUT)?.source).toBe('unrecorded')
-    expect(goalTargetSourceMark(CUT)).toMatchObject({ kind: 'unknown' })
-    expect(computeSuccessState(goalNode(CUT), null, null, null).attribution?.kind).not.toBe('person')
-    // ⛔ AIQ 5904308095 (R3 served cut-costs `5ae7b582`: "down 20% from today · Olumi estimate"): nor Olumi's.
-    expect(computeSuccessState(goalNode(CUT), null, null, null).attribution).toBeNull()
+    // What the brief wrote is "20%": every surface says "down 20% from today", never a £ figure read off today's level.
+    expect(computeSuccessState(goalNode(CUT), null, null, null).displayText).toBe('down 20% from today')
+    expect(resolveGoalTarget(CUT)?.source).toBe('brief')
+    expect(goalTargetSourceMark(CUT)).toMatchObject({ kind: 'brief' })
+    // NEGATIVES kept: with no stamp it is nobody's (AIQ 5904308095: never "Olumi estimate" either), and a frame this UI
+    // cannot read credits nothing.
+    expect(resolveGoalTarget({ ...CUT, threshold_source: undefined })?.source).toBe('unrecorded')
+    expect(goalTargetSourceMark({ ...CUT, threshold_source: undefined })).toMatchObject({ kind: 'unknown' })
     expect(computeSuccessState(goalNode({ ...CUT, threshold_source: undefined }), null, null, null).attribution).toBeNull()
+    expect(goalTargetSourceMark({ ...CUT, goal_threshold_frame: 'share_of_runs' })).toMatchObject({ kind: 'unknown' })
     // CONTROL (same file, same stamp): the MRR absolute change keeps it.
     expect(goalTargetSourceMark(SERVED)).toMatchObject({ kind: 'brief' })
   })

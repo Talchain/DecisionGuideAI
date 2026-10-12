@@ -13,8 +13,6 @@ import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { HERO_COPY } from '../heroCopy'
-import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import { fx, seedPaulRun, resetPaulRun, SERVED_STAMP } from '../../__tests__/helpers/paulRun4276f3f9'
 
@@ -22,7 +20,7 @@ import { fx, seedPaulRun, resetPaulRun, SERVED_STAMP } from '../../__tests__/hel
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 const X = 'angel_bridge'
 const IDS = fx.draft.nodes.filter(n => n.kind === 'option').map(n => n.id)
-// Report side uses the captured Paul Run and the existing DecisionMatrix range/licence variants.
+// Report side uses the captured Paul Run and the range/licence variants the decision matrix used (removed in C).
 function seed(kind: 'figure' | 'range' | 'withheld' | 'no-licence') {
   seedPaulRun(SERVED_STAMP)
   const s = useCanvasStore.getState()
@@ -52,9 +50,8 @@ function parity(data: ReturnType<typeof seed>, expected?: string) {
   if (m.kind !== 'chart') throw new Error('chart required')
   const hasCells = data.recommendation.allOptions.some(option => chanceCellOf(data, option.id).kind !== 'none')
   expect(m.lenses.includes('goal')).toBe(hasCells)
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<><AnalysisHeroPanel model={m} rerunDisabled={false} /><DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={IDS} run={{}} isStale={false} /></>)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
+  // #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C; the hero is held to the RunView cell.
+  render(<AnalysisHeroPanel model={m} rerunDisabled={false} />)
   for (const row of m.rows) {
     const cell = data.runView!.chanceCellOf(row.id, ctx(data))
     expect(row.goal.readout).toBe(cell.text ?? HERO_COPY.readout.missing)
@@ -62,7 +59,6 @@ function parity(data: ReturnType<typeof seed>, expected?: string) {
       const heroText = screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent
       expect(heroText).toBe(cell.text ?? HERO_COPY.readout.missing)
     }
-    expect(screen.getByTestId(`decision-matrix-chance-${row.id}`).querySelector('span')!.textContent).toBe(cell.text ?? 'Not shown.')
   }
   if (hasCells) expect(screen.queryByText(HERO_COPY.lensUnavailable.goalProducerGap)).toBeNull()
   if (expected) expect(m.rows.find(r => r.id === X)!.goal.readout).toBe(expected)
@@ -81,7 +77,7 @@ describe('WS5 hero chance truth', () => {
     expect(m.rows.find(r => r.id === X)!.goal.readout).toContain(TEST_WITHHELD_FACE)
   })
   it('H3 figure parity', () => parity(seed('figure')))
-  it('goal figures without a licence keep the lens available with the static absence face', () => {
+  it('goal figures without a licence keep the lens available with the static absence face on the hero (none on the card in C)', () => {
     const data = seed('no-licence')
     const m = parity(data)
     for (const row of m.rows) {
@@ -92,7 +88,8 @@ describe('WS5 hero chance truth', () => {
       const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
         selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
       </OptionChanceCellProvider></ReactFlowProvider>)
-      expect(screen.getByTestId(`option-win-readout-${row.id}`).textContent).toBe(CHANCE_NOT_SHOWN_YET)
+      // #2747 re-scope 2 (U0): the canvas card shows no chance in C, not even the absence face; the hero says it.
+      expect(screen.queryByTestId(`option-win-readout-${row.id}`)).toBeNull()
       card.unmount()
     }
   })

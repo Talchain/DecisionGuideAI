@@ -89,19 +89,22 @@ describe('the leader\'s card says whose figures its finding rests on', () => {
   it.each(['standard', 'expert'] as const)('⭐ fa027-shape (a kept leader resting on an Olumi-supplied link), %s view: on the leader\'s card', (mode) => {
     withStore(PERMITTED, [SUPPLIED], mode)
     renderCard(LEADER_ID, LEADER_LABEL, WIN_LEADER)
-    expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`)).toBeTruthy() // PRECONDITION: the leader's licensed chance is on screen
+    // #2747 re-scope 2 (U0): WAS the leader's chance readout as the precondition; the canvas card shows no chance in C.
+    expect(screen.getByText(LEADER_LABEL)).toBeTruthy() // PRECONDITION: the leader's card rendered
     expect(line(LEADER_ID)?.textContent).toBe(WORDS)
   })
   it('CONTROL — the runner-up\'s card, same Run: absent (only the leader\'s finding rests on it)', () => {
     withStore(PERMITTED, [SUPPLIED])
     renderCard(RUNNER_UP_ID, RUNNER_UP_LABEL, WIN_RUNNER_UP)
-    expect(screen.getByTestId(`option-win-readout-${RUNNER_UP_ID}`)).toBeTruthy()
+    // #2747 re-scope 2 (U0): WAS the runner-up's chance readout as the control; the canvas card shows no chance in C.
+    expect(screen.getByText(RUNNER_UP_LABEL)).toBeTruthy()
     expect(line(RUNNER_UP_ID)).toBeNull()
   })
   it('CONTROL — no Olumi-supplied deciding link: absent on the leader\'s card', () => {
     withStore(PERMITTED, [{ ...SUPPLIED, code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning' }])
     renderCard(LEADER_ID, LEADER_LABEL, WIN_LEADER)
-    expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`)).toBeTruthy()
+    // #2747 re-scope 2 (U0): WAS the leader's chance readout as the control; the canvas card shows no chance in C.
+    expect(screen.getByText(LEADER_LABEL)).toBeTruthy()
     expect(line(LEADER_ID)).toBeNull()
   })
   it('CONTROL — the model may not name a leader: absent (no card is the leader)', () => {

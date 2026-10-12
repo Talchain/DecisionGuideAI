@@ -185,40 +185,44 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
   // Without these, a change that suppressed EVERY option's readout would pass
   // every assertion above.
 
-  it('a GENUINE measured zero keeps its readout and gets no disclosure', () => {
+  // #2747 re-scope 2 (U0): "keeps its readout" is deleted (the chance readout "less than 1% …") — the canvas card shows no
+  // chance in C. The no-disclosure negative stays; the failed sibling's disclosure in the same render is its contrast.
+  it('a GENUINE measured zero gets no disclosure', () => {
     renderBoth(twoOptionReport())
-    expect(screen.getByTestId(`option-win-readout-${COMPUTED_TRUE_ZERO}`)).toHaveTextContent('less than 1% chance of meeting your goal')
+    expect(screen.getByTestId(`option-not-computed-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${COMPUTED_TRUE_ZERO}`)).toBeNull()
   })
 
-  it("a 'partial' option is a DISCLOSURE with a distribution behind it and keeps its readout", () => {
+  // #2747 re-scope 2 (U0): "and keeps its readout" is deleted — the canvas card shows no chance in C; the no-disclosure negative stays.
+  it("a 'partial' option has a distribution behind it and gets no not-computed disclosure", () => {
     // ISL emits a full outcome block for `partial` (0 < n_valid/n_total < 0.8)
     // and raises LOW_EFFECTIVE_SAMPLES. A `status !== 'computed'` gate would
     // discard a result the producer honestly computed.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'partial'
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
+  // #2747 re-scope 2 (U0): the ordinary-path chance readout is deleted — the canvas card shows no chance in C; the
+  // no-disclosure negative stays.
   it('an ABSENT status is the legacy V1 shape and stays on the ordinary path', () => {
     // ISL's V1 `OptionResult` has no `status` field at all. Reading silence as
     // failure would suppress a result that WAS computed.
     const r = twoOptionReport()
     delete (r.report.option_probabilities[FAILED] as { status?: string }).status
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
+  // #2747 re-scope 2 (U0): the ordinary-path chance readout is deleted — the canvas card shows no chance in C; the
+  // no-disclosure negative stays.
   it('an UNRECOGNISED token is not read as failure', () => {
     // The shared contract types `status` as a bare `z.ZodOptional<z.ZodString>`,
     // so a token this UI has never heard of is a legal payload.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'some_future_token'
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
@@ -462,7 +466,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBoth(r, 'standard')
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0): the Standard view's chance readout is deleted — the canvas card shows no chance in C.
     expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
   })
 

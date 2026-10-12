@@ -83,6 +83,7 @@ export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { runViewOf } from './runView/runView'
+import { useCanonicalAnalysisViewStore } from './stores/canonicalAnalysisViewStore'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 // The "no analysis on screen" state, shared with the Supabase switch boundary in
@@ -5722,14 +5723,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const options: Record<string, OptionSnapshot> = {}
       // ReportV1.option_probabilities: Record<string, OptionProbability>
       const optionProbs = currentReport.option_probabilities
-      const previousRunView = runViewOf(currentReport)
+      // #2747 chance authority gate: the copy is the previous Run's GATED figure (its scenario's canonical view).
+      const heldCanonical = useCanonicalAnalysisViewStore.getState()
+      const previousRunView = runViewOf(currentReport, heldCanonical.scenarioId === get().currentScenarioId ? heldCanonical.view : null)
       if (optionProbs) {
         for (const [optId, prob] of Object.entries(optionProbs)) {
           const chance = previousRunView.chanceOf(optId)
           options[optId] = {
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: copied onto the previous-Run snapshot record; never displayed as a chance
             winProbability: prob.win_probability,
             // PERSIST residual: a client copy of this Run's licensed whole percent.
             // An absent/withheld licence never falls back to the raw report figure.
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf), copied onto the previous-Run snapshot
             goalProbability: chance.kind === 'figure' ? chance.pct / 100 : null,
           }
         }
@@ -8502,9 +8507,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
         // v1.2: Determine edge kind based on data available
         // If probability is present → decision-probability, otherwise → influence-weight
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const hasProb = e.probability !== undefined
         const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
         // Use probability for confidence, fall back to belief if no probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const confidence = e.probability ?? e.belief ?? 0.5
 
         return {
@@ -8599,9 +8606,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         const id = state.createEdgeId()
         // v1.2: Determine edge kind based on data available
         // If probability is present → decision-probability, otherwise → influence-weight
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const hasProb = e.probability !== undefined
         const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
         // Use probability for confidence, fall back to belief if no probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const confidence = e.probability ?? e.belief ?? 0.5
 
         return {

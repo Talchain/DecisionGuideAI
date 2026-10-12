@@ -12,7 +12,6 @@ import { useAnalysisHero } from '../analysis-hero/useAnalysisHero'
 import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 import { DriverInfluenceChart } from '../analysisNew/sections/DriverInfluenceChart'
 import { ANALYSIS_NEW_COPY } from '../analysisNew/analysisNewCopy'
-import { DecisionMatrix } from '../analysisNew/sections/DecisionMatrix'
 import type { ResultsReport } from '../types'
 import served from '../analysis-hero/__tests__/fixtures/served-7ad369b7-pricing-drivers-accordion.json'
 
@@ -203,18 +202,6 @@ describe('Paul graph — one outcome-sensitivity list, separate gated chance dri
     expect(renderHook(() => useNodeDisplayMetadata(SUBSCRIBERS, 'factor')).result.current).toMatchObject({ sensitivityRank: null, influence: null })
   })
 
-  it.each([false, true])('is silent in the chance-driver cell when CEE withholds that driver (chance withheld: %s)', withheldChance => {
-    const data = seedPaulGraph(withheldChance)
-    expect(data.drivers.driverLeader?.key).toBe(CHURN)
-    expect(data.goalChanceLicence).not.toBeNull()
-    const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-    render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={OPTION_IDS} run={{ runId: 'paul-graph' }} isStale={false} />)
-    fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-    expect(screen.getByRole('columnheader', { name: 'Its chance rests most on' }).textContent).toBe('Its chance rests most on')
-    const cell = screen.getByTestId(`decision-matrix-driver-${OPTION_IDS[0]}`)
-    expect(cell.textContent).toBe('')
-    expect(cell).not.toHaveTextContent('None shown')
-    expect(cell).not.toHaveTextContent('Monthly churn')
-    expect(cell).not.toHaveTextContent('Pro paying subscribers')
-  })
+  // #2747 re-scope 2 (U0): the decision matrix's chance-driver column went with the matrix (removed in C); the Results
+  // hero says only CEE's own driver sentence (`main_driver.detail`), never a figure it composed.
 })

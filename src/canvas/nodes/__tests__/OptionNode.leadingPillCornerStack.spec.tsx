@@ -112,7 +112,6 @@ vi.mock('../../layoutStore', () => ({
 
 import { useCanvasStore } from '../../store'
 import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -226,11 +225,11 @@ beforeEach(() => {
 /**
  * ED #63 5799353114 decision 1 — the card names no leader. Asserted by
  * identity (pill and grade test ids) AND by the text a user would read, after
- * a same-render contrast control: the card's label and its result row.
+ * a same-render contrast control: the card's label.
  */
 function expectNoLeaderPill(container: HTMLElement) {
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent(GOAL_ANCHOR_COPY.phrase('41%', false))
+  // #2747 re-scope 2 (U0): the result row's chance readout ("41%") is deleted as a control — the canvas card shows no chance in C.
   expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
@@ -238,7 +237,8 @@ function expectNoLeaderPill(container: HTMLElement) {
 }
 
 describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no "Most supported" pill)', () => {
-  it('the permitted LEADER card renders its ordinal and result row, and NO pill', () => {
+  // #2747 re-scope 2 (U0): "and result row" dropped from the title — the card's chance readout is removed in C.
+  it('the permitted LEADER card renders its ordinal, and NO pill', () => {
     // WAS "PRECONDITION: the pill and the ordinal both render". The fixture is
     // unchanged — the producer's claim names THIS card and nothing withholds
     // it — which is the strongest case for the retired pill to reappear in.
@@ -454,7 +454,7 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
 
   it('NOTHING ELSE IN THE CORNER: with no dot or coaching the leader\'s stack is EMPTY — the pill does not fill it', () => {
     // WAS "PILL ALONE". The stack is still mounted (the contrast control for
-    // its emptiness), and the card's own result row proves the render is live.
+    // its emptiness), and the card's own label proves the render is live.
     const { container } = renderOption({ editedSinceRunNodeIds: new Set<string>() })
 
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)

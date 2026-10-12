@@ -30,8 +30,7 @@ describe('RT-14 · the Analysis headline names an option only in this model', ()
   it('the expected-outcome and goal headlines', () => {
     expect(HERO_COPY.headline.outcomeLeader(OPT, '£1.2m'))
       .toBe(`In this model, ${OPT} has the highest expected outcome: £1.2m.`)
-    expect(HERO_COPY.headline.goalOnly(OPT, '49%'))
-      .toBe(`In this model, ${OPT} meets every target this run scored in the most model runs (49%).`)
+    // #2747 re-scope 2 round 2 (rule C): headline.goalOnly is deleted (the UI's own leader goal-chance sentence).
     expect(HERO_COPY.headline.goalWithLimits(OPT, '49%'))
       .toBe(`In this model, ${OPT} meets your goal and limits in the most model runs (49%).`)
   })
@@ -43,7 +42,6 @@ describe('SCAN · no headline that names an option drops "in this model"', () =>
     ['clear', HERO_COPY.headline.mostLikelyStrongest(OPT, '57%')],
     ['clear, no share', HERO_COPY.headline.mostLikelyStrongest(OPT, null)],
     ['outcome', HERO_COPY.headline.outcomeLeader(OPT, '£1.2m')],
-    ['goal', HERO_COPY.headline.goalOnly(OPT, '49%')],
     ['goal and limits', HERO_COPY.headline.goalWithLimits(OPT, '49%')],
   ]
 

@@ -8,11 +8,9 @@ import { withCanonicalTestCells } from './helpers/canonicalTestCells'
  * `'joint_goal_withheld'` and it now returns NO number, and PLoT #308
  * suppresses the frame-broken joint channel at source, so the ordinary live
  * run lands on basis 'none' with an empty goal slot. These fixtures hand-set
- * `goalFitIsSubstitutedJoint: true` (see `liveJointOnly`, whose name is now
- * historical), so they still exercise the copy gates they pin; what changed
- * is the claim that live runs take this path — today they do not. The pins
- * stay so the wording cannot regress if a number-bearing substituted basis
- * ever returns.
+ * `goalFitIsSubstitutedJoint: true` until #2747 re-scope 2 deleted the flag (no
+ * producer path set it in C); `liveJointOnly`'s name is historical. The pins
+ * stay: the hero says CEE's cells and no possessive, on any basis.
  *
  * THE DEFECT THIS PINS (family 2, slice −1), as traced at the time. On every
  * live V5 analysis the shared selector resolved
@@ -93,7 +91,6 @@ const PLURALITY = /\ball targets\b|\bthe targets\b/i
 function liveJointOnly(base: OptionResult): OptionResult {
   return makeOption({
     ...(base as OptionResult & { id: string; label: string }),
-    goalFitIsSubstitutedJoint: true,
     constraintAnalysis: undefined,
   })
 }
@@ -160,7 +157,8 @@ function readSurfaces(model: HeroChartModel): Surfaces {
   })
   const surfaces: Surfaces = {
     headline: screen.getByTestId('hero-headline').textContent ?? '',
-    caption: screen.getByTestId('hero-caption').textContent ?? '',
+    // #2747 re-scope 2 round 2: the Goal fit lens draws no caption in C (its caption was the UI's joint-register words).
+    caption: screen.queryByTestId('hero-caption')?.textContent ?? '',
     rowDetails,
   }
   view.unmount()
@@ -227,7 +225,9 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
     // that the row-detail lookup actually resolves a node per row.
     const s = readSurfaces(liveLeaderModel())
     expect(s.headline.length).toBeGreaterThan(0)
-    expect(s.caption.length).toBeGreaterThan(0)
+    // Round 2 (DL rule C / U2): the Goal fit lens has no caption, so there is no caption surface to scan (it was the UI's
+    // "Each value is the chance that option meets every target this run scored."); the row cells say CEE's words.
+    expect(s.caption).toBe('')
     expect(s.rowDetails).toHaveLength(2)
     for (const detail of s.rowDetails) expect(detail.length).toBeGreaterThan(0)
   })
@@ -268,8 +268,8 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
     const m = chart(
       makeHeroData({
         options: [
-          makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: false }),
-          makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false }),
+          makeOption({ ...OPTION_A }),
+          makeOption({ ...OPTION_B }),
         ],
       }), true,
     )
@@ -307,22 +307,26 @@ describe('hero goal-attainment copy — no surface asserts the possessive on the
 })
 
 describe('hero goal-attainment copy — no over-suppression, no value change', () => {
-  it('the goal line still APPEARS on every row (a rewording, never a removal)', () => {
+  // #2747 re-scope 2 (U0): the row's goal line is CEE's served cell words, verbatim (was the UI's joint-basis sentence,
+  // "… chance of meeting every target this run scored", re-worded around a figure taken out of the cell).
+  it('the goal line still APPEARS on every row (the served cell, never a removal)', () => {
     const m = liveLeaderModel()
     const s = readSurfaces(m)
     expect(s.rowDetails).toHaveLength(2)
-    for (const detail of s.rowDetails) {
-      expect(detail.length).toBeGreaterThan(0)
-      expect(detail).toMatch(/chance of meeting every target this run scored/i)
-    }
+    m.rows.forEach((row, i) => {
+      expect(s.rowDetails[i].length).toBeGreaterThan(0)
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
+    })
   })
 
-  it('every row detail still carries its OWN licensed chance with the joint identity', () => {
+  it('every row detail still carries its OWN served chance cell, verbatim (no UI joint-basis rewording)', () => {
     const m = liveLeaderModel()
     const s = readSurfaces(m)
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(cellText(m, row.id)))
+      // #2747 re-scope 2 (U0): its own cell by identity, and never the UI-composed joint-basis sentence.
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
     })
+    expect(s.rowDetails[0]).not.toBe(s.rowDetails[1])
   })
 
   it('the numbers are byte-identical to the non-substituted control', () => {
@@ -362,15 +366,16 @@ describe('hero goal-attainment copy — the copy lives in the central module', (
     const s = readSurfaces(m)
     const leader = m.rows.find((r) => r.id === m.leaders.goal)
     expect(leader, 'a goal leader is crowned in this fixture').toBeTruthy()
-    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label, cellText(m, leader!.id).match(/\d+%/)![0]))
-    expect(s.caption).toBe(HERO_COPY.caption.goalOnly)
+    // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption
+    // (headline.goalOnly / caption.goalOnly are deleted); the crown stays on the lens.
+    expect(s.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(s.caption).toBe('')
+    // #2747 re-scope 2 (U0): a row detail is CEE's served cell, verbatim — neither a HERO_COPY primitive nor a local literal.
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(cellText(m, row.id)))
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
     })
   })
 
-  it('none-on-track renders the central noneOnTrack primitive', () => {
-    const s = readSurfaces(liveNoneOnTrackModel())
-    expect(s.headline).toBe(HERO_COPY.headline.noneOnTrack)
-  })
+  // #2747 re-scope 2 round 2: row deleted — "none-on-track renders the central noneOnTrack primitive". Its only subject was
+  // HERO_COPY.headline.noneOnTrack, deleted (the UI's own goal-chance sentence; rule C).
 })

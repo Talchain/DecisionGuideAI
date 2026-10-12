@@ -62,9 +62,9 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
         canonicalAnalysisView: (body as any).canonical_analysis_view,
       })
       expect(brief.run.status).toBe('current')
-      // These served Runs have a partial chance field; staging suppresses the brief's full set.
-      expect(brief.chances).toEqual([])
-      expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+      // #2747 re-scope 2 round 2: the brief repeats no chance (it is off U0); on a current Run it points at the Results tab.
+      expect('chances' in brief).toBe(false)
+      expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
       const rows = buildGoalFitRows(options, report.option_probabilities, view, { hasGoalTarget: true, goalChanceHeroSays: view.goalChance !== null, goalFiguresWithheldMessage: data.recommendation.goalFiguresWithheldMessage, labelOf: id => nodes.find((n: any) => n.id === id)?.data.label ?? null })!
       if (canonical === null) {
         expect(rows).not.toBeNull()
@@ -98,15 +98,8 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
         const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
         expect(metadata.achievementChanceCell).toEqual(cell)
         expect(metadata.achievementProbability).toBe(numeric)
-        const summary = render(<DecisionSummary />)
-        expect(summary.container.textContent).toContain(cell.text)
-        summary.unmount()
-        const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
-        expect(goalMount.container.textContent).toContain(cell.text)
-        goalMount.unmount()
-        const panel = render(<GoalPanel {...({ nodeId: goal.id, node: { ...goal, data: { ...goal.data, goal_threshold_raw: 20000 } } } as any)} />)
-        expect(panel.container.textContent).toContain(cell.text)
-        panel.unmount()
+        // #2747 re-scope 2 (U0): the DecisionSummary, GoalPanel and GoalNode "contains cell.text" assertions are deleted —
+        // none of those surfaces says a chance in C (the journey path says it, in CEE's words). The hook parity stays.
         console.info(`R1 ${name} ${option.id}: ${cell.kind} ${cell.text}`)
       }
     })
@@ -137,11 +130,12 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
   }
   expect(Object.values(report.option_probabilities ?? {}).some((row: any) => row.goal_probability === 0.734)).toBe(true)
   const brief = buildDecisionBrief({ graph: body.graph, graphHash: body.graph_hash, analysisState: body.analysis_state, analysisResult: body.analysis_result })
-  expect(brief.chances).toEqual([])
-  expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+  // #2747 re-scope 2 round 2: the brief repeats no chance (it is off U0), so no raw figure can reach it.
+  expect('chances' in brief).toBe(false)
+  expect(JSON.stringify(brief)).not.toMatch(/0\.734|73(?:\.4)?\s?%/)
   for (const option of options) expect(optionChanceCellFromResults(data, option.id)).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
   expect(data.recommendation.allOptions.every(row => row.goalProbability === null)).toBe(true)
-  expect(fromOptionProbabilities(report.option_probabilities as never, {}, report)).toEqual([])
+  expect(fromOptionProbabilities(report.option_probabilities as never, {}, runViewOf(report))).toEqual([])
   for (const option of options) {
     useCanvasStore.setState({ results: { status: 'complete', report: { ...report, robustness: { recommended_option_id: option.id } } } } as any)
     const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
@@ -149,27 +143,19 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     expect(metadata.goalFitAvailable).toBe(false)
     expect(metadata.achievementChanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
+    // #2747 re-scope 2 (U0): the DecisionSummary and GoalPanel CHANCE_NOT_SHOWN_YET face presence (and the two negatives
+    // bound to each face) are deleted — neither surface shows a chance face in C. Their container-wide negatives stay.
     const summary = render(<DecisionSummary />)
-    const summaryFace = summary.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(summaryFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(summaryFace.textContent).not.toMatch(/\d+%/)
-    expect(summaryFace.textContent).not.toContain('Why?')
     expect(summary.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(summary.container.textContent).not.toContain('73%')
     summary.unmount()
     const goalMount = render(<ReactFlowProvider><GoalNode {...({ id: goal.id, data: { ...goal.data, success_threshold: 20000, threshold_source: 'user' }, isConnectable: true } as any)} /></ReactFlowProvider>)
-    const goalMountFace = goalMount.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(goalMountFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(goalMountFace.textContent).not.toMatch(/\d+%/)
-    expect(goalMountFace.textContent).not.toContain('Why?')
+    // #2747 re-scope 2 (U0): the GoalNode CHANCE_NOT_SHOWN_YET face presence (and the two negatives bound to it) is deleted —
+    // the canvas goal card shows no chance face in C. Its container-wide negatives stay.
     expect(goalMount.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(goalMount.container.textContent).not.toContain('73%')
     goalMount.unmount()
     const panel = render(<GoalPanel {...({ nodeId: goal.id } as any)} />)
-    const panelFace = panel.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(panelFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(panelFace.textContent).not.toMatch(/\d+%/)
-    expect(panelFace.textContent).not.toContain('Why?')
     expect(panel.container.textContent).not.toContain('Run the analysis again to see the chance.')
     expect(panel.container.textContent).not.toContain('73%')
     panel.unmount()
@@ -185,7 +171,8 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
   }
   const view = runViewOf(report)
   expect(view.goalChance).not.toBeNull()
-  expect(view.chanceOf('a')).toMatchObject({ kind: 'figure', pct: 17 })
+  // #2747 chance authority gate: with no canonical view even the licensed option quotes no figure.
+  expect(view.chanceOf('a')).toEqual({ kind: 'none' })
   expect(view.chanceOf('b').kind).toBe('withheld')
   expect(view.chanceOf('c').kind).toBe('none')
   const nodes = ['a', 'b', 'c'].map(id => ({ id, type: 'option', position: { x: 0, y: 0 }, data: { label: id } }))
@@ -198,7 +185,17 @@ it('R2: an option omitted or withheld by an otherwise valid licence cannot spend
     expect(cell.text).not.toContain('Why?')
   }
   expect(view.chanceCellOf('c', { goalChanceHeroSays: true, labelOf: () => 'c' })).toEqual({ kind: 'none', text: null })
-  expect(fromOptionProbabilities(report.option_probabilities, {}, report)).toEqual([
+  // #2747: no canonical view → no spread figure; held with its matching current canonical view → only the licensed 17.
+  expect(fromOptionProbabilities(report.option_probabilities, {}, view)).toEqual([])
+  const held = runViewOf({ ...report, run_id: 'run-r2' }, parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: 'run-r2', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: [{ option_id: 'a', cell: { kind: 'figure', display: 'about 17%' }, main_driver: { kind: 'not_recorded' } },
+      { option_id: 'b', cell: { kind: 'withheld', reasons: [] }, main_driver: { kind: 'not_recorded' } }],
+  }))
+  expect(fromOptionProbabilities(report.option_probabilities, {}, held)).toEqual([
     { optionId: 'a', optionLabel: 'a', value: 17, confidence: 0.9 },
   ])
 })

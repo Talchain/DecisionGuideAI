@@ -1,4 +1,4 @@
-import { licensedTestReport } from '../../../canvas/runView/__tests__/helpers/licensedTestReport'
+import { licensedTestReportHeld } from '../../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * useResultsSectionData — goalProbability collapse (T6 P0-3 + staging fix),
  * as seen THROUGH the UI-SEM-088 constraint honesty gate.
@@ -77,7 +77,7 @@ const OPTION_NODES = [
 ]
 
 function setStoreWithMappedReport(v2Response: V2RunResponse): void {
-  const report = licensedTestReport(mapV2ResponseToReportV1(v2Response, { seed: 42 }))
+  const report = licensedTestReportHeld(mapV2ResponseToReportV1(v2Response, { seed: 42 }))
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as any,
     runMeta: {} as any,
@@ -97,42 +97,8 @@ function adaptedGoalProbabilities(): Record<string, number | null | undefined> {
   return out
 }
 
-/**
- * ROADMAP 2.282 — the same hook render, reading the OTHER field the adapter
- * publishes for each option.
- *
- * Every assertion above reads `goalProbability` and none reads
- * `goalFitIsSubstitutedJoint`, so `useResultsSectionData.ts:1593` — the SOLE
- * production expression that decides whether OptionCards may use possessive
- * goal framing — was never executed by any spec on a substituted or a
- * constrained payload. The surface tests pin the render given the flag; this
- * pins the flag itself, through the real hook and the real adapter.
- */
-function adaptedSubstitutedFlags(): Record<string, boolean | undefined> {
-  const { result } = renderHook(() => useResultsSectionData())
-  const out: Record<string, boolean | undefined> = {}
-  for (const o of result.current.recommendation?.allOptions ?? []) {
-    out[o.id] = o.goalFitIsSubstitutedJoint
-  }
-  return out
-}
-
-/**
- * ⭐ L62 — the field that now carries the state 2.282's flag used to.
- * `goalFitIsSubstitutedJoint` meant "the number shown is a substituted joint
- * figure"; there is no such number any more, so it is false everywhere and
- * `goalFitWithheld` says what happened instead. Both are read here, by the
- * same hook render, so a test cannot assert one while the other quietly
- * disagrees.
- */
-function adaptedWithheldFlags(): Record<string, boolean | undefined> {
-  const { result } = renderHook(() => useResultsSectionData())
-  const out: Record<string, boolean | undefined> = {}
-  for (const o of result.current.recommendation?.allOptions ?? []) {
-    out[o.id] = o.goalFitWithheld
-  }
-  return out
-}
+// #2747 re-scope 2 (DL-approved cut): the `goalFitIsSubstitutedJoint` / `goalFitWithheld` readers are deleted with the
+// fields (the first was always false in C, the second never read by a surface). The goal figure itself is still read below.
 
 describe('useResultsSectionData — goalProbability collapse — gate ON (default)', () => {
   beforeEach(() => {
@@ -255,28 +221,15 @@ describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTRO
 })
 
 /**
- * ROADMAP 2.282 — THE POSSESSIVE GATE'S SOURCE EXPRESSION.
+ * ROADMAP 2.282 — the goal figure on the two payloads that discriminate.
  *
- * `useResultsSectionData.ts:1593` is:
- *
- *   goalFitIsSubstitutedJoint: goalDecision.basis === 'joint_goal_substituted'
- *
- * It is the ONLY production expression that sets the flag OptionCards gates
- * its goal copy on, and before this block no spec executed it on either of
- * the two bases that discriminate. The surface specs
- * (`substitutedJointGate.optionCards.spec.tsx`) necessarily REBUILD this
- * expression in their fixture factory to construct an `OptionResult`, so they
- * would keep passing if `:1593` were widened or inverted — the textual-mirror
- * failure mode #555 hit in this repo the same day (CLAUDE.md trap 11: test
- * the real thing, not a restatement of its predicate).
- *
- * The gate must be ON-substituted and OFF-constrained, and NOTHING else
- * distinguishes those two payloads but `constraint_analysis`. Both arms run
- * with `mockTrust.suspect = false`, because while the UI-SEM-088 honesty gate
- * is ON the selector never substitutes at all and every assertion here would
- * pass by testing nothing (trap 13) — the first test pins exactly that.
+ * The possessive gate and its `goalFitIsSubstitutedJoint` flag were deleted in #2747 re-scope 2 (the flag was always
+ * false once the UI-SEM-088 gate withheld the joint figure, and no surface read it). What remains pinned is the figure:
+ * ON-substituted and OFF-constrained differ only in `constraint_analysis`. Both arms run with `mockTrust.suspect =
+ * false`, because while the honesty gate is ON the selector never substitutes and every assertion here would pass by
+ * testing nothing (trap 13) — the first test pins exactly that.
  */
-describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, the gate OptionCards reads)', () => {
+describe('useResultsSectionData — the goal figure on substituted and constrained payloads (ROADMAP 2.282)', () => {
   beforeEach(() => {
     mockTrust.suspect = false
     useCanvasStore.setState({
@@ -288,20 +241,17 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
     } as any)
   })
 
-  it('control: with the UI-SEM-088 gate ON no option is ever flagged substituted (so the arms below are not vacuous)', () => {
+  it('control: with the UI-SEM-088 gate ON no joint figure is substituted (so the arms below are not vacuous)', () => {
     mockTrust.suspect = true
     setStoreWithMappedReport(makeV2Response(
       { probability_of_joint_goal: 0.0054 },
       { probability_of_joint_goal: 0.0018 },
     ))
-    const flags = adaptedSubstitutedFlags()
-    expect(flags.opt_a).toBe(false)
-    expect(flags.opt_b).toBe(false)
-    // …and the reason is that nothing was substituted, not that the flag lies.
+    // …because nothing was substituted.
     expect(adaptedGoalProbabilities().opt_a).toBeNull()
   })
 
-  it('L62 — WITHHELD: joint present, goal_probability absent, no constraint_analysis → no number, withheld flag TRUE', () => {
+  it('L62 — WITHHELD: joint present, goal_probability absent, no constraint_analysis → no number', () => {
     // The witnessed staging shape (2026-08-01): ISL refused
     // `probability_of_goal` because `goal_threshold_frame` was never
     // stamped, and the auto-materialised constraint's joint figure stands in.
@@ -313,13 +263,7 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
     // value still published — "the withhold is on the framing only". The
     // framing was never the problem: L60 showed the VALUE is
     // P(level-or-count threshold >= change-frame sample), a structural zero.
-    // So the substituted flag is now false (nothing is substituted) and the
-    // withheld flag carries the state.
-    const flags = adaptedSubstitutedFlags()
-    expect(flags.opt_a).toBe(false)
-    expect(flags.opt_b).toBe(false)
-    expect(adaptedWithheldFlags().opt_a).toBe(true)
-    expect(adaptedWithheldFlags().opt_b).toBe(true)
+    // So nothing is substituted and the figure is withheld.
     // The number the user was shown is gone.
     expect(adaptedGoalProbabilities().opt_a).toBeNull()
   })
@@ -335,25 +279,12 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
       { probability_of_joint_goal: 0.2, constraint_analysis: constraintAnalysis },
     ))
     // One field apart (`probability_of_goal`), opposite outcomes.
-    const flags = adaptedSubstitutedFlags()
     // opt_a: the goal figure fills the slot; the joint figure is not its number.
-    expect(flags.opt_a).toBe(false)
     expect(adaptedGoalProbabilities().opt_a).toBe(0.4)
     expect(adaptedGoalProbabilities().opt_a).not.toBe(0.2)
-    expect(adaptedWithheldFlags().opt_a).toBe(false)
     // opt_b: the identical joint number AND its own constraints, but no goal figure → withheld.
-    expect(flags.opt_b).toBe(false)
-    expect(adaptedWithheldFlags().opt_b).toBe(true)
     expect(adaptedGoalProbabilities().opt_b).toBeNull()
   })
 
-  it('REAL goal probability → flag FALSE', () => {
-    setStoreWithMappedReport(makeV2Response(
-      { probability_of_goal: 0.55, probability_of_joint_goal: 0.0054 },
-      { probability_of_goal: 0.7 },
-    ))
-    const flags = adaptedSubstitutedFlags()
-    expect(flags.opt_a).toBe(false)
-    expect(flags.opt_b).toBe(false)
-  })
+  // #2747 re-scope 2: row deleted — "REAL goal probability → flag FALSE" (its only subject, the substituted flag, is deleted).
 })

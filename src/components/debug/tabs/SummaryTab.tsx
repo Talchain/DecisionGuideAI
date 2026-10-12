@@ -256,7 +256,6 @@ export function SummaryTab({
   data,
   onNavigateToDataFlow,
   onNavigateToPipeline,
-  onNavigateToRaw,
 }: SummaryTabProps) {
   // Build pipeline steps from CEE observability
   const ceePipelineSteps = useMemo(() => buildCEEPipelineSteps(data), [data])
@@ -499,30 +498,6 @@ export function SummaryTab({
             tooltip="Click to view data flow"
             compact
           />
-          {/* Winner card - only show when there's a winning option */}
-          {data.winningOption && (
-            <KpiCard
-              label="Leading option"
-              value={`${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`}
-              status={data.winningOption.is_close_race ? 'warn' : 'ok'}
-              tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
-                ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
-                : 'Clear leading option'}
-              compact
-            />
-          )}
-          <KpiCard
-            label="Robustness"
-            value={data.robustness.context_label}
-            status={
-              data.robustness.status === 'pass' ? 'ok' :
-              data.robustness.status === 'warn' ? 'warn' :
-              data.robustness.status === 'fail' ? 'error' : 'neutral'
-            }
-            onClick={onNavigateToRaw}
-            tooltip={data.robustness.description}
-            compact
-          />
           <KpiCard
             label="Issues"
             value={issueCount > 0 ? String(issueCount) : 'None'}
@@ -550,26 +525,6 @@ export function SummaryTab({
           )}
         </div>
       </div>
-
-      {/* Row 2: Winning Option (if available) */}
-      {data.winningOption && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Result</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-              Leading option: {data.winningOption.label}
-            </div>
-            <div style={{ fontSize: 13, color: '#475569' }}>
-              {data.winningOption.win_probability.toFixed(0)}% confidence
-              {data.winningOption.is_close_race && data.winningOption.runner_up && (
-                <span style={{ color: '#64748b' }}>
-                  {' '}vs {data.winningOption.runner_up.label} at {data.winningOption.runner_up.win_probability.toFixed(0)}%
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
@@ -605,6 +560,7 @@ export function SummaryTab({
                   <div
                     data-testid={`budget-bar-${entry.name.toLowerCase()}`}
                     style={{
+                      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
                       width: `${Math.min(entry.pct, 100)}%`,
                       height: '100%',
                       borderRadius: 4,

@@ -36,8 +36,6 @@ import { ComparePairSections, type SizingPath } from './ComparePairSections'
 import { withheldReasonSegments } from './withheldReasonSegments'
 import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
-import { latestOnlyShares } from './latestOnlyShares'
-import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
@@ -121,17 +119,10 @@ export function CompareRunPairBody({
   const edges = useCanvasStore(s => s.edges)
   const linkSizingState: LinkSizingStateOf = useCallback((fromId, toId) => linkSizingStateOf(edges, fromId, toId), [edges])
   const unsizedLinks = useMemo(() => unsizedLinksOf(inferenceWarnings), [inferenceWarnings])
-  // The first sized pair: the latest side from the report on screen, which `view` (non-null only when the stored delta
-  // describes this same response_hash and scenario) already binds to the delta's latest Run.
-  // Self-binding as `nearTie` is: the report counts only while its hash is the one this tab was handed.
-  const report = useCanvasStore(s => (s.results?.hash === responseHash ? s.results?.report : null))
-  const latestShares = useMemo(() => view === null ? null : latestOnlyShares(view, report, (id) => labels.get(id) ?? null), [view, report, labels])
-  const sizingPath: SizingPath = useMemo(() => ({ stateOf: linkSizingState, listed: unsizedLinks, latestShares }), [linkSizingState, unsizedLinks, latestShares])
+  const sizingPath: SizingPath = useMemo(() => ({ stateOf: linkSizingState, listed: unsizedLinks }), [linkSizingState, unsizedLinks])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
-  // The shared display order's own gate (`sortOptionsForDisplay`): a run that withholds designations keeps the producer's order.
-  const designationsWithheld = useCanvasStore(s => !deriveDecisionVerdict(s.results?.report).hasLeadingOption)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   const artefact = buildRunChangeArtefact({
     view,
@@ -176,17 +167,12 @@ export function CompareRunPairBody({
     return link ? { on: () => light.on(link), off: light.off } : null
   }
   // An option's movement row lights and focuses the option's own node, by id, only when the canvas has it now.
-  const optionLink: OptionCanvasLink = (optionId) => {
-    if (!nodes.some(n => n.id === optionId)) return null
-    const link = canvasLinkOfTarget({ kind: 'node', id: optionId })
-    return link ? { focus: link.focus, on: () => light.on(link), off: light.off } : null
-  }
   const resultsAllowed = runIsCurrent && !winSharesWithheld
   return (
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} sizingPath={sizingPath} />
+        runIsCurrent={runIsCurrent} analysing={analysing} sizingPath={sizingPath} />
     </div>
   )
 }

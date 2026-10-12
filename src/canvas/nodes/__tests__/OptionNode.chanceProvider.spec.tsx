@@ -4,7 +4,6 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { OptionNode } from '../OptionNode'
-import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useOptionChanceCell } from '../shared/useOptionChanceCell'
 import { useCanvasStore } from '../../store'
 import * as resultsData from '../../../components/results/useResultsSectionData'
@@ -24,21 +23,9 @@ function cards(count: number) {
 }
 
 describe('one Results projection per canvas provider render', () => {
-  it.each([2, 4])('%i real option cards call useResultsSectionData once per provider render', count => {
-    seedPaulRun(null)
-    const projection = renderHook(() => resultsData.useResultsSectionData({ registerCanvasRows: false }))
-    const data = projection.result.current
-    projection.unmount()
-    const spy = vi.spyOn(resultsData, 'useResultsSectionData').mockReturnValue(data)
-    const tree = () => <ReactFlowProvider><OptionChanceCellProvider>{cards(count)}</OptionChanceCellProvider></ReactFlowProvider>
-    const view = render(tree())
-    expect(screen.getAllByTestId(/^option-bottom-marks-/)).toHaveLength(count)
-    expect(spy, `${count} cards: one Results call on initial provider render`).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenLastCalledWith({ registerCanvasRows: false })
-    spy.mockClear()
-    view.rerender(tree())
-    expect(spy, `${count} cards: one Results call on provider rerender`).toHaveBeenCalledTimes(1)
-  })
+  // #2747 re-scope 2 (U0): row deleted — "%i real option cards call useResultsSectionData once per provider render": its
+  // only subject, the provider's one Results projection, is removed in C (the provider reads no data and gives every card
+  // the no-source cell, so the canvas card shows no chance).
 
   it('outside the provider an isolated card and hook get none without a Results projection', () => {
     seedPaulRun(null)

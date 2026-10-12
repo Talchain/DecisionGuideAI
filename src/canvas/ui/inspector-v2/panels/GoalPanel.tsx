@@ -7,7 +7,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { memo, useState, useMemo, useCallback } from 'react'
 import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure, limitChangeFrameOf } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
-import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
+import { useGoalConstraints } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -22,7 +22,6 @@ import {
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
   GOAL_CONSTRAINT_COPY,
-  GOAL_STRINGS,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -34,7 +33,6 @@ import { InspectorMoreItems } from '../shared/InspectorMore'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
-import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
 import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
 import type { InspectorPanelProps } from '../types'
@@ -45,9 +43,7 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
-import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
-import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { formatGoalChangeBound, formatGoalTarget, TARGET_NOT_CAPTURED } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -55,7 +51,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // store scalar — and #1844 wrote a whole new module (`displayableGoalTarget.ts`)
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
-import { canCaptureGoalTarget, resolveGoalTarget, goalTargetFrameIsUnread, type GoalTargetSource } from '../../../domain/goalTarget'
+import { canCaptureGoalTarget, resolveGoalTarget, goalTargetMeaningUnread, type GoalTargetSource } from '../../../domain/goalTarget'
 import { constraintRestatesGoalTarget, heldTargetBoundWords, resolveGoalTargetWithOwnRow, goalTargetBound, goalTargetComparator } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
@@ -69,7 +65,6 @@ import type {
   SystemEventSendSettlementDetail,
 } from '../../../conversation/settleSystemEventSend'
 import { goalTargetSettlementNotice } from '../../../conversation/goalTargetEdit'
-import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
@@ -164,7 +159,6 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const goalThresholdRepresentation = useCanvasStore(s => s.goalThresholdRepresentation)
   // GOAL-PROBABILITY IDENTITY (ROADMAP 2.296 item 5 / 2.282-C2): this panel
   // used to read both producer fields straight off the store, which made it a
   // chooser in its own right; #496 replaced that with a `selectGoalProbability`
@@ -189,7 +183,6 @@ export const GoalPanel = memo(function GoalPanel({
   // case the "Based on N simulations" line is omitted rather than fabricated.
   const { scenarioCount } = useAnalysisMetadata()
   const postAnalysisConstraints = useGoalConstraints()
-  const conditionalProbabilities = useConditionalProbabilities()
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
   const setGoalConstraints = useCanvasStore(s => s.setGoalConstraints)
   // Prefer post-analysis (has probability scores) over pre-analysis preview
@@ -218,37 +211,9 @@ export const GoalPanel = memo(function GoalPanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
 
-  // The owner's decision, forwarded (see the identity comment above): the
-  // number, the joint figure, and which quantity the number IS.
-  const probGoal = displayMetadata.achievementProbability
-  const probJoint = displayMetadata.jointGoalProbability ?? null
-  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
-  // chooser; it was still being a NARRATOR — rendering the owner's number in
-  // possessive wording the owner had explicitly forbidden
-  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
-  // this and was the one field this panel destructured past.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
-  // the user's own goal AND their own limits — the possessive is earned there
-  // and is untouched. The `=== 'joint_goal_substituted'` narrowing is the
-  // canvas's one vocabulary for this test (OptionNode, GoalNode) — never a
-  // re-derivation.
-  //
-  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
-  // selector returns `goalProbability === jointGoalProbability` by
-  // construction, so the Impact block was stating one value twice in two
-  // different voices: "N% chance of success" over "Chance of hitting every
-  // target: N%". One of those was false. They are collapsed to the honest one.
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
-  // `selectGoalProbability` no longer substitutes the joint figure into the
-  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
-  // number, so this surface renders nothing to re-voice. The bases that still
-  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
-  // both EARN the possessive. The narrowing goes through the owner's exported
-  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
-  // rule instead of four copies of a literal.
-  const goalFitSubstituted =
-    probGoal !== null && basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
+  // #2747 chance authority gate: the legacy limits-channel line ("All your limits hold in N% of model runs",
+  // `probability_of_joint_goal`) is removed; no canonical cell licenses it. CEE's licensed AND-target answer is a
+  // different claim and is not affected. The possessive gate's `goalFitSubstituted` guarded only those lines.
 
   /**
    * The success-target string (ROADMAP 2.315(c)).
@@ -326,13 +291,14 @@ export const GoalPanel = memo(function GoalPanel({
   const targetDisplay = (() => {
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
+    // target-text: a non-numeric stored target is the user's own words, said verbatim
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame) ?? String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
   /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
   const changeBound = resolvedTarget?.frame != null
     ? formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
-      (node?.data as GoalTargetSource | undefined)?.goal_direction)
+      (node?.data as GoalTargetSource | undefined)?.goal_direction, resolvedTarget.quantityFrame)
     : null
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
@@ -541,17 +507,6 @@ export const GoalPanel = memo(function GoalPanel({
   const hasConstraints = listedConstraints.length > 0
 
   /**
-   * The probability sentence under a stated target. One element, two readers:
-   * the readout arm below and the mounted target block, so the two cannot drift.
-   */
-  /**
-   * Served f5d503b0 (29 Sep): with no option put forward there is no recommended option,
-   * so `probGoal` is null, yet the run carried every option's goal figure (Analysis
-   * showed < 1% / 99% / 83%). `goalFitAvailable` is the hook's own answer (the same
-   * selector, per option). The panel says where the figures are, never picks one.
-   */
-  const perOptionOnly = isResultsMode && typeof probGoal !== 'number' && displayMetadata.goalFitAvailable === true
-  /**
    * AIQ #72 5885033487 (2) / PLoT #416: the producer withheld P(goal) (a declared identity on the goal's path was not
    * evaluated). Its words, verbatim from the typed warning; the mappers already removed every goal figure.
    */
@@ -568,36 +523,13 @@ export const GoalPanel = memo(function GoalPanel({
       {identityWithheld?.message}
     </p>
   )
-  const perOptionOnlyLine = (testId: string) => (
-    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
-      {GOAL_CONSTRAINT_COPY.perOptionOnly}{' '}
-      <ResultsLink label={GOAL_CONSTRAINT_COPY.perOptionOnlyLink} tab="analysisNew" />
-    </p>
-  )
 
-  const targetProbabilityLine = displayMetadata.achievementChanceCell?.text != null ? (
-    <p data-testid={identityWithheld !== null ? 'goal-probability-withheld-identity' : undefined} className={`${typography.panelBody} text-text-body mt-1`}>
-      {displayMetadata.achievementChanceCell.text}
-      {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
-      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
-        <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
-          {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
-        </span>
-      )}
-    </p>
-  ) : identityWithheld !== null ? (
-    identityWithheldLine('goal-probability-withheld-identity')
-  ) : certaintyUnearned !== null ? (
-    certaintyUnearnedLine('goal-probability-certainty-unearned')
-  ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
-    /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
-       and an absence is stated, not turned into an instruction. Before any
-       results: "No analysis results yet." With complete results that carry no
-       probability for this target: that run's own absence. */
-    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="goal-probability-absent">
-      {isResultsMode ? GOAL_CONSTRAINT_COPY.runForProbability : EMPTY_STATES.noAnalysis}
-    </p>
-  )
+  // #2747 re-scope 2 (U0): the goal inspector says no chance in C — neither the recommended option's cell nor a line
+  // about its absence ("This run did not return the chance of meeting your goal…"). Chances are said on the journey path
+  // only, in CEE's words. The producer's own withheld sentences (identity, unearned certainty) are not chances and stay.
+  // Restore trigger: the chance's own served string and Run licence on this surface (post-C).
+  const targetProbabilityLine = identityWithheld !== null ? identityWithheldLine('goal-probability-withheld-identity')
+    : certaintyUnearned !== null ? certaintyUnearnedLine('goal-probability-certainty-unearned') : null
 
   /** True only while the pipeline holds no number — see the note in the editor arm. */
   const targetUnlocksLine = pipelineHoldsNoTargetNumber ? (
@@ -614,20 +546,18 @@ export const GoalPanel = memo(function GoalPanel({
     goalConstraints,
     nodeId,
   )
-  const summaryUnreadFrame = goalTargetFrameIsUnread((node.data as GoalTargetSource).goal_threshold_frame)
-  const summaryStoreTarget = goalThreshold != null && goalThresholdRepresentation === 'raw' && !summaryUnreadFrame
-    ? goalThreshold
-    : null
+  const summaryUnreadFrame = goalTargetMeaningUnread(node.data as GoalTargetSource)
   const summaryNodeTargetDisplay = summaryTarget === null ? null : (() => {
     const raw = typeof summaryTarget.raw === 'number' ? summaryTarget.raw : Number(summaryTarget.raw)
     return Number.isNaN(raw)
+      // target-text: a non-numeric stored target is the user's own words, said verbatim
       ? String(summaryTarget.raw)
-      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame) ?? String(summaryTarget.raw)
+      : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
+  // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone is never said as the target ("Success means 85000."):
+  // it carries no frame, unit or bound. With no target on the node, any held scalar is the honest "no target we can show".
   const summaryTargetDisplay = summaryNodeTargetDisplay
-    ?? (summaryStoreTarget != null ? String(summaryStoreTarget) : null)
-  const summaryUnexpressible = summaryTargetDisplay === null
-    && ((goalThreshold != null && goalThresholdRepresentation !== 'raw') || summaryUnreadFrame)
+  const summaryUnexpressible = summaryTargetDisplay === null && (goalThreshold != null || summaryUnreadFrame)
   const summaryBound = goalTargetBound(summaryTarget)
   const summaryChangeBound = summaryTarget?.frame != null
     ? formatGoalChangeBound(
@@ -635,6 +565,7 @@ export const GoalPanel = memo(function GoalPanel({
       summaryTarget.unit,
       summaryTarget.frame,
       goalTargetComparator(node.data as GoalTargetSource, goalConstraints, nodeId),
+      summaryTarget.quantityFrame,
     )
     : null
   const summarySentence = summaryTargetDisplay === null
@@ -802,19 +733,19 @@ export const GoalPanel = memo(function GoalPanel({
                 )}
                 {listedConstraints.map(({ c, index: i }) => {
                   const constraintText = goalConstraintText(c, nodes)
-                  const prob = typeof c.probability === 'number' ? c.probability : null
-                  const colourClass = prob === null
-                    ? 'border-info/30'
-                    : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
+                  /*
+                   * #2747 r2 (BLOCKING 5): the per-limit satisfaction probability and the conditional "If … is met,
+                   * probability of … changes to N%" lines are not shown: no canonical cell licenses either figure, so
+                   * each was a probability on screen outside the chance authority gate (removal is the default). The
+                   * graded border went with them (it showed the same figure's band). Whether the row came from an
+                   * analysis still picks the read-only row over the editor: a presence check, never displayed.
+                   */
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: picks the read-only analysed row; the figure is never shown
+                  const analysed = typeof c.probability === 'number'
                   return (
-                    <div key={c.constraint_id ?? c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                    <div key={c.constraint_id ?? c.id ?? i} className="px-2.5 py-1.5 bg-panel border border-info/30 rounded-lg">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`${typography.panelBody} text-text-body break-words`}>{constraintText}</span>
-                        {prob !== null && (
-                          <span className={`${typography.panelMeta} shrink-0 ${
-                            prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
-                          }`}>{wholePercentBelowCertain(prob)}</span>
-                        )}
                       </div>
                       {/* N-20 — the user's own words, under the constraint they
                           produced. Renders nothing for an Olumi-inferred
@@ -823,118 +754,7 @@ export const GoalPanel = memo(function GoalPanel({
                         constraintId={String(c.constraint_id ?? c.id ?? i)}
                         sourceQuote={c.source_quote}
                       />
-                      {prob !== null && (
-                        <div className="mt-1">
-                          {/* ⛔ Explicit colour — see GoalConstraintsSection for the
-                              full argument. `DataBar` grades an uncoloured value
-                              >= 70 green / >= 40 amber / else RED, and those cutoffs
-                              are not the producer's. */}
-                          <DataBar
-                            value={prob}
-                            label={constraintText}
-                            size="standard"
-                            colour="info"
-                          />
-                        </div>
-                      )}
-                      {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
-                      {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
-                        // ⚠ BIND BY ID, NOT BY LABEL (CLAUDE.md trap 19).
-                        //
-                        // This was `cp.constraint_a_label === (c.label ?? '')`.
-                        // `ConditionalProbability.constraint_a_id` is REQUIRED
-                        // (`types/constraints.ts`) and this very block already
-                        // reads it for the React key three lines below, while
-                        // `CEEGoalConstraint.label` is optional and its own doc
-                        // says it is "genuinely absent in practice". So `?? ''`
-                        // made every UNLABELLED constraint match every row whose
-                        // `constraint_a_label` was also empty — `'' === ''` —
-                        // and printed "If … is met, probability of … changes to
-                        // N%" under a constraint the producer never conditioned
-                        // on. Two constraints sharing a label both claimed one
-                        // row, so at least one was false. This is the sibling of
-                        // the #959 `FactorNode.constraintTooltip` defect, in the
-                        // same feature, including the empty-label case #959
-                        // excluded explicitly.
-                        //
-                        // THE LABEL LEG SURVIVES, UNIQUENESS-GATED, AND THAT IS
-                        // DELIBERATE. No `conditional_probabilities` payload has
-                        // ever been witnessed in this repo — a fixture sweep for
-                        // `constraint_a_id` returns ZERO, and so does the
-                        // contrast term `joint_probability` — so PLoT's id-space
-                        // is NOT established here. An id-ONLY join could drop
-                        // every line if PLoT mints its own ids, and silently
-                        // removing a working surface to fix an attribution bug
-                        // is the "hide it" move, not a fix. The ladder is
-                        // strictly additive: every match that is correct today
-                        // still fires, and only the two provably-wrong ones stop.
-                        const constraintIdentity = c.constraint_id ?? c.id
-                        const label = typeof c.label === 'string' ? c.label.trim() : ''
-                        const labelIsUnique =
-                          label.length > 0 &&
-                          goalConstraints.filter(
-                            other => (typeof other.label === 'string' ? other.label.trim() : '') === label,
-                          ).length === 1
-                        const related = conditionalProbabilities.filter(
-                          cp => (
-                            (constraintIdentity != null && cp.constraint_a_id === constraintIdentity)
-                            || (labelIsUnique && cp.constraint_a_label === label)
-                          )
-                            && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
-                        )
-                        if (related.length === 0) return null
-
-                        // ⚠ A CONSTRAINT'S NAME FOR PROSE IS NOT ITS RAW LABEL.
-                        // `constraint_a_label` / `constraint_b_label` are
-                        // required `string`s but are genuinely EMPTY in practice
-                        // — the same optional-label reality the id join above
-                        // exists for — and this sentence used them raw, so an
-                        // unlabelled constraint rendered:
-                        //
-                        //   "If  is met, probability of  changes to 90%"
-                        //
-                        // A sentence naming nothing. Inherited, not introduced
-                        // by the id join (the old `'' === ''` leg reached the
-                        // same case), but the join is what makes it INTENTIONAL,
-                        // so it is fixed here rather than left pinned.
-                        //
-                        // Resolve through `goalConstraints` — the SAME array
-                        // these rows are built from — and fall back to the SAME
-                        // positional name the row header renders
-                        // (`Constraint ${i + 1}`), so the prose and the row it
-                        // sits under can never disagree about what a constraint
-                        // is called. Only when a referent is not in that array
-                        // at all do we fall back to the payload's own label.
-                        const proseName = (identity: string, payloadLabel: string): string => {
-                          const idx = goalConstraints.findIndex(
-                            gc => (gc.constraint_id ?? gc.id) === identity,
-                          )
-                          if (idx >= 0) {
-                            const own = typeof goalConstraints[idx].label === 'string'
-                              ? goalConstraints[idx].label!.trim()
-                              : ''
-                            return own.length > 0 ? own : `Constraint ${idx + 1}`
-                          }
-                          const fromPayload = typeof payloadLabel === 'string' ? payloadLabel.trim() : ''
-                          // Last resort: a referent this panel does not hold and
-                          // the producer did not name. Say that, rather than
-                          // leaving a gap the reader will fill with the wrong
-                          // constraint — an unnamed thing is honest, a
-                          // mis-attributed one is not.
-                          return fromPayload.length > 0 ? fromPayload : 'an unnamed constraint'
-                        }
-
-                        return (
-                          <div className="mt-1 space-y-0.5">
-                            {related.map(cp => (
-                              <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
-                                If {proseName(cp.constraint_a_id, cp.constraint_a_label)} is met, probability of {proseName(cp.constraint_b_id, cp.constraint_b_label)} changes to {Math.round(cp.conditional_probability * 100)}%
-                              </p>
-                            ))}
-                          </div>
-                        )
-                      })()}
-                      {prob === null && limitChangeFrameOf(c) !== null && (
+                      {!analysed && limitChangeFrameOf(c) !== null && (
                         /* ⛔ R1 S4-core (CEE #2261): NO number input for a limit stated as a CHANGE from today. The
                            input below writes the figure into `value` in the row's own frame, and a `change_rel`
                            value is a FRACTION of today's level — "15" typed for 15% would store a 1,500% rise.
@@ -944,7 +764,7 @@ export const GoalPanel = memo(function GoalPanel({
                           className={`${typography.panelMeta} text-text-light mt-0.5`}
                         >Set as a change from today. To change it, ask in the chat.</p>
                       )}
-                      {prob === null && limitChangeFrameOf(c) === null && (
+                      {!analysed && limitChangeFrameOf(c) === null && (
                         /* `setGoalConstraints` is not a `system_event` carrier;
                            the edit stays behind the pane's fence, exactly as it
                            sat behind the Router's. */
@@ -1017,16 +837,6 @@ export const GoalPanel = memo(function GoalPanel({
                     measurement, and only one of the two framings was true.
                     Same flag, same reason, same arm. On every other basis the
                     two are genuinely different quantities and this line stays. */}
-                {typeof probJoint === 'number' && !goalFitSubstituted && (
-                  <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
-                  </p>
-                )}
-                {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
-                  <p className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
-                    {GOAL_FIT_BASIS_CAVEAT_COPY}
-                  </p>
-                )}
                 {/* UI-SEM-087: honest status when the constraints displayed here
                     do not reach the engine — guest panel writes are RLS-swallowed. */}
                 {constraintsInert && (
@@ -1148,43 +958,15 @@ export const GoalPanel = memo(function GoalPanel({
         />
       </PanelGroup>
 
-      {/* The goal chance and its caveat are stated once beside the target.
-          Run details stay available without repeating the same figure. */}
-      {isResultsMode && (typeof probGoal === 'number' || (identityWithheld === null && certaintyUnearned === null && !perOptionOnly)) && (
+      {/* #2747 re-scope 2 (U0): no chance here in C, so the Run's details say only how many simulations it rests on and
+          where its results are; no figure, no "probability data unavailable". */}
+      {isResultsMode && scenarioCount != null && (
         <InspectorMoreItems>
           <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-            {typeof probGoal === 'number' || (displayMetadata.achievementChanceUnlicensed === true && typeof probJoint === 'number') ? (
-            <>
-            {scenarioCount != null && (
-              <div className={`${typography.panelMeta} text-text-light`}>
-                Based on {scenarioCount.toLocaleString('en-GB')} simulations
-              </div>
-            )}
+            <div className={`${typography.panelMeta} text-text-light`}>
+              Based on {scenarioCount.toLocaleString('en-GB')} simulations
+            </div>
             <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-            {/* The constraints block already states this when it is mounted.
-                A joint result without that block still needs its own words. */}
-            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && (
-              <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
-              </div>
-            )}
-            {!hasConstraints && typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
-              <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
-                {GOAL_FIT_BASIS_CAVEAT_COPY}
-              </div>
-            )}
-            {techMode && (
-              <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                {displayMetadata.achievementChanceCell?.text}
-                {typeof probJoint === 'number' && ` · probability_of_joint_goal: ${probJoint.toFixed(2)}`}
-              </div>
-            )}
-            </>
-            ) : (
-              <p className={`${typography.panelMeta} text-text-light`} data-testid="goal-impact-unavailable">
-                {GOAL_STRINGS.impactUnavailable}
-              </p>
-            )}
           </PanelGroup>
         </InspectorMoreItems>
       )}

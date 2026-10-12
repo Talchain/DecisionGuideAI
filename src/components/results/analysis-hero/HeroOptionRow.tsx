@@ -225,18 +225,10 @@ export function HeroOptionRow({
           ? (row.changeReadout ?? row.outcome.readout)
           : row.outcome.readout
 
-  // Expanded-row affordance policy: a chevron promises more than one line.
-  // Rows whose ONLY detail is the win probability are not expandable —
-  // the win line renders as persistent meta under the row instead, so the
-  // information survives without a hollow disclosure. `beyondWin` derives
-  // from the detail object itself (not a hand-kept field list), so a new
-  // detail line can never silently strand a row as non-expandable.
-  // It renders on either lens (matching the opened detail, which is
-  // lens-independent).
-  const { winChance, ...beyondWin } = row.detail
-  const hasDetailBeyondWin = Object.values(beyondWin).some(Boolean)
-  const expandable = hasDetailBeyondWin
-  const winOnlyMeta = !hasDetailBeyondWin && winChance
+  // Expanded-row affordance policy: a chevron promises more than one line. `expandable` derives from the detail object
+  // itself (not a hand-kept field list), so a new detail line can never silently strand a row as non-expandable. No win
+  // share is said in C (#2747 re-scope 2, DL ruling (A)), so there is no win-only row and no persistent win meta.
+  const expandable = Object.values(row.detail).some(Boolean)
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   // The goal lens draws no track row at all (prototype v6 goal table).
@@ -541,28 +533,9 @@ export function HeroOptionRow({
               {row.detail.couldChangeIf}
             </p>
           )}
-          {row.detail.winChance && (
-            <p
-              className={`${typography.panelBody} text-text-light`}
-              data-testid="hero-detail-win"
-            >
-              {row.detail.winChance}
-            </p>
-          )}
         </div>
       )}
 
-      {/* Win-only rows: the chevron is withheld (one line is not a
-          disclosure), and the win probability renders as persistent meta
-          so the information is not lost. */}
-      {winOnlyMeta && (
-        <p
-          className={`${typography.panelMeta} pb-1.5 pl-10 pr-2 text-text-light`}
-          data-testid="hero-win-meta"
-        >
-          {row.detail.winChance}
-        </p>
-      )}
     </div>
   )
 }

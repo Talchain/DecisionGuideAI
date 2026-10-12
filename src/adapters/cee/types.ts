@@ -313,6 +313,11 @@ export interface CEEGoalConstraint {
   /** Verbatim span from the brief that produced this constraint. */
   source_quote?: string
   /**
+   * Recovery Batch C (schemas 0.83.0; CEE `GOAL_TARGET_ROLE`): `'goal_target'` marks one of the goal's TARGETS (with several
+   * targets, each is a row); absent is a limit, as before. A target row is never shown as a limit (`isGoalTargetRow`).
+   */
+  role?: string
+  /**
    * ⭐⭐ THE AUDIT TRAIL FOR CEE'S PERCENT→FRACTION REWRITE — the field that
    * makes this layer thin instead of guessing.
    *

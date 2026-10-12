@@ -598,9 +598,9 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 29 Sep 2026: 41 -> 42, `nodeTitleWide` (contract `.node.wide h3{font-size:14px}`) declared
     // here — the Question/Goal title, one step above the 13px `nodeTitle`. Same rule.
     'src/styles/typography.ts': 42,
-    'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
+    'src/v5/blocks/V5AnalysisResultBlock.tsx': 3, // #2747 re-scope 2: the win-share pill row went (4 → 3)
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
-    'src/v5/blocks/V5ComparisonBlock.tsx': 2,
+    'src/v5/blocks/V5ComparisonBlock.tsx': 1, // #2747 re-scope 2: the share column went (2 → 1)
     'src/v5/blocks/V5FlipAnalysisBlock.tsx': 1,
   }
 
@@ -707,7 +707,9 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 29 Sep 2026: 100 -> 101, paired with `typography.ts` 41 -> 42 (`nodeTitleWide`). `files` stays 28.
     // 30 Sep 2026: 101 -> 93, the same four files' 8 occurrences (see `files` above).
     // 4 Oct 2026: 93 -> 92, WhatChangedChip.tsx's one occurrence leaving with it (see `files` above).
-    expect(total).toBe(92)
+    // 12 Oct 2026 (#2747 re-scope 2): 92 -> 90, a burn-down — the chat card's win-share pill row and the comparison
+    // block's share column were deleted (no win share in C). File count unchanged at 23.
+    expect(total).toBe(90)
   })
 })
 

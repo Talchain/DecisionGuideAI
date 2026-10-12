@@ -1,6 +1,6 @@
 const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
 
-import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
+import { licensedTestReportHeld } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * GoalPanel: when NO option is put forward but the run carried every option's goal figure.
  *
@@ -11,13 +11,14 @@ import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedT
  *
  * The block below is that served `analysis_result`, trimmed to the fields the mapper reads for this decision, and
  * replayed through the REAL mapper. The panel must say where the figures are and must never pick one (no percentage).
+ * #2747 re-scope 2 (U0): in C the panel says no chance and no line about where the figures are; it still never picks one.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
-import { GOAL_CONSTRAINT_COPY, GOAL_STRINGS } from '../inspectorStrings'
+import { GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
@@ -70,17 +71,18 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
     expect(queryByTestId('goal-impact-per-option')).toBeNull()
     const text = container.textContent ?? ''
-    expect(text).toContain(GOAL_CONSTRAINT_COPY.runForProbability)
-    expect(text).toContain(GOAL_STRINGS.impactUnavailable)
+    // #2747 re-scope 2 (U0): the runForProbability / impactUnavailable presence assertions are deleted — the goal
+    // inspector says no chance and no line about its absence in C.
     // It never picks an option: no goal percentage on this panel.
     expect(text).not.toMatch(/\d+(\.\d+)?% chance of meeting your goal/)
   })
 
-  it('CONTRAST: with no goal figure on any option, the run’s own absence is stated', () => {
-    const { queryByTestId, container } = renderWith(NO_GOAL)
+  // #2747 re-scope 2 (U0): the "run's own absence is stated" (runForProbability) presence assertion is deleted — the goal
+  // inspector says no line about the chance's absence in C. The per-option negatives stay.
+  it('CONTRAST: with no goal figure on any option, no per-option line either', () => {
+    const { queryByTestId } = renderWith(NO_GOAL)
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
     expect(queryByTestId('goal-impact-per-option')).toBeNull()
-    expect(container.textContent ?? '').toContain(GOAL_CONSTRAINT_COPY.runForProbability)
   })
 
   it('CONTROL: a pointer cannot license the recommended option’s raw figure', () => {
@@ -88,9 +90,10 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
     expect(container.textContent ?? '').not.toContain(TEST_RUN_AGAIN_COPY)
   })
-  it('CONTRAST: an explicit test licence preserves the per-option availability signal without picking an option', () => {
-    const { getByTestId, container } = renderWith(licensedTestReport(SERVED))
-    expect(getByTestId('goal-probability-per-option').textContent).toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
+  // #2747 re-scope 2 (U0): the per-option availability line ("goal-probability-per-option", perOptionOnly) presence
+  // assertion is deleted — the goal inspector says no per-option chance line in C. The negatives stay.
+  it('CONTRAST: an explicit test licence still never picks an option', () => {
+    const { container } = renderWith(licensedTestReportHeld(SERVED))
     expect(container.textContent).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(container.textContent).not.toMatch(/\d+(\.\d+)?% chance/)
   })

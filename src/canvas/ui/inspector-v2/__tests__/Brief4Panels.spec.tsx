@@ -9,13 +9,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { GoalPanel } from '../panels/GoalPanel'
 import { DecisionPanel } from '../panels/DecisionPanel'
 import { OptionPanel } from '../panels/OptionPanel'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { GOAL_STRINGS, OPTION_STRINGS } from '../inspectorStrings'
+import { OPTION_STRINGS } from '../inspectorStrings'
 
 // ─── Mock useNodeDisplayMetadata so we can drive ImportanceBar from tests ──
 
@@ -131,25 +130,9 @@ function setFactorControllableStore(overrides: Record<string, unknown> = {}) {
   } as any)
 }
 
-function setGoalStore(overrides: Record<string, unknown> = {}) {
-  const state = useCanvasStore.getState()
-  useCanvasStore.setState({
-    ...state,
-    nodes: [
-      { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Profitability', description: '' } },
-    ],
-    edges: [],
-    results: { status: 'none', report: null },
-    goalThreshold: null,
-    goalConstraints: null,
-    ...overrides,
-  } as any)
-}
-
 const decisionProps = { nodeId: 'dec1', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
 const optionProps = { nodeId: 'optA', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
 const factorProps = { nodeId: 'fac1', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
-const goalProps = { nodeId: 'goal1', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
 
 beforeEach(() => {
   useCanvasStore.setState(useCanvasStore.getState(), true)
@@ -159,20 +142,13 @@ beforeEach(() => {
 
 // ─── Test 1: GoalPanel impact empty-state ──────────────────────────
 
-describe('GoalPanel — Impact group empty-state (Brief 4 Task 1)', () => {
-  it('renders impact PanelGroup with impactUnavailable text when isResultsMode=true and probGoal is absent', () => {
-    setGoalStore({ results: { status: 'complete', report: {} } })
-    const { container } = render(<GoalPanel {...goalProps} />)
-    const impactGroup = container.querySelector('[data-panel-group="impact"]')
-    expect(impactGroup).not.toBeNull()
-    expect(impactGroup?.textContent).toContain(GOAL_STRINGS.impactUnavailable)
-  })
-})
+// #2747 re-scope 2 (U0): row deleted — "renders impact PanelGroup with impactUnavailable text when isResultsMode=true
+// and probGoal is absent": the goal inspector says no chance and no "probability data unavailable" line in C.
 
 // ─── Test 2: DecisionPanel win probability ─────────────────────────
 
 describe('DecisionPanel — win probability display (Brief 4 Task 2)', () => {
-  it('suppresses win probability pre-analysis and renders whole-percentage post-analysis', () => {
+  it('suppresses win probability pre-analysis, and post-analysis never shows an unrounded share', () => {
     // Phase 1 — pre-analysis: no percentage text
     setDecisionStore()
     const { container: preContainer, unmount } = render(<DecisionPanel {...decisionProps} />)
@@ -196,7 +172,7 @@ describe('DecisionPanel — win probability display (Brief 4 Task 2)', () => {
     })
     const { container: postContainer } = render(<DecisionPanel {...decisionProps} />)
     const inputGroupPost = postContainer.querySelector('[data-panel-group="alternatives"]')
-    expect(inputGroupPost?.textContent).toMatch(/75%/)
+    // #2747 re-scope 2 (DL ruling (A)): the "75%" presence assertion is deleted — no option's win share on DecisionPanel in C.
     expect(inputGroupPost?.textContent).not.toMatch(/75\.4%/)
   })
 })

@@ -9,7 +9,7 @@
  * - RecommendationCard to adjust messaging
  */
 
-import { runViewOf } from '../canvas/runView/runView'
+import { runViewOf, type RunView } from '../canvas/runView/runView'
 
 // =============================================================================
 // Types
@@ -271,15 +271,15 @@ export function getDiscriminationFallback(
 export function fromOptionProbabilities(
   optionProbabilities: Record<string, { goal_probability: number; confidence?: number }> | undefined,
   optionLabels: Record<string, string> = {},
-  report: unknown = { option_probabilities: optionProbabilities }
+  /** The Run's view, held with its canonical view by the caller (#2747: figures only through the chance authority gate). */
+  view: RunView = runViewOf({ option_probabilities: optionProbabilities })
 ): OutcomePrediction[] {
   if (!optionProbabilities) {
     return []
   }
 
-  // A raw option record cannot license a chance. Only the supplied Run's whole percentages
+  // A raw option record cannot license a chance. Only the supplied Run's gated whole percentages
   // may participate in the spread; options without a licensed figure are omitted.
-  const view = runViewOf(report)
   return Object.entries(optionProbabilities).flatMap(([id, data]) => {
     const chance = view.chanceOf(id)
     if (chance.kind !== 'figure') return []

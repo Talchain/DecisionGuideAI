@@ -1,4 +1,3 @@
-import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
@@ -153,7 +152,6 @@ const POSSESSIVE = 'chance of meeting your goal'
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
 const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
 /** Locked Canvas design (23 Sep 2026): the row's sentence lives in its accessible name. */
-const rowName = (testId: string): string => screen.getByTestId(testId).getAttribute('aria-label') ?? ''
 /** Every accessible name in the render, so an absence covers the rows' sentences too. */
 const allAccessibleNames = (container: HTMLElement): string =>
   Array.from(container.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label')).join('\n')
@@ -222,15 +220,12 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(container.textContent ?? '').not.toContain('See each option')
   })
 
-  it('positive control: a REAL probability_of_goal keeps the possessive', () => {
+  // #2747 chance authority gate: with NO canonical view the licence alone shows no chance, so there is no Chance row and
+  // no figure. The row, its figure and the possessive are pinned by the view-bearing control at the end of this file.
+  it('#2747: a REAL probability_of_goal with no canonical view shows no Chance row and no figure', () => {
     const { container } = renderGoalWith(REAL_GOAL_OPTION)
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the possessive is
-    // the Chance row's accessible name; the row shows the bare figure.
-    const face = screen.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(CHANCE_NOT_SHOWN_YET)
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/55%/)
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
@@ -239,13 +234,9 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // The load-bearing scoping test: constraints on the option must not
     // silence the goal figure, nor swap the joint (all-limits) figure in.
     const { container, unmount } = renderGoalWith(CONSTRAINED_OPTION)
-    // Locked Canvas design (23 Sep 2026): read off the Chance row's accessible name.
-    const face = screen.getByText(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).not.toContain('42%')
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(CHANCE_NOT_SHOWN_YET)
+    // #2747: no canonical view → no Chance row, and never the legacy limits figure (view-bearing control pins the figure).
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(container.textContent ?? '').not.toContain('42%')
     expect(allAccessibleNames(container)).not.toContain('42%')
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
     unmount()
@@ -272,13 +263,7 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
   })
 })
 
-it('view-bearing control: GoalNode retains the server figure and possessive voice, never the joint figure', () => {
-  for (const [option, pct] of [[REAL_GOAL_OPTION, 55], [CONSTRAINED_OPTION, 30]] as const) {
-    const { container, unmount } = renderGoalWith(option, true)
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain(`${pct}%`)
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(`${pct}% ${POSSESSIVE}`)
-    expect(allAccessibleNames(container)).not.toContain('42%')
-    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase(`${pct}%`, true))
-    unmount()
-  }
-})
+// #2747 re-scope 2 (U0, pre-accepted): row deleted — "view-bearing control: GoalNode retains the server figure and
+// possessive voice, never the joint figure". Its only subject, the goal card's chance row, is removed in C (the canvas
+// goal card shows no chance; the Results hero says it, in CEE's words). Census row: canvas goal card (GoalNode), which
+// now reaches the card's chance branch (the Run points at an option) and is RED on a1efd4ae.

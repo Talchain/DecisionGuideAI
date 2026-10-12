@@ -289,7 +289,7 @@ describe('CX4 · leader designation vs withholding', () => {
     expect(violations[0].evidence.named_labels).toContain('Fixed price contract')
   })
 
-  it('RED at the MOUNTED CONSUMER — the real card renders both option identities and their percentages while the claim is withheld (P2)', () => {
+  it('RED at the MOUNTED CONSUMER — the real card renders both option identities while the claim is withheld (P2)', () => {
     const { input } = adaptCapture(w2d)
     const rows = (input.enrichment?.conditional_winners ?? []) as ConditionalWinnerRow[]
     expect(input.analysisState?.leader_claim.permitted).toBe(false)
@@ -306,7 +306,8 @@ describe('CX4 · leader designation vs withholding', () => {
     // And the DOM carries the designation the contract withheld.
     expect(screen.getAllByText(/Fixed price contract/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Floating price contract/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/%/).length).toBeGreaterThan(0)
+    // #2747 re-scope 2 (DL ruling (A)): the "their percentages" presence (/%/) is deleted — ConditionalWinnerCards never
+    // shows a bucket's win share in C. The identity assertions stay.
   })
 
   it('GREEN twin — the SAME rows with the claim PERMITTED are coherent (the pair, not one mutant)', () => {

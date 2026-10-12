@@ -81,7 +81,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 import {
   declaredGoalUnit,
-  goalTargetFrameIsUnread,
+  goalTargetMeaningUnread,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
@@ -89,7 +89,7 @@ import {
   goalTargetBound, goalTargetComparator, goalTargetEditDirection, resolveGoalTargetWithOwnRow,
 } from '../../../../canvas/domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
-import { formatGoalTarget } from '../../utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import type {
   SystemEventSendSettlement,
@@ -376,22 +376,28 @@ export function SuccessTargetLine({
    * (`useModelEditAuthority.proposeGoalTarget`) refuses it too, whichever editor asks.
    */
   // ⛔ AIQ 5880974047: a frame this UI cannot read resolves to no target (`resolveGoalTarget`) and is not edited either.
-  const unreadFrame = goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame)
+  const unreadFrame = goalTargetMeaningUnread(goalData as GoalTargetSource | null)
   const changeGoal = fromNode?.frame != null || unreadFrame
-  const fromStore = threshold != null && representation === 'raw' && !goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame) ? threshold : null
+  const fromStore = threshold != null && representation === 'raw' && !goalTargetMeaningUnread(goalData as GoalTargetSource | null) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
+  // #2747 r2 (Codex, BLOCKING): the goal's quantity frame is passed, so a % change is said in its own frame; a target
+  // the formatter cannot say is "Target not captured", never the bare stored number ("Success: 10").
   const nodeFigure = fromNode !== null
     ? (formatGoalTarget(
         typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
         fromNode.unit,
         fromNode.frame,
-      ) ?? String(fromNode.raw))
+        fromNode.quantityFrame,
+      ) ?? TARGET_NOT_CAPTURED)
     : null
+  // #2747 r2 (BLOCKING 6): the store's scalar alone is never said as the target ("Success: 10"): it carries no frame,
+  // no unit and no bound, and the node is the only source guaranteed to be in the user's units. With no node target it
+  // is "Target not captured" (the editor stays offered).
   const shownText =
     nodeFigure !== null
-      ? (bound !== null ? `${bound} ${nodeFigure}` : nodeFigure)
+      ? (bound !== null && nodeFigure !== TARGET_NOT_CAPTURED ? `${bound} ${nodeFigure}` : nodeFigure)
       : fromStore != null
-        ? String(fromStore)
+        ? TARGET_NOT_CAPTURED
         : null
   /**
    * ⚠ ONLY WHEN NOTHING EXPRESSIBLE EXISTS ANYWHERE. A normalised store value
@@ -631,6 +637,7 @@ export function SuccessTargetLine({
   const openEditor = (startMode: 'number' | 'words') => {
     setEditing(true)
     setMode(startMode)
+    // target-text: the editor's draft value (an input the user edits), not a displayed target
     setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
     /**
      * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.

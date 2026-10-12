@@ -249,11 +249,8 @@ describe('ABSENCE IS NOT ZERO', () => {
     // And nothing anywhere in that row reads as a percentage.
     expect(unanalysed.textContent ?? '').not.toMatch(/\d\s*%/)
 
-    // POSITIVE CONTROL: the analysed sibling in the SAME render DOES carry a
-    // number and a bar (its goal figure, the one V2 draws), so this is a
-    // discrimination the section is making and not a blind pass.
-    expect(within(row('opt_segment')).getByTestId(`${TESTID}-goal`)).toBeInTheDocument()
-    expect(within(row('opt_segment')).getByTestId(`${TESTID}-goal-bar`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0): the positive control (the analysed sibling's goal figure and goal bar) is deleted — the
+    // Reasoning tab draws no Goal fit lens in C (`comparisonLens` goal: false). The negatives stay.
   })
 
   it('an unanalysed option carries the SANCTIONED badge and reason, verbatim', () => {

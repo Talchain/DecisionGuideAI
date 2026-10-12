@@ -1,4 +1,3 @@
-import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
@@ -65,12 +64,13 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     }
   }
 
-  it('view-bearing control: the server figure keeps the real simulation count and its omission gate', () => {
+  // #2747 re-scope 2 (U0): the "62% chance of meeting your goal" presence is deleted — the goal inspector says no chance
+  // in C, even with a canonical view. The real count and its omission gate stay.
+  it('with a canonical view: the real simulation count and its omission gate (no chance said)', () => {
     for (const meta of [{ n_samples: 5000 }, { seed: null }]) {
       setStore(reportWithGoal(meta))
       useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
       const { getByText, queryByText, unmount } = renderPanel()
-      expect(getByText(/62% chance of meeting your goal/)).toBeTruthy()
       if ('n_samples' in meta) expect(getByText('Based on 5,000 simulations')).toBeTruthy()
       else expect(queryByText(/Based on .* simulations/)).toBeNull()
       expect(queryByText('Based on 1,000 simulations')).toBeNull()
@@ -78,27 +78,22 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     }
   })
 
-  it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
+  it('#2747: with no canonical view the count is never a fabricated 1,000', () => {
     setStore(reportWithGoal({ n_samples: 5000 }))
-    const { getByText, queryByText } = renderPanel()
-    const face = getByText(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
-    expect(getByText('Based on 5,000 simulations')).toBeTruthy()
-    // The old fabricated constant must never appear.
+    const { queryByText } = renderPanel()
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence is deleted — the goal inspector shows no chance face in C.
+    // The negative "no 'Based on 5,000 simulations'" is deleted too: its subject was the count's coupling to a shown chance,
+    // and in C this panel shows no chance at all, so the count says only what the Run's results rest on, beside "View full
+    // results". The never-fabricated negative stays.
     expect(queryByText('Based on 1,000 simulations')).toBeNull()
   })
 
   it('OMITS the simulations line when the run carries no sample count (V5 path)', () => {
     // meta stripped upstream → scenarioCount null → line hidden, never fabricated.
     setStore(reportWithGoal({ seed: null }))
-    const { getByText, queryByText } = renderPanel()
-    // The probability itself still renders — only the count sentence is gated.
-    const face = getByText(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
-    expect(face.textContent).not.toMatch(/\d+%/)
-    expect(face.textContent).not.toContain('Why?')
+    const { queryByText } = renderPanel()
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence and the two negatives bound to that face are deleted —
+    // the goal inspector shows no chance face in C. The count sentence's omission gate stays.
     expect(queryByText(/Based on .* simulations/)).toBeNull()
   })
 })

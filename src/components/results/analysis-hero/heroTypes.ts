@@ -52,8 +52,6 @@ export interface HeroRowDetail {
   why?: string
   /** Generated from producer flip-threshold values only (factor + value). */
   couldChangeIf?: string
-  /** Formatted producer win probability (display-honesty formatter). */
-  winChance?: string
   /** "Realistic range: X to Y." from the row's own p10/p90 (same formatter as the readout). */
   range?: string
   /** Goal-fit line from the shared chance cell (substituted-joint wording when flagged). */
@@ -163,7 +161,8 @@ export interface HeroRowVM {
   stability?: { value: number | null; readout: string }
   /**
    * The formatted COMPARATIVE magnitude for this option ('72%'), or null when
-   * the run carried no comparative probability for it.
+   * the run carried no comparative probability for it. #2747 re-scope 2 (DL ruling (A)): always null in C — no win
+   * share is said, so the leader headline drops its magnitude clause.
    *
    * Published because the re-anchored leader headline NAMES this magnitude
    * (§6.2c: bare superlatives retire in favour of basis + number). Before
@@ -402,6 +401,8 @@ export interface HeroChartModel {
   subline: string | null
   /** An option's cell and its own driver occupy successive lines; Run-wide messages have no option id. */
   goalChanceLeadLines?: ReadonlyArray<{ id?: string; kind?: 'cell' | 'driver'; text: string; why?: string }>
+  /** Recovery Batch C: the Run's goal-chance detail lines (joint withheld and its bound, each target, status quo, notes). */
+  goalChanceDetailLines?: ReadonlyArray<{ kind: 'joint_withheld' | 'joint_bound' | 'target' | 'status_quo' | 'note'; text: string }>
   /** The licence's clause actually appended to the subline; prevents a second range clause. */
   goalChanceHorizonLine?: string | null
   /**

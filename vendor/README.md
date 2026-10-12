@@ -7,7 +7,31 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.82.0.tgz` ← **THE CURRENT PIN** (12 Oct 2026, recovery Batch C step 1: READER re-vendor, readers before writers; unblocks schemas #96 `pin-drift`)
+### `talchain-schemas-0.83.0.tgz` ← **THE CURRENT PIN** (12 Oct 2026, recovery Batch C: strict goal comparators, joint goal chance and precision; DL)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.83.0/f3930713b0cac6d86264d895020a112643ac0293`; registry gitHead
+`1e451c55536776cdd1d1ae1fd1f9a3c3a3fadf03` = tag `v0.83.0` (olumi-schemas `main`, schemas #96, DL publish 12 Oct 01:58Z). **874,038 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  f3930713b0cac6d86264d895020a112643ac0293   (the registry download id)
+integrity (sha512) sha512-2yK1A9GDHfeLV1mm9bjF3omNCzsnKBLBWZ7Pb/HfpVhnH7G7xOlJ2L42leYd2eQaKTsJs0829mLrd9ifZnLMZg==
+sha256             69e11b74af105b5f89a40a3d992cd889945c3458cd4cedb32529e323534f11ce   (the .sha256 sidecar)
+```
+
+0.83.0 adds the strict goal comparators (`>`/`<` beside `>=`/`<=`), `probability_of_joint_goal` with `probability_of_joint_goal_precision`,
+`constraint_probabilities_precision[constraint_id]` and `constraint_results[].probability_precision` (PLoT's wire names), all optional. ORDER:
+readers (UI/PLoT 0.82.0, C step 1) were promoted before this writer contract.
+
+**This copy:** byte-identical to the DL's verified registry download (`cmp`; sha256, sha1 and sha512 re-computed here); copied, never
+re-packed. `pnpm-lock.yaml` integrity = the sha512 above. Replaces 0.82.0 (tarball and sidecar removed in the same commit). **Additive
+for this reader:** the runtime `dist/*.js` diff vs 0.82.0 (checked 12 Oct) widens the goal-constraint `operator` enums in
+`boundary/blocks.js` and `orchestrator/run-input-snapshot.js` to `>=`/`<=`/`>`/`<`, adds those four to `boundary/run.js`'s `bound`
+enum, adds the optional precision fields and `EnrichmentProbabilityPrecisionSchema` in `boundary/enrichment.js`/`boundary/index.js`,
+and touches `boundary/decision-record.js`, `fixtures/index.js` and `contracts/generated-constants.js`. Batch C's UI reads the goal chance
+only from CEE's `canonical_analysis_view.goal_chance`; it reads no precision field.
+
+### `talchain-schemas-0.82.0.tgz` (historical — no longer vendored as of 0.83.0) (12 Oct 2026, recovery Batch C step 1: READER re-vendor, readers before writers; unblocks schemas #96 `pin-drift`)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.82.0/3c18c6453ba15df76cd309058aff06fef885d12d`; registry gitHead
