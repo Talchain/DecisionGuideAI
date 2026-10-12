@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
+import { cleanup, render, renderHook, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useCanonicalAnalysisViewStore } from '../../../../canvas/stores/canonicalAnalysisViewStore'
@@ -39,26 +39,24 @@ function mountHero(data: ReturnType<typeof useResultsSectionData>) {
   return (id: string) => screen.getByTestId(`hero-option-row-${model.rows.find(r => r.id === id)!.index}`)
 }
 describe('WS5 PR-C server faces', () => {
-  it('untouched served 464abd0a hero prints faces; full why only after Why? (mutant-sensitive)', async () => {
+  // Run-3 judge C5 (label, don't hide): each row says its face AND CEE's full why, verbatim, without a "Why?" to open.
+  // (Was: "full why only after Why?".) A why every row shares is said once beneath the rows.
+  it('untouched served 464abd0a hero prints faces and each full why, verbatim, with nothing folded (mutant-sensitive)', async () => {
     const surface = 'hero'
     const data = await dataFrom(served)
     const rowOf = mountHero(data)
-    for (const option of served.canonical_analysis_view.options) {
-      if (typeof option.cell.why === 'string') expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain(option.cell.why)
-    }
+    const whys = served.canonical_analysis_view.options.flatMap(o => (typeof o.cell.why === 'string' ? [o.cell.why] : []))
+    const shared = whys.length >= 2 && whys.every(why => why === whys[0])
     for (const option of served.canonical_analysis_view.options) {
       const row = rowOf(option.option_id)
       const cell = option.cell
       expect(data.runView!.chanceCellOf(option.option_id, ctx).text).toBe(cell.face)
       expect(row).toHaveTextContent(cell.face)
+      expect(within(row).queryByRole('button', { name: 'Why?' })).toBeNull()
       if (typeof cell.why === 'string') {
-        expect(row.textContent).not.toContain(cell.why)
-        expect(within(row).queryByText(cell.why)).toBeNull()
-        fireEvent.click(within(row).getByRole('button', { name: 'Why?' }))
-        expect(within(row).getByText(cell.why)).toBeVisible()
-        fireEvent.click(within(row).getByRole('button', { name: 'Hide why' }))
-        expect(row.textContent).not.toContain(cell.why)
-      } else expect(within(row).queryByRole('button', { name: 'Why?' })).toBeNull()
+        const where = shared ? screen.getByTestId('analysis-hero-panel') : row
+        expect(within(where).getByText(cell.why)).toBeVisible()
+      }
     }
     console.info('SERVER-FACES', surface, JSON.stringify(served.canonical_analysis_view.options.map(o => ({ id: o.option_id, face: o.cell.face }))))
   })
