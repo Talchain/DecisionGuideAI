@@ -225,7 +225,7 @@ import {
   type OptimisticEdgeEdit,
 } from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
-import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
+import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
@@ -6597,6 +6597,10 @@ export function useConversation(): UseConversationReturn {
                 systemSendFailure, graphOpeningAtDispatch,
               )
             }
+            // A graph-writing event CEE did not state it refused may have changed the saved model (a lost reply, served
+            // capacity row 7a): the last analysis can no longer be vouched for as current.
+            if (isGraphRecoverySystemEvent(systemEvent?.type) && !isProvenNoWriteConflict(systemSendFailure.conflictCategory) &&
+              !isProvenNoWriteReason(systemSendFailure.reason)) useCanvasStore.getState().markAnalysisFreshnessDirty?.()
           }
         }
 
