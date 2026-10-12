@@ -170,6 +170,11 @@ interface MessageBubbleProps {
   onRetryFailedSend?: () => void
   /** L-42: only the newest assistant turn's card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
+  /**
+   * Run-3 judge U2: the status headline and bullets an EARLIER reply in this reply's model state already drew
+   * (`statusDrawnBefore`). Added to the answer's priors so the repeat is not drawn twice in one state.
+   */
+  sameStateDrawn?: readonly string[]
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -185,6 +190,7 @@ export const MessageBubble = memo(function MessageBubble({
   compact = false,
   onRetryFailedSend,
   isLatestAssistantTurn = false,
+  sameStateDrawn,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const isStreaming = message.isStreaming === true
@@ -234,6 +240,11 @@ export const MessageBubble = memo(function MessageBubble({
     () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
     [rawDisplayContent, consentSurfaceText],
   )
+  /** The structured answer's priors: tier 0, then what an earlier reply in this model state drew (run-3 judge U2). */
+  const answerPriors = useMemo(
+    () => (sameStateDrawn && sameStateDrawn.length > 0 ? [...consentSurfaceText, ...sameStateDrawn] : consentSurfaceText),
+    [consentSurfaceText, sameStateDrawn],
+  )
   /**
    * Detail on demand: the build's open questions, split off the reply at the
    * producer's exact marker and shown VERBATIM behind a closed toggle
@@ -272,11 +283,11 @@ export const MessageBubble = memo(function MessageBubble({
    */
   const renderedAboveBlocks = useMemo(() => {
     if (!isUser && !isStreaming && message.answerShape) {
-      const shown = resolveAnswerBodyText(message.answerShape, consentSurfaceText)
-      return [...consentSurfaceText, shown.headline, ...shown.bullets]
+      const shown = resolveAnswerBodyText(message.answerShape, answerPriors)
+      return [...answerPriors, shown.headline, ...shown.bullets]
     }
     return [...consentSurfaceText, displayContent]
-  }, [isUser, isStreaming, message.answerShape, consentSurfaceText, displayContent])
+  }, [isUser, isStreaming, message.answerShape, answerPriors, consentSurfaceText, displayContent])
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -449,7 +460,7 @@ export const MessageBubble = memo(function MessageBubble({
           <AnswerBody
             answer={answerForBody ?? message.answerShape}
             compact={compact}
-            alreadyRendered={consentSurfaceText}
+            alreadyRendered={answerPriors}
           />
         </div>
       ) : (

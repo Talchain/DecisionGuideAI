@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo, useMemo, useState, useEffect } from 'react'
+import { memo, useMemo, useState, useEffect, useRef } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
@@ -15,6 +15,7 @@ import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
+import { statusDrawnBefore } from '../AnswerBody'
 import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
@@ -321,6 +322,22 @@ export const ChatThread = memo(function ChatThread({
   // controls are never bar offers and stay chips.
   const actionBar = useScenarioActionBar()
   const lastReplyChips = lastReplyMsg?.actionChips
+  // Run-3 judge U2: what an earlier reply in each reply's model state already drew, so CEE's repeated status headline
+  // and bullets are drawn once per state. Each reply keeps the SAME array while its content is unchanged, so a
+  // streaming tick does not re-render every memoised message.
+  const sameStateHeld = useRef(new Map<string, { joined: string; lines: readonly string[] }>())
+  const sameStateDrawnById = useMemo(() => {
+    const held = sameStateHeld.current
+    const next = new Map<string, { joined: string; lines: readonly string[] }>()
+    for (const [id, lines] of statusDrawnBefore(messages)) {
+      const joined = lines.join('\u0000')
+      const prior = held.get(id)
+      next.set(id, prior && prior.joined === joined ? prior : { joined, lines })
+    }
+    sameStateHeld.current = next
+    return next
+  }, [messages])
+
   const suggestedChips = useMemo(() => {
     const onBar = pressIdsOnBar(actionBar)
     const chips = lastReplyChips ?? []
@@ -395,6 +412,7 @@ export const ChatThread = memo(function ChatThread({
             // derives for the chip row; reusing it means the staleness voice
             // and the chips can never disagree about which turn is current.
             isLatestAssistantTurn={isLastAssistant}
+            sameStateDrawn={sameStateDrawnById.get(msg.id)?.lines}
             patchBlockStates={patchBlockStates}
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}
