@@ -38,7 +38,7 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1167
+src/canvas/contextMenu/actions.ts:1151
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
@@ -220,12 +220,9 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
 #    re-derived with the scanner, not hand-picked.
 #
-# 12 Oct 2026 (recovery Batch B, the moved-base saved-model read in `proposeFromMenu`): `contextMenu/actions.ts:1151`
-#    -> `1166` is a pure +15 line shift from the read added above this site. Same site, same code;
-#    re-derived with the scanner, not hand-picked.
-# 12 Oct 2026 (recovery Batch B + R3, the saved-model read gets the pre-commit value in `proposeFromMenu`):
-#    `contextMenu/actions.ts:1166` -> `1167` is a pure +1 line shift (`beforeCommit: before`). Same site, same code;
-#    re-derived with the scanner, not hand-picked.
+# 12 Oct 2026 (recovery Batch B): the moved-base saved-model read in `proposeFromMenu` (+15, then +1) was removed after
+#    B UI's independent check, so `contextMenu/actions.ts` is staging's text again and the site is back at `1151`.
+#    Same site, same code; re-derived with the scanner, not hand-picked.
 # 12 Oct 2026 (Batch C UI #2747, chance authority gate): `store.ts:8197` -> `8200` is a pure +3 line shift from the
 #    canonical-view import and the gated previous-Run view above. Same site, same code; re-derived with the scanner.
 # 12 Oct 2026 (Batch C UI #2747 r2, chance gate lint): `store.ts:8200` -> `8202` is a pure +2 line shift from the two

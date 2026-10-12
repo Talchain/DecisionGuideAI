@@ -34,8 +34,6 @@ import type { PatchOperation } from '../conversation/types'
 import type { ModelEditAuthorityLive, FactorValueProposalOutcome } from '../hooks/useModelEditAuthority'
 import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
 import {
-  awaitSavedModelRead,
-  needsSavedModelRead,
   valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
   VALUE_NOT_ENCODABLE_COPY,
@@ -780,20 +778,6 @@ function proposeFromMenu(
 
   const outcome = writer.propose(typedValue, {
     onSendSettled: (settlement, detail) => {
-      // ⭐ The card's moved-base rule (`needsSavedModelRead`, recovery Batch B): after a lost reply the model often
-      // already holds this value, so read the saved model first. One toast, once it has been read.
-      if (needsSavedModelRead(settlement, detail)) {
-        awaitSavedModelRead({
-          baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
-          readBase: () => useCanvasStore.getState().lastServerGraphHash,
-          subscribe: listener => useCanvasStore.subscribe(listener),
-          beforeCommit: before,
-          committedTo: typedValue,
-          readNow: () => fieldSeed(nodeId),
-          onWord: word => showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word)),
-        })
-        return
-      }
       const word = valueCommitSettlementWord(settlement, before, typedValue, () => fieldSeed(nodeId), detail)
       if (word !== null) showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word))
     },

@@ -45,7 +45,6 @@ import type { NodeTarget } from '../types'
 import { SEND_DEFERRED, SystemEventSendError } from '../../conversation/useConversation'
 import { ToastProvider } from '../../ToastContext'
 import { VALUE_COMMIT_SETTLEMENT_COPY } from '../../conversation/valueCommitSettlement'
-import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
 import * as settlementModule from '../../conversation/valueCommitSettlement'
 import * as scaleModule from '../../conversation/factorValueEdit'
 import * as actionsModule from '../actions'
@@ -272,7 +271,6 @@ describe('Set value ▸ Best / Worst case ride the card writer, keyed to this no
 describe('with the REAL writer — the wire event is the card\'s wire event', () => {
   it.each([false, true])('revision refusal reaches the menu toast through the real authority with only the exact notice (deferred=%s)', async deferred => {
     toast.live = true
-    useCanvasStore.setState({ lastServerGraphHash: 'revision-3' })
     const refusal = new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
     if (deferred) conversation.send.mockResolvedValue(SEND_DEFERRED)
     else conversation.send.mockRejectedValue(refusal)
@@ -284,20 +282,8 @@ describe('with the REAL writer — the wire event is the card\'s wire event', ()
       expect(options.onDeferredSettled).toEqual(expect.any(Function))
       await act(async () => { options.onDeferredSettled(Promise.reject(refusal)) })
     }
-    // Batch R3 (capacity run 2, row 6): a revision race is a moved base, so the menu reads the saved model before it
-    // speaks; here the read shows a third value (another change got in first), so the notice is the true reason.
-    expect(screen.queryByRole('alert')).toBeNull()
-    await act(async () => {
-      useCanvasStore.setState(s => ({
-        lastServerGraphHash: 'revision-4',
-        nodes: s.nodes.map(n => (n.id === ADOPTION_ID
-          ? { ...n, data: { ...n.data, observedState: { value: 0.7, raw_value: 0.7 } } } : n)),
-      }) as never)
-      await new Promise(resolve => setTimeout(resolve, 5))
-    })
     expect(screen.getByRole('alert').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
     expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
-    useCanvasStore.setState({ lastServerGraphHash: null })
   })
   beforeEach(() => {
     writer.mode = 'real'
@@ -465,44 +451,6 @@ describe('what the menu no longer offers', () => {
     ;(actionsModule as any).setValueBestCase(ADOPTION_ID, fake, toast.spy)
     expect(calls).toEqual([])
     expect(toast.spy).toHaveBeenCalledWith(settlementModule.VALUE_NOT_ENCODABLE_COPY, 'warning')
-  })
-})
-
-/**
- * Recovery Batch B (served capacity row 7a, the card's twin): a value retried after a lost reply is refused on a MOVED
- * base (409 GRAPH_DIVERGED `stale_base_graph_hash`, the served envelope). The menu's toast waits for the saved model,
- * as the card does, and says once what it holds.
- */
-describe('Set value refused on a moved base reads the saved model before the toast', () => {
-  it('RED on 3e3e798: the saved model holds £59, so the toast says saved, never "Not saved"', async () => {
-    useCanvasStore.setState({ lastServerGraphHash: 'f246477dd0d5eabf' })
-    try {
-      let settle: Parameters<typeof settleSystemEventSend>[1]
-      const fake = {
-        nodeId: PRICE_ID,
-        propose: (_v: number, opts?: { onSendSettled?: Parameters<typeof settleSystemEventSend>[1] }) => {
-          settle = opts?.onSendSettled
-          return 'dispatched' as const
-        },
-      }
-      expect((actionsModule as any).setValueCustom(PRICE_ID, 59, fake, toast.spy)).toBe('dispatched')
-      const served409 = new SystemEventSendError('server', {
-        code: 'GRAPH_DIVERGED', conflictCategory: 'stale_base_graph_hash', reason: 'graph_write_conflict', retryable: false,
-      })
-      await act(async () => { settleSystemEventSend(Promise.reject(served409), settle); await Promise.resolve() })
-      await act(async () => {
-        useCanvasStore.setState({
-          nodes: useCanvasStore.getState().nodes.map(n => n.id !== PRICE_ID ? n
-            : { ...n, data: { ...n.data, observedState: { value: 0.295, raw_value: 59, cap: 200, unit: '£/month' } } }),
-          lastServerGraphHash: '909617df4d06d742',
-        })
-        await new Promise(resolve => setTimeout(resolve, 5))
-      })
-      expect(toast.spy).toHaveBeenCalledTimes(1)
-      expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.saved.message, 'info')
-    } finally {
-      useCanvasStore.setState({ lastServerGraphHash: null })
-    }
   })
 })
 
