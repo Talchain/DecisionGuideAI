@@ -4450,7 +4450,16 @@ export function useConversation(): UseConversationReturn {
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
-      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? crypto.randomUUID()
+      // ⭐ Recovery Batch B, row 3 (DL, §7.3 "check idempotency before offering a retry"): the user typing the SAME words
+      // again (equal after trim, as CEE's request hash reads them) while their LAST send is still delivery-unknown is
+      // that send again, so it re-uses its turn id and CEE replays the recorded answer instead of recording the message
+      // twice (served marketing row 3). A confirmed reply or non-send, other words, a chip, or a send in between: fresh id.
+      const lastInput = lastUserInputRef.current
+      const unknownResendId = mode === 'user' && !hidden && !systemEvent && !chipMeta && lastInput.chipMeta === undefined
+        && lastInput.clientTurnId !== undefined && lastInput.message.trim() === message.trim()
+        && messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
+        ? lastInput.clientTurnId : undefined
+      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? unknownResendId ?? crypto.randomUUID()
       // Stamp the V5 active-turn ref at dispatch time for every turn kind
       // (visible, hidden, system). The stale-turn guard in applyV5State
       // reads this ref, not lastUserInputRef, so hidden/system responses
@@ -6560,6 +6569,12 @@ export function useConversation(): UseConversationReturn {
               inputText: inputForRestore,
               ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
             })
+            // Row 3: CEE refused the re-used id as another request ("Nothing was run or changed"). That id is spent, so
+            // "Try again" sends a fresh one rather than meeting the same refusal for ever.
+            if (unknownResendId !== undefined && (String(target.code) === 'TURN_ID_REUSED'
+              || (target.rawBody as { error?: unknown } | undefined)?.error === 'TURN_ID_REUSED')) {
+              lastUserInputRef.current = { ...lastUserInputRef.current, clientTurnId: undefined }
+            }
           } else if (mode === 'system') {
             // inputForRestore is null for system turns; record the failure so
             // it is rethrown after `finally` and the dispatcher can react.
