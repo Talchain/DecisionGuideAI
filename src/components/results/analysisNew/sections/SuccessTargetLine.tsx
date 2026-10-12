@@ -81,7 +81,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 import {
   declaredGoalUnit,
-  goalTargetFrameIsUnread,
+  goalTargetMeaningUnread,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
@@ -376,9 +376,9 @@ export function SuccessTargetLine({
    * (`useModelEditAuthority.proposeGoalTarget`) refuses it too, whichever editor asks.
    */
   // ⛔ AIQ 5880974047: a frame this UI cannot read resolves to no target (`resolveGoalTarget`) and is not edited either.
-  const unreadFrame = goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame)
+  const unreadFrame = goalTargetMeaningUnread(goalData as GoalTargetSource | null)
   const changeGoal = fromNode?.frame != null || unreadFrame
-  const fromStore = threshold != null && representation === 'raw' && !goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame) ? threshold : null
+  const fromStore = threshold != null && representation === 'raw' && !goalTargetMeaningUnread(goalData as GoalTargetSource | null) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
   const nodeFigure = fromNode !== null
     ? (formatGoalTarget(

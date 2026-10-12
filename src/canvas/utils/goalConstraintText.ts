@@ -3,7 +3,7 @@ import { formatStatedLimitValue, renderLimitOperator } from '../../components/re
 import { classifyUnit, compactUnitParts, formatMoneyFigure, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
 import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 import { isGoalTargetRow } from '../domain/goalOwnTargetRow'
-import { goalQuantityFrameOf } from '../domain/goalTarget'
+import { goalQuantityFrameOf, isGoalPercentUnit } from '../domain/goalTarget'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
@@ -286,7 +286,7 @@ interface LimitChange {
  * `limit not captured` branch answers). `change_rel` is always the stored fraction × 100 (CEE's rounding); a
  * `change_abs` in the reader's audited figure when the producer handed one over (rung 1 above), else its own value.
  */
-function limitChangeOf(constraint: CEEGoalConstraint, quantityFrame?: unknown): LimitChange | null {
+function limitChangeOf(constraint: CEEGoalConstraint, asTarget?: { readonly quantityFrame: unknown }): LimitChange | null {
   const frame = limitChangeFrameOf(constraint)
   const { value } = constraint as { value?: unknown }
   // Recovery Batch C (#2747 r1): the comparator the user STATED ("< −20%" held as `<=`) is the one said: "more than".
@@ -303,8 +303,15 @@ function limitChangeOf(constraint: CEEGoalConstraint, quantityFrame?: unknown): 
   const n = audited ? Math.abs(audit!.original_value as number) : Math.abs(value)
   const unit = audited ? audit!.original_unit : constraint.unit
   // A CHANGE in percentage points is said in points, never as a percent (+1pp is not +1%).
-  // Recovery Batch C (C CEE round 1, item 1): so is a change in `%` of a quantity that is a LEVEL (75% + 10 points = 85%).
-  if (isPercentagePointUnit(unit) || (goalQuantityFrameOf(quantityFrame) === 'level' && classifyUnit(unit ?? null).kind === 'percent')) {
+  // Recovery Batch C (C CEE 6e3bce10, goal targets only): a `%` change of a LEVEL quantity is in points (75% + 10 points =
+  // 85%); of a quantity measured AS a change it is a % of today; with neither known the size is not said (no default).
+  // Limits keep CEE's limit sentence (`sayLimitInFrame`, unchanged).
+  if (asTarget !== undefined && isGoalPercentUnit(unit)) {
+    const quantityFrame = goalQuantityFrameOf(asTarget.quantityFrame)
+    if (quantityFrame === null) return null
+    if (quantityFrame === 'level') return { operator, rising, zero, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
+  }
+  if (isPercentagePointUnit(unit)) {
     return { operator, rising, zero, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
   }
   return { operator, rising, zero, magnitude: formatLimitMagnitude(n, unit) }
@@ -315,8 +322,8 @@ function limitChangeOf(constraint: CEEGoalConstraint, quantityFrame?: unknown): 
  * such as "Cloud cost <= 0.1" shown alone would read as one). One exception keeps rung 2's reason: a `change_abs` in a
  * rewritten-scale or percent unit with no audited figure has no honest figure to say, so the reader's quote answers.
  */
-function sayableLimitChange(constraint: CEEGoalConstraint, quantityFrame?: unknown): LimitChange | null {
-  const change = limitChangeOf(constraint, quantityFrame)
+function sayableLimitChange(constraint: CEEGoalConstraint, asTarget?: { readonly quantityFrame: unknown }): LimitChange | null {
+  const change = limitChangeOf(constraint, asTarget)
   if (change === null) return null
   const quoteAnswers = limitChangeFrameOf(constraint) === 'change_abs' && !hasAuditedFigure(constraint)
     && goalConstraintTextUsesQuote(constraint)
@@ -338,8 +345,8 @@ function sayLimitChange(change: LimitChange): string {
  * that phrase a limit themselves — the chat receipt (`v5GraphPatchDescription`, PR Review 5880215622 blocking 2) — so
  * no surface can print a change as "at most 0.1". The operator must already be ASCII (`<=`, `<`, `>=`, `>`).
  */
-export function limitChangeSentence(constraint: CEEGoalConstraint, quantityFrame?: unknown): string | null {
-  const change = sayableLimitChange(constraint, quantityFrame)
+export function limitChangeSentence(constraint: CEEGoalConstraint): string | null {
+  const change = sayableLimitChange(constraint)
   return change === null ? null : sayLimitChange(change)
 }
 
@@ -397,7 +404,7 @@ export function goalConstraintText(
   const prefix = options.omitLabel ? '' : `${label} `
 
   // R1 S4-core: a change from today is said as the change (`sayableLimitChange`, above), never as a level.
-  const change = sayableLimitChange(constraint, (target?.data as { quantity_frame?: unknown } | undefined)?.quantity_frame)
+  const change = sayableLimitChange(constraint)
   if (change !== null) {
     // ⛔ AIQ 5880929109: a carried label that already states a LEVEL ("Cloud cost <= 0.1") beside the change would
     // offer the reader both readings. The subject is then the constrained element's own name, or none at all.
@@ -548,7 +555,7 @@ export function goalConstraintShortText(
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   // R1 S4-core: the change first, exactly as the full form orders it.
-  const change = sayableLimitChange(constraint, (target?.data as { quantity_frame?: unknown } | undefined)?.quantity_frame)
+  const change = sayableLimitChange(constraint)
   // AIQ 5880929109: never a carried label that states a level beside the change (the pill's subject is the metric's
   // own title whenever it binds to one; a stale carried label is dropped rather than shown).
   if (change !== null) {
@@ -589,7 +596,7 @@ function goalTargetRowWords(
   const subject = omitSubject ? '' : title !== UNNAMED_ELEMENT_LABEL ? `${title.trim()} ` : carried ? `${carried} ` : ''
   // The limit path's order (#2747 r1): the change first, then the reader's audited figure, then their quoted words; a
   // change is never said as a level, and a percent figure with no audit is never reconstructed (100× out).
-  const change = sayableLimitChange(constraint, (target?.data as { quantity_frame?: unknown } | undefined)?.quantity_frame)
+  const change = sayableLimitChange(constraint, { quantityFrame: (target?.data as { quantity_frame?: unknown } | undefined)?.quantity_frame })
   if (change !== null) return `${subject}${sayLimitChange(change)}`
   const quote = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   const quoted = quote ? `${subject ? `${subject.trim()} · ` : ''}\u201c${quote}\u201d` : null

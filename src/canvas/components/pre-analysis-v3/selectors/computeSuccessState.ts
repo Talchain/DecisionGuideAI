@@ -19,7 +19,7 @@
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
-import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetMeaningUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import type { Attribution } from '../types'
 
@@ -156,7 +156,7 @@ export function computeSuccessState(
    */
   const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
   // ⛔ AIQ 5880974047: a frame this UI cannot read — the figure's meaning is unknown, so no measure is claimed.
-  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return unset
+  if (goalTargetMeaningUnread(data as GoalTargetSource)) return unset
   const sayTarget = (n: number): string =>
     (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame, (data as { quantity_frame?: unknown }).quantity_frame) : null) ?? formatWithUnit(n, unit)
 

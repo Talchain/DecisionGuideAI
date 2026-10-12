@@ -38,7 +38,7 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import {
-  canCaptureGoalTarget, goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget,
+  canCaptureGoalTarget, goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetMeaningUnread, resolveGoalTarget,
   statedGoalTargetRaw, statedTargetNumber, type GoalHeldComparator, type GoalTargetSource, type ResolvedGoalTarget,
 } from './goalTarget'
 
@@ -234,7 +234,7 @@ export function resolveGoalTargetWithOwnRow(
     const bound = heldTargetBoundWords(data)
     return bound === null ? fromNode : { ...fromNode, bound }
   }
-  if (goalTargetFrameIsUnread(data?.goal_threshold_frame)) return null
+  if (goalTargetMeaningUnread(data)) return null
   const row = goalOwnLimitRow(constraints, goalId)
   if (row === null) return null
   const comparator = statedOperatorOf(row as { operator?: unknown; operator_as_stated?: unknown })

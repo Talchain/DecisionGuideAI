@@ -50,6 +50,23 @@ export function goalQuantityFrameOf(value: unknown): GoalQuantityFrame | null {
   return value === 'level' || value === 'change' ? value : null
 }
 
+/** CEE `isPercentUnit` (goal-target-basis.ts): the units whose absolute change needs the goal's quantity frame to be said. */
+export function isGoalPercentUnit(unit: unknown): boolean {
+  return typeof unit === 'string' && /^%$|^percent$/i.test(unit.trim())
+}
+
+/**
+ * Recovery Batch C (C CEE 6e3bce10): the target's MEANING cannot be read. Either its frame is one this UI does not know,
+ * or it is a `%` change_abs with no quantity frame: "10% of today" and "10 percentage points" are both readings, and CEE
+ * says neither (no default; the chance is withheld). Every surface then treats it as it treats an unread frame.
+ */
+export function goalTargetMeaningUnread(data: GoalTargetSource | null | undefined): boolean {
+  if (!data) return false
+  return goalTargetFrameIsUnread(data.goal_threshold_frame)
+    || (data.goal_threshold_frame === 'change_abs' && isGoalPercentUnit(data.goal_threshold_unit)
+      && goalQuantityFrameOf(data.quantity_frame) === null)
+}
+
 /**
  * ⭐ THE GOAL'S HELD COMPARATOR (`goal_direction`; CEE writes `>=` / `<=` / `>` / `<` — `graph-hash-contract`, 0.61.0).
  * It is what a change target's success BOUND is said from (UI #2287 review; DL ruling: the same authored input CEE
@@ -147,14 +164,14 @@ export interface ResolvedGoalTarget {
  * Run's own licence words, not by this mark. A frame this UI cannot read still credits nothing.
  */
 export function goalTargetStampedFromBrief(data: GoalTargetSource | null | undefined): boolean {
-  return data?.threshold_source === 'brief_extraction' && !goalTargetFrameIsUnread(data.goal_threshold_frame)
+  return data?.threshold_source === 'brief_extraction' && !goalTargetMeaningUnread(data)
 }
 
 export function resolveGoalTarget(
   data: GoalTargetSource | null | undefined,
 ): ResolvedGoalTarget | null {
   if (!data) return null
-  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
+  if (goalTargetMeaningUnread(data)) return null
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
   const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
   const quantityFrame = goalQuantityFrameOf(data.quantity_frame)
@@ -292,7 +309,7 @@ export function statedGoalTargetRaw(
   data: GoalTargetSource | null | undefined,
 ): string | number | null {
   if (!data) return null
-  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
+  if (goalTargetMeaningUnread(data)) return null
   const userThreshold = data.threshold_source === 'user' ? data.success_threshold : undefined
   const chosen = isStatedTargetValue(userThreshold) ? userThreshold : data.goal_threshold_raw
   return isStatedTargetValue(chosen) ? (chosen as string | number) : null
@@ -424,7 +441,7 @@ export interface GoalTodayLevel {
   readonly quote: string | null
 }
 export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
-  if (!data || goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
+  if (!data || goalTargetMeaningUnread(data)) return null
   const isChangeGoal = goalTargetChangeFrameOf(data.goal_threshold_frame) !== null
   const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
   if (goalUnit === '') return null

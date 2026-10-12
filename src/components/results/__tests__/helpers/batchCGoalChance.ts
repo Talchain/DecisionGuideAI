@@ -69,7 +69,7 @@ export function hiringJourney(): Journey {
   return {
     scenarioId: 'batch-c-hiring',
     nodes: [
-      node('productivity', 'goal', 'Productivity', { goal_threshold_raw: 10, goal_threshold_unit: '%', goal_threshold_frame: 'change_abs', goal_direction: '>=' }),
+      node('productivity', 'goal', 'Productivity', { quantity_frame: 'change', goal_threshold_raw: 10, goal_threshold_unit: '%', goal_threshold_frame: 'change_abs', goal_direction: '>=' }),
       node('hire_a_tech_lead', 'option', 'Hire a tech lead'),
       node('hire_two_developers', 'option', 'Hire two developers'),
       node('carry_on', 'option', 'Carry on with the current team'),

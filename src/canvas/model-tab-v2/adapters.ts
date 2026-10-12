@@ -127,7 +127,7 @@ import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
-import { goalTargetFrameIsUnread } from '../domain/goalTarget'
+import { goalTargetMeaningUnread, type GoalTargetSource } from '../domain/goalTarget'
 import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
@@ -770,7 +770,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
           // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.
           : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? (target.unit!.trim() === '%' ? '%' : ` ${target.unit}`) : ''}`
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
-        : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
+        : input.goalThreshold === null || goalTargetMeaningUnread(data as GoalTargetSource)
           ? null : formatSmartNumber(input.goalThreshold)
       const targetText = figureText !== null && bound !== null ? `${bound} ${figureText}` : figureText
       rows.push({
@@ -784,7 +784,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         attention: targetText === null ? ['no-value'] : [],
         // ⛔ R1 S4-core: a change target is not edited as a level — the editor writes a level figure, and CEE refuses
         // that write over a change goal by name (`goal_is_a_change`, all four goal writers). It is changed in the chat.
-        editable: target?.frame == null && !goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame),
+        editable: target?.frame == null && !goalTargetMeaningUnread(data as GoalTargetSource),
       })
       continue
     }

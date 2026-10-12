@@ -55,7 +55,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // store scalar — and #1844 wrote a whole new module (`displayableGoalTarget.ts`)
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
-import { canCaptureGoalTarget, resolveGoalTarget, goalTargetFrameIsUnread, type GoalTargetSource } from '../../../domain/goalTarget'
+import { canCaptureGoalTarget, resolveGoalTarget, goalTargetMeaningUnread, type GoalTargetSource } from '../../../domain/goalTarget'
 import { constraintRestatesGoalTarget, heldTargetBoundWords, resolveGoalTargetWithOwnRow, goalTargetBound, goalTargetComparator } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
@@ -614,7 +614,7 @@ export const GoalPanel = memo(function GoalPanel({
     goalConstraints,
     nodeId,
   )
-  const summaryUnreadFrame = goalTargetFrameIsUnread((node.data as GoalTargetSource).goal_threshold_frame)
+  const summaryUnreadFrame = goalTargetMeaningUnread(node.data as GoalTargetSource)
   const summaryStoreTarget = goalThreshold != null && goalThresholdRepresentation === 'raw' && !summaryUnreadFrame
     ? goalThreshold
     : null

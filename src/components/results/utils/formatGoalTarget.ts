@@ -76,7 +76,7 @@
 import { unnamedCurrencyWords } from '../../../utils/unnamedCurrencyUnit'
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
-import { goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
+import { goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, isGoalPercentUnit, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
@@ -105,6 +105,8 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
   if (goalTargetFrameIsUnread(frame)) return null
   const change = goalTargetChangeFrameOf(frame)
   if (change !== null) {
+    // Recovery Batch C (C CEE 6e3bce10): a % change_abs with no quantity frame has no sayable size; never a default.
+    if (change === 'change_abs' && isGoalPercentUnit(unit) && goalQuantityFrameOf(quantityFrame) === null) return null
     const { direction, size } = goalChangeParts(value, unit, change, quantityFrame)
     return `${direction} ${size} from today`
   }
@@ -205,7 +207,7 @@ function goalChangeParts(
     size: change === 'change_rel'
       ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
       // Recovery Batch C (C CEE round 1, item 1): a change in a % LEVEL is in points (75% + 10 points = 85%, not 82.5%).
-      : goalQuantityFrameOf(quantityFrame) === 'level' && classifyUnit(unit ?? null).kind === 'percent'
+      : goalQuantityFrameOf(quantityFrame) === 'level' && isGoalPercentUnit(unit)
         ? `${n} percentage point${n === 1 ? '' : 's'}`
         : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
   }
@@ -227,6 +229,7 @@ export function formatGoalChangeBound(
   const change = goalTargetChangeFrameOf(frame)
   const held = goalHeldComparatorOf(comparator)
   if (change === null || held === null || typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
+  if (change === 'change_abs' && isGoalPercentUnit(unit) && goalQuantityFrameOf(quantityFrame) === null) return null
   const { direction, size } = goalChangeParts(value, unit, change, quantityFrame)
   const strict = held === '>' || held === '<'
   // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.

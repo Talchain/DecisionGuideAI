@@ -30,9 +30,13 @@ describe('#2747 r1: a goal target row is said as the limit path says it, as a ta
     expect(goalConstraintText(target(COST_CHANGE), NODES)).not.toMatch(/at least 10%$/)
     // CONTROL (limit path): the same row as a limit already quoted.
     expect(goalConstraintText(limit(COST_CHANGE), NODES)).toContain('“cut cost by at least 10%”')
-    // With no quote the change itself is said, from today.
+    // With no quote the change itself is said, from today, in the goal quantity's own frame (C CEE 6e3bce10)...
     const { source_quote: _q, ...noQuote } = COST_CHANGE
-    expect(goalConstraintText(target(noQuote), NODES)).toBe('Target: Cost at least 10% below today')
+    const costAs = (quantity_frame: string) => [{ id: 'cost', data: { label: 'Cost', quantity_frame } }]
+    expect(goalConstraintText(target(noQuote), costAs('change'))).toBe('Target: Cost at least 10% below today')
+    expect(goalConstraintText(target(noQuote), costAs('level'))).toBe('Target: Cost at least 10 percentage points below today')
+    // ...and with no frame its size is not said (never a level, never a default).
+    expect(goalConstraintText(target(noQuote), NODES)).toBe('Target not captured')
   })
 
   it('B2: the NRR row says the reader\'s figure: the audited 110%, else their quote; never 1.1%', () => {

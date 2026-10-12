@@ -5,7 +5,8 @@
  * as CEE says it ("at least 10% higher than today"). `change_rel` is a fraction of today in every case.
  *
  * One rule, every surface that says the target: the goal card, the Success row, the bound (inspector/editor) and a
- * target row. CONTROLS in the same file: hiring ('change'), and no `quantity_frame` at all (said as before).
+ * target row. With NO `quantity_frame` the size is not said anywhere (C CEE 6e3bce10: no default, the chance withheld),
+ * exactly as an unread frame. CONTROLS: hiring ('change'), change_rel, and a plain LIMIT (CEE's limit sentence unchanged).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -89,13 +90,20 @@ describe('a % change_abs target is said in percentage points only on a LEVEL qua
     expect(targetRow('change')).toBe('Target: Capacity at least 10% above today')
   })
 
-  it('CONTROL: change_rel is a fraction of today whatever the quantity; no quantity_frame is said as before', () => {
+  it('no quantity_frame: no size is said on any surface ("10%" and "10 points" are both guesses), as for an unread frame', () => {
+    const { quantity_frame: _q, ...noFrame } = CAPACITY
+    expect(card(noFrame)).not.toMatch(/10%|percentage point/)
+    expect(computeSuccessState(goalNode(noFrame), null, null, null)).toMatchObject({ isSet: false, displayText: null })
+    expect(resolveGoalTarget(noFrame)).toBeNull()
+    expect(targetRow()).toBe('Target not captured')
+  })
+
+  it('CONTROLS: change_rel is a fraction of today whatever the quantity; a plain LIMIT keeps CEE\'s limit sentence; 1 point', () => {
     const rel = { ...CAPACITY, goal_threshold_frame: 'change_rel', goal_threshold_raw: 0.1 }
     expect(computeSuccessState(goalNode(rel), null, null, null).displayText).toBe('up 10% from today')
-    const { quantity_frame: _q, ...noFrame } = CAPACITY
-    expect(computeSuccessState(goalNode(noFrame), null, null, null).displayText).toBe('up 10% from today')
-    expect(targetRow()).toBe('Target: Capacity at least 10% above today')
-    // One point is singular.
+    const limitRow = { constraint_id: 'limit:capacity', node_id: 'capacity', operator: '>=', value: 10, unit: '%', value_frame: 'change_abs' }
+    expect(goalConstraintText(limitRow as never, [{ id: 'capacity', data: { label: 'Capacity', quantity_frame: 'level' } }]))
+      .toBe('Capacity at least 10% above today')
     expect(computeSuccessState(goalNode({ ...CAPACITY, goal_threshold_raw: 1 }), null, null, null).displayText).toBe('up 1 percentage point from today')
   })
 })

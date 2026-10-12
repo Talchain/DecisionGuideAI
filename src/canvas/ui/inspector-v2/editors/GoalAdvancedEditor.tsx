@@ -9,7 +9,7 @@ import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
 import { goalConstraintText } from '../../../utils/goalConstraintText'
-import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetMeaningUnread, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { formatGoalChangeBound } from '../../../../components/results/utils/formatGoalTarget'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 
@@ -40,7 +40,7 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
    * Raw threshold / unit writers: `setThreshold` writes a LEVEL figure over the target.
    */
   const goalData = data as GoalTargetSource | undefined
-  const frameUnread = goalTargetFrameIsUnread(goalData?.goal_threshold_frame)
+  const frameUnread = goalTargetMeaningUnread(goalData)
   const changeFrame = goalTargetChangeFrameOf(goalData?.goal_threshold_frame)
   const changeTarget = changeFrame !== null ? resolveGoalTarget(goalData) : null
   const changeBound = changeTarget?.frame != null
