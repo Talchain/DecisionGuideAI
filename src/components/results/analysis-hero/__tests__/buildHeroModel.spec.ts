@@ -99,26 +99,7 @@ const producerRun = (...args: Parameters<typeof producerVerdict>) => {
   return { verdict, leaderDesignationPermitted: verdict.hasLeadingOption }
 }
 
-/**
- * The magnitudes the re-anchored leader sentences carry, read back off the
- * MODEL rather than hard-coded — so these assertions stay template checks
- * (does the builder select the right copy for the right row?) and do not
- * quietly become string fixtures that pass whatever the builder emits.
- */
-function winReadoutOf(
-  m: { rows: Array<{ label: string; comparativeReadout?: string | null }> },
-  label: string,
-): string | null {
-  const row = m.rows.find((r) => r.label === label)
-  if (!row) throw new Error(`no row for ${label}`)
-  // Mirrors the builder exactly: a row with no comparative probability yields
-  // null, and the copy drops its magnitude clause rather than printing a
-  // placeholder glyph inside the sentence.
-  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C, so every row's magnitude is null and every leader
-  // headline below is pinned to its magnitude-free form.
-  expect(row.comparativeReadout).toBeNull()
-  return null
-}
+// Run-4 judge (DL 12 Oct, the class): `winReadoutOf` read the leader sentences' magnitudes; those sentences are deleted.
 function outcomeReadoutOf(m: { rows: Array<{ label: string; outcome: { readout: string } }> }, label: string): string {
   const row = m.rows.find((r) => r.label === label)
   if (!row) throw new Error(`no row for ${label}`)
