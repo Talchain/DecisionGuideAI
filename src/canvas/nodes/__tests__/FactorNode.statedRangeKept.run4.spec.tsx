@@ -8,6 +8,8 @@
  * Node data: run-4 hiring reopen, `fac_capacity_used_for_non_development_tasks` (live/runs/2026-10-12T172858Z/hiring/
  * reopen.json, after.state.node_data; UI 616bbf21, CEE a770ce49), verbatim except the long source quote is shortened.
  * Capacity's missing range is CEE's (its stored model holds none) and is not tested here.
+ * F UI check round 1 (DL 12 Oct, blocking): only a range the user AUTHORED (typed, or from their brief) is "your range";
+ * a confirmed one (`user_confirmed`) is not. The negatives below keep the served 20–30 bounds so only the source differs.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +17,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
-import { resolveFactorStatedRangeOnCard } from '../shared/factorStatedRange'
+import { resolveFactorStatedRangeOnCard, STATED_RANGE_YOURS } from '../shared/factorStatedRange'
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
 afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: [], edges: [] } as never) })
@@ -59,9 +61,38 @@ describe('run 4 B3: the user\'s stated range is kept on the canvas card', () => 
     expect(resolveFactorStatedRangeOnCard(tickets)).toBe('10–30 tickets per week per specialist (your range)')
   })
 
-  it('CONTRAST: a range Olumi chose is not "your range" (no line)', () => {
+  it('CONTRAST: a range Olumi chose is not "your range" (no line), with the served 20–30 bounds unchanged', () => {
     for (const source of ['cee_inference', 'inferred', 'cee_repair']) {
-      expect(resolveFactorStatedRangeOnCard(withRange({ low: 0, high: 100, source, meaning: 'min_max' }))).toBeNull()
+      expect(resolveFactorStatedRangeOnCard(withRange({ low: 20, high: 30, source, meaning: 'min_max' }))).toBeNull()
+    }
+  })
+
+  // F UI check round 1 (DL 12 Oct, blocking): confirming a range does not make the user its author. Only a range they
+  // typed, or one from their brief, is "your range".
+  it('⭐ NEGATIVE: a CONFIRMED range (user_confirmed 20–30) is not "your range": no line, on the card either', () => {
+    const confirmed = withRange({ low: 20, high: 30, source: 'user_confirmed', meaning: 'min_max' })
+    expect(resolveFactorStatedRangeOnCard(confirmed)).toBeNull()
+    useCanvasStore.setState({ nodes: [{ id: ID, type: 'factor', position: { x: 0, y: 0 }, data: confirmed }], edges: [] } as never)
+    render(<ReactFlowProvider><FactorNode id={ID} type="factor" data={confirmed as never} selected={false} isConnectable
+      positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
+    expect(screen.queryByTestId(`factor-stated-range-${ID}`)).toBeNull()
+    expect(document.body.textContent).not.toContain(STATED_RANGE_YOURS)
+  })
+
+  it('NEGATIVE: other user-owned or adopted stamps that do not say the user wrote it get no line', () => {
+    for (const range of [
+      { low: 20, high: 30, source: 'user_assumption', meaning: 'min_max' },
+      { low: 20, high: 30, source: 'user_assumption', meaning: 'min_max', reviewed_by_user: { intent: 'confirm' } },
+      { low: 20, high: 30, source: 'panel_elicited', meaning: 'min_max' },
+    ]) {
+      expect(resolveFactorStatedRangeOnCard(withRange(range))).toBeNull()
+    }
+  })
+
+  it('POSITIVE CONTROL: every authored stamp (typed, or from the brief) says the line, same words', () => {
+    for (const source of ['user_override', 'user', 'user_edited', 'user_calibration', 'brief_extraction', 'explicit']) {
+      expect(resolveFactorStatedRangeOnCard(withRange({ low: 20, high: 30, source, meaning: 'min_max' })), source)
+        .toBe('20%–30% of monthly team capacity (your range)')
     }
   })
 

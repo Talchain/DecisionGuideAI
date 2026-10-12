@@ -106,8 +106,10 @@ describe('option card says CEE\'s served cell, verbatim, and nothing of its own'
     }
     expect(container.querySelector(`[data-testid^="option-change-row-${ID}-"]`)).not.toBeNull()
     for (const said of [container.textContent ?? '', ...[...container.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label') ?? '')]) {
+      // F UI check round 1 (DL 12 Oct, §7.5): "of runs" is checked on EVERYTHING the card says, CEE's served face
+      // included — a share of runs is never the card's chance, whoever wrote it.
+      expect(said).not.toContain('of runs')
       const unserved = served === null ? said : said.split(served).join(' ')
-      expect(unserved).not.toContain('of runs')
       expect(unserved).not.toContain('chance of meeting your goal')
       expect(unserved).not.toContain('41%')
       expect(unserved).not.toContain(TEST_WITHHELD_FACE)
