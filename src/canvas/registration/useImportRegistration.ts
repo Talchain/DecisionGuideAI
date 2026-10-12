@@ -44,6 +44,7 @@ import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
+import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import {
   releaseImportRegistration,
   markGraphServerAcknowledged,
@@ -299,7 +300,7 @@ export function useImportRegistration(): void {
       // Store AND the localStorage writer, exactly as the turn path does, so a
       // reload reuses this row rather than registering the same graph twice
       // into a second scenario the user never asked for.
-      useCanvasStore.setState({ currentScenarioId: mintedId })
+      useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, mintedId))
       setCurrentScenarioId(mintedId)
       // The effect re-runs on the new `scenarioId` and registers there. It does
       // NOT fall through: `attempted` would otherwise be keyed on a scenario

@@ -180,6 +180,8 @@ describe('seam 2 — the scenario row a registration needs', () => {
     await waitFor(() => {
       expect(useCanvasStore.getState().currentScenarioId).toMatch(UUID)
     })
+    // B UI final check on d770bc1c: the guest's model had no id, so the same write records its first id.
+    expect(useCanvasStore.getState().unboundModelBinding).toEqual({ scenarioId: useCanvasStore.getState().currentScenarioId })
   })
 
   it('REFUSES to mint for a signed-in session, and does not register', async () => {

@@ -31,6 +31,7 @@ import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
@@ -4683,7 +4684,7 @@ export function useConversation(): UseConversationReturn {
         // Recorded BEFORE the store write: the switch effect reads it to tell
         // this turn's own mint from the user opening another decision.
         lazyMintedScenarioIdRef.current = newId
-        useCanvasStore.setState({ currentScenarioId: newId })
+        useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, newId))
         setCurrentScenarioId(newId)
       }
       // Response ownership is the scenario that actually goes on the wire.

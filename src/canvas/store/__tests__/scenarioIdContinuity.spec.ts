@@ -79,7 +79,7 @@ describe('new scenario ID format', () => {
 describe('saveCurrentScenario — preserve/adopt UUID', () => {
   it('adopts the existing conversation UUID; same id before and after, no replacement, no no-op', () => {
     const X = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
-    useCanvasStore.setState({ currentScenarioId: X as any, nodes: [aNode('keep')], edges: [] })
+    useCanvasStore.setState({ currentScenarioId: X as any, unboundModelBinding: null, nodes: [aNode('keep')], edges: [] })
     // Precondition: a lazily-allocated conversation UUID with NO saved record yet.
     expect(getScenario(X)).toBeUndefined()
 
@@ -92,6 +92,8 @@ describe('saveCurrentScenario — preserve/adopt UUID', () => {
     expect(record!.graph.nodes.some(n => n.id === 'keep')).toBe(true)
     expect(loadScenarios()).toHaveLength(1)                    // no replacement minted
     expect(loadScenarios()[0].id).toBe(X)
+    // The model already had an id, so this is no unbound model's first id (B UI final check on d770bc1c).
+    expect(useCanvasStore.getState().unboundModelBinding).toBeNull()
   })
 
   it('updates in place when a record already exists (id preserved, no duplicate)', () => {
@@ -112,6 +114,18 @@ describe('saveCurrentScenario — preserve/adopt UUID', () => {
     expect(returned).not.toBeNull()
     expect(UUID_RE.test(returned as string)).toBe(true)
     expect(useCanvasStore.getState().currentScenarioId).toBe(returned)
+    // B UI final check on d770bc1c: the same write records the unbound model's first id, so its editor is kept.
+    expect(useCanvasStore.getState().unboundModelBinding).toEqual({ scenarioId: returned })
+  })
+
+  it('Save as Scenario from a template on an unbound model records the same binding; on a bound one it does not', () => {
+    useCanvasStore.setState({ currentScenarioId: null as any, unboundModelBinding: null, nodes: [aNode()], edges: [] })
+    const fromUnbound = useCanvasStore.getState().createScenarioFromTemplate({ templateId: 't', templateVersion: '1', name: 'T' })
+    expect(useCanvasStore.getState().unboundModelBinding).toEqual({ scenarioId: fromUnbound })
+    useCanvasStore.setState({ unboundModelBinding: null })
+    const fromBound = useCanvasStore.getState().createScenarioFromTemplate({ templateId: 't', templateVersion: '1', name: 'T2' })
+    expect(fromBound).not.toBe(fromUnbound)
+    expect(useCanvasStore.getState().unboundModelBinding).toBeNull()
   })
 })
 
