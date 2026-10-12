@@ -592,6 +592,8 @@ export interface DecisionResultData {
   goalHoldsTodayLevel?: boolean
   /** The producer's own "Not shown." words when it withheld the goal figures (`readGoalIdentityWithheld`), else null. */
   goalFiguresWithheldMessage?: string | null
+  /** CEE's one served withheld reason shared by every served option (`sharedServedWithheldWhy`), else null. */
+  servedWithheldWhy?: string | null
 }
 
 // =============================================================================

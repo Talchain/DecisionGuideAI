@@ -1499,6 +1499,7 @@ export function buildHeroModel(
     },
     outcomeDomain,
     outcomeWithheldNoTodayLevel: outcomeIsUnitless,
+    servedWithheldWhy: recommendation.servedWithheldWhy ?? null,
     // ⛔ R3 #75 5905239972 (served MRR + cut-costs): "doesn't hold today's level" was said for goals holding the user's
     // £75k / £45k, because outcomes the PRODUCER withheld (no figure at all) read as unitless. The sentence is the
     // reason only when there were figures to withhold AND the goal holds no level; otherwise the neutral line.

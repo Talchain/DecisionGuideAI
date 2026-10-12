@@ -57,6 +57,21 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
 export const GOAL_IDENTITY_WITHHELD_FALLBACK =
   "Not shown. Olumi can't give each option's figures for this goal from this run."
 
+/**
+ * Run-3 judge C5: CEE's one served reason, verbatim, when every option it serves a cell for (a current canonical view)
+ * is withheld with the same `why`. null when any option has a figure or range, when a withheld cell carries no why, or
+ * when the reasons differ (each option's row then says its own).
+ */
+export function sharedServedWithheldWhy(
+  cells: ReadonlyArray<{ readonly kind: string; readonly why?: string } | null>,
+): string | null {
+  const served = cells.filter((c): c is { readonly kind: string; readonly why?: string } => c !== null && c.kind !== 'none')
+  if (served.length === 0 || served.some(c => c.kind !== 'withheld')) return null
+  const first = served[0].why
+  if (typeof first !== 'string' || first.trim() === '') return null
+  return served.every(c => c.why === first) ? first : null
+}
+
 export interface GoalIdentityWithheld {
   nodeIds: string[]
   message: string
