@@ -146,7 +146,7 @@ describe('U3 — no Chance row when the run produced no goal chance (contract v3
   // The target line, this row's other subject, stays.
   it('CONTRAST — with a real goal chance served, the target line survives', () => {
     mockStore(POST_RUN)
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34, achievementChanceCell: { kind: 'figure', text: 'About 34% chance of meeting your goal.' } } as never)
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34 } as never)
     renderGoal(WITH_TARGET)
     expect(screen.getByTestId('goal-node-resting-state').textContent).toContain('100%')
   })

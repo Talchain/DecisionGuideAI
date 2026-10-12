@@ -1,5 +1,5 @@
 import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
-import { runViewOf, type OptionChanceCell } from '../runView/runView'
+import { runViewOf } from '../runView/runView'
 /**
  * Hook to provide node display metadata from analysis results
  * Decision Graph Display v2: Tasks 5, 8, 10
@@ -192,9 +192,6 @@ export interface NodeDisplayMetadata {
    * function, so the canvas and the panel cannot state different numbers for
    * one option in one session.
    */
-  achievementChanceCell?: OptionChanceCell
-  /** A legacy goal cell needs a licence; retain only its separately labelled limits readout. */
-  achievementChanceUnlicensed?: boolean
   achievementProbability: number | null
   /**
    * Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): true when the
@@ -354,7 +351,6 @@ export function useNodeDisplayMetadata(
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
   const nodes = useCanvasStore(state => state.nodes)
-  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const scenarioId = useCanvasStore(state => state.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(state => state.scenarioId === scenarioId ? state.view : null)
   // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
@@ -532,15 +528,9 @@ export function useNodeDisplayMetadata(
 
     // Task 8 & 10: Outcome/Goal achievement probability
     // Read from option_probabilities (the field the responseMapper actually populates)
-    let achievementChanceCell: OptionChanceCell | undefined
-    let achievementChanceUnlicensed = false
+    // Post-C (DL ruling): the goal card says no chance, so its chance cell is gone with it; the canvas option cards say
+    // CEE's served cell (`OptionChanceCellProvider`).
     const view = runViewOf(report, canonical)
-    const chanceContext = { goalChanceHeroSays: view.goalChance !== null,
-      ...(goalThreshold != null ? { hasGoalTarget: true } : {}),
-      goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message, labelOf: (id: string) => {
-      const label = (nodes?.find(n => n.id === id)?.data as { label?: string } | undefined)?.label
-      return label ?? null
-    } }
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
     let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
@@ -561,8 +551,6 @@ export function useNodeDisplayMetadata(
         if (rec) {
           const details = goalProbabilityDetails(rec)
           const chance = view.chanceOf(recommendedOptionId)
-          achievementChanceCell = view.chanceCellOf(recommendedOptionId, { ...chanceContext, goalCertaintyUnearned: details.goalCertaintyUnearned })
-          achievementChanceUnlicensed = chance.kind === 'withheld' && chance.by === 'no_licence'
           // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
           achievementProbability = chance.kind === 'figure' ? chance.pct / 100 : null
           achievementProbabilityBaseCaveat = achievementProbability === null ? null : details.baseCaveat
@@ -702,8 +690,6 @@ export function useNodeDisplayMetadata(
       confidenceIsDefaulted,
       confidenceIsProvisional,
       inSensitivityAnalysis,
-      achievementChanceCell,
-      achievementChanceUnlicensed,
       achievementProbability,
       achievementProbabilityIsModelledBasis,
       achievementProbabilityBaseCaveat,
@@ -727,5 +713,5 @@ export function useNodeDisplayMetadata(
     // correct reasoning about a read that should not have been in this hook.
     // Graph levels participate in driver eligibility; currency remains a
     // separate gate that the render site reads on every render.
-  }, [isResultsMode, report, canonical, nodes, goalThreshold, nodeId, nodeType, factorHoldsValue])
+  }, [isResultsMode, report, canonical, nodes, nodeId, nodeType, factorHoldsValue])
 }

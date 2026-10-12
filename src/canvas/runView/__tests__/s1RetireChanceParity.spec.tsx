@@ -96,7 +96,7 @@ describe('S1 R1: changed chance displays share the option card cell', () => {
           nodes: [option, ...nodes.filter((n: any) => n.id !== option.id)],
         } as any)
         const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
-        expect(metadata.achievementChanceCell).toEqual(cell)
+        // Post-C (DL ruling): the goal card says no chance, so the hook carries no goal chance cell to compare.
         expect(metadata.achievementProbability).toBe(numeric)
         // #2747 re-scope 2 (U0): the DecisionSummary, GoalPanel and GoalNode "contains cell.text" assertions are deleted —
         // none of those surfaces says a chance in C (the journey path says it, in CEE's words). The hook parity stays.
@@ -141,7 +141,7 @@ it('R2: raw goal_probability without a licence never supplies a number or numeri
     const metadata = renderHook(() => useNodeDisplayMetadata(goal.id, 'goal')).result.current
     expect(metadata.achievementProbability).toBeNull()
     expect(metadata.goalFitAvailable).toBe(false)
-    expect(metadata.achievementChanceCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+    expect(metadata).not.toHaveProperty('achievementChanceCell')
     useCanvasStore.setState({ nodes: [option, ...useCanvasStore.getState().nodes.filter(n => n.id !== option.id)] })
     // #2747 re-scope 2 (U0): the DecisionSummary and GoalPanel CHANCE_NOT_SHOWN_YET face presence (and the two negatives
     // bound to each face) are deleted — neither surface shows a chance face in C. Their container-wide negatives stay.
