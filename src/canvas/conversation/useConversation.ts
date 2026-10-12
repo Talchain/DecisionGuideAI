@@ -186,7 +186,7 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
-import { readsBackBeforeResend, waitBeforeStreamCloseReadback } from './streamCloseReadback'
+import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
@@ -2805,6 +2805,8 @@ export function useConversation(): UseConversationReturn {
     proposalEdits?: ProposalEdits
   }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
+  /** B UI: the saved-model read before a re-send, while it is out. A scenario switch clears it, as it clears the one above. */
+  const streamLossReadRef = useRef<object | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
   // bubble. Written when the V5 path adds a user bubble; read by the
   // retryLast/skipUserBubble path so a retry re-pends and (on the next
@@ -3089,6 +3091,7 @@ export function useConversation(): UseConversationReturn {
       const adoptsTurnId = leavingScenarioId === null || adoptedMint
       prevScenarioRef.current = scenarioId
       missingDraftRecoveryRef.current = null
+      streamLossReadRef.current = null
 
       // Every branch below ends with `messages` belonging to the NEW scenario,
       // so ownership transfers here, once, rather than in four places.
@@ -5094,15 +5097,25 @@ export function useConversation(): UseConversationReturn {
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
             onResponseReceived: () => { responseReceived = true; dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) =>
-              (await recoverDraftFromServer({
+            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) => {
+              // B UI: lost streams read first now, so this read is fenced as the recovery after the re-send is: a scenario
+              // switch, even away and back, ends its claim on the canvas.
+              const readToken = {}
+              streamLossReadRef.current = readToken
+              const recovery = await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
                 accessToken: v5Identity.accessToken,
                 turnClientId,
                 signal: controller.signal,
-                canApply: () => canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
-              })) === 'recovered',
+                canApply: () => streamLossReadRef.current === readToken &&
+                  canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
+                // B UI (capacity 001307): a read that gets no answer is tried once more before anything is re-sent.
+                unansweredRetry: STREAM_LOSS_READ,
+              })
+              if (streamLossReadRef.current === readToken) streamLossReadRef.current = null
+              return recovery === 'recovered'
+            },
           })
           recoveredBeforeResend = streamed.recoveredBeforeResend === true
           v5Result = streamed.result
@@ -5262,6 +5275,8 @@ export function useConversation(): UseConversationReturn {
                 recoveryCanvas.nodes.length === 0 &&
                 useCanvasStore.getState().nodes === recoveryCanvas.nodes &&
                 useCanvasStore.getState().edges === recoveryCanvas.edges,
+              // B UI (capacity 001307): this one 8 s read gave up 2 s before CEE answered with the saved model.
+              unansweredRetry: STREAM_LOSS_READ,
             })
             reading = false
             if (!ownsRecovery()) return

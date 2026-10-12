@@ -39,7 +39,7 @@
  * so a stale recovery can never clear a NEWER draft's phase.
  */
 
-import { hydrateCanvasFromServer } from './serverGraphHydration'
+import { hydrateCanvasFromServer, type HydrateFromServerOptions } from './serverGraphHydration'
 import { useDraftStore } from '../stores/draftStore'
 import { logger } from '../../lib/logger'
 
@@ -60,6 +60,8 @@ export interface RecoverDraftArgs {
   signal?: AbortSignal
   /** Additional ownership checks for a missing initial draft. */
   canApply?: () => boolean
+  /** Opt-in re-read when the read gets no answer (`STREAM_LOSS_READ`); passed through unchanged. */
+  unansweredRetry?: HydrateFromServerOptions['unansweredRetry']
 }
 
 /**
@@ -76,6 +78,7 @@ export async function recoverDraftFromServer(
     accessToken: args.accessToken,
     signal: args.signal,
     canApply: args.canApply,
+    ...(args.unansweredRetry !== undefined ? { unansweredRetry: args.unansweredRetry } : {}),
     // A recovery read installs only THIS scenario's answer (P44 draft-stall, Codex r3 P1).
     requireServedScenario: true,
   })
