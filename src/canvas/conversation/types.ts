@@ -121,6 +121,12 @@ export interface ConversationMessage {
    */
   answerShape?: AnswerShape
   /**
+   * Run-3 judge U2: the model state this answer was given in (`answerStateKeyOf`: graph hash + the run it described).
+   * Replies sharing it draw CEE's repeated status headline and bullets once (`statusDrawnBefore`). Persisted with
+   * `answerShape`; absent ⇒ nothing about this answer is folded.
+   */
+  answerStateKey?: string
+  /**
    * CEE hop 4b: WHICH model elements this turn's answer was grounded on —
    * `_grounded_selection` on the V5 body, parsed + fail-closed by
    * `extractGroundedSelectionSidecar` (groundedSelection.ts, which carries the
