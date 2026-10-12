@@ -924,6 +924,18 @@ export const EdgePanel = memo(function EdgePanel({
     (!edge?.data?.serverStrength && pendingEdgeAdds.some(intent => intent.edgeId === edgeId))
 
   /**
+   * ⭐ THE ONE WRITE FOR A LINK THAT HAS NEVER REACHED THE MODEL — the registered
+   * structural-add retry (`graphWriteRegistry`: EdgePanel `updateEdgeData`). Its
+   * stated strength AND its stated direction are what the `structural_add_edge`
+   * capture reads, so both go through here; Helps / Hurts once wrote with a direct
+   * `updateEdge`, an unregistered second writer.
+   */
+  const stateCanvasOnlyLink = useCallback((patch: Record<string, unknown>) => {
+    if (!edgeId) return
+    useCanvasStore.getState().updateEdgeData(edgeId, patch as never)
+  }, [edgeId])
+
+  /**
    * States the strength for a link that has never reached the model, with the
    * provenance stamps that make it a CLAIM rather than a default. The store's
    * `updateEdge` sees a recorded stand-down plus a now-stated strength and
@@ -951,13 +963,19 @@ export const EdgePanel = memo(function EdgePanel({
       // the SAME edge across a save never remounts, which is exactly where the
       // save happens.
       origStrengthRef.current = v
-      useCanvasStore.getState().updateEdgeData(edgeId, {
-        weight: Math.abs(v),
-        weightSource: 'user',
-      } as never)
+      stateCanvasOnlyLink({ weight: Math.abs(v), weightSource: 'user' })
     },
-    [edgeId],
+    [edgeId, stateCanvasOnlyLink],
   )
+
+  /**
+   * Helps / Hurts for a link that has never reached the model. `updateEdgeData`
+   * restates weight and belief (it clamps them), so both pass through unchanged.
+   */
+  const handleStateDirectionForSave = useCallback((choice: 'positive' | 'negative') => {
+    const current = useCanvasStore.getState().edges.find(e => e.id === edgeId)?.data
+    stateCanvasOnlyLink({ direction: choice, directionSource: 'user', weight: current?.weight, belief: current?.belief })
+  }, [edgeId, stateCanvasOnlyLink])
 
   if (!edgeId || !edge) return null
 
@@ -1100,9 +1118,7 @@ export const EdgePanel = memo(function EdgePanel({
                         ${direction === choice
                           ? 'border-primary text-primary'
                           : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'}`}
-                      onClick={() => useCanvasStore.getState().updateEdge(edgeId, {
-                        data: { direction: choice, directionSource: 'user' } as never,
-                      })}>
+                      onClick={() => handleStateDirectionForSave(choice)}>
                       {choice === 'positive' ? 'Helps' : 'Hurts'}
                     </button>
                   ))}
