@@ -7,12 +7,17 @@
  * marked as theirs: "20%–30% of monthly team capacity (your range)".
  *
  * ⚠ ONLY A RANGE THE USER AUTHORED. "your range" is said only where the range's own `source` says the user wrote it:
- * their edit (kind `edited`) or their brief (kind `brief`), read through `classifyObservedValueProvenance` (the helper
- * `factorPriorRange` uses for "Your value"). F UI check round 1 (DL 12 Oct): being user-OWNED is not enough. A confirmed
+ * kind `edited`, read through `classifyObservedValueProvenance` (the helper `factorPriorRange` uses for "Your value").
+ * CEE writes the user's own range (from their brief, or a later sentence) as `USER_TODAY_SOURCE` = `user_override`
+ * (admit-model.ts `withStatedLevelRange`, add-factor-transaction.ts, agent-capabilities.ts; CEE staging a770ce49). On a
+ * factor's range, `brief_extraction` is a THIRD PARTY's range quoted in the brief, carried with the quote naming that
+ * party (`briefAttributedLevelRange`, which accepts only attributed sentences), so kind `brief` is not "your range".
+ * F UI check round 1 (DL 12 Oct): being user-OWNED is not enough either. A confirmed
  * range (`user_confirmed`) is Olumi's figure that the user endorsed; confirming does not make them its author
  * (`valueProvenance.ts`, "CONFIRMED AND EDITED ARE DIFFERENT CLAIMS"). `human` does not say which act. A bare
  * `user_assumption` is also CEE's stamp for an adopted Olumi estimate, and a range carries no `reviewed_by_user` to tell
- * the two apart. `accepted`, `panel`, `unverified_brief` and Olumi's own range (`ai`) are not the user's words either.
+ * the two apart. `accepted`, `panel`, `brief`, `unverified_brief` and Olumi's own range (`ai`) are not the user's own
+ * range either.
  * None of these gets a line here.
  *
  * ⚠ THE SAME WORDS AS THE VALUE LINE. Both ends go through `factorDisplayParts` / `factorDisplayText`, the formatter the
@@ -23,8 +28,8 @@ import { factorDisplayParts, factorDisplayText, joinFactorDisplayParts } from '.
 
 export const STATED_RANGE_YOURS = '(your range)'
 
-/** The provenance kinds that mean the user AUTHORED the range: they typed it, or it came from their brief. */
-const USER_AUTHORED_RANGE_KINDS: ReadonlySet<ValueProvenanceKind> = new Set<ValueProvenanceKind>(['edited', 'brief'])
+/** The provenance kinds that mean the user AUTHORED the range (CEE's `user_override`, the client's typed stamps). */
+const USER_AUTHORED_RANGE_KINDS: ReadonlySet<ValueProvenanceKind> = new Set<ValueProvenanceKind>(['edited'])
 
 export function resolveFactorStatedRangeOnCard(data: unknown): string | null {
   if (data === null || typeof data !== 'object') return null

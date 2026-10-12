@@ -8,8 +8,9 @@
  * Node data: run-4 hiring reopen, `fac_capacity_used_for_non_development_tasks` (live/runs/2026-10-12T172858Z/hiring/
  * reopen.json, after.state.node_data; UI 616bbf21, CEE a770ce49), verbatim except the long source quote is shortened.
  * Capacity's missing range is CEE's (its stored model holds none) and is not tested here.
- * F UI check round 1 (DL 12 Oct, blocking): only a range the user AUTHORED (typed, or from their brief) is "your range";
- * a confirmed one (`user_confirmed`) is not. The negatives below keep the served 20–30 bounds so only the source differs.
+ * F UI check round 1 (DL 12 Oct, blocking): only a range the user AUTHORED is "your range"; a confirmed one
+ * (`user_confirmed`) is not, and neither is a third party's range quoted in the brief (`brief_extraction`). The negatives
+ * below keep the served 20–30 bounds so only the source differs.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -56,8 +57,8 @@ describe('run 4 B3: the user\'s stated range is kept on the canvas card', () => 
   it('the words come from the owner: the same formatter as the value line, both ends', () => {
     expect(resolveFactorStatedRangeOnCard(SERVED)).toBe('20%–30% of monthly team capacity (your range)')
     const tickets = { label: 'Support capacity per additional specialist', category: 'external',
-      observedState: { cap: 100, unit: 'tickets per week per specialist', value: 0.2, raw_value: 20, source: 'brief_extraction',
-        range: { low: 10, high: 30, source: 'brief_extraction', meaning: 'min_max' } } }
+      observedState: { cap: 100, unit: 'tickets per week per specialist', value: 0.2, raw_value: 20, source: 'user_override',
+        range: { low: 10, high: 30, source: 'user_override', meaning: 'min_max' } } }
     expect(resolveFactorStatedRangeOnCard(tickets)).toBe('10–30 tickets per week per specialist (your range)')
   })
 
@@ -89,8 +90,19 @@ describe('run 4 B3: the user\'s stated range is kept on the canvas card', () => 
     }
   })
 
-  it('POSITIVE CONTROL: every authored stamp (typed, or from the brief) says the line, same words', () => {
-    for (const source of ['user_override', 'user', 'user_edited', 'user_calibration', 'brief_extraction', 'explicit']) {
+  // CEE stamps a factor range `brief_extraction` only for a THIRD PARTY's range quoted in the brief (admit-model.ts
+  // `withStatedLevelRange` → `briefAttributedLevelRange`, attributed sentences only; CEE staging a770ce49). The user's own
+  // range is `user_override`. So a brief-kind range is someone else's, never "your range".
+  it('⭐ NEGATIVE: a third party\'s range quoted in the brief (brief_extraction / explicit) is not "your range"', () => {
+    for (const source of ['brief_extraction', 'explicit']) {
+      expect(resolveFactorStatedRangeOnCard(withRange({ low: 20, high: 30, source, meaning: 'min_max',
+        source_quote: 'Our consultants estimate the team spends between 20% and 30% of its time on non-development work.' })), source)
+        .toBeNull()
+    }
+  })
+
+  it('POSITIVE CONTROL: every authored stamp (CEE\'s user_override, the client\'s typed stamps) says the line, same words', () => {
+    for (const source of ['user_override', 'user', 'user_edited', 'user_calibration']) {
       expect(resolveFactorStatedRangeOnCard(withRange({ low: 20, high: 30, source, meaning: 'min_max' })), source)
         .toBe('20%–30% of monthly team capacity (your range)')
     }
