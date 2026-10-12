@@ -254,7 +254,8 @@ export interface NodeDisplayMetadata {
    * real hook so "optional in the type" cannot decay into "absent in practice".
    */
   achievementProbabilityBasis?: GoalProbabilityBasis | null
-  // #2747 chance authority gate: the joint ("all your limits hold") figure is not carried; no canonical cell licenses it.
+  // #2747 chance authority gate: the legacy limits-channel joint ("all your limits hold") number is not carried; no
+  // canonical cell licenses it. CEE's licensed AND-target answer is a different claim, shown through the canonical view.
   /** Whether the producer sent a joint figure at all (the selector's `jointGoalPresent`), for classification only. */
   jointGoalPresent?: boolean
   /**

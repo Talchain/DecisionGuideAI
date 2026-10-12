@@ -296,7 +296,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(face.textContent).not.toContain('Why?')
     expect(text.split(CHANCE_NOT_SHOWN_YET).length - 1).toBe(1)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
-    // #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint ("all your limits hold") figure is shown: the report's
+    // #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits-channel ("all your limits hold") figure is shown: the report's
     // `probability_of_joint_goal` is licensed by no canonical cell, and beside CEE's licensed joint it is a second "both".
     expect(text).not.toMatch(/All your limits hold in \d+% of model runs/)
   })
@@ -315,7 +315,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
 
-  it('#2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint (\"all your limits hold\") figure is shown, in any row', () => {
+  it('#2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits (\"all your limits hold\") figure is shown, in any row', () => {
     setStore(CONSTRAINED_REPORT)
     const text = renderPanel().container.textContent ?? ''
     expect(text).not.toContain('All your limits hold in 42% of model runs')
@@ -379,9 +379,10 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
  * number one section down.
  */
 /**
- * #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no joint ("all your limits hold") figure is shown. The section's limits
- * stay; the joint sentence and its modelled-basis caveat are gone (the report's `probability_of_joint_goal` is licensed
- * by no canonical cell; in Batch C it can carry goal-target semantics). Every presence pin below is now an absence pin.
+ * #2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits-channel ("all your limits hold") figure is shown. The section's
+ * limits stay; the joint sentence and its modelled-basis caveat are gone (the report's `probability_of_joint_goal` is licensed
+ * by no canonical cell; in Batch C it can carry goal-target semantics). CEE's licensed AND-target answer is a different
+ * claim and is not affected. Every presence pin below is now an absence pin.
  */
 describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real shape; joint figure removed by #2747)', () => {
   function setStoreWithConstraints(report: Record<string, unknown>) {

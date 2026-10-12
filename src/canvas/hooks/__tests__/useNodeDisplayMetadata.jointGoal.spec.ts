@@ -77,8 +77,9 @@ beforeEach(() => {
 })
 
 /**
- * #2747 (DL ruling (a), reverses AIQ 5882498938 / ROADMAP 2.283): the hook no longer carries the joint ("all your limits
- * hold") NUMBER: no canonical cell licenses it. It forwards only `jointGoalPresent`, for classification.
+ * #2747 (DL ruling (a), reverses AIQ 5882498938 / ROADMAP 2.283): the hook no longer carries the legacy limits-channel
+ * joint ("all your limits hold") NUMBER: no canonical cell licenses it. It forwards only `jointGoalPresent`, for
+ * classification. CEE's licensed AND-target answer is a different claim and is not affected.
  */
 const carriesJointNumber = (md: object) => 'jointGoalProbability' in md
 describe('useNodeDisplayMetadata — the joint figure (REAL hook): presence only, never the number', () => {

@@ -229,7 +229,8 @@ export interface GoalProbabilitySelection {
   jointGoalProbability: number | null
   /**
    * #2747 chance authority gate: whether the producer sent a joint figure at all, for classification only. No surface
-   * shows the joint number (no canonical cell licenses it); `jointGoalProbability` stays for the snapshot writer.
+   * shows this legacy limits-channel number (P(all limits hold); no canonical cell licenses it); `jointGoalProbability`
+   * stays for the snapshot writer. CEE's licensed AND-target answer is a different claim, shown through the canonical view.
    */
   jointGoalPresent: boolean
   /** Which producer quantity `goalProbability` is. Never null; 'none' when absent. */

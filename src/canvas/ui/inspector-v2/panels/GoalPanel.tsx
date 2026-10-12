@@ -220,8 +220,9 @@ export const GoalPanel = memo(function GoalPanel({
   // The owner's decision, forwarded (see the identity comment above): the
   // number, the joint figure, and which quantity the number IS.
   const probGoal = displayMetadata.achievementProbability
-  // #2747 chance authority gate: no joint ("all your limits hold") figure is shown; no canonical cell licenses it.
-  // #2747: the possessive gate's `goalFitSubstituted` guarded only the joint lines, which are removed (no licensed joint).
+  // #2747 chance authority gate: the legacy limits-channel line ("All your limits hold in N% of model runs",
+  // `probability_of_joint_goal`) is removed; no canonical cell licenses it. CEE's licensed AND-target answer is a
+  // different claim and is not affected. The possessive gate's `goalFitSubstituted` guarded only those lines.
 
   /**
    * The success-target string (ROADMAP 2.315(c)).

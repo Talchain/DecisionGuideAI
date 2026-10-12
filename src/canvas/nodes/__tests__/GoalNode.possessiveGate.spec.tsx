@@ -235,7 +235,7 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // The load-bearing scoping test: constraints on the option must not
     // silence the goal figure, nor swap the joint (all-limits) figure in.
     const { container, unmount } = renderGoalWith(CONSTRAINED_OPTION)
-    // #2747: no canonical view → no Chance row, and never the joint figure (view-bearing control pins the figure).
+    // #2747: no canonical view → no Chance row, and never the legacy limits figure (view-bearing control pins the figure).
     expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
     expect(container.textContent ?? '').not.toContain('42%')
     expect(allAccessibleNames(container)).not.toContain('42%')
