@@ -454,6 +454,7 @@ function resolveText({
       // Qualitative by construction, so it needs no caveat and no unit, and it
       // is the same band the card's own severity pill shows.
       const severity = calculateRiskSeverity(
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a risk's own likelihood), not an analysis result
         data.probability as number | undefined,
         data.impact as RiskImpact | undefined,
       )

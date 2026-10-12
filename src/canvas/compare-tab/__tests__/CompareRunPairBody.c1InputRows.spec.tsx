@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { AnalysisStateV1Schema, type RunDelta, type RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useCanvasStore } from '../../store'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { RUN_CHANGE_ARTEFACT_TESTID } from '../RunChangeArtefactCard'
 import { InputChanges } from '../../../components/results/analysisNew/sections/WhatsChanged'
@@ -33,6 +35,13 @@ function seed(delta: RunDelta = c1Delta()): string {
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' }, analysisFreshnessDirty: false,
     importPendingServerRegistration: false, hasCompletedFirstRun: true, ceeAnalysisReady: null,
   })
+  // #2747 chance authority gate (DL ruling (b)): the scenario's canonical view is for the pair's Latest Run, current.
+  useCanonicalAnalysisViewStore.getState().adopt('scn-c1', parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld', options: [],
+    run: { run_id: C1_ENDPOINTS.current.run_id, graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+  }))
   return hash
 }
 const pairRows = () => [...screen.getByTestId('compare-run-pair').querySelectorAll<HTMLElement>('[data-testid$="-input-row"]')]
@@ -41,7 +50,7 @@ beforeEach(() => {
   useCanvasStore.setState(original, true)
   vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Offline Compare fixture'))
 })
-afterEach(() => { cleanup(); useCanvasStore.setState(original, true); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }); vi.restoreAllMocks() })
 
 describe('C1 Compare input rows, producer identities and values', () => {
   it('C1-a: lists the option intervention even after the first two rows, with its names and raw values', () => {
@@ -69,22 +78,15 @@ describe('C1 Compare input rows, producer identities and values', () => {
     expect(pairRows()[1]).toHaveTextContent('Slight')
   })
 
-  it('C1-c: no best, winner or recommendation wording; goal chances use only the CEE-carried pair', () => {
+  // #2747 re-scope 2 (U0 | DL ruling (A)): the goal-chance row assertions (compare-goal-chances list, its words and pair,
+  // and the negative bound to that list) and the Result details / compare-share-results presence are deleted — Compare
+  // shows no goal chance and no share in C. The wording negatives stay.
+  it('C1-c: no best, winner or recommendation wording', () => {
     const delta = c1Delta()
     delta.goal_chances = [{ option_id: 'opt_49', prior: { kind: 'point', pct: 47, rounding: 'whole' },
       current: { kind: 'range', low_pct: 20, high_pct: 40, low_rounding: 'whole', high_rounding: 'whole' } }]
     render(<CompareRunPairBody responseHash={seed(delta)} />)
     const pair = screen.getByTestId('compare-run-pair')
-    const goals = screen.getByTestId('compare-goal-chances')
-    expect(within(goals).getAllByRole('listitem').map(row => row.dataset.optionId)).toEqual(['opt_49'])
-    expect(within(goals).getByTestId('compare-goal-chance-words')).toHaveTextContent(
-      /^Keep £49: Earlier about 47% → Latest between about 20% and 40%$/)
-    expect(within(goals).getByTestId('compare-goal-chance-pair')).toHaveTextContent(
-      /^about 47%between about 20% and 40%$/)
-    expect(goals.textContent).not.toMatch(/10%|12%|41%|44%|56%|59%/)
-    expect(pair.textContent).not.toMatch(/\bbest\b|\bwinner\b|recommend/i)
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-share-results')).toBeInTheDocument()
     expect(pair.textContent).not.toMatch(/\bbest\b|\bwinner\b|recommend/i)
     cleanup()
     render(<CompareRunPairBody responseHash={seed(c1Delta())} />)

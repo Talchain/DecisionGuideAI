@@ -5,7 +5,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
-import { withLicensedOptionChances, fixtureChanceText } from './__helpers__/optionChanceFixture'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -23,7 +23,6 @@ const CHANCE_REPORT = withLicensedOptionChances({
   },
   robustness: { near_tie: { is_tie: false, top_option_id: 'candidate' } },
 }, { candidate: 41, alternative: 29 })
-const CHANCE = fixtureChanceText(CHANCE_REPORT, 'candidate', { candidate: candidate.data.label, alternative: candidate.data.label })!
 const fresh = {
   freshness: 'fresh', freshnessReason: 'graph_hash_match',
   computedAt: '2026-09-09T00:00:00.000Z',
@@ -32,12 +31,12 @@ const fresh = {
 /**
  * ED #63 5799353114 decision 1 ("Drop 'Most supported'. It reads as a
  * recommendation."): in EVERY currency state the leader card carries no pill —
- * neither the bare one nor the `Last run ·` one. Called only AFTER the same
- * render's `option-win-anchor` / `option-win-readout` assertions, which are its
- * contrast control: the result row is on screen, the leader claim is not.
+ * neither the bare one nor the `Last run ·` one. Its same-render contrast
+ * control is the card's own title: the card is on screen, the leader claim is not.
  */
 function expectNoLeaderPill(container: HTMLElement) {
-  expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe(CHANCE)
+  // #2747 re-scope 2 (U0): WAS the chance readout as the contrast control; the canvas card shows no chance in C.
+  expect(screen.getByTestId('node-title')).toHaveTextContent('Try a smaller pilot')
   expect(screen.queryByTestId('leading-option-pill-candidate')).toBeNull()
   expect(screen.queryByTestId('leading-option-robustness-candidate')).toBeNull()
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
@@ -52,7 +51,10 @@ afterEach(() => {
 })
 
 describe('option results follow the composed freshness authority', () => {
-  it('keeps the result while distinguishing edited, unknown and current states', () => {
+  // #2747 re-scope 2 (U0): the row's chance assertions (the readout, the `Current model` / `Last run` / `Model result`
+  // caption and the currency row's accessible name in each state) are deleted — the canvas card shows no chance in C. The
+  // no-leader-pill negatives in every currency state, and the unanalysed-draft negatives, stay.
+  it('carries no leader pill through edited, unknown and current states', () => {
     useCanvasStore.setState({
       nodes: [candidate, { ...candidate, id: 'alternative' }], edges: [], ceeAnalysisReady: null, viewMode: 'standard',
       analysisStateV1: null, analysisFreshness: fresh, analysisFreshnessDirty: false,
@@ -74,15 +76,6 @@ describe('option results follow the composed freshness authority', () => {
       dragging={false} zIndex={0} deletable selectable draggable
     /></OptionChanceCellProvider></ReactFlowProvider>)
 
-    // WS5-1: the Results chance replaces the runs share while the same currency caption tracks model edits.
-    const anchor = () => screen.getByTestId('option-win-anchor-candidate').getAttribute('aria-label') ?? screen.getByTestId('option-win-anchor-candidate').textContent
-    const label = () => screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label') ?? ''
-    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe(CHANCE)
-    expect(anchor()).toBe('Current model')
-    expect(label()).toContain(`Current model · ${CHANCE}`)
-    expect(label()).not.toContain('of runs')
-    expect(label()).not.toContain('The model has changed since this run.')
-    expect(label()).not.toContain('can’t confirm')
     // The producer's claim names THIS card and nothing withholds it — the
     // strongest case for the retired pill (ED #63 5799353114 decision 1).
     expectNoLeaderPill(container)
@@ -90,37 +83,18 @@ describe('option results follow the composed freshness authority', () => {
     // A local edit supersedes the prior fresh verdict. This is the same real
     // store transition consumed by the panels, with no node-local hash.
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
-    // Locked Canvas design (23 Sep 2026): KNOWN changed → 'Last run' (ED 02:31Z Q2).
-    expect(anchor()).toBe('Last run')
-    expect(label()).toContain(`Last run · ${CHANCE}`)
-    expect(label()).toContain('The model has changed since this run.')
-    // WAS `Last run · Most supported`: the `Last run` caption survives on the
-    // result row (asserted above); the pill it used to prefix does not.
+    // WAS `Last run · Most supported`: the pill it used to prefix does not survive.
     expectNoLeaderPill(container)
-    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe(CHANCE)
 
     act(() => useCanvasStore.setState({
       analysisFreshnessDirty: false,
       analysisFreshness: { ...fresh, freshness: 'unknown', freshnessReason: 'cee_unknown' },
     } as never))
-    // Locked Canvas design (23 Sep 2026): currency that CANNOT be confirmed
-    // reads 'Model result' — it claims neither current nor a later model, and
-    // must not manufacture a last-run claim (ED 02:31Z). (The leading pill that
-    // used to lose its "Last run ·" prefix here is retired altogether.)
-    expect(anchor()).toBe('Model result')
-    expect(label()).toContain(`Model result · ${CHANCE}`)
-    expect(label()).toContain('Olumi can’t confirm this run reflects the current model.')
-    expect(label()).not.toContain('The model has changed')
-    expect(label()).not.toContain('Last run')
+    // (The leading pill that used to lose its "Last run ·" prefix here is retired altogether.)
     expectNoLeaderPill(container)
-    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe(CHANCE)
 
     act(() => useCanvasStore.setState({ analysisFreshness: fresh } as never))
-    expect(anchor()).toBe('Current model')
-    expect(label()).toContain(`Current model · ${CHANCE}`)
-    expect(label()).not.toContain('Last run')
     expectNoLeaderPill(container)
-    expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe(CHANCE)
 
     // An unanalysed draft must not acquire a warning about earlier results.
     act(() => useCanvasStore.setState({

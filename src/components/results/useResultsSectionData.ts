@@ -159,6 +159,7 @@ export function determineWinnerSelection(
 
   if (backendRecommendedId) {
     const backendOption = options.find(opt => opt.id === backendRecommendedId)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     if (backendOption?.winProbability != null) {
       return { recommendedId: backendRecommendedId, determinedBy: 'win_probability' }
     }
@@ -2301,11 +2302,14 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         : undefined
 
       const chance = runView.chanceOf(nodeId)
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
       const goalProbability = chance.kind === 'figure' ? chance.pct / 100 : null
       const details = goalProbabilityDetails(prob as GoalProbabilityInput)
       const goalFitIsModelledBasis = false
-      // A licensed withholding retains its basis metadata without licensing a figure.
-      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence')
+      // A licensed withholding retains its basis metadata without licensing a figure; so does a gated range (#2747: a
+      // ranged option has no point figure through the gate, but its range is this Run's licensed quantity).
+      const gatedRanged = runView.goalChanceRange !== null && Object.prototype.hasOwnProperty.call(runView.goalChanceRange.rangeByOption, nodeId)
+      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence') || gatedRanged
         ? details.baseCaveat : null
 
       // Display-honesty: per-option valid sample count for resolution-aware
@@ -2354,6 +2358,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         p50: scaledP50,
         p90: scaledP90,
         isRecommended: false, // Will be set immutably below
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps the report's win share onto the option view
         winProbability: prob.win_probability,
         nValidSamples,
         // 2.449 — omitted entirely when the engine had nothing honest to say.
@@ -2400,8 +2405,6 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         goalFitIsModelledBasis,
         goalFitBaseCaveat,
         ...(details.goalCertaintyUnearned ? { goalCertaintyUnearned: details.goalCertaintyUnearned } : {}),
-        goalFitIsSubstitutedJoint: false,
-        goalFitWithheld: chance.kind === 'withheld' || (goalProbability === null && details.jointGoalProbability !== null),
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
         ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),
@@ -2606,6 +2609,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       ? sortedOptions.find(o => o.id === baselineId)
       : null
     // Issue #2 fix: Fall back to goalProbability when expected is null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     const baselineOutcome = baselineOption?.expected ?? baselineOption?.goalProbability ?? null
 
     // Immutably mark recommended option and add baseline/delta info (no mutation of existing objects)
@@ -2613,6 +2617,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       const isBaseline = option.id === baselineId
       // Task 2.2: Calculate point delta (absolute, not percent)
       // Issue #2 fix: Use expected ?? goalProbability for delta calculation
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
       const optionOutcome = option.expected ?? option.goalProbability
       const deltaFromBaseline = !isBaseline && baselineOutcome != null && optionOutcome != null
         ? optionOutcome - baselineOutcome
@@ -2637,6 +2642,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
         : undefined
 
     // Task 1.3: Extract win_probability from recommended option
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     const winProbability = recommendedOption?.winProbability
 
     // Task 1.5: Extract robustness level and label
@@ -4500,6 +4506,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
           v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
         const probOf = (b: Record<string, unknown>): { ok: boolean; value?: number } => {
           if (!('win_probability' in b)) return { ok: true }
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps the report's win share onto the option view
           const p = b.win_probability
           if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1) return { ok: true, value: p }
           return { ok: false }

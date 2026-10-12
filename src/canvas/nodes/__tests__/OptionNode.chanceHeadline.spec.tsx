@@ -2,22 +2,20 @@ import { CHANCE_NOT_SHOWN_YET } from '../../runView/runView'
 import { canonicalTestCellsOf } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { useResultsSectionData } from '../../../components/results/useResultsSectionData'
 import * as resultsData from '../../../components/results/useResultsSectionData'
-import { DecisionMatrix } from '../../../components/results/analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../../../components/results/analysisNew/buildAnalysisNewViewModel'
 import { GOAL_FIGURES_WITHHELD_CODES } from '../../../components/results/utils/goalIdentityWithheld'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
 const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
 
 import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { fx, SCORED, seedPaulRun, resetPaulRun } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
+import { readGoalChanceRange } from '../../../components/results/utils/goalChanceRange'
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
 const ID = 'angel_bridge'
@@ -55,20 +53,12 @@ function seed(kind: Case) {
   } as never)
   if (kind !== 'unlicensed' && kind !== 'none') {
     const projection = renderHook(() => useResultsSectionData())
-    const canonical = canonicalTestCellsOf(projection.result.current, { run_id: 'canonical-chance-fixture', graph_hash_at_run: null, computed_at: null })
+    // #2747: the projection's ranges are gated before this canonical view exists, so the fixture reads the Run's range record.
+    const rawRange = readGoalChanceRange((useCanvasStore.getState().results.report as { inference_warnings?: unknown }).inference_warnings)
+    const canonical = canonicalTestCellsOf({ ...projection.result.current, goalChanceRange: rawRange }, { run_id: 'canonical-chance-fixture', graph_hash_at_run: null, computed_at: null })
     projection.unmount()
     useCanonicalAnalysisViewStore.getState().adopt(state.currentScenarioId!, canonical)
   }
-}
-
-function matrixText() {
-  const data = renderHook(() => useResultsSectionData()).result.current
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  const view = render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={ids} run={{ hash: 'run-4276' }} isStale={false} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-  const text = screen.getByTestId(`decision-matrix-chance-${ID}`).querySelector('span')!.textContent!
-  view.unmount()
-  return text
 }
 
 function card() {
@@ -91,57 +81,35 @@ function setGoalBasis() {
 }
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); resetPaulRun(); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
-describe('option card headline is the Results chance cell', () => {
-  it.each(['figure', 'withheld', 'unlicensed', 'range'] as const)('%s: exact Results words, no runs share on face or accessible name', kind => {
+/**
+ * #2747 re-scope 2 (U0): the canvas option card shows NO chance in C, whatever the Run holds — the journey path reads
+ * chances on the Results hero (CEE's cells) and the chat analysis card only. The card keeps its pre-run settings and every
+ * negative: no share of runs, no chance words, no figure caveat (a caveat qualifies a figure the card does not show).
+ * Interim limit; the restore trigger is the chance's own served string and Run licence on the canvas (post-C).
+ */
+describe('option card shows no chance in C (the Results hero says it)', () => {
+  it.each(['figure', 'withheld', 'unlicensed', 'range', 'none'] as const)('%s: no chance readout, face or accessible chance; settings remain', kind => {
     seed(kind)
-    const expected = matrixText()
-    if (kind === 'figure') expect(expected.toLowerCase()).toContain(GOAL_ANCHOR_COPY.readout('41%', false).toLowerCase())
-    if (kind === 'withheld') expect(expected).toContain(TEST_WITHHELD_FACE)
-    if (kind === 'unlicensed') expect(expected).toBe(CHANCE_NOT_SHOWN_YET)
-    if (kind === 'range') expect(expected).toContain('chance of meeting your goal')
-    const { container } = card()
-    if (kind === 'unlicensed') expect(container.textContent).not.toContain(TEST_RUN_AGAIN_COPY)
-    const row = screen.getByTestId(`option-analysis-currency-${ID}`)
-    expect(row.textContent).toContain(expected)
-    expect(row.getAttribute('aria-label')).toContain(expected)
-    expect(row.textContent).toMatch(/^Current model/)
-    expect(container.textContent).not.toContain('of runs')
-    for (const element of container.querySelectorAll('[aria-label]')) expect(element.getAttribute('aria-label')).not.toContain('of runs')
-  })
-
-  it('none: a win share adds no headline, and the pre-run settings remain', () => {
-    seed('none')
-    expect(matrixText()).toBe('Not shown.')
+    if (kind === 'figure' || kind === 'range') {
+      // CONTROL: the Run DOES hold a chance cell for this option, so the card's silence is not a missing fixture.
+      const data = renderHook(() => useResultsSectionData()).result.current
+      expect(data.runView!.chanceCellOf(ID, { goalChanceHeroSays: true, labelOf: () => 'option' }).kind).not.toBe('none')
+    }
     const { container } = card()
     expect(screen.queryByTestId(`option-analysis-currency-${ID}`)).toBeNull()
+    expect(screen.queryByTestId(`option-win-readout-${ID}`)).toBeNull()
     expect(container.querySelector(`[data-testid^="option-change-row-${ID}-"]`)).not.toBeNull()
-    expect(container.textContent).not.toContain('of runs')
-    expect(container.textContent).not.toContain('chance of meeting your goal')
+    for (const said of [container.textContent ?? '', ...[...container.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label') ?? '')]) {
+      expect(said).not.toContain('of runs')
+      expect(said).not.toContain('chance of meeting your goal')
+      expect(said).not.toContain('41%')
+      expect(said).not.toContain(TEST_WITHHELD_FACE)
+      expect(said).not.toContain(TEST_RUN_AGAIN_COPY)
+      expect(said).not.toContain(CHANCE_NOT_SHOWN_YET)
+    }
   })
 
-  it('licensed figure: exactly one percent-bearing chance text, with no low-chance badge', () => {
-    seed('figure')
-    setGoalBasis()
-    const { container } = card()
-    const chanceTexts = [...container.querySelectorAll('span, p')].filter(element =>
-      element.querySelector('span, p') === null && /%.*chance of meeting your goal/.test(element.textContent ?? ''))
-    expect(chanceTexts.map(element => element.textContent)).toEqual([expect.stringContaining('41%')])
-    expect(container.textContent).not.toMatch(/<\s*\d+%|Less than 8%/)
-  })
-
-  it('licensed figure: shows the same goal-fit base caveat as Results', () => {
-    seed('figure')
-    setGoalBasis()
-    const data = renderHook(() => useResultsSectionData()).result.current
-    const option = data.recommendation.allOptions.find(option => option.id === ID)!
-    expect(option.goalFitBaseCaveat).toBe('olumi_estimate')
-    expect(option.goalFitIsModelledBasis).toBe(false)
-    card()
-    expect(screen.getByTestId(`goal-fit-base-caveat-option-node-${ID}`).textContent).toBe(GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY)
-    expect(screen.queryByTestId(`goal-fit-basis-caveat-option-node-${ID}`)).toBeNull()
-  })
-
-  it.each(['figure', 'withheld'] as const)('%s: modelled-basis caveat follows the Results entry, with a figure-only gate', kind => {
+  it.each(['figure', 'withheld', 'unlicensed', 'range'] as const)('%s: no figure caveat is drawn beside a figure the card does not show', kind => {
     seed(kind)
     setGoalBasis()
     const projection = renderHook(() => useResultsSectionData())
@@ -152,24 +120,10 @@ describe('option card headline is the Results chance cell', () => {
       allOptions: data.recommendation.allOptions.map(option => option.id === ID
         ? { ...option, goalFitIsModelledBasis: true } : option),
     } })
-    card()
-    const caveat = screen.queryByTestId(`goal-fit-basis-caveat-option-node-${ID}`)
-    if (kind === 'figure') expect(caveat?.textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
-    else expect(caveat).toBeNull()
-  })
-
-  it.each(['withheld', 'unlicensed', 'range'] as const)('%s: retains licensed basis metadata but shows no figure caveat', kind => {
-    seed(kind)
-    setGoalBasis()
-    const data = renderHook(() => useResultsSectionData()).result.current
-    if (kind === 'unlicensed') {
-      // No GOAL_CHANCE licence or canonical figure is installed by this fixture.
-      expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBeNull()
-    } else {
-      expect(data.recommendation.allOptions.find(option => option.id === ID)?.goalFitBaseCaveat).toBe('olumi_estimate')
-    }
-    card()
+    const { container } = card()
     expect(screen.queryByTestId(`goal-fit-base-caveat-option-node-${ID}`)).toBeNull()
     expect(screen.queryByTestId(`goal-fit-basis-caveat-option-node-${ID}`)).toBeNull()
+    expect(container.textContent).not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+    expect(container.textContent).not.toContain(GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY)
   })
 })

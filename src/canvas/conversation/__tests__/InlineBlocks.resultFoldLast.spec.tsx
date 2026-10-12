@@ -44,6 +44,12 @@ const REPLY_WORDS = String(C2_RUN.assistant_text).trim().split(/\s+/).length
 const servedBlock = (): V5AnalysisResultBlockType =>
   ({ ...JSON.parse(JSON.stringify(SERVED)), type: 'v5_analysis_result' }) as V5AnalysisResultBlockType
 const leaderNamedTwin = (): V5AnalysisResultBlockType => ({ ...servedBlock(), leading_option_id: 'Raise to £59 with release' })
+/** Review prose (the 0.30 `decision_review` shape) is a body, so the card keeps its frame under a reply. */
+const proseTwin = (): V5AnalysisResultBlockType => {
+  const b = servedBlock() as unknown as { enrichment: Record<string, unknown> }
+  return { ...b, enrichment: { ...b.enrichment, decision_review: { produced_at: '2026-07-30T00:00:00.000Z',
+    narrative_summary: 'The review’s own account of the run.' } } } as unknown as V5AnalysisResultBlockType
+}
 
 const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
@@ -60,13 +66,15 @@ describe('B4: the result fold closes the result, never opens it', () => {
     expect(follows(line, fold), 'the fold follows the line it would otherwise sit above').toBe(true)
   })
 
-  it('RED (card form, leader named): the reliability line and the shares come first, the fold last', () => {
-    const { getByTestId } = mount(leaderNamedTwin(), REPLY_WORDS)
+  // #2747 re-scope 2 (U0 rewrite): the card's body was the leader-named win-share row, which C does not show (DL ruling
+  // (A)); review prose is the body here. The order under test is unchanged: the content first, the fold last.
+  it('RED (card form, with review prose): the reliability line and the body come first, the fold last', () => {
+    const { getByTestId } = mount(proseTwin(), REPLY_WORDS)
     expect(getByTestId('v5-analysis-result')).toHaveAttribute('data-presentation', 'card')
     const fold = getByTestId('v5-analysis-result-summary-details')
     expect(follows(getByTestId('v5-analysis-result-heading'), getByTestId('v5-analysis-result-uncertainty-copy'))).toBe(true)
     expect(follows(getByTestId('v5-analysis-result-uncertainty-copy'), fold)).toBe(true)
-    expect(follows(getByTestId('v5-analysis-result-probabilities'), fold)).toBe(true)
+    expect(follows(getByTestId('v5-analysis-result-narrative-summary'), fold)).toBe(true)
   })
 
   it('RED: the fold reads like the chat\'s other disclosures: the same word, the chevron instead of "▸"', () => {

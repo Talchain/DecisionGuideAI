@@ -8,7 +8,6 @@ import { classifyNodeProvenance, classifyValueProvenance, isAcceptedOlumiFigure,
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
-import { fragileEdgeSentence } from '../../edges/connectorCopy'
 import { QUESTIONS } from '../../conversation/askAiQuestions'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
@@ -585,13 +584,7 @@ export const EDGE_COPY = {
   // S-DEF (Science 393023, 7 Oct): a validated definition is held whoever drew it; no likelihood is said of it.
   existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis always includes it.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',
-  /**
-   * The SAME sentence the canvas cue, the edge hover and the key carry
-   * (`fragileEdgeSentence`), so the panel cannot size the change one way on its
-   * heading and another on this tooltip ("small" vs "significantly" was the
-   * reviewer blocker on Paul 23 Sep contract feedback point 4). No size claim.
-   */
-  flipRiskTooltip: (pct: number) => `${fragileEdgeSentence(pct / 100)}.`,
+  // #2747 re-scope 2 round 2: `flipRiskTooltip` ("… (86% flip risk).") lost its only caller with the edge panel's switch figure.
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',

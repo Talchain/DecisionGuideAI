@@ -25,9 +25,46 @@ export interface CanonicalAnalysisView {
   readonly face_when_stale?: string
   readonly leader_licence: 'permitted' | 'permitted_with_caveat' | 'withheld'
   readonly options: readonly { readonly option_id: string; readonly cell: CanonicalAnalysisCell; readonly main_driver: CanonicalMainDriver }[]
+  /** Recovery Batch C (CEE `canonicalGoalChanceDetail`): what the chance is a chance OF, and the lines said once beside it. */
+  readonly goal_chance?: CanonicalGoalChanceDetail
+}
+/**
+ * Recovery Batch C, CEE `canonical-analysis-view.ts` `CanonicalGoalChanceDetail`, copied from the Run's stored licence. The
+ * UI says these words as served and composes no chance of its own.
+ */
+export interface CanonicalGoalChanceDetail {
+  /** "chance of ‘Productivity’ being at least 10% higher than today at three months" */
+  readonly chance_words?: string
+  readonly notes?: readonly string[]
+  readonly status_quo?: { readonly option_id: string; readonly line: string }
+  readonly targets?: {
+    readonly joint: { readonly status: 'licensed'; readonly words: string }
+      | { readonly status: 'withheld'; readonly line: string; readonly frechet_line?: string }
+    readonly per_target: readonly { readonly constraint_id: string; readonly words: string;
+      readonly options: readonly { readonly option_id: string; readonly display: string }[] }[]
+  }
 }
 const rec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 const nullableString = (v: unknown): v is string | null => v === null || typeof v === 'string'
+const sayable = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && !/[\r\n]/.test(v)
+
+/** The Batch C detail, or `undefined` when absent or any part is malformed (a malformed sentence is never said). */
+export function parseCanonicalGoalChance(v: unknown): CanonicalGoalChanceDetail | undefined {
+  if (!rec(v)) return undefined
+  if (v.chance_words !== undefined && !sayable(v.chance_words)) return undefined
+  if (v.notes !== undefined && !(Array.isArray(v.notes) && v.notes.every(sayable))) return undefined
+  if (v.status_quo !== undefined && !(rec(v.status_quo) && sayable(v.status_quo.option_id) && sayable(v.status_quo.line))) return undefined
+  if (v.targets !== undefined) {
+    const t = v.targets
+    if (!rec(t) || !rec(t.joint) || !Array.isArray(t.per_target)) return undefined
+    const joint = t.joint
+    if (joint.status === 'licensed' ? !sayable(joint.words)
+      : joint.status !== 'withheld' || !sayable(joint.line) || (joint.frechet_line !== undefined && !sayable(joint.frechet_line))) return undefined
+    if (!t.per_target.every(row => rec(row) && sayable(row.constraint_id) && sayable(row.words) && Array.isArray(row.options)
+      && row.options.every(o => rec(o) && sayable(o.option_id) && sayable(o.display)))) return undefined
+  }
+  return v as unknown as CanonicalGoalChanceDetail
+}
 /** The only parser of the opaque field carried by the READ adapter. */
 export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | null {
   try {
@@ -67,6 +104,8 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
           && typeof reason.code === 'string' && nullableString(reason.message))) return null
       } else if (cell.kind !== 'none') return null
     }
-    return v as unknown as CanonicalAnalysisView
+    const { goal_chance: goalChanceRaw, ...view } = v
+    const goalChance = parseCanonicalGoalChance(goalChanceRaw)
+    return { ...view, ...(goalChance === undefined ? {} : { goal_chance: goalChance }) } as unknown as CanonicalAnalysisView
   } catch { return null }
 }

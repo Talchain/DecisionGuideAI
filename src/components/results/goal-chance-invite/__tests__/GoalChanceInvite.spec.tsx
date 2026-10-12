@@ -19,7 +19,9 @@ import { GoalChanceInvite } from '../GoalChanceInvite'
 beforeEach(() => {
   proposeGoalTarget.mockClear()
   authorityFor.mockClear()
-  useCanvasStore.setState({ currentScenarioId: 'scn-1' } as never)
+  // #2747 re-scope 2 (U2): the invitation reads the named goal's own frame, so the goal is on the canvas.
+  useCanvasStore.setState({ currentScenarioId: 'scn-1', nodes: [{ id: 'goal', type: 'goal', position: { x: 0, y: 0 },
+    data: { label: 'Monthly cancellations', goal_threshold_raw: 400, goal_threshold_unit: 'tickets' } }] } as never)
 })
 afterEach(() => cleanup())
 
@@ -50,6 +52,21 @@ describe('GoalChanceInvite', () => {
       .toBe('Give ‘Monthly cancellations’ a target to see each option’s chance of meeting it.')
     expect(screen.getByTestId('existing-target-door').getAttribute('data-goal')).toBe('goal')
     expect(proposeGoalTarget).not.toHaveBeenCalled()
+  })
+
+  // #2747 re-scope 2 (U2, finding 3): never a change target read, offered or written as a level.
+  it('a goal stated as a CHANGE gets no "at least / at most {figure}" invitation, and nothing is written', () => {
+    useCanvasStore.setState({ nodes: [{ id: 'goal', type: 'goal', position: { x: 0, y: 0 },
+      data: { label: 'Productivity', goal_threshold_raw: 0.1, goal_threshold_unit: '%', goal_threshold_frame: 'change_rel' } }] } as never)
+    const { container } = render(<GoalChanceInvite invite={{ ...DIRECTION, value: 0.1, unit: '%' }} goalLabel="Productivity" />)
+    expect(container.textContent).toBe('')
+    expect(proposeGoalTarget).not.toHaveBeenCalled()
+  })
+
+  it('a goal this canvas does not hold has no frame to read, so no invitation', () => {
+    useCanvasStore.setState({ nodes: [] } as never)
+    const { container } = render(<GoalChanceInvite invite={DIRECTION} goalLabel="Monthly cancellations" />)
+    expect(container.textContent).toBe('')
   })
 
   it('CONTROL: no invitation → nothing renders', () => {

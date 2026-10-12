@@ -18,6 +18,8 @@ import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
  *  3. `SuccessTargetRow` — the only render of `failure_margin_median` in the
  *     repo: "Typically misses by {N}", the fabricated distance.
  *
+ * #2747 re-scope 2 (DL ruling (A)): surface 2, `WinGauge`, is deleted in C (it drew raw win shares); its rows are deleted.
+ *
  * Fixtures are producer bytes (see `utils/__tests__/fixtures/`). Assertions
  * bind by identity — exact option id, exact test id — never by a value
  * predicate a sibling option could satisfy (CLAUDE.md trap 19).
@@ -27,12 +29,8 @@ import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
  */
 
 import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
-import { WinGauge } from '../WinGauge'
-import { SuccessTargetRow } from '../SuccessTargetRow'
 import { buildGoalFitRows } from '../../../canvas/components/model-tab/buildGoalFitRows'
-import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 import { selectGoalProbability } from '../utils/selectGoalProbability'
 import {
   L60_PRICING_OPTIONS,
@@ -110,154 +108,10 @@ describe('L62 / Model tab goal card (buildGoalFitRows)', () => {
   })
 })
 
-// ───────────────────────────────────────────────────────────────────────────
-// 2. WinGauge — the results panel's goal block
-// ───────────────────────────────────────────────────────────────────────────
+// 2. WinGauge — #2747 re-scope 2 (DL ruling (A)): rows deleted, their only subject (WinGauge) was removed in C:
+//    'renders the honest-absence state, not a percentage and not the no-target invitation — <shape>' (×3 shapes);
+//    'POSITIVE CONTROL: an honest goal probability still draws the goal block, per option by id';
+//    'POSITIVE CONTROL: a genuine NO-TARGET run still gets the no-target invitation, not the withheld sentence'.
 
-function gaugeShares(options: readonly ProducerOption[]) {
-  return options.map((o, i) => {
-    // The hook's mapping, and only the hook's mapping — the flags come out of
-    // the REAL selector, never hand-set, so this pins the producer shape
-    // through the real chooser into the real component.
-    const d = selectGoalProbability(o)
-    return {
-      id: o.id,
-      label: o.label,
-      winProbability: 0.4 - i * 0.05,
-      isWinner: i === 0,
-      goalProbability: d.goalProbability,
-      nValidSamples: 10000,
-      goalFitIsSubstitutedJoint:
-        d.goalProbability != null && !d.mayUsePossessiveGoalFraming,
-      goalFitWithheld: d.jointSubstitutionWithheld,
-    }
-  })
-}
-
-describe('L62 / WinGauge goal block', () => {
-  for (const [name, options] of SHAPES) {
-    it(`renders the honest-absence state, not a percentage and not the no-target invitation — ${name}`, () => {
-      const { container } = render(
-        <WinGauge shares={gaugeShares(options as readonly ProducerOption[])} />,
-      )
-      const text = container.textContent ?? ''
-
-      // The withheld sentence, by test id and verbatim register copy.
-      const block = container.querySelector('[data-testid="win-gauge-goal-not-scored"]')
-      expect(block).not.toBeNull()
-      expect(block!.textContent).toContain(GOAL_ANCHOR_COPY.notScored)
-      expect(block!.textContent).toContain(GOAL_ANCHOR_COPY.notScoredReason)
-
-      // NOT the no-target invitation: the user set a target / the run carried
-      // limits, and asking them to set one would blame them for our silence.
-      expect(container.querySelector('[data-testid="win-gauge-no-target"]')).toBeNull()
-      expect(text).not.toContain(GOAL_ANCHOR_COPY.noTarget)
-      expect(text).not.toContain(GOAL_ANCHOR_COPY.noTargetCta)
-
-      // No goal figure at all — neither the number nor its label.
-      expect(container.querySelector('[data-testid="win-gauge-goal-block"]')).toBeNull()
-      expect(text).not.toContain(GOAL_ANCHOR_COPY.label(true))
-      expect(text).not.toContain('< 1%')
-      for (const o of options as readonly ProducerOption[]) {
-        expect(container.querySelector(`[data-testid="goal-pct-${o.id}"]`), o.id).toBeNull()
-      }
-
-      // The comparative block is untouched — the gate withholds one claim, it
-      // does not blank the panel.
-      expect(container.querySelector('[data-testid="win-gauge-comparative-block"]')).not.toBeNull()
-    })
-  }
-
-  it('POSITIVE CONTROL: an honest goal probability still draws the goal block, per option by id', () => {
-    const honest = (L60_PRICING_OPTIONS as readonly ProducerOption[]).map((o, i) => ({
-      ...o,
-      probability_of_goal: 0.12 + i * 0.17,
-    }))
-    const { container } = render(<WinGauge shares={gaugeShares(honest)} />)
-    const text = container.textContent ?? ''
-
-    expect(container.querySelector('[data-testid="win-gauge-goal-block"]')).not.toBeNull()
-    // The possessive is EARNED here, so the label is the possessive form.
-    expect(text).toContain(GOAL_ANCHOR_COPY.label(false))
-    expect(container.querySelector('[data-testid="win-gauge-goal-not-scored"]')).toBeNull()
-    for (const o of honest) {
-      expect(container.querySelector(`[data-testid="goal-pct-${o.id}"]`), o.id).not.toBeNull()
-    }
-  })
-
-  it('POSITIVE CONTROL: a genuine NO-TARGET run still gets the no-target invitation, not the withheld sentence', () => {
-    // No goal figure AND no joint figure — the ordinary state of a run the
-    // user set no target on. Without this control, wiring every empty goal
-    // block to the withheld copy would pass every test above.
-    const noTarget = (L60_PRICING_OPTIONS as readonly ProducerOption[]).map((o, i) => ({
-      id: o.id,
-      label: o.label,
-      winProbability: 0.4 - i * 0.05,
-      isWinner: i === 0,
-      goalProbability: null,
-      nValidSamples: 10000,
-      goalFitIsSubstitutedJoint: false,
-      goalFitWithheld: false,
-    }))
-    const { container } = render(<WinGauge shares={noTarget} />)
-
-    expect(container.querySelector('[data-testid="win-gauge-no-target"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="win-gauge-goal-not-scored"]')).toBeNull()
-    expect(container.textContent ?? '').toContain(GOAL_ANCHOR_COPY.noTarget)
-  })
-})
-
-// ───────────────────────────────────────────────────────────────────────────
-// 3. SuccessTargetRow — the fabricated shortfall
-// ───────────────────────────────────────────────────────────────────────────
-
-describe('L62 / the fabricated "typically misses by" distance', () => {
-  it('does not render a shortfall for a missed constraint, in the user units or otherwise', () => {
-    // The margin values are the producer's own, from the pricing run's
-    // `constraint_margins` (a fraction) and the people run's (a head-count) —
-    // the two cases the removed line rendered as bare, unitless digits.
-    const { container } = render(
-      <SuccessTargetRow
-        goalThreshold={250000}
-        constraintAnalysis={{
-          joint_probability: 0,
-          constraints: [
-            {
-              node_id: 'out_gross_margin',
-              operator: '>=',
-              threshold: 0.8,
-              label: 'Gross Margin',
-              prob_satisfied: 0,
-              failure_margin_median: 0.5630574027128157,
-              near_miss_fraction: 0,
-              binding: true,
-            },
-            {
-              node_id: 'risk_ae_attrition',
-              operator: '<=',
-              threshold: 2,
-              label: 'Account executives lost',
-              prob_satisfied: 0,
-              failure_margin_median: 18.002137272472513,
-              near_miss_fraction: 0,
-              binding: false,
-            },
-          ],
-        }}
-      />,
-    )
-    const text = container.textContent ?? ''
-
-    // Control: the rows themselves DID render, so the absences below are
-    // about the shortfall line and not about an empty component.
-    expect(container.querySelector('[data-testid="constraint-row-out_gross_margin"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="constraint-row-risk_ae_attrition"]')).not.toBeNull()
-
-    // The removed claim, by wording and by value.
-    expect(text).not.toContain('Typically misses by')
-    expect(text).not.toContain('0.5630574027128157')
-    expect(text).not.toContain('18.002137272472513')
-    // …and no rounded rendering of either sneaking back in.
-    expect(text).not.toMatch(/misses by/i)
-  })
-})
+// 3. SuccessTargetRow (the fabricated shortfall) was deleted by #2747 r2: it had no render site and showed constraint
+//    probabilities no canonical cell licenses. Its absence is the guard.

@@ -1,9 +1,6 @@
 import { useCanonicalAnalysisViewStore } from '@/canvas/stores/canonicalAnalysisViewStore'
 import type { CanonicalAnalysisView } from '@/canvas/runView/canonicalAnalysisView'
 import served from '@/canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
-import { DecisionMatrix } from '../analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
-import { fireEvent, screen } from '@testing-library/react'
 import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
@@ -416,7 +413,8 @@ it('view-bearing control: singleVerdict canvas quotes both server figures withou
   expect(canvas.text).toContain('29%')
 })
 
-it('view-bearing control: singleVerdict Results matrix quotes server figures and preserves its single verdict', () => {
+// #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C; the Results panel keeps its single verdict.
+it('view-bearing control: singleVerdict Results panel preserves its single verdict on the canonical Run', () => {
   setStore(CLEAR_RUN)
   const cells = optionChanceFixture({ [WINNER_ID]: 41, [RUNNER_UP_ID]: 29 }, true)
   const canonical: CanonicalAnalysisView = { ...served.canonical_analysis_view,
@@ -430,15 +428,6 @@ it('view-bearing control: singleVerdict Results matrix quotes server figures and
   useCanvasStore.setState({ currentScenarioId: 'single-verdict-view',
     results: { ...state.results, report: { ...state.results.report!, run_id: 'synthetic-ui-fixture' } },
   } as never)
-  const data = renderHook(() => useResultsSectionData()).result.current
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={OPTION_NODES.map(n => n.id)} run={{}} isStale={false} />)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-  for (const node of OPTION_NODES) {
-    const face = screen.getByTestId(`decision-matrix-chance-${node.id}`).querySelector('span')!
-    expect(face.textContent).toBe(cells(node.id).text)
-    expect(face.textContent).toMatch(/(?:41|29)%/)
-  }
   const panel = readPanel()
   expect(panel.denies).toBe(false)
   expect(panel.footerTicksWinner).toBe(true)

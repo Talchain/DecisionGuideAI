@@ -58,7 +58,6 @@ import {
 } from '@/canvas/mutations/mutationAuthority'
 import { openModelValueEditor } from '@/canvas/nodes/shared/openModelValueEditor'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
-import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
 import {
   INFLUENCE_TIE_EPSILON,
@@ -376,19 +375,10 @@ const openValueEditor = (nodeId: string): void => {
 
 // ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
 
-function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
-  const rec = data.recommendation
-  const winnerConstraints = rec.recommendedOption?.constraintAnalysis
-  const goalThreshold = rec.goalThreshold
-  return (
-    <div className="space-y-2">
-      <TargetProbabilityBars
-        constraintAnalysis={winnerConstraints}
-        goalThreshold={goalThreshold}
-      />
-    </div>
-  )
-}
+// #2747 r2: Section 2's result checks (`TargetProbabilityBars`: each target's "chance of meeting this target" bar and the
+// joint line, from the legacy `constraint_analysis` channel) are removed with their slot: no canonical cell licenses
+// either figure, so each was a chance on screen outside the authority gate. CEE's licensed per-target chances are said
+// by the goal-chance detail lines (`goalChanceDetailLines`).
 
 /**
  * T1 flip-risk callout — moved from inside ResultChecks per Brief 5.8B D2c
@@ -1265,29 +1255,10 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
-  // Result-checks slot gate: must mirror BOTH null-return paths in
-  // TargetProbabilityBars — (1) no constraints array AND (2) no constraint
-  // carries a numeric `prob_satisfied`. Otherwise a bundle with shaped-but-
-  // empty constraints would still emit an empty bordered slot.
-  // See TargetProbabilityBars.tsx:26-32.
-  const hasResultChecks = (
-    data.recommendation.recommendedOption?.constraintAnalysis?.constraints
-      ?.some(c => typeof c.prob_satisfied === 'number')
-  ) ?? false
-
   const stabilityScore = data.recommendation.recommendationStability
 
   return (
     <>
-      {/* 2. Result checks — target probabilities only. Gate the divider on
-          the same condition TargetProbabilityBars uses (constraint data
-          present) so sparse states don't emit an empty bordered slot. */}
-      {hasResultChecks && (
-        <div className="border-t border-panel-border pt-3" data-testid="t1-result-checks-slot">
-          <ResultChecks data={data} />
-        </div>
-      )}
-
       {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
       {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
         <div className="border-t border-panel-border pt-3">

@@ -227,6 +227,12 @@ export interface GoalProbabilitySelection {
    * purpose, goes through this module.
    */
   jointGoalProbability: number | null
+  /**
+   * #2747 chance authority gate: whether the producer sent a joint figure at all, for classification only. No surface
+   * shows this legacy limits-channel number (P(all limits hold); no canonical cell licenses it); `jointGoalProbability`
+   * stays for the snapshot writer. CEE's licensed AND-target answer is a different claim, shown through the canonical view.
+   */
+  jointGoalPresent: boolean
   /** Which producer quantity `goalProbability` is. Never null; 'none' when absent. */
   basis: GoalProbabilityBasis
   /**
@@ -305,6 +311,7 @@ export function basisWithholdsPossessive(
 /** Limits and provenance metadata only; no goal figure is chosen here. */
 export function goalProbabilityDetails(prob: GoalProbabilityInput | null | undefined) {
   const jointGoalProb =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
@@ -312,7 +319,7 @@ export function goalProbabilityDetails(prob: GoalProbabilityInput | null | undef
     prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
 
   return {
-    jointGoalProbability: jointGoalProb,
+    jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
     jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
     baseCaveat,
     goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
@@ -323,6 +330,7 @@ export function selectGoalProbability(
   prob: GoalProbabilityInput | null | undefined,
 ): GoalProbabilitySelection {
   const details = goalProbabilityDetails(prob)
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   const jointGoalProb = details.jointGoalProbability
   // Both spellings of the SAME producer quantity (see the registration header):
   // the mapped `goal_probability` wins where a payload carries both, so every
@@ -330,9 +338,13 @@ export function selectGoalProbability(
   const unconstrained =
     prob?.goalIdentityWithheld === true || prob?.goalCertaintyUnearned !== undefined
       ? null
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
       : typeof prob?.goal_probability === 'number'
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
         ? prob.goal_probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
         : typeof prob?.probability_of_goal === 'number'
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
           ? prob.probability_of_goal
           : null
   const baseCaveat = details.baseCaveat
@@ -363,7 +375,7 @@ export function selectGoalProbability(
       // those surfaces read the producer field directly regardless of this
       // constant today — so publishing it here changes no rendered output in
       // either state of the gate, while keeping the read inside this module.
-      jointGoalProbability: jointGoalProb,
+      jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
       jointGoalIsModelledBasis: details.jointGoalIsModelledBasis,
@@ -425,7 +437,7 @@ export function selectGoalProbability(
     // figure as its OWN, separately-labelled claim ("chance of hitting every
     // target") are honest and keep their number. The gate governs the GOAL-FIT
     // slot only.
-    jointGoalProbability: jointGoalProb,
+    jointGoalProbability: jointGoalProb, jointGoalPresent: jointGoalProb != null,
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && details.jointGoalIsModelledBasis,

@@ -102,9 +102,12 @@ export function sortOptionsForDisplay<T extends DisplayOrderFields>(
   // null check, poison the comparator (NaN ?? 0 stays NaN), and make the
   // order arbitrary — mixed/invalid coverage must fall back to expected.
   const allHaveWinProb =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     ranked.length > 0 && ranked.every(o => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability))
   const sortedRanked = [...ranked].sort((a, b) => {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)
   })
   return [...sortedRanked, ...unranked]

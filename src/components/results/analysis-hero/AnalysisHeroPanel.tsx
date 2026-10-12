@@ -297,8 +297,6 @@ export function AnalysisHeroPanel({
   const lens: HeroLens = lensState ?? model.defaultLens
   const lensAvailable = model.lenses.includes(lens)
 
-  // RunView cells serve goal-only figures; constraints do not make them joint.
-  const goalKey = 'goalOnly' as const
   // Axis labels per lens: the goal lens draws NO tracks (prototype v6
   // readout-only table), so no axis is drawn for it; Stability rows carry
   // the producer's own readout labels; What changed compares the same
@@ -312,9 +310,12 @@ export function AnalysisHeroPanel({
   // overlap); two-plus → the full wording. What changed adds the
   // ghost-mark legend; Stability needs no caption (the readouts are the
   // producer's own labels).
+  // #2747 re-scope 2 round 2 (DL rule C / U2): the Goal fit lens has no caption. Its caption was the UI's own words for
+  // what the chances are OF ("Each value is the chance that option meets every target this run scored."), a joint register
+  // beside CEE's cells, which say what each chance is of in CEE's words.
   const caption =
     lens === 'goal'
-      ? HERO_COPY.caption[goalKey]
+      ? null
       : lens === 'whatChanged'
         ? HERO_COPY.ghostLegend
         : lens === 'stability'
@@ -406,6 +407,14 @@ export function AnalysisHeroPanel({
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-subline">
             {model.subline}
           </p>
+        )}
+        {/* Recovery Batch C: the Run's goal-chance detail, CEE's words in CEE's order, said once beside the chances. */}
+        {model.goalChanceDetailLines && (
+          <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-goal-chance-detail">
+            {model.goalChanceDetailLines.map((line, index) => (
+              <p key={`${line.kind}-${index}`} data-line-kind={line.kind}>{dashSafe(line.text)}</p>
+            ))}
+          </div>
         )}
         {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence.
             Present only on a withheld run that supplied one; null renders

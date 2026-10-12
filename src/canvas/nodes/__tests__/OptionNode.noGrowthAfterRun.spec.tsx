@@ -35,11 +35,10 @@ import { installCanonicalFixtureState } from '../../../components/results/analys
  * cannot render any more.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, renderHook, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
-import { useOptionChanceCell } from '../shared/useOptionChanceCell'
 import { useCanvasStore } from '../../store'
 import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../../state/winShareGate'
 
@@ -105,7 +104,6 @@ const renderCard = (id: string) => {
 
 const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
 const slot = (id: string) => screen.queryByTestId(`option-share-slot-${id}`)
-const chanceText = (id: string) => renderHook(() => useOptionChanceCell(id), { wrapper: OptionChanceCellProvider }).result.current.text
 
 afterEach(() => {
   cleanup()
@@ -119,7 +117,8 @@ describe('served pricing options — the share line is ONE line in a slot reserv
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the share fills it" on the served (withheld) stamp. The served
   // run now fills the SAME slot with `Not ranked`; the share filling it is pinned on a PERMITTED run.
   it.each(SERVED_OPTIONS.map(o => [o.id] as const))(
-    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run, the licensed chance on a permitted run',
+    // #2747 re-scope 2 (U0): "the licensed chance on a permitted run" dropped from the title — the card shows no chance in C.
+    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run; a permitted run keeps the same slot',
     (id) => {
       seedPreRun()
       renderCard(id)
@@ -149,18 +148,14 @@ describe('served pricing options — the share line is ONE line in a slot reserv
       expect(tokens(marker)).toContain('whitespace-nowrap')
       cleanup()
 
-      // A permitted run: the share fills the same slot.
+      // A permitted run: the same slot.
       seedPostRun(false)
       renderCard(id)
       const post = slot(id)
       expect(post, 'post-run: the same slot').not.toBeNull()
       expect(post!.getAttribute('class')).toBe(preClass)
-      expect(post!.getAttribute('aria-hidden')).toBeNull()
-      const row = screen.getByTestId(`option-analysis-currency-${id}`)
-      expect(row.parentElement).toBe(post)
-      expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceText(id))
-      expect(chanceText(id)).toContain('chance of meeting your goal, in this model.')
-      expect(row.getAttribute('aria-label')).not.toContain('of runs')
+      // #2747 re-scope 2 (U0): the slot exposed (not aria-hidden) BECAUSE the chance row filled it, that chance row, its
+      // readout and its accessible name are deleted — the canvas card shows no chance in C.
     },
   )
 
@@ -168,28 +163,18 @@ describe('served pricing options — the share line is ONE line in a slot reserv
   // served (withheld) stamp. The one-row geometry is kept on the same option with no stamp. The `· Goal only`
   // unit (whole, `shrink-0`, after the readout, never `truncate`) only rendered on a withheld run's share,
   // which no longer exists, so its absence is pinned here and the served run is pinned in the row above.
-  it('opt_full_switch post-run (PERMITTED run): the licensed chance is ONE non-wrapping row — no wrap class, no qualifier', () => {
+  // #2747 re-scope 2 (U0): the chance row's geometry (wrap tokens, readout, caption order, accessible name) is deleted —
+  // the canvas card shows no chance in C. The share-part negatives stay; the bar negative is re-anchored on the slot.
+  it('opt_full_switch post-run (PERMITTED run): no qualifier, figure, unit or bar in the slot', () => {
     seedPostRun(false)
     renderCard('opt_full_switch')
-    const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
-    const rowTokens = tokens(row)
-    expect(rowTokens).not.toContain('flex-wrap')
-    expect(rowTokens).toContain('flex-nowrap')
-    expect(rowTokens).toContain('whitespace-nowrap')
-    const readout = screen.getByTestId('option-win-readout-opt_full_switch')
-    expect(readout.parentElement).toBe(row)
+    const post = slot('opt_full_switch')
+    expect(post, 'post-run: the slot renders').not.toBeNull()
     expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
     expect(screen.queryByTestId('option-share-provisional-opt_full_switch')).toBeNull()
-    // The caption stays whole; the shared chance is recoverable in the accessible name.
-    expect(tokens(readout)).toContain('truncate')
     expect(screen.queryByTestId('option-win-figure-opt_full_switch')).toBeNull()
     expect(screen.queryByTestId('option-win-unit-opt_full_switch')).toBeNull()
-    expect(row.querySelector('.h-full.rounded-full')).toBeNull()
-    const anchor = screen.getByTestId('option-win-anchor-opt_full_switch')
-    expect(anchor.textContent).toBe('Current model')
-    expect(anchor.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(row.getAttribute('aria-label')).toBe(`Current model · ${chanceText('opt_full_switch')}`)
-    expect(row.getAttribute('aria-label')).not.toContain('of runs')
+    expect(post!.querySelector('.h-full.rounded-full')).toBeNull()
   })
 
   it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {
@@ -214,12 +199,12 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     expect(screen.getByTestId('option-not-analysed-chip-opt_hybrid')).toHaveAttribute('aria-label', 'Not analysed')
   })
 
-  it('CONTRAST — no Goal-only stamp: the same slot and the same one-line row, without the qualifier', () => {
+  // #2747 re-scope 2 (U0): the one-line chance row (its wrap token and its parent slot) is deleted — the canvas card shows
+  // no chance in C; the qualifier negative stays, with the slot as its same-render control.
+  it('CONTRAST — no Goal-only stamp: the same slot, without the qualifier', () => {
     seedPostRun(false)
     renderCard('opt_full_switch')
-    const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
-    expect(tokens(row)).not.toContain('flex-wrap')
+    expect(slot('opt_full_switch')).not.toBeNull()
     expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
-    expect(row.parentElement).toBe(slot('opt_full_switch'))
   })
 })

@@ -42,6 +42,7 @@ export function readGoalChanceHorizonLine(record: Record<string, unknown>): stri
 }
 
 function readEntry(v: unknown, target: GoalChanceTarget | null): GoalChanceRangeEntry | null {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   if (!isRec(v) || !wholePct(v.low_pct) || !wholePct(v.high_pct)
     || !nonEmpty(v.from) || !nonEmpty(v.to)) return null
   if (v.kind === 'stated_time') {
@@ -50,6 +51,7 @@ function readEntry(v: unknown, target: GoalChanceTarget | null): GoalChanceRange
     const positive = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0
     if (target?.by_date === undefined || !target.unit.startsWith('% of ') || !nonEmpty(target.unit.slice(5))
       || v.basis !== 'stated_time' || v.among !== 'all' || !chance(v.low) || !chance(v.high) || v.low > v.high
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
       || v.low_pct > v.high_pct || !isRec(estimate) || !positive(estimate.low) || !positive(estimate.high)
       || estimate.low > estimate.high) return null
     if (v.quantity !== 'months_to_finish' && v.quantity !== 'share_per_month') return null
@@ -57,15 +59,18 @@ function readEntry(v: unknown, target: GoalChanceTarget | null): GoalChanceRange
     if (estimate.unit !== unit) return null
     return {
       kind: 'stated_time', basis: 'stated_time', quantity: v.quantity,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
       low: v.low, high: v.high, lowPct: v.low_pct, highPct: v.high_pct,
       from: v.from, to: v.to, among: 'all',
       statedEstimate: { low: estimate.low, high: estimate.high, unit },
     }
   }
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   if (v.low_pct >= v.high_pct || !rounding(v.low_rounding) || !rounding(v.high_rounding)
     || (v.kind !== 'link_strength' && v.kind !== 'link_existence')
     || (v.among !== 'all' && v.among !== 'unsized_links')) return null
   return {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     lowPct: v.low_pct, highPct: v.high_pct, lowRounding: v.low_rounding, highRounding: v.high_rounding,
     kind: v.kind, from: v.from, to: v.to, among: v.among,
   }

@@ -63,11 +63,15 @@ const REPLY_WORDS = String(C2_RUN.assistant_text).trim().split(/\s+/).length
 const servedBlock = (): V5AnalysisResultBlockType =>
   ({ ...JSON.parse(JSON.stringify(SERVED)), type: 'v5_analysis_result' }) as V5AnalysisResultBlockType
 
-/** The same bytes with the producer's leader named: the win-share row renders, so the card has a body. */
-const leaderNamedTwin = (): V5AnalysisResultBlockType => ({
-  ...servedBlock(),
-  leading_option_id: 'Raise to £59 with release',
-})
+/**
+ * #2747 re-scope 2 (U0 rewrite): the card's body used to be the leader-named win-share row, which C does not show (DL
+ * ruling (A)). Review prose (the 0.30 `decision_review` shape) is a body, so this twin keeps the framed card.
+ */
+const proseTwin = (): V5AnalysisResultBlockType => {
+  const b = servedBlock() as unknown as { enrichment: Record<string, unknown> }
+  return { ...b, enrichment: { ...b.enrichment, decision_review: { produced_at: '2026-07-30T00:00:00.000Z',
+    narrative_summary: 'The review’s own account of the run.' } } } as unknown as V5AnalysisResultBlockType
+}
 
 function mount(block: V5AnalysisResultBlockType, assistantTextWordCount: number) {
   return render(
@@ -84,8 +88,8 @@ function mount(block: V5AnalysisResultBlockType, assistantTextWordCount: number)
  * block knows which form it renders (the parent's `resolveBlockBadgeDotClass` has no `v5_analysis_result` case).
  */
 describe('DS v5 §21.2: the framed analysis result card is the success block', () => {
-  it('⭐ the card form (served block, leader named) carries a complete success border and ONE success dot', () => {
-    const { getByTestId, getAllByTestId } = mount(leaderNamedTwin(), REPLY_WORDS)
+  it('⭐ the card form (served block, with review prose) carries a complete success border and ONE success dot', () => {
+    const { getByTestId, getAllByTestId } = mount(proseTwin(), REPLY_WORDS)
     const card = getByTestId('v5-analysis-result')
     expect(card.getAttribute('data-presentation')).toBe('card')
     expect(card.className.split(/\s+/)).toContain('border-success/30')

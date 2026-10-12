@@ -207,13 +207,15 @@ describe('⭐ the Model tab renders a prefix currency in front of the number', (
    * The legacy store scalar has no unit at all, so no class decision applies.
    * Pinned because the goal branch's fallback arm shares the edited expression.
    */
-  it('the legacy store-scalar fallback is untouched', () => {
+  // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone has no frame, unit or bound, so it is never said as the
+  // target; the row says "Target not captured" (was the bare "2,000,000").
+  it('the store-scalar fallback says "Target not captured", never the bare number', () => {
     const rows = toModelRows(
       projection({
         nodes: [{ id: GOAL_ID, type: 'goal', position: { x: 0, y: 0 }, data: { label: 'g', type: 'goal' } }],
         goalThreshold: 2000000,
       }),
     )
-    expect(rows.find(r => r.id === GOAL_ID)?.primaryValue).toBe('2,000,000')
+    expect(rows.find(r => r.id === GOAL_ID)?.primaryValue).toBe('Target not captured')
   })
 })

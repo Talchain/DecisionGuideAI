@@ -341,7 +341,9 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
     expect(impact?.textContent).not.toContain(OPTION_STRINGS.impactUnavailable)
   })
 
-  it('STILL shows the comparison to an option the run DID cover', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "Existing A" presence assertion (the share comparison to the other option) is
+  // deleted — OptionPanel shows no share comparison in C. The per-node negative stays.
+  it('an option the run DID cover is never told it was added after the run', () => {
     // Discriminating twin: the fix must suppress foreign data for a node the
     // run never saw, not delete the comparison for nodes it did.
     setStore({
@@ -361,9 +363,7 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
       },
     })
     mockDisplayMetadata.mockReturnValue({ ...baseMetadata, winRate: 0.55 })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact?.textContent).toContain('Existing A')
+    render(<OptionPanel {...optionProps} />)
     expect(screen.queryByTestId('option-impact-not-in-run')).toBeNull()
   })
 })

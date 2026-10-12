@@ -64,9 +64,9 @@ describe('OutcomePanel — option comparison section', () => {
     // that result family remains visible". The derived form proves the panel
     // reads the register; the literal beside it is the corpus that notices the
     // register itself changing its words (trap 12d).
-    expect(section?.textContent).toContain(`${OPTION_RESULT_COPY.current} · ${OPTION_RESULT_COPY.share('65%')}`)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(section?.textContent).toContain('Current model · supported by 65% of runs')
+    // #2747 re-scope 2 (DL ruling (A)): the two share-caption presence assertions ("Current model · supported by 65% of
+    // runs") are deleted — OutcomePanel says no option's win share in C. The labels, the register identity and the
+    // retired-caption negative stay.
     expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
     // The retired caption is gone from this section — asserted against the
     // same `textContent` the two option labels above were read from. No
@@ -81,7 +81,9 @@ describe('OutcomePanel — option comparison section', () => {
    * says `Last run 65% of runs`; this section said `Current model · 65% of
    * runs` for the same stale result. It now reads the card's currency owner.
    */
-  it('F5 — once the model has changed since the run, the share reads "Last run", never "Current model"', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "Last run · supported by 65% of runs" presence assertion is deleted — OutcomePanel
+  // says no option's win share in C. The label control and the "never Current model" negative stay.
+  it('F5 — once the model has changed since the run, the section never reads "Current model"', () => {
     setStoreState({
       // CEE's own verdict after the served edit: `complete_stale`, cause `graph_changed`.
       analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' },
@@ -101,9 +103,8 @@ describe('OutcomePanel — option comparison section', () => {
       <OutcomePanel nodeId="out1" techMode={false} onClose={() => {}} onNavigate={() => {}} />
     )
     const section = container.querySelector('[data-testid="option-comparison-section"]')
-    // Positive control: the section and its figure are on screen.
+    // Positive control: the section is on screen.
     expect(section?.textContent).toContain('Option A')
-    expect(section?.textContent).toContain(`${OPTION_RESULT_COPY.lastRun} · ${OPTION_RESULT_COPY.share('65%')}`)
     expect(section?.textContent).not.toContain(OPTION_RESULT_COPY.current)
   })
 

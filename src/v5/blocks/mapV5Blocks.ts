@@ -29,6 +29,12 @@ import { v5AnalysisBlockContentHash } from '../mapV5AnalysisToReport'
 
 import type { ConversationBlock } from '../../canvas/conversation/types'
 
+/**
+ * The Run a turn's own canonical view names: its id and its graph hash (`applyV5State.turnCanonicalRunOf`). #2747 r2:
+ * a same-turn analysis card is stamped with this Run's id only when the card's graph hash is the Run's.
+ */
+export interface TurnCanonicalRun { readonly run_id: string; readonly graph_hash_at_run: string | null }
+
 type V5Block = OlumiResponse['blocks'][number]
 
 /**
@@ -42,6 +48,7 @@ type SuggestedActionRef = OlumiResponse['suggested_actions'][number]
 export function mapV5Block(
   block: V5Block,
   suggestedActions: readonly SuggestedActionRef[] = [],
+  turnRun: TurnCanonicalRun | null = null,
 ): ConversationBlock | null {
   switch (block.type) {
     case 'text':
@@ -67,10 +74,19 @@ export function mapV5Block(
         leading_option_id: block.leading_option_id,
         // PLoT #416: under the typed identity withhold the win figures are not valid for this run (absent stays absent).
         // B3: per claim — only a warning that withholds `win_share` empties the block's win figures.
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
         ...(block.win_probabilities && !winSharesWithheld(readGoalFigureWithholds(block.enrichment))
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
           ? { win_probabilities: block.win_probabilities }
           : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
+        // The Run's graph hash, for the chance authority gate's match to the canonical view (#2747).
+        ...(typeof (block as { computed_against_hash?: unknown }).computed_against_hash === 'string'
+          ? { computed_against_hash: (block as { computed_against_hash: string }).computed_against_hash } : {}),
+        // #2747 r2: the Run's id, from the SAME turn's canonical view, only when that Run's graph hash is the card's.
+        ...(turnRun !== null && typeof (block as { computed_against_hash?: unknown }).computed_against_hash === 'string'
+          && turnRun.graph_hash_at_run === (block as { computed_against_hash: string }).computed_against_hash
+          ? { run_id: turnRun.run_id } : {}),
         // The Run's identity, from the unstripped wire block (see `V5AnalysisResultBlock.analysis_hash`).
         analysis_hash: v5AnalysisBlockContentHash(block),
       }
@@ -266,6 +282,7 @@ export function mapV5Block(
 export function mapV5Blocks(
   blocks: V5Block[],
   suggestedActions: readonly SuggestedActionRef[] = [],
+  turnRun: TurnCanonicalRun | null = null,
 ): ConversationBlock[] {
   // The `= []` default only covers `undefined`. A null (schema drift, or a
   // caller bypassing the parser) would make the held_proposal branch's
@@ -275,7 +292,7 @@ export function mapV5Blocks(
   const actions = Array.isArray(suggestedActions) ? suggestedActions : []
   const out: ConversationBlock[] = []
   for (const b of blocks) {
-    const mapped = mapV5Block(b, actions)
+    const mapped = mapV5Block(b, actions, turnRun)
     if (mapped) out.push(mapped)
   }
   return out

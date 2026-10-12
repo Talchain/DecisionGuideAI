@@ -33,6 +33,7 @@
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import { formatTargetValue } from '../utils/formatTargetValue'
 import { formatMoneyFigure } from '../../../utils/unitClassifier'
+import { isGoalTargetRow } from '../../../canvas/domain/goalOwnTargetRow'
 // ⚠ A deliberate two-way import: `goalConstraintText` reads this module's
 // operator/value formatters, and this module stands down to its rungs. Both
 // sides only call each other inside function bodies, so evaluation order is
@@ -106,6 +107,8 @@ export function selectStatedLimits(
 
   constraints.forEach((constraint, index) => {
     if (constraint == null || typeof constraint !== 'object') return
+    // Recovery Batch C: one of the goal's targets is not a limit (CEE `role: 'goal_target'`).
+    if (isGoalTargetRow(constraint)) return
 
     const { value, operator } = constraint
     if (typeof value !== 'number' || !Number.isFinite(value)) return

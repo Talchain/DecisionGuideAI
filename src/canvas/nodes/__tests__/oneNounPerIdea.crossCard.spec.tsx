@@ -1,4 +1,3 @@
-import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ ONE NOUN PER IDEA — ASSERTED ACROSS TWO CARDS, FROM ONE REPORT.
@@ -89,7 +88,7 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
-import { withLicensedOptionChances, fixtureChanceText } from './__helpers__/optionChanceFixture'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const NODES = [
@@ -99,7 +98,6 @@ const NODES = [
 ]
 
 const CHANCE_REPORT = withLicensedOptionChances(PERMITTED_REPORT, { [LEADER_ID]: 41, [RUNNER_UP_ID]: 29 })
-const CHANCE = CHANCE_NOT_SHOWN_YET
 
 const storeState = {
   nodes: NODES,
@@ -210,34 +208,20 @@ describe('one noun per idea — the option card speaks the register', () => {
    * cards. What still can drift is the option card drifting from the REGISTER,
    * and that is what survives below.
    */
-  it('the option card uses no retired synonym for the shared quantity', () => {
-    renderBoard()
-    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
-    const spoken = `${optionRow.getAttribute('aria-label') ?? ''} ${optionRow.textContent ?? ''}`
-    for (const retired of RETIRED_METRIC_NOUNS) {
-      expect(spoken, `the option card spoke the retired noun "${retired}"`)
-        .not.toMatch(new RegExp(`\\b${retired}\\b`, 'i'))
-    }
-    // WS5-1: the currency caption survives, then the licensed chance speaks Results' exact words.
-    const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
-    expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
-    const readout = screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent ?? ''
-    expect(readout).toBe(CHANCE)
-    expect(screen.queryByTestId(`option-win-prefix-${LEADER_ID}`)).toBeNull()
-    expect(spoken).toContain(`${anchor} · ${readout}`)
-    expect(spoken).not.toContain('of runs')
-    // ED 11:52Z point 4 retired "Support" as the result LABEL. The caption is never it, and no "Support N%" /
-    // "Support:" label form is spoken. Discriminating pair first, so the narrowed pattern cannot pass vacuously.
+  // #2747 re-scope 2 (U0): the card-side assertions are deleted — they read the noun the option card speaks for the shared
+  // quantity from its chance row (caption, readout, accessible name, "of runs", "Support"), and the canvas card shows no
+  // chance or share in C. The register-side assertions (the "Support" label pair, "Leads" retired) stay.
+  it('the register keeps the shared quantity\'s retired synonyms retired', () => {
+    // ED 11:52Z point 4 retired "Support" as the result LABEL: no "Support N%" / "Support:" label form.
+    // Discriminating pair first, so the narrowed pattern cannot pass vacuously.
     const SUPPORT_LABEL = /\bSupport(?![a-z])/
     expect('Support 66% of runs').toMatch(SUPPORT_LABEL)
     expect(OPTION_RESULT_COPY.share('66%')).not.toMatch(SUPPORT_LABEL)
-    expect(anchor).not.toMatch(/support/i)
-    expect(spoken, 'the option card still labels the result "Support"').not.toMatch(SUPPORT_LABEL)
     // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
 
-  it('⭐ REHOMED A11Y: the comparative claim reaches assistive tech EXACTLY ONCE', () => {
+  it('⭐ REHOMED A11Y: the comparative claim never reaches assistive tech twice', () => {
     // ⚠ THIS PROPERTY CAME FROM `decisionCardOneVocabulary.spec.tsx`, WHICH IS
     // RETIRED. That file's whole subject was the decision card's sentence and
     // bar speaking one vocabulary; both are gone. This one arm was never about
@@ -250,15 +234,8 @@ describe('one noun per idea — the option card speaks the register', () => {
     // `role="img"`, and any future visible restatement beside it would double
     // the announcement without changing a single rendered word.
     renderBoard()
-    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
-    // `getByRole` THROWS on more than one match, so this is the "exactly once"
-    // assertion — and binding the result to the row by identity is what makes
-    // it about THIS surface rather than whichever element matched first.
-    // WS5-1: the chance remains on exactly one accessible carrier, matching its visible text.
-    const carriers = [...document.querySelectorAll('[aria-label]')].filter(element =>
-      element.getAttribute('aria-label')?.includes(CHANCE),
-    )
-    expect(carriers).toEqual([optionRow])
+    // #2747 re-scope 2 (U0): "the chance remains on exactly one accessible carrier (the option card's chance row)" is
+    // deleted — the canvas card shows no chance in C. The no-duplicate-decision-claim negative stays.
     expect(screen.queryByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBeNull()
   })
 
@@ -274,13 +251,9 @@ describe('one noun per idea — the option card speaks the register', () => {
   })
 })
 
-it('view-bearing control: the server figure has exactly one accessible carrier and no duplicate decision claim', () => {
+// #2747 re-scope 2 (U0): the server figure's readout and its one accessible carrier on the option card are deleted — the
+// canvas card shows no chance in C. The no-duplicate-decision-claim negative stays.
+it('view-bearing control: no duplicate decision claim', () => {
   renderBoard(true)
-  const expected = fixtureChanceText(CHANCE_REPORT, LEADER_ID, { [LEADER_ID]: LEADER_LABEL, [RUNNER_UP_ID]: RUNNER_UP_LABEL })!
-  expect(screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent).toBe(expected)
-  expect(expected).toContain('41%')
-  const row = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
-  const carriers = [...document.querySelectorAll('[aria-label]')].filter(el => el.getAttribute('aria-label')?.includes(expected))
-  expect(carriers).toEqual([row])
   expect(screen.queryByTestId(DECISION_ROW)).toBeNull()
 })

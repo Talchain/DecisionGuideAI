@@ -9,11 +9,8 @@ import { withCanonicalTestCells } from './helpers/canonicalTestCells'
  * possessive sentence the hero otherwise prints names a question the number
  * does not answer.
  *
- * The row carries `goalFitIsSubstitutedJoint`, set once by
- * `selectGoalProbability` (via useResultsSectionData) and never re-derived
- * here — the same discipline the caveat flag follows, and for the same
- * reason: two sites deriving one meaning is how the canvas and the panel
- * came to contradict each other.
+ * (#2747 re-scope 2: the row's `goalFitIsSubstitutedJoint` flag is deleted — no producer path set it in C — and the hero
+ * detail is CEE's served cell, verbatim.)
  */
 import '@testing-library/jest-dom/vitest'
 import { chanceCellOf } from './helpers/chanceCellOf'
@@ -83,32 +80,8 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, OPTION_A.id).text ?? HERO_COPY.readout.missing)
   })
 
-  it('drops the possessive framing when the number is a substituted joint figure', () => {
-    const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
-    const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: true })
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).not.toContain('chance of meeting your goal')
-    expect(m.rows[0].detail.goalFit).toBe(
-      HERO_COPY.detail.goalFitJointBasis(m.rows[0].goal.readout),
-    )
-  })
-
-  it('still shows the NUMBER on a substituted joint figure (copy switch, never a value transform)', () => {
-    const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
-    const plain = chart(buildHeroModel(makeHeroData({ options: [a, makeOption(OPTION_B)] })))
-    const control = chart(buildHeroModel(makeHeroData()))
-    expect(plain.rows[0].goal.value).toBe(control.rows[0].goal.value)
-    expect(plain.rows[0].goal.readout).toBe(control.rows[0].goal.readout)
-  })
-
-  it('keeps the target framing for rows that are NOT substituted', () => {
-    const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
-    const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false })
-    const data = makeHeroData({ options: [a, b] })
-    const m = chart(buildHeroModel(data))
-    const rowA = m.rows.find((r) => r.id === OPTION_A.id)
-    const rowB = m.rows.find((r) => r.id === OPTION_B.id)
-    expect(rowA?.detail.goalFit).not.toContain('chance of meeting your goal')
-    expect(rowB?.detail.goalFit).toBe(chanceCellOf(data, OPTION_B.id).text ?? HERO_COPY.readout.missing)
-  })
+  // #2747 re-scope 2 round 2 (DL-approved cut): rows deleted — "drops the possessive framing when the number is a substituted
+  // joint figure", "still shows the NUMBER on a substituted joint figure" and "keeps the target framing for rows that are NOT
+  // substituted": their only subject, `goalFitIsSubstitutedJoint` (always false in C), is deleted. The detail is CEE's cell
+  // verbatim on every row (the positive control above).
 })

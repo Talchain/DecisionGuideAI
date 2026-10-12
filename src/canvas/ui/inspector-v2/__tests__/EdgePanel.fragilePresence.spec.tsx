@@ -11,8 +11,9 @@
  * Both render sites already presence-branch on `!== null`; the defect was the
  * shared accessor (getFragileEdgeSwitchProbability) coalescing the marginal.
  *
- * Controls prove a measured value still renders in the same harness, so the
- * absence assertions are not vacuous (trap 13). Inspector-v2 is hardcoded ON
+ * ⚠ #2747 re-scope 2 round 2 (12 Oct 2026): the Run's switch figure is not shown in C, measured or not; the measured
+ * rows are now pins, and each absence assertion carries its own non-vacuity control (the context group, the sentence,
+ * or the expanded disclosure) (trap 13). Inspector-v2 is hardcoded ON
  * (InspectorModal USE_INSPECTOR_V2) — this is the live path.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -72,45 +73,53 @@ describe('EdgePanel — flip-risk percentage presence-branches on measured switc
     ])
     render(<EdgePanel {...panelProps} techMode={true} />)
     // The disclosure is collapsed by default — expand it, or the absence
-    // assertion is vacuous (trap 13; the measured CONTROL below proves the
-    // same expanded harness CAN see the line).
+    // assertion is vacuous (trap 13): the toggle must read expanded.
     fireEvent.click(screen.getByText('Model detail'))
+    expect(screen.getByRole('button', { name: 'Hide model detail' }).getAttribute('aria-expanded')).toBe('true')
     expect(screen.queryByText(/switch_probability:/)).toBeNull()
   })
 
-  it('CONTROL: a measured switch_probability still renders its percentage (never displaced by marginal)', () => {
+  // #2747 re-scope 2 round 2 (Codex r1 blocking 4): the Run's switch figure is not shown in C, measured or not. Was
+  // "CONTROL: a measured switch_probability still renders its percentage"; its presence half (the context) is kept.
+  it('PIN: a measured switch_probability keeps the Sensitive context and its sentence, with no figure and no toggle', () => {
     setStoreWithFragileEdges([
       { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
     ])
-    render(<EdgePanel {...panelProps} />)
-    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
-    expect(screen.getByText('65% flip risk')).toBeTruthy()
-    expect(screen.queryByText(/90%/)).toBeNull()
+    const { container } = render(<EdgePanel {...panelProps} />)
+    expect(container.querySelector('[data-panel-group="context"]')).not.toBeNull()
+    expect(screen.getByText(FRAGILE_CUE_SENTENCE)).toBeTruthy()
+    expect(screen.getByTestId('edge-fragility-context').querySelector('button')).toBeNull()
+    expect(screen.queryByText(/% flip risk/)).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/65\s?%|90\s?%/)
   })
 
-  it('ONE SENTENCE, NO SIZE CLAIM: the flip-risk tooltip restates the heading sentence (Paul 23 Sep point 4 reviewer blocker)', () => {
+  // #2747 re-scope 2 round 2 (Codex r1 blocking 4): the flip-risk tooltip went with the figure. The NO SIZE CLAIM half
+  // is kept, on the heading and on every title in the context group.
+  it('ONE SENTENCE, NO SIZE CLAIM: the heading makes no size claim, and no title carries a flip-risk figure', () => {
     setStoreWithFragileEdges([
       { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
     ])
     render(<EdgePanel {...panelProps} />)
-    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
     const heading = screen.getByText(FRAGILE_CUE_SENTENCE)
-    const tooltip = screen.getByText('65% flip risk').getAttribute('title') ?? ''
-    // Bound to the heading's OWN rendered text, not a second literal.
-    expect(tooltip.startsWith(heading.textContent ?? '<none>')).toBe(true)
-    expect(tooltip).toContain('65% flip risk')
-    for (const text of [heading.textContent ?? '', tooltip]) {
+    const context = screen.getByTestId('edge-fragility-context')
+    const titles = [...context.querySelectorAll('[title]')].map((el) => el.getAttribute('title') ?? '')
+    expect(titles.filter((t) => /flip risk|\d+\s?%/.test(t))).toEqual([])
+    for (const text of [heading.textContent ?? '', ...titles]) {
       expect(text).not.toMatch(/\b(small|significant(ly)?|large|slight(ly)?|major|minor)\b/i)
     }
   })
 
-  it('CONTROL (tech mode): a measured value still prints in the technical disclosure', () => {
+  // #2747 re-scope 2 round 2 (Codex r1 blocking 4): was "CONTROL (tech mode): a measured value still prints in the
+  // technical disclosure"; the Run's switch figure is not shown in C, in tech mode either.
+  it('PIN (tech mode): a measured value prints nothing under the switch_probability label either', () => {
     setStoreWithFragileEdges([
       { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
     ])
-    render(<EdgePanel {...panelProps} techMode={true} />)
+    const { container } = render(<EdgePanel {...panelProps} techMode={true} />)
     fireEvent.click(screen.getByText('Model detail'))
-    expect(screen.getByText(/switch_probability: 0\.65/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hide model detail' }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByText(/switch_probability:/)).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/0\.65|65\s?%/)
   })
 
   it('CONTROL: a measured 0 is a measurement — below the fragility floor, never resurrected by marginal', () => {

@@ -85,7 +85,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // Data layer Phase 1 (+ placeholder licence): a link nobody sized is said as NOT SET, never its default prior as a
         // number ("50%"). Same unset pill as a strength never set (`edgeProvenance.ts` kind 'placeholder').
         if (!isEdgeValueSet(edgeData, 'weight') || edgeProvenance(edgeData)?.kind === 'placeholder') {
-          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false, accepted: false, stated: false, exampleFigure: false }
+          return { id: e.id, kind, label, direction: null, strengthPct: null, settled: false, definitional: false, accepted: false, stated: false, exampleFigure: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).
         const signed = computeSignedMean(edgeData)
@@ -96,7 +96,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           kind,
           label,
           direction: signed >= 0 ? ('up' as const) : ('down' as const),
-          pct: Math.round(strength * 100),
+          strengthPct: Math.round(strength * 100),
           settled: strengthIsHumanSettled(edgeData),
           // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate.
           definitional: isStrengthDefinitional(edgeData),
@@ -111,7 +111,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
       .filter((p): p is NonNullable<typeof p> => p !== null)
       // Unset pills sort last (-1): a known strength outranks "not set", and
       // the cap of 4 should spend its slots on the numbers we actually have.
-      .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+      .sort((a, b) => (b.strengthPct ?? -1) - (a.strengthPct ?? -1))
       .slice(0, 4)
   }, [edges, nodes, nodeId])
 
@@ -149,54 +149,54 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
             <span data-testid={`edge-pill-verb-${p.id}`}>{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
           )}
           <span>{p.label}</span>
-          {p.pct !== null ? (
+          {p.strengthPct !== null ? (
             p.exampleFigure ? (
               <span
                 data-testid={`edge-pill-strength-example-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, example figure`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.strengthPct}%, example figure`}
               >
-                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}% · example figure`}
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.strengthPct}% · example figure`}
               </span>
             ) : p.definitional ? (
               <span
                 data-testid={`edge-pill-strength-definitional-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, ${BY_DEFINITION.toLowerCase()}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.strengthPct}%, ${BY_DEFINITION.toLowerCase()}`}
               >
-                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.strengthPct}%`}
                 <span className="sr-only">{` (${BY_DEFINITION.toLowerCase()})`}</span>
               </span>
             ) : p.accepted ? (
               <span
                 data-testid={`edge-pill-strength-accepted-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, ${sizingWords('olumi_accepted')}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.strengthPct}%, ${sizingWords('olumi_accepted')}`}
               >
-                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.strengthPct}%`}
                 <span className="sr-only">{` (${sizingWords('olumi_accepted')})`}</span>
               </span>
             ) : p.stated && !p.settled ? (
               <span
                 data-testid={`edge-pill-strength-stated-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, from your figure`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.strengthPct}%, from your figure`}
               >
-                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.strengthPct}%`}
                 <span className="sr-only">{' (from your figure)'}</span>
               </span>
             ) : p.settled ? (
               <span
                 data-testid={`edge-pill-strength-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, set by a person`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.strengthPct}%, set by a person`}
               >
-                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.strengthPct}%`}
               </span>
             ) : (
               <span
                 data-testid={`edge-pill-strength-estimate-${p.id}`}
-                title={`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}: ${p.pct}%, not yet confirmed`}
+                title={`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}: ${p.strengthPct}%, not yet confirmed`}
               >
                 {`· ${LINK_STRENGTH_COPY.noun} est.`}
                 {/* The figure reaches assistive tech too — a `title` alone is
                     unreachable by keyboard and absent on touch. */}
-                <span className="sr-only">{` (${LINK_STRENGTH_COPY.olumiEstimate}: ${p.pct}%, not yet confirmed)`}</span>
+                <span className="sr-only">{` (${LINK_STRENGTH_COPY.olumiEstimate}: ${p.strengthPct}%, not yet confirmed)`}</span>
               </span>
             )
           ) : (

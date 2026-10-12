@@ -1,6 +1,9 @@
 /**
  * V5AnalysisResultBlock — the leader treatment must ask Q1 as well as Q2.
  *
+ * #2747 re-scope 2 (DL ruling (A)): the pill row whose leader treatment this file pinned is gone from the card in C.
+ * The rows that pinned it are deleted in place (each leaves a comment); ARM B is rewritten as the absence check.
+ *
  * ## What this card already asks, and what it never did
  *
  * ROADMAP 1.267 wired this card to `deriveDecisionVerdict` so the leader hoist,
@@ -34,7 +37,7 @@
  * a class, which proves what the component emits, not what a browser paints.
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { buildV5VerdictReportLike } from '../../mapV5AnalysisToReport'
 import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
@@ -79,15 +82,7 @@ function separatedBlock(): V5AnalysisResultBlockType {
   } as V5AnalysisResultBlockType
 }
 
-const ADMISSION_WITHHELD: AnalysisAdmissionV1 = {
-  permitted_analysis_mode: 'none',
-  reasons: [{ field: 'estimates', message: 'Every estimate here is machine-invented.' }],
-}
-/** A refusal of the COMPARATIVE claim that is not `none` — `!== "none"` leaks here. */
-const ADMISSION_EXPLORATORY: AnalysisAdmissionV1 = {
-  permitted_analysis_mode: 'exploratory',
-  reasons: [{ field: 'evidence', message: 'Not enough evidence to rank these.' }],
-}
+// #2747 re-scope 2: the refused-admission fixtures (`none`, `exploratory`) went with the rows that used them, below.
 const ADMISSION_PERMITTED: AnalysisAdmissionV1 = {
   permitted_analysis_mode: 'comparative_leader',
   reasons: [],
@@ -100,11 +95,6 @@ function setAdmission(admission: AnalysisAdmissionV1 | undefined) {
       : null,
   } as never)
 }
-
-const pills = (): HTMLElement[] =>
-  within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem')
-const leaderPills = (): HTMLElement[] =>
-  pills().filter((p) => p.getAttribute('data-leader') === 'true')
 
 beforeEach(() => {
   setAdmission(undefined)
@@ -124,76 +114,52 @@ describe('the fixture isolates Q1 — Q2 is true throughout', () => {
 })
 
 describe('V5AnalysisResultBlock leader treatment — Q1 gates it', () => {
-  it('ARM A — no admission at all: today’s behaviour, byte for byte', () => {
-    setAdmission(undefined)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    expect(leaderPills()).toHaveLength(1)
-    expect(leaderPills()[0].textContent ?? '').toContain(MAC)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "ARM A — no admission at all: today’s behaviour, byte for byte".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('ARM B — permitted: the leader is still marked (over-suppression control)', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "ARM B — permitted: the leader is still marked (over-suppression control)".
+  // The same permitted mount, which used to SHOW the pill row with its leader marked, now pins that C shows no
+  // win share.
+  it('ARM B — permitted: still no win-share row in C (ruling (A))', () => {
     setAdmission(ADMISSION_PERMITTED)
     render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    expect(leaderPills()).toHaveLength(1)
-    expect(leaderPills()[0].textContent ?? '').toContain(MAC)
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+      'MacBook Pro leads on total cost of ownership.',
+    )
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
-  it('⭐ ARM C — refused (`none`): no pill is marked leader', () => {
-    setAdmission(ADMISSION_WITHHELD)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    expect(
-      leaderPills(),
-      'CEE refused a comparative claim on this model and the card crowned an option anyway',
-    ).toHaveLength(0)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "⭐ ARM C — refused (`none`): no pill is marked leader".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('⭐ ARM C2 — refused (`exploratory`): no pill is marked leader either', () => {
-    setAdmission(ADMISSION_EXPLORATORY)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    expect(leaderPills()).toHaveLength(0)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "⭐ ARM C2 — refused (`exploratory`): no pill is marked leader either".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('⭐ ARM C — refused: no pill carries the heavier leader border', () => {
-    setAdmission(ADMISSION_WITHHELD)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    for (const pill of pills()) {
-      expect(pill.className).toContain('border-option/30')
-      expect(pill.className).not.toContain('border-option/50')
-    }
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "⭐ ARM C — refused: no pill carries the heavier leader border".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('⭐ ARM C — refused: the leader is not HOISTED to first position', () => {
-    // The hoist is a designation in its own right: it promotes one option above
-    // its own number. What stays is the probability-descending tail, which
-    // restates a fact already on screen.
-    setAdmission(ADMISSION_WITHHELD)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    const order = pills().map((p) => p.textContent ?? '')
-    // Descending by probability: MAC 43% still happens to be first here, so the
-    // assertion that discriminates is the ATTRIBUTE, not the order. Pinned as
-    // the data order rather than as "not first", which would be false for the
-    // wrong reason.
-    expect(order[0]).toContain(MAC)
-    expect(order[1]).toContain(DELL)
-    expect(order[2]).toContain(STATUS_QUO)
-    expect(leaderPills()).toHaveLength(0)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "⭐ ARM C — refused: the leader is not HOISTED to first position".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('DATA PRESERVED on a refused run — the CLAIM is withheld, never the numbers', () => {
-    setAdmission(ADMISSION_WITHHELD)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    const rendered = pills()
-    expect(rendered).toHaveLength(3)
-    expect(rendered.map((p) => p.textContent)).toEqual([
-      expect.stringContaining('43%'),
-      expect.stringContaining('32%'),
-      expect.stringContaining('25%'),
-    ])
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "DATA PRESERVED on a refused run — the CLAIM is withheld, never the numbers".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('the card still renders on a refused run — the absence assertions are not vacuous', () => {
-    setAdmission(ADMISSION_WITHHELD)
-    render(<V5AnalysisResultBlock block={separatedBlock()} />)
-    expect(screen.getByTestId('v5-analysis-result-probabilities')).toBeDefined()
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "the card still renders on a refused run — the absence assertions are not vacuous".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 })

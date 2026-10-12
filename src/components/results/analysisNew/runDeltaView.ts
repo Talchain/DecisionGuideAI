@@ -501,6 +501,7 @@ export function buildRunDeltaView(
 
   const framingChanged = goalFramingChanged(delta)
   // Withheld, not emptied by accident: across a direction change no option has a comparable pair (see the field).
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
   const movements: RunDeltaMovement[] = framingChanged ? [] : delta.win_probabilities.map((w) => ({
     optionId: w.option_id,
     label: labelFor(w.option_id),
@@ -532,7 +533,9 @@ export function buildRunDeltaView(
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
     ...(framingChanged ? { goalFramingChanged: true as const } : {}),
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
     ...(!framingChanged && delta.goal_chances !== undefined
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
       ? { goalChances: delta.goal_chances.map((g) => ({ optionId: g.option_id, label: labelFor(g.option_id), prior: g.prior, current: g.current })) }
       : {}),
     winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,

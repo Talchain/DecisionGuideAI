@@ -662,7 +662,10 @@ export function OptionsComparison({
    */
   // ⭐ 27 Sep 2026 (Paul): offered whenever a lens has something to draw. An arm with
   // nothing to draw is shown LOCKED, with its reason (`LENS_COPY.locked`), as in V2.
-  const offerLensControl = lensAvailability.outcome || lensAvailability.goal
+  // #2747 re-scope 2 (U0): in C the Goal fit lens has nothing to draw on this surface (`comparisonLensAvailability`), so
+  // its locked arm — "Goal fit shows each option's chance of meeting your goal…" — is not offered either: with one lens
+  // there is nothing to choose, and the control returns only when every lens has a view.
+  const offerLensControl = COMPARISON_LENSES.every((arm) => lensAvailability[arm])
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
   /**

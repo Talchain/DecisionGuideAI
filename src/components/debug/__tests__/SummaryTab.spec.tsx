@@ -237,3 +237,36 @@ describe('SummaryTab review status badge', () => {
     expect(completeElements.length).toBeGreaterThan(0)
   })
 })
+
+// =============================================================================
+// #2747 C (last check): nothing derived from a win share on this tab
+// =============================================================================
+
+describe('SummaryTab: nothing derived from a win share (ruling A)', () => {
+  it('says no leader, rival, close race or stability, while the rest of the tab draws', () => {
+    // The hook picks the leader by highest win_probability, flags a "close race" below 70, and reads robustness's
+    // recommendation_stability (a win share) into "Robust (N% stable)". None of it is shown here.
+    const data = makeDebugData({
+      services: {
+        cee: { name: 'CEE', status: 200, success: true, duration_ms: 60000, endpoint: '/bff/cee/draft-graph' },
+        plot: null,
+        isl: null,
+      },
+      winningOption: {
+        id: 'opt_alder', label: 'Alder plan', win_probability: 69, is_close_race: true,
+        runner_up: { id: 'opt_birch', label: 'Birch plan', win_probability: 20 },
+      },
+      robustness: { status: 'pass', stability: 0.923, context_label: 'Robust (92.3% stable)', description: 'Result holds under assumption changes' },
+    })
+    const { container } = render(<SummaryTab data={data} />)
+    // CONTRAST: the tab draws its other rows, and the probe sees % text (the CEE budget row, 60 s of 120 s).
+    expect(screen.getByText('Issues')).toBeInTheDocument()
+    expect(screen.getByTestId('timeout-budget-section').textContent).toContain('50%')
+    // TARGET: no word or figure derived from the win share, in the text or any tooltip.
+    const said = [container.textContent ?? '', ...[...container.querySelectorAll('[title]')].map(el => el.getAttribute('title') ?? '')].join(' ')
+    for (const banned of ['Alder plan', 'Birch plan', 'Leading option', 'Clear leading option', 'Close race', 'Robust',
+      'Robustness', '92.3', 'stable', 'Result holds', '69', '20%', 'confidence']) {
+      expect(said).not.toContain(banned)
+    }
+  })
+})

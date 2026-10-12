@@ -115,6 +115,7 @@ export function buildGoalFitRows(
       // (`ModelTabBody` owns it), so the leak would have become permanent.
       label: resolveCanvasLabel(node.id, optionLabels) ?? UNNAMED_ELEMENT_LABEL,
       chanceCell,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
       probability: chance.kind === 'figure' ? chance.pct / 100 : null,
       isSubstitutedJoint: false,
       modelledBasis: false,

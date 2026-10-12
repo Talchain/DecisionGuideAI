@@ -65,11 +65,18 @@ const TENTATIVE = 'This result is tentative. The uncertainty is substantial.'
 const servedBlock = (): V5AnalysisResultBlockType =>
   ({ ...JSON.parse(JSON.stringify(SERVED)), type: 'v5_analysis_result' }) as V5AnalysisResultBlockType
 
-/** The same bytes with the producer's leader named: the win-share row renders, so the card has a body. */
+/** The same bytes with the producer's leader named. In C no win-share row renders for it (ruling (A)), so no body. */
 const leaderNamedTwin = (): V5AnalysisResultBlockType => ({
   ...servedBlock(),
   leading_option_id: 'Raise to £59 with release',
 })
+
+/** The same bytes with review prose (the 0.30 `decision_review` shape): a body, so the card keeps its frame. */
+const proseTwin = (): V5AnalysisResultBlockType => {
+  const b = servedBlock() as unknown as { enrichment: Record<string, unknown> }
+  return { ...b, enrichment: { ...b.enrichment, decision_review: { produced_at: '2026-07-30T00:00:00.000Z',
+    narrative_summary: 'The review’s own account of the run.' } } } as unknown as V5AnalysisResultBlockType
+}
 
 function mount(block: V5AnalysisResultBlockType, assistantTextWordCount: number) {
   return render(
@@ -114,12 +121,18 @@ describe('audit #8: the served withheld Run renders no empty result card', () =>
     expect(getByTestId('v5-analysis-result-summary').textContent).toBe(String(SERVED.summary))
   })
 
-  it('CONTROL — the leader-named twin keeps the framed card (the pill row is a body)', () => {
-    const { getByTestId } = mount(leaderNamedTwin(), REPLY_WORDS)
-    expect(getByTestId('v5-analysis-result-probabilities')).toBeInTheDocument()
+  // #2747 re-scope 2 (U0 rewrite): the leader-named twin's body was the win-share pill row, which C does not show (DL ruling
+  // (A)). The body is now the review's prose; the leader-named twin has no body, so it is unframed like the served block.
+  it('CONTROL — a twin with a body (review prose) keeps the framed card; the leader-named twin has none in C', () => {
+    const { getByTestId, unmount } = mount(proseTwin(), REPLY_WORDS)
+    expect(getByTestId('v5-analysis-result-narrative-summary')).toBeInTheDocument()
     expect(getByTestId('v5-analysis-result-heading').textContent).toBe('Analysis result')
     expect(getByTestId('v5-analysis-result-summary-details')).toBeInTheDocument()
     expect(getByTestId('v5-analysis-result').getAttribute('data-presentation')).toBe('card')
+    unmount()
+    const named = mount(leaderNamedTwin(), REPLY_WORDS)
+    expect(named.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(named.getByTestId('v5-analysis-result').getAttribute('data-presentation')).toBe('inline')
   })
 
   it('CONTROL — no reply text on the turn: the framed card with the open summary stays (it is the only account)', () => {

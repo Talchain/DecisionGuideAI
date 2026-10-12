@@ -53,7 +53,7 @@ import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { EDGE_STRENGTH_SOURCE_MARKS } from '../domain/edgeStrengthSourceIcon'
-import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
 import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
@@ -927,8 +927,7 @@ export interface LegendBoardState {
  * register (three keys are re-typed literals with no exported constant).
  */
 const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
-  [CURRENT_MODEL_NOUN]: (b) => b.isPostAnalysis,
-  [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
+  // #2747 re-scope 2: the Current model and Chance rows left the register (no card shows either marking in C).
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,
   // ⭐ ONE OF THE THREE RE-TYPED LITERALS THIS BLOCK'S OWN HEADER NAMES, NOW

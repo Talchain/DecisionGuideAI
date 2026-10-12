@@ -178,6 +178,7 @@ export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
 
   // Read the existing input contract; malformed imports must not become a risk estimate.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a risk's own likelihood), not an analysis result
   const probabilityInput = RiskNodeDataSchema.shape.probability.safeParse(props.data?.probability)
   const impactInput = RiskNodeDataSchema.shape.impact.safeParse(props.data?.impact)
   const probability = probabilityInput.success ? probabilityInput.data : undefined

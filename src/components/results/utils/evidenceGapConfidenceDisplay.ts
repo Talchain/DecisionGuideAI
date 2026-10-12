@@ -49,6 +49,7 @@ export function resolveEvidenceGapConfidenceDisplay(
  */
 export function evidenceGapGenericText(display: EvidenceGapConfidenceDisplay): string {
   return display.show
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: not-chance: Olumi's confidence in a factor, not a chance
     ? `Olumi's confidence in this factor is ${display.pct}%. Firming it up could change which option the most runs support in this model.`
     : 'Firming up this factor could change which option the most runs support in this model.'
 }
@@ -63,7 +64,9 @@ export function evidenceGapSourcePill(
   display: EvidenceGapConfidenceDisplay,
 ): { label: string; borderClass: string } | null {
   if (!display.show) return null
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: not-chance: Olumi's confidence in a factor, not a chance
   if (display.pct <= 0) return { label: 'No data', borderClass: 'border-danger/30' }
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: not-chance: Olumi's confidence in a factor, not a chance
   if (display.pct < 40) return { label: 'AI estimate', borderClass: 'border-info/30' }
   return { label: 'Estimated', borderClass: 'border-warning/30' }
 }
@@ -112,6 +115,7 @@ export const EVIDENCE_GAP_ADDRESSED_MIN_PCT = 50
  */
 export function isEvidenceGapAddressed(confidence: number | null | undefined): boolean {
   const display = resolveEvidenceGapConfidenceDisplay(confidence)
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: not-chance: Olumi's confidence in a factor, not a chance
   return display.show && display.pct >= EVIDENCE_GAP_ADDRESSED_MIN_PCT
 }
 

@@ -51,12 +51,14 @@
  * `WinGauge`, and `OptionCards`. So this file's greenness is a claim about
  * something a user loads on the deployed posture, not about a component a flag
  * switches off.
+ *
+ * #2747 re-scope 2 (U0, DL ruling (A)): `WinGauge` is deleted (it drew raw win shares), so its rows are deleted with it;
+ * the option cards keep their scope note and rank markers, and show no win percentage.
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
-import { WinGauge } from '../WinGauge'
 import { ComparisonScopeNote } from '../ComparisonScopeNote'
 import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../utils/goalAnchorCopy'
 import type { OptionResult } from '../types'
@@ -71,10 +73,9 @@ const DROPPED_TWO = 'opt-dropped-two'
 const DROPPED_LABEL = 'Hybrid Phased Approach'
 const DROPPED_TWO_LABEL = 'Rip and Replace'
 
+// #2747 re-scope 2 (DL ruling (A)): the gauge and goal-block notes went with WinGauge; only the cards' note remains.
 const NOTE = {
-  gauge: 'comparison-scope-note-comparative',
   cards: 'comparison-scope-note-options',
-  goal: 'comparison-scope-note-goal',
 } as const
 
 function analysed(id: string, winProbability: number): OptionResult {
@@ -122,20 +123,6 @@ const fullSetOptions = (): OptionResult[] => [
   analysed(KEEP_B, 0.23),
   analysed(KEEP_C, 0.15),
 ]
-
-function gaugeShares(options: OptionResult[]) {
-  return options
-    .filter((o): o is OptionResult & { winProbability: number } =>
-      typeof o.winProbability === 'number',
-    )
-    .map(o => ({
-      id: o.id,
-      label: o.label,
-      winProbability: o.winProbability,
-      isWinner: o.id === KEEP_A,
-      goalProbability: o.goalProbability,
-    }))
-}
 
 describe('comparison-scope disclosure — a subset result says which options it compared', () => {
   describe('OptionCards (rank markers, win percentages)', () => {
@@ -185,75 +172,15 @@ describe('comparison-scope disclosure — a subset result says which options it 
     it('CONTROL — the ranked chrome the note qualifies is present in the same render', () => {
       render(<OptionCards options={subsetOptions()} winnerId={KEEP_A} hasLeadingOption />)
       expect(screen.getByTestId(`rank-marker-${KEEP_A}`)).toBeTruthy()
-      expect(screen.getByTestId(`win-pct-${KEEP_A}`)).toBeTruthy()
+      // #2747 re-scope 2 (U0, DL ruling (A)): the rank marker stays; no card shows a win percentage in C.
+      expect(screen.queryByTestId(`win-pct-${KEEP_A}`)).toBeNull()
     })
   })
 
-  describe('WinGauge (comparative block)', () => {
-    it('renders the scope note INSIDE the comparative block', () => {
-      const options = subsetOptions()
-      render(
-        <WinGauge shares={gaugeShares(options)} comparisonScope={deriveComparisonScope(options)} />,
-      )
-      const comparative = screen.getByTestId('win-gauge-comparative-block')
-      expect(within(comparative).getByTestId(NOTE.gauge)).toHaveTextContent('3 of your 4 options')
-    })
-
-    // ⭐ THE DISCRIMINATING PIN, CORRECTED.
-    //
-    // The first version asserted the goal block carried NO qualification at
-    // all, on the grounds that `probability_of_goal` is subset-invariant. That
-    // is right about the MAGNITUDES and wrong about the BLOCK: `goalRows` is
-    // sorted descending by the goal quantity on every non-withheld run, and
-    // order is a designation (`optionDisplayOrder`, ROADMAP 1.306 — a rule
-    // WinGauge itself already applies to `designationsWithheld`). So the block
-    // gets the neutral scope SENTENCE, and must still NOT get the
-    // set-dependence `detail` line.
-    //
-    // ⚠ The block's EXISTENCE is asserted first. The previous version wrapped
-    // the assertion in `if (goalBlock)`, which is vacuous whenever the fixture
-    // stops producing goal numbers — a reviewer proved the contingency by
-    // dropping one unpinned fixture property and watching the misplacement
-    // mutant go red → green (trap 13: an absence probe needs to prove it can
-    // see a presence).
-    it('qualifies the goal block with the SENTENCE but never the detail line', () => {
-      const options = subsetOptions()
-      render(
-        <WinGauge
-          shares={gaugeShares(options)}
-          comparisonScope={deriveComparisonScope(options)}
-          goalThreshold={0.5}
-        />,
-      )
-      const goalBlock = screen.getByTestId('win-gauge-goal-block')
-      const note = within(goalBlock).getByTestId(NOTE.goal)
-      expect(note).toHaveTextContent('3 of your 4 options')
-      expect(note).toHaveTextContent(DROPPED_LABEL)
-      // The set-dependence claim belongs to the comparative surfaces only.
-      expect(note).not.toHaveTextContent('Ranks and comparative percentages')
-    })
-
-    it('renders NO goal-block note when every option was compared', () => {
-      const options = fullSetOptions()
-      render(
-        <WinGauge
-          shares={gaugeShares(options)}
-          comparisonScope={deriveComparisonScope(options)}
-          goalThreshold={0.5}
-        />,
-      )
-      expect(screen.getByTestId('win-gauge-goal-block')).toBeTruthy()
-      expect(screen.queryByTestId(NOTE.goal)).toBeNull()
-    })
-
-    it('renders NO scope note when every option was compared', () => {
-      const options = fullSetOptions()
-      render(
-        <WinGauge shares={gaugeShares(options)} comparisonScope={deriveComparisonScope(options)} />,
-      )
-      expect(screen.queryByTestId(NOTE.gauge)).toBeNull()
-    })
-  })
+  // #2747 re-scope 2 (DL ruling (A)): describe 'WinGauge (comparative block)' deleted — its only subject, WinGauge, was
+  // removed in C (it drew raw win shares). Rows: 'renders the scope note INSIDE the comparative block'; 'qualifies the goal
+  // block with the SENTENCE but never the detail line'; 'renders NO goal-block note when every option was compared';
+  // 'renders NO scope note when every option was compared'.
 
   // ── THE VERBATIM COPY. Pinned so the sentence a user reads is a decision in
   // the record rather than whatever the register happens to compose today, and

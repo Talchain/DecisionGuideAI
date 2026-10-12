@@ -218,13 +218,17 @@ function edgeCount(graph: unknown): number {
  * showing it would mean inventing a presentation. Only the ordering it
  * implies is used.
  */
+/**
+ * #2747 re-scope 2 (DL ruling (A)): in C the page reads no win share and no stored headline. The snapshot's headline is a
+ * win-share sentence ("…produced the best outcome in 82% of runs…") and its per-option shares are win shares; CEE serves
+ * no wording or Run authority for either here. The options keep the producer's order, by name. Restore trigger: a
+ * CEE-served share string with its own Run licence (post-C).
+ */
 interface ReadOption {
   label: string
-  winProbability: number | null
 }
 
 interface ReadAnalysis {
-  headline?: string
   options: ReadOption[]
   robustnessNote?: string
   drivers: string[]
@@ -254,17 +258,8 @@ function readOptions(raw: unknown): ReadOption[] {
       const label = readString(o.label)
       if (label === undefined) return null
 
-      // A probability in [0,1] or nothing. Anything outside that range is a
-      // convention this page has not derived, and guessing at one is how a
-      // figure ends up 137x wrong on a screen the sender cannot see.
-      const wp = o.win_probability
-      const winProbability =
-        typeof wp === 'number' && Number.isFinite(wp) && wp >= 0 && wp <= 1
-          ? wp
-          : null
-
       const rank = typeof o.rank === 'number' && Number.isFinite(o.rank) ? o.rank : null
-      return { label, winProbability, rank }
+      return { label, rank }
     })
     .filter((o): o is ReadOption & { rank: number | null } => o !== null)
 
@@ -273,7 +268,7 @@ function readOptions(raw: unknown): ReadOption[] {
     options.sort((a, b) => (a.rank as number) - (b.rank as number))
   }
 
-  return options.map(({ label, winProbability }) => ({ label, winProbability }))
+  return options.map(({ label }) => ({ label }))
 }
 
 function readDrivers(raw: unknown): string[] {
@@ -296,7 +291,6 @@ function readAnalysis(raw: unknown): ReadAnalysis | null {
       : undefined
 
   const result: ReadAnalysis = {
-    headline: readString(a.headline),
     options: readOptions(a.options),
     robustnessNote: caveat,
     drivers: readDrivers(a.top_drivers),
@@ -305,7 +299,6 @@ function readAnalysis(raw: unknown): ReadAnalysis | null {
   }
 
   const hasContent =
-    result.headline !== undefined ||
     result.options.length > 0 ||
     result.robustnessNote !== undefined ||
     result.drivers.length > 0 ||
@@ -314,17 +307,6 @@ function readAnalysis(raw: unknown): ReadAnalysis | null {
 
   // Nothing recognised means no section at all — never an empty heading.
   return hasContent ? result : null
-}
-
-/**
- * A probability as a whole percentage. A non-zero probability that rounds to
- * zero is shown as "<1%" rather than "0%", which would read as "impossible"
- * about an option the model gave a real chance to.
- */
-function formatProbability(p: number): string {
-  const pct = Math.round(p * 100)
-  if (pct === 0 && p > 0) return '<1%'
-  return `${pct}%`
 }
 
 // ---------------------------------------------------------------------------
@@ -351,28 +333,6 @@ function AnalysisSection({ analysis }: { analysis: ReadAnalysis }) {
         What the analysis concluded
       </h2>
 
-      {/*
-        The producer's own sentence, rendered as written.
-
-        ⭐ RENDER THE OWNED CLAIM — NEVER DERIVE ONE (src/lib/decisionVerdict.ts,
-        ROADMAP 1.223). CEE #711 made the producer's SILENCE meaningful: on a
-        turn whose verdict is withheld it deliberately drops `headline` while
-        the per-option win probabilities keep riding the wire, because the DATA
-        is not withheld — only the CLAIM. A consumer-side fallback that banded
-        those same numbers into a leader sentence is exactly the defect that
-        was deleted rather than gated, after the product asserted a leader in
-        nine places on the same screen as its own "no option can be put forward
-        yet". So: no headline, no claim. The options below still render.
-      */}
-      {analysis.headline && (
-        <p
-          className="text-text-body leading-relaxed"
-          data-testid="shared-analysis-headline"
-        >
-          {analysis.headline}
-        </p>
-      )}
-
       {analysis.options.length > 0 && (
         <section className="mt-5">
           <h3 className="text-sm font-medium text-text-light mb-2">
@@ -386,17 +346,9 @@ function AnalysisSection({ analysis }: { analysis: ReadAnalysis }) {
                 data-testid={`shared-option-${i}`}
               >
                 <span className="font-medium text-text-header">{o.label}</span>
-                {o.winProbability !== null && (
-                  <span className="text-sm text-text-body whitespace-nowrap">
-                    {formatProbability(o.winProbability)}
-                  </span>
-                )}
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-text-light">
-            How often the runs of this model supported each option.
-          </p>
         </section>
       )}
 

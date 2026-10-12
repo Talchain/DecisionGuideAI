@@ -320,25 +320,27 @@ describe('analysis hero — WITHHELD: the prose may not designate either', () =>
 // quietly by suppressing everything.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PERMITTED_HEADLINE = 'In this model, Hire two developers was supported by more runs than any other option.'
+const PERMITTED_SUBLINE = 'In this model, Hire two developers has the highest expected outcome: 70. Realistic ranges overlap, so validate the assumptions before deciding.'
+
 describe('analysis hero — PERMITTED prose (over-suppression controls)', () => {
-  it('goal-fit crown: headline and subline unchanged, byte-for-byte', () => {
+  // #2747 re-scope 2 round 2 (rule C): the goal-fit crown headline is deleted (the UI's own leader goal-chance sentence), so
+  // this control now pins what a PERMITTED run with goal cells renders instead, byte-for-byte: the leader claim, by name.
+  it('goal-fit crown run: the permitted leader claim and subline render, byte-for-byte', () => {
     // C-AVAIL: the numeric goal control supplies the report that licenses its displayed cells.
     const model = heroModel(PERMITTED_VERDICT, { goalCells: true })
     expect(model.designationsWithheld).toBe(false)
-    expect(model.headline).toBe(
-      'In this model, Hire two developers meets every target this run scored in the most model runs (80%).',
-    )
-    expect(model.subline).toBe('Hire two developers’s expected outcome points the same way, in this model.')
+    expect(model.headline).toBe(PERMITTED_HEADLINE)
+    expect(model.subline).toBe(PERMITTED_SUBLINE)
   })
 
-  it('no option on track: headline and subline unchanged, byte-for-byte', () => {
+  // #2747 re-scope 2 round 2 (rule C): headline.noneOnTrack is deleted; a PERMITTED below-floor run renders the leader claim.
+  it('below-floor run: the permitted leader claim and subline render, byte-for-byte', () => {
     // C-AVAIL: the sub-1% control is scored through the same report/cell path.
     const model = heroModel(PERMITTED_VERDICT, { options: flooredGoalFixtureOptions(), goalCells: true })
     expect(model.designationsWithheld).toBe(false)
-    expect(model.headline).toBe(
-      'No option is currently on track to meet every target this run scored.',
-    )
-    expect(model.subline).toBe('In this model, Hire two developers has the highest expected outcome: 70.')
+    expect(model.headline).toBe(PERMITTED_HEADLINE)
+    expect(model.subline).toBe(PERMITTED_SUBLINE)
   })
 
   it('producer band: still bands the recommended option by name', () => {

@@ -15,8 +15,6 @@ import { buildHeroModel } from '../buildHeroModel'
 import { HERO_COPY } from '../heroCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
-import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
-import { buildAnalysisNewViewModel } from '../../analysisNew/buildAnalysisNewViewModel'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import { buildRunView } from '../../../../canvas/runView/runView'
 
@@ -41,14 +39,6 @@ async function from(capture: typeof figures | typeof p02) {
   expect(read.report).toBeTruthy()
   return renderHook(() => useResultsSectionData()).result.current
 }
-function matrix(data: ReturnType<typeof useResultsSectionData>) {
-  const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-  render(<DecisionMatrix data={data} comparison={vm.optionsComparison} optionOrder={data.recommendation.allOptions.map(o => o.id)} run={{}} isStale={false} />)
-  // The shipped matrix disclosure starts closed, explaining an empty collapsed DOM capture.
-  expect(screen.queryAllByTestId(/^decision-matrix-chance-/)).toHaveLength(0)
-  fireEvent.click(screen.getByTestId('decision-matrix-toggle'))
-  return data.recommendation.allOptions.map(o => ({ id: o.id, text: screen.getByTestId(`decision-matrix-chance-${o.id}`).querySelector('span')!.textContent }))
-}
 function heroParity(data: ReturnType<typeof useResultsSectionData>) {
   const model = buildHeroModel(data)
   expect(model.kind).toBe('chart')
@@ -57,12 +47,11 @@ function heroParity(data: ReturnType<typeof useResultsSectionData>) {
   render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
   expect(screen.getByRole('tab', { name: /Goal fit/ }).textContent).not.toMatch(/not available for this run/i)
   expect(screen.queryByTestId('hero-lens-unavailable')).toBeNull()
-  const entries = matrix(data)
+  // #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C; the hero is held to the RunView cell.
   for (const row of model.rows) {
     const cell = data.runView!.chanceCellOf(row.id, ctx(data))
     expect(row.goal.readout).toBe(cell.text ?? HERO_COPY.readout.missing)
     expect(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent).toBe(cell.text ?? HERO_COPY.readout.missing)
-    expect(entries.find(e => e.id === row.id)!.text).toBe(cell.text ?? 'Not shown.')
   }
   return model
 }
@@ -71,9 +60,10 @@ function cardParity(data: ReturnType<typeof useResultsSectionData>, id: string) 
   const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
     selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
   </OptionChanceCellProvider></ReactFlowProvider>)
-  const cell = data.runView!.chanceCellOf(id, ctx(data))
-  if (cell.kind === 'none') expect(screen.queryByTestId(`option-win-readout-${id}`)).toBeNull()
-  else expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(cell.text)
+  // #2747 re-scope 2 (U0): the canvas cards show no chance in C, whatever the cell; the hero says it.
+  expect(screen.queryByTestId(`option-win-readout-${id}`)).toBeNull()
+  const text = data.runView!.chanceCellOf(id, ctx(data)).text
+  if (text !== null) expect(card.container.textContent).not.toContain(text)
   card.unmount()
 }
 // SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire).
@@ -114,20 +104,13 @@ describe('WS5 real served chance cells', () => {
     expect(other.runView!.chanceCellOf(X, ctx(other)).text).not.toBe('about 99%')
     expect(store.getState().scenarioId).toBe(figures.j.scenario_id)
   })
-  it('MATRIX-REAL before/after: P02 read has three cells when the existing disclosure is opened', async () => {
-    const data = await from(p02)
-    const entries = matrix(data)
-    expect(entries).toHaveLength(3)
-    expect(entries.find(e => e.id === X)!.text).toContain('between about 5% and 37%')
-    console.info('MATRIX-REAL', JSON.stringify(entries))
-  })
   it('H1-REAL P02 licensed RANGE without a point figure makes the goal lens available; H3 parity', async () => {
     const data = await from(p02)
     const model = heroParity(data)
     expect(model.rows.find(r => r.id === X)!.goal.value).toBeNull()
     expect(model.rows.find(r => r.id === X)!.goal.readout).toContain('between about 5% and 37%')
   })
-  it('H3/R2-5 historical served figure without a face prints only its display fragment across matrix/hero/card', async () => {
+  it('H3/R2-5 historical served figure without a face prints only its display fragment on the hero (no card chance in C)', async () => {
     const data = await from(figures)
     heroParity(data)
     for (const option of figures.j.canonical_analysis_view.options) {
@@ -184,16 +167,17 @@ describe('WS5 real served chance cells', () => {
     expect(model.kind).toBe('chart')
     if (model.kind === 'chart') expect(model.rows.find(row => row.id === X)!.goal.readout).toBe(HERO_COPY.readout.missing)
   })
-  it('C-LOST restored: basis caveat and joint identity stay beside the shared figure cell', async () => {
+  // #2747 re-scope 2 (U0): the goal-fit detail is CEE's served cell words verbatim (was the UI's joint-basis sentence
+  // re-worded around the figure); the basis caveat stays beside it.
+  it('C-LOST restored: basis caveat stays beside the shared figure cell; the detail is the served cell, verbatim', async () => {
     const data = await from(figures)
     const option = data.recommendation.allOptions.find(o => o.id === X)!
     option.goalFitIsModelledBasis = true
-    option.goalFitIsSubstitutedJoint = true
     const model = heroParity(data)
     const row = model.rows.find(r => r.id === X)!
     fireEvent.click(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('button')!)
     expect(screen.getByTestId('hero-detail-goal-fit-caveat')).toHaveTextContent(GOAL_FIT_BASIS_CAVEAT_COPY)
-    expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(HERO_COPY.detail.goalFitJointBasis('about 69%'))
+    expect(screen.getByTestId('hero-detail-goal-fit').textContent).toBe('about 69%')
     expect(row.goal.readout).toBe(data.runView!.chanceCellOf(X, ctx(data)).text)
   })
   // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct; staging measurement /private/tmp/ws5-core-constrained.md)
@@ -217,10 +201,10 @@ describe('WS5 real served chance cells', () => {
     const { useCanonicalAnalysisViewStore: store } = await import(STORE)
     store.getState().adopt(figures.j.scenario_id, canonical as never)
     const d = renderHook(() => useResultsSectionData()).result.current
-    d.recommendation.allOptions.find(o => o.id === X)!.goalFitIsSubstitutedJoint = true
     expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual({ kind: 'figure', text: 'about 71%' })
     const model = heroParity(d)
-    expect(model.rows.find(r => r.id === X)!.detail.goalFit).toBe(HERO_COPY.detail.goalFitJointBasis('about 71%'))
+    // #2747 re-scope 2 (U0): the server fragment verbatim, never re-worded into the UI's joint-basis sentence.
+    expect(model.rows.find(r => r.id === X)!.detail.goalFit).toBe('about 71%')
     cardParity(d, X)
   })
   it.each(['figure', 'range'] as const)('R2-1 known copy gap SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): canonical %s without any licensed line renders display', async kind => {
@@ -248,14 +232,20 @@ describe('WS5 real served chance cells', () => {
     expect(screen.getByTestId('analysis-hero-panel').textContent).toContain('71%')
     expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
   })
-  it.each(['available', 'none_licensed', 'not_recorded'] as const)('WS5 canonical main_driver %s stays separate from the own-cell lead', async kind => {
+  // #2747 re-scope 2 (U0): the driver line is CEE's `main_driver.detail` verbatim. `available_no_detail` is the negative: a
+  // current canonical driver CEE gave no sentence says nothing (was: the UI worded the driver itself).
+  // SELF-AUTHORED stand-in for CEE's sentence on the planted stronger driver (CEE asks its shared question once, earlier).
+  const PLANTED_DETAIL = 'It rests most on how strongly ‘Price increase’ affects ‘monthly recurring revenue’, at the size you set: if that effect is stronger than that, the chance falls.'
+  it.each(['available', 'available_no_detail', 'none_licensed', 'not_recorded'] as const)('WS5 canonical main_driver %s stays separate from the own-cell lead', async kind => {
     const data = await from(figures)
     const canonical = structuredClone(figures.j.canonical_analysis_view)
     const entry = canonical.options.find(o => o.option_id === X)!
     // C-CELL stimulus: an explicit additive face keeps this driver's option boundary. Historical bytes have display only.
     Object.assign(entry.cell, { face: `‘Launch starter tier’: ${entry.cell.display}` })
     const driver = { ...canonical.options[0].main_driver.driver, strength: 'stronger' }
-    entry.main_driver = (kind === 'available' ? { kind, driver } : kind === 'none_licensed' ? { kind, reason: 'none' } : { kind }) as never
+    entry.main_driver = (kind === 'available' ? { kind, driver, detail: PLANTED_DETAIL }
+      : kind === 'available_no_detail' ? { kind: 'available', driver }
+        : kind === 'none_licensed' ? { kind, reason: 'none' } : { kind }) as never
     const report = useCanvasStore.getState().results.report
     const d = { ...data, runView: buildRunView({ ...report, run_id: 'same' }, { ...canonical, run: { ...canonical.run, run_id: 'same' } } as never) }
     const model = buildHeroModel(d)
@@ -271,15 +261,39 @@ describe('WS5 real served chance cells', () => {
       expect(d.runView!.mainDriverOf(X)).toMatchObject({ from: driver.from, to: driver.to, strength: 'stronger' })
       const driverLine = model.goalChanceLeadLines![ownIndex + 1]
       expect(driverLine).toMatchObject({ id: X, kind: 'driver' })
-      expect(driverLine.text).toBe('It rests most on how strongly ‘Price increase’ affects ‘monthly recurring revenue’, at the size you set: if that effect is stronger than that, the chance falls.')
-      // Staging asks a shared-driver question once, on the first option carrying it.
+      expect(driverLine.text).toBe(PLANTED_DETAIL)
+      // CEE asks a shared-driver question once (in its own first sentence); the hero adds none of its own.
       expect(model.subline!.split('How sure are you of that size?')).toHaveLength(2)
       expect(driverLine.text).not.toContain('‘Starter-tier availability’')
+    } else if (kind === 'available_no_detail') {
+      expect(d.runView!.mainDriverOf(X)).toMatchObject({ from: driver.from, to: driver.to, strength: 'stronger' })
+      expect(d.runView!.mainDriverDetailOf(X)).toBeNull()
+      expect(model.goalChanceLeadLines!.filter(line => line.id === X && line.kind === 'driver')).toEqual([])
+      expect(model.subline).not.toContain('if that effect is stronger')
     } else {
       expect(d.runView!.mainDriverOf(X)).toBeNull()
       expect(model.goalChanceLeadLines!.filter(line => line.id === X && line.kind === 'driver')).toEqual([])
     }
   })
+  // #2747 re-scope 2 (U0): on the untouched served READ, each driver line is CEE's served `main_driver.detail`, verbatim,
+  // right after its own cell; a `none_licensed` driver says nothing.
+  it('WS5-REAL served main_driver.detail is said verbatim after its own cell', async () => {
+    const data = await from(figures)
+    const model = buildHeroModel(data)
+    expect(model.kind).toBe('chart')
+    if (model.kind !== 'chart') throw new Error('Expected chart')
+    const served = Object.fromEntries(figures.j.canonical_analysis_view.options.flatMap(o =>
+      'detail' in o.main_driver && typeof o.main_driver.detail === 'string' ? [[o.option_id, o.main_driver.detail]] : []))
+    expect(Object.keys(served)).toEqual(['raise_prices_10', X])
+    const drivers = model.goalChanceLeadLines!.filter(line => line.kind === 'driver')
+    expect(Object.fromEntries(drivers.map(line => [line.id, line.text]))).toEqual(served)
+    for (const line of drivers) {
+      const index = model.goalChanceLeadLines!.indexOf(line)
+      expect(model.goalChanceLeadLines![index - 1]).toMatchObject({ id: line.id, kind: 'cell' })
+    }
+    expect(drivers.some(line => line.id === 'keep_pricing_as_is')).toBe(false)
+  })
+
   it('R6-4 goal sentence readout wraps inside a bounded grid column', async () => {
     const model = heroParity(await from(figures))
     for (const row of model.rows) {
@@ -306,10 +320,11 @@ describe('WS5 real served chance cells', () => {
     expect(model.kind).toBe('chart')
     if (model.kind !== 'chart') throw new Error('Expected chart')
     expect(model.headline).not.toContain('69%')
-    if (kind === 'figure') {
-      expect(model.headline).toContain('about 71%, against about 46%')
-      expect(model.headline).not.toContain('against 10%')
-    } else expect(model.headline).not.toMatch(/\d+%/)
+    // #2747 re-scope 2 round 2 (rule C): the UI composes no "highest" sentence ("…: about 71%, against about 46%"), so the
+    // headline carries no figure in any kind; the canonical figure cell still reaches the hero, verbatim, in its lead line.
+    expect(model.headline).not.toMatch(/\d+%/)
+    if (kind === 'figure') expect(model.subline).toContain('about 71%')
+    else expect(model.subline ?? '').not.toContain('about 71%')
   })
 
 })

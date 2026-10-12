@@ -33,17 +33,6 @@ export function decisionBriefToHtml(brief: DecisionBriefModel): string {
   }
   if (brief.limits.length > 0) parts.push(`<h2>Limits</h2>${list(brief.limits.map((l) => `${esc(l.text)}${pill(l.source)}`))}`)
   parts.push(`<h2>Latest Run</h2><p>${esc(brief.run.statement)}</p>`)
-  if (current && brief.chances.length > 0) {
-    parts.push(
-      list(
-        brief.chances.map(
-          (c) =>
-            `<strong>${esc(c.optionLabel)}</strong>: ${esc(c.chanceText ?? c.withheldText ?? '')}` +
-            (c.caveat ? `<br><span class="caveat">${esc(c.caveat)}</span>` : ''),
-        ),
-      ),
-    )
-  }
   if (current && brief.chancesNote) parts.push(`<p>${esc(brief.chancesNote)}</p>`)
   if (brief.record) {
     const r = brief.record

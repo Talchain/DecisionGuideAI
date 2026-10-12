@@ -47,7 +47,8 @@ import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, merg
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from './responseParser'
-import { parseCanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import { parseCanonicalAnalysisView, type CanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import type { TurnCanonicalRun } from './blocks/mapV5Blocks'
 import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../canvas/state/storedRunDelta'
 import { hashEqualStaleReasonWords } from './hashEqualStaleReasonWords'
@@ -1001,6 +1002,28 @@ function runComputedAtOf(response: unknown): string | null {
     ?.analysis_state?.run_state
   if (!rs || (rs.kind !== 'complete_current' && rs.kind !== 'complete_stale')) return null
   return typeof rs.computed_at === 'string' && rs.computed_at.length > 0 ? rs.computed_at : null
+}
+
+/**
+ * The turn's own canonical view, parsed (the one narrow carry of the wire key; the parser preserves undeclared top-level
+ * fields in its existing additive sidecar). Absence or invalid bytes are null.
+ */
+export function turnCanonicalViewOf(response: unknown): CanonicalAnalysisView | null {
+  if (response === null || typeof response !== 'object') return null
+  const turnView = (response as { canonical_analysis_view?: unknown }).canonical_analysis_view
+    ?? (response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]?.canonical_analysis_view
+  return parseCanonicalAnalysisView(turnView)
+}
+
+/**
+ * #2747 r2 (BLOCKING 3): the Run the turn's own canonical view names, which a same-turn analysis card is stamped with
+ * (`mapV5Blocks`) only when the card's graph hash is that Run's: a card says which Run it reports by identity (run id AND
+ * graph hash), never by hash alone (three Runs of one graph share the hash).
+ */
+export function turnCanonicalRunOf(response: unknown): TurnCanonicalRun | null {
+  const run = turnCanonicalViewOf(response)?.run ?? null
+  return run !== null && typeof run.run_id === 'string' && run.run_id.length > 0
+    ? { run_id: run.run_id, graph_hash_at_run: run.graph_hash_at_run } : null
 }
 
 export function applyV5State(
@@ -2386,9 +2409,7 @@ export function applyV5State(
       // Absence or invalid bytes retain the held READ/TURN view. Bind to dispatch AND current scenario.
       const scenarioId = options?.turnScenarioId
       if (scenarioId && scenarioId === store.currentScenarioId) {
-        const turnView = (response as { canonical_analysis_view?: unknown }).canonical_analysis_view
-          ?? (response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]?.canonical_analysis_view
-        const canonical = parseCanonicalAnalysisView(turnView)
+        const canonical = turnCanonicalViewOf(response)
         if (canonical !== null) useCanonicalAnalysisViewStore.getState().adopt(scenarioId, canonical)
       }
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.

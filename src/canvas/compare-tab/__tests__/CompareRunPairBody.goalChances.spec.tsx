@@ -1,23 +1,23 @@
 /**
- * Compare-chance (schemas 0.81.0 `run_delta.goal_chances`; lease #87 6035414740, DL rulings 1 + 2): Compare leads with each
- * option's chance of meeting the goal, Earlier → Latest, each side as ITS Run showed it. Figures only: never a direction,
- * never a leader, never "chance of leading". Goal chances keep their own licence, so they show when run shares are withheld.
+ * Compare-chance (schemas 0.81.0 `run_delta.goal_chances`; lease #87 6035414740). The reader still carries the producer's
+ * goal chances by identity (first block). ⭐ #2747 re-scope 2 (U0, DL ruling (A)): in C, Compare SHOWS no goal chance and no
+ * run share — each option's chance is said on the journey path only (the Analysis tab, the chat analysis card), in CEE's
+ * words, and CEE serves no share string. The headline keeps the producer's leader claim in words, under its entitlement.
+ * Interim limit; restore trigger: each measure's own served string and Run licence on Compare (post-C).
  *
- * Bound by IDENTITY (option ids, producer order, exact shared words); every "absent" row has a present control.
+ * Bound by IDENTITY (option ids, producer order); every "absent" row has a present control (the reader's own rows).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import type { RunDelta, RunDeltaGoalChanceDelta } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
 import { buildRunDeltaView } from '../../../components/results/analysisNew/runDeltaView'
-import {
-  COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords,
-} from '../../../components/results/analysis-hero/goalChanceCopy'
 import { CompareRunPairBody } from '../CompareRunPairBody'
-import { COMPARE_SUPPORT_TESTID } from '../CompareSupportFigures'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
@@ -29,30 +29,8 @@ const GOAL_CHANCES: RunDeltaGoalChanceDelta[] = [
   { option_id: 'opt_60', prior: { kind: 'not_recorded' }, current: { kind: 'range', low_pct: 20, high_pct: 40, low_rounding: 'whole', high_rounding: 'nearest_5' } },
 ]
 const withGoal = (overrides: Partial<RunDelta> = {}) => runChangeDelta({ goal_chances: GOAL_CHANCES, ...overrides })
-const NO_CONTEST = /chance of leading|\blead(s|ing|er)?\b|\bwinner\b|\bbest\b|\bahead\b/i
-const NO_DIRECTION = /\b(higher|lower|rose|fell|moved|up|down|increased|decreased)\b/i
-
-describe('the words: each side as its own Run showed it, figures only', () => {
-  it.each([
-    [{ kind: 'point', pct: 47, rounding: 'whole' }, 'about 47%'],
-    [{ kind: 'point', pct: 0, rounding: 'whole' }, 'less than 1%'],
-    [{ kind: 'point', pct: 100, rounding: 'nearest_5' }, 'more than 99%'],
-    [{ kind: 'range', low_pct: 20, high_pct: 40, low_rounding: 'whole', high_rounding: 'whole' }, 'between about 20% and 40%'],
-    [{ kind: 'withheld' }, 'not shown'],
-    [{ kind: 'not_recorded' }, 'not recorded'],
-  ] as const)('%j → %s', (side, words) => {
-    expect(goalChanceSideWords(side)).toBe(words)
-    expect(goalChanceSideWords(side)).not.toMatch(NO_DIRECTION)
-  })
-
-  it('a pair reads earlier first, and never says which way it went', () => {
-    const line = goalChanceCompareWords({ kind: 'point', pct: 47, rounding: 'whole' }, { kind: 'point', pct: 15, rounding: 'whole' })
-    expect(line).toBe('Earlier about 47% → Latest about 15%')
-    expect(line).not.toMatch(NO_DIRECTION)
-    expect(line).not.toMatch(NO_CONTEST)
-    expect(COMPARE_GOAL_CHANCE_HEADING).not.toMatch(NO_CONTEST)
-  })
-})
+/** Every figure the pair holds: its goal chances (47, 15, 20–40) and both Runs' shares (41/44, 59/56). */
+const PAIR_FIGURES = /\b(?:47|15|20|40|41|44|59|56)%/
 
 describe('the view carries the producer\'s goal chances by identity', () => {
   const labelFor = (id: string) => RUN_CHANGE_LABELS.get(id) ?? null
@@ -75,7 +53,22 @@ describe('the view carries the producer\'s goal chances by identity', () => {
   })
 })
 
-function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true): string {
+/**
+ * #2747 (DL ruling (b)): the scenario's canonical view, for the pair's Latest Run (`run-b`, the fixture's current endpoint)
+ * by default; `latest: 'stale'` / `'other'` / `'absent'` are the three ways its Latest Run is not the current one.
+ */
+type Latest = 'current' | 'stale' | 'other' | 'absent'
+function adoptCanonical(latest: Latest): void {
+  const view = latest === 'absent' ? null : parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld', options: [],
+    run: { run_id: latest === 'other' ? 'run-after-b' : 'run-b', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: latest === 'stale', revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+  })
+  useCanonicalAnalysisViewStore.getState().adopt('scn-1', view)
+}
+function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?: string } = { permitted: true }, current = true, latest: Latest = 'current'): string {
+  adoptCanonical(latest)
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.44, opt_49: 0.56 } })
   report.producer_leader_permission = permission
@@ -95,91 +88,38 @@ function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?
 }
 // The RESULT heading, by its section: the inputs section has its own level-3 heading (Compare v3 rows).
 const heading = () => within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading', { level: 3 })
-const goalRows = () => within(screen.getByTestId('compare-goal-chances')).getAllByRole('listitem')
-// Each row's words (read out) and its drawn pair (for the eye), by their own elements.
-const goalWords = () => goalRows().map((li) => within(li).getByTestId('compare-goal-chance-words').textContent)
-const goalPairs = () => goalRows().map((li) => within(li).getByTestId('compare-goal-chance-pair').textContent)
+const headlineSection = () => document.querySelector('[data-compare-section="headline"]') as HTMLElement
 
 beforeEach(() => {
   useCanvasStore.setState(original, true)
   vi.mocked(canvasLinkOfTarget).mockImplementation((target) => (target ? { target, focus: vi.fn(), highlight: vi.fn() } : null))
   vi.mocked(useCanvasLight).mockReturnValue({ on: vi.fn(), off: vi.fn() })
 })
-afterEach(() => { cleanup(); useCanvasStore.setState(original, true) })
+afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 
-describe('Compare leads with each option\'s chance of meeting the goal', () => {
-  it('the heading names the quantity, and each option\'s row is its two sides in producer order', () => {
-    render(<CompareRunPairBody responseHash={seed(withGoal())} />)
-    expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
-    expect(goalRows().map((li) => li.getAttribute('data-option-id'))).toEqual(['opt_49', 'opt_60'])
-    expect(goalWords()).toEqual([
-      'Keep £49: Earlier about 47% → Latest about 15%',
-      'Raise to £60: Earlier not recorded → Latest between about 20% and 40%',
-    ])
-    expect(goalPairs()).toEqual(['about 47%about 15%', 'not recordedbetween about 20% and 40%'])
-    // The latest side with a figure reads a step stronger; a side without a figure stays muted.
-    const [first, second] = goalRows().map((li) => [...within(li).getByTestId('compare-goal-chance-pair').querySelectorAll('span')].map((x) => x.className))
-    expect(first).toEqual(['text-text-body', 'text-text-header'])
-    expect(second).toEqual(['text-text-light', 'text-text-header'])
-    // v3 artefact row: the option's name and its pair share one line (the pair pushed right), never a stacked pair.
-    for (const li of goalRows()) {
-      const row = within(li).getByTestId('compare-goal-chance-row')
-      expect(row).toContainElement(within(li).getByTestId('compare-goal-chance-pair'))
-      expect(row.firstElementChild).toHaveTextContent(/^(Keep £49|Raise to £60)$/)
-      expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'justify-between']))
-    }
-    const section = screen.getByTestId('compare-goal-chances')
-    expect(section.textContent).not.toMatch(NO_DIRECTION)
-    expect(screen.getByTestId('compare-run-pair').textContent).not.toMatch(NO_CONTEST)
-  })
-
-  it('run shares move behind Result details (control: without goal chances they lead, unchanged)', () => {
-    render(<CompareRunPairBody responseHash={seed(withGoal())} />)
-    expect(screen.queryByTestId(COMPARE_SUPPORT_TESTID)).toBeNull()
+describe('#2747 re-scope 2 (U0, DL ruling (A)): Compare shows no goal chance and no run share in C', () => {
+  it.each([
+    ['current', true], ['stale', true], ['other', true], ['absent', true], ['current', false],
+  ] as const)('Latest %s, results permitted %s: no goal-chance rows, no share figures, no not-current line', (latest, permitted) => {
+    const delta = withGoal()
+    // CONTROL: the reader holds the goal chances for this pair, so the absence below is the surface's, not the fixture's.
+    expect(buildRunDeltaView(delta, (id) => RUN_CHANGE_LABELS.get(id) ?? null).goalChances).toHaveLength(2)
+    render(<CompareRunPairBody responseHash={seed(delta, permitted ? { permitted: true } : { permitted: false, producer_cause: 'constraint_verdict_withheld' }, true, latest)} />)
+    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
+    expect(screen.queryByTestId('compare-goal-chances-not-current')).toBeNull()
     expect(screen.queryByTestId('compare-share-results')).toBeNull()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    const shares = screen.getByTestId('compare-share-results')
-    // The share sentence is the run-share headline for the same pair (this fixture names no leader).
-    expect(shares).toHaveTextContent('The latest run names no option')
-    expect(within(shares).getByTestId(COMPARE_SUPPORT_TESTID)).toBeInTheDocument()
-    cleanup()
-    render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
-    expect(heading()).toHaveTextContent('The latest run names no option')
-    expect(screen.getByTestId(COMPARE_SUPPORT_TESTID)).toBeInTheDocument()
-    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
+    expect(screen.queryByTestId('compare-result-details-toggle')).toBeNull()
+    expect(headlineSection().textContent).not.toMatch(PAIR_FIGURES)
+    expect(headlineSection().textContent).not.toMatch(/chance of meeting your goal/i)
+    // The headline keeps the producer's leader claim in words, under its own entitlement.
+    expect(heading()).toHaveTextContent(permitted ? 'The latest run names no option' : 'Result comparison not shown')
+    if (!permitted) expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
   })
 
-  it('withheld run shares do not hide the goal chances (ruling 1); the not-shown reason stays (control: no goal chances → "Result comparison not shown")', () => {
-    render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: false, producer_cause: 'constraint_verdict_withheld' })} />)
-    expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
-    expect(goalRows()).toHaveLength(2)
-    expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
-    expect(screen.queryByTestId('compare-result-details')).toBeNull()
-    cleanup()
-    render(<CompareRunPairBody responseHash={seed(runChangeDelta(), { permitted: false, producer_cause: 'constraint_verdict_withheld' })} />)
-    expect(heading()).toHaveTextContent('Result comparison not shown')
-  })
-
-  it('a pair whose Runs show no chance at all keeps the run-share layout (control: one figure on one side leads with goal chances)', () => {
-    const none = [
-      { option_id: 'opt_49', prior: { kind: 'withheld' }, current: { kind: 'withheld' } },
-      { option_id: 'opt_60', prior: { kind: 'not_recorded' }, current: { kind: 'withheld' } },
-    ] as RunDeltaGoalChanceDelta[]
-    render(<CompareRunPairBody responseHash={seed(runChangeDelta({ goal_chances: none }))} />)
-    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
-    expect(heading()).toHaveTextContent('The latest run names no option')
-    cleanup()
-    const one = [none[0], { ...none[1], current: { kind: 'point', pct: 30, rounding: 'whole' } }] as RunDeltaGoalChanceDelta[]
-    render(<CompareRunPairBody responseHash={seed(runChangeDelta({ goal_chances: one }))} />)
-    expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
-    expect(goalWords()).toEqual(['Keep £49: Earlier not shown → Latest not shown', 'Raise to £60: Earlier not recorded → Latest about 30%'])
-  })
-
-  it('a pair that is not the current model\'s shows no goal chances (control: the current pair does)', () => {
+  it('a pair that is not the current model\'s says no figure either (control: its inputs still list)', () => {
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, false)} />)
     expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
-    cleanup()
-    render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true)} />)
-    expect(screen.getByTestId('compare-goal-chances')).toBeInTheDocument()
+    expect(headlineSection().textContent).not.toMatch(PAIR_FIGURES)
+    expect(document.querySelector('[data-compare-section="inputs"]')).not.toBeNull()
   })
 })
