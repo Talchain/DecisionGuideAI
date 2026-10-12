@@ -108,9 +108,6 @@ const EMPTY: RunView = {
   goalChanceDetail: () => null, licenceGoalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
 
-/** CEE `sayDisplayedPct` (goal-targets-joint.ts): a whole percentage as the screen says it. */
-const sayDisplayedPct = (pct: number): string => pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
-
 /** The Batch C parts of the Run's one licence record, in the canonical view's shape (CEE `canonicalGoalChanceDetail`). */
 function licenceRecordDetail(warnings: unknown): CanonicalGoalChanceDetail | null {
   if (!Array.isArray(warnings)) return null
@@ -123,7 +120,7 @@ function licenceRecordDetail(warnings: unknown): CanonicalGoalChanceDetail | nul
       : { status: t.joint.status, line: t.joint.line, ...(t.joint.frechet_line === undefined ? {} : { frechet_line: t.joint.frechet_line }) },
     per_target: t.per_target.map(row => isRec(row) && isRec(row.pct_by_option) ? { constraint_id: row.constraint_id, words: row.words,
       options: Object.entries(row.pct_by_option).map(([option_id, pct]) => ({ option_id,
-        display: typeof pct === 'number' && Number.isInteger(pct) && pct >= 0 && pct <= 100 ? sayDisplayedPct(pct) : undefined })) } : row),
+        display: typeof pct === 'number' && Number.isInteger(pct) && pct >= 0 && pct <= 100 ? goalProbabilityWords(`${pct}%`) : undefined })) } : row),
   } : t
   const raw = {
     ...(r.chance_words === undefined ? {} : { chance_words: r.chance_words }),
