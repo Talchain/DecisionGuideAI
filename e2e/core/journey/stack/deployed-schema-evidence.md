@@ -73,14 +73,8 @@ All candidate paths in this table are under `supabase/migrations/`.
 - Both shims assert the original migration hashes before replacement and the exact
   deployed hashes afterwards. The existing runner executes each shim atomically
   and stops on a shim failure. The original B2/A6 guards remain unchanged.
-- `schema-assert.sql` (CTE `deployed`) pins all four supplied post-migration hashes
-  and lengths. A body row runs only for a function the pre-shim commented
-  `j1:deployed-parity` (CTE `parity`), so a missing, re-created or re-commented
-  function drops its row; it does not report a FAIL by itself. A separate REQUIRED
-  row counts the body rows: 4 when the migration ledger
-  (`supabase_migrations.schema_migrations`, written by `apply-migrations.sh`) holds
-  both B2 `20261009160000` and A6 `20261010010000`, otherwise 0. A dropped row, or a
-  tuple carrying only one of the two, fails that count.
+- `schema-assert.sql:29` pins all four supplied post-migration hashes and lengths;
+  its exact-signature LEFT JOIN reports REQUIRED FAIL for a missing function.
 - Neither the migration merge nor `expected-partials.tsv` was changed.
 
 Offline validation passed: 162 merged files; each shim precedes its guarded

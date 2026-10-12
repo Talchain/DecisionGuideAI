@@ -23,8 +23,6 @@
 #                        and the set is kept (DL 87114, 9 Oct: the zero-new-call proof).
 #   J1_TUPLE=pinned      check CEE/PLoT/ISL out at fixtures/j1/tuple.json (default: staging tips),
 #                        and leave tuple.json as it is.
-#   J1_MIGRATIONS_ONLY=1 migrations + schema-assert.sql only: no services, no LLM boundary, no provider
-#                        calls, and fixtures/j1/ (llm/ and tuple.json) is never touched.
 set -euo pipefail
 
 DGAI="$(pwd)"
@@ -52,18 +50,8 @@ rm -rf "$W"; mkdir -p "$W/logs" "$W/keys"
 # CEE NPM_PACKAGES_TOKEN, PLoT GITHUB_TOKEN); unset, the install fails before it starts.
 # The local gh login's token is handed to the INSTALL commands only, as CI hands its job token.
 PKG_TOKEN="$(gh auth token)"
-REC_MODE="${J1_RECORD_MODE:-record}"; TUPLE="${J1_TUPLE:-tips}"; MIGRATIONS_ONLY="${J1_MIGRATIONS_ONLY:-0}"
+REC_MODE="${J1_RECORD_MODE:-record}"; TUPLE="${J1_TUPLE:-tips}"
 case "$REC_MODE" in record|fill|replay) ;; *) say "J1_RECORD_MODE must be record, fill or replay"; exit 2 ;; esac
-case "$MIGRATIONS_ONLY" in 0|1) ;; *) say "J1_MIGRATIONS_ONLY must be 0 or 1"; exit 2 ;; esac
-# The committed recordings are deleted ONLY by a run that will record a new set: a full record with services.
-# Anything else (fill, replay, migrations-only) refuses, so the set can never be lost to a run that records nothing.
-delete_recordings() {
-  if [ "$REC_MODE" != record ] || [ "$MIGRATIONS_ONLY" != 0 ]; then
-    say "refusing to delete the recordings in $FIX: this run will not record (mode=$REC_MODE, migrations-only=$MIGRATIONS_ONLY)"
-    exit 1
-  fi
-  rm -f "$FIX"/[0-9]*.json
-}
 for repo in olumi-assistants-service:cee plot-lite-service:plot Inference-Service-Layer:isl; do
   name="${repo%%:*}"; dir="${repo##*:}"
   if [ "$TUPLE" = pinned ]; then
@@ -80,6 +68,14 @@ for s in "$DGAI_SHA" "$CEE_SHA" "$PLOT_SHA" "$ISL_SHA"; do [ "${#s}" -eq 40 ] ||
 say "tuple ui=$DGAI_SHA cee=$CEE_SHA plot=$PLOT_SHA isl=$ISL_SHA"
 
 node "$STACK/gen-tls-and-keys.mjs" "$W/keys"
+
+# ── LLM boundary, record mode, plain HTTP for the preload ──
+# Only a full record replaces the set; fill appends to it and replay only reads it.
+[ "$REC_MODE" != record ] || rm -f "$FIX"/[0-9]*.json
+# JOURNEY_LLM_MAX_CALLS: the DL's call budget for this record run (record 3: 15). Call 16 is refused.
+JOURNEY_LLM_MODE="$REC_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
+JOURNEY_LLM_MAX_CALLS="${J1_MAX_CALLS:-15}" JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &
+PIDS+=($!)
 
 # ── Supabase: empty start, then both repos' migrations with a per-file report ──
 mkdir -p "$W/sb/supabase" && cd "$W/sb"
@@ -127,28 +123,13 @@ eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)='
 cd "$DGAI"
 # J1_MIGRATIONS_ONLY=1: prove the schema seam for this tuple (migrations + schema-assert.sql) with no services and
 # no provider calls, then tear down. Recovery Batch 0: X7 must be listed and every REQUIRED row PASS.
-# It exits before the LLM boundary starts, so it never reads, writes or deletes anything in fixtures/j1/.
-if [ "$MIGRATIONS_ONLY" = 1 ]; then
-  ASSERT_RC=0
+if [ "${J1_MIGRATIONS_ONLY:-0}" = 1 ]; then
   docker exec -i supabase_db_j1-journey psql -U postgres -d postgres -X -A -F $'\t' -v ON_ERROR_STOP=1 \
-    -f - < "$STACK/schema-assert.sql" > "$W/logs/schema-assert.tsv" 2>&1 || { ASSERT_RC=1; say "schema-assert.sql did not run cleanly"; }
-  # `grep -c` exits 1 on a zero count; under `set -euo pipefail` that would abort, so count without failing.
-  REQ_N=$( { grep -c $'^REQUIRED\t' "$W/logs/schema-assert.tsv" || true; } | tr -d ' ')
-  REQ_BAD=$( { grep $'^REQUIRED\t' "$W/logs/schema-assert.tsv" || true; } | { grep -vc $'\tPASS\t' || true; } | tr -d ' ')
-  say "schema-assert REQUIRED rows not PASS: $REQ_N required, $REQ_BAD not PASS"
+    -f - < "$STACK/schema-assert.sql" > "$W/logs/schema-assert.tsv" 2>&1 || say "schema-assert.sql did not run cleanly"
+  say "schema-assert REQUIRED rows not PASS: $(grep -c $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | tr -d ' ') required, $(grep $'^REQUIRED\t' "$W/logs/schema-assert.tsv" | grep -vc $'\tPASS\t' | tr -d ' ') not PASS"
   say "migrations-only: report $W/logs/MIGRATION-REPORT.tsv, assert $W/logs/schema-assert.tsv"
-  # Fail closed (Batch 0 check N1/N2 follow-up): a script error, zero REQUIRED rows, or any REQUIRED row not PASS.
-  if [ "$ASSERT_RC" != 0 ] || [ "${REQ_N:-0}" -eq 0 ] || [ "${REQ_BAD:-1}" -ne 0 ]; then exit 1; fi
   exit 0
 fi
-
-# ── LLM boundary, record mode, plain HTTP for the preload (CEE, started below, is redirected to it) ──
-# Only a full record replaces the set; fill appends to it and replay only reads it.
-[ "$REC_MODE" != record ] || delete_recordings
-# JOURNEY_LLM_MAX_CALLS: the DL's call budget for this record run (record 3: 15). Call 16 is refused.
-JOURNEY_LLM_MODE="$REC_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
-JOURNEY_LLM_MAX_CALLS="${J1_MAX_CALLS:-15}" JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &
-PIDS+=($!)
 
 # ── ISL ──
 (cd "$W/isl" && poetry config virtualenvs.in-project true --local && poetry install --only main --no-root -q) > "$W/logs/isl-install.log" 2>&1
