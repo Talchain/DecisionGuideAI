@@ -505,6 +505,11 @@ export interface HeroChartModel {
   /** The outcome lens's "Not shown: …" sentence when {@link outcomeWithheldNoTodayLevel}, naming the goal; else null. */
   outcomeWithheldBody: string | null
   /**
+   * Run-3 judge C5: CEE's one served withheld reason, verbatim, when every served option shares it
+   * (`recommendation.servedWithheldWhy`). The goal lens says it in place of the UI's own unavailable copy.
+   */
+  servedWithheldWhy?: string | null
+  /**
    * Number of rows that draw a p10-p90 range line — gates the outcome
    * caption so it never describes lines (or overlap) that are not
    * rendered: 0 → dots-only wording, 1 → singular "The line shows…"

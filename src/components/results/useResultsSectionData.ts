@@ -121,7 +121,7 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalFigureWithholds, readGoalIdentityWithheld, sharedServedWithheldWhy } from './utils/goalIdentityWithheld'
 import { isUnsizedRelationship } from '../../canvas/domain/edgeProvenance'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
@@ -2703,6 +2703,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // C5 (run-3 judge): CEE's one served withheld reason, when every option it serves is withheld with the same why.
+    const servedWithheldWhy = sharedServedWithheldWhy((canonical?.options ?? []).map(o => runView.servedCellOf(o.option_id)))
+
     // Display-safe robustness verdict consumption (lane 35 fix 3,
     // ROADMAP 1.6; producer PLoT #202). Raw response first (fresh run),
     // mapped report as the saved/hydrated fallback — same chain as
@@ -2922,7 +2925,13 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
           : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
-      goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message ?? null,
+      // C5 (run-3 judge): when the producer's warning words fail the display check, the reader says its own fallback;
+      // CEE's served cells may carry the same reason, verbatim, and then they speak instead (label, don't hide).
+      goalFiguresWithheldMessage: (() => {
+        const read = readGoalIdentityWithheld(report)?.message ?? null
+        return read === GOAL_IDENTITY_WITHHELD_FALLBACK && servedWithheldWhy !== null ? servedWithheldWhy : read
+      })(),
+      servedWithheldWhy,
       goalHoldsTodayLevel: (() => {
         const os = (goalNode?.data as { observedState?: { raw_value?: unknown } } | undefined)?.observedState
         return typeof os?.raw_value === 'number' && Number.isFinite(os.raw_value)
@@ -3020,7 +3029,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, canonical, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
