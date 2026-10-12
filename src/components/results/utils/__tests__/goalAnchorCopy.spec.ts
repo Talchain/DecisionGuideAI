@@ -149,8 +149,8 @@ describe('COMPARATIVE_COPY — says what it measures, never what to choose', () 
     // Casing lives in the register, never at a call site. Two call sites doing
     // this inline is what produced the §10.2 defect, and the F1 fix briefly
     // reintroduced the pattern.
-    const p = COMPARATIVE_COPY.phraseNoMagnitude
-    expect(COMPARATIVE_COPY.leadNoMagnitude).toBe(`${p.charAt(0).toUpperCase()}${p.slice(1)}`)
+    // Run-4 judge (DL 12 Oct): the sentence-initial leader claim is deleted with its only reader (the option card).
+    expect(COMPARATIVE_COPY).not.toHaveProperty('leadNoMagnitude')
     expect(COMPARATIVE_COPY.clause('60%')).toBe(
       `${COMPARATIVE_COPY.phrase('60%').charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase('60%').slice(1)}`,
     )

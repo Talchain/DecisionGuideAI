@@ -141,10 +141,13 @@ describe('OptionCards — withheld leader claim', () => {
 describe('OptionCards — permitted leader claim (over-suppression controls)', () => {
   // #2747 re-scope 2 (U0, DL ruling (A)): was 'keeps the winner sentence, and the non-leader card keeps its OWN number'. The
   // winner sentence is kept, verbatim and with no magnitude; the non-leader card is kept by identity but carries no share.
-  it('keeps the winner sentence (no magnitude), and keeps the non-leader card — with no share of its own', () => {
+  // Run-4 judge, BLOCKING (DL 12 Oct): was 'keeps the winner sentence (no magnitude), …'. Even a permitted claim makes no
+  // leader sentence from a win share ("more simulated scenarios than any other option"); the cards themselves stay.
+  it('makes no win-share leader sentence even when permitted, and keeps the non-leader card — with no share of its own', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
-    expect(text).toContain('Supported in more simulated scenarios than any other option')
+    expect(text).not.toMatch(/than any other option/i)
+    expect(screen.getByTestId(`option-card-${WINNER_ID}`)).toBeDefined()
     expect(text).not.toMatch(/supported in .+ of simulated scenarios/i)
 
     // ⭐ SUPERSEDED 2026-08-10. This asserted the non-leader's sentence was
@@ -178,8 +181,10 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // the default cannot drift to silence and quietly blank every legacy
     // caller's cards.
     const { container } = renderCards(undefined)
-    // #2747 re-scope 2 (U0, DL ruling (A)): the permitted winner claim carries no magnitude in C; pinned verbatim.
-    expect(container.textContent ?? '').toContain('Supported in more simulated scenarios than any other option')
+    // Run-4 judge (DL 12 Oct): there is no winner sentence to compare, so the control binds to what a permitted claim
+    // keeps: the downside pill (see 'keeps the downside pill'), and the same absence of any win-share leader sentence.
+    expect(screen.getByTestId(`leading-option-downside-${WINNER_ID}`)).toBeDefined()
+    expect(container.textContent ?? '').not.toMatch(/than any other option/i)
   })
 })
 

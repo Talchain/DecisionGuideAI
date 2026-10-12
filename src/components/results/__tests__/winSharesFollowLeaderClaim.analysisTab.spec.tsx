@@ -188,12 +188,15 @@ describe('CURRENT-READ row 9 — OptionCards on its own (no gauge above it)', ()
 
   // #2747 re-scope 2 (U0, DL ruling (A)): was 'ROW 2 CONTROL: permitted keeps the header %, the fill bar and the leader
   // sentence'. In C a permitted card keeps the leader sentence, with no magnitude, and shows no header % and no fill bar.
-  it('ROW 2 CONTROL: permitted keeps the leader sentence (no magnitude); no header %, no fill bar', () => {
+  // Run-4 judge, BLOCKING (DL 12 Oct): a permitted card makes no win-share leader sentence either; the control is that the
+  // permitted card still renders (the cards are not blanked), with no header %, no fill bar and no "than any other option".
+  it('ROW 2 CONTROL: permitted renders the cards with no leader sentence; no header %, no fill bar', () => {
     seedPaulRun(PERMITTED_STAMP)
     const cards = renderCards()
     expect(screen.queryByTestId(`win-pct-${CONVERTIBLE}`)).toBeNull()
     expect(cards.querySelector(`[title*="80%"]`)).toBeNull()
-    expect(cards.textContent).toContain('Supported in more simulated scenarios than any other option')
+    expect(screen.getByTestId(`option-card-${CONVERTIBLE}`)).toBeDefined()
+    expect(cards.textContent).not.toMatch(/than any other option/i)
     expect(cards.textContent).not.toMatch(/supported in 80% of simulated scenarios/i)
     expect(perceivable(cards).match(PERCENT)).toBeNull()
   })

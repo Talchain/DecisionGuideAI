@@ -353,35 +353,11 @@ function hingeAwareDescription(
   if (noLeader) return ''
 
   if (isWinner) {
-    /**
-     * The winner's comparative claim, in ONE place for all three variants.
-     *
-     * ⚠ F1 — an ABSENT comparative probability must never become a measured
-     * one. This read `option.winProbability ?? 0` and then applied the
-     * simulation-resolution floor, so a designated leader carrying no
-     * comparative probability got "Came out ahead in <0.02% of simulated
-     * scenarios" — a precise-looking, entirely invented measurement, on the
-     * card the user trusts most. Reachable: the `decisionState` arm at the
-     * render site calls this with no presence check (its sibling arm does).
-     *
-     * Same class as the two defects the previous pass fixed, and the same
-     * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
-     * so a fourth variant cannot be born ungated.
-     */
-    // #2747 re-scope 2 (DL ruling (A)): the claim keeps no magnitude in C (no win share is said).
-    const claim = COMPARATIVE_COPY.leadNoMagnitude
-
-    // F2 — both hinge variants carried the retired un-anchored superlative
-    // ("Highest leading-option likelihood"): no basis, no number. Only the
-    // third sibling had been re-anchored. They keep the hinge clause, which
-    // is the whole point of the variant.
-    if (hinge?.reason === 'fragile_edge') {
-      return `${claim}, but this depends on ${hinge.label}`
-    }
-    if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `${claim}. ${hinge.label} has the widest uncertainty.`
-    }
-    return claim
+    // ⭐ RUN-4 JUDGE, BLOCKING (DL 12 Oct): "Supported in more simulated scenarios than any other option" (with its
+    // hinge tail) was a leader claim built from a win share, said beside the option's goal chance. Ruling A and the
+    // guiding principle allow no "more than any other option", and CEE sends no such line. The winner's card says
+    // nothing here; no words replace it (the goal row and CEE's cells say what the model implies).
+    return ''
   }
   if (isRunnerUp) {
     // ROADMAP 1.239: reachable only on a permitted turn now — see the gate

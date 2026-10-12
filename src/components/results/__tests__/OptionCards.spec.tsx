@@ -117,7 +117,10 @@ describe('OptionCards', () => {
 
       // With win probabilities available, hingeAwareDescription provides the
       // winner's sentence. #2747 re-scope 2 (U0, DL ruling (A)): it carries no magnitude in C.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
       // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 30 percentage points'.
       // The percentage-point gap between two win frequencies is retired from
@@ -531,9 +534,10 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
@@ -551,9 +555,10 @@ describe('OptionCards', () => {
       // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
       // hinge clause.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option. Market size has the widest uncertainty.'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
     })
 
@@ -569,7 +574,10 @@ describe('OptionCards', () => {
       )
 
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 
@@ -668,9 +676,10 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(
-        screen.getByText('Supported in more simulated scenarios than any other option, but this depends on Customer churn'),
-      ).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/supported in .+ of simulated scenarios/i)).toBeNull()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
@@ -692,7 +701,10 @@ describe('OptionCards', () => {
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
       // #2747 re-scope 2 (U0, DL ruling (A)): the claim keeps no magnitude in C; pinned verbatim.
-      expect(screen.getByText('Supported in more simulated scenarios than any other option')).toBeInTheDocument()
+      // Run-4 judge, BLOCKING (DL 12 Oct): the winner card makes no leader claim from a win share ("more simulated scenarios than
+      // any other option"), with or without its hinge tail, and no words replace it.
+      expect(screen.queryByText(/than any other option/i)).toBeNull()
+      expect(screen.queryByText(/but this depends on|has the widest uncertainty/)).toBeNull()
       expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     })
 

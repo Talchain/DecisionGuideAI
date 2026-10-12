@@ -231,17 +231,6 @@ export const COMPARATIVE_COPY = {
    */
   phraseNoMagnitude: 'supported in more simulated scenarios than any other option',
   /**
-   * The magnitude-free claim in SENTENCE-INITIAL position.
-   *
-   * ⚠ Added because the F1 fix opened by writing
-   * `phraseNoMagnitude.charAt(0).toUpperCase() + …slice(1)` inline at the call
-   * site — which is EXACTLY the duplicated string surgery that produced the
-   * §10.2 casing defect, reintroduced two sections after being named. The
-   * register owns casing; call sites never do it. `goalAnchorCopy.spec.ts`
-   * pins this against `phraseNoMagnitude` so the two cannot drift.
-   */
-  leadNoMagnitude: 'Supported in more simulated scenarios than any other option',
-  /**
    * Mid-sentence form — `phrase()` with a lower-case initial, for when the
    * claim follows an option label rather than opening a line.
    *
