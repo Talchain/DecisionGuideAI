@@ -9,6 +9,7 @@ import { ConstraintBadge } from './ConstraintBadge'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
+import { resolveFactorStoredRangeLine } from './shared/factorStatedRange'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -279,6 +280,10 @@ export const FactorNode = memo((props: NodeProps) => {
   // A bare 0–1 range ("Range: 0.2 to 0.6") is KEPT there (review F2, #2085):
   // its origin is unrecorded and may be the person's inspector edit, so it
   // shows with its `no source` mark (see `resolveFactorPriorRangeOnCard`).
+  // DL ruling (12 Oct, after run 5): the factor's STORED bounds (`observedState.range`), said neutrally — "Range: 20%–30%
+  // of monthly team capacity" — with no "your range" and no Olumi label (`resolveFactorStoredRangeLine`). Drawn only
+  // where the prior-range line is not, so one card never states two ranges.
+  const storedRangeLine = useMemo(() => resolveFactorStoredRangeLine(props.data), [props.data])
   const priorRangeDisplay = useMemo(
     () => resolveFactorPriorRangeOnCard({
       data: props.data as Record<string, unknown> | undefined,
@@ -1463,6 +1468,11 @@ export const FactorNode = memo((props: NodeProps) => {
                 as its `trailing`. Detailed: a flex row drops the whitespace
                 between its items and keeps its 6px `gap-x-1.5`. */}
             {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
+          </div>
+        )}
+        {storedRangeLine !== null && !priorRangeShown && (
+          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`} data-testid={`factor-stored-range-${props.id}`}>
+            {storedRangeLine}
           </div>
         )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
