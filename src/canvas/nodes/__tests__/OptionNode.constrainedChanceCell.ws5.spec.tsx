@@ -31,9 +31,9 @@ afterEach(() => {
 })
 
 describe('WS5 constrained option card chance cell', () => {
-  // #2747 re-scope 2 (U0): the canvas cards show no chance in C (the Results hero says it, from CEE's cell), and the decision
-  // matrix this card was held equal to is removed. The card keeps the negatives: no joint words, no share of runs.
-  it('the card shows no chance in C, with no joint words or share of runs, though the RunView cell holds one', () => {
+  // Post-C UI item 1 (DL, 12 Oct): the card says CEE's served cell for this option, verbatim (`servedCellOf`). In C it showed
+  // none (U0). The negatives stay: no joint words, no share of runs.
+  it('the card says CEE\'s served cell verbatim, with no joint words or share of runs', () => {
     const selection = selectGoalProbability(CONSTRAINED)
     expect(selection.goalProbability).toBe(0.4)
     expect(selection.jointGoalProbability).toBe(0.2)
@@ -54,15 +54,18 @@ describe('WS5 constrained option card chance cell', () => {
     const node = { id: a.id, type: 'option', position: { x: 0, y: 0 }, data: { label: a.label } }
     useCanvasStore.setState({ nodes: [node], edges: [], results: { status: 'complete', report },
       analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' }, analysisFreshnessDirty: false } as never)
-    const cellText = data.runView!.chanceCellOf(a.id, { goalChanceHeroSays: true, labelOf: () => a.label }).text!
+    const served = data.runView!.servedCellOf(a.id)
+    const cellText = served?.kind === 'figure' ? served.face ?? served.display : ''
     expect(cellText).toContain('73%')
     const card = render(<ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode id={a.id} type="option" data={node.data as never} selected={false} isConnectable
         positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
     </OptionChanceCellProvider></ReactFlowProvider>)
-    expect(screen.queryByTestId(`option-win-readout-${a.id}`)).toBeNull()
-    expect(screen.queryByTestId(`option-analysis-currency-${a.id}`)).toBeNull()
-    expect(card.container.textContent).not.toContain('73%')
+    const face = screen.getByTestId(`option-win-readout-${a.id}`)
+    const row = screen.getByTestId(`option-analysis-currency-${a.id}`)
+    expect(face.textContent).toBe(cellText)
+    // Currentness is a separate, existing prefix in the row's name.
+    expect(row).toHaveAccessibleName(`Current model · ${cellText}`)
     expect(card.container.textContent).not.toMatch(/and limits|limits together/i)
     expect(card.container.textContent).not.toMatch(/of runs/i)
     for (const element of card.container.querySelectorAll('[aria-label]')) {
