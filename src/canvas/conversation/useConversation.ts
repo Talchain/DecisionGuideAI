@@ -1,4 +1,6 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
+import { gatedDriversOf, heldCanonicalFor } from '../runView/heldRunView'
+import { runViewOf } from '../runView/runView'
 import { askAiStage } from './askAi'
 import { createRefusedGraphRefresh, isGraphRecoverySystemEvent } from './refusedGraphRefresh'
 import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
@@ -97,7 +99,7 @@ import {
   type StructuralAddNoticeKey,
 } from '../mutations/structuralAdd'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { mapV5Blocks, turnCanonicalRunOf } from '../../v5/blocks/mapV5Blocks'
 import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisCardDedupe'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
@@ -2151,6 +2153,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? dataObj.options.map((o: any) => ({
                 id: o?.id != null ? String(o.id) : undefined,
                 label: String(o?.label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 probability: typeof o?.probability === 'number' ? o.probability : undefined,
                 rank: typeof o?.rank === 'number' ? o.rank : undefined,
                 strengths: Array.isArray(o?.strengths) ? o.strengths.map(String) : undefined,
@@ -2185,7 +2188,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? {
                 id: String((dataObj.current_winner as any).id ?? ''),
                 label: String((dataObj.current_winner as any).label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 ...(typeof (dataObj.current_winner as any).probability === 'number'
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                   ? { probability: (dataObj.current_winner as any).probability }
                   : {}),
               }
@@ -6166,6 +6171,8 @@ export function useConversation(): UseConversationReturn {
               lastRun: { visible: stage === 'ran-current' || stage === 'stale',
                 runId: landed.results?.hash ?? landed.v5AnalysisFact?.analysisHash ?? 'visible-run',
                 report: landed.results?.report,
+                // #2747 r2: a note names a driver only from the GATED canonical view of the Run on screen.
+                drivers: gatedDriversOf(runViewOf(landed.results?.report, heldCanonicalFor(landed.currentScenarioId))),
                 fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
                 turningPoints: selectTurningPoints(landed.results?.report),
                 goalConstraints: landed.goalConstraints,
@@ -6177,7 +6184,7 @@ export function useConversation(): UseConversationReturn {
               // Pass suggested_actions so the held-proposal mapper (R8) can
               // resolve confirm_action_id / decline_action_id refs into the
               // {label, message} the card dispatches through the chip seam.
-              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions, turnCanonicalRunOf(target.response))
               : []
 
           // Phase 3 rendering bridge (Track C slice 1, D-5) — surface

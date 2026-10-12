@@ -26,6 +26,7 @@ export function latestOnlyShares(
   if (typeof probs !== 'object' || probs === null || Array.isArray(probs)) return null
   const shares = Object.entries(probs as Record<string, { win_probability?: unknown; status?: Parameters<typeof optionComputationProducedResult>[0] }>)
     .flatMap(([optionId, p]) => {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       const current = p?.win_probability
       if (!optionComputationProducedResult(p?.status)) return []
       if (typeof current !== 'number' || !Number.isFinite(current)) return []

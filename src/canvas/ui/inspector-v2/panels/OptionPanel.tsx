@@ -493,7 +493,9 @@ export const OptionPanel = memo(function OptionPanel({
       // winPct: integer percent used for bar width + close-call gap arithmetic.
       // winLabel: user-facing string; routes through formatWinProbability so a
       // non-zero probability that rounds to 0 renders as "< 1%" rather than "0%".
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : null,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       winLabel: typeof o.win_probability === 'number' ? formatWinProbability(o.win_probability) : null,
       isCurrent: o.option_id === nodeId,
     }))

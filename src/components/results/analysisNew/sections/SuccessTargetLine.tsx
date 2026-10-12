@@ -390,11 +390,14 @@ export function SuccessTargetLine({
         fromNode.quantityFrame,
       ) ?? TARGET_NOT_CAPTURED)
     : null
+  // #2747 r2 (BLOCKING 6): the store's scalar alone is never said as the target ("Success: 10"): it carries no frame,
+  // no unit and no bound, and the node is the only source guaranteed to be in the user's units. With no node target it
+  // is "Target not captured" (the editor stays offered).
   const shownText =
     nodeFigure !== null
       ? (bound !== null && nodeFigure !== TARGET_NOT_CAPTURED ? `${bound} ${nodeFigure}` : nodeFigure)
       : fromStore != null
-        ? String(fromStore)
+        ? TARGET_NOT_CAPTURED
         : null
   /**
    * ⚠ ONLY WHEN NOTHING EXPRESSIBLE EXISTS ANYWHERE. A normalised store value
@@ -634,6 +637,7 @@ export function SuccessTargetLine({
   const openEditor = (startMode: 'number' | 'words') => {
     setEditing(true)
     setMode(startMode)
+    // target-text: the editor's draft value (an input the user edits), not a displayed target
     setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
     /**
      * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.

@@ -241,7 +241,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionEr
           data: {
             schemaVersion: 3,
             weight: edge.weight ?? 1.0,
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
             confidence: edge.probability,
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
             belief: edge.belief ?? edge.probability,
             provenance: edge.provenance,
             templateId: templateDetail.id
@@ -382,7 +384,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionEr
           data: {
             schemaVersion: 3,
             weight: edge.weight ?? 1.0,
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
             confidence: edge.probability,
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
             belief: edge.belief ?? edge.probability,
             provenance: edge.provenance,
             templateId: templateDetail.id

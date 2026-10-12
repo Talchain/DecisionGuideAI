@@ -80,6 +80,7 @@ export function useSupportShareRunWideAbsent(): boolean {
       // `failed` option carries its own distinct notice and must not count as
       // a resolved share here.
       if (!optionComputationProducedResult(entry.status as OptionComputeStatus | undefined)) continue
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
       if (typeof entry.win_probability === 'number' && Number.isFinite(entry.win_probability)) {
         resolvedShares += 1
       }

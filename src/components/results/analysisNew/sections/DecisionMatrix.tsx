@@ -49,8 +49,10 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     const option = rec.allOptions.find((o) => o.id === id)
     return option ? stripEncodingNotation(option.label) : null
   }
-  const driverLines: Readonly<Record<string, string>> = licence?.form === 'all_likely_to_miss' ? {} : goalChanceDriverLines(
-    licence, data.goalChanceDriverNames, licence?.form === 'similar' ? licence.similarOptionIds : [],
+  // #2747 r2 (BLOCKING 1): the driver comes from the gated canonical `mainDriverOf` only; null is no driver line.
+  const driverLines: Readonly<Record<string, string>> = licence === null || licence.form === 'all_likely_to_miss' ? {} : goalChanceDriverLines(
+    licence.optionIds, (id) => data.runView?.mainDriverOf(id) ?? null, data.goalChanceDriverNames,
+    licence.form === 'similar' ? licence.similarOptionIds : [],
   )
   // Follow the caller's model option order, never the results hook's win-share ranking.
   const order = new Map(optionOrder.map((id, index) => [id, index]))

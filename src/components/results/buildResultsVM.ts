@@ -124,10 +124,13 @@ export function deriveDecisionState(
 export function computeGapTop2(options: Array<{ winProbability?: number }>): number {
   if (options.length === 0) return 0
   const sorted = [...options].sort(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     (a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0),
   )
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
   const first = sorted[0].winProbability ?? 0
   if (sorted.length === 1) return first
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
   const second = sorted[1].winProbability ?? 0
   return Math.abs(first - second)
 }

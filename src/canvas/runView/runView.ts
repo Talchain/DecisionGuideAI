@@ -71,10 +71,15 @@ export interface RunView {
   readonly chanceOf: (optionId: string) => OptionChance
   /** ⭐ The authority gate itself (`chanceFigureFromCanonical`). */
   readonly chanceFigureOf: (optionId: string) => ChanceFigure | null
-  /** Canonical main_driver for a matching Run, otherwise the existing licence driver. */
+  /** The current canonical main_driver for a matching Run; otherwise null (never the licence's own driver, #2747). */
   readonly mainDriverOf: (optionId: string) => GoalChanceDriver | null
   /** Sole per-option display resolution. `none` leaves the matrix's existing empty-cell copy to the matrix. */
   readonly chanceCellOf: (optionId: string, ctx: OptionChanceCellContext) => OptionChanceCell
+  /**
+   * #2747 r2: CEE's reason codes on this option's withheld cell, for a matching Run known to be current; otherwise none.
+   * The chat card uses them to say each option's own reason (`why`) once, never a line of its own composing.
+   */
+  readonly withheldReasonCodesOf: (optionId: string) => readonly string[]
   /**
    * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
@@ -102,6 +107,7 @@ function optionsWithGoalFigures(report: Rec): Set<string> {
   const probs = report.option_probabilities
   if (!isRec(probs)) return out
   for (const [id, p] of Object.entries(probs)) {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
     if (isRec(p) && (typeof p.goal_probability === 'number' || typeof p.probability_of_goal === 'number')) out.add(id)
   }
   return out
@@ -111,7 +117,8 @@ const NONE: OptionChance = { kind: 'none' }
 const NO_CELL: OptionChanceCell = { kind: 'none', text: null }
 const EMPTY: RunView = {
   goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, mainDriverOf: () => null,
-  chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), participationOf: () => null,
+  chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), withheldReasonCodesOf: () => [],
+  participationOf: () => null,
   goalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
 
@@ -127,15 +134,22 @@ const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
 /** The Run's own ranged option ids (ungated), for the static absence face's eligibility only: never a number. */
 const rangedIdsByView = new WeakMap<RunView, ReadonlySet<string>>()
 
+/** How a report is matched to the canonical Run: a Results report by its Run, a chat card by run id AND graph hash. */
+type RunMatch = 'run' | 'card'
+
 /**
- * Match the held report, never today's graph or its locally derived response hash. A persisted chat card carries no run id
- * or producer timestamp, only the wire block's graph hash, so it is matched `by: 'graph_hash'`.
+ * Match the held report, never today's graph or its locally derived response hash.
+ *
+ * #2747 r2 (BLOCKING 3): a chat card is matched `by: 'card'`, by Run IDENTITY: the run id its turn's canonical view
+ * stamped on it (`turnCanonicalRunOf`) AND the wire block's graph hash. The hash alone is not identity (three Runs of one
+ * graph share it); a card with no stamped run id is unknown and binds to nothing.
  */
-function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView, by: 'run' | 'graph_hash' = 'run'): boolean {
+function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView, by: RunMatch = 'run'): boolean {
   const run = canonical.run
   if (run === null) return false
-  if (by === 'graph_hash') {
-    return typeof report.computed_against_hash === 'string' && report.computed_against_hash.length > 0
+  if (by === 'card') {
+    return typeof report.run_id === 'string' && report.run_id.length > 0 && run.run_id === report.run_id
+      && typeof report.computed_against_hash === 'string' && report.computed_against_hash.length > 0
       && run.graph_hash_at_run === report.computed_against_hash
   }
   if (typeof report.run_id === 'string' && report.run_id.length > 0 && run.run_id) return run.run_id === report.run_id
@@ -208,6 +222,7 @@ export function chanceFigureFromCanonical(view: RunView, optionId: string): Chan
 export function gatedCompareGoalChances(
   view: { readonly goalChances?: readonly RunDeltaGoalChanceRow[] }, latestIsCurrent: boolean,
 ): { readonly rows: readonly RunDeltaGoalChanceRow[] | null; readonly notCurrent: boolean } {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
   const rows = view.goalChances
   const figures = rows !== undefined && rows.some((g) => [g.prior, g.current].some((side) => side.kind === 'point' || side.kind === 'range'))
   return { rows: figures && latestIsCurrent ? rows : null, notCurrent: figures && !latestIsCurrent }
@@ -229,23 +244,39 @@ export function latestRunIsCurrentCanonical(canonical: CanonicalAnalysisView | n
 function gatedFigure(licence: GoalChanceLicence | null, current: CanonicalAnalysisView | null, optionId: string): ChanceFigure | null {
   if (licence === null || current === null || licence.withheldOptionIds.includes(optionId)) return null
   const cell = current.options.find(option => option.option_id === optionId)?.cell
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
   const pct = licence.pctByOption[optionId]
   if (cell?.kind !== 'figure' || typeof pct !== 'number' || !Number.isFinite(pct)) return null
   return cell.display === goalProbabilityWords(`${pct}%`) ? { pct, words: cell.display } : null
 }
 
-/** The licence's ranges, kept only for the options whose current canonical cell is a range. */
+/**
+ * The licence's ranges, kept only for the options whose current canonical cell is a range that says the SAME bounds.
+ *
+ * #2747 r2 (BLOCKING 2): a matching kind is not enough (a stored 5–95% beside a canonical 20–30% was shown). CEE words a
+ * range cell from its bounds by the screen's rule (`goal-chance-range-agent.ts`): "between <low> and <high>", each end
+ * as the displayed figure is said, the high end without its "about". The licence's bounds must say exactly those words.
+ */
 function gatedRange(range: GoalChanceRange | null, current: CanonicalAnalysisView | null): GoalChanceRange | null {
   if (range === null || current === null) return null
-  const ranged = new Set(current.options.filter(option => option.cell.kind === 'range').map(option => option.option_id))
-  const optionIds = range.optionIds.filter(id => ranged.has(id))
+  const sameBounds = (id: string): boolean => {
+    const cell = current.options.find(option => option.option_id === id)?.cell
+    const entry = range.rangeByOption[id]
+    if (cell?.kind !== 'range' || entry === undefined) return false
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+    const low = goalProbabilityWords(`${entry.lowPct}%`)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+    const high = goalProbabilityWords(`${entry.highPct}%`).replace(/^about /, '')
+    return cell.display === `between ${low} and ${high}`
+  }
+  const optionIds = range.optionIds.filter(sameBounds)
   if (optionIds.length === 0) return null
   const rangeByOption: Record<string, GoalChanceRange['rangeByOption'][string]> = Object.create(null)
   for (const id of optionIds) rangeByOption[id] = range.rangeByOption[id]
   return { ...range, optionIds, rangeByOption }
 }
 
-export function buildRunView(report: unknown, canonical: CanonicalAnalysisView | null = null, by: 'run' | 'graph_hash' = 'run'): RunView {
+export function buildRunView(report: unknown, canonical: CanonicalAnalysisView | null = null, by: RunMatch = 'run'): RunView {
   if (!isRec(report)) return EMPTY
   const warnings = report.inference_warnings
   return runViewFromParts(report, readGoalChanceLicence(warnings), readGoalChanceRange(warnings), canonical, by)
@@ -254,7 +285,7 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
 /** The view from a report's already-read licence and ranges (`buildRunView` reads them); the gate is the same. */
 export function runViewFromParts(
   report: Record<string, unknown>, licence: GoalChanceLicence | null, range: GoalChanceRange | null,
-  canonical: CanonicalAnalysisView | null = null, by: 'run' | 'graph_hash' = 'run',
+  canonical: CanonicalAnalysisView | null = null, by: RunMatch = 'run',
 ): RunView {
   const held = canonical !== null && matchesCanonicalRun(report, canonical, by) ? canonical : null
   const current = held !== null && held.staleness.stale === false ? held : null
@@ -277,6 +308,10 @@ export function runViewFromParts(
       return driver?.kind === 'available' ? goalChanceDriverOf(driver.driver) : null
     },
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
+    withheldReasonCodesOf: (optionId) => {
+      const cell = current?.options.find(o => o.option_id === optionId)?.cell
+      return cell?.kind === 'withheld' ? cell.reasons.map(reason => reason.code) : []
+    },
     participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
     goalChanceDetail: () => {
       const held = canonicalByView.get(view)
@@ -298,15 +333,16 @@ export function runViewFromParts(
 
 /**
  * A persisted chat card's view of ITS OWN Run (#2747 re-scope): the card's stored licence, through the same gate, against
- * the scenario's canonical view matched by the card's graph hash (the wire block's `computed_against_hash`). A card for an
- * older Run, for a Run not known to be current, or stored without its hash quotes no chance.
+ * the scenario's canonical view matched by Run IDENTITY (the stamped run id AND the wire block's `computed_against_hash`).
+ * A card for an older Run (even one sharing the graph hash), for a Run not known to be current, or stored without its id
+ * or hash quotes no chance. Only the stamped id counts: any run id inside the enrichment is overwritten.
  */
 export function chatCardRunViewOf(
-  block: { readonly enrichment?: Record<string, unknown>; readonly computed_against_hash?: string },
+  block: { readonly enrichment?: Record<string, unknown>; readonly computed_against_hash?: string; readonly run_id?: string },
   canonical: CanonicalAnalysisView | null,
 ): RunView {
   if (!isRec(block.enrichment)) return EMPTY
-  return buildRunView({ ...block.enrichment, computed_against_hash: block.computed_against_hash }, canonical, 'graph_hash')
+  return buildRunView({ ...block.enrichment, computed_against_hash: block.computed_against_hash, run_id: block.run_id }, canonical, 'card')
 }
 
 /** The Run's view, cached by report and scenario-bound canonical projection. Non-object reports get the empty view. */

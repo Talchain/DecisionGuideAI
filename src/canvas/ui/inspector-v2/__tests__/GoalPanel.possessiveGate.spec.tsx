@@ -315,7 +315,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
 
-  it('#2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits (\"all your limits hold\") figure is shown, in any row', () => {
+  it('#2747 (DL, reverses AIQ 5882498938 / ROADMAP 2.283): no legacy limits ("all your limits hold") figure is shown, in any row', () => {
     setStore(CONSTRAINED_REPORT)
     const text = renderPanel().container.textContent ?? ''
     expect(text).not.toContain('All your limits hold in 42% of model runs')

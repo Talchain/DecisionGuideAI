@@ -66,10 +66,6 @@ import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
-import {
-  constraintConfidenceColour,
-  jointProbabilityLabel,
-} from '../../types/constraints'
 import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
@@ -361,8 +357,10 @@ function hingeAwareDescription(
      * so a fourth variant cannot be born ungated.
      */
     const claim =
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       isFiniteProbability(option.winProbability)
         ? COMPARATIVE_COPY.phrase(
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
             formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
           )
         : COMPARATIVE_COPY.leadNoMagnitude
@@ -389,6 +387,7 @@ function hingeAwareDescription(
     }
     // The retired point-gap line and its surviving near-tie predicate — see
     // `tiedOrWithheld`, which is the single copy both non-winner arms call.
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
     if (runnerUpTied !== null) return runnerUpTied
     return 'Close to the option the most runs supported in this model'
@@ -405,6 +404,7 @@ function hingeAwareDescription(
   // runner-up arm above — now literally the same code, so a future change
   // cannot reach one arm and miss the other (which would keep the banned
   // quantity on screen for whoever happens to have three options).
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
   const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
   if (tied !== null) return tied
   return 'Compare it against the option the most runs supported in this model'
@@ -700,6 +700,7 @@ function OptionCard({
   // half-fix that leaves a card printing a resolved figure in the header and
   // a floored one in the row below, so both take it or neither does.
   const goalReadout = formatGoalProbability(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     option.goalProbability as number,
     option.nValidSamples,
   )
@@ -707,6 +708,7 @@ function OptionCard({
   // (:609 before this change) — now hoisted so the header and the "Wins" row
   // are literally the same value rather than two evaluations of one rule.
   const winsReadout = formatProbabilityWithResolution(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     option.winProbability as number,
     option.nValidSamples,
   )
@@ -718,6 +720,7 @@ function OptionCard({
   // a goal probability low enough to warrant a warning affordance) and stays;
   // the FORMATTING is gone, and the badge now renders `goalReadout`.
   const showLowGoalBadge =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     typeof option.goalProbability === 'number' && option.goalProbability < 0.10
   const lowGoalReadout = showLowGoalBadge ? goalReadout : null
 
@@ -771,11 +774,14 @@ function OptionCard({
           </span>
         )}
         <span className="flex-1" />
+        {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
         {option.winProbability != null && !winSharesWithheld && (
           <Tooltip
             content={
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               isBelowSimulationResolution(option.winProbability, option.nValidSamples)
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
                   : COMPARATIVE_COPY.phrase(winsReadout)
@@ -801,6 +807,7 @@ function OptionCard({
       ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
+      {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
       {option.winProbability != null && segmentFillColor && !neutralised && !winSharesWithheld && (
         <div
           className="w-full rounded-full overflow-hidden"
@@ -815,6 +822,7 @@ function OptionCard({
           <div
             className="h-full rounded-full transition-all duration-300"
             style={{
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               width: `${Math.max(2, Math.round(option.winProbability * 100))}%`,
               backgroundColor: segmentFillColor,
             }}
@@ -846,6 +854,7 @@ function OptionCard({
               established layout for this copy, not a new one. Rendered only
               when the basis is substituted — the permitted arm keeps the
               card's shipped inline "Hits target" label unchanged. */}
+          {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view */}
           {goalFitSubstituted && option.goalProbability != null && (
             <p
               className={`${typography.panelMeta} text-text-light`}
@@ -855,6 +864,7 @@ function OptionCard({
             </p>
           )}
           <StatBar
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
             value={option.goalProbability}
             // The SAME string the low-goal badge below renders. This is the
             // N11 fix at its call site: one readout, two surfaces.
@@ -1067,24 +1077,8 @@ function OptionCard({
         </ExpertBlock>
       )}
 
-      {/* Multi-constraint joint probability line */}
-      {option.constraintAnalysis != null &&
-        option.constraintAnalysis.constraints.length > 0 && (
-        <p
-          className={`${typography.panelMeta} ${constraintConfidenceColour(option.constraintAnalysis.joint_probability)}`}
-          data-testid="option-constraint-badge"
-        >
-          {jointProbabilityLabel(option.constraintAnalysis.joint_probability)}{' '}
-          {/* ROADMAP 2.333: was a bare `Math.round(... * 100)%`. This is the
-              SAME joint-constraint quantity `SuccessTargetRow` and
-              `TargetProbabilityBars` render, so leaving it rounded here would
-              have created a fresh "one number, two answers" pair with the
-              surfaces this slice just fixed. Comparative register (met every
-              target in n of N runs), hence `null` samples and an exact zero
-              still reading "0%". */}
-          {formatProbabilityWithResolution(option.constraintAnalysis.joint_probability, null)}
-        </p>
-      )}
+      {/* #2747 r2: the multi-constraint joint probability line ("met every target in n of N runs") is removed: it is the
+          legacy limits channel, licensed by no canonical cell (DL ruling (a)), so it was a chance outside the gate. */}
 
       {/* Action CTAs */}
       {(onSendMessage || onFocusNode) && (
@@ -1218,6 +1212,7 @@ export function OptionCards({
   // `sortOptionsForDisplay`'s `allHaveWinProb` and
   // `determineWinnerSelection`'s coverage check.
   const allGoalProbability =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
@@ -1449,12 +1444,16 @@ export function OptionCards({
         // at the one call site that mattered.
         const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
         const description = isLensCrowned
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
             ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
             : headline
               ? headline
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               : (winnerOpt?.winProbability != null || option.winProbability != null)
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                 ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
                 : fallbackDescription(option, options.length, hasLeadingOption)
 

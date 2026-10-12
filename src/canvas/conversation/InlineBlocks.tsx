@@ -95,7 +95,6 @@ import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { ICON_DENSE } from './panelIcons'
-import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1501,10 +1500,11 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
         <div key={opt.id || `${opt.label}-${i}`} className={styles.comparisonItem}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span className={typography.panelHeader}>{opt.label}</span>
-            {opt.probability != null && (
+            {/* #2747 r2: the option's unlabelled "N% probability" is not shown: no canonical cell licenses it (a chance
+                outside the authority gate). Its rank stays. */}
+            {opt.rank != null && (
               <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
-                {wholePercentBelowCertain(opt.probability)} probability
-                {opt.rank != null && ` · Rank ${opt.rank}`}
+                {`Rank ${opt.rank}`}
               </span>
             )}
             {opt.strengths && opt.strengths.length > 0 && (

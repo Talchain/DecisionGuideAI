@@ -108,6 +108,7 @@ function OptionComparisonSection({
   // row L2; #69 5827943157). The shares stay: each card shows its own.
   const sorted = rankingWithheld
     ? [...comparisons].sort((a, b) => canvasRank(a.option_id) - canvasRank(b.option_id))
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     : [...comparisons].sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
   function canvasRank(id: string): number {
     const i = canvasOptionOrder.indexOf(id)
@@ -147,8 +148,10 @@ function OptionComparisonSection({
                   the single authority and this cannot drift back. And by the
                   card's own currency owner (F5, 27 Sep): `Last run` once the
                   model has changed since the run. */}
+              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
               {!winSharesWithheld && opt.win_probability != null && (
                 <span className={`${typography.panelMeta} shrink-0 text-option`}>
+                  {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
                   {resultCaption} · {OPTION_RESULT_COPY.share(formatWinProbability(opt.win_probability))}
                 </span>
               )}
@@ -164,6 +167,7 @@ function OptionComparisonSection({
             {!hasPrediction && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>{EMPTY_STATES.noPrediction}</div>
             )}
+            {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
             {!winSharesWithheld && opt.win_probability != null && (
               <div className="mt-1">
                 {/* ⚠⚠ THIS STRING REACHES ONLY ASSISTIVE-TECHNOLOGY USERS.
@@ -173,6 +177,7 @@ function OptionComparisonSection({
                     product SHOWS and left in what it SAYS — the ruling applied
                     to one channel and not the other, which is the harder half
                     to notice and the easier half to leave. */}
+                {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
                 <DataBar value={opt.win_probability} label={COMPARATIVE_COPY.label} colour="info" />
               </div>
             )}

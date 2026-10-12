@@ -564,6 +564,7 @@ function extractOptions(sorted: readonly V2OptionComparison[]): SnapshotOption[]
   for (const o of sorted) {
     const id = typeof o?.option_id === 'string' ? o.option_id : ''
     if (id.length === 0 || seen.has(id)) continue
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
     const win = o.win_probability
     if (typeof win !== 'number' || !Number.isFinite(win)) continue
     seen.add(id)
@@ -602,6 +603,7 @@ function deriveRunLeaderVerdict(
   for (const o of sorted) {
     const id = typeof o?.option_id === 'string' ? o.option_id : ''
     if (id.length === 0 || id in optionProbabilities) continue
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
     optionProbabilities[id] = { win_probability: o.win_probability ?? null }
   }
 
@@ -627,6 +629,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
 
   // Sort options by win_probability descending
   const options = [...(rawV2Response.option_comparison ?? [])]
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
     .sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
 
   const winner = options[0] as V2OptionComparison | undefined
@@ -669,6 +672,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   // remain readable but cannot confer a licence on a saved Run.
   const winnerId = winner != null && typeof winner.option_id === 'string' ? winner.option_id : null
   const chance = runViewOf(rawV2Response).chanceOf(winnerId ?? '')
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf), stored on the snapshot
   const goalProbability = chance.kind === 'figure' ? chance.pct : null
 
   // Preserve the independent joint channel and base-caveat metadata exactly.
@@ -683,7 +687,9 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     ...winnerInput,
     ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
   })
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
   const jointGoalProbability = details.jointGoalProbability != null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
     ? Math.round(details.jointGoalProbability * 100)
     : null
   const goalBaseCaveat = !goalIdentityWithheld && winnerInput?.goalIdentityWithheld !== true &&
@@ -763,6 +769,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     // Which hero copy fires is now decided by the producer's verdict, so the
     // arithmetic that forced the `?? 0` is gone with it.
     runnerUpProbability:
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: stored on the analysis snapshot record; no display reader
       runnerUp?.win_probability != null ? Math.round(runnerUp.win_probability * 100) : null,
 
     recommendationStability: stability,

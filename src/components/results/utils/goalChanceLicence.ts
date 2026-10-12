@@ -185,6 +185,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   if (records.length !== 1) return null
   const r = records[0] as Record<string, unknown>
   const ids = r.option_ids
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   const pct = r.pct_by_option
   const target = readGoalChanceTarget(r.target)
   if (typeof r.form !== 'string' || !FORMS.has(r.form)) return null
@@ -232,6 +233,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     target,
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
     horizonLine: readGoalChanceHorizonLine(r),
     spreadNoteOptionIds: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
@@ -249,12 +251,14 @@ export function goalChanceDriverOf(v: unknown): GoalChanceDriver | null {
   const authoredBy = v.authored_by as GoalChanceDriverAuthor
   if (v.kind === 'factor_value') {
     if (!nonEmpty(v.factor_id) || (v.side !== 'low' && v.side !== 'high')) return null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     if (typeof v.cut_value !== 'number' || !Number.isFinite(v.cut_value) || !wholePct(v.pct_if_side)) return null
     // A unit that is present must be sayable; an absent one falls back to the canvas node's.
     const cutUnit = v.cut_unit === undefined ? null : nonEmpty(v.cut_unit) && v.cut_unit.trim() !== '' ? v.cut_unit : undefined
     if (cutUnit === undefined) return null
     return {
       kind: 'factor_value', factorId: v.factor_id, side: v.side, cutValue: v.cut_value, cutUnit,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
       pctIfSide: v.pct_if_side, authoredBy,
     }
   }
@@ -264,7 +268,9 @@ export function goalChanceDriverOf(v: unknown): GoalChanceDriver | null {
     return { kind: 'link_strength', from: v.from, to: v.to, strength: v.strength, authoredBy, userStatedLink: v.user_stated_link }
   }
   if (v.kind === 'link_existence') {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     if ((v.side !== 'absent' && v.side !== 'present') || !wholePct(v.pct_if_side)) return null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     return { kind: 'link_existence', from: v.from, to: v.to, side: v.side, pctIfSide: v.pct_if_side, authoredBy, userStatedLink: v.user_stated_link }
   }
   return null
@@ -303,6 +309,7 @@ export function goalChanceHeroArmOpen(
   goalThreshold: number | null | undefined,
   options: ReadonlyArray<{ goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
 ): boolean {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: which options bear a gated figure; no number leaves
   const bearing = options.filter((o) => o.goalProbability != null)
   const hasConstraints = bearing.length > 0 && bearing.every((o) => (o.constraintAnalysis?.constraints?.length ?? 0) > 0)
   return goalThreshold != null && !hasConstraints

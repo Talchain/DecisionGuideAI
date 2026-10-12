@@ -2,7 +2,7 @@ import { useCanonicalAnalysisViewStore } from '../../../../../canvas/stores/cano
 import type { ResultsSectionDataReturn } from '../../../useResultsSectionData'
 import { buildRunView, runViewFromParts, type OptionChanceCellContext } from '../../../../../canvas/runView/runView'
 import { goalProbabilityWords } from '../../../utils/goalAnchorCopy'
-import { readGoalChanceRange } from '../../../utils/goalChanceRange'
+import { readGoalChanceRange, type GoalChanceRange, type GoalChanceRangeEntry } from '../../../utils/goalChanceRange'
 import type { CanonicalAnalysisView, CanonicalAnalysisCell } from '../../../../../canvas/runView/canonicalAnalysisView'
 import { goalChanceOptionLines, goalChanceRangeLine } from '../../goalChanceCopy'
 import { gateWordsOf } from './gateWords'
@@ -10,9 +10,14 @@ import { gateWordsOf } from './gateWords'
 /** SELF-AUTHORED UI fixtures, not served evidence. Positive display tests explicitly supply
  * canonical cells; D1/served-byte/turn suites never use this helper. The historical chat
  * formatter supplies fixture words only, so its existing copy tests retain their scope. */
-export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: CanonicalAnalysisView['run'] = { run_id: 'synthetic-ui-fixture', graph_hash_at_run: null, computed_at: null }): CanonicalAnalysisView {
+/** CEE's served range `display` (`goal-chance-range-agent.ts`): "between <low> and <high>", the high end without "about". */
+export const servedRangeDisplay = (entry: GoalChanceRangeEntry): string =>
+  `between ${goalProbabilityWords(`${entry.lowPct}%`)} and ${goalProbabilityWords(`${entry.highPct}%`).replace(/^about /, '')}`
+
+export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: CanonicalAnalysisView['run'] = { run_id: 'synthetic-ui-fixture', graph_hash_at_run: null, computed_at: null },
+  rawRange: GoalChanceRange | null = null): CanonicalAnalysisView {
   const licence = data.goalChanceLicence ?? data.runView?.goalChance ?? null
-  const range = data.goalChanceRange ?? data.runView?.goalChanceRange ?? null
+  const range = data.goalChanceRange ?? data.runView?.goalChanceRange ?? rawRange
   const options = data.recommendation.allOptions
   const labelOf = (id: string) => options.find(o => o.id === id)?.label ?? null
   const lines = data.goalChanceLicence ? goalChanceOptionLines(data.goalChanceLicence, labelOf, gateWordsOf(data.goalChanceLicence)) : null
@@ -31,7 +36,8 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
       const pct = licence?.pctByOption[option.id] ?? null
       // Served shape (#2747): `display` is the figure's words ("about 17%"), the option's sentence is its `face`.
       const display = pct === null ? null : goalProbabilityWords(`${pct}%`)
-      const cell: CanonicalAnalysisCell = rangeText !== null ? { kind: 'range', display: rangeText,
+      // Served shape (#2747 r2): a range cell's `display` is CEE's bounds words; the sentence is its `face`.
+      const cell: CanonicalAnalysisCell = rangeText !== null && entry ? { kind: 'range', display: servedRangeDisplay(entry),
         face: rangeText.includes(' chance of meeting your goal, in this model. ')
           ? rangeText.split(' chance of meeting your goal, in this model. ')[0] + ' chance of meeting your goal, in this model.' : rangeText, detail: {} }
         : withheld ? { kind: 'withheld', face: withheld, reasons: [] }
@@ -51,15 +57,20 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
   return canonical
 }
 
-/** The data's licence and ranges, held with their self-authored current canonical view, through the REAL gate (#2747). */
-export function withCanonicalTestCells(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
+/**
+ * The data's licence and ranges, held with their self-authored current canonical view, through the REAL gate (#2747).
+ * `rawRange` is the Run's own range record, for data whose hook ran with no canonical view (its ranges are then gated
+ * away); the returned data carries the view's gated ranges.
+ */
+export function withCanonicalTestCells(data: ResultsSectionDataReturn, rawRange: GoalChanceRange | null = null): ResultsSectionDataReturn {
+  const range = data.goalChanceRange ?? data.runView?.goalChanceRange ?? rawRange
   const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, data.goalChanceLicence ?? data.runView?.goalChance ?? null,
-    data.goalChanceRange ?? data.runView?.goalChanceRange ?? null, canonicalTestCellsOf(data))
-  return { ...data, runView: view }
+    range, canonicalTestCellsOf(data, undefined, rawRange))
+  return { ...data, runView: view, goalChanceRange: view.goalChanceRange }
 }
 
 /** The Run's own range record (test-only read; the view's ranges are gated by the canonical view this fixture supplies). */
-const rawRangeOf = (report: unknown) => readGoalChanceRange((report as { inference_warnings?: unknown } | null)?.inference_warnings)
+export const rawRangeOf = (report: unknown) => readGoalChanceRange((report as { inference_warnings?: unknown } | null)?.inference_warnings)
 
 /** Explicit synthetic canonical projection for isolated card layout tests. */
 export function canonicalFixtureRunView(report: unknown, ctx: OptionChanceCellContext) {

@@ -133,6 +133,7 @@ function OptionRangeBar({
 
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     if (option.goalProbability != null && goalThreshold != null) {
       // Question A, in the house register — "hit target" named the right
       // quantity but not the question it answers.
@@ -142,10 +143,12 @@ function OptionRangeBar({
       // GOAL quantity takes the goal register's formatter, with the
       // option's own sample count when the run carries one.
       return GOAL_ANCHOR_COPY.phrase(
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
         formatGoalProbability(option.goalProbability, option.nValidSamples),
         option.goalFitIsSubstitutedJoint === true,
       )
     }
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     if (option.winProbability != null) {
       // ROADMAP 1.239 relabelled this away from the leader VERB (`Leads
       // {pct}`); the 2026-07-31 re-anchoring drops the un-anchored noun too.
@@ -156,6 +159,7 @@ function OptionRangeBar({
       // Same fix, comparative register: the shared floored/resolution-aware
       // comparative formatter, not a bare round.
       return COMPARATIVE_COPY.phrase(
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
       )
     }
@@ -222,7 +226,9 @@ export function RangeVisualization({
         opt.outcome?.p90 != null
       )
       .sort((a, b) => {
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         const wpA = a.winProbability ?? 0
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         const wpB = b.winProbability ?? 0
         if (wpB !== wpA) return wpB - wpA
         if (a.id === winnerId) return -1

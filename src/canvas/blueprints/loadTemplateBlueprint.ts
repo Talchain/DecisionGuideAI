@@ -132,6 +132,7 @@ export async function loadTemplateBlueprint(templateId: string): Promise<LoadedT
     id: edge.id || `${edge.from}-${edge.to}`, // Generate ID if missing
     from: edge.from,
     to: edge.to,
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
     probability: edge.probability,
     weight: edge.weight,
     belief: edge.belief, // v1.2: epistemic confidence

@@ -70,9 +70,8 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { chatCardRunViewOf, licensedGoalChanceDetailLines, licensedOptionChanceLines } from '../../canvas/runView/runView'
+import { chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
-import { goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -332,6 +331,7 @@ function V5AnalysisResultBlockImpl({
     </p>
   ) : null
   const hasProbs =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
   // Sci-4B: verbal uncertainty calibration — same tiers/copy as the results
@@ -463,37 +463,39 @@ function V5AnalysisResultBlockImpl({
   // persisted block, never the current report in the store, so an older card
   // cannot acquire a newer Run's figures. #2747 re-scope: every figure passes the
   // ONE authority gate, against the scenario's canonical view matched to THIS
-  // card's Run by its graph hash; a card for an older or not-current Run quotes none.
+  // card's Run by identity (its stamped run id AND graph hash); a card for an older
+  // or not-current Run quotes none.
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
   const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const goalChanceLicence = blockRunView.goalChance
-  const goalChanceRange = blockRunView.goalChanceRange
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
   // Recovery Batch C: the Run's words for what the chance is OF, its status quo, each target and its notes, from the
   // matching current canonical view (the gate's own rule), never the generic "your goal".
   const goalChanceDetail = blockRunView.goalChanceDetail()
-  const rangedIds = new Set(goalChanceRange?.optionIds ?? [])
-  const pointGoalChanceLines = goalChanceLicence === null
-    ? null
-    : licensedOptionChanceLines({ ...goalChanceLicence, optionIds: goalChanceLicence.optionIds.filter(id => !rangedIds.has(id)) },
-      goalChanceLabelOf, id => blockRunView.chanceFigureOf(id)?.words ?? null, [], {}, false, undefined,
-      goalChanceDetail === null ? undefined : { chanceWords: goalChanceDetail.chance_words, statusQuo: goalChanceDetail.status_quo })
-  const pointLineById = new Map(goalChanceLicence === null || pointGoalChanceLines === null ? []
-    : goalChanceLicence.optionIds.filter(id => !rangedIds.has(id)).map((id, index) => [id, pointGoalChanceLines[index]] as const))
-  const goalChanceLines = pointGoalChanceLines === null || goalChanceLicence === null
-    ? null
-    : goalChanceLicence.optionIds.map((id) => {
-        const range = goalChanceRange?.rangeByOption[id]
-        return range === undefined
-          ? pointLineById.get(id)
-          : goalChanceRangeLine(range, goalChanceLabelOf(id), goalChanceLabelOf)
-      })
-  const shownGoalChanceLines = goalChanceLines?.every((line): line is string => typeof line === 'string')
-    ? goalChanceLines
-    : null
+  // #2747 r2 (BLOCKING 4): each option's line is CEE's own canonical cell for THIS Run, verbatim (`chanceCellOf`, the
+  // reader Results uses). A figure or range says its face, with the provisional clause and chance words CEE wrote; a
+  // withheld option says CEE's own reason (`why`: a moved reference, the status quo by assumption, …). Never a line
+  // composed here and never "your goal". The joint's withheld reason is said once, by the detail lines below.
+  const cellLine = (id: string): string | null => {
+    const cell = blockRunView.chanceCellOf(id, { goalChanceHeroSays: true, labelOf: goalChanceLabelOf })
+    if (cell.kind === 'none') return null
+    const label = goalChanceLabelOf(id)
+    if (cell.kind === 'withheld') {
+      const codes = blockRunView.withheldReasonCodesOf(id)
+      if (codes.length > 0 && codes.every(code => code === 'goal_joint_not_shown')) return null
+      if (cell.why !== undefined) return cell.why
+    }
+    if (cell.text.startsWith('‘')) return cell.text
+    return label === null || label.trim() === '' ? null : `‘${label}’: ${cell.text}`
+  }
+  const cellLines = goalChanceLicence === null ? []
+    : goalChanceLicence.optionIds.flatMap(id => { const line = cellLine(id); return line === null ? [] : [{ id, line }] })
+  const shownGoalChanceLines = cellLines.length > 0 ? cellLines : null
+  const statusQuoSaidByItsCell = goalChanceDetail?.status_quo !== undefined
+    && cellLines.some(({ line }) => line === goalChanceDetail.status_quo!.line)
   const goalChanceDetailLinesShown = goalChanceDetail === null ? []
-    : licensedGoalChanceDetailLines(goalChanceDetail, goalChanceLabelOf, shownGoalChanceLines !== null)
+    : licensedGoalChanceDetailLines(goalChanceDetail, goalChanceLabelOf, statusQuoSaidByItsCell)
   /** Position of a win-share key (an option id or its label) among canvas nodes. */
   const canvasRank = (key: string): number => {
     let i = 0
@@ -504,6 +506,7 @@ function V5AnalysisResultBlockImpl({
     return Number.MAX_SAFE_INTEGER
   }
   const winEntries = showWinShares
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     ? Object.entries(block.win_probabilities as Record<string, number>)
     : []
   const sortedProbs = leaderClaimLicensed
@@ -759,9 +762,9 @@ function V5AnalysisResultBlockImpl({
 
       {shownGoalChanceLines !== null && (
         <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-goal-chances">
-          {goalChanceLicence!.optionIds.map((id, index) => (
+          {shownGoalChanceLines.map(({ id, line }) => (
             <li key={id} className={`${typography.chatBody} ${PROSE_WRAP}`} data-option-id={id}>
-              {shownGoalChanceLines[index]}
+              {line}
             </li>
           ))}
         </ul>
