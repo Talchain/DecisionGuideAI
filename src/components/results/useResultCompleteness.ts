@@ -172,6 +172,7 @@ export function deriveResultCompleteness(
         | ((typeof optionProbs)[string] & { status?: OptionComputeStatus })
         | undefined
       if (!optionComputationProducedResult(entry?.status)) return false
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
       return typeof entry?.win_probability === 'number'
     })
     if (!anyWin) {

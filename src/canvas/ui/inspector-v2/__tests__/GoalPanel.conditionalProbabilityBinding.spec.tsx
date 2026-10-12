@@ -1,5 +1,9 @@
 /**
- * GoalPanel — a conditional-probability line belongs to the constraint whose
+ * #2747 r2 (fresh check BLOCKING 5): GoalPanel shows NO conditional-probability line ("If … is met, probability of …
+ * changes to N%"): no canonical cell licenses it, so it was a probability on screen outside the chance authority gate.
+ * The binding cases below are kept as absence pins over the same producer rows (bound by id or by label, none is said).
+ *
+ * (Before r2) GoalPanel — a conditional-probability line belongs to the constraint whose
  * ID it names, never to one whose LABEL happens to match.
  *
  * ── THE DEFECT (CLASS 2: identity matched by label, not by id) ──────────────
@@ -94,7 +98,7 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
     vi.mocked(useAuth).mockReturnValue(AUTHED as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('an UNLABELLED constraint still gets the row that names it by id', () => {
+  it('#2747 r2: a row the producer binds to the constraint by id is NOT shown (no canonical cell licenses it)', () => {
     // ⚠ THE LABEL LEG CANNOT SATISFY THIS TEST, AND THAT IS THE POINT.
     // The first draft of this case gave the constraint the same label as the
     // row, and mutant M1 (kill the id leg entirely) left it GREEN — it was
@@ -125,22 +129,9 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
         },
       },
     })
-    const { getAllByText } = renderPanel()
-    const rows = getAllByText(CONDITIONAL_SENTENCE)
-    expect(rows).toHaveLength(1)
-
-    // ⚠ AND THE SENTENCE MUST NAME SOMETHING. Binding the row by id put a row
-    // on screen whose conditioning constraint has no label, and the copy is
-    // `If {constraint_a_label} is met, …` — so it read
-    //
-    //   "If  is met, probability of Margin floor changes to 90%"
-    //
-    // A sentence naming nothing, which this case would otherwise have PINNED as
-    // intended. The panel now falls back to the same positional name the row
-    // header above it renders, so prose and row agree.
-    expect(rows[0].textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'If Constraint 1 is met, probability of Margin floor changes to 90%',
-    )
+    const { queryAllByText } = renderPanel()
+    // #2747 r2: bound by id or not, the line is not shown.
+    expect(queryAllByText(CONDITIONAL_SENTENCE)).toHaveLength(0)
   })
 
   it('an UNLABELLED constraint is not given a row whose conditioning constraint is a different one', () => {
@@ -170,7 +161,7 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
     expect(queryAllByText(CONDITIONAL_SENTENCE)).toHaveLength(0)
   })
 
-  it('two constraints sharing a label do not both claim one row', () => {
+  it('#2747 r2: two constraints sharing a label: neither shows the row', () => {
     // The row names `c1`. `c2` shares the label and must not print it.
     setStore({
       goalConstraints: [
@@ -193,7 +184,8 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
         },
       },
     })
-    const { getAllByText } = renderPanel()
-    expect(getAllByText(CONDITIONAL_SENTENCE)).toHaveLength(1)
+    const { queryAllByText } = renderPanel()
+    // #2747 r2: no conditional line at all.
+    expect(queryAllByText(CONDITIONAL_SENTENCE)).toHaveLength(0)
   })
 })

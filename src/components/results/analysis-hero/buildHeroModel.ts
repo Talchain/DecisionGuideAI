@@ -398,6 +398,7 @@ export function buildHeroModel(
   // understate a constrained bar but never overstates an unconstrained one.
   const optionHasConstraints = (o: OptionResult) =>
     (o.constraintAnalysis?.constraints?.length ?? 0) > 0
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
   const goalBearing = options.filter((o) => o.goalProbability != null)
   const hasConstraints =
     goalBearing.length > 0 && goalBearing.every(optionHasConstraints)
@@ -417,6 +418,7 @@ export function buildHeroModel(
     // bypass the gate anywhere.
     // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
     const cell = optionChanceCellFromResults(data, o.id)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     const goalValue = hasUserTarget && !data.goalChanceRange?.optionIds.includes(o.id) && cell.kind === 'figure' ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
@@ -426,7 +428,9 @@ export function buildHeroModel(
     // ⭐⭐ CURRENT-READ-v1 row 9 (AIQ #75 5912710392): a withheld leader withholds every per-row win share — the
     // detail line AND the magnitude the leader headline would quote. From the hook's `winShareGate` read.
     const winReadout =
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       !winSharesAreWithheld && typeof o.winProbability === 'number'
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
         : undefined
     const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
@@ -794,11 +798,8 @@ export function buildHeroModel(
     return figure.match(/^(?:less than |more than |about |[<>])?\d+(?:\.\d+)?\s*%/)?.[0] ?? null
   }
   // A driver line quotes chances, so only the gated driver (RunView.mainDriverOf) is said; never the licence's own (#2747).
-  const copyLicence = goalChanceLicence === null ? null
-    : { ...goalChanceLicence, driverByOption: Object.fromEntries(goalChanceLicence.optionIds.flatMap(id => {
-      const driver = data.runView?.mainDriverOf(id) ?? null
-      return driver === null ? [] : [[id, driver]]
-    })) }
+  const gatedDriverOf = (id: string) => data.runView?.mainDriverOf(id) ?? null
+  const copyLicence = goalChanceLicence
   const summaryLicence = copyLicence !== null && copyLicence.optionIds.some(id => cellWordsOf(id) === null)
     ? { ...copyLicence, form: 'each' as const } : copyLicence
   const goalChanceHeadlineText =
@@ -1124,7 +1125,7 @@ export function buildHeroModel(
   let goalChanceLeadLines: HeroChartModel['goalChanceLeadLines']
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
     // Keep staging's driver words and shared-question rules, using matching canonical drivers through mainDriverOf.
-    const driverLines = goalChanceDriverLines(copyLicence, data.goalChanceDriverNames)
+    const driverLines = goalChanceDriverLines(goalChanceLicence.optionIds, gatedDriverOf, data.goalChanceDriverNames)
     const driverRunIdentities = new Set<string>()
     const lines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = options.flatMap(option => {
       const label = stripEncodingNotation(option.label).trim()
@@ -1140,7 +1141,7 @@ export function buildHeroModel(
       const driverText = driverLines[option.id]
       if (driverText !== undefined) {
         ownLines.push({ id: option.id, kind: 'driver', text: driverText })
-        const identity = goalChanceDriverRunMessageIdentity(copyLicence!.driverByOption?.[option.id],
+        const identity = goalChanceDriverRunMessageIdentity(gatedDriverOf(option.id) ?? undefined,
           goalChanceLicence.target, driverText, data.confidence?.inferenceWarnings)
         if (identity !== null) driverRunIdentities.add(identity)
       }

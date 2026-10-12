@@ -247,7 +247,8 @@ describe('specific node contracts', () => {
   })
   it.each([
     { name: 'a held normalised target', data: {}, threshold: 0.8, representation: 'normalised', sentence: 'No target we can show' },
-    { name: 'an unattributed raw target', data: {}, threshold: 85000, representation: 'raw', sentence: 'Success means 85000.' },
+    // #2747 r2: the store's scalar alone is never said as the target (was 'Success means 85000.').
+    { name: 'an unattributed raw target', data: {}, threshold: 85000, representation: 'raw', sentence: 'No target we can show' },
     { name: 'a readable node target before a normalised store value', data: { goal_threshold_raw: 85000, goal_threshold_unit: '£' }, threshold: 0.8, representation: 'normalised', sentence: 'Success means £85,000.' },
     { name: 'an unread held frame', data: { goal_threshold_frame: 'CHANGE_REL', goal_threshold_raw: -0.15 }, threshold: -0.15, representation: 'raw', sentence: 'No target we can show' },
   ])('preserves the target control’s display honesty for $name', ({ data, threshold, representation, sentence }) => {

@@ -365,6 +365,7 @@ export function isFiniteProbability(value: number | null | undefined): value is 
 export function runHasGoalNumbers(
   options: ReadonlyArray<{ goalProbability?: number | null }> | null | undefined,
 ): boolean {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
   return (options ?? []).some((o) => isFiniteProbability(o.goalProbability))
 }
 

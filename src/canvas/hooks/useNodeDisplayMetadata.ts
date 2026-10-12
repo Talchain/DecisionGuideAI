@@ -563,6 +563,7 @@ export function useNodeDisplayMetadata(
           const chance = view.chanceOf(recommendedOptionId)
           achievementChanceCell = view.chanceCellOf(recommendedOptionId, { ...chanceContext, goalCertaintyUnearned: details.goalCertaintyUnearned })
           achievementChanceUnlicensed = chance.kind === 'withheld' && chance.by === 'no_licence'
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
           achievementProbability = chance.kind === 'figure' ? chance.pct / 100 : null
           achievementProbabilityBaseCaveat = achievementProbability === null ? null : details.baseCaveat
           achievementProbabilityBasis = achievementProbability !== null ? 'goal_probability'
@@ -670,6 +671,7 @@ export function useNodeDisplayMetadata(
       const optionData = optionProbabilities[nodeId]
       if (optionData) {
         if (optionComputationProducedResult(optionData.status)) {
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           winRate = optionData.win_probability ?? null
         } else {
           // Left `null` deliberately: suppressing the share is the point, and

@@ -43,7 +43,9 @@ export function renderTimelineSummary(events: ScenarioEvent[]): string {
   if (analysisRun) {
     const winner = typeof analysisRun.details.winner === 'string'
       ? analysisRun.details.winner : null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: the logged leader's share, said only as "supported at N%", never as a chance
     const prob = typeof analysisRun.details.probability === 'number'
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: the logged leader's share, said only as "supported at N%", never as a chance
       ? analysisRun.details.probability : null
     const robust = typeof analysisRun.details.robustness === 'string'
       ? analysisRun.details.robustness : null

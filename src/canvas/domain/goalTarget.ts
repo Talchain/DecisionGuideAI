@@ -402,6 +402,7 @@ export interface GoalTargetInPlaceEdit {
 export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined): GoalTargetInPlaceEdit | null {
   const target = resolveGoalTarget(data)
   if (target === null || target.frame !== undefined) return null
+  // target-text: a parse of the stored figure, never displayed
   const value = typeof target.raw === 'number' ? target.raw : Number(String(target.raw).trim())
   if (!Number.isFinite(value)) return null
   const unit = declaredGoalUnit(data).trim()

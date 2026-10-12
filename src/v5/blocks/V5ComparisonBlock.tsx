@@ -54,6 +54,7 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
           {block.options.map((opt) => (
             <tr key={opt.option_id} data-testid={`v5-comparison-row-${opt.option_id}`}>
               <td className={`${typography.chatBody} pr-4 py-1`}>{opt.label}</td>
+              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
               {!winSharesWithheld && <td className={`${typography.chatMeta} text-text-light py-1`}>{formatProb(opt.win_probability)}</td>}
             </tr>
           ))}

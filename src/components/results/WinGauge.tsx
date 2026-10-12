@@ -180,6 +180,7 @@ export function buildSegmentBorderClassMap(
   const sorted = [...options].sort((a, b) => {
     if (a.id === winnerId && b.id !== winnerId) return -1
     if (a.id !== winnerId && b.id === winnerId) return 1
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
   const map: Record<string, string> = {}
@@ -204,6 +205,7 @@ export function buildSegmentColorMap(
   const sorted = [...options].sort((a, b) => {
     if (a.id === winnerId && b.id !== winnerId) return -1
     if (a.id !== winnerId && b.id === winnerId) return 1
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
   const map: Record<string, string> = {}
@@ -310,6 +312,7 @@ export function WinGauge({
 
   // The goal block's source (D3 step 2): every option's goal figure when the caller gives it, else the shares.
   const goalSource: readonly GoalShare[] = goalShares ?? shares
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
   if (shares.length === 0 && !goalSource.some((s) => isFiniteProbability(s.goalProbability))) return null
 
   const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
@@ -321,6 +324,7 @@ export function WinGauge({
     : [...shares].sort((a, b) => {
         if (a.isWinner && !b.isWinner) return -1
         if (!a.isWinner && b.isWinner) return 1
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         return b.winProbability - a.winProbability
       })
 
@@ -364,6 +368,7 @@ export function WinGauge({
   // screen-reader channel came to speak "100%" over a legend printing "99.95%".
   // There is now exactly one evaluation per option, so the two cannot differ.
   const comparativeEntries = sorted.map((share) => {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     const clamped = Math.max(0, Math.min(1, share.winProbability))
     return {
       share,
@@ -401,13 +406,16 @@ export function WinGauge({
   // withheld, the data is not.
   // ⭐ D3 step 2: with CEE's goal-chance licence, ITS form decides (by identity): ranked only under a `highest` form, else
   // the model's option order — never ranked below the 10-point licence (c6). Without one, the rule above, unchanged.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
   const goalCandidates = goalSource.filter((s) => isFiniteProbability(s.goalProbability))
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
   const byGoalDesc = (a: GoalShare, b: GoalShare) => (b.goalProbability as number) - (a.goalProbability as number)
   const goalRows: readonly GoalShare[] = goalChanceLicence != null
     ? goalChanceLicensesOrder(goalChanceLicence)
       ? [...goalCandidates].sort(byGoalDesc)
       : goalChanceLicence.optionIds.flatMap((id) => goalCandidates.filter((s) => s.id === id))
     : designationsWithheld
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
       ? (goalShares !== undefined ? goalCandidates : sorted.filter((s) => isFiniteProbability(s.goalProbability)))
       : [...goalCandidates].sort(byGoalDesc)
   const hasGoalNumbers = goalRows.length > 0
@@ -457,6 +465,7 @@ export function WinGauge({
           <ComparisonScopeNote scope={comparisonScope} surface="goal" className="mb-1" />
           <div className="flex flex-col gap-1">
             {goalRows.map((share) => {
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
               const clamped = Math.max(0, Math.min(1, share.goalProbability as number))
               // Width is geometry; the READOUT goes through the shared floored
               // formatter (UI-SEM-057) so a 0.4% probability reads "< 1%" here
@@ -597,6 +606,7 @@ export function WinGauge({
         {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
         <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
           {sorted.map((share) => {
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
             const clamped = Math.max(0, Math.min(1, share.winProbability))
             const widthPct = clamped * 100
             const displayPct = Math.round(widthPct)

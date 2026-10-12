@@ -1,85 +1,37 @@
 /**
- * ⭐⭐ #2747 RE-SCOPE (DL, after Codex round 2): THE CHANCE AUTHORITY GATE CENSUS.
+ * ⭐⭐ #2747 r2: THE CHANCE AUTHORITY GATE — THE LINT RULE'S BACKSTOP.
  *
- * Every goal-chance number a surface shows passes ONE gate (`chanceFigureFromCanonical` / `RunView.chanceFigureOf`,
- * `runView.ts`): a figure only when CEE's matching canonical cell licenses it for a Run known to be current. Codex round 2
- * reproduced the failure this census closes: with the canonical view absent or for another Run, `chanceOf` still gave 46%,
- * and WinGauge said it while the option's own chance cell withheld.
+ * Every chance a surface shows passes ONE gate (`runView.ts`: `chanceFigureOf` / `chanceOf` / `chanceCellOf` /
+ * `goalChanceRange` / `mainDriverOf`). The enforcement is lint: `chance-gate/no-raw-chance-read`
+ * (`eslint-rules/no-raw-chance-read.js`, ERROR in `eslint.config.js`, run by the required "TypeScript + Lint" check)
+ * reports every read of a chance or probability field in display code. The fresh check (r1) found what the previous
+ * name census with FILE-wide exemptions could not see; so a read now says why ON ITS OWN LINE, or it fails.
  *
- * THE PRECISE CLAIM (a no-read claim over a named artefact, not a proof of correct wording): no production source under
- * `src/` (tests, fixtures and stories excluded) outside the ALLOWED files below READS a goal-chance number field, or
- * CALLS a raw goal-chance reader. Reads are property accesses, string-keyed element accesses and destructuring; type
- * declarations and object-literal keys (writes) are not reads.
+ * This spec asserts, over production sources under `src/` (tests, fixtures and stories excluded):
+ *   1. the rule is registered, at error, over the display directories;
+ *   2. every disable of it is line-level (never file-wide) and carries `-- chance-gate: <category>: <reason>`, with the
+ *      category from the rule's closed set (`CHANCE_GATE_CATEGORIES`) and a reason;
+ *   3. `gate` is said only inside `runView.ts`'s gate functions;
+ *   4. the rule itself, run in-process with unused-disable reporting, finds ZERO unexplained reads and no stale disable;
+ *      a planted bypass is reported (control), and the same line with a reason is not.
  *
- * ⚠ A SCANNER, NOT A PROOF. It sees these names only. A number copied under another name and carried elsewhere is
- * outside what it can see; the mounted specs (`ResultsBody.batchCGoalChance.spec.tsx`, the chat card and Compare specs)
- * are the behaviour witnesses.
+ * ⚠ A NAME SCANNER, NOT A PROOF OF CORRECT WORDING. It sees the fields the rule names; a figure copied under another
+ * name is outside it. The mounted specs (Results, the chat card, Compare, the Model tab) are the behaviour witnesses.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+import { Linter } from 'eslint'
+import parser from '@typescript-eslint/parser'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import rule, { CHANCE_FIELDS, CHANCE_GATE_CATEGORIES } from '../../../../eslint-rules/no-raw-chance-read.js'
 
-const SRC = join(process.cwd(), 'src')
-
-/** Goal-chance NUMBER fields: the report's, the licence's (wire and parsed), a driver's, and the run delta's. */
-const FIELDS = new Set([
-  'goal_probability', 'probability_of_goal', 'probability_of_joint_goal',
-  'pct_by_option', 'pctByOption', 'pct_if_side', 'pctIfSide', 'goal_chances', 'goalChances',
-  // the producer's joint ("all your limits hold") figure, as `goalProbabilityDetails` publishes it
-  'jointGoalProbability',
-])
-/** Raw readers: only the gate may call them. */
-const CALLS = new Set(['readGoalChanceLicence', 'readGoalChanceRange', 'selectGoalProbability'])
-const NEEDLES = [...FIELDS, ...CALLS]
-
-/** The files that may read them, each with its reason. Nothing that renders is here. */
-const ALLOWED: Readonly<Record<string, string>> = {
-  'src/canvas/runView/runView.ts': 'THE GATE',
-  'src/components/results/utils/goalChanceLicence.ts': 'the licence reader the gate calls (wire pct_by_option / pct_if_side → parsed record)',
-  'src/canvas/ui/inspector-v2/useAnalysisResults.ts': 'presence predicate only (hasAnyRealProbability → boolean result presence for the run-state selector); no number leaves it',
-  'src/canvas/state/storedGoalCertainty.ts': "CEE's goal-certainty record reader: the 0|1 endpoint only binds an attestation to the figure shown; never shown",
-  'src/components/results/utils/selectGoalProbability.ts': 'the report-field reader (goalProbabilityDetails); it publishes the joint figure only as jointGoalProbability (held below) and jointGoalPresent',
-  'src/canvas/stores/analysisSnapshotFactory.ts': 'snapshot writer: stores the joint figure; snapshot chance fields have no production display reader',
-  'src/v5/mapV5AnalysisToReport.ts': 'wire → report mapper (no display)',
-  'src/lib/mappers/mapOptionComparison.ts': 'wire → report mapper (no display)',
-  'src/adapters/plot/v2/responseMapper.ts': 'wire → report mapper (no display)',
-  'src/components/results/analysisNew/runDeltaView.ts': 'wire run_delta → view mapper (no display); Compare reads it only through the gate',
-  'src/components/results/analysis-hero/goalChanceCopy.ts': 'words a driver line from the driver it is handed; the hero hands it only RunView.mainDriverOf (gated) drivers',
-}
-
-export interface CensusHit { readonly file: string; readonly line: number; readonly symbol: string; readonly kind: 'read' | 'call' }
-
-const isTypePosition = (node: ts.Node): boolean => {
-  for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
-    if (ts.isTypeNode(p) || ts.isInterfaceDeclaration(p) || ts.isTypeAliasDeclaration(p)) return true
-    if (ts.isStatement(p) || ts.isExpressionStatement(p)) return false
-  }
-  return false
-}
-
-/** The census over one source. Exported shape for the controls below. */
-export function scanSource(file: string, text: string): CensusHit[] {
-  if (!NEEDLES.some(n => text.includes(n))) return []
-  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
-  const hits: CensusHit[] = []
-  const at = (node: ts.Node, symbol: string, kind: CensusHit['kind']) =>
-    hits.push({ file, line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, symbol, kind })
-  const visit = (node: ts.Node): void => {
-    if (ts.isPropertyAccessExpression(node) && FIELDS.has(node.name.text) && !isTypePosition(node)) at(node, node.name.text, 'read')
-    else if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && FIELDS.has(node.argumentExpression.text)) {
-      at(node, node.argumentExpression.text, 'read')
-    } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
-      const key = node.propertyName ?? node.name
-      if ((ts.isIdentifier(key) || ts.isStringLiteralLike(key)) && FIELDS.has(key.text)) at(node, key.text, 'read')
-    } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && CALLS.has(node.expression.text)) {
-      at(node, node.expression.text, 'call')
-    }
-    ts.forEachChild(node, visit)
-  }
-  visit(sf)
-  return hits
-}
+const ROOT = process.cwd()
+const DISPLAY_DIRS = ['src/components', 'src/canvas', 'src/v5/blocks']
+const RULE = 'chance-gate/no-raw-chance-read'
+/** `runView.ts`'s gate functions: the only place a raw read is `gate`. */
+const GATE_FUNCTIONS = new Set(['optionsWithGoalFigures', 'gatedFigure', 'gatedRange', 'gatedCompareGoalChances'])
+const REASON = /^\s*(?:\/\/|\/\*|\{\/\*)\s*eslint-disable-(next-line|line)\s+chance-gate\/no-raw-chance-read\s+--\s+chance-gate:\s*([a-z-]+):\s*(\S.*?)\s*(?:\*\/\}?)?\s*$/
 
 const EXCLUDED_DIR = new Set(['__tests__', '__fixtures__', 'fixtures', 'test', '__mocks__'])
 const EXCLUDED_FILE = /\.(spec|test|stories)\.tsx?$|\.d\.ts$/
@@ -91,47 +43,107 @@ function productionFiles(dir: string, out: string[] = []): string[] {
   }
   return out
 }
-const rel = (full: string) => relative(process.cwd(), full).split(sep).join('/')
+const rel = (full: string) => relative(ROOT, full).split(sep).join('/')
 
-let cache: CensusHit[] | null = null
-function census(): CensusHit[] {
-  cache ??= productionFiles(SRC).flatMap(full => scanSource(rel(full), readFileSync(full, 'utf8')))
+const linter = new Linter({ configType: 'flat' })
+const config: Linter.Config[] = [{
+  files: ['**/*.ts', '**/*.tsx'],
+  languageOptions: { parser, parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } } },
+  linterOptions: { reportUnusedDisableDirectives: 'error' },
+  plugins: { 'chance-gate': { rules: { 'no-raw-chance-read': rule } } },
+  rules: { [RULE]: 'error' },
+}]
+const lint = (file: string, text: string) => linter.verify(text, config, { filename: file })
+  .filter(m => m.ruleId === RULE || (m.ruleId === null && m.message.includes(RULE)))
+
+interface Disable { readonly file: string; readonly line: number; readonly kind: string | null; readonly category: string | null; readonly reason: string | null; readonly text: string }
+
+let cache: { disables: Disable[]; reports: string[]; scanned: number } | null = null
+function census() {
+  if (cache) return cache
+  const disables: Disable[] = []
+  const reports: string[] = []
+  let scanned = 0
+  const all = productionFiles(join(ROOT, 'src'))
+  for (const full of all) {
+    const file = rel(full)
+    const text = readFileSync(full, 'utf8')
+    text.split('\n').forEach((line, index) => {
+      if (!line.includes(RULE)) return
+      const m = REASON.exec(line)
+      disables.push({ file, line: index + 1, kind: m?.[1] ?? null, category: m?.[2] ?? null, reason: m?.[3] ?? null, text: line.trim() })
+    })
+    // The rule's own scope (eslint.config.js), prefiltered by its field names so the parse runs only where it can fire.
+    if (!DISPLAY_DIRS.some(d => file.startsWith(`${d}/`))) continue
+    if (!CHANCE_FIELDS.some(field => text.includes(field)) && !text.includes(RULE)) continue
+    scanned += 1
+    for (const m of lint(file, text)) reports.push(`${file}:${m.line} ${m.message.slice(0, 90)}`)
+  }
+  cache = { disables, reports, scanned }
   return cache
 }
 
-describe('⭐ the chance authority gate: no goal-chance number is read for display outside it', () => {
-  it('CONTROL: the scanner sees a read, a keyed read, a destructure and a raw call; not a type or a literal key', () => {
-    const hits = scanSource('src/components/results/Mutant.tsx', [
-      "const a = licence.pctByOption[id]",
+describe('⭐ the chance authority gate: enforced by lint, every exception explained on its own line', () => {
+  it('1. the rule is registered at ERROR over the display directories (the required lint check runs it)', () => {
+    const cfg = readFileSync(join(ROOT, 'eslint.config.js'), 'utf8')
+    expect(cfg).toContain("import noRawChanceRead from './eslint-rules/no-raw-chance-read.js'")
+    expect(cfg).toContain("'chance-gate': { rules: { 'no-raw-chance-read': noRawChanceRead } }")
+    expect(cfg).toContain(`'${RULE}': 'error'`)
+    expect(cfg).toContain("files: ['src/components/**/*.{ts,tsx}', 'src/canvas/**/*.{ts,tsx}', 'src/v5/blocks/**/*.{ts,tsx}']")
+  })
+
+  it('CONTROL: the field list names every quantity the DL listed (and the per-target field the r1 check found)', () => {
+    for (const field of ['probability', 'probability_of_goal', 'probability_of_joint_goal', 'win_probability', 'goalProbability',
+      'pct', 'low_pct', 'high_pct', 'lowPct', 'highPct', 'pct_by_option', 'pct_if_side', 'driver_by_option', 'prob_satisfied']) {
+      expect(CHANCE_FIELDS).toContain(field)
+    }
+  })
+
+  it('CONTROL: a planted bypass is reported (read, keyed read, destructure); a type or a literal key is not; a reason clears only its own line', () => {
+    const planted = [
+      'const a = licence.pctByOption[id]',
       "const b = row['probability_of_goal']",
-      "const { goal_probability } = entry",
-      "const c = readGoalChanceLicence(warnings)",
-      "interface T { goal_probability?: number }",
-      "const d = { pct_by_option: {} }",
-    ].join('\n'))
-    expect(hits.map(h => `${h.line}:${h.symbol}:${h.kind}`)).toEqual([
-      '1:pctByOption:read', '2:probability_of_goal:read', '3:goal_probability:read', '4:readGoalChanceLicence:call',
-    ])
+      'const { goal_probability } = entry',
+      'type T = { goal_probability?: number }',
+      'const d = { pct_by_option: {} }',
+      `// eslint-disable-next-line ${RULE} -- chance-gate: presence: control`,
+      'const e = typeof x.win_probability === "number"',
+      'const f = x.win_probability',
+    ].join('\n')
+    expect(lint('src/components/results/Mutant.tsx', planted).map(m => m.line)).toEqual([1, 2, 3, 8])
   })
 
-  it('CONTROL (magnitude): the gate itself is seen, so the probe is not blind', () => {
-    const gate = census().filter(h => h.file === 'src/canvas/runView/runView.ts')
-    expect(gate.some(h => h.symbol === 'readGoalChanceLicence' && h.kind === 'call')).toBe(true)
-    expect(gate.some(h => h.symbol === 'pctByOption')).toBe(true)
+  it('CONTROL (magnitude): the backstop parses the display files that can fire, and sees the gate\'s own reasons', () => {
+    const { scanned, disables } = census()
+    expect(scanned).toBeGreaterThanOrEqual(40)
+    expect(disables.filter(d => d.file === 'src/canvas/runView/runView.ts' && d.category === 'gate').length).toBeGreaterThan(0)
   })
 
-  it('⭐ no file outside the gate, its readers and the wire mappers reads a goal-chance number', () => {
-    const outside = census().filter(h => !(h.file in ALLOWED)).map(h => `${h.file}:${h.line} ${h.symbol} (${h.kind})`)
-    expect(outside, `goal-chance numbers read outside the gate:\n  ${outside.join('\n  ')}`).toEqual([])
+  it('2. every disable is LINE-level, with a known category and a reason (never file-wide, never unexplained)', () => {
+    const bad = census().disables.filter(d => d.kind === null || d.category === null || !(d.category in CHANCE_GATE_CATEGORIES) || !d.reason)
+    expect(bad.map(d => `${d.file}:${d.line} ${d.text}`)).toEqual([])
   })
 
-  it('⭐ the raw readers are called by the gate only', () => {
-    const calls = census().filter(h => h.kind === 'call' && h.file !== 'src/canvas/runView/runView.ts').map(h => `${h.file}:${h.line} ${h.symbol}`)
-    expect(calls).toEqual([])
+  it('3. `gate` is said only inside runView.ts\'s gate functions', () => {
+    const gate = census().disables.filter(d => d.category === 'gate')
+    const runView = readFileSync(join(ROOT, 'src/canvas/runView/runView.ts'), 'utf8')
+    const sf = ts.createSourceFile('runView.ts', runView, ts.ScriptTarget.Latest, true)
+    const enclosing = (line: number): string | null => {
+      let name: string | null = null
+      const pos = sf.getPositionOfLineAndCharacter(line, 0)
+      const visit = (n: ts.Node) => {
+        if (n.getStart(sf) <= pos && pos < n.getEnd()) {
+          if (ts.isFunctionDeclaration(n) && n.name) name = n.name.text
+          ts.forEachChild(n, visit)
+        }
+      }
+      visit(sf)
+      return name
+    }
+    expect(gate.filter(d => d.file !== 'src/canvas/runView/runView.ts' || !GATE_FUNCTIONS.has(enclosing(d.line) ?? '')).map(d => `${d.file}:${d.line}`)).toEqual([])
   })
 
-  it('every ALLOWED entry is still needed (a stale entry would widen what passes)', () => {
-    const seen = new Set(census().map(h => h.file))
-    expect(Object.keys(ALLOWED).filter(f => !seen.has(f))).toEqual([])
+  it('4. ⭐ the rule finds ZERO unexplained reads, and no reason is stale', () => {
+    expect(census().reports, `chance fields read outside the gate:\n  ${census().reports.join('\n  ')}`).toEqual([])
   })
-})
+}, 120_000)

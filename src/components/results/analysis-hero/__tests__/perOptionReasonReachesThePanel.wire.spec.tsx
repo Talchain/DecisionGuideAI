@@ -1,4 +1,4 @@
-import { withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { rawRangeOf, withCanonicalTestCells } from './helpers/canonicalTestCells'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
@@ -38,7 +38,8 @@ function hydrate(perOption: unknown, turn: typeof fixture | typeof served = fixt
     ...snapshot, currentResultsHash: snapshot.results?.hash ?? null,
   } as unknown as V5ApplicatorStore)
   expect(useCanvasStore.getState().results?.report).toBeTruthy()
-  return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current)
+  // #2747: the hook's ranges are gated (no canonical view was adopted), so the fixture's view is built from the Run's own record.
+  return withCanonicalTestCells(renderHook(() => useResultsSectionData()).result.current, rawRangeOf(useCanvasStore.getState().results?.report))
 }
 
 describe('S-E S6: raw per-option reason reaches the rendered panel through the real adapter', () => {

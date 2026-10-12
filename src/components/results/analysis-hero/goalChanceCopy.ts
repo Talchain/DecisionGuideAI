@@ -286,6 +286,7 @@ export function goalChanceRangeLine(
     const estimate = range.statedEstimate
     const bounds = estimate.low === estimate.high ? `${estimate.low}` : `${estimate.low}–${estimate.high}`
     const stated = range.quantity === 'months_to_finish' ? `${bounds} months` : `${bounds}% a month`
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a range the caller passed through the gate (RunView.goalChanceRange)
     return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} ${shareChanceWords(share)}, in this model, from the slow end of your ${stated} to the fast end.`
   }
   const from = labelOf(range.from)
@@ -295,6 +296,7 @@ export function goalChanceRangeLine(
   const link = range.kind === 'link_strength'
     ? `how strongly ‘${from}’ affects ‘${to}’, which isn’t sized in the model yet.`
     : `whether ‘${from}’ affects ‘${to}’ at all, which Olumi assumed.`
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a range the caller passed through the gate (RunView.goalChanceRange)
   return `‘${option}’: between ${about(range.lowPct)} and ${about(range.highPct).replace(/^about /, '')} chance of meeting your goal, in this model. ${depends} ${link}`
 }
 
@@ -325,6 +327,7 @@ export function goalChanceDriverLine(
     // The unit CEE carried with the cut (PLoT's own) is preferred; the canvas node's is the fallback.
     const cut = formatGoalTarget(driver.cutValue, driver.cutUnit ?? names.unitOf(driver.factorId) ?? '', 'level')
     if (cut === null) return null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
     const falls = `if it is ${FALLING_SIDE_WORDS[driver.side]} ${cut}, the chance falls to ${about(driver.pctIfSide)}.`
     // Olumi's own range says so and asks; the user's, or one CEE could not attribute, claims no author.
     return driver.authoredBy === 'olumi'
@@ -349,8 +352,10 @@ export function goalChanceDriverLine(
   if (driver.authoredBy !== 'olumi' || driver.side !== 'absent') return null
   return driver.userStatedLink
     ? `It rests most on your link from ‘${from}’ to ‘${to}’: Olumi’s model also allows that it does not hold, `
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
       + `and in those runs the chance is ${about(driver.pctIfSide)}.`
     : `It rests most on Olumi’s own assumption that ‘${from}’ affects ‘${to}’: `
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a driver the caller passed from the gate (RunView.mainDriverOf)
       + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}.${ask ? ' Is that right?' : ''}`
 }
 
@@ -370,16 +375,21 @@ function questionDriver(driver: GoalChanceDriver): string | null {
  *
  * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). A sentence's
  * closing question is asked ONCE per driver, by the first option SHOWN (the model's order) that rests on it.
+ *
+ * #2747 r2 (BLOCKING 1): a driver line quotes chances ("the chance falls to about 7%"), so the driver comes ONLY from
+ * `driverOf`, which callers bind to the gated `RunView.mainDriverOf`. This helper never reads the licence's own driver;
+ * a null driver is no line.
  */
 export function goalChanceDriverLines(
-  licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
+  optionIds: readonly string[], driverOf: (optionId: string) => GoalChanceDriver | null | undefined,
+  names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
 ): Readonly<Record<string, string>> {
   const lines: Record<string, string> = {}
-  if (licence === null || names == null) return lines
+  if (names == null) return lines
   const asked = new Set<string>()
-  for (const id of licence.optionIds) {
-    const driver = licence.driverByOption?.[id]
-    if (driver === undefined || except.includes(id)) continue
+  for (const id of optionIds) {
+    const driver = driverOf(id)
+    if (driver == null || except.includes(id)) continue
     const question = questionDriver(driver)
     const line = goalChanceDriverLine(driver, names, question === null || !asked.has(question))
     if (line === null) continue
@@ -406,7 +416,9 @@ export const COMPARE_GOAL_CHANCE_HEADING = 'Chance of meeting your goal, in this
  */
 export function goalChanceSideWords(side: RunDeltaGoalChanceSide): string {
   switch (side.kind) {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a Compare side passed only through gatedCompareGoalChances
     case 'point': return about(side.pct)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: words a Compare side passed only through gatedCompareGoalChances
     case 'range': return `between ${about(side.low_pct)} and ${about(side.high_pct).replace(/^about /, '')}`
     case 'withheld': return 'not shown'
     case 'not_recorded': return 'not recorded'

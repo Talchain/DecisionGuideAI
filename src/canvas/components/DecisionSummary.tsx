@@ -280,6 +280,7 @@ export function DecisionSummary({
           labelOf: id => (nodes.find(n => n.id === id)?.data as { label?: string } | undefined)?.label ?? null,
         })
         goalProbability = cell.kind === 'none' ? null : {
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           cell, confidence: prob.confidence, winProbability: prob.win_probability,
         }
       }
@@ -401,10 +402,13 @@ export function DecisionSummary({
         )}
 
         {/* Brief E Task 1: Goal probability display */}
+        {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
         {summaryData.goalProbability && (
           <div className="space-y-1 mb-2">
             <p className={`${typography.bodySmall} text-ink-600`}>
+              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
               {summaryData.goalProbability.cell.text}
+              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: this view's goal cell is the canonical cell (chanceCellOf) */}
               {summaryData.goalProbability.cell.kind === 'figure' && summaryData.goalProbability.confidence < 0.7 && (
                 <span className={`ml-2 ${typography.caption} text-banana-600`}>
                   (low confidence)
@@ -412,8 +416,10 @@ export function DecisionSummary({
               )}
             </p>
             {/* Win probability - shown as secondary context */}
+            {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
             {summaryData.goalProbability.winProbability !== undefined && (
               <p className={`${typography.caption} text-ink-500`}>
+                {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
                 Supported in {wholePercentBelowCertain(summaryData.goalProbability.winProbability)} of scenarios
               </p>
             )}

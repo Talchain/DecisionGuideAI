@@ -672,10 +672,12 @@ export const ResultsBody = memo(function ResultsBody({
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
               shares={resultsSectionData.recommendation.allOptions
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                 .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
                 .map(o => ({
                   id: o.id,
                   label: o.label,
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                   winProbability: o.winProbability,
                   isWinner: o.isRecommended,
                   // Re-anchoring (§6 map row 1): the figure headlines the GOAL
@@ -685,6 +687,7 @@ export const ResultsBody = memo(function ResultsBody({
                   // comparative quantity. The possessive gate travels with the
                   // number so the label cannot assert "your goal" over a
                   // substituted joint value.
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
                   goalProbability: o.goalProbability,
                   // ROADMAP 2.334 — the resolution the goal readouts need.
                   nValidSamples: o.nValidSamples,
@@ -719,6 +722,7 @@ export const ResultsBody = memo(function ResultsBody({
               goalShares={resultsSectionData.recommendation.allOptions.map((o) => ({
                 id: o.id,
                 label: o.label,
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
                 goalProbability: o.goalProbability,
                 nValidSamples: o.nValidSamples,
                 goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
@@ -773,6 +777,7 @@ export const ResultsBody = memo(function ResultsBody({
                 // the CANONICAL winner (Codex B1: lens never shifts this).
                 [...resultsSectionData.recommendation.allOptions]
                   .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
               expertMode={expertMode}
@@ -949,6 +954,7 @@ export const ResultsBody = memo(function ResultsBody({
               const allOptions = resultsSectionData.recommendation.allOptions
               const runnerUp = allOptions
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                 .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
               const alternativeLabel = runnerUp?.label ?? 'an alternative option'
               // Audit §8 P1 (verdict honesty): pass the SAME robustness
@@ -1019,6 +1025,7 @@ export const ResultsBody = memo(function ResultsBody({
           m2NarrativeSummary={resultsSectionData.recommendation.m2NarrativeSummary}
           coachingReadinessDimensions={resultsSectionData.recommendation.coachingReadinessDimensions}
           identifiabilityTag={identifiability}
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           winnerWinProbability={resultsSectionData.recommendation.recommendedOption?.winProbability}
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}

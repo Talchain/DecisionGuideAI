@@ -90,19 +90,19 @@
  * (ROADMAP 2.283: under substitution the joint figure IS the goal figure, so
  * printing both is one measurement reported as two findings). Reading
  * `probability_of_joint_goal` straight off the report here would bypass both
- * guards to add a number Paul's question never asked for. A PER-CONSTRAINT
- * probability carries no such entitlement — it is a satisfaction rate for one
- * stated limit — so that one is rendered, through the existing encodings.
+ * guards to add a number Paul's question never asked for.
+ *
+ * #2747 r2 (BLOCKING 5): the PER-CONSTRAINT probability (a satisfaction rate for one stated limit) is not shown either.
+ * No canonical cell licenses it, so it would be a probability on screen outside the chance authority gate; removal is
+ * the default for a figure nothing licenses. The limit itself, its source words and its attachment are unchanged.
  */
 
 import { goalConstraintText, goalConstraintTextUsesQuote } from '../../utils/goalConstraintText'
 import { isGoalTargetRow } from '../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../../ui/inspector-v2/shared/GoalConstraintProvenance'
-import { DataBar } from '../../ui/shared/DataBar'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
-import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * A constraint as this surface receives it.
@@ -198,12 +198,6 @@ function namesAnElementInThisModel(
   return nodes.some(node => node.id === target)
 }
 
-/** A probability is only a probability when it is a finite number. */
-function finiteProbability(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null
-  return value
-}
-
 export function GoalConstraintsSection({
   constraints,
   nodes,
@@ -295,7 +289,6 @@ export function GoalConstraintsSection({
         {effectiveConstraints.map((constraint, index) => {
           const identity = constraintIdentity(constraint, index)
           const constraintText = goalConstraintText(constraint, nodes)
-          const probability = finiteProbability(constraint.probability)
           const attached = namesAnElementInThisModel(constraint, nodes)
 
           return (
@@ -308,27 +301,6 @@ export function GoalConstraintsSection({
                 <span className={`${typography.panelBody} text-text-body break-words`}>
                   {constraintText}
                 </span>
-                {probability !== null && (
-                  /* ⛔ THE NUMBER BESIDE THE BAR WAS STILL GRADED, FOUR LINES
-                     FROM THE BAR #1593 DE-GRADED. `constraintConfidenceColour`
-                     returns `text-success` at >= 0.70, `text-info` at >= 0.40
-                     and `text-danger` below — the identical 0.7/0.4 verdict,
-                     one channel over, on the same row.
-
-                     ⚠ AND MY OWN GUARD COULD NOT SEE IT. It looks for a
-                     `<DataBar` with no colour, so it guards THE CARRIER rather
-                     than THE BEHAVIOUR: colouring by a band computed from the
-                     value. That is why the guard is widened in the same
-                     change — fixing this line alone would leave the next
-                     sibling just as invisible.
-
-                     The percentage still renders, in the body colour. The
-                     magnitude is the fact; how good 43% is, is a judgement this
-                     surface is not entitled to make. */
-                  <span className={`${typography.panelMeta} shrink-0 text-text-body`}>
-                    {wholePercentBelowCertain(probability)}
-                  </span>
-                )}
               </div>
 
               {/* The user's own words, verbatim, under the constraint they
@@ -350,22 +322,6 @@ export function GoalConstraintsSection({
                 />
               )}
 
-              {probability !== null && (
-                <div className="mt-1">
-{/* ⛔⛔ THE COLOUR IS EXPLICIT, AND THAT IS NOT A STYLE CHOICE.
-                      `DataBar` falls back to `evaluativeToken` when no colour is
-                      given: >= 70 green, >= 40 amber, else RED. Nobody gave us
-                      those cutoffs. The producer supplies a probability that a
-                      constraint is SATISFIED; this bar would have told the
-                      reader that 39% is danger and 41% merely a warning, and
-                      for a ceiling like "keep churn under 4%" a 70% chance of
-                      holding may be alarming rather than green.
-                      The identical bands were removed from the goal card's
-                      constraint badges on 15 Sep; this is the sibling surface
-                      that removal did not sweep. The figure is unchanged. */}
-                  <DataBar value={probability} label={constraintText} size="standard" colour="info" />
-                </div>
-              )}
 
               {!attached && (
                 <p

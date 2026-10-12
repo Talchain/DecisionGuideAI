@@ -12,7 +12,15 @@
  */
 import { describe, expect, it } from 'vitest'
 import { readGoalChanceLicence, type GoalChanceLicence } from '../../utils/goalChanceLicence'
-import { goalChanceDriverLines, goalChanceOptionLines } from '../goalChanceCopy'
+import { goalChanceDriverLines as driverLinesOf, goalChanceOptionLines } from '../goalChanceCopy'
+import type { GoalChanceDriverNames } from '../../utils/goalChanceLicence'
+
+/**
+ * The words for the drivers a licence names (#2747 r2: production hands the formatter only the gated canonical driver,
+ * `RunView.mainDriverOf`; these word tests supply the driver directly).
+ */
+const goalChanceDriverLines = (licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined, except: readonly string[] = []) =>
+  driverLinesOf(licence?.optionIds ?? [], (id) => licence?.driverByOption?.[id], names, except)
 import { gateWordsOf } from './helpers/gateWords'
 
 const TARGET = { comparator: 'at_least', value: 120000, unit: '£' }

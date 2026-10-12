@@ -503,9 +503,11 @@ export function SummaryTab({
           {data.winningOption && (
             <KpiCard
               label="Leading option"
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
               value={`${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`}
               status={data.winningOption.is_close_race ? 'warn' : 'ok'}
               tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
                 ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
                 : 'Clear leading option'}
               compact
@@ -560,9 +562,11 @@ export function SummaryTab({
               Leading option: {data.winningOption.label}
             </div>
             <div style={{ fontSize: 13, color: '#475569' }}>
+              {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export */}
               {data.winningOption.win_probability.toFixed(0)}% confidence
               {data.winningOption.is_close_race && data.winningOption.runner_up && (
                 <span style={{ color: '#64748b' }}>
+                  {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export */}
                   {' '}vs {data.winningOption.runner_up.label} at {data.winningOption.runner_up.win_probability.toFixed(0)}%
                 </span>
               )}
@@ -605,6 +609,7 @@ export function SummaryTab({
                   <div
                     data-testid={`budget-bar-${entry.name.toLowerCase()}`}
                     style={{
+                      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
                       width: `${Math.min(entry.pct, 100)}%`,
                       height: '100%',
                       borderRadius: 4,

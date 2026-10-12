@@ -358,6 +358,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     const targetText = (() => {
       if (target == null) return null
       const n = typeof target.raw === 'number' ? target.raw : Number(target.raw)
+      // target-text: a non-numeric stored target is the user's own words, said verbatim
       const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame, target.quantityFrame)
       if (figure === null) return TARGET_NOT_CAPTURED
       // SD-1: a goal that holds a ceiling says so, from its own `goal_direction` (the one source).

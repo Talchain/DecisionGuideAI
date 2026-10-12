@@ -48,10 +48,7 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { RangeVisualization } from '../RangeVisualization'
-import { SuccessTargetRow } from '../SuccessTargetRow'
-import { TargetProbabilityBars } from '../TargetProbabilityBars'
 import type { OptionResult } from '../types'
-import type { ConstraintAnalysis } from '../../../types/constraints'
 
 /** A zero-percent readout that is not the tail of a larger number. */
 const BARE_ZERO_PERCENT = /(?<![\d.])0%/
@@ -115,112 +112,8 @@ describe('RangeVisualization — the per-option probability suffix', () => {
   })
 })
 
-describe('SuccessTargetRow — constraint satisfaction probabilities', () => {
-  function constraintAnalysis(probs: number[], joint: number): ConstraintAnalysis {
-    return {
-      constraints: probs.map((p, i) => ({
-        node_id: `c${i}`,
-        operator: '>=',
-        threshold: 100,
-        label: `Constraint ${i}`,
-        prob_satisfied: p,
-        failure_margin_median: 10,
-        near_miss_fraction: 0.1,
-        binding: i === 0,
-      })),
-      joint_probability: joint,
-    }
-  }
-
-  it('positive control: mid-range constraint probabilities render their own percentages', () => {
-    render(<SuccessTargetRow goalThreshold={100} constraintAnalysis={constraintAnalysis([0.34, 0.72], 0.25)} />)
-    const text = document.body.textContent ?? ''
-    expect(text).toContain('34%')
-    expect(text).toContain('72%')
-    expect(text).toContain('25%')
-  })
-
-  it('never prints a bare "0%" for measured sub-1% satisfaction probabilities', () => {
-    render(
-      <SuccessTargetRow
-        goalThreshold={100}
-        constraintAnalysis={constraintAnalysis([0.0007, 0.0002], 0.0001)}
-      />,
-    )
-    expect(document.body.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
-  })
-
-  it('KEEPS "0%" for an exact zero — the comparative register, deliberately', () => {
-    // Satisfied in 0 of n runs is a true statement about a measurement, and
-    // the floor is not there to suppress it. This is the no-overclaim guard
-    // in the other direction.
-    render(
-      <SuccessTargetRow goalThreshold={100} constraintAnalysis={constraintAnalysis([0, 0.5], 0)} />,
-    )
-    expect(document.body.textContent ?? '').toMatch(BARE_ZERO_PERCENT)
-  })
-})
-
-describe('TargetProbabilityBars — the OTHER surface rendering the same constraint numbers', () => {
-  /**
-   * ⚠ NOT IN THE DESIGN'S MANIFEST — found by re-running the design's OWN
-   * regenerating `rg` command at this tip (trap 12d in miniature: a derived
-   * query proves agreement among the rows it returns; it cannot tell you the
-   * hand-written TABLE is short).
-   *
-   * This matters because it is the same `prob_satisfied` / `joint_probability`
-   * that `SuccessTargetRow` renders. Fixing one and not the other would not
-   * have left a pre-existing defect alone — it would have MANUFACTURED a new
-   * "one number, two answers" pair between two surfaces of the same panel,
-   * with this slice's own change as the cause.
-   */
-  function analysis(probs: number[], joint: number): ConstraintAnalysis {
-    return {
-      constraints: probs.map((p, i) => ({
-        node_id: `c${i}`,
-        operator: '>=',
-        threshold: 100,
-        label: `Constraint ${i}`,
-        prob_satisfied: p,
-        failure_margin_median: 10,
-        near_miss_fraction: 0.1,
-        binding: i === 0,
-      })),
-      joint_probability: joint,
-    }
-  }
-
-  it('positive control: mid-range constraint probabilities render their own percentages', () => {
-    render(<TargetProbabilityBars constraintAnalysis={analysis([0.34, 0.72], 0.25)} />)
-    const text = document.body.textContent ?? ''
-    expect(text).toContain('34%')
-    expect(text).toContain('72%')
-    expect(text).toContain('25%')
-  })
-
-  it('never prints a bare "0%" for measured sub-1% satisfaction probabilities', () => {
-    render(<TargetProbabilityBars constraintAnalysis={analysis([0.0007, 0.0002], 0.0001)} />)
-    expect(document.body.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
-  })
-
-  it('agrees with SuccessTargetRow on the SAME numbers', () => {
-    // The claim that motivated including this surface: two components, one
-    // constraint analysis, identical strings.
-    const ca = analysis([0.0007, 0.0002], 0.0001)
-    const { container: bars } = render(<TargetProbabilityBars constraintAnalysis={ca} />)
-    const { container: row } = render(<SuccessTargetRow goalThreshold={100} constraintAnalysis={ca} />)
-    for (const expected of ['< 1%']) {
-      expect(bars.textContent ?? '').toContain(expected)
-      expect(row.textContent ?? '').toContain(expected)
-    }
-  })
-
-  it('KEEPS "0%" for an exact zero — comparative register, deliberately', () => {
-    render(<TargetProbabilityBars constraintAnalysis={analysis([0, 0.5], 0)} />)
-    expect(document.body.textContent ?? '').toMatch(BARE_ZERO_PERCENT)
-  })
-})
-
+// SuccessTargetRow and TargetProbabilityBars were deleted by #2747 r2 (constraint probabilities no canonical cell
+// licenses; the first had no render site, the second lost its only slot).
 // The canvas GoalNode/OptionNode arms of this class live in
 // `src/canvas/nodes/__tests__/nodeGoalReadout.zeroFloor.2333.spec.tsx`.
 // They need the canvas store mocked at module scope (the proven harness in

@@ -59,7 +59,9 @@ export function DraftNotes({
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Constraints with probability set have been evaluated; others are pending
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
   const appliedConstraints = goalConstraints.filter(c => c.probability != null)
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
   const unappliedConstraints = goalConstraints.filter(c => c.probability == null)
   const allRepairs = [...repairActions, ...postRunRepairs]
 

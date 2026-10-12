@@ -281,8 +281,10 @@ describe('OptionCards', () => {
     })
   })
 
-  describe('Multi-constraint badge', () => {
-    it('shows "Meets all targets X%" when constraint_analysis is present', () => {
+  // #2747 r2 (fresh check BLOCKING 5): the multi-constraint joint line is the legacy limits channel, licensed by no
+  // canonical cell (DL ruling (a)): it is not shown, whatever constraint_analysis carries.
+  describe('Multi-constraint badge (removed by #2747 r2)', () => {
+    it('constraint_analysis present (joint 68%): no constraint line and no 68%', () => {
       const withConstraints: OptionResult[] = [
         {
           ...mockOptions[0],
@@ -298,13 +300,11 @@ describe('OptionCards', () => {
 
       render(<OptionCards options={withConstraints} winnerId="option-1" />)
 
-      const badge = screen.getByTestId('option-constraint-badge')
-      expect(badge).toBeInTheDocument()
-      expect(badge.textContent).toContain('Meets all targets')
-      expect(badge.textContent).toContain('68%')
+      expect(screen.queryByTestId('option-constraint-badge')).toBeNull()
+      expect(document.body.textContent).not.toMatch(/Meets all targets|68%/)
     })
 
-    it('shows "May miss targets" when joint_probability < 0.4', () => {
+    it('joint_probability < 0.4 (25%): no "May miss targets" line and no 25%', () => {
       const withConstraints: OptionResult[] = [
         {
           ...mockOptions[0],
@@ -319,9 +319,8 @@ describe('OptionCards', () => {
 
       render(<OptionCards options={withConstraints} winnerId="option-1" />)
 
-      const badge = screen.getByTestId('option-constraint-badge')
-      expect(badge.textContent).toContain('May miss targets')
-      expect(badge.textContent).toContain('25%')
+      expect(screen.queryByTestId('option-constraint-badge')).toBeNull()
+      expect(document.body.textContent).not.toMatch(/May miss targets|25%/)
     })
 
     it('does not show constraint line when constraint_analysis is absent', () => {

@@ -30,6 +30,8 @@ function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5Analysi
   return {
     type: 'v5_analysis_result',
     computed_against_hash: 'graph-hash-d1w5',
+    // #2747 r2: the run id the card's own turn stamped on it (its canonical view's Run).
+    run_id: 'run-d1w5',
     summary: 'The analysis completed for all four options.',
     leading_option_id: 'launch',
     // The served d1w-5 values. The first value deliberately differs from the
@@ -53,15 +55,21 @@ function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5Analysi
 
 const initialState = useCanvasStore.getState()
 
-/** #2747 chance authority gate: the card's Run held with its matching (graph hash), current canonical view. */
+/**
+ * #2747 chance authority gate: the card's Run held with its matching (run id AND graph hash), current canonical view.
+ * #2747 r2: CEE's served cells carry each option's sentence as their face (`goal-chance-screen-lines.ts`: the label, the
+ * displayed figure, then "chance of meeting your goal, in this model."); the card says it verbatim.
+ */
 function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<string, number> }) {
+  const labelOf = (id: string) => OPTIONS.find(([optionId]) => optionId === id)?.[1]
   useCanonicalAnalysisViewStore.getState().adopt('scn-d1w5', parseCanonicalAnalysisView({
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
-    run: { run_id: null, graph_hash_at_run: 'graph-hash-d1w5', computed_at: null },
+    run: { run_id: 'run-d1w5', graph_hash_at_run: 'graph-hash-d1w5', computed_at: null },
     staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
       limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
     options: licence.option_ids.map(option_id => ({ option_id, main_driver: { kind: 'not_recorded' },
-      cell: { kind: 'figure', display: goalProbabilityWords(`${licence.pct_by_option[option_id]}%`) } })),
+      cell: { kind: 'figure', display: goalProbabilityWords(`${licence.pct_by_option[option_id]}%`),
+        face: `‘${labelOf(option_id)}’: ${goalProbabilityWords(`${licence.pct_by_option[option_id]}%`)} chance of meeting your goal, in this model.` } })),
   }))
 }
 

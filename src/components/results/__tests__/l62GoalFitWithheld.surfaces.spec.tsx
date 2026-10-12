@@ -30,7 +30,6 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { WinGauge } from '../WinGauge'
-import { SuccessTargetRow } from '../SuccessTargetRow'
 import { buildGoalFitRows } from '../../../canvas/components/model-tab/buildGoalFitRows'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 import { selectGoalProbability } from '../utils/selectGoalProbability'
@@ -207,57 +206,5 @@ describe('L62 / WinGauge goal block', () => {
   })
 })
 
-// ───────────────────────────────────────────────────────────────────────────
-// 3. SuccessTargetRow — the fabricated shortfall
-// ───────────────────────────────────────────────────────────────────────────
-
-describe('L62 / the fabricated "typically misses by" distance', () => {
-  it('does not render a shortfall for a missed constraint, in the user units or otherwise', () => {
-    // The margin values are the producer's own, from the pricing run's
-    // `constraint_margins` (a fraction) and the people run's (a head-count) —
-    // the two cases the removed line rendered as bare, unitless digits.
-    const { container } = render(
-      <SuccessTargetRow
-        goalThreshold={250000}
-        constraintAnalysis={{
-          joint_probability: 0,
-          constraints: [
-            {
-              node_id: 'out_gross_margin',
-              operator: '>=',
-              threshold: 0.8,
-              label: 'Gross Margin',
-              prob_satisfied: 0,
-              failure_margin_median: 0.5630574027128157,
-              near_miss_fraction: 0,
-              binding: true,
-            },
-            {
-              node_id: 'risk_ae_attrition',
-              operator: '<=',
-              threshold: 2,
-              label: 'Account executives lost',
-              prob_satisfied: 0,
-              failure_margin_median: 18.002137272472513,
-              near_miss_fraction: 0,
-              binding: false,
-            },
-          ],
-        }}
-      />,
-    )
-    const text = container.textContent ?? ''
-
-    // Control: the rows themselves DID render, so the absences below are
-    // about the shortfall line and not about an empty component.
-    expect(container.querySelector('[data-testid="constraint-row-out_gross_margin"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="constraint-row-risk_ae_attrition"]')).not.toBeNull()
-
-    // The removed claim, by wording and by value.
-    expect(text).not.toContain('Typically misses by')
-    expect(text).not.toContain('0.5630574027128157')
-    expect(text).not.toContain('18.002137272472513')
-    // …and no rounded rendering of either sneaking back in.
-    expect(text).not.toMatch(/misses by/i)
-  })
-})
+// 3. SuccessTargetRow (the fabricated shortfall) was deleted by #2747 r2: it had no render site and showed constraint
+//    probabilities no canonical cell licenses. Its absence is the guard.

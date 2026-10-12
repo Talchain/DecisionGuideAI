@@ -311,6 +311,7 @@ export function basisWithholdsPossessive(
 /** Limits and provenance metadata only; no goal figure is chosen here. */
 export function goalProbabilityDetails(prob: GoalProbabilityInput | null | undefined) {
   const jointGoalProb =
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
     typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
@@ -329,6 +330,7 @@ export function selectGoalProbability(
   prob: GoalProbabilityInput | null | undefined,
 ): GoalProbabilitySelection {
   const details = goalProbabilityDetails(prob)
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   const jointGoalProb = details.jointGoalProbability
   // Both spellings of the SAME producer quantity (see the registration header):
   // the mapped `goal_probability` wins where a payload carries both, so every
@@ -336,9 +338,13 @@ export function selectGoalProbability(
   const unconstrained =
     prob?.goalIdentityWithheld === true || prob?.goalCertaintyUnearned !== undefined
       ? null
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
       : typeof prob?.goal_probability === 'number'
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
         ? prob.goal_probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
         : typeof prob?.probability_of_goal === 'number'
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
           ? prob.probability_of_goal
           : null
   const baseCaveat = details.baseCaveat

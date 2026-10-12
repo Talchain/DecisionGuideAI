@@ -1,4 +1,5 @@
-import { installCanonicalFixtureState, withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { canonicalTestCellsOf, installCanonicalFixtureState, withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { runViewFromParts } from '../../../../canvas/runView/runView'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
@@ -199,6 +200,22 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
       expect(hero.goalChanceLeadLines!.find(line => line.id === option.id)!.text)
         .toBe(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent)
     }
+  })
+
+  it('#2747 r2 (BLOCKING 1, the checker\'s reproduction): a licence driver the current canonical view does not record says no driver line', () => {
+    const link = fx.draft.edges.find((e) => fx.draft.nodes.some((n) => n.id === e.from) && fx.draft.nodes.some((n) => n.id === e.to))!
+    const claim = { quantity_id: `${link.from}->${link.to}`, kind: 'link_existence', from: link.from, to: link.to,
+      side: 'absent', pct_if_side: 7, pct_if_side_rounding: 'whole', authored_by: 'olumi', user_stated_link: false }
+    const data = seedChance(undefined, PCT, { angel_bridge: claim })
+    // The same Run, held with a current canonical view whose main driver is NOT recorded: `mainDriverOf` is null.
+    const canonical = canonicalTestCellsOf(data)
+    const unrecorded = { ...canonical, options: canonical.options.map(o => ({ ...o, main_driver: { kind: 'not_recorded' as const } })) }
+    const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, data.goalChanceLicence ?? null, data.goalChanceRange ?? null, unrecorded)
+    expect(view.mainDriverOf('angel_bridge')).toBeNull()
+    render(<DecisionMatrix {...propsFor({ ...data, runView: view })} />)
+    open()
+    expect(screen.getByRole('table').textContent).not.toMatch(/about 7%/)
+    expect(screen.queryByTestId('decision-matrix-driver-angel_bridge')?.textContent ?? '').not.toMatch(/rests most on/)
   })
 
   it('the matrix shared-driver question lands on the first option in CEE’s order', () => {

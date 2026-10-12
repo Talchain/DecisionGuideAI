@@ -89,6 +89,7 @@ function OutcomesComparisonBar({
         return {
           label: match?.option_label || scenario.label,
           value,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           winProbability: match?.win_probability,
           status: apiResponse.analysis_status === 'failed' ? 'error' : 'ready',
         }
@@ -96,6 +97,7 @@ function OutcomesComparisonBar({
 
       const best = values
         .filter((item) => item.value !== null)
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
         .sort((a, b) => (b.winProbability ?? b.value ?? 0) - (a.winProbability ?? a.value ?? 0))[0]
 
       return values.map((item) => ({

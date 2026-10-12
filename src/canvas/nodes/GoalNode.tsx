@@ -695,6 +695,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
+    // target-text: a non-numeric stored target is the user's own words, said verbatim
     const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame)
     if (figure === null) return TARGET_NOT_CAPTURED
     return heldBound === null ? figure : `${heldBound} ${figure}`
@@ -858,7 +859,6 @@ export const GoalNode = memo((props: NodeProps) => {
       {statedLimits && statedLimits.length > 0 && (
         <div className="flex flex-col gap-0.5">
           {statedLimits.map((c, i) => {
-            const prob = typeof c.probability === 'number' ? c.probability : null
             /**
              * ⛔⛔ THE TRAFFIC LIGHT IS GONE — the UI was issuing a verdict in
              * colour, which is the same defect as issuing one in words and
@@ -877,8 +877,7 @@ export const GoalNode = memo((props: NodeProps) => {
              * correctly rejects. Found by reading the card, not by running the
              * guard.
              *
-             * The figure itself is unchanged and still sits beside the
-             * sentence, so nothing is hidden — what is gone is the grading.
+             * (#2747 r2: the figure itself is now gone too; see below.)
              */
             // Contract v3.1 PILL-12: the boundary is the NEUTRAL mini pill
             // (`.pill.mini`: 1px var(--line) #DBD7D0, radius 999, padding
@@ -886,11 +885,11 @@ export const GoalNode = memo((props: NodeProps) => {
             // `border-field/40` over the panel is #D0CDC8, the nearest DS token.
             const colourClass = 'border-field/40 text-text-body'
             const constraintText = goalConstraintText(c, nodes)
-            const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+            // #2747 r2: the limit's satisfaction probability is not shown (here or in its label): no canonical cell
+            // licenses it, so it was a probability on the canvas outside the chance authority gate.
             return (
-              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full ${colourClass}`} data-testid="goal-constraint-badge" aria-label={badgeAriaLabel}>
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full ${colourClass}`} data-testid="goal-constraint-badge" aria-label={constraintText}>
                 <span className={`${typography.edgeLabel} break-words`}>{constraintText}</span>
-                {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
               </div>
             )
           })}

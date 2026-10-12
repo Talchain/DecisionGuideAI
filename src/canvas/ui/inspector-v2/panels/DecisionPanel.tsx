@@ -162,6 +162,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         )
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === otherId)?.win_probability
           : undefined
         return {

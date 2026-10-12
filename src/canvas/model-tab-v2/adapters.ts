@@ -130,7 +130,7 @@ import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenanc
 import { goalTargetMeaningUnread, type GoalTargetSource } from '../domain/goalTarget'
 import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { statedFactorCategoryLabel } from '../domain/vocabulary'
@@ -763,15 +763,20 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       const figureText = target
         // R1 S4-core (MG 5879952291): a change target is said as the change ("down 15% from today"), never the
         // fraction beside the metric's unit ("-0.15 GBP/month").
-        ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame) !== null
-          ? formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame)
+        // #2747 r2: a change the formatter cannot say (a % change with no quantity frame) is "Target not captured",
+        // never the level-shaped "10%" below (a guess at the frame).
+        ? target.frame != null && typeof target.raw === 'number'
+          ? formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame) ?? TARGET_NOT_CAPTURED
           : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
+          // target-text: a LEVEL target (no change frame) said in its own currency unit
           ? formatValueWithUnit(target.raw, target.unit)
           // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.
+          // target-text: a LEVEL target (no change frame) said in its own declared unit, or the user's own words
           : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? (target.unit!.trim() === '%' ? '%' : ` ${target.unit}`) : ''}`
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
+        // #2747 r2: nor does any goal with no node target: the store's scalar alone has no frame, unit or bound.
         : input.goalThreshold === null || goalTargetMeaningUnread(data as GoalTargetSource)
-          ? null : formatSmartNumber(input.goalThreshold)
+          ? null : TARGET_NOT_CAPTURED
       const targetText = figureText !== null && bound !== null ? `${bound} ${figureText}` : figureText
       rows.push({
         id: node.id,

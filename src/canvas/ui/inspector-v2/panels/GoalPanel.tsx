@@ -7,7 +7,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { memo, useState, useMemo, useCallback } from 'react'
 import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure, limitChangeFrameOf } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
-import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
+import { useGoalConstraints } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -34,7 +34,6 @@ import { InspectorMoreItems } from '../shared/InspectorMore'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
-import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
 import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
 import type { InspectorPanelProps } from '../types'
@@ -68,7 +67,6 @@ import type {
   SystemEventSendSettlementDetail,
 } from '../../../conversation/settleSystemEventSend'
 import { goalTargetSettlementNotice } from '../../../conversation/goalTargetEdit'
-import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
@@ -163,7 +161,6 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const goalThresholdRepresentation = useCanvasStore(s => s.goalThresholdRepresentation)
   // GOAL-PROBABILITY IDENTITY (ROADMAP 2.296 item 5 / 2.282-C2): this panel
   // used to read both producer fields straight off the store, which made it a
   // chooser in its own right; #496 replaced that with a `selectGoalProbability`
@@ -188,7 +185,6 @@ export const GoalPanel = memo(function GoalPanel({
   // case the "Based on N simulations" line is omitted rather than fabricated.
   const { scenarioCount } = useAnalysisMetadata()
   const postAnalysisConstraints = useGoalConstraints()
-  const conditionalProbabilities = useConditionalProbabilities()
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
   const setGoalConstraints = useCanvasStore(s => s.setGoalConstraints)
   // Prefer post-analysis (has probability scores) over pre-analysis preview
@@ -300,6 +296,7 @@ export const GoalPanel = memo(function GoalPanel({
   const targetDisplay = (() => {
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
+    // target-text: a non-numeric stored target is the user's own words, said verbatim
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
     return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame, resolvedTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
@@ -589,19 +586,17 @@ export const GoalPanel = memo(function GoalPanel({
     nodeId,
   )
   const summaryUnreadFrame = goalTargetMeaningUnread(node.data as GoalTargetSource)
-  const summaryStoreTarget = goalThreshold != null && goalThresholdRepresentation === 'raw' && !summaryUnreadFrame
-    ? goalThreshold
-    : null
   const summaryNodeTargetDisplay = summaryTarget === null ? null : (() => {
     const raw = typeof summaryTarget.raw === 'number' ? summaryTarget.raw : Number(summaryTarget.raw)
     return Number.isNaN(raw)
+      // target-text: a non-numeric stored target is the user's own words, said verbatim
       ? String(summaryTarget.raw)
       : formatGoalTarget(raw, summaryTarget.unit, summaryTarget.frame, summaryTarget.quantityFrame) ?? TARGET_NOT_CAPTURED
   })()
+  // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone is never said as the target ("Success means 85000."):
+  // it carries no frame, unit or bound. With no target on the node, any held scalar is the honest "no target we can show".
   const summaryTargetDisplay = summaryNodeTargetDisplay
-    ?? (summaryStoreTarget != null ? String(summaryStoreTarget) : null)
-  const summaryUnexpressible = summaryTargetDisplay === null
-    && ((goalThreshold != null && goalThresholdRepresentation !== 'raw') || summaryUnreadFrame)
+  const summaryUnexpressible = summaryTargetDisplay === null && (goalThreshold != null || summaryUnreadFrame)
   const summaryBound = goalTargetBound(summaryTarget)
   const summaryChangeBound = summaryTarget?.frame != null
     ? formatGoalChangeBound(
@@ -777,19 +772,19 @@ export const GoalPanel = memo(function GoalPanel({
                 )}
                 {listedConstraints.map(({ c, index: i }) => {
                   const constraintText = goalConstraintText(c, nodes)
-                  const prob = typeof c.probability === 'number' ? c.probability : null
-                  const colourClass = prob === null
-                    ? 'border-info/30'
-                    : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
+                  /*
+                   * #2747 r2 (BLOCKING 5): the per-limit satisfaction probability and the conditional "If … is met,
+                   * probability of … changes to N%" lines are not shown: no canonical cell licenses either figure, so
+                   * each was a probability on screen outside the chance authority gate (removal is the default). The
+                   * graded border went with them (it showed the same figure's band). Whether the row came from an
+                   * analysis still picks the read-only row over the editor: a presence check, never displayed.
+                   */
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: picks the read-only analysed row; the figure is never shown
+                  const analysed = typeof c.probability === 'number'
                   return (
-                    <div key={c.constraint_id ?? c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                    <div key={c.constraint_id ?? c.id ?? i} className="px-2.5 py-1.5 bg-panel border border-info/30 rounded-lg">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`${typography.panelBody} text-text-body break-words`}>{constraintText}</span>
-                        {prob !== null && (
-                          <span className={`${typography.panelMeta} shrink-0 ${
-                            prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
-                          }`}>{wholePercentBelowCertain(prob)}</span>
-                        )}
                       </div>
                       {/* N-20 — the user's own words, under the constraint they
                           produced. Renders nothing for an Olumi-inferred
@@ -798,118 +793,7 @@ export const GoalPanel = memo(function GoalPanel({
                         constraintId={String(c.constraint_id ?? c.id ?? i)}
                         sourceQuote={c.source_quote}
                       />
-                      {prob !== null && (
-                        <div className="mt-1">
-                          {/* ⛔ Explicit colour — see GoalConstraintsSection for the
-                              full argument. `DataBar` grades an uncoloured value
-                              >= 70 green / >= 40 amber / else RED, and those cutoffs
-                              are not the producer's. */}
-                          <DataBar
-                            value={prob}
-                            label={constraintText}
-                            size="standard"
-                            colour="info"
-                          />
-                        </div>
-                      )}
-                      {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
-                      {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
-                        // ⚠ BIND BY ID, NOT BY LABEL (CLAUDE.md trap 19).
-                        //
-                        // This was `cp.constraint_a_label === (c.label ?? '')`.
-                        // `ConditionalProbability.constraint_a_id` is REQUIRED
-                        // (`types/constraints.ts`) and this very block already
-                        // reads it for the React key three lines below, while
-                        // `CEEGoalConstraint.label` is optional and its own doc
-                        // says it is "genuinely absent in practice". So `?? ''`
-                        // made every UNLABELLED constraint match every row whose
-                        // `constraint_a_label` was also empty — `'' === ''` —
-                        // and printed "If … is met, probability of … changes to
-                        // N%" under a constraint the producer never conditioned
-                        // on. Two constraints sharing a label both claimed one
-                        // row, so at least one was false. This is the sibling of
-                        // the #959 `FactorNode.constraintTooltip` defect, in the
-                        // same feature, including the empty-label case #959
-                        // excluded explicitly.
-                        //
-                        // THE LABEL LEG SURVIVES, UNIQUENESS-GATED, AND THAT IS
-                        // DELIBERATE. No `conditional_probabilities` payload has
-                        // ever been witnessed in this repo — a fixture sweep for
-                        // `constraint_a_id` returns ZERO, and so does the
-                        // contrast term `joint_probability` — so PLoT's id-space
-                        // is NOT established here. An id-ONLY join could drop
-                        // every line if PLoT mints its own ids, and silently
-                        // removing a working surface to fix an attribution bug
-                        // is the "hide it" move, not a fix. The ladder is
-                        // strictly additive: every match that is correct today
-                        // still fires, and only the two provably-wrong ones stop.
-                        const constraintIdentity = c.constraint_id ?? c.id
-                        const label = typeof c.label === 'string' ? c.label.trim() : ''
-                        const labelIsUnique =
-                          label.length > 0 &&
-                          goalConstraints.filter(
-                            other => (typeof other.label === 'string' ? other.label.trim() : '') === label,
-                          ).length === 1
-                        const related = conditionalProbabilities.filter(
-                          cp => (
-                            (constraintIdentity != null && cp.constraint_a_id === constraintIdentity)
-                            || (labelIsUnique && cp.constraint_a_label === label)
-                          )
-                            && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
-                        )
-                        if (related.length === 0) return null
-
-                        // ⚠ A CONSTRAINT'S NAME FOR PROSE IS NOT ITS RAW LABEL.
-                        // `constraint_a_label` / `constraint_b_label` are
-                        // required `string`s but are genuinely EMPTY in practice
-                        // — the same optional-label reality the id join above
-                        // exists for — and this sentence used them raw, so an
-                        // unlabelled constraint rendered:
-                        //
-                        //   "If  is met, probability of  changes to 90%"
-                        //
-                        // A sentence naming nothing. Inherited, not introduced
-                        // by the id join (the old `'' === ''` leg reached the
-                        // same case), but the join is what makes it INTENTIONAL,
-                        // so it is fixed here rather than left pinned.
-                        //
-                        // Resolve through `goalConstraints` — the SAME array
-                        // these rows are built from — and fall back to the SAME
-                        // positional name the row header renders
-                        // (`Constraint ${i + 1}`), so the prose and the row it
-                        // sits under can never disagree about what a constraint
-                        // is called. Only when a referent is not in that array
-                        // at all do we fall back to the payload's own label.
-                        const proseName = (identity: string, payloadLabel: string): string => {
-                          const idx = goalConstraints.findIndex(
-                            gc => (gc.constraint_id ?? gc.id) === identity,
-                          )
-                          if (idx >= 0) {
-                            const own = typeof goalConstraints[idx].label === 'string'
-                              ? goalConstraints[idx].label!.trim()
-                              : ''
-                            return own.length > 0 ? own : `Constraint ${idx + 1}`
-                          }
-                          const fromPayload = typeof payloadLabel === 'string' ? payloadLabel.trim() : ''
-                          // Last resort: a referent this panel does not hold and
-                          // the producer did not name. Say that, rather than
-                          // leaving a gap the reader will fill with the wrong
-                          // constraint — an unnamed thing is honest, a
-                          // mis-attributed one is not.
-                          return fromPayload.length > 0 ? fromPayload : 'an unnamed constraint'
-                        }
-
-                        return (
-                          <div className="mt-1 space-y-0.5">
-                            {related.map(cp => (
-                              <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
-                                If {proseName(cp.constraint_a_id, cp.constraint_a_label)} is met, probability of {proseName(cp.constraint_b_id, cp.constraint_b_label)} changes to {Math.round(cp.conditional_probability * 100)}%
-                              </p>
-                            ))}
-                          </div>
-                        )
-                      })()}
-                      {prob === null && limitChangeFrameOf(c) !== null && (
+                      {!analysed && limitChangeFrameOf(c) !== null && (
                         /* ⛔ R1 S4-core (CEE #2261): NO number input for a limit stated as a CHANGE from today. The
                            input below writes the figure into `value` in the row's own frame, and a `change_rel`
                            value is a FRACTION of today's level — "15" typed for 15% would store a 1,500% rise.
@@ -919,7 +803,7 @@ export const GoalPanel = memo(function GoalPanel({
                           className={`${typography.panelMeta} text-text-light mt-0.5`}
                         >Set as a change from today. To change it, ask in the chat.</p>
                       )}
-                      {prob === null && limitChangeFrameOf(c) === null && (
+                      {!analysed && limitChangeFrameOf(c) === null && (
                         /* `setGoalConstraints` is not a `system_event` carrier;
                            the edit stays behind the pane's fence, exactly as it
                            sat behind the Router's. */

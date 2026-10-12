@@ -676,10 +676,10 @@ describe('GoalNode', () => {
     // Contract v3.1 PILL-12: the one neutral line is `border-field/40`.
     expect(badge!.className).toContain('border-field/40')
     expect(badge!.className).not.toMatch(/border-(success|warning|danger|info)/)
-    // ⭐ The number is still there. This is a removal of interpretation, not of
-    // information — without this line the test would also pass on a card that
-    // had dropped the probability altogether.
-    expect(badge!.textContent).toContain(`${Math.round(probability * 100)}%`)
+    // #2747 r2: the limit's satisfaction probability is no longer on the card at all (no canonical cell licenses it);
+    // the limit's own words stay.
+    expect(badge!.textContent).toContain('4 months')
+    expect(badge!.textContent).not.toContain(`${Math.round(probability * 100)}%`)
   })
 
   // B11: Multiple constraints — all render without overflow
@@ -715,7 +715,7 @@ describe('GoalNode', () => {
     expect(badge?.getAttribute('aria-label')).toContain('4 months')
   })
 
-  it('J7: post-analysis constraint badge aria-label includes probability', () => {
+  it('J7 / #2747 r2: the post-analysis constraint badge aria-label names the limit and no probability', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: {
@@ -732,8 +732,9 @@ describe('GoalNode', () => {
     const { container } = renderGoal()
     const badge = container.querySelector('[aria-label*="budget"]')
     expect(badge).not.toBeNull()
-    // Should include probability percentage
-    expect(badge?.getAttribute('aria-label')).toContain('82%')
+    // #2747 r2: no canonical cell licenses the limit's probability, so it is not said (here or in the text).
+    expect(badge?.getAttribute('aria-label')).toContain('budget')
+    expect(badge?.getAttribute('aria-label')).not.toContain('82%')
   })
 
   // B5/B6: null and empty string both show coaching prompt

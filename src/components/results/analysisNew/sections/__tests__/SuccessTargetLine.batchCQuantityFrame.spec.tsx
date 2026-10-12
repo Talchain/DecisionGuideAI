@@ -30,8 +30,9 @@ import { SuccessTargetLine } from '../SuccessTargetLine'
 const TID = 'target'
 /** CHECK-C-ui-r2's reproduction: a 10% change_abs target, the quantity frame the only difference. */
 const GOAL = { goal_threshold_frame: 'change_abs', goal_threshold_raw: 10, goal_threshold_unit: '%', goal_direction: '>=' }
-const lineText = (data: Record<string, unknown>): string => {
-  state = { nodes: [{ id: 'g1', type: 'goal', data }], goalThreshold: null, goalThresholdRepresentation: null, setGoalThresholdAndUpdateNode: vi.fn() }
+const lineText = (data: Record<string, unknown>, store: { goalThreshold?: number | null; goalThresholdRepresentation?: string | null } = {}): string => {
+  state = { nodes: [{ id: 'g1', type: 'goal', data }], goalThreshold: store.goalThreshold ?? null,
+    goalThresholdRepresentation: store.goalThresholdRepresentation ?? null, setGoalThresholdAndUpdateNode: vi.fn() }
   render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={() => {}} testId={TID} />)
   return screen.getByTestId(TID).textContent ?? ''
 }
@@ -60,3 +61,17 @@ describe('#2747 r2: the Success line says the target in its quantity frame, neve
     expect(text).not.toMatch(BARE_TEN)
   })
 })
+
+describe('#2747 r2 (BLOCKING 6): the store\'s scalar alone is never said as the target', () => {
+  it('the checker\'s reproduction: goalThreshold 10 (raw) with no target on the goal node is not "Success: 10"', () => {
+    const text = lineText({ label: 'Capacity', goal_direction: '>=' }, { goalThreshold: 10, goalThresholdRepresentation: 'raw' })
+    expect(text).not.toMatch(BARE_TEN)
+    expect(text).toContain('Target not captured')
+  })
+  it('CONTROL: the same scalar with the node\'s own level target says the node\'s target', () => {
+    const text = lineText({ label: 'Capacity', goal_threshold_raw: 10, goal_threshold_unit: '%', goal_direction: '>=', quantity_frame: 'level' },
+      { goalThreshold: 10, goalThresholdRepresentation: 'raw' })
+    expect(text).toMatch(/10%/)
+  })
+})
+

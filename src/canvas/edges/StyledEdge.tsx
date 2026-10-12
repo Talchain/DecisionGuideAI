@@ -103,6 +103,7 @@ import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, 
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
 import { openEdgeStrengthEditor, OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
 import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
@@ -405,11 +406,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
 
+  // #2747 r2: the "chance rests most on this" tag reads the scenario's held canonical view through the gate.
+  const heldCanonical = useCanonicalAnalysisViewStore(s => s.view)
+  const heldCanonicalScenarioId = useCanonicalAnalysisViewStore(s => s.scenarioId)
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, currentScenarioId, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
+      currentScenarioId: s.currentScenarioId,
       resultsStatus: s.results?.status,
       report: s.results?.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
@@ -442,7 +447,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // A primitive boolean; a store double without the field reads as "no
       // pair held", i.e. the receipt alone.
       canvasOnlyLink: isCanvasOnlyLink({ source, target, data }, s.lastAuthoritativeGraph),
-      isGoalChanceDriverEdge: s.results?.status === 'complete' && goalChanceDriverLinks(s.results?.report).has(goalChanceDriverLinkKey(String(source), String(target))),
+      isGoalChanceDriverEdge: s.results?.status === 'complete' && goalChanceDriverLinks(s.results?.report,
+        heldCanonicalScenarioId === s.currentScenarioId ? heldCanonical : null).has(goalChanceDriverLinkKey(String(source), String(target))),
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -2308,13 +2314,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const goalChanceDriverNodes = useCanvasStore(s => isGoalChanceDriverEdge ? s.nodes : undefined)
   const goalChanceDriverAria = useMemo(() => {
     if (!isGoalChanceDriverEdge) return ''
-    const ids = goalChanceDriverLinks(report).get(goalChanceDriverLinkKey(String(source), String(target))) ?? []
+    const ids = goalChanceDriverLinks(report, heldCanonicalScenarioId === currentScenarioId ? heldCanonical : null)
+      .get(goalChanceDriverLinkKey(String(source), String(target))) ?? []
     const labels = ids.flatMap(optionId => {
       const label = goalChanceDriverNodes?.find(node => node.id === optionId)?.data?.label
       return typeof label === 'string' && label.trim() ? [label] : []
     })
     return goalChanceDriverTagAria(labels)
-  }, [isGoalChanceDriverEdge, report, goalChanceDriverNodes, source, target])
+  }, [isGoalChanceDriverEdge, report, heldCanonical, heldCanonicalScenarioId, currentScenarioId, goalChanceDriverNodes, source, target])
   const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
   const strengthSourceMark = useMemo(
     () => edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),

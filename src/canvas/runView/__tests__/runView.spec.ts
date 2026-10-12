@@ -128,3 +128,23 @@ describe('⭐ #2747 the chance authority gate (chanceFigureFromCanonical): a fig
   })
 })
 
+
+describe('#2747 r2 (BLOCKING 2): a range is kept only when the current canonical cell says the SAME bounds', () => {
+  const range = (low: number, high: number) => ({ code: 'GOAL_CHANCE_RANGE', severity: 'info', message: 'range', option_ids: ['a'],
+    range_by_option: { a: { low_pct: low, high_pct: high, low_rounding: 'whole', high_rounding: 'whole', kind: 'link_strength',
+      from: 'x', to: 'y', among: 'all' } } })
+  const cell = (display: string) => ({ a: { kind: 'range', display, detail: {} } })
+  it('the checker\'s reproduction: a stored 5–95% beside a canonical 20–30% → no range', () => {
+    const view = buildRunView({ run_id: 'run-1', inference_warnings: [range(5, 95)] }, canonicalFor(cell('between about 20% and 30%')))
+    expect(view.goalChanceRange).toBeNull()
+  })
+  it('CONTROL: the canonical cell says 5–95% (CEE\'s words for those bounds) → the range', () => {
+    const view = buildRunView({ run_id: 'run-1', inference_warnings: [range(5, 95)] }, canonicalFor(cell('between about 5% and 95%')))
+    expect(view.goalChanceRange?.rangeByOption.a).toMatchObject({ lowPct: 5, highPct: 95 })
+  })
+  it('the ends are said as CEE says them: 0 is "less than 1%", 100 "more than 99%" (the high end without "about")', () => {
+    const report = { run_id: 'run-1', inference_warnings: [range(0, 100)] }
+    expect(buildRunView(report, canonicalFor(cell('between less than 1% and more than 99%'))).goalChanceRange?.optionIds).toEqual(['a'])
+    expect(buildRunView(report, canonicalFor(cell('between about 0% and about 100%'))).goalChanceRange).toBeNull()
+  })
+})

@@ -280,6 +280,12 @@ export interface V5AnalysisResultBlock {
    */
   computed_against_hash?: string
   /**
+   * #2747 r2: the Run's id, stamped from the SAME turn's canonical view when its graph hash is this card's
+   * (`turnCanonicalRunOf`). The gate binds the card to the current canonical Run by run id AND graph hash; a card
+   * without it (stored before, or from a turn whose canonical view named another Run) quotes no chance.
+   */
+  run_id?: string
+  /**
    * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
    * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis
    * (`mapV5AnalysisToReport` derives `model_card.response_hash` from the same block, the same way). The card asks
