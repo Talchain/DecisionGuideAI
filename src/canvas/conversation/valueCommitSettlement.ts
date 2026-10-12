@@ -173,6 +173,14 @@ export const SAVED_MODEL_READ_TIMEOUT_MS = 30_000
 export function awaitSavedModelRead(opts: {
   baseBeforeRead: string | null
   readBase: () => string | null
+  /**
+   * The scenario the refused send belonged to, read when the edit was committed, and the live scenario. The write base is
+   * global: a switch to another scenario moves it too, and that scenario may hold a node with the same id and value. So
+   * a read only counts in the same scenario; after a switch the word is `unconfirmed`, never `saved` (B UI's
+   * independent check on 6d44b341: a refused edit in A, then B with the same node and value, said "Saved").
+   */
+  scenarioOfSend: string | null
+  readScenario: () => string | null
   subscribe: (listener: () => void) => () => void
   beforeCommit: number | null | undefined
   committedTo: number | null | undefined
@@ -192,9 +200,12 @@ export function awaitSavedModelRead(opts: {
     opts.onWord(word)
   }
   const deadline = setTimeout(() => finish('unconfirmed'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
+  const sameScenario = () => opts.readScenario() === opts.scenarioOfSend
   const check = () => {
-    if (done || readTimer !== undefined || opts.readBase() === opts.baseBeforeRead) return
-    readTimer = setTimeout(() => finish(wordFromRead(opts.readNow())), 0)
+    if (done) return
+    if (!sameScenario()) { finish('unconfirmed'); return }
+    if (readTimer !== undefined || opts.readBase() === opts.baseBeforeRead) return
+    readTimer = setTimeout(() => finish(sameScenario() ? wordFromRead(opts.readNow()) : 'unconfirmed'), 0)
   }
   function cancel() {
     clearTimeout(deadline)

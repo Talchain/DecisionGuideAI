@@ -481,6 +481,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       cancelSavedReadRef.current = null
       const commitSeq = ++valueCommitSeqRef.current
       const commitNodeId = nodeId
+      // The scenario this edit is sent in: a saved-model read only counts there (`awaitSavedModelRead`).
+      const scenarioOfSend = useCanvasStore.getState().currentScenarioId
       const seedAfterWrite = resolveValueInputSeed(
         useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
       ).seed
@@ -501,6 +503,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           cancelSavedReadRef.current = awaitSavedModelRead({
             baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
             readBase: () => useCanvasStore.getState().lastServerGraphHash,
+            scenarioOfSend,
+            readScenario: () => useCanvasStore.getState().currentScenarioId,
             subscribe: listener => useCanvasStore.subscribe(listener),
             beforeCommit: seedBeforeWrite,
             committedTo: seedAfterWrite,

@@ -287,6 +287,8 @@ export function NodeValueEditor({
     retireSavedRead()
     const beforeCommit = value
     const committedTo = admission.value
+    // The scenario this edit is sent in: a saved-model read only counts there (`awaitSavedModelRead`).
+    const scenarioOfSend = useCanvasStore.getState().currentScenarioId
     const readNow = () => (readCommittedValue ? readCommittedValue() : valueRef.current)
     const isCurrent = () => mountedRef.current && seq === commitSeqRef.current
     const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
@@ -301,6 +303,8 @@ export function NodeValueEditor({
           // this is still the base the refused send carried. The store is touched only on this path.
           baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
           readBase: () => useCanvasStore.getState().lastServerGraphHash,
+          scenarioOfSend,
+          readScenario: () => useCanvasStore.getState().currentScenarioId,
           subscribe: listener => useCanvasStore.subscribe(listener),
           beforeCommit,
           committedTo,

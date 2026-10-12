@@ -34,6 +34,8 @@ import type { PatchOperation } from '../conversation/types'
 import type { ModelEditAuthorityLive, FactorValueProposalOutcome } from '../hooks/useModelEditAuthority'
 import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
 import {
+  awaitSavedModelRead,
+  needsSavedModelRead,
   valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
   VALUE_NOT_ENCODABLE_COPY,
@@ -775,9 +777,28 @@ function proposeFromMenu(
 
   const before = fieldSeed(nodeId)
   if (before !== null && before === typedValue) return 'unchanged'
+  // The scenario this edit is sent in: a saved-model read only counts there (`awaitSavedModelRead`).
+  const scenarioOfSend = useCanvasStore.getState().currentScenarioId
 
   const outcome = writer.propose(typedValue, {
     onSendSettled: (settlement, detail) => {
+      // ⭐ The card's moved-base rule (`needsSavedModelRead`, recovery Batch B): after a lost reply the model often
+      // already holds this value, so read the saved model first, IN THIS EDIT'S SCENARIO. One toast, once it has been
+      // read; a scenario switch ends it on "Could not confirm" (B UI's independent check on 6d44b341).
+      if (needsSavedModelRead(settlement, detail)) {
+        awaitSavedModelRead({
+          baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
+          readBase: () => useCanvasStore.getState().lastServerGraphHash,
+          scenarioOfSend,
+          readScenario: () => useCanvasStore.getState().currentScenarioId,
+          subscribe: listener => useCanvasStore.subscribe(listener),
+          beforeCommit: before,
+          committedTo: typedValue,
+          readNow: () => fieldSeed(nodeId),
+          onWord: word => showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word)),
+        })
+        return
+      }
       const word = valueCommitSettlementWord(settlement, before, typedValue, () => fieldSeed(nodeId), detail)
       if (word !== null) showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word))
     },

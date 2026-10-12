@@ -201,6 +201,53 @@ describe('a refusal on a moved base reads the saved model; nothing else changes'
   })
 })
 
+describe('a saved-model read only counts in the scenario the edit was sent in (B UI check on 6d44b341)', () => {
+  it('RED on 6d44b341: refused in scenario A, then B holds the typed value under a new hash → "Could not confirm", never "Saved"', async () => {
+    const start = useCanvasStore.getState()
+    act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-3' } as never) })
+    try {
+      let held: number | null = BEFORE
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit, () => held)
+      commitTo(COMMITTED)
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      expect(word()?.textContent).toBe('Checking the saved model…')
+      held = COMMITTED
+      await act(async () => {
+        useCanvasStore.setState({ currentScenarioId: 'scenario-b', lastServerGraphHash: 'b-graph-0001' } as never)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
+      expect(word()?.textContent).toBe('Could not confirm. It may not have reached the model.')
+      expect(screen.queryByText('Saved. The model holds this value.')).toBeNull()
+    } finally {
+      act(() => { useCanvasStore.setState({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash } as never) })
+    }
+  })
+})
+
+describe('the scenario is the one the edit was SENT in, read at commit (B UI check on 6d44b341)', () => {
+  it('committed in A, the person opens B before the refusal arrives, B holds the typed value → never "Saved"', async () => {
+    const start = useCanvasStore.getState()
+    act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-3' } as never) })
+    try {
+      let held: number | null = BEFORE
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit, () => held)
+      commitTo(COMMITTED)
+      act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-b', lastServerGraphHash: 'b-graph-0001' } as never) })
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      held = COMMITTED
+      await act(async () => {
+        useCanvasStore.setState({ lastServerGraphHash: 'b-graph-0002' } as never)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
+      expect(word()?.textContent).toBe('Could not confirm. It may not have reached the model.')
+    } finally {
+      act(() => { useCanvasStore.setState({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash } as never) })
+    }
+  })
+})
+
 describe('opening the editor', () => {
   it('selects the whole number, so typing replaces it rather than appending', () => {
     // jsdom does not model a number input's selection, so the call is the witness.

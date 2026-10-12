@@ -115,7 +115,8 @@ describe('a refusal claims no reply, and a moved-base read says what the model h
       let listener: (() => void) | null = null
       let said: SavedModelReadWord | null = null
       awaitSavedModelRead({
-        baseBeforeRead: base, readBase: () => base, subscribe: l => { listener = l; return () => { listener = null } },
+        baseBeforeRead: base, readBase: () => base, scenarioOfSend: 'scenario-a', readScenario: () => 'scenario-a',
+        subscribe: l => { listener = l; return () => { listener = null } },
         readNow: () => held, onWord: w => { said = w }, ...opts,
       })
       base = 'revision-4'
@@ -133,5 +134,41 @@ describe('a refusal claims no reply, and a moved-base read says what the model h
     // Run 2: tab B typed 5 (0.25) over 2 (0.1); tab A's 4 (0.2) got in first.
     expect(readSettlesOn(0.2, { beforeCommit: 0.1, committedTo: 0.25 })).toBe('revision_conflict')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.message).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+  })
+})
+
+/**
+ * B UI's independent check on 6d44b341 (BLOCKING): the write base is global, so a switch to another scenario moves it;
+ * a scenario holding the same node id and value then read as "Saved" for the first scenario's refused edit.
+ */
+describe('a saved-model read only counts in the scenario the edit was sent in', () => {
+  function settleAcross(switchTo: string | null, held: number): SavedModelReadWord | null {
+    vi.useFakeTimers()
+    try {
+      let base = 'a-revision-3'
+      let scenario = 'scenario-a'
+      let listener: (() => void) | null = null
+      let said: SavedModelReadWord | null = null
+      awaitSavedModelRead({
+        baseBeforeRead: base, readBase: () => base, scenarioOfSend: 'scenario-a', readScenario: () => scenario,
+        subscribe: l => { listener = l; return () => { listener = null } },
+        beforeCommit: 0.1, committedTo: 0.25, readNow: () => held, onWord: w => { said = w },
+      })
+      if (switchTo !== null) scenario = switchTo
+      base = 'other-graph'
+      listener!()
+      vi.advanceTimersByTime(1)
+      return said
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  it('RED on 6d44b341: refused in A, then B holds the same node at the typed value → "Could not confirm", never "Saved"', () => {
+    expect(settleAcross('scenario-b', 0.25)).toBe('unconfirmed')
+  })
+
+  it('CONTRAST: the same read in A itself says saved', () => {
+    expect(settleAcross(null, 0.25)).toBe('saved')
   })
 })
