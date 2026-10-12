@@ -289,23 +289,30 @@ export function NodeValueEditor({
     const committedTo = admission.value
     const readNow = () => (readCommittedValue ? readCommittedValue() : valueRef.current)
     const isCurrent = () => mountedRef.current && seq === commitSeqRef.current
+    // The scenario this edit was sent in. A local scenario switch keeps a same-id card mounted, and the read below is by
+    // node id, so in another scenario it would read that scenario's value: the watch then ends silently, with no receipt
+    // (B UI's delta check on c72ec673).
+    const scenarioOfSend = useCanvasStore.getState().currentScenarioId
+    const inScenarioOfSend = () => useCanvasStore.getState().currentScenarioId === scenarioOfSend
     const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
       if (!isCurrent()) return
       // ⭐ A refusal on a MOVED base is not "the model kept its previous value": after a lost reply the model often
       // already holds this very value. Read the saved model first (`needsSavedModelRead`, served capacity row 7a).
       if (needsSavedModelRead(s, detail)) {
-        setSettlement('checking')
         retireSavedRead()
+        const leaveSilently = () => { retireSavedRead(); if (isCurrent()) setSettlement(null) }
+        if (!inScenarioOfSend()) { leaveSilently(); return }
+        setSettlement('checking')
         cancelSavedReadRef.current = awaitSavedModelRead({
           // Read HERE, not at commit: the refusal settles before the re-read it requested can run (a later task), so
           // this is still the base the refused send carried. The store is touched only on this path.
           baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
           readBase: () => useCanvasStore.getState().lastServerGraphHash,
-          subscribe: listener => useCanvasStore.subscribe(listener),
+          subscribe: listener => useCanvasStore.subscribe(() => { if (inScenarioOfSend()) listener(); else leaveSilently() }),
           beforeCommit,
           committedTo,
           readNow,
-          onWord: word => { if (isCurrent()) setSettlement(word) },
+          onWord: word => { if (!isCurrent()) return; if (inScenarioOfSend()) setSettlement(word); else setSettlement(null) },
         })
         return
       }

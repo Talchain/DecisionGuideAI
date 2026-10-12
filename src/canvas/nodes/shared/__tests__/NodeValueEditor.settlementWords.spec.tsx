@@ -201,6 +201,84 @@ describe('a refusal on a moved base reads the saved model; nothing else changes'
   })
 })
 
+/**
+ * B UI's delta check on c72ec673 (BLOCKING): a local scenario switch keeps a same-id card mounted, and the card's read is
+ * by node id, so after a refused edit in scenario A it read scenario B's value: a false "Saved" or a false "Not saved"
+ * for A's edit. The watch now ends silently, with no receipt, once the scenario is not the one the edit was sent in.
+ */
+describe('a scenario switch ends the card\'s saved-model watch silently', () => {
+  const start = useCanvasStore.getState()
+  const inScenarioA = () => act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-a', lastServerGraphHash: 'a-revision-3' } as never) })
+  const restore = () => act(() => { useCanvasStore.setState({ currentScenarioId: start.currentScenarioId, lastServerGraphHash: start.lastServerGraphHash } as never) })
+  async function switchToB(hash: string) {
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: 'scenario-b', lastServerGraphHash: hash } as never)
+      await new Promise(resolve => setTimeout(resolve, 5))
+    })
+  }
+
+  it.each([
+    ['B holds the typed value (a false "Saved")', COMMITTED],
+    ['B holds another value (a false "Not saved")', 99000],
+  ])('RED on c72ec673: refused in A, then the person opens B, where %s → no receipt at all', async (_case, inB) => {
+    inScenarioA()
+    try {
+      let held: number | null = BEFORE
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit, () => held)
+      commitTo(COMMITTED)
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      expect(word()?.textContent).toBe('Checking the saved model…')
+      held = inB
+      // The switch itself ends the watch: no "Checking" about A's edit is left on B, even before B's graph is read.
+      await switchToB('a-revision-3')
+      expect(word()).toBeNull()
+      await switchToB('b-graph-0001')
+      expect(word()).toBeNull()
+      expect(screen.queryByText(/^Saved\.|^Not saved\.|scenario changed/)).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
+  it('committed in A, the person opens B before the refusal arrives → no receipt and no "Checking"', async () => {
+    inScenarioA()
+    try {
+      let held: number | null = BEFORE
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit, () => held)
+      commitTo(COMMITTED)
+      await switchToB('b-graph-0001')
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      expect(word()).toBeNull()
+      held = COMMITTED
+      await switchToB('b-graph-0002')
+      expect(word()).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
+  it('CONTRAST: the same read in A itself still says saved', async () => {
+    inScenarioA()
+    try {
+      let held: number | null = BEFORE
+      const { onCommit, settles } = dispatchingAuthority()
+      renderEditor(onCommit, () => held)
+      commitTo(COMMITTED)
+      act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
+      held = COMMITTED
+      await act(async () => {
+        useCanvasStore.setState({ lastServerGraphHash: 'a-revision-4' } as never)
+        await new Promise(resolve => setTimeout(resolve, 5))
+      })
+      expect(word()?.textContent).toBe('Saved. The model holds this value.')
+    } finally {
+      restore()
+    }
+  })
+})
+
 describe('opening the editor', () => {
   it('selects the whole number, so typing replaces it rather than appending', () => {
     // jsdom does not model a number input's selection, so the call is the witness.
