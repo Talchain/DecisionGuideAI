@@ -80,7 +80,7 @@ export function hiringJourney(): Journey {
         entry('hire_a_tech_lead', 'Hire a tech lead', { probability_of_goal: 0.46, win_probability: 0.55, outcome: outcome(12) }),
         entry('hire_two_developers', 'Hire two developers', { probability_of_goal: 0.31, win_probability: 0.4, outcome: outcome(9) }),
         entry('carry_on', 'Carry on with the current team', { probability_of_goal: 0, win_probability: 0.05, outcome: outcome(0) }),
-      ], inference_warnings: [HIRING_LICENCE] } },
+      ], inference_warnings: [structuredClone(HIRING_LICENCE)] } },
     canonical: { schema: 'canonical_analysis_view.v1', source: 'stored_run_facts',
       run: { run_id: 'run-batch-c-hiring', graph_hash_at_run: null, computed_at: null }, staleness: STALENESS, leader_licence: 'withheld',
       options: [

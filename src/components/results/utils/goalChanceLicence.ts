@@ -80,6 +80,10 @@ export interface GoalChanceLicence {
   readonly pctByOption: Readonly<Record<string, number>>
   /** RC4 attribution recorded by CEE for this Run; the screen never recounts the graph. */
   readonly olumiEstimateLinkCount?: number
+  /** Recovery Batch C (C CEE amendment 7): Olumi's estimated starting values on this Run's goal paths. */
+  readonly olumiEstimateValueCount?: number
+  /** Recovery Batch C (C CEE amendment 7): Olumi's own settings per option, said only on that option's line. */
+  readonly olumiEstimateSettingsByOption?: Readonly<Record<string, number>>
   /** Options whose chance was withheld for their own path (subset of `optionIds`, no figure); empty when none. */
   readonly withheldOptionIds: readonly string[]
   /** `similar` (H2) only: the options within 10 points of the top, in the model's order (≥ 2); else empty. */
@@ -167,6 +171,14 @@ export function goalChanceLicensesOrder(licence: GoalChanceLicence | null): bool
 }
 
 /** The Run's goal-chance licence, read verbatim off its `inference_warnings`; `null` when absent or malformed. */
+/** C CEE `olumi_estimate_settings_by_option`: a positive whole count per option the licence names; anything else unread. */
+function settingsByOptionOf(v: unknown, ids: readonly string[]): { olumiEstimateSettingsByOption?: Readonly<Record<string, number>> } {
+  if (!isRec(v)) return {}
+  const out = Object.fromEntries(Object.entries(v).filter(([id, n]) => ids.includes(id)
+    && typeof n === 'number' && Number.isSafeInteger(n) && n > 0)) as Record<string, number>
+  return Object.keys(out).length === 0 ? {} : { olumiEstimateSettingsByOption: out }
+}
+
 export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLicence | null {
   if (!Array.isArray(inferenceWarnings)) return null
   const records = inferenceWarnings.filter((w) => isRec(w) && w.code === GOAL_CHANCE_LICENSED)
@@ -210,6 +222,9 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     pctByOption: pct as Record<string, number>,
     ...(typeof r.olumi_estimate_link_count === 'number' && Number.isSafeInteger(r.olumi_estimate_link_count)
       && r.olumi_estimate_link_count > 0 ? { olumiEstimateLinkCount: r.olumi_estimate_link_count } : {}),
+    ...(typeof r.olumi_estimate_value_count === 'number' && Number.isSafeInteger(r.olumi_estimate_value_count)
+      && r.olumi_estimate_value_count > 0 ? { olumiEstimateValueCount: r.olumi_estimate_value_count } : {}),
+    ...settingsByOptionOf(r.olumi_estimate_settings_by_option, ids as string[]),
     withheldOptionIds: (ids as string[]).filter((id) => withheld.has(id)),
     similarOptionIds: sameRaw as string[],
     leaderOptionId,

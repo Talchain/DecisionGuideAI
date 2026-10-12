@@ -35,6 +35,17 @@ describe('#2747 r1 B4: the chat card says the Run\'s own Batch C words', () => {
     expect(document.body.textContent).not.toMatch(/chance of meeting your goal/)
   })
 
+  it('provisional (C CEE amendment 7): starting values on every line, an option\'s own settings on its line only', () => {
+    const j = hiringJourney()
+    const licence = (j.block.enrichment as { inference_warnings: Record<string, unknown>[] }).inference_warnings[0]
+    Object.assign(licence, { olumi_estimate_value_count: 1, olumi_estimate_settings_by_option: { hire_two_developers: 2 } })
+    mount(j)
+    expect(items('v5-analysis-result-goal-chances').slice(0, 2)).toEqual([
+      HIRING_TECH_LEAD_FACE.replace('in this model.', "in this model, using Olumi's estimates for 1 starting value (see Check estimates)."),
+      HIRING_TWO_DEVS_FACE.replace('in this model.', "in this model, using Olumi's estimates for 1 starting value and 2 option settings (see Check estimates)."),
+    ])
+  })
+
   it('marketing (joint withheld): no option is quoted; the withheld line, the bound, each target and the note are said', () => {
     mount(marketingJourney('withheld'))
     expect(screen.queryByTestId('v5-analysis-result-goal-chances')).toBeNull()

@@ -58,6 +58,14 @@ describe('Batch C hiring: a change from today, said in the licence\'s own words'
     expect(screen.getByText(`‘Carry on with the current team’: ${HIRING_STATUS_QUO_FACE}`)).toBeInTheDocument()
   })
 
+  it('provisional (C CEE amendment 7): a chance resting on Olumi\'s starting value says so in the headline, in CEE\'s words', () => {
+    const j = hiringJourney()
+    const licence = (j.block.enrichment as { inference_warnings: Record<string, unknown>[] }).inference_warnings[0]
+    Object.assign(licence, { olumi_estimate_value_count: 1 })
+    seedJourney(j)
+    expect(hero().headline).toBe(`In this model, on current information, each option’s ${HIRING_WORDS}, using Olumi's estimates for 1 starting value (see Check estimates):`)
+  })
+
   it('CONTROL (freshness, RunView\'s cell rule): a stale canonical view says no detail and no chance words', () => {
     const j = hiringJourney()
     seedJourney(j, { ...j.canonical, staleness: { ...(j.canonical.staleness as object), stale: true } })

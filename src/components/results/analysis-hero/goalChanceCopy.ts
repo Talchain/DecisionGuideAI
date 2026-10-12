@@ -96,10 +96,20 @@ function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (opti
   }
 }
 
-/** The shared renderer reads the Run's RC4 count, never a count of current canvas links. */
-function estimateLinkAttribution(licence: GoalChanceLicence): string {
-  const k = licence.olumiEstimateLinkCount
-  return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'relationship' : 'relationships'} (see Check estimates)`
+/**
+ * The shared renderer reads the Run's RC4 counts, never a count of current canvas links. Recovery Batch C (C CEE
+ * amendment 7): Olumi's estimated starting values, and an option's own Olumi settings on that option's line, make the
+ * chance provisional too, said in CEE's words (`olumiEstimateWords`): "1 starting value, 2 option settings and 3
+ * relationships".
+ */
+function estimateLinkAttribution(licence: GoalChanceLicence, optionId?: string): string {
+  const part = (n: number | undefined, one: string, many: string): string[] => (n !== undefined && n > 0 ? [`${n} ${n === 1 ? one : many}`] : [])
+  const parts = [...part(licence.olumiEstimateValueCount, 'starting value', 'starting values'),
+    ...part(optionId === undefined ? undefined : licence.olumiEstimateSettingsByOption?.[optionId], 'option setting', 'option settings'),
+    ...part(licence.olumiEstimateLinkCount, 'relationship', 'relationships')]
+  if (parts.length === 0) return ''
+  const words = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return `, using Olumi's estimates for ${words} (see Check estimates)`
 }
 
 export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null,
@@ -205,7 +215,7 @@ export function goalChanceOptionLines(
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}${estimateLinkAttribution(licence)}.${spread}${shortfall}`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}${estimateLinkAttribution(licence, id)}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
