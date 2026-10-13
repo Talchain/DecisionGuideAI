@@ -27,6 +27,7 @@ import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { turnOfferedConsent } from './utils/transcriptStore'
+import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -168,6 +169,8 @@ export const MessageBubble = memo(function MessageBubble({
   const isUser = message.role === 'user'
   const isStreaming = message.isStreaming === true
 
+  const provisional = !isUser && !isStreaming && !message.stoppedByUser ? message.provisionalView : undefined
+  const [provisionalWhyShown, setProvisionalWhyShown] = useState(false)
   // AI-first: assistant_text owns the reply. Only client-authored notices keep
   // their established dash styling; producer and user characters remain intact.
   const displayContent = message.synthetic ? normaliseDashes(message.content) : message.content
@@ -340,6 +343,52 @@ export const MessageBubble = memo(function MessageBubble({
           data-testid="response-stopped-indicator"
         >
           Response stopped.
+        </div>
+      )}
+      {/* Slice C5: Olumi's PROVISIONAL view — its reading when the analysis cannot put an option forward, in the
+        * reasoning panel's quieter register so it never reads as the analysis's result. The view and the one step
+        * that would confirm it are always shown; the why is one press away. Plain text nodes only. */}
+      {provisional && (
+        <div
+          className={styles.reasoningPanel}
+          data-testid="message-provisional-view"
+          role="note"
+          aria-label={PROVISIONAL_VIEW_LABEL}
+        >
+          <p className={styles.reasoningPanelHeading} data-testid="message-provisional-view-heading">
+            {provisionalHeading(provisional)}
+          </p>
+          <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-text">
+            {provisional.view}
+          </p>
+          {provisional.confirmStep && (
+            <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-step">
+              <strong>To confirm it:</strong> {provisional.confirmStep}
+            </p>
+          )}
+          {(provisional.reasoning || provisional.because) && (
+            <>
+              <button
+                type="button"
+                className={styles.inlineDisclosureToggle}
+                onClick={() => setProvisionalWhyShown((v) => !v)}
+                data-testid="message-provisional-view-why-toggle"
+                aria-expanded={provisionalWhyShown}
+              >
+                {provisionalWhyShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Why Olumi thinks this
+              </button>
+              {provisionalWhyShown && provisionalBecauseLine(provisional) && (
+                <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-because">
+                  {provisionalBecauseLine(provisional)}
+                </p>
+              )}
+              {provisionalWhyShown && provisional.reasoning && (
+                <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-why">
+                  {provisional.reasoning}
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
       {/* ROADMAP 1.42: Show-reasoning progressive disclosure — Paul ruled
