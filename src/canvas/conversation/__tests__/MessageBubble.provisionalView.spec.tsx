@@ -126,7 +126,8 @@ describe('T3a: assistant_text owns the reply', () => {
     const content = '# Model implications — conditional 🔎\n| Option | Evidence | Limit |\n|---|---|---|\n| A | | Unresolved |\n| B | User stated | <img src=x onerror=alert(1)> |'
     renderThread({ id: 'a1', role: 'assistant', content, timestamp: new Date() })
     const body = within(screen.getByTestId('message-assistant')).getByTestId('message-body-text')
-    expect(body.textContent).toBe(content)
+    expect(body.textContent).toBe('Model implications — conditional 🔎\nOption: A, Evidence: , Limit: Unresolved\nOption: B, Evidence: User stated, Limit: <img src=x onerror=alert(1)>')
+    expect(body.textContent).not.toMatch(/[#|]/)
     expect(body.querySelector('img')).toBeNull()
     console.info('U9 DOM:', body.outerHTML)
   })

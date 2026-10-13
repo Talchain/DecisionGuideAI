@@ -270,6 +270,41 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
       continue
     }
 
+    // Markdown syntax is presentation, not reply prose. Keep every heading word.
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
+    if (headingMatch) {
+      flushList()
+      outputParts.push(`<strong>${convertInline(headingMatch[2])}</strong>`)
+      continue
+    }
+
+    // Render a pipe table as structured text. Empty cells retain their column;
+    // headers and extra cells must never disappear while making it readable.
+    const tableMatch = trimmed.match(/^\|(.*)\|$/)
+    if (tableMatch) {
+      flushList()
+      const cellsOf = (row: string) => row.slice(1, -1).split('|').map(c => c.trim())
+      const headers = cellsOf(trimmed)
+      const separator = rawLines[i + 1]?.trim() ?? ''
+      if (/^\|[\s\-:|]+\|$/.test(separator)) {
+        i++
+        let rows = 0
+        while (i + 1 < rawLines.length && /^\|.*\|$/.test(rawLines[i + 1].trim())) {
+          const cells = cellsOf(rawLines[++i].trim())
+          outputParts.push(Array.from({ length: Math.max(headers.length, cells.length) }, (_, index) =>
+            headers[index] !== undefined
+              ? `<strong>${convertInline(headers[index])}:</strong> ${convertInline(cells[index] ?? '')}`
+              : convertInline(cells[index]),
+          ).join(', '))
+          rows++
+        }
+        if (rows === 0) outputParts.push(convertInline(headers.join(', ')))
+      } else {
+        outputParts.push(convertInline(headers.join(', ')))
+      }
+      continue
+    }
+
     // Ordered list markers: "1. item" / "1) item". Checked BEFORE the numeric
     // transform can reach the line, so the marker digit is consumed as the
     // marker and never wrapped in <span class="md-number"> (which is what made
