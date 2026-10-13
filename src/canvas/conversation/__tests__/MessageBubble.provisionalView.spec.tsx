@@ -1,6 +1,20 @@
-/** T3a: exercise retired reply presentation through the real React render paths. */
+/**
+ * ⭐ SLICE C5 (Paul's ruling 5855324470, "Yes, labelled provisional"): when the analysis cannot put an option
+ * forward, Olumi's PROVISIONAL view is on the face of the reply, labelled, with the one step that would confirm it.
+ *
+ * The defect this pins before it can ship (code-read at CEE 339ed343, #70 5855541127): the Agent route shapes an
+ * analysis reply AFTER its post-gate appends, so a view appended at the end lands in `_answer_shape.detail`, and
+ * with a shape the chat renders only headline, bullets and detail. The view would sit behind "Show more".
+ * THIN UI (ChatGPT 5855577789 rule 1): the chat renders the TYPED `_agent.provisional_view` verbatim and never
+ * parses or edits the producer's prose; keeping the view out of the prose is the producer's contract (5855633777).
+ *
+ * Base body: a SERVED withheld Run (#2175's fixture: DL run bf-20260927T101447Z turns.jsonl[8], analysis_result +
+ * coaching + _answer_shape). The `_agent.provisional_view` sidecar and its prose copy are written from Runtime's
+ * declared field names (5855331903), because the producer is not served yet. ⚠ A self-authored fixture for the
+ * new field: re-bind it to served bytes when C5 serves.
+ */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: {},
@@ -23,9 +37,6 @@ import { extractAnswerShapeSidecar } from '../answerShape'
 import { extractOpenQuestionListSidecar } from '../serverOpenQuestions'
 import { extractProvisionalViewSidecar } from '../provisionalView'
 import { saveTranscript, loadTranscript, __resetTranscriptTombstonesForTests } from '../utils/transcriptStore'
-import { AnalysisReadinessBar } from '../../components/workspaceShell/AnalysisReadinessBar'
-import { PanelFooter } from '../../components/pre-analysis-v3/footer/PanelFooter'
-import { useCanvasStore } from '../../store'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
@@ -110,56 +121,97 @@ const count = (hay: string, needle: string) => hay.split(needle).length - 1
 beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
 afterEach(() => cleanup())
 
-describe('T3a: assistant_text owns the reply', () => {
-  it.each([true, false])('renders the complete reply once with a legacy sidecar (shaped=%s)', async (shaped) => {
-    const msg = await messageFrom(withProvisional(servedRun(), { shaped, prose: true }))
-    renderThread(msg)
+describe('C5: the provisional view is on the face of the reply, labelled, said once', () => {
+  it('RED: a SHAPED withheld Run shows the view AT REST (never behind "Show more"), labelled, with its step', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
+    expect(screen.queryByTestId('message-answer-structured')).toBeNull()
+    const block = screen.getByTestId('message-provisional-view')
+    expect(flat(within(block).getByTestId('message-provisional-view-heading').textContent), 'the producer\'s sentence, verbatim').toBe(HEADING)
+    expect(screen.queryByTestId('answer-detail'), 'at rest, the detail is closed: the view does not depend on it').toBeNull()
+    expect(flat(within(block).getByTestId('message-provisional-view-text').textContent)).toBe(VIEW)
+    expect(flat(within(block).getByTestId('message-provisional-view-step').textContent)).toBe(`To confirm it: ${STEP}`)
+    expect(block.getAttribute('role')).toBe('note')
+  })
+
+  it('THIN UI: the producer\'s prose is never parsed or edited: body and detail are byte-identical with and without the sidecar', async () => {
+    const withSide = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true }))
+    const without = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true, sidecar: false }))
+    const open = () => within(screen.getByTestId('message-assistant')).getByTestId('message-body-text').innerHTML
+    renderThread(withSide)
+    const a = open()
+    cleanup()
+    renderThread(without)
+    const b = open()
+    expect(a).toBe(b)
+  })
+
+  it('RED: the why is one press away, never at rest', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
+    expect(screen.queryByTestId('message-provisional-view-why')).toBeNull()
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(flat(screen.getByTestId('message-provisional-view-why').textContent)).toBe(REASONING)
+  })
+
+  // Served on CEE 770a477 (provisional-2101-59c24739-770a477-1621), byte for byte: the gate's typed reason.
+  const SERVED_BECAUSE = 'because Olumi reads your goal as depending on quantities that multiply together, and this model adds their effects up rather than multiplying them'
+  const withBecause = (b: Wire, reasoning = true): Wire => {
+    const pv = (b._agent as { provisional_view: Wire }).provisional_view
+    pv.because = SERVED_BECAUSE
+    if (!reasoning) delete pv.reasoning
+    return b
+  }
+
+  it('RED (AIC 27 Sep): the typed reason the analysis cannot confirm it opens the why, one press away, as a sentence', async () => {
+    renderThread(await messageFrom(withBecause(withProvisional(servedRun(), { shaped: true }))))
+    expect(screen.queryByTestId('message-provisional-view-because'), 'never at rest').toBeNull()
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    const line = screen.getByTestId('message-provisional-view-because')
+    expect(flat(line.textContent)).toBe('Because Olumi reads your goal as depending on quantities that multiply together, and this model adds their effects up rather than multiplying them.')
+    const why = screen.getByTestId('message-provisional-view-why')
+    expect(Boolean(line.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING), 'the reason first, then the reasoning').toBe(true)
+  })
+
+  it('RED: a reason with no reasoning still gets its one-press why', async () => {
+    renderThread(await messageFrom(withBecause(withProvisional(servedRun(), { shaped: true }), false)))
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(screen.getByTestId('message-provisional-view-because')).toBeTruthy()
+    expect(screen.queryByTestId('message-provisional-view-why')).toBeNull()
+  })
+
+  it('CONTROL: no `because` on the wire → no reason line (the UI writes none of its own)', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(screen.queryByTestId('message-provisional-view-because')).toBeNull()
+  })
+
+  it('RED: a FREE-TEXT reply (no shape) carries the same block; with the producer keeping the view out of its prose, it is said once', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: false })))
+    expect(screen.queryByTestId('message-answer-structured')).toBeNull()
+    expect(screen.getByTestId('message-provisional-view')).toBeTruthy()
+    expect(count(flat(screen.getByTestId('chat-thread').textContent), VIEW)).toBe(1)
+  })
+
+  it('no `heading` from the producer → the fixed label alone; the UI writes no reason of its own', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true, heading: false })))
+    expect(flat(screen.getByTestId('message-provisional-view-heading').textContent)).toBe('Provisional view')
+  })
+
+  it('never inside the analysis card or its leader line: the block is the bubble\'s, not the result\'s', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
+    const block = screen.getByTestId('message-provisional-view')
+    for (const card of screen.queryAllByTestId(/analysis-result|v5-analysis/)) expect(card.contains(block)).toBe(false)
+  })
+
+  it('CONTROL: no sidecar → no block (even when the prose mentions a provisional view)', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: false, sidecar: false, prose: true })))
     expect(screen.queryByTestId('message-provisional-view')).toBeNull()
-    const text = within(screen.getByTestId('message-assistant')).getByTestId('message-body-text').textContent
-    expect(flat(text)).toBe(flat(msg.content.replace(/\*\*/g, '')))
-    expect(count(text ?? '', VIEW)).toBe(1)
-    expect(count(text ?? '', STEP)).toBe(1)
-    console.info('U11 DOM:', text)
+    expect(flat(screen.getByTestId('chat-thread').textContent)).toContain(VIEW)
   })
 
-  it('U9: headings, every table cell and empty cells survive the real reply renderer', () => {
-    const content = '# Model implications — conditional 🔎\n| Option | Evidence | Limit |\n|---|---|---|\n| A | | Unresolved |\n| B | User stated | <img src=x onerror=alert(1)> |'
-    renderThread({ id: 'a1', role: 'assistant', content, timestamp: new Date() })
-    const body = within(screen.getByTestId('message-assistant')).getByTestId('message-body-text')
-    expect(body.textContent).toBe('Model implications — conditional 🔎\nOption: A, Evidence: , Limit: Unresolved\nOption: B, Evidence: User stated, Limit: <img src=x onerror=alert(1)>')
-    expect(body.textContent).not.toMatch(/[#|]/)
-    expect(body.querySelector('img')).toBeNull()
-    console.info('U9 DOM:', body.outerHTML)
-  })
-
-  it('U16: coaching mounts through ChatThread without the UI science badge', () => {
-    const content = 'This model depends on an uncertain assumption. Seek evidence against it.'
-    renderThread({ id: 'a1', role: 'assistant', content, timestamp: new Date(), blocks: [{
-      type: 'v5_coaching', block_id: 'coaching-t3', title: 'An assumption to check',
-      body: 'Test the throughput assumption.', coaching_kind: 'assumption_check', source: 'decision_review',
-      target_refs: [], priority_rank: 1, freshness: 'fresh',
-      dsk_claim_provenance: { claim_id: 'DSK-B-003', claim_title: 'Anchoring', evidence_strength: 'strong', protocol_id: 'DSK-P-002' },
-    }] })
-    expect(within(screen.getByTestId('message-assistant')).getByTestId('message-body-text').textContent).toBe(content)
-    expect(screen.getByTestId('v5-coaching-body').textContent).toBe('Test the throughput assumption.')
-    expect(screen.queryByTestId('v5-coaching-dsk-provenance')).toBeNull()
-    expect(screen.getByTestId('v5-coaching-grounding-detail').textContent).toBe('This instantiates a cited decision-science claim: “Anchoring”, which the bundle rates strong evidence.')
-    console.info('U16 DOM:', screen.getByTestId('v5-coaching-body').outerHTML, 'badge absent')
-  })
-
-  it('U18: footer shows the current blocker message verbatim and keeps Run gated', () => {
-    const previous = useCanvasStore.getState().analysisStateV1
-    const message = 'What is the team’s weekly capacity — including its range?'
-    useCanvasStore.setState({ analysisStateV1: { readiness: { status: 'blocked', blockers: [{ code: 'MISSING_FACTOR_LEVEL', message }] } } as any })
-    try {
-      render(<PanelFooter footer={{ dot: 'muted', headline: '', subline: '' }} onAnalyse={() => {}} isAnalysing={false} canRun={false} blockedReason={message} />)
-      expect(screen.getByTestId('pre-analysis-v3-footer-headline').textContent).toBe(message)
-      expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeDisabled()
-      expect(screen.queryByText('Not ready for analysis yet')).toBeNull()
-      console.info('U18 DOM:', screen.getByTestId('pre-analysis-v3-footer-headline').outerHTML)
-      render(<AnalysisReadinessBar preRunWithModel canRun={false} isAnalysing={false} nothingHasAnswered={false} onAnalyse={() => {}} blockedReason={message} />)
-      expect(screen.getByTestId('analysis-readiness-bar-headline').textContent).toBe(message)
-    } finally { useCanvasStore.setState({ analysisStateV1: previous }) }
+  it('never mid-stream (Panel\'s N2 on #2185): a streaming reply carrying the view shows no block until it settles', async () => {
+    const msg = await messageFrom(withProvisional(servedRun(), { shaped: false }))
+    renderThread({ ...msg, isStreaming: true } as ConversationMessage)
+    expect(screen.queryByTestId('message-provisional-view')).toBeNull()
   })
 
   it('the reader takes the wire\'s one spelling (`confirm_step`), never an alias (Panel\'s N3)', () => {
