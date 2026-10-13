@@ -124,7 +124,7 @@ describe('U7: ordinary coaching stays expanded', () => {
       coaching(3, { title: ANCHORING_TITLE }),
     ])
     for (const title of [NARROW_TITLE, TECHNIQUE_TITLE, ANCHORING_TITLE]) {
-      expect(screen.getByRole('heading', { name: title, exact: true })).toBeVisible()
+      expect(screen.getByRole('heading', { name: title })).toBeVisible()
     }
     for (const n of [1, 2, 3]) {
       expect(lineFor(`co_${n}`)).toBeNull()
