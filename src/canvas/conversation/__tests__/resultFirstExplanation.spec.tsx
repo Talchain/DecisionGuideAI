@@ -1,6 +1,6 @@
 /**
  * Result-first, two requests (AI HARNESS 5931099857; CEE #2470), the UI half: the reader, the transcript, the stage.
- * The auto-send itself (live only, once per run_key, hidden, foreign dropped) is pinned in `useConversation.hook.spec.ts`.
+ * The user-pressed dispatch, in-flight state and foreign protection are pinned in `useConversation.hook.spec.ts`.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'

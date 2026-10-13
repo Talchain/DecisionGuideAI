@@ -232,8 +232,7 @@ import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenN
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
-  EXPLAIN_RUN_LABEL,
-  explainRunChipId,
+  EXPLAIN_RUN_CHIP_PREFIX,
   isForeignExplanation,
   namesALatestRun,
   readNarration,
@@ -2755,12 +2754,10 @@ export function useConversation(): UseConversationReturn {
   // Ownership is per ATTEMPT, never per wire id: `retryLast` reuses the client turn id, so an old attempt's late
   // exit would otherwise settle the live retry (buddy r2 P1-3). Each `sendTurn` start takes the next sequence number.
   const turnAttemptSeqRef = useRef(0)
-  // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
-  // waiting for the current turn to settle, and whether request 2 is in flight.
+  // Pending narration is available on request. Only an admitted Explain attempt is in flight.
   const latestRunKeyRef = useRef<string | null>(null)
-  const sentExplainKeysRef = useRef<Set<string>>(new Set())
-  const [pendingExplainKey, setPendingExplainKey] = useState<string | null>(null)
-  const [explainingRun, setExplainingRun] = useState(false)
+  const [explainAttempt, setExplainAttempt] = useState<string | null>(null)
+  const explainingRun = isThinking && turn.turnId === explainAttempt
   // Mirror isThinking in a ref so sendTurn can read it without being in the
   // useCallback dependency array. Including the state value in deps caused the
   // callback to be recreated on every isThinking toggle, breaking the async
@@ -4830,6 +4827,13 @@ export function useConversation(): UseConversationReturn {
       elapsedIntervalRef.current = undefined
       turnOwnerRef.current = turnAttempt
       dispatchTurn({ type: 'start', turnId: turnAttempt })
+      const isBoundExplain = chipMeta?.id?.startsWith(EXPLAIN_RUN_CHIP_PREFIX) === true
+      setExplainAttempt(isBoundExplain ? turnAttempt : null)
+      if (isBoundExplain) {
+        // Cold reopen uses the retained Run's identity, never the requested chip's key as authority.
+        latestRunKeyRef.current = [...messagesRef.current].reverse().find(m => m.role === 'assistant'
+          && m.narration && m.narration.status !== 'stale')?.narration?.runKey ?? null
+      }
       // Synchronously: a preempt cleared the mirror, and pending → pending does not re-run its effect, so without this
       // Stop would read "not thinking" and do nothing under a live spinner (buddy r2 P1-1).
       isThinkingRef.current = true
@@ -6367,11 +6371,8 @@ export function useConversation(): UseConversationReturn {
           // is drawn (the surfaces keep the controls they had).
           useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
-          if (namesALatestRun(narration)) {
+          if (namesALatestRun(narration) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
-            if (narration.status === 'pending' && !sentExplainKeysRef.current.has(narration.runKey)) {
-              setPendingExplainKey(narration.runKey)
-            }
           }
           // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the
           // pending server echo to serverTurnId, so a late read cannot replace a live card's controls.
@@ -7478,24 +7479,6 @@ export function useConversation(): UseConversationReturn {
     },
     [sendTurn],
   )
-
-  // Result-first: send request 2 once the Run's own turn has settled (the busy lock would refuse it mid-turn), once per
-  // run_key, hidden, routed by its id. Absent `narration` nothing is pending and the chip stays the path.
-  useEffect(() => {
-    if (pendingExplainKey === null || isThinking) return
-    const runKey = pendingExplainKey
-    setPendingExplainKey(null)
-    if (sentExplainKeysRef.current.has(runKey) || latestRunKeyRef.current !== runKey) return
-    sentExplainKeysRef.current.add(runKey)
-    setExplainingRun(true)
-    void dispatchAction({
-      id: explainRunChipId(runKey),
-      label: EXPLAIN_RUN_LABEL,
-      message: EXPLAIN_RUN_LABEL,
-      hidden: true,
-      source: 'chip',
-    }).finally(() => setExplainingRun(false))
-  }, [pendingExplainKey, isThinking, dispatchAction])
 
   const sendChip = useCallback(
     async (chip: SourceKeyedChip) => {

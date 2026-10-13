@@ -8,7 +8,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { createElement } from 'react'
+import { ChatThread } from '../zones/ChatThread'
+import { parseV5Response } from '../../../v5/responseParser'
+import pendingRunBytes from './fixtures/t1ui3/p45-b1-0eba01bb-run2-turn.json?raw'
+import servedExplainBytes from './fixtures/t1ui3/unseen-1.turn.json?raw'
 import { useConversation } from '../useConversation'
 import {
   EARLY_STOP_NOT_SAVED_NOTICE,
@@ -2966,12 +2971,12 @@ describe('acknowledged response — wait expiry keeps delivery uncertain (V5 pat
 
 
 // ---------------------------------------------------------------------------
-// Result-first, two requests (AI HARNESS 5931099857; CEE #2470) — the UI half
+// Result-first, optional user-pressed Explain — the UI half
 // ---------------------------------------------------------------------------
 import { saveTranscript, TRANSCRIPT_STORAGE_KEY } from '../utils/transcriptStore'
 import { setCurrentScenarioId } from '../../store/scenarios'
 
-describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; a foreign explanation is dropped', () => {
+describe('result-first: Explain is user-pressed and bound to the retained Run', () => {
   const runResponse = (narration?: Record<string, unknown>) => ({
     kind: 'response' as const,
     response: { ...makeV5SuccessResult('Run complete.').response, ...(narration ? { narration } : {}) },
@@ -2989,7 +2994,7 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     mockIsV5Eligible.mockReturnValue({ eligible: true })
   })
 
-  it('a LIVE Run with narration pending → exactly one hidden request 2 carrying agent-explain-run:<run_key>', async () => {
+  it('T1ui LIVE: the original pending Run input sends exactly one request, with no hidden Explain', async () => {
     mockCallV5Turn.mockReset()
     mockCallV5Turn
       .mockResolvedValueOnce(runResponse({ status: 'pending', run_key: 'rk_1' }))
@@ -3000,13 +3005,242 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     await flush()
     rerender()
     await flush()
+    // Supersedes only the named auto-send expectation: same original input, 2 sends -> 1.
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.explainingRun).toBe(false)
+    expect(result.current.messages.filter(m => m.role === 'assistant').map(m => ({
+      content: m.content, narration: m.narration,
+    }))).toEqual([{ content: 'Run complete.', narration: { status: 'pending', runKey: 'rk_1' } }])
+    expect(result.current.messages.some(m => m.role === 'user' && m.content === 'Explain this result')).toBe(false)
+  })
+
+  const explainChip = (key = 'rk_1') => ({ id: `agent-explain-run:${key}`, label: 'Explain this result', message: 'Explain this result', intent: 'primary' as const })
+  const boundRun = (key = 'rk_1') => {
+    const response = runResponse({ status: 'pending', run_key: key })
+    response.response.suggested_actions = [explainChip(key)]
+    return response
+  }
+
+  it('T1ui manual: exactly one bound user press owns the in-flight state and can be pressed again', async () => {
+    let finish!: (value: ReturnType<typeof explanation>) => void
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun())
+      .mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+      .mockResolvedValueOnce(explanation('rk_1'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    let pending!: Promise<void>
+    await act(async () => { pending = result.current.sendChip(explainChip()) })
+    await flush()
     expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
     expect(chipIdOf(mockCallV5Turn.mock.calls[1])).toBe('agent-explain-run:rk_1')
-    // Hidden: no visible user bubble for the auto-send.
-    expect(result.current.messages.some((m) => m.role === 'user' && m.content === 'Explain this result')).toBe(false)
-    // The explanation lands, carrying its identity for load 2.
-    const explained = result.current.messages.filter((m) => m.role === 'assistant' && m.narration?.status === 'ready')
-    expect(explained.map((m) => m.narration?.runKey)).toEqual(['rk_1'])
+    expect(mockCallV5Turn.mock.calls[1][0].source).toBe('chip')
+    expect(mockCallV5Turn.mock.calls[1][0].chip.action_type).toBeUndefined()
+    expect(mockCallV5Turn.mock.calls[1][0].system_event).toBeUndefined()
+    expect(result.current.messages.filter(m => m.role === 'user').map(m => m.content)).toEqual(['Run the analysis', 'Explain this result'])
+    expect(result.current.isThinking).toBe(true)
+    expect(result.current.explainingRun).toBe(true)
+    await act(async () => { finish(explanation('rk_1')); await pending })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.explainingRun).toBe(false)
+    expect(result.current.messages.filter(m => saved.some(a => a.id === m.id))).toEqual(saved)
+    expect(result.current.messages.filter(m => m.narration?.status === 'ready').map(m => m.narration)).toEqual([{ status: 'ready', runKey: 'rk_1' }])
+    await act(async () => { await result.current.sendChip(explainChip()) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(3)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[2])).toBe('agent-explain-run:rk_1')
+  })
+
+  it.each(['unavailable', 'failure', 'timeout'] as const)('T1ui %s: retains the original Run and controls, then permits a manual retry', async mode => {
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun())
+    if (mode === 'unavailable') mockCallV5Turn.mockResolvedValueOnce({
+      ...runResponse({ status: 'unavailable', run_key: 'rk_1' }),
+      response: { ...boundRun().response, assistant_text: 'I couldn’t explain it this time.', narration: { status: 'unavailable', run_key: 'rk_1' } },
+    })
+    else mockCallV5Turn.mockRejectedValueOnce(mode === 'timeout' ? new DOMException('The operation timed out', 'TimeoutError') : new Error('Explain transport failed'))
+    mockCallV5Turn.mockResolvedValueOnce(explanation('rk_1'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    await act(async () => { await result.current.sendChip(explainChip()) })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.explainingRun).toBe(false)
+    expect(result.current.messages.filter(m => saved.some(a => a.id === m.id))).toEqual(saved)
+    await act(async () => { await result.current.sendChip(explainChip()) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(3)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[2])).toBe('agent-explain-run:rk_1')
+    expect(result.current.messages.filter(m => m.narration?.status === 'ready').map(m => m.narration)).toEqual([{ status: 'ready', runKey: 'rk_1' }])
+  })
+
+  it('T1ui edited model: the same-key stale Explain retains the saved Run without narrating it', async () => {
+    useCanvasStore.setState({ nodes: [{ id: 'factor-1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Spend' } }] })
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun()).mockResolvedValueOnce({
+      ...runResponse({ status: 'stale', run_key: 'rk_1' }),
+      response: { ...runResponse({ status: 'stale', run_key: 'rk_1' }).response, assistant_text: 'The model changed. Run the analysis again.' },
+    })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    act(() => { useCanvasStore.setState(s => ({ nodes: s.nodes.map(n => ({ ...n, data: { ...n.data, label: `${n.data.label} edited` } })) })) })
+    expect(useCanvasStore.getState().nodes.map(n => n.data.label)).toEqual(['Spend edited'])
+    await act(async () => { await result.current.sendChip(explainChip()) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[1])).toBe('agent-explain-run:rk_1')
+    expect(result.current.messages.filter(m => saved.some(a => a.id === m.id))).toEqual(saved)
+    expect(result.current.messages.filter(m => m.narration?.status === 'ready')).toEqual([])
+    const stale = result.current.messages.filter(m => m.narration?.status === 'stale')
+    expect(stale.map(m => ({ content: m.content, narration: m.narration, blocks: m.blocks ?? [] }))).toEqual([{
+      content: 'The model changed. Run the analysis again.', narration: { status: 'stale', runKey: 'rk_1' }, blocks: [],
+    }])
+    expect(result.current.explainingRun).toBe(false)
+  })
+
+  it('T1ui newer Run: pressing the older bound chip cannot admit an old ready explanation', async () => {
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun('rk_old')).mockResolvedValueOnce(boundRun('rk_new')).mockResolvedValueOnce(explanation('rk_old'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await act(async () => { await result.current.sendMessage('Run the analysis again') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    await act(async () => { await result.current.sendChip(explainChip('rk_old')) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(3)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[2])).toBe('agent-explain-run:rk_old')
+    expect(result.current.messages.filter(m => m.role === 'assistant')).toEqual(saved)
+    expect(result.current.explainingRun).toBe(false)
+  })
+
+  it('T1ui deadline: an acknowledged Explain that stalls settles its stage and preserves the saved Run', async () => {
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun()).mockImplementationOnce((_payload, opts) => {
+      opts.onResponseReceived?.()
+      return new Promise(() => {})
+    }).mockResolvedValueOnce(explanation('rk_1'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    await act(async () => { void result.current.sendChip(explainChip()) })
+    expect(result.current.explainingRun).toBe(true)
+    act(() => { vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000) })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.explainingRun).toBe(false)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter(m => saved.some(a => a.id === m.id))).toEqual(saved)
+    await act(async () => { await result.current.sendChip(explainChip()) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(3)
+    expect(result.current.messages.filter(m => m.narration?.status === 'ready').map(m => m.narration)).toEqual([{ status: 'ready', runKey: 'rk_1' }])
+  })
+
+  it('T1ui ownership: a superseded Explain cannot clear the new attempt or its busy state', async () => {
+    let finishOld!: (value: ReturnType<typeof explanation>) => void
+    let finishNew!: (value: ReturnType<typeof explanation>) => void
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun())
+      .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      .mockImplementationOnce(() => new Promise(resolve => { finishNew = resolve }))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    let old!: Promise<void>; let current!: Promise<void>
+    await act(async () => { old = result.current.sendChip(explainChip()) })
+    await act(async () => { current = result.current.sendChip(explainChip()) })
+    await act(async () => { finishOld(explanation('rk_1')); await old })
+    expect(result.current.isThinking).toBe(true)
+    expect(result.current.explainingRun).toBe(true)
+    await act(async () => { finishNew(explanation('rk_1')); await current })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.explainingRun).toBe(false)
+  })
+
+  it('T1ui pending: permits conversation without starting Explain', async () => {
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun()).mockResolvedValueOnce(makeV5SuccessResult('We can examine that assumption.'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await act(async () => { await result.current.sendMessage('What assumption should we examine?') })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(mockCallV5Turn.mock.calls.map(chipIdOf)).toEqual([undefined, undefined])
+    expect(result.current.explainingRun).toBe(false)
+  })
+
+  it('T1ui failed NEW Run: leaves the older saved result and controls unchanged without announcing a new result', async () => {
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun()).mockRejectedValueOnce(new Error('Run failed'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    const saved = structuredClone(result.current.messages.filter(m => m.role === 'assistant'))
+    await act(async () => { await result.current.sendChip({ id: 'agent-run-analysis', action_type: 'run_analysis', label: 'Run', message: 'Run the analysis', intent: 'primary' }) })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter(m => m.narration)).toEqual(saved)
+    expect(result.current.explainingRun).toBe(false)
+  })
+
+  it('T1ui served pending bytes: one actual Run dispatch retains exact result, host words, key and Explain', async () => {
+    const wire = JSON.parse(pendingRunBytes)
+    const parsed = await parseV5Response(new Response(pendingRunBytes, { status: 200 }))
+    expect(parsed.kind).toBe('response')
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(parsed).mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendChip({ id: 'agent-run-analysis', action_type: 'run_analysis', label: 'Run', message: 'Run the analysis', intent: 'primary' }) })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockCallV5Turn.mock.calls[0][0].chip).toEqual({ id: 'agent-run-analysis', action_type: 'run_analysis' })
+    const reply = result.current.messages.filter(m => m.role === 'assistant').at(-1)!
+    expect(reply.content).toBe(wire.assistant_text)
+    expect(reply.narration).toEqual({ status: 'pending', runKey: wire.narration.run_key })
+    const block = reply.blocks?.find(b => b.type === 'v5_analysis_result')
+    expect(block?.type).toBe('v5_analysis_result')
+    if (block?.type === 'v5_analysis_result') expect(block.enrichment).toEqual(wire.blocks.find((b: { type: string }) => b.type === 'analysis_result').enrichment)
+    expect(reply.actionChips?.find(c => c.id === `agent-explain-run:${wire.narration.run_key}`)).toEqual({ ...explainChip(wire.narration.run_key), intent: 'primary' })
+    expect(result.current.explainingRun).toBe(false)
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn()
+    const props = () => ({
+      messages: result.current.messages, isThinking: result.current.isThinking, explainingRun: result.current.explainingRun,
+      longRunningHint: null, nodeCount: 4, patchBlockStates: new Map(), patchRejections: new Map(),
+      onChipClick: result.current.sendChip, onPatchAccept: () => {}, onPatchDismiss: () => {}, onFeedback: () => {}, onRetry: () => {},
+    })
+    const view = render(createElement(ChatThread, props()))
+    expect(screen.queryByText('Preparing explanation…')).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Explain this result' })) })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(mockCallV5Turn.mock.calls[1][0].chip).toEqual({ id: `agent-explain-run:${wire.narration.run_key}` })
+    expect(result.current.explainingRun).toBe(true)
+    view.rerender(createElement(ChatThread, props()))
+    expect(screen.getByTestId('thinking-label').textContent).toBe('Preparing explanation…')
+    view.unmount()
+    cleanup()
+    Element.prototype.scrollIntoView = originalScrollIntoView
+  })
+
+  it('T1ui #2756: user-pressed Explain renders the actual served conditional view, sources, quantities and why', async () => {
+    // Run identity is the existing contract fixture; Explain bytes below are an UNEDITED served capture.
+    const wire = JSON.parse(servedExplainBytes)
+    const key = wire.narration.run_key
+    const parsed = await parseV5Response(new Response(servedExplainBytes, { status: 200 }))
+    expect(parsed.kind).toBe('response')
+    mockCallV5Turn.mockReset().mockResolvedValueOnce(boundRun(key)).mockResolvedValueOnce(parsed)
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await act(async () => { await result.current.sendChip(explainChip(key)) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(mockCallV5Turn.mock.calls[1][0].chip).toEqual({ id: `agent-explain-run:${key}` })
+    const reply = result.current.messages.filter(m => m.narration?.status === 'ready').at(-1)!
+    expect(reply.content).toBe(wire.assistant_text)
+    const pv = wire._agent.provisional_view
+    expect(reply.provisionalView).toEqual({ view: pv.view, heading: pv.heading, reasoning: pv.reasoning, confirmStep: pv.confirm_step, because: pv.because })
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn()
+    const view = render(createElement(ChatThread, {
+      messages: result.current.messages, isThinking: result.current.isThinking, explainingRun: result.current.explainingRun,
+      longRunningHint: null, nodeCount: 4, patchBlockStates: new Map(), patchRejections: new Map(),
+      onChipClick: result.current.sendChip, onPatchAccept: () => {}, onPatchDismiss: () => {}, onFeedback: () => {}, onRetry: () => {},
+    }))
+    expect(screen.getByTestId('message-provisional-view-heading').textContent).toBe(pv.heading)
+    expect(screen.getByTestId('message-provisional-view-text').textContent).toBe(pv.view)
+    expect(screen.getByTestId('message-provisional-view-step').textContent).toBe(`To confirm it: ${pv.confirm_step}`)
+    expect(screen.queryByText('Preparing explanation…')).toBeNull()
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(screen.getByTestId('message-provisional-view-why').textContent).toBe(pv.reasoning)
+    view.unmount()
+    cleanup()
+    Element.prototype.scrollIntoView = originalScrollIntoView
   })
 
   it('CONTRAST: a Run with no narration (CEE before #2470) sends nothing more', async () => {
@@ -3040,6 +3274,7 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('Run the analysis') })
     await flush()
+    await act(async () => { await result.current.sendChip(explainChip('rk_new')) })
     expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
     expect(result.current.messages.some((m) => m.content === 'Here is what drives the result.')).toBe(false)
     expect(result.current.messages.some((m) => m.content === 'Run complete.')).toBe(true)
@@ -3053,7 +3288,7 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     useCanvasStore.setState({ currentScenarioId: SCN })
     saveTranscript(SCN, [
       { id: 'u-r', role: 'user', content: 'Run the analysis', timestamp: new Date() },
-      { id: 'a-r', role: 'assistant', content: 'Run complete.', narration: { status: 'pending', runKey: 'rk_r' }, timestamp: new Date() },
+      { id: 'a-r', role: 'assistant', content: 'Run complete.', narration: { status: 'pending', runKey: 'rk_r' }, actionChips: [explainChip('rk_r')], timestamp: new Date() },
     ])
     const all = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')
     expect(all[SCN], 'precondition: the transcript was saved').toBeTruthy()
@@ -3063,5 +3298,10 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     await flush()
     expect(result.current.messages.some((m) => m.narration?.runKey === 'rk_r'), 'precondition: the pending Run line was restored').toBe(true)
     expect(mockCallV5Turn).not.toHaveBeenCalled()
+    mockCallV5Turn.mockResolvedValueOnce(explanation('rk_r'))
+    await act(async () => { await result.current.sendChip(explainChip('rk_r')) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[0])).toBe('agent-explain-run:rk_r')
+    expect(result.current.messages.filter(m => m.narration?.status === 'ready').map(m => m.narration)).toEqual([{ status: 'ready', runKey: 'rk_r' }])
   })
 })
