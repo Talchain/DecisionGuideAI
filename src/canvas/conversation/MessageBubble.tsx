@@ -14,7 +14,7 @@
 import { memo, useState, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { ICON_DENSE, ICON_STROKE } from './panelIcons'
-import { safeRichTextWithListMarkers, normaliseDashes } from '../utils/safeRichText'
+import { safeRichText, safeRichTextWithListMarkers, normaliseDashes } from '../utils/safeRichText'
 import { GroundedOnNotice } from './GroundedOnNotice'
 import { InlineBlocks } from './InlineBlocks'
 import type { HeldProposalSettlement } from '../../v5/blocks/V5HeldProposalBlock'
@@ -313,7 +313,7 @@ export const MessageBubble = memo(function MessageBubble({
           data-testid="message-body-text"
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
           dangerouslySetInnerHTML={{
-            __html: safeRichTextWithListMarkers(displayContent)
+            __html: (isUser ? safeRichText(displayContent) : safeRichTextWithListMarkers(displayContent))
               + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
           }}
         />

@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useMemo, memo, useRef } from 'react'
-import type { RefObject, ReactNode } from 'react'
+import type { RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -25,7 +25,7 @@ import type {
   EvidenceBlock as EvidenceBlockType,
   FactEntry,
 } from './types'
-import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled, isCompactCoachingLinesEnabled } from '../../flags'
+import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled } from '../../flags'
 import { trackEvent } from '../../lib/posthog'
 import type {
   ComparisonBlock as ComparisonBlockType,
@@ -40,7 +40,6 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
-import { CoachingLine, isCollapsibleCardBlock, planCoachingLines } from './CoachingLine'
 import {
   composeMessage,
   firstPromotableActionIndex,
@@ -72,34 +71,6 @@ import { ICON_DENSE } from './panelIcons'
 // ---------------------------------------------------------------------------
 
 const artefactNoop = () => { /* intentionally empty */ }
-
-/**
- * Wrap a block's renderer in a compact line, or pass it through untouched.
- *
- * A tiny component rather than a branch inside `renderEntry` so there is still
- * exactly ONE render path for a block: the same `<BlockRenderer/>` element is
- * constructed either way and only its wrapper differs. Two branches each
- * building their own renderer is how the top-level and demoted paths would
- * drift, which is the hazard `renderEntry`'s own comment names.
- */
-function MaybeCoachingLine({
-  block,
-  asLine,
-  disambiguator,
-  children,
-}: {
-  block: ConversationBlock
-  asLine: boolean
-  disambiguator: string | null
-  children: ReactNode
-}) {
-  if (!asLine) return <>{children}</>
-  return (
-    <CoachingLine block={block} disambiguator={disambiguator}>
-      {children}
-    </CoachingLine>
-  )
-}
 
 /** Dedup guard: fire unknown-block telemetry once per block_type per session */
 const _trackedUnknownBlockTypes = new Set<string>()
@@ -234,64 +205,16 @@ export const InlineBlocks = memo(function InlineBlocks({
   // this container only, so a citation lands in its own turn or nowhere.
   const blockContainerRef = useRef<HTMLDivElement>(null)
 
-  const linePlan = useMemo(() => planCoachingLines(blocks, { consentPending }), [blocks, consentPending])
-
   const promotedActionIndex = shouldPromoteRunTurnCard({ consentPending }) ? firstPromotableActionIndex(blocks) : -1
 
   const renderEntry = (index: number) => {
     const block = blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
-    /**
-     * COMPACT LINE. The block's own renderer is unchanged and simply moves
-     * inside a native disclosure whose summary is the producer's own title —
-     * so a turn's coaching reads as a scannable list rather than a stack of
-     * bordered panels. See CoachingLine.tsx for what may and may not collapse:
-     * pinned consent affordances never do, and a block with no usable producer
-     * title falls through to its full card.
-     *
-     * ⚠ APPLIED HERE, IN THE ONE SHARED RENDER PATH, SO IT REACHES THE DEMOTED
-     * TIER TOO. That is the point rather than a side effect: `MAX_POINTS` keeps
-     * 3 cards top-level and demotes 5-11 on a real analysis turn, so collapsing
-     * only the top-level entries would leave "Show N more" opening onto the
-     * same wall it opens onto today.
-     */
-    /*
-     * ⚠ THE PLAN IS COMPUTED OVER THE WHOLE LIST, NOT PER BLOCK, because the
-     * thing it guards against is invisible from inside one block: two producer
-     * blocks can carry the SAME title, and as title-only lines they become one
-     * affordance the user cannot aim. See `planCoachingLines`.
-     */
-    const plan = linePlan.get(block)
-    // U7 expands prose, but must not promote an unproven coaching action or
-    // compete with this turn's consent. The existing plan still owns promotion.
+    // U7 keeps every coaching body expanded, including while consent is pending.
+    // Only the action is disclosed when it has not earned promotion.
     const actionDisclosure = block.type === 'v5_coaching' && Boolean(block.action_label && block.action_prompt)
       && index !== promotedActionIndex
-    const asLine =
-      (isCompactCoachingLinesEnabled() || actionDisclosure) && isCollapsibleCardBlock(block) && plan?.collapsible !== false
-    /*
-     * ⭐ THE BADGE DOT IS A CARD'S, SO A LINE DOES NOT GET ONE. DS v5 §21.2
-     * defines it as one limb of the BLOCK treatment — "Base block: `bg-panel`,
-     * `rounded-[20px]`, 24px padding, `shadow-1`. Type-specific top borders
-     * (3px). Block type badges are small coloured dots (8px diameter, main
-     * colour fill) top-left." A collapsed line has none of the others; the dot
-     * survived only because it is painted HERE, by the parent, where the card's
-     * own `suppressHeader` could not reach it.
-     *
-     * ⛔ AND IT WAS COLLIDING, NOT MERELY DUPLICATING. `.blockBadgeDot` is
-     * `position:absolute; top:8px; left:8px`, and its clearance comes from
-     * `.blockWithBadge > div { padding-left: 24px }` — a CHILD selector that
-     * matches a `div` only. As a line the child is `<details>`, so the selector
-     * silently stopped matching, nothing reserved the gutter, and the dot
-     * landed on the summary's own first item at the same 8px. Photographed on
-     * deployed staging b7c8c74e: a blue dot sitting on the glyph. A CSS
-     * selector that stops matching raises nothing and fails no test, which is
-     * why this is gated in TS where a spec can bind to it.
-     *
-     * The wrapper class goes with it: `position:relative` exists only to
-     * position the dot, and leaving it would keep a containing block for no
-     * descendant.
-     */
-    const showBadgeDot = badgeDotClass !== null && !asLine
+    const showBadgeDot = badgeDotClass !== null
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
       // matches this, so a citation still resolves after demotion.
@@ -303,11 +226,9 @@ export const InlineBlocks = memo(function InlineBlocks({
         {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
       >
         {showBadgeDot && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
-        <MaybeCoachingLine block={block} asLine={asLine} disambiguator={plan?.disambiguator ?? null}>
         <BlockRenderer
           block={block}
-          suppressHeader={asLine}
-          discloseAction={actionDisclosure && !asLine}
+          discloseAction={actionDisclosure}
           turnId={turnId}
           patchBlockStates={patchBlockStates}
           patchRejections={patchRejections}
@@ -321,7 +242,6 @@ export const InlineBlocks = memo(function InlineBlocks({
           isLatestAssistantTurn={isLatestAssistantTurn}
           blockContainerRef={blockContainerRef}
         />
-        </MaybeCoachingLine>
       </div>
     )
   }

@@ -91,20 +91,20 @@ export function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * Product rule for the run-analysis affordance under aiPanelV2:
  *   - no analysis exists            → keep chip as-is ("Run analysis")
  *   - confirmed-current analysis    → suppress chip entirely
- *   - stale / cannot-confirm        → relabel chip to "Rerun" (may bypass the V5
+ *   - stale / cannot-confirm        → keep the producer label (may bypass the V5
  *                                     readiness gate — a prior analysis exists and
  *                                     a rerun re-derives inputs from the graph)
  *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
  *
  * Two positive-signal branches:
  *   - SUPPRESS requires a CONFIRMED-CURRENT verdict (semantic === 'current').
- *   - the readiness-gate-bypassing 'relabel-rerun' requires a REAL freshness
+ *   - the readiness-gate-bypassing 'allow-rerun' requires a REAL freshness
  *     verdict ('changed' / 'cannot_confirm'), which implies a prior analysis that
  *     a rerun can re-derive from the current graph.
  * A completed analysis with NO freshness verdict ('none') gets neither: it is not
  * confirmed current (so not suppressed — matching useStageAwarePlaceholder, which
  * treats it as not-"latest"), but it has nothing rerunnable to justify bypassing
- * the readiness gate. Relabelling it to "Rerun" would let a run_analysis chip
+ * the readiness gate. Allowing a rerun would let a run_analysis chip
  * survive the gate even when ceeAnalysisReady is missing, and a click then falls
  * back to a conversation turn ("promises action, delivers chat"). So it stays a
  * plain 'keep' chip, shown only when the readiness gate is satisfied.
@@ -112,7 +112,7 @@ export function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * This replaces the legacy graph-hash stale flag (deleted 2026-07-16), whose production input
  * `_internal.graphHash` is never written, so it never fired.
  */
-type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
+type RunAnalysisPolish = 'suppress' | 'allow-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
@@ -121,7 +121,7 @@ function decideRunAnalysisPolish(
   if (!resultsComplete) return 'keep'                     // no analysis yet
   if (freshnessSemantic === 'current') return 'suppress'  // confirmed-current owns the action
   if (freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm') {
-    return 'relabel-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
+    return 'allow-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
   }
   return 'keep'  // 'none': complete but no verdict → not current, but no rerunnable
                  // analysis to justify a gate bypass; the readiness gate decides visibility
@@ -252,11 +252,11 @@ export function SuggestedChips({
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
   // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
-  // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
+  // allow rerun (gate-bypassing); complete-but-no-verdict → keep (gate decides).
   // `freshnessSemantic` is the composed trust semantic (useAnalysisTrust),
   // NOT the graph-hash stale path deleted on 2026-07-16. The orphan fold
   // means a recovered-session result with no verdict reads cannot-confirm
-  // here too, so the chip relabels to "Rerun" in step with the strip.
+  // here too, so the chip remains available in step with the strip.
   const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   // ⭐ PoC DOMAIN 5 — the chip reads the SAME held-model authority the Analyse
@@ -309,9 +309,7 @@ export function SuggestedChips({
 
   // Compute the run-analysis product state ONCE, then both the V5
   // readiness gate (below) AND the polish-map step downstream branch on
-  // the same value. Keeping a single source of truth prevents a future
-  // change to either branch from re-introducing "filtered before
-  // relabel" behaviour.
+  // the same verdict. Freshness admits a rerun without rewriting CEE copy.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
     ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
@@ -320,10 +318,10 @@ export function SuggestedChips({
   //   action_type === 'run_analysis' → gated by `admitsRunAffordance`, i.e.
   //                                    analysisStatus === 'ready' OR CEE's own
   //                                    may_run === true,
-  //                                    EXCEPT when aiPanelV2 will relabel to
-  //                                    "Rerun" (stale/cannot-confirm), in which
+  //                                    EXCEPT when aiPanelV2 allows a rerun
+  //                                    (stale/cannot-confirm), in which
   //                                    case the chip must survive the gate so the
-  //                                    polish can apply.
+  //                                    action remains available.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable
@@ -333,7 +331,7 @@ export function SuggestedChips({
   // never a conjunct of the readiness predicate.
   //
   //  · ⚠ IT MUST NOT LIVE INSIDE THE READINESS GATE BELOW. That predicate has a
-  //    deliberate early `return true` for `runAnalysisPolish === 'relabel-rerun'`,
+  //    deliberate early `return true` for `runAnalysisPolish === 'allow-rerun'`,
   //    and an early `return true` for chips with no `action_type` — so a hold
   //    written as one more clause in it is SKIPPED in exactly the states it
   //    exists to catch. Measured, not asserted: that shape (mutant M3) turns
@@ -372,9 +370,9 @@ export function SuggestedChips({
         // the very affordance the turn had just offered. Disjunction, so nothing
         // that rendered before stops rendering; see `admitsRunAffordance`.
         if (needsReadiness && !admitsRunAffordance(analysisStatus, analysisMayRun)) {
-          // Single bypass: run_analysis survives when the polish will
-          // relabel it. The decision is upstream (`runAnalysisPolish`).
-          if (c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun') {
+          // Single bypass: the freshness verdict admits a rerun.
+          // The decision is upstream (`runAnalysisPolish`).
+          if (c.action_type === 'run_analysis' && runAnalysisPolish === 'allow-rerun') {
             return true
           }
           return false
@@ -398,7 +396,7 @@ export function SuggestedChips({
         !admitsRunAffordance(analysisStatus, analysisMayRun) &&
         // Mirror the bypass — a chip that survived shouldn't show up as
         // "removed" in the dev log.
-        !(c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun'),
+        !(c.action_type === 'run_analysis' && runAnalysisPolish === 'allow-rerun'),
     )
     if (removedUnsupported.length > 0) {
       logV5StateEvent('chip_filter_unsupported', {
@@ -416,11 +414,9 @@ export function SuggestedChips({
     }
   }
 
-  // Run is a control: its label must reflect a rerun, using the same verdict as admission.
+  // Freshness controls admission, while the producer owns the visible chip label.
   const polished = aiPanelV2On
     ? supported.filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
-      .map((c) => isRunAnalysisAffordance(c) && runAnalysisPolish === 'relabel-rerun'
-        ? { ...c, label: 'Rerun' } : c)
     : supported
 
   // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render

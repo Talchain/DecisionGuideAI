@@ -243,7 +243,7 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
 
   function flushList() {
     if (listGroup.length === 0) return
-    const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join('')
+    const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join(options.preserveListMarkers ? '\n' : '')
     const open =
       listKind === 'ol' && listStart !== 1 ? `<ol start="${listStart}">` : `<${listKind}>`
     // Replies retain the producer's actual markers, including bullet glyphs.
@@ -391,6 +391,10 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
   let blankSeen = false
   for (const part of outputParts) {
     if (part === '') { blankSeen = true; continue }
+
+    // Preserve word boundaries when full reply prose is copied or read as text.
+    // Block elements and <br> provide layout, but contribute no textContent.
+    if (options.preserveListMarkers && result !== '') result += '\n'
 
     if (part.startsWith('<ul') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
       blankSeen = false

@@ -53,7 +53,7 @@ describe('SuggestedChips: the row is frozen while a turn is in flight', () => {
     const onChipClick = vi.fn().mockResolvedValue(undefined)
     const { rerender } = render(<SuggestedChips chips={[premortem, runChip]} onChipClick={onChipClick} />)
     const rerun = screen.getByTestId('suggested-chip-run1')
-    expect(rerun, 'precondition: a stale analysis offers the run chip as "Rerun"').toHaveTextContent(/^\s*Rerun\s*$/)
+    expect(rerun, 'precondition: a stale analysis offers the run chip with its producer label').toHaveTextContent(/^\s*Run analysis\s*$/)
 
     // The turn goes pending: the row is the same buttons, disabled.
     rerender(<SuggestedChips chips={[premortem, runChip]} onChipClick={onChipClick} isThinking />)
@@ -63,7 +63,7 @@ describe('SuggestedChips: the row is frozen while a turn is in flight', () => {
     // Mid-turn the Run completes and the analysis is current again.
     act(() => setCurrent())
     expect(screen.queryByTestId('suggested-chip-run1'), 'the chip vanished from under the reader mid-turn').toBe(rerun)
-    expect(rerun).toHaveTextContent(/^\s*Rerun\s*$/)
+    expect(rerun).toHaveTextContent(/^\s*Run analysis\s*$/)
     expect(screen.getByTestId('suggested-chip-agent-next-pre-mortem')).toBeInTheDocument()
   })
 
@@ -78,7 +78,7 @@ describe('SuggestedChips: the row is frozen while a turn is in flight', () => {
 
   it('control: a row first mounted while pending shows the live view (nothing earlier to hold)', () => {
     render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} isThinking />)
-    expect(screen.getByTestId('suggested-chip-run1')).toHaveTextContent(/^\s*Rerun\s*$/)
+    expect(screen.getByTestId('suggested-chip-run1')).toHaveTextContent(/^\s*Run analysis\s*$/)
     expect(screen.getByTestId('suggested-chip-run1')).toBeDisabled()
   })
 })

@@ -168,7 +168,7 @@ describe('U1: assistant_text is authoritative even with an answer sidecar', () =
     const message = await messageFrom(body)
     expect(message.answerShape).toBeDefined()
     renderThread(message)
-    const bodyText = screen.getByTestId('message-body-text').textContent ?? ''
+    const bodyText = within(screen.getByTestId('message-assistant')).getByTestId('message-body-text').textContent ?? ''
     const plain = (text: string) => text.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim()
     expect(plain(bodyText)).toBe(plain(String(body.assistant_text)))
     expect(screen.queryByTestId('answer-show-more')).toBeNull()
