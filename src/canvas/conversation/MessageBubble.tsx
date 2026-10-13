@@ -14,7 +14,7 @@
 import { memo, useState, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { ICON_DENSE, ICON_STROKE } from './panelIcons'
-import { safeRichText } from '../utils/safeRichText'
+import { safeRichTextWithListMarkers, normaliseDashes } from '../utils/safeRichText'
 import { GroundedOnNotice } from './GroundedOnNotice'
 import { InlineBlocks } from './InlineBlocks'
 import type { HeldProposalSettlement } from '../../v5/blocks/V5HeldProposalBlock'
@@ -171,8 +171,9 @@ export const MessageBubble = memo(function MessageBubble({
 
   const provisional = !isUser && !isStreaming && !message.stoppedByUser ? message.provisionalView : undefined
   const [provisionalWhyShown, setProvisionalWhyShown] = useState(false)
-  // AI-first: assistant_text owns the reply, including repeated and structured-answer prose.
-  const displayContent = message.content
+  // AI-first: assistant_text owns the reply. Only client-authored notices keep
+  // their established dash styling; producer and user characters remain intact.
+  const displayContent = message.synthetic ? normaliseDashes(message.content) : message.content
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -312,7 +313,7 @@ export const MessageBubble = memo(function MessageBubble({
           data-testid="message-body-text"
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
           dangerouslySetInnerHTML={{
-            __html: safeRichText(displayContent)
+            __html: safeRichTextWithListMarkers(displayContent)
               + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
           }}
         />

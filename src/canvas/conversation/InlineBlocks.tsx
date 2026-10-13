@@ -43,6 +43,8 @@ import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
 import { CoachingLine, isCollapsibleCardBlock, planCoachingLines } from './CoachingLine'
 import {
   composeMessage,
+  firstPromotableActionIndex,
+  shouldPromoteRunTurnCard,
   turnDeliversNarrativeAsTypedCard,
 } from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
@@ -234,6 +236,8 @@ export const InlineBlocks = memo(function InlineBlocks({
 
   const linePlan = useMemo(() => planCoachingLines(blocks, { consentPending }), [blocks, consentPending])
 
+  const promotedActionIndex = shouldPromoteRunTurnCard({ consentPending }) ? firstPromotableActionIndex(blocks) : -1
+
   const renderEntry = (index: number) => {
     const block = blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
@@ -258,8 +262,12 @@ export const InlineBlocks = memo(function InlineBlocks({
      * affordance the user cannot aim. See `planCoachingLines`.
      */
     const plan = linePlan.get(block)
+    // U7 expands prose, but must not promote an unproven coaching action or
+    // compete with this turn's consent. The existing plan still owns promotion.
+    const actionDisclosure = block.type === 'v5_coaching' && Boolean(block.action_label && block.action_prompt)
+      && index !== promotedActionIndex
     const asLine =
-      isCompactCoachingLinesEnabled() && isCollapsibleCardBlock(block) && plan?.collapsible !== false
+      (isCompactCoachingLinesEnabled() || actionDisclosure) && isCollapsibleCardBlock(block) && plan?.collapsible !== false
     /*
      * ⭐ THE BADGE DOT IS A CARD'S, SO A LINE DOES NOT GET ONE. DS v5 §21.2
      * defines it as one limb of the BLOCK treatment — "Base block: `bg-panel`,
@@ -299,6 +307,7 @@ export const InlineBlocks = memo(function InlineBlocks({
         <BlockRenderer
           block={block}
           suppressHeader={asLine}
+          discloseAction={actionDisclosure && !asLine}
           turnId={turnId}
           patchBlockStates={patchBlockStates}
           patchRejections={patchRejections}
@@ -340,6 +349,8 @@ interface BlockRendererProps {
    * copy of them so an open line does not show the title twice.
    */
   suppressHeader?: boolean
+  /** Keep unpromoted actions behind a disclosure when the prose stays expanded. */
+  discloseAction?: boolean
   turnId?: string
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -382,6 +393,7 @@ interface BlockRendererProps {
 function BlockRenderer({
   block,
   suppressHeader = false,
+  discloseAction = false,
   turnId,
   patchBlockStates,
   patchRejections,
@@ -520,6 +532,7 @@ function BlockRenderer({
         <V5CoachingBlock
           block={block}
           variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
+          discloseAction={discloseAction}
           suppressHeader={suppressHeader}
           turnId={turnId}
         />

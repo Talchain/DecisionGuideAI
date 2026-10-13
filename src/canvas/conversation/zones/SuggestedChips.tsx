@@ -416,9 +416,11 @@ export function SuggestedChips({
     }
   }
 
-  // Preserve the AI's labels; the Run eligibility gates above remain authoritative.
+  // Run is a control: its label must reflect a rerun, using the same verdict as admission.
   const polished = aiPanelV2On
     ? supported.filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
+      .map((c) => isRunAnalysisAffordance(c) && runAnalysisPolish === 'relabel-rerun'
+        ? { ...c, label: 'Rerun' } : c)
     : supported
 
   // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render

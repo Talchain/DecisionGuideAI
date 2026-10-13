@@ -602,7 +602,7 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
   )
 
   it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
-    '%s: DEMOTED into the closed disclosure, the narrative still renders exactly once',
+    '%s: reordered narrative still reaches the screen exactly once',
     (_name, file) => {
       const { blocks, narrativeSummary } = liftCapture(file)
       const demoted = withNarrativeDemoted(blocks)
@@ -611,11 +611,8 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
 
       const { container } = render(<InlineBlocks blocks={demoted} turnId="t-demoted" />)
       expect(countOccurrences(container.textContent ?? '', narrativeSummary)).toBe(1)
-      // …and it is the analysis-result copy that carries it, because the card
-      // the user would have read is collapsed out of view.
-      expect(
-        container.querySelector('[data-testid="v5-analysis-result-narrative-summary"]'),
-      ).not.toBeNull()
+      // U7 removed the closed tier, so the analysis-result fallback no longer
+      // owns this channel. The producer narrative still must reach the screen.
     },
   )
 })

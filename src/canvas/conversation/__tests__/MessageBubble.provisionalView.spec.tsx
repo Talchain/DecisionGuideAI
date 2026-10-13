@@ -136,7 +136,7 @@ describe('C5: the provisional view is on the face of the reply, labelled, said o
   it('THIN UI: the producer\'s prose is never parsed or edited: body and detail are byte-identical with and without the sidecar', async () => {
     const withSide = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true }))
     const without = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true, sidecar: false }))
-    const open = () => screen.getByTestId('message-body-text').innerHTML
+    const open = () => within(screen.getByTestId('message-assistant')).getByTestId('message-body-text').innerHTML
     renderThread(withSide)
     const a = open()
     cleanup()

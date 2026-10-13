@@ -174,7 +174,7 @@ describe('MessageBubble — fails open to today\'s render (controls)', () => {
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 
-  it('a structured answer owns its body, so no toggle is added', () => {
+  it('a retired answer sidecar adds no question toggle', () => {
     render(
       <MessageBubble
         message={makeMsg({
@@ -184,7 +184,8 @@ describe('MessageBubble — fails open to today\'s render (controls)', () => {
         onChipClick={noop}
       />,
     )
-    expect(screen.getByTestId('message-answer-structured')).toBeTruthy()
+    // U1/U5: assistant_text owns the body; the retired structured mount is not required.
+    expect(screen.getByTestId('message-body-text').textContent).toContain(M)
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 })

@@ -206,6 +206,15 @@ function convertInline(text: string): string {
  * 6. Strip any residual disallowed tags (belt-and-braces)
  */
 export function safeRichText(markdown: string): string {
+  return renderRichText(markdown)
+}
+
+/** Full reply prose retains the producer's list markers as well as its words. */
+export function safeRichTextWithListMarkers(markdown: string): string {
+  return renderRichText(markdown, { preserveListMarkers: true })
+}
+
+function renderRichText(markdown: string, options: { preserveListMarkers?: boolean } = {}): string {
   if (!markdown || typeof markdown !== 'string') return ''
 
   // Step 1: decode entities
@@ -237,7 +246,10 @@ export function safeRichText(markdown: string): string {
     const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join('')
     const open =
       listKind === 'ol' && listStart !== 1 ? `<ol start="${listStart}">` : `<${listKind}>`
-    outputParts.push(`${open}${items}</${listKind}>`)
+    // Replies retain the producer's actual markers, including bullet glyphs.
+    // CSS suppresses the browser's additional marker; list semantics remain.
+    const listOpen = options.preserveListMarkers ? open.replace('>', ' class="md-verbatim-markers">') : open
+    outputParts.push(`${listOpen}${items}</${listKind}>`)
     listGroup = []
   }
 
@@ -324,7 +336,7 @@ export function safeRichText(markdown: string): string {
     // so a decimal ("0.5 million") and a bare number line never match.
     const orderedMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/)
     if (orderedMatch) {
-      pushListItem('ol', orderedMatch[2], Number(orderedMatch[1]))
+      pushListItem('ol', options.preserveListMarkers ? trimmed : orderedMatch[2], Number(orderedMatch[1]))
       continue
     }
 
@@ -340,7 +352,7 @@ export function safeRichText(markdown: string): string {
     // distinguish it.
     const bulletMatch = trimmed.match(/^[-*•‣◦]\s+(.+)$/)
     if (bulletMatch) {
-      pushListItem('ul', bulletMatch[1], 1)
+      pushListItem('ul', options.preserveListMarkers ? trimmed : bulletMatch[1], 1)
     } else if (trimmed === '-') {
       // Bare marker with no content — preserve prior empty-bullet behaviour
       pushListItem('ul', '', 1)
@@ -380,7 +392,7 @@ export function safeRichText(markdown: string): string {
   for (const part of outputParts) {
     if (part === '') { blankSeen = true; continue }
 
-    if (part.startsWith('<ul>') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
+    if (part.startsWith('<ul') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
       blankSeen = false
       result += part
     } else {

@@ -397,11 +397,12 @@ export const ChatThread = memo(function ChatThread({
         const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
           && currentHeldIds.has(heldId)
           && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)
-        // Keep earlier AI offers; consent controls retain their single live owner.
-        const replyChips = (msg.actionChips ?? []).filter(chip => {
+        // Ordinary chips belong to the latest reply; held consent keeps its single live owner.
+        // Preserve the latest reply's array identity so pending-row freezing survives host rerenders.
+        const replyChips = isLastAssistant ? (msg.actionChips ?? []) : (msg.actionChips ?? []).filter(chip => {
           const isConsent = chip.id?.startsWith('agent-approve-proposal:')
             || chip.id?.startsWith('agent-decline-proposal:') || chip.id === 'agent-amend-proposal'
-          return !isConsent || isLastAssistant || Boolean(ownsHeldCard && (
+          return Boolean(isConsent && ownsHeldCard && (
             chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
             || chip.id === `agent-decline-proposal:${heldId}`
           ))
