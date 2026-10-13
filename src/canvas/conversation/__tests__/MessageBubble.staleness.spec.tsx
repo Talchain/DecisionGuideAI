@@ -103,7 +103,7 @@ describe('stale resend narration', () => {
   it.each(['pending', 'ready', 'unavailable'])('retains valid %s narration without adding a pill', status => {
     const narration = readNarration({ narration: { status, run_key: 'rk' } })!
     expect(narration).toEqual({ status, runKey: 'rk' })
-    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} latestRunKey="rk" />)
+    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} />)
     expect(screen.queryByTestId('staleness-pill')).toBeNull()
   })
 
@@ -113,10 +113,10 @@ describe('stale resend narration', () => {
     ['rk_old', null, 'unknown'],
     ['rk_old', '', 'unknown'],
     ['rk_old', 'rk_old', 'unknown'],
-    ['rk_old', 'rk_new', 'stale'],
-  ] as const)('original %s, latest %s → %s without result blocks', (runKey, latestRunKey, freshness) => {
+    ['rk_old', 'rk_new', 'unknown'],
+  ] as const)('original %s, latest %s → %s without result blocks', (runKey, _latestRunKey, freshness) => {
     const narration = readNarration({ narration: { status: 'stale', run_key: runKey } })!
-    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} latestRunKey={latestRunKey} />)
+    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} />)
     const pill = screen.getByTestId('staleness-pill')
     expect(pill.getAttribute('data-freshness')).toBe(freshness)
     expect(pill.textContent).toBe(freshness === 'unknown'
@@ -126,7 +126,7 @@ describe('stale resend narration', () => {
   })
 
   it('unknown narration cannot inherit a stronger claim from a result block', () => {
-    render(<MessageBubble message={{ ...makeMsg('stale'), narration: { status: 'stale', runKey: '' } }} onChipClick={noop} latestRunKey="rk" />)
+    render(<MessageBubble message={{ ...makeMsg('stale'), narration: { status: 'stale', runKey: '' } }} onChipClick={noop} />)
     expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
     expect(screen.queryByText('Model changed since last analysis')).toBeNull()
   })
@@ -136,7 +136,7 @@ describe('stale resend narration', () => {
     expect(screen.queryByTestId('staleness-pill')).toBeNull()
   })
 
-  it('the thread passes the latest named Run through ChatMessage and updates the pill', () => {
+  it('through the thread, a stale resend shows "cannot confirm" even after a newer Run (no hash evidence)', () => {
     const originalScroll = Element.prototype.scrollIntoView
     Element.prototype.scrollIntoView = () => {}
     const resend: ConversationMessage = { ...makeMsg(), blocks: undefined, narration: { status: 'stale', runKey: 'rk_old' } }
@@ -154,7 +154,8 @@ describe('stale resend narration', () => {
       const { rerender } = render(draw('rk_old'))
       expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
       rerender(draw('rk_new'))
-      expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('stale')
+      expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
+      expect(screen.queryByText('Model changed since last analysis')).toBeNull()
     } finally {
       Element.prototype.scrollIntoView = originalScroll
     }
