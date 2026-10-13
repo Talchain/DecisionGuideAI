@@ -12,8 +12,8 @@ import { renderHook, act, render, screen, fireEvent, cleanup } from '@testing-li
 import { createElement } from 'react'
 import { ChatThread } from '../zones/ChatThread'
 import { parseV5Response } from '../../../v5/responseParser'
-import pendingRunBytes from '../../../components/results/analysis-hero/__tests__/fixtures/p45-b1-0eba01bb-run2-turn.json?raw'
-import servedExplainBytes from '../../../components/results/analysis-hero/__tests__/fixtures/s4ui/unseen-1.turn.json?raw'
+import pendingRunBytes from './fixtures/t1ui3/p45-b1-0eba01bb-run2-turn.json?raw'
+import servedExplainBytes from './fixtures/t1ui3/unseen-1.turn.json?raw'
 import { useConversation } from '../useConversation'
 import {
   EARLY_STOP_NOT_SAVED_NOTICE,
