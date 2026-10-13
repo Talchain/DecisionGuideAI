@@ -77,13 +77,13 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('<span class="md-gap" aria-hidden="true"></span>')
     })
 
-    it('renders headings as <strong> (graceful degradation)', () => {
+    it('preserves heading markers without rewriting them', () => {
       // Note: mid-identifier digits (e.g. "H1") are NOT wrapped in md-number
       // — the lookbehind in convertInline excludes identifier-adjacent digits
       // so "opt_raise_59" and similar codes stay intact.
-      expect(sanitizeMarkdown('# Heading')).toContain('<strong>Heading</strong>')
-      expect(sanitizeMarkdown('## Subheading')).toContain('<strong>Subheading</strong>')
-      expect(sanitizeMarkdown('### Deep section')).toContain('<strong>Deep section</strong>')
+      expect(sanitizeMarkdown('# Heading')).toBe('# Heading')
+      expect(sanitizeMarkdown('## Subheading')).toBe('## Subheading')
+      expect(sanitizeMarkdown('### Deep section')).toBe('### Deep section')
     })
 
     it('wraps standalone integers in <span class="md-number"> for tabular styling', () => {

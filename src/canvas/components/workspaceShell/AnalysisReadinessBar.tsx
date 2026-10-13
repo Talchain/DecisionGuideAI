@@ -45,6 +45,7 @@
  * must never look pressable while the gate is shut.
  */
 
+import { useAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { RefreshCw } from 'lucide-react'
 import { readinessBarShowsAnalyse } from './rerunControl'
 // ⚠ THE MODULE, NOT THE `components/ui` BARREL. Measured: the barrel re-exports
@@ -135,6 +136,7 @@ export function AnalysisReadinessBar({
   onAnalyse,
   runOnRecord = false,
 }: AnalysisReadinessBarProps) {
+  const analysisReadiness = useAnalysisReadinessAuthority()
   // Outside the pre-run window the Analysis surface itself shows no readiness
   // panel, so there is nothing to carry and a bar here would be a claim no
   // other surface is making.
@@ -147,6 +149,7 @@ export function AnalysisReadinessBar({
   // defined or estimates are uncalibrated; the shell has no `PreAnalysisModel`
   // and must not invent the difference.
   const display = deriveReadinessDisplay({
+    currentBlockerMessage: analysisReadiness?.blockers[0]?.message,
     readinessCheck,
     isAnalysing,
     canRun,

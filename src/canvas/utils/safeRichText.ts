@@ -225,10 +225,6 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
   // Split into lines for processing
   const rawLines = escaped.split('\n')
 
-  // Track table headers for structured rendering
-  let tableHeaders: string[] | null = null
-  let tableHeaderConfirmed = false
-
   const outputParts: string[] = []
   let listGroup: string[] = []
   /** Which list the open group is — 'ul' for bullets, 'ol' for numbered. */
@@ -270,63 +266,8 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
     // Horizontal rules: --- or ***
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
       flushList()
-      tableHeaders = null
       outputParts.push(MD_GAP)
       continue
-    }
-
-    // Headings: # text → bold text
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
-    if (headingMatch) {
-      flushList()
-      tableHeaders = null
-      outputParts.push(`<strong>${convertInline(headingMatch[2])}</strong>`)
-      continue
-    }
-
-    // Table separator row: |---|---|
-    if (/^\|[\s\-:|]+\|$/.test(trimmed)) {
-      // Separator confirms previous row was headers — keep tableHeaders, skip this line
-      if (tableHeaders) tableHeaderConfirmed = true
-      continue
-    }
-
-    // Table row: | col1 | col2 |
-    const tableMatch = trimmed.match(/^\|(.+)\|$/)
-    if (tableMatch) {
-      flushList()
-      const cells = tableMatch[1].split('|').map(c => c.trim()).filter(Boolean)
-
-      if (!tableHeaders) {
-        // First table row — tentatively store as headers (confirmed by separator)
-        tableHeaders = cells
-        tableHeaderConfirmed = false
-      } else if (!tableHeaderConfirmed) {
-        // Second table row without intervening separator — no real headers.
-        // Flush stored row as data, then emit this row as data too.
-        outputParts.push(convertInline(tableHeaders.join(', ')))
-        outputParts.push(convertInline(cells.join(', ')))
-        tableHeaders = null
-      } else {
-        // Data row with confirmed headers: structured rendering
-        if (tableHeaders.length === 2 && cells.length >= 2) {
-          // Two-column table: <strong>header:</strong> value
-          outputParts.push(`<strong>${convertInline(tableHeaders[0])}:</strong> ${convertInline(cells[0])}, <strong>${convertInline(tableHeaders[1])}:</strong> ${convertInline(cells[1])}`)
-        } else {
-          // Three+ columns: comma-separated
-          outputParts.push(convertInline(cells.join(', ')))
-        }
-      }
-      continue
-    }
-
-    // Non-table line resets table context — flush unconfirmed header as data
-    if (tableHeaders) {
-      if (!tableHeaderConfirmed) {
-        outputParts.push(convertInline(tableHeaders.join(', ')))
-      }
-      tableHeaders = null
-      tableHeaderConfirmed = false
     }
 
     // Ordered list markers: "1. item" / "1) item". Checked BEFORE the numeric
@@ -371,11 +312,6 @@ function renderRichText(markdown: string, options: { preserveListMarkers?: boole
 
   // Flush any trailing bullet group
   flushList()
-
-  // Flush any trailing unconfirmed table headers as data
-  if (tableHeaders && !tableHeaderConfirmed) {
-    outputParts.push(convertInline(tableHeaders.join(', ')))
-  }
 
   // Join parts:
   // - Any two adjacent non-empty parts → one <br> between them

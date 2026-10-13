@@ -239,6 +239,8 @@ export interface ReadinessDisplayInput {
   readonly isAnalysing: boolean
   /** OutputsDock's `canRunAnalysis` — the run gate, not a copy of it. */
   readonly canRun: boolean
+  /** The current readiness record's first blocker, rendered verbatim. */
+  readonly currentBlockerMessage?: string
   /** The gate's own reason. Read only while the gate is shut. */
   readonly blockedReason?: string
   /**
@@ -336,7 +338,7 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
     const sentences = vettedBlockerList(input.blockedListing, input.blockedReason)
     return {
       dot: 'muted',
-      headline: FOOTER_COPY.notReady,
+      headline: input.currentBlockerMessage ?? '',
       subline,
       ...(sentences !== undefined ? { sublineSentences: sentences } : {}),
     }

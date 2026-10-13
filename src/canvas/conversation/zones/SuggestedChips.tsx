@@ -166,7 +166,6 @@ function disclosesDetail(chip: ActionChip): boolean {
 interface HeldChipRow {
   chips: ActionChip[]
   visible: ActionChip[]
-  showRerunLabel: boolean
   runGateClosed: boolean
   runGateReason: string | undefined
   guidedProgressLine: string | undefined
@@ -474,7 +473,6 @@ export function SuggestedChips({
   const liveRow: HeldChipRow = {
     chips,
     visible: visibleNow,
-    showRerunLabel: runAnalysisPolish === 'allow-rerun',
     runGateClosed: runGateClosedNow,
     runGateReason: runGateReasonNow,
     guidedProgressLine: guidedProgressLineNow,
@@ -482,7 +480,7 @@ export function SuggestedChips({
   if (!isThinking || heldRowRef.current === null || heldRowRef.current.chips !== chips) {
     heldRowRef.current = liveRow
   }
-  const { visible, showRerunLabel, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
+  const { visible, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
@@ -579,9 +577,7 @@ export function SuggestedChips({
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
-          // Presentation only: rewriting a label-only chip can erase the identity
-          // the run gate and host detector need. Freeze this verdict with the row.
-          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : chip.label
+          const baseLabel = chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary
@@ -603,7 +599,7 @@ export function SuggestedChips({
           // Deliberately the accessible name + `title`, NOT a new visible row:
           // this file's chip grammar is owned by `CHIP_CLASS`, and a jsdom
           // suite cannot see a pixel, so a layout change here would be an
-          // unmeasured one. Only the existing-analysis Run control uses the shared Rerun name.
+          // unmeasured one. The producer owns the visible label.
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
           // ⭐ A RESEARCH CONTROL SHOWS WHAT IT SENDS (CEE #2042). Pressing it sends
