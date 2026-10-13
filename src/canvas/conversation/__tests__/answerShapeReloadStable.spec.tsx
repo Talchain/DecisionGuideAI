@@ -1,34 +1,6 @@
-/**
- * ⭐ A SHORT RUN REPLY STAYS SHORT AFTER A RELOAD.
- *
- * Paul's brief for the chat after a Run: the conclusion first, one decisive
- * caveat, one real next action, and detail behind disclosure. The producer's
- * `_answer_shape` ({headline, bullets, detail}) carries that layout, and
- * `AnswerBody` renders it live: the headline, at most 3 bullets, and the full
- * text behind "Show more". Runtime is adding it to agent-lane Run turns
- * (#69 5831886008).
- *
- * THE DEFECT, BEFORE IT SHIPS. The transcript store dropped `answerShape` on
- * save ("session-only"). So the same reply came back after a reload as the
- * full wall of text, with the detail on the face. That breaks the brief on
- * every reload, and it is the same class as the consent-layout shift (#2009).
- *
- * THE RULE. The store keeps the producer's shape verbatim and re-reads it on
- * restore through `parseAnswerShape`, the live turn's own fail-closed
- * validator. The shape is producer text with no action in it, so keeping it
- * re-arms nothing.
- *
- * CLAIM TYPE: jsdom DOM + localStorage. The served OpenAI-route Run turn
- * (`fixtures/openai-route-coaching-journey.c673223.json`, "C2 run") goes
- * through the REAL `useConversation` and `ConversationPanel`, with `fetch`
- * answering from the capture. Its `_answer_shape` is built the way Runtime
- * described (headline = the conclusion sentence, bullets = the reply's first
- * three bullets in order, detail = the full text), since no served turn carries
- * one yet. A "reload" is: unmount, re-stamp the saved transcript as an earlier
- * page load's, and mount fresh. No model calls.
- */
+/** U1/U2: answer sidecars persist, while complete assistant_text renders live and after reload. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, act, waitFor, cleanup, fireEvent } from '@testing-library/react'
+import { render, act, waitFor, cleanup } from '@testing-library/react'
 
 import servedJourneyC673223 from './fixtures/openai-route-coaching-journey.c673223.json'
 import { useConversation, type UseConversationReturn } from '../useConversation'
@@ -153,19 +125,8 @@ async function reload(): Promise<void> {
 }
 
 const body = () => document.querySelector('[data-testid="answer-body"]')
-const headline = () => document.querySelector('[data-testid="answer-headline"]')?.textContent ?? ''
-const bullets = () => Array.from(document.querySelectorAll('[data-testid="answer-bullets"] li')).map((li) => li.textContent ?? '')
 const onTheFace = (text: string) => (document.body.textContent ?? '').includes(text)
 
-/** The concise view: headline, three bullets, and the detail folded away until asked for. */
-function expectConcise(when: string): void {
-  expect(body(), `${when}: the concise view renders`).not.toBeNull()
-  expect(headline(), `${when}: the conclusion is the headline`).toContain('This run does not establish')
-  expect(bullets(), `${when}: at most three bullets`).toHaveLength(3)
-  expect(onTheFace(DETAIL_ONLY), `${when}: the detail is folded away`).toBe(false)
-  fireEvent.click(document.querySelector('[data-testid="answer-show-more"]')!)
-  expect(onTheFace(DETAIL_ONLY), `${when}: "Show more" reveals the full text`).toBe(true)
-}
 
 describe('the served Run reply, live and after a reload (c673223 "C2 run")', () => {
   beforeEach(() => {
@@ -192,38 +153,20 @@ describe('the served Run reply, live and after a reload (c673223 "C2 run")', () 
   })
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('with `_answer_shape`: concise live, and STILL concise after a reload', async () => {
+  it('U1/U2: full repeated replies survive the answer sidecar and reload', async () => {
     await mountPanel()
-    queue.push(withShape())
-    await act(async () => { await conv.current!.sendMessage('Run the analysis.') })
-    expectConcise('live')
-    await waitFor(() => expect(savedRaw().some((m) => m.answerShape !== undefined)).toBe(true))
-
-    await reload()
-    await waitFor(() => expect(onTheFace('This run does not establish')).toBe(true))
-    expectConcise('after reload')
-  })
-
-  /**
-   * Run-3 judge U2 (DL ruling b): CEE prefixes the same status headline and bullets to every reply in one model state.
-   * Through the real hook and panel: two replies on one graph draw it once, a reply on a new graph draws it again, and
-   * the reload folds the same way.
-   */
-  it('run-3 judge U2: one model state draws the repeated headline once, live and after a reload; a new state draws it again', async () => {
-    await mountPanel()
-    const onGraph = (graphHash: string): Wire => ({ ...withShape(), graph_hash: graphHash })
-    queue.push(onGraph('graph-one'), onGraph('graph-one'), onGraph('graph-two'))
-    for (const words of ['Run the analysis.', 'What does that mean?', 'Run it again.']) {
+    queue.push(withShape(), withShape())
+    for (const words of ['Run the analysis.', 'Explain that again.']) {
       await act(async () => { await conv.current!.sendMessage(words) })
     }
-    const headlines = () => Array.from(document.querySelectorAll('[data-testid="message-answer-structured"]'))
-      .map((b) => b.querySelector('[data-testid="answer-headline"]')?.textContent ?? null)
-    expect(headlines()).toEqual([HEADLINE, null, HEADLINE])
-    await waitFor(() => expect(savedRaw().filter((m) => m.answerShape !== undefined)).toHaveLength(3))
-
+    const fullReplies = () => Array.from(document.querySelectorAll('[data-testid="message-body-text"]'))
+      .filter(el => el.textContent?.includes(DETAIL_ONLY))
+    expect(fullReplies()).toHaveLength(2)
+    expect(body()).toBeNull()
+    await waitFor(() => expect(savedRaw().filter(m => m.answerShape !== undefined)).toHaveLength(2))
     await reload()
-    await waitFor(() => expect(onTheFace('This run does not establish')).toBe(true))
-    expect(headlines()).toEqual([HEADLINE, null, HEADLINE])
+    await waitFor(() => expect(fullReplies()).toHaveLength(2))
+    expect(body()).toBeNull()
   })
 
   it('CONTROL, the served bytes as they are (no shape): the full text, live and after a reload', async () => {

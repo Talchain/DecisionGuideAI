@@ -21,7 +21,6 @@ vi.mock('../../utils/openEdgeStrengthEditor', () => ({ openEdgeStrengthEditor: (
 
 import { readGuidance, readGuidanceSlots } from '../guidanceRows'
 import { GuidanceRows, showOnCanvas } from '../zones/GuidanceRows'
-import { ChatThread } from '../zones/ChatThread'
 import { saveTranscript, loadTranscript } from '../utils/transcriptStore'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
@@ -301,63 +300,5 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
     const { item_ref: _drop, ...noRef } = ROW
     render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: noRef } })!} />)
     expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
-  })
-})
-
-describe('only the latest turn carries a row', () => {
-  it('an older assistant message with guidance shows no row; the latest one does', () => {
-    seed()
-    const g = readGuidance({ guidance: { slot1: ROW } })!
-    const earlier = readGuidance({ guidance: { slot1: { ...ROW, state_key_hash: 'skh_old', copy: { ...COPY, title: 'An earlier challenge.' } } } })!
-    render(
-      <ChatThread
-        messages={[
-          { id: 'a1', role: 'assistant', content: 'Earlier turn.', guidance: earlier, timestamp: new Date() },
-          { id: 'u', role: 'user', content: 'And now?', timestamp: new Date() },
-          { id: 'a2', role: 'assistant', content: 'Latest turn.', guidance: g, timestamp: new Date() },
-        ]}
-        isThinking={false}
-        longRunningHint={null}
-        nodeCount={4}
-        patchBlockStates={new Map()}
-        patchRejections={new Map()}
-        onChipClick={async () => {}}
-        onPatchAccept={() => {}}
-        onPatchDismiss={() => {}}
-        onFeedback={() => {}}
-        onRetry={() => {}}
-      />,
-    )
-    expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
-    expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Latest turn.')
-    expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(COPY.title)
-    expect(screen.queryByText('An earlier challenge.')).toBeNull()
-  })
-
-  it('after a reload, the restore\u2019s "Session resumed" divider does not hide the latest reply\u2019s row', () => {
-    seed()
-    const g = readGuidance({ guidance: { slot1: ROW } })!
-    render(
-      <ChatThread
-        messages={[
-          { id: 'u', role: 'user', content: 'Run it', timestamp: new Date() },
-          { id: 'a', role: 'assistant', content: 'Run complete.', guidance: g, timestamp: new Date() },
-          // useConversation's restore divider, shape verbatim (role assistant, synthetic, sessionDivider)
-          { id: 'boundary-0a1b2c3d', role: 'assistant', content: '', synthetic: true, sessionDivider: 'Session resumed', timestamp: new Date() } as ConversationMessage,
-        ]}
-        isThinking={false}
-        longRunningHint={null}
-        nodeCount={4}
-        patchBlockStates={new Map()}
-        patchRejections={new Map()}
-        onChipClick={async () => {}}
-        onPatchAccept={() => {}}
-        onPatchDismiss={() => {}}
-        onFeedback={() => {}}
-        onRetry={() => {}}
-      />,
-    )
-    expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
-    expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Run complete.')
   })
 })

@@ -13,7 +13,7 @@
  *   - Headings (# text) → rendered as bold
  *   - Horizontal rules (--- / ***) → small vertical gap
  *   - Pipe-delimited tables → structured text
- *   - Emoji characters → stripped (conservative allowlist)
+ *   - Emoji and dash characters are preserved.
  *
  * XSS safety:
  *   - Allowlist: <strong>, <em>, <a>, <br>, <ul>, <ol>, <li>, <span> only
@@ -85,18 +85,6 @@ const SAFE_URL_RE = /^(?:https?:\/\/|mailto:)[^\s<>"]+$/i
  */
 const LINK_OPEN = '\u0001L'
 const LINK_CLOSE = '\u0002'
-
-/**
- * Conservative emoji strip pattern.
- * Covers common emoji codepoint ranges used in orchestrator output.
- * Uses BMP codepoints and \u{...} syntax (ES2015+ required).
- */
-const EMOJI_RE = /[\u2705\u26A0\u2714\u274C\u2757\u2B50\u2728\u23F0\u2615\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2702}-\u{27B0}]/gu
-
-/** Sentinel character for emoji stripping — collapses only emoji-adjacent whitespace. */
-const EMOJI_SENTINEL = '\x00'
-// eslint-disable-next-line no-control-regex -- intentional null sentinel for emoji whitespace collapse
-const EMOJI_SENTINEL_COLLAPSE_RE = /\s*\x00+\s*/g
 
 /**
  * Escape HTML special characters to prevent raw HTML injection.
@@ -211,7 +199,6 @@ function convertInline(text: string): string {
  *
  * Algorithm:
  * 1. Decode orchestrator XML entities (→ real characters)
- * 1b. Strip emoji characters (conservative allowlist)
  * 2. Escape all HTML (→ safe text content)
  * 3. Process line types: headings, rules, tables, bullets, text
  * 4. Join remaining lines with <br> for single-newline line breaks
@@ -219,18 +206,21 @@ function convertInline(text: string): string {
  * 6. Strip any residual disallowed tags (belt-and-braces)
  */
 export function safeRichText(markdown: string): string {
+  return renderRichText(markdown)
+}
+
+/** Full reply prose retains the producer's list markers as well as its words. */
+export function safeRichTextWithListMarkers(markdown: string): string {
+  return renderRichText(markdown, { preserveListMarkers: true })
+}
+
+function renderRichText(markdown: string, options: { preserveListMarkers?: boolean } = {}): string {
   if (!markdown || typeof markdown !== 'string') return ''
 
   // Step 1: decode entities
   const decoded = decodeOrchestratorEntities(markdown)
-  // Step 1b: strip emoji — use sentinel to collapse only emoji-adjacent whitespace
-  const sentinelled = decoded.replace(EMOJI_RE, EMOJI_SENTINEL)
-  const stripped = sentinelled.replace(EMOJI_SENTINEL_COLLAPSE_RE, ' ').trim()
-  // Step 1c: normalise all dash variants to spaced hyphens (safety net for LLM output)
-  // U+2012 figure dash, U+2013 en dash, U+2014 em dash, U+2015 horizontal bar
-  const dashed = stripped.replace(/[\u2012\u2013\u2014\u2015]/g, ' - ')
-  // Step 2: re-escape so angle brackets don't inject HTML
-  const escaped = escapeHtml(dashed)
+  // Escape markup while preserving the AI's characters, including emoji and dashes.
+  const escaped = escapeHtml(decoded)
 
   // Split into lines for processing
   const rawLines = escaped.split('\n')
@@ -253,10 +243,13 @@ export function safeRichText(markdown: string): string {
 
   function flushList() {
     if (listGroup.length === 0) return
-    const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join('')
+    const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join(options.preserveListMarkers ? '\n' : '')
     const open =
       listKind === 'ol' && listStart !== 1 ? `<ol start="${listStart}">` : `<${listKind}>`
-    outputParts.push(`${open}${items}</${listKind}>`)
+    // Replies retain the producer's actual markers, including bullet glyphs.
+    // CSS suppresses the browser's additional marker; list semantics remain.
+    const listOpen = options.preserveListMarkers ? open.replace('>', ' class="md-verbatim-markers">') : open
+    outputParts.push(`${listOpen}${items}</${listKind}>`)
     listGroup = []
   }
 
@@ -343,7 +336,7 @@ export function safeRichText(markdown: string): string {
     // so a decimal ("0.5 million") and a bare number line never match.
     const orderedMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/)
     if (orderedMatch) {
-      pushListItem('ol', orderedMatch[2], Number(orderedMatch[1]))
+      pushListItem('ol', options.preserveListMarkers ? trimmed : orderedMatch[2], Number(orderedMatch[1]))
       continue
     }
 
@@ -359,7 +352,7 @@ export function safeRichText(markdown: string): string {
     // distinguish it.
     const bulletMatch = trimmed.match(/^[-*•‣◦]\s+(.+)$/)
     if (bulletMatch) {
-      pushListItem('ul', bulletMatch[1], 1)
+      pushListItem('ul', options.preserveListMarkers ? trimmed : bulletMatch[1], 1)
     } else if (trimmed === '-') {
       // Bare marker with no content — preserve prior empty-bullet behaviour
       pushListItem('ul', '', 1)
@@ -399,7 +392,11 @@ export function safeRichText(markdown: string): string {
   for (const part of outputParts) {
     if (part === '') { blankSeen = true; continue }
 
-    if (part.startsWith('<ul>') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
+    // Preserve word boundaries when full reply prose is copied or read as text.
+    // Block elements and <br> provide layout, but contribute no textContent.
+    if (options.preserveListMarkers && result !== '') result += '\n'
+
+    if (part.startsWith('<ul') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
       blankSeen = false
       result += part
     } else {

@@ -53,7 +53,7 @@ describe('SuggestedChips: the row is frozen while a turn is in flight', () => {
     const onChipClick = vi.fn().mockResolvedValue(undefined)
     const { rerender } = render(<SuggestedChips chips={[premortem, runChip]} onChipClick={onChipClick} />)
     const rerun = screen.getByTestId('suggested-chip-run1')
-    expect(rerun, 'precondition: a stale analysis offers the run chip as "Rerun"').toHaveTextContent(/^\s*Rerun\s*$/)
+    expect(rerun, 'precondition: a stale analysis offers Rerun').toHaveTextContent(/^\s*Rerun\s*$/)
 
     // The turn goes pending: the row is the same buttons, disabled.
     rerender(<SuggestedChips chips={[premortem, runChip]} onChipClick={onChipClick} isThinking />)

@@ -68,7 +68,7 @@ async function receive(text: string, blocks: unknown[] = []) {
 describe('Batch A CEE receipts through the real adapter, dispatcher and message renderer', () => {
   it('no_olumi_estimate displays CEE guidance and its next step without an error or already-set card', async () => {
     await receive(GUIDANCE)
-    expect(screen.getByTestId('message-assistant')).toHaveTextContent("There's no Olumi estimate for this link yet - give your own figure or ask Olumi to estimate it.")
+    expect(screen.getByTestId('message-assistant')).toHaveTextContent(GUIDANCE)
     expect(screen.queryByTestId('v5-change-receipt')).toBeNull()
     expect(screen.queryByText(/No change|Connection strength already set/)).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()

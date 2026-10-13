@@ -127,6 +127,8 @@ export interface V5CoachingBlockProps {
    * Default `false`, so every other mount is byte-identical to before.
    */
   suppressHeader?: boolean
+  /** Composition may expose prose without promoting this action. */
+  discloseAction?: boolean
   /**
    * The assistant turn this card is mounted in (`message.id`). It scopes the
    * action chip's `sourceBlockKey` (G1), so an action taken on THIS card
@@ -256,7 +258,7 @@ const SOURCE_SENTENCE: Partial<Record<string, string>> = {
   deterministic_signal: 'Raised by an automatic check',
 }
 
-export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false, turnId }: V5CoachingBlockProps): ReactElement {
+export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false, discloseAction = false, turnId }: V5CoachingBlockProps): ReactElement {
   const testIdPrefix = variant === 'bias_signal' ? 'bias-signal-card' : 'v5-coaching'
 
   // The IMPORTANCE channel, derived from the shared authority so this card,
@@ -331,6 +333,8 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
   const kindSentence = KIND_SENTENCE[block.coaching_kind]
   const sourceSentence = SOURCE_SENTENCE[block.source]
   const claim = block.dsk_claim_provenance
+
+  const ActionContainer = discloseAction ? 'details' : 'div'
 
   return (
     <div
@@ -464,31 +468,34 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       )}
 
       {block.action_label && (
-        <div className="flex">
-          {block.action_prompt ? (
-            <ActionChip
-              label={block.action_label}
-              message={block.action_prompt}
-              testId={`${testIdPrefix}-action`}
-              intent={block.action_intent}
-              inert={actionInert}
-              describedBy={actionInert ? freshnessNoticeId : undefined}
-              sourceBlockKey={coachingSourceBlockKey(turnId, block.block_id)}
-            />
-          ) : (
-            <span
-              data-testid={`${testIdPrefix}-action`}
-              {...(block.action_intent ? { 'data-action-intent': block.action_intent } : {})}
-              className={[
-                'inline-flex items-center rounded-full px-2.5 py-0.5',
-                'bg-transparent border border-info/30 text-text-body',
-                typography.chatMeta,
-              ].join(' ')}
-            >
-              {block.action_label}
-            </span>
-          )}
-        </div>
+        <ActionContainer>
+          {discloseAction && <summary className={`${typography.chatMeta} cursor-pointer`}>{block.action_label}</summary>}
+          <div className="flex">
+            {block.action_prompt ? (
+              <ActionChip
+                label={block.action_label}
+                message={block.action_prompt}
+                testId={`${testIdPrefix}-action`}
+                intent={block.action_intent}
+                inert={actionInert}
+                describedBy={actionInert ? freshnessNoticeId : undefined}
+                sourceBlockKey={coachingSourceBlockKey(turnId, block.block_id)}
+              />
+            ) : (
+              <span
+                data-testid={`${testIdPrefix}-action`}
+                {...(block.action_intent ? { 'data-action-intent': block.action_intent } : {})}
+                className={[
+                  'inline-flex items-center rounded-full px-2.5 py-0.5',
+                  'bg-transparent border border-info/30 text-text-body',
+                  typography.chatMeta,
+                ].join(' ')}
+              >
+                {block.action_label}
+              </span>
+            )}
+          </div>
+        </ActionContainer>
       )}
 
       {/*
