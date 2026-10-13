@@ -36,7 +36,8 @@ export function readNarration(response: unknown): TurnNarration | null {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
   const { status, run_key: runKey } = raw as Record<string, unknown>
   if (typeof status !== 'string' || !(NARRATION_STATUSES as readonly string[]).includes(status)) return null
-  if (typeof runKey !== 'string' || runKey.trim() === '') return null
+  // A stale resend can explicitly say that the original Run identity is unknown.
+  if (typeof runKey !== 'string' || (runKey.trim() === '' && !(status === 'stale' && runKey === ''))) return null
   return { status: status as NarrationStatus, runKey }
 }
 

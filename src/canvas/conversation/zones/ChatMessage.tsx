@@ -91,6 +91,7 @@ interface ChatMessageProps {
    * is threaded rather than re-derived.
    */
   isLatestAssistantTurn?: boolean
+  latestRunKey?: string | null
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -108,6 +109,7 @@ export const ChatMessage = memo(function ChatMessage({
   compact,
   showFailedSendRetry,
   isLatestAssistantTurn = false,
+  latestRunKey = null,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -147,6 +149,7 @@ export const ChatMessage = memo(function ChatMessage({
         compact={compact}
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
         isLatestAssistantTurn={isLatestAssistantTurn}
+        latestRunKey={latestRunKey}
       />
 
       {/*

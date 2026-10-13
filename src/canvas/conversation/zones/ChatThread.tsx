@@ -13,6 +13,7 @@ import { useSmartScroll } from '../hooks/useSmartScroll'
 import { THREAD_SCROLLER_ATTRIBUTE } from '../hooks/threadScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
+import { namesALatestRun } from '../narrationTurn'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
@@ -277,19 +278,25 @@ export const ChatThread = memo(function ChatThread({
   // resend — the LAST user message. Older failed attempts keep the
   // "Not delivered" marker without a retry button (clicking retry there
   // would resend different text than the bubble shows).
-  // One backwards pass captures both last-of-role messages. Previously this
+  // One backwards pass captures the latest Run and both last-of-role messages. Previously this
   // was two `[...messages].reverse().find(...)` chains — two full array copies
   // plus two reverses per render, on a path that runs ~60x/sec once streaming
   // is enabled.
   let lastUserMsg: ConversationMessage | undefined
+  // Use the same Run-naming statuses as live ingestion. A stale resend must
+  // never replace the latest key with its own (possibly unknown) original key.
+  let latestRunKey: string | null = null
   // T4: the coaching row's host. The restore appends an assistant-role "Session resumed" divider
   // (useConversation `sessionDivider`), which is not a reply: the row stays on the reply before it.
   let lastReplyMsg: ConversationMessage | undefined
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
+    if (latestRunKey === null && m.role === 'assistant' && namesALatestRun(m.narration ?? null)) {
+      latestRunKey = m.narration!.runKey
+    }
     if (!lastUserMsg && m.role === 'user') lastUserMsg = m
     if (!lastReplyMsg && m.role === 'assistant' && typeof m.sessionDivider !== 'string') lastReplyMsg = m
-    if (lastUserMsg && lastReplyMsg) break
+    if (lastUserMsg && lastReplyMsg && latestRunKey !== null) break
   }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
@@ -366,6 +373,7 @@ export const ChatThread = memo(function ChatThread({
             // derives for the chip row; reusing it means the staleness voice
             // and the chips can never disagree about which turn is current.
             isLatestAssistantTurn={isLastAssistant}
+            latestRunKey={latestRunKey}
             patchBlockStates={patchBlockStates}
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}
