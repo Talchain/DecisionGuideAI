@@ -453,7 +453,7 @@ describe('the witnessed defect — following the advice removes the control', ()
 
     const bar = screen.getByTestId('analysis-readiness-bar')
     expect(bar).toHaveAttribute('data-blocked', 'true')
-    expect(bar).toHaveTextContent(fourBlockers()[0].message)
+    expect(bar).toHaveTextContent(fourBlockers().blockers[0]!.message)
 
     // SAME SENTENCES, not merely plausible ones: what the chat surface shows is
     // what the Analysis surface was showing a moment earlier.
@@ -708,7 +708,7 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
 
     await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
     const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
-    expect(footerHeadline).toBe(fourBlockers()[0].message)
+    expect(footerHeadline).toBe(fourBlockers().blockers[0]!.message)
 
     clickOlumiTab()
     expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
