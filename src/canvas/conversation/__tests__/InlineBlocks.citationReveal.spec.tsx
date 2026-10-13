@@ -1,25 +1,4 @@
-/**
- * Review-folds C11 + C13 + C4 — citation reveal, honest legend gating and
- * the un-nested live region (all pinned RED-first against the F16 pacing
- * renderer).
- *
- *   C11: a citation click whose [data-citation-target] sits behind the
- *        pacing/budget collapse used to hit `if (!target) return` — a
- *        silent no-op. Now it reveals the collapsed content, flushes the
- *        commit synchronously and scrolls; it fails silent only when
- *        the target is STILL missing.
- *   C13: the graph-vocabulary legend used to gate on phase3Count > 0 — it
- *        rendered for a turn whose ONLY phase-3 card was hidden behind the
- *        legacy "Show 1 more" budget (a legend for invisible cards). It
- *        now gates on at least one phase-3 card CURRENTLY RENDERED.
- *        ⚠ See the note on the C13 describe below: ROADMAP 2.211-② made
- *        that construction unreachable, and the pin was rewritten to say so
- *        rather than left passing for a reason that no longer exists.
- *   C4:  the pacing count span was role="status" nested inside the block
- *        container — a live region that replayed on unhide and
- *        double-announced with the toggle's accessible name. The sr-only
- *        text stays; the live-region role goes.
- */
+/** U7: citations scroll to their original visible targets; missing targets remain inert. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
@@ -97,7 +76,7 @@ afterEach(() => {
 })
 
 describe('C11 — citation to collapsed content reveals and scrolls', () => {
-  it('a citation targeting a pacing-collapsed phase-3 card expands the collapse and scrolls to it', () => {
+  it('U7: a citation scrolls to its visible phase-3 card beyond the retired cap', () => {
     // blocks[0] commentary with a citation at index 8 → blocks[7] (rc_7),
     // which sits behind the phase-3 pacing collapse (7 phase-3 cards,
     // default-expanded 6). Fixture resized for ROADMAP 2.211-② (was 5 cards
@@ -113,7 +92,7 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     ]
     render(<InlineBlocks blocks={blocks} />)
     // The target card is collapsed (not rendered).
-    expect(screen.queryByText('Review card 7')).not.toBeInTheDocument()
+    expect(screen.getByText('Review card 7')).toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: /citation 8/i }))
 
@@ -122,7 +101,7 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     expect(scrollSpy).toHaveBeenCalled()
   })
 
-  it('a citation targeting a budget-hidden block expands "Show more" and scrolls to it', () => {
+  it('U7: a citation scrolls to its visible brief beyond the retired cap', () => {
     // The 5th block (index 4, citation target 5) hides behind the legacy
     // per-turn budget of 4.
     //
@@ -140,7 +119,7 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     }
     const blocks: ConversationBlock[] = [commentary, fact, framing, brief, secondBrief]
     render(<InlineBlocks blocks={blocks} />)
-    expect(screen.queryByText('Second brief')).not.toBeInTheDocument()
+    expect(screen.getByText('Second brief')).toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: /citation 5/i }))
 
@@ -181,7 +160,7 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     fireEvent.click(screen.getByRole('button', { name: /citation 3/i }))
     expect(scrollSpy).toHaveBeenCalled()
     // The disclosure stays closed (rc_7 remains hidden).
-    expect(screen.queryByText('Review card 7')).not.toBeInTheDocument()
+    expect(screen.getByText('Review card 7')).toBeVisible()
   })
 })
 
@@ -229,14 +208,14 @@ describe('C13 — legend gates on a phase-3 card being CURRENTLY RENDERED', () =
 })
 
 describe('C4 — the pacing count is static sr-only text, not a nested live region', () => {
-  it('renders the collapsed-count text without role="status" (the toggle name already carries the count)', () => {
+  it('U7: no retired collapse count or extra live region', () => {
     // PX-B: 8 cards against the 3-point cap → 5 demoted. The summary COPY moved
     // with the composition; what this case pins — a static summary and NO live
     // region of InlineBlocks' own — is unchanged.
     const blocks: ConversationBlock[] = [1, 2, 3, 4, 5, 6, 7, 8].map(reviewCard)
     const { container } = render(<InlineBlocks blocks={blocks} />)
     // The sr-only summary text is still present…
-    expect(screen.getByText(/5 more supporting items available/i)).toBeInTheDocument()
+    expect(screen.queryByText(/more supporting items available/i)).toBeNull()
     // …but InlineBlocks contributes NO live region of its own.
     expect(container.querySelector('[role="status"]')).toBeNull()
     expect(container.querySelector('[aria-live]')).toBeNull()

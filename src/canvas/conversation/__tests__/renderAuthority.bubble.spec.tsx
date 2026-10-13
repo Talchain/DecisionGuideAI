@@ -13,7 +13,6 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
 import type { ConversationMessage, ConversationBlock } from '../types'
-import type { AnswerShape } from '../answerShape'
 
 const noop = async () => {}
 
@@ -79,17 +78,6 @@ describe('prose vs consent card', () => {
   })
 })
 
-describe('answer shape vs consent card', () => {
-  const answer: AnswerShape = {
-    headline: PLAN,
-    bullets: ['A supporting point.'],
-    detail: 'The long tail of the explanation.',
-  }
-
-
-
-})
-
 describe('the collector is fed only what the turn ACTUALLY renders', () => {
   const APPLIED = 'Added constraint: budget at most £250,000.'
   const PROPOSED = 'Proposing to add a constraint.'
@@ -141,8 +129,6 @@ describe('the collector is fed only what the turn ACTUALLY renders', () => {
 describe('duplicate sentence inside one disclosure (L-16, item 7)', () => {
   const ONLY_ONE_RUN =
     'There is only one analysis run so far, so there is nothing to compare yet.'
-
-
 
   it('NEVER empties a block: a wholly-duplicate commentary keeps its own text', () => {
     // Suppression removes PART of a block, never the whole of it. An empty card

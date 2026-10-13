@@ -113,7 +113,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-chip_1')).toBeNull()
   })
 
-  it('relabels the Run analysis chip to "Rerun" when analysis is stale', () => {
+  it('U17: preserves the Run label when analysis is stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips
@@ -122,9 +122,11 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-r1')
+    expect(chip).toHaveTextContent('Run analysis')
+    expect(chip).toHaveAccessibleName('Run analysis')
   })
 
-  it('relabels to "Rerun" when a fresh analysis is cannot-confirm after a local edit', () => {
+  it('U17: preserves the Run label when a fresh analysis is cannot-confirm after a local edit', () => {
     // The key production regression: before, the dead graph-hash stale flag never
     // fired, so a post-edit cannot-confirm state kept the rerun chip suppressed.
     setAnalysisState('cannot-confirm')
@@ -135,9 +137,11 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cc1')
+    expect(chip).toHaveTextContent('Run analysis')
+    expect(chip).toHaveAccessibleName('Run analysis')
   })
 
-  it('relabels to "Rerun" when CEE reports cannot-confirm freshness', () => {
+  it('U17: preserves the Run label when CEE reports cannot-confirm freshness', () => {
     setAnalysisState('cee-unknown')
     render(
       <SuggestedChips
@@ -146,6 +150,8 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cu1')
+    expect(chip).toHaveTextContent('Run analysis')
+    expect(chip).toHaveAccessibleName('Run analysis')
   })
 
   it('keeps (does NOT suppress) the run-analysis chip when complete but NO freshness verdict — V5 off, no readiness gate', () => {
@@ -174,7 +180,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
         onChipClick={vi.fn().mockResolvedValue(undefined)}
       />,
     )
-    const chip = screen.getByTestId('suggested-chip-n1')
   })
 
   it('does NOT touch non-run_analysis chips (current path is run_analysis-specific)', () => {
@@ -210,7 +215,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-legacy-1')).toBeNull()
   })
 
-  it('relabels a label-only "Run analysis" chip to "Rerun" when stale', () => {
+  it('U17: preserves a label-only Run chip when stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips
@@ -226,6 +231,8 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-legacy-2')
+    expect(chip).toHaveTextContent('Run analysis')
+    expect(chip).toHaveAccessibleName('Run analysis')
   })
 
   it('does NOT false-positive on conversational chips that mention analysis', () => {
@@ -266,7 +273,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-cee-fixture')).toBeNull()
   })
 
-  it('relabels the real CEE-fixture-shape chip to "Rerun" when stale', () => {
+  it('U17: preserves the CEE Rerun analysis label when stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips
@@ -282,6 +289,8 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cee-stale')
+    expect(chip).toHaveTextContent('Rerun analysis')
+    expect(chip).toHaveAccessibleName('Rerun analysis')
   })
 
   // Regex fallback — V4-legacy chips drop action_type but carry the
@@ -326,7 +335,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
   // 'ready'. Stale/cannot-confirm analysis can map to status !== 'ready', so
   // the chip was dropped upstream and the polish never saw it. The aiPanelV2
   // bypass keeps it alive to be relabelled.
-  it('V5-on stale: run_analysis survives readiness gate and is relabelled to "Rerun"', () => {
+  it('V5-on stale: run_analysis survives readiness gate with its producer label', () => {
     // Enable V5 so the readiness filter is active.
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
     // Stale analysis: complete + hash mismatch.
@@ -350,6 +359,8 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-v5-stale')
+    expect(chip).toHaveTextContent('Rerun analysis')
+    expect(chip).toHaveAccessibleName('Rerun analysis')
   })
 
   // Mirror: with V5 active AND CURRENT analysis (status=ready), the
@@ -439,6 +450,5 @@ describe('SuggestedChips — FF-off legacy parity (no polish)', () => {
         onChipClick={vi.fn().mockResolvedValue(undefined)}
       />,
     )
-    const chip = screen.getByTestId('suggested-chip-l1')
   })
 })

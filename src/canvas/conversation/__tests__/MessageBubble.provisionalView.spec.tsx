@@ -124,7 +124,7 @@ afterEach(() => cleanup())
 describe('C5: the provisional view is on the face of the reply, labelled, said once', () => {
   it('RED: a SHAPED withheld Run shows the view AT REST (never behind "Show more"), labelled, with its step', async () => {
     renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
-    expect(screen.getByTestId('message-answer-structured'), 'the served Run renders as a structured answer').toBeTruthy()
+    expect(screen.queryByTestId('message-answer-structured')).toBeNull()
     const block = screen.getByTestId('message-provisional-view')
     expect(flat(within(block).getByTestId('message-provisional-view-heading').textContent), 'the producer\'s sentence, verbatim').toBe(HEADING)
     expect(screen.queryByTestId('answer-detail'), 'at rest, the detail is closed: the view does not depend on it').toBeNull()
@@ -136,7 +136,7 @@ describe('C5: the provisional view is on the face of the reply, labelled, said o
   it('THIN UI: the producer\'s prose is never parsed or edited: body and detail are byte-identical with and without the sidecar', async () => {
     const withSide = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true }))
     const without = await messageFrom(withProvisional(servedRun(), { shaped: true, prose: true, sidecar: false }))
-    const open = () => { fireEvent.click(screen.getByTestId('answer-show-more')); return screen.getByTestId('answer-body').innerHTML }
+    const open = () => screen.getByTestId('message-body-text').innerHTML
     renderThread(withSide)
     const a = open()
     cleanup()

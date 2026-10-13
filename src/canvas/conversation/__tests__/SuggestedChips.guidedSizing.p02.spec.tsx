@@ -41,9 +41,9 @@ describe('P02 guided sizing in the chat chip row', () => {
     expect(screen.getByTestId('guided-sizing-progress').textContent).toBe(PROGRESS)
   })
 
-  it('CONTROL: a list for another model revision → the row is exactly today’s (wire order, cap 3, no progress line)', () => {
+  it('CONTROL: a list for another model revision → the row is exactly today’s (full wire order, no progress line)', () => {
     mount('ffffeeeeddddcccc')
-    expect(ids()).toEqual([pressId(2), 'other-1', 'other-2'])
+    expect(ids()).toEqual([pressId(2), 'other-1', 'other-2', 'other-3', pressId(1)])
     expect(screen.queryByTestId('guided-sizing-progress')).toBeNull()
   })
 
@@ -57,7 +57,7 @@ describe('P02 guided sizing in the chat chip row', () => {
   it('CONTROL (identity, not label): a chip worded like a press but with another id is not guided', () => {
     const impostor: ActionChip = { ...press(1), id: 'other-impostor' }
     mount('aaaabbbbccccdddd', [other(1), other(2), other(3), impostor])
-    expect(ids()).toEqual(['other-1', 'other-2', 'other-3'])
+    expect(ids()).toEqual(['other-1', 'other-2', 'other-3', 'other-impostor'])
     expect(screen.queryByTestId('guided-sizing-progress')).toBeNull()
   })
 })

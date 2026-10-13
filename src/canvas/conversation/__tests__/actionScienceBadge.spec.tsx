@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, renderHook, screen, within } from '@testing-library/react'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { ChatThread } from '../zones/ChatThread'
 import { actionGlyph, ACTION_BAR_FALLBACK_ICON } from '../actionBar/actionBarIcons'

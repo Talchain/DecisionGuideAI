@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 
 import { ChatThread } from '../zones/ChatThread'
 import { parseActionBar, type ActionBarV1 } from '../actionBar/actionBarContract'
@@ -15,7 +15,6 @@ import { useActionBarStore } from '../actionBar/actionBarStore'
 import { resetPressOfferClocks } from '../actionBar/pressOffer'
 import type { ActionChip, ConversationMessage } from '../types'
 
-const SCENARIO = 'scn-chat-bar'
 const dispatch = vi.hoisted(() => vi.fn())
 
 vi.mock('../../store', () => {
@@ -76,9 +75,6 @@ describe('the action bar in chat', () => {
     expect(screen.getByTestId(`suggested-chip-${NOT_ON_BAR.id}`)).toBeInTheDocument()
     expect(screen.queryByTestId('chat-action-bar')).toBeNull()
   })
-
-
-
 
   it('a bar that belongs to another scenario is not drawn here', () => {
     useActionBarStore.getState().setBar('another-scenario', BAR)

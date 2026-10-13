@@ -274,20 +274,21 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('&amp;')
     })
 
+    it('U9: preserves producer emoji and dashes without changing numeric text', () => {
+      const result = sanitizeMarkdown('🙂 Assumption — range 12–18%; estimate 0.25')
+      expect(result).toContain('🙂')
+      expect(result).toContain('—')
+      const rendered = document.createElement('div')
+      rendered.innerHTML = result
+      expect(rendered.textContent).toContain('12–18%')
+      expect(result).toContain('0.25')
+    })
+
     it('preserves unicode characters including CJK and emoji-adjacent symbols', () => {
       const result = sanitizeMarkdown('Unicode: 你好 café')
       expect(result).toContain('Unicode')
       expect(result).toContain('你好')
       expect(result).toContain('café')
-    })
-
-    it('strips emoji per conservative allowlist (policy from safeRichText)', () => {
-      // Note: safeRichText strips emoji intentionally (see EMOJI_RE). This is
-      // the contract change vs. the legacy renderer — documented here.
-      const result = sanitizeMarkdown('hello 🎉 world')
-      expect(result).toContain('hello')
-      expect(result).toContain('world')
-      expect(result).not.toContain('🎉')
     })
 
     it('handles malformed markdown without throwing', () => {

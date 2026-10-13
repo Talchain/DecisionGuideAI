@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo, useMemo, useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'

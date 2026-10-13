@@ -17,7 +17,7 @@
  * - XML escaping: labels/messages with &amp; &lt; &gt; render correctly
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import type { ActionChip } from '../types'

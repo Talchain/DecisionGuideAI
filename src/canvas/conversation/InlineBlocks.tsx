@@ -24,9 +24,6 @@ import type {
   ReviewCardBlock as ReviewCardBlockType,
   EvidenceBlock as EvidenceBlockType,
   FactEntry,
-  BlockAction,
-  ProposalReviewItem,
-  RelatedElementRef,
 } from './types'
 import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled, isCompactCoachingLinesEnabled } from '../../flags'
 import { trackEvent } from '../../lib/posthog'
@@ -601,7 +598,6 @@ function scrollToCitationTarget(target: Element): void {
 
 const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
-  assistantTextWordCount = 0,
   textOverride,
   onRevealHiddenBlocks,
   blockContainerRef,
@@ -657,8 +653,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
 
   // ---------------------------------------------------------------------------
   // Collapsible logic (v2 only)
-  // Default collapsed UNLESS assistant_text is thin (< 20 words), meaning the
-  // commentary IS the essential finding and must default to expanded.
+  // U7: commentary starts expanded, regardless of the reply length.
   // ---------------------------------------------------------------------------
   const defaultExpanded = true
   const [expanded, setExpanded] = useState(defaultExpanded)

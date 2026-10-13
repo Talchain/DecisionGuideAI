@@ -31,10 +31,6 @@ const answer: AnswerShape = {
   detail: 'DETAIL-TOKEN the long tail',
 }
 
-describe('MessageBubble — answer-shape (present)', () => {
-
-})
-
 describe('MessageBubble — answer-shape (absent → fallback, positive control)', () => {
   it('renders the full free-text content and no structured view when answerShape is absent', () => {
     render(<MessageBubble message={makeMsg()} onChipClick={noop} />)

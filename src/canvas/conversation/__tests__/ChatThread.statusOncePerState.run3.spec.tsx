@@ -8,12 +8,9 @@
  * one state (graph 115f6121…, run 15:37:51Z); 07 is a new one (graph 9673b6fc…, run 15:40:48Z) with the same status.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
 import served from './fixtures/run3-hiring-status-turns.json'
-import { ChatThread } from '../zones/ChatThread'
-import { parseAnswerShape, answerStateKeyOf } from '../answerShape'
-import { saveTranscript, loadTranscript, clearAllTranscripts } from '../utils/transcriptStore'
-import type { ConversationMessage } from '../types'
+import { answerStateKeyOf } from '../answerShape'
+import { clearAllTranscripts } from '../utils/transcriptStore'
 
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
@@ -46,43 +43,6 @@ const [T03, T04, T07] = served.turns as Turn[]
 const STATUS = T03._answer_shape.headline
 const ESTIMATES = T03._answer_shape.bullets[0]
 
-function reply(t: Turn, id: string, withState = true): ConversationMessage {
-  const answerStateKey = answerStateKeyOf(t)
-  return {
-    id, role: 'assistant', content: t.assistant_text, timestamp: new Date(),
-    answerShape: parseAnswerShape(t._answer_shape)!,
-    ...(withState && answerStateKey ? { answerStateKey } : {}),
-  } as ConversationMessage
-}
-const ask = (id: string, content: string) => ({ id, role: 'user', content, timestamp: new Date() }) as ConversationMessage
-
-function renderThread(messages: ConversationMessage[]) {
-  render(
-    <ChatThread
-      messages={messages}
-      isThinking={false}
-      longRunningHint={null}
-      nodeCount={1}
-      patchBlockStates={new Map()}
-      patchRejections={new Map()}
-      onChipClick={vi.fn().mockResolvedValue(undefined)}
-      onPatchAccept={vi.fn()}
-      onPatchDismiss={vi.fn()}
-      onFeedback={vi.fn()}
-      onRetry={vi.fn()}
-    />,
-  )
-  return screen.getAllByTestId('message-answer-structured').map(bubble => ({
-    headline: within(bubble).queryByTestId('answer-headline')?.textContent ?? null,
-    bullets: within(bubble).queryAllByRole('listitem').map(li => li.textContent),
-  }))
-}
-
-const THREAD = (withState = true) => [
-  ask('u1', 'Run it'), reply(T03, 'a03', withState),
-  ask('u2', 'What should I check?'), reply(T04, 'a04', withState),
-  ask('u3', 'Run again'), reply(T07, 'a07', withState),
-]
 
 describe('U2: CEE\'s repeated status is drawn once per model state', () => {
   it('CONTROL: 03 and 04 share one state, 07 is a new one, and all three open with the same status', () => {
@@ -98,9 +58,5 @@ describe('U2: CEE\'s repeated status is drawn once per model state', () => {
     expect(answerStateKeyOf(at('9673b6fc2adfbee3'))).toBe('9673b6fc2adfbee3|no-run')
     expect(answerStateKeyOf(at(undefined, '2026-10-12T15:40:48.373Z'))).toBeNull()
   })
-
-
-
-
 
 })

@@ -72,7 +72,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
-import { MAX_POINTS } from '../messageComposition'
 import type {
   ConversationBlock,
   GraphPatchBlock,
@@ -358,47 +357,6 @@ describe('a consent affordance is never collapsed', () => {
     expect(lineFor('co_a')).not.toBeNull()
     expect(screen.queryByTestId('coaching-line-patch_consent_1')).toBeNull()
     expect(screen.getByText(/Add a competitor-response factor/)).toBeVisible()
-  })
-})
-
-describe('the design case — a real analysis turn’s card count', () => {
-  /**
-   * ⭐⭐ TWELVE CARDS, WHICH SITS INSIDE THE OBSERVED 8–14 SPREAD (n=6).
-   *
-   * `MAX_POINTS = 3` stay top-level and nine are demoted behind the existing
-   * "Show N more". The point of this arm is that opening that disclosure now
-   * reveals nine LINES rather than nine walls — so the demoted tier is
-   * collapsed too, not only the top three. An implementation that collapsed
-   * only the top-level entries passes every arm above and fails here.
-   */
-  it('all twelve are lines — the three top-level ones and the nine behind Show more', () => {
-    const blocks = Array.from({ length: 12 }, (_, i) =>
-      coaching(i, { block_id: `co_${i}`, title: `Point ${i}` }),
-    )
-    renderBlocks(blocks)
-
-    for (let i = 0; i < MAX_POINTS; i++) {
-      expect(lineFor(`co_${i}`), `top-level card ${i} is not a line`).not.toBeNull()
-    }
-
-    fireEvent.click(screen.getByTestId('block-detail-toggle'))
-
-    for (let i = MAX_POINTS; i < 12; i++) {
-      expect(lineFor(`co_${i}`), `demoted card ${i} is not a line`).not.toBeNull()
-    }
-    // And every body is still closed — revealing the demoted tier reveals
-    // titles, not twelve paragraphs.
-    expect(screen.getByText('Coaching body 11')).not.toBeVisible()
-  })
-
-  it('the existing top-level cap is untouched — composition is not re-partitioned', () => {
-    const blocks = Array.from({ length: 12 }, (_, i) =>
-      coaching(i, { block_id: `co_${i}`, title: `Point ${i}` }),
-    )
-    renderBlocks(blocks)
-    // The 4th candidate is demoted, exactly as before this change.
-    expect(lineFor('co_3')).toBeNull()
-    expect(screen.getByTestId('block-detail-toggle')).toBeInTheDocument()
   })
 })
 

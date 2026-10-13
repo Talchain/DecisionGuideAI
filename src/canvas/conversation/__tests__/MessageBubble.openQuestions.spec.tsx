@@ -20,7 +20,7 @@
  *    turn, a user's own words, or a structured answer → today's render exactly.
  */
 import { describe, it, expect } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
 import type { ConversationMessage } from '../types'
 import {
@@ -30,7 +30,6 @@ import {
   splitServerOpenQuestions,
 } from '../serverOpenQuestions'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
-import b3Placement from './fixtures/b3-host-placement.local-wire.json'
 import served2054 from './fixtures/openai-route-open-questions-2054.served.json'
 import servedShaped from './fixtures/openai-route-open-questions-answer-shape.served.json'
 import served from './fixtures/openai-route-construction-reply.served.json'
@@ -38,7 +37,6 @@ import served from './fixtures/openai-route-construction-reply.served.json'
 const noop = async () => {}
 const BUILDS = Object.keys(served.replies) as Array<keyof typeof served.replies>
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length
-const bare = (s: string) => s.replace(/^- /gm, '').replace(/—/g, '-').replace(/\s+/g, '')
 const M = SERVER_OPEN_QUESTIONS_MARKER
 /** Rebuilds the reply from its parts, exactly as the producer joins them. */
 const rebuild = (s: { lead: string; questions: string; after: string }) =>
@@ -48,12 +46,6 @@ const rebuild = (s: { lead: string; questions: string; after: string }) =>
 const HELD_AS_CONTEXT =
   'No option changes Feature-release value, so I held it as fixed context rather than a lever — tell me if one of the options should change it.'
 
-/** P47: the panel opens on ONE question; 'Show 3 more', then 'View all', reveal the rest. */
-function revealAll() {
-  for (let i = 0; i < 3 && screen.queryByTestId('message-open-questions-more'); i++) {
-    fireEvent.click(screen.getByTestId('message-open-questions-more'))
-  }
-}
 
 function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
   return {
@@ -160,15 +152,6 @@ describe('splitServerOpenQuestions — fails open', () => {
   })
 })
 
-describe('MessageBubble — the served first reply at rest', () => {
-
-
-})
-
-describe('B3 host placement on the mounted chat face', () => {
-
-})
-
 describe('MessageBubble — fails open to today\'s render (controls)', () => {
   const served0 = served.replies.e39f6e0.assistant_text
 
@@ -219,9 +202,6 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
     expect(served2054.assistant_text).toMatch(/Ask me for the other 11\.$/)
   })
 
-
-
-
   it('reads the list from the parser sidecar; drops what is not a non-empty string; never invents one', () => {
     const withSidecar = (agent: unknown) => {
       const r = {} as Record<string | symbol, unknown>
@@ -245,32 +225,15 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
  */
 describe('open questions on a structured (answer-shape) reply', () => {
   const LIST = servedShaped.open_questions
-  const shaped = () => makeMsg({ content: servedShaped.assistant_text, answerShape: servedShaped.answer_shape as never, openQuestionList: LIST })
 
   it('PREMISE: the served detail carries the marker and the wire carries the list', () => {
     expect(servedShaped.answer_shape.detail).toContain(SERVER_OPEN_QUESTIONS_MARKER)
     expect(LIST.length).toBeGreaterThan(2)
   })
 
-
-
   it('CONTRAST: a structured reply whose detail has no marker keeps its detail and gets no toggle', () => {
     const plain = { ...servedShaped.answer_shape, detail: 'Only arithmetic here.' }
     render(<MessageBubble message={makeMsg({ content: 'x', answerShape: plain as never })} onChipClick={noop} />)
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
-})
-
-
-/**
- * P47 slice 1 (audit #12/#13): Show 1 → 'Show 3 more' → 'View all', and each question is a press that takes it up with
- * Olumi (the existing chip send route). Producer order; no typed action until CEE declares one.
- */
-describe('P47: one question first, then 3 more, then all; each question can be taken up in one press', () => {
-  const LIST = served2054.open_questions
-  const items = () => [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
-
-
-
-
 })
