@@ -100,7 +100,6 @@
  *     is identical on both forks, which is the whole point of the fold.
  */
 import { useId, type ReactElement } from 'react'
-import { DskClaimBadge } from './DskClaimBadge'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { ActionChip } from './ActionChip'
@@ -419,29 +418,6 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
           {freshnessNotice}
         </p>
       )}
-
-      {/*
-        GROUNDING, COMPACT ON THE FACE. The strength is what a reader needs at
-        a glance; the CLAIM TITLE — the part that makes the attribution
-        checkable against the bundle — is one row down in the disclosure. A
-        browser pass showed the full title inline pushed this card to eight
-        stacked rows and orphaned the separator mid-wrap, which is the exact
-        opposite of "low cognitive load by default". This compact form is also
-        the idiom `InspectorGuidanceSection` already ships, so the two
-        surfaces read as one.
-
-        Every visible string is the CANONICAL BUNDLE's, carried verbatim from
-        `data/dsk/v1.json` by CEE: here `evidence_strength`, and `claim_title`
-        in the disclosure. Nothing is authored in the UI except the static
-        label, which names the channel and makes no claim about the science.
-
-        ⚠ CEE #830's lesson: a sibling badge once rendered the MODEL'S OWN
-        PROSE under a label asserting the bundle's authority. So this must
-        never interpolate assistant text, never map an id to a friendly name
-        of its own, and never render a partial triple — the adapter admits all
-        three members or none.
-      */}
-      {claim && <DskClaimBadge claim={claim} testId={`${testIdPrefix}-dsk-provenance`} />}
 
       {block.target_refs.length > 0 && (
         <div

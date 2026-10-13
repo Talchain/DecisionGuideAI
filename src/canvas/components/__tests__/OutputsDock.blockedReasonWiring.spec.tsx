@@ -245,7 +245,10 @@ describe('OutputsDock → the blocked footer, through the real wiring', () => {
     )
 
     const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
-    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(screen.getByTestId('pre-analysis-v3-footer-headline').textContent).toBe('')
+    expect(screen.getByTestId('pre-analysis-v3-footer-subline').textContent).toBe(
+      BLOCKED_REASON_COPY.oneOption('Partner with a consultancy', true),
+    )
     expect(footer).toHaveTextContent(
       BLOCKED_REASON_COPY.oneOption('Partner with a consultancy', true),
     )

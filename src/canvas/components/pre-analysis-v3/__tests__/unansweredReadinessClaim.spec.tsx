@@ -259,7 +259,7 @@ describe('pre-analysis panel — an unanswered readiness check is not an availab
       expect(useReadinessStore.getState().readiness?.can_run_analysis).toBe(false)
 
       const footer = screen.getByTestId('pre-analysis-v3-footer')
-      expect(footer).toHaveTextContent(FOOTER_COPY.notReady)
+      expect(footer).not.toHaveTextContent('Not ready for analysis yet')
       expect(footer).not.toHaveTextContent(FOOTER_COPY.ready)
       expect(footer).not.toHaveTextContent(FOOTER_COPY.readinessPending)
     })

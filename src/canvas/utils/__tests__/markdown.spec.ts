@@ -77,13 +77,13 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('<span class="md-gap" aria-hidden="true"></span>')
     })
 
-    it('renders headings as <strong> (graceful degradation)', () => {
+    it('renders heading words as bold without raw markers', () => {
       // Note: mid-identifier digits (e.g. "H1") are NOT wrapped in md-number
       // — the lookbehind in convertInline excludes identifier-adjacent digits
       // so "opt_raise_59" and similar codes stay intact.
-      expect(sanitizeMarkdown('# Heading')).toContain('<strong>Heading</strong>')
-      expect(sanitizeMarkdown('## Subheading')).toContain('<strong>Subheading</strong>')
-      expect(sanitizeMarkdown('### Deep section')).toContain('<strong>Deep section</strong>')
+      expect(sanitizeMarkdown('# Heading')).toBe('<strong>Heading</strong>')
+      expect(sanitizeMarkdown('## Subheading')).toBe('<strong>Subheading</strong>')
+      expect(sanitizeMarkdown('### Deep section')).toBe('<strong>Deep section</strong>')
     })
 
     it('wraps standalone integers in <span class="md-number"> for tabular styling', () => {
@@ -240,6 +240,20 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).not.toContain('<pre>')
       expect(result).not.toContain('<blockquote>')
       expect(result).not.toMatch(/<h[1-6]\b/)
+    })
+  })
+
+  describe('readable tables retain the whole reply', () => {
+    it.each([
+      ['| A | B | C |\n|---|---|---|\n| one | | three |', 'A: one, B: , C: three'],
+      ['| A | B |\n|---|---|', 'A, B'],
+      ['| A | B |\n|---|---|\n| one |', 'A: one, B: '],
+      ['| A | B |\n|---|---|\n| one | two | extra |', 'A: one, B: two, extra'],
+    ])('keeps all column meanings: %s', (input, expected) => {
+      const rendered = document.createElement('div')
+      rendered.innerHTML = sanitizeMarkdown(input)
+      expect(rendered.textContent).toBe(expected)
+      expect(rendered.textContent).not.toContain('|')
     })
   })
 

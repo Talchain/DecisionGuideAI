@@ -1,26 +1,4 @@
-/**
- * aiPanelV2 UX polish — Run analysis chip suppression/relabel.
- *
- * Product rule (only when aiPanelV2 is ON):
- *   - no analysis exists                 → keep chip as-is ("Run analysis")
- *   - confirmed-current analysis exists  → SUPPRESS chip entirely
- *                                          (Analysis/readiness panel owns rerun)
- *   - stale / cannot-confirm analysis    → RELABEL to "Rerun"
- *
- * Decision keys off `results.status === 'complete'` + the shared freshness display
- * semantic (`changed` or `cannot_confirm`).
- * This replaces the legacy graph-hash stale flag (guard deleted 2026-07-16), whose production input
- * `_internal.graphHash` is never written — so the rerun affordance never appeared
- * after a graph edit even though the Results surface showed cannot-confirm.
- *
- * Detection covers both V2 chips (`action_type === 'run_analysis'`) and
- * legacy / prompt-style chips matched by the tolerant regex
- * `/^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i`.
- *
- * When aiPanelV2 is OFF, chips render unchanged (legacy parity).
- * Independent of the V5 readiness gate — this filter runs after the V5
- * filter, on whatever survives.
- */
+/** U17: producer labels survive freshness changes; K1/K2 Run gates remain. */
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -113,7 +91,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-chip_1')).toBeNull()
   })
 
-  it('names the existing-analysis control Rerun when analysis is stale', () => {
+  it('shows Rerun when analysis is stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips
@@ -124,9 +102,10 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     const chip = screen.getByTestId('suggested-chip-r1')
     expect(chip).toHaveTextContent(/^Rerun$/)
     expect(chip).toHaveAccessibleName('Rerun')
+    console.info('U17 DOM:', chip.outerHTML)
   })
 
-  it('names the existing-analysis control Rerun when a fresh analysis is cannot-confirm after a local edit', () => {
+  it('shows Rerun when a fresh analysis is cannot-confirm after a local edit', () => {
     // The key production regression: before, the dead graph-hash stale flag never
     // fired, so a post-edit cannot-confirm state kept the rerun chip suppressed.
     setAnalysisState('cannot-confirm')
@@ -141,7 +120,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(chip).toHaveAccessibleName('Rerun')
   })
 
-  it('names the existing-analysis control Rerun when CEE reports cannot-confirm freshness', () => {
+  it('shows Rerun when CEE reports cannot-confirm freshness', () => {
     setAnalysisState('cee-unknown')
     render(
       <SuggestedChips
@@ -215,7 +194,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-legacy-1')).toBeNull()
   })
 
-  it('names a label-only existing-analysis control Rerun when stale', () => {
+  it('shows Rerun for a label-only control when stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips
@@ -235,7 +214,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(chip).toHaveAccessibleName('Rerun')
   })
 
-  it('keeps label-only Run identity for host ownership, gating and dispatch when displayed as Rerun', () => {
+  it('keeps label-only Run identity for host ownership, gating and dispatch while presenting Rerun', () => {
     setAnalysisState('stale')
     const original = makeChip({
       id: 'label-only', action_type: undefined,
@@ -301,7 +280,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-cee-fixture')).toBeNull()
   })
 
-  it('names the CEE existing-analysis control Rerun when stale', () => {
+  it('shows Rerun when stale', () => {
     setAnalysisState('stale')
     render(
       <SuggestedChips

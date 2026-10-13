@@ -199,34 +199,6 @@ describe('V5CoachingBlock — evidence channel (PR3)', () => {
     expect(screen.getByTestId('v5-coaching-title')).toHaveTextContent(BASE.title)
   })
 
-  /**
-   * The grounding is SPLIT by design: strength on the face (what a reader
-   * needs at a glance), the verifiable claim TITLE one row down inside the
-   * disclosure. A browser pass showed the full title inline made the card
-   * eight rows deep and orphaned the separator mid-wrap. Both halves are
-   * asserted — here and in the disclosure block below — so the split cannot
-   * quietly become a drop.
-   */
-  it('grounds the card on its face with the evidence strength and the claim id', () => {
-    render(<V5CoachingBlock block={{ ...BASE, dsk_claim_provenance: CLAIM }} />)
-    const badge = screen.getByTestId('v5-coaching-dsk-provenance')
-    expect(badge).toHaveAttribute('data-dsk-claim-id', 'DSK-B-003')
-    expect(badge).toHaveAttribute('data-dsk-evidence-strength', 'strong')
-    expect(badge).toHaveAttribute('data-dsk-protocol-id', 'DSK-P-002')
-    expect(badge).toHaveTextContent('strong evidence')
-  })
-
-  it('binds the strength to the producer value, not a constant', () => {
-    render(
-      <V5CoachingBlock
-        block={{ ...BASE, dsk_claim_provenance: { ...CLAIM, evidence_strength: 'weak' } }}
-      />,
-    )
-    const badge = screen.getByTestId('v5-coaching-dsk-provenance')
-    expect(badge).toHaveTextContent('weak evidence')
-    expect(badge).not.toHaveTextContent('strong evidence')
-  })
-
   it('says plainly that a card is NOT grounded, rather than leaving a blank', () => {
     render(<V5CoachingBlock block={BASE} />)
     // No badge...
@@ -321,7 +293,7 @@ describe('V5CoachingBlock — the bias_signal variant keeps every signal', () =>
     expect(screen.getByTestId('bias-signal-card-signal')).toHaveTextContent(
       'Your brief anchors on the first figure you wrote.',
     )
-    expect(screen.getByTestId('bias-signal-card-dsk-provenance')).toHaveTextContent('strong evidence')
+    expect(screen.queryByTestId('bias-signal-card-dsk-provenance')).toBeNull()
     expect(screen.getByTestId('bias-signal-card-details')).toHaveTextContent(CLAIM.claim_title)
   })
 })

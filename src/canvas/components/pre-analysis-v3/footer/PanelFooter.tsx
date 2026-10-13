@@ -16,6 +16,7 @@
  * for the ladder, the measurement, and the one arm the surfaces do NOT share.
  */
 
+import { useAnalysisReadinessAuthority } from '../../../state/analysisStateSelector'
 import { memo } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '../../../../components/ui'
@@ -72,6 +73,7 @@ export const PanelFooter = memo(function PanelFooter({
   runOnRecord = false,
   savedRunUnconfirmed = false,
 }: PanelFooterProps) {
+  const analysisReadiness = useAnalysisReadinessAuthority()
   const disabled = isAnalysing || !canRun
 
   // ⭐ ONE LADDER, TWO SURFACES. Everything this used to decide inline — the
@@ -81,6 +83,7 @@ export const PanelFooter = memo(function PanelFooter({
   // one arm a surface with a `PreAnalysisModel` can say more about than a
   // surface without one.
   const display = deriveReadinessDisplay({
+    currentBlockerMessage: analysisReadiness?.blockers[0]?.message,
     readinessCheck,
     isAnalysing,
     canRun,
