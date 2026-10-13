@@ -236,7 +236,7 @@ export const MessageBubble = memo(function MessageBubble({
   // ROADMAP 1.42: Show-reasoning progressive disclosure — collapsed by default.
   const [reasoningExpanded, setReasoningExpanded] = useState(false)
 
-  // Freshness pill: derive from the first graph_patch block whose
+  // Freshness pill: stale narration first, otherwise the first graph_patch block whose
   // analysis_ready.freshness is 'stale' or 'unknown'. Fresh/none/absent → no pill.
   // User messages and the streaming-thinking placeholder bypass this branch.
   // Verdict semantics: a 'stale' verdict whose own payload carries IDENTICAL
@@ -244,8 +244,13 @@ export const MessageBubble = memo(function MessageBubble({
   // factual "model changed" pill; it downgrades to the cannot-confirm
   // 'unknown' pill (same rule as the Results freshness strip).
   const stalenessFreshness = useMemo<StalenessFreshness | null>(() => {
-    if (isUser || !message.blocks) return null
-    for (const block of message.blocks) {
+    if (isUser) return null
+    // Stale resends carry committed prose without result blocks. A stale status
+    // alone cannot support the stronger "model changed" claim.
+    // A stale narration carries no graph-hash evidence, so it can only say "cannot confirm": a new Run on an
+    // unchanged model has a different key with identical hashes (PL #94 6135017311, 06:56Z).
+    if (message.narration?.status === 'stale') return 'unknown'
+    for (const block of message.blocks ?? []) {
       if (block.type !== 'graph_patch') continue
       const ar = (block as GraphPatchBlock).analysis_ready as
         | { freshness?: string; graph_hash_at_run?: unknown; current_graph_hash?: unknown }
@@ -259,7 +264,7 @@ export const MessageBubble = memo(function MessageBubble({
       if (f === 'unknown') return f
     }
     return null
-  }, [isUser, message.blocks])
+  }, [isUser, message.blocks, message.narration])
 
   // Streaming with no text yet — show thinking indicator placeholder
   if (isStreaming && !message.content && !hasToolLoading) {

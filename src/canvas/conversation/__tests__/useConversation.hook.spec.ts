@@ -3018,6 +3018,19 @@ describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; 
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
   })
 
+  it.each(['', 'rk_old'])('a stale resend keeps committed text and narration with key "%s", without result blocks or an explain request', async runKey => {
+    mockCallV5Turn.mockReset()
+    mockCallV5Turn.mockResolvedValueOnce(runResponse({ status: 'stale', run_key: runKey }))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await flush()
+    const reply = result.current.messages.filter(m => m.role === 'assistant').at(-1)!
+    expect(reply.content).toBe('Run complete.')
+    expect(reply.narration).toEqual({ status: 'stale', runKey })
+    expect(reply.blocks ?? []).toEqual([])
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
   it('⛔ a ready explanation for a run_key that is not the latest Run is dropped', async () => {
     mockCallV5Turn.mockReset()
     mockCallV5Turn

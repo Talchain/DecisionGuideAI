@@ -6387,6 +6387,8 @@ export function useConversation(): UseConversationReturn {
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),
+            // Keep stale narration even with an empty key and no result blocks:
+            // the existing freshness pill must disclose the unknown identity.
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(actionScience.success ? { actionScience: actionScience.data } : {}),

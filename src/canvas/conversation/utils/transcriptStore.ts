@@ -405,7 +405,9 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
     ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
-    ...(s.narration && typeof s.narration.runKey === 'string' && s.narration.runKey &&
+    // A 'stale' narration may carry an empty key (original Run unknown, U1); every other status needs a real key.
+    ...(s.narration && typeof s.narration.runKey === 'string'
+      && (s.narration.runKey.trim() !== '' || (s.narration.status === 'stale' && s.narration.runKey === '')) &&
       ['pending', 'ready', 'stale', 'unavailable'].includes(s.narration.status)
       ? { narration: { status: s.narration.status as 'pending' | 'ready' | 'stale' | 'unavailable', runKey: s.narration.runKey } }
       : {}),
