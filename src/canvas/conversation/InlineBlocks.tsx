@@ -46,6 +46,8 @@ import {
   shouldPromoteRunTurnCard,
   turnDeliversNarrativeAsTypedCard,
 } from './messageComposition'
+import { CoachingLine, planCoachingLines } from './CoachingLine'
+import type { LinePlan } from './CoachingLine'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -205,16 +207,42 @@ export const InlineBlocks = memo(function InlineBlocks({
   // this container only, so a citation lands in its own turn or nowhere.
   const blockContainerRef = useRef<HTMLDivElement>(null)
 
+  const consentActionIndex = consentPending ? firstPromotableActionIndex(blocks) : -1
+  const consentLinePlan = useMemo(
+    () => consentPending ? planCoachingLines(blocks, { consentPending }) : new Map<ConversationBlock, LinePlan>(),
+    [blocks, consentPending],
+  )
   const promotedActionIndex = shouldPromoteRunTurnCard({ consentPending }) ? firstPromotableActionIndex(blocks) : -1
 
   const renderEntry = (index: number) => {
     const block = blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
-    // U7 keeps every coaching body expanded, including while consent is pending.
-    // Only the action is disclosed when it has not earned promotion.
+    // U7 retires general compaction. The consent turn still owns its next action:
+    // its run coaching stays disclosed, live and after restoring consentOffered.
+    const linePlan = consentLinePlan.get(block)
+    const consentLine = index === consentActionIndex && linePlan?.collapsible === true
     const actionDisclosure = block.type === 'v5_coaching' && Boolean(block.action_label && block.action_prompt)
-      && index !== promotedActionIndex
-    const showBadgeDot = badgeDotClass !== null
+      && index !== promotedActionIndex && !consentLine
+    const showBadgeDot = badgeDotClass !== null && !consentLine
+    const card = (
+      <BlockRenderer
+        block={block}
+        suppressHeader={consentLine}
+        discloseAction={actionDisclosure}
+        turnId={turnId}
+        patchBlockStates={patchBlockStates}
+        patchRejections={patchRejections}
+        onPatchAccept={onPatchAccept}
+        onPatchDismiss={onPatchDismiss}
+        onArtefactMessage={onArtefactMessage}
+        onProposalConfirm={onProposalConfirm}
+        onHeldProposalSettle={onHeldProposalSettle}
+        assistantTextWordCount={assistantTextWordCount}
+        narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
+        isLatestAssistantTurn={isLatestAssistantTurn}
+        blockContainerRef={blockContainerRef}
+      />
+    )
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
       // matches this, so a citation still resolves after demotion.
@@ -226,22 +254,9 @@ export const InlineBlocks = memo(function InlineBlocks({
         {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
       >
         {showBadgeDot && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
-        <BlockRenderer
-          block={block}
-          discloseAction={actionDisclosure}
-          turnId={turnId}
-          patchBlockStates={patchBlockStates}
-          patchRejections={patchRejections}
-          onPatchAccept={onPatchAccept}
-          onPatchDismiss={onPatchDismiss}
-          onArtefactMessage={onArtefactMessage}
-          onProposalConfirm={onProposalConfirm}
-          onHeldProposalSettle={onHeldProposalSettle}
-          assistantTextWordCount={assistantTextWordCount}
-          narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
-          isLatestAssistantTurn={isLatestAssistantTurn}
-          blockContainerRef={blockContainerRef}
-        />
+        {consentLine ? (
+          <CoachingLine block={block} disambiguator={linePlan.disambiguator}>{card}</CoachingLine>
+        ) : card}
       </div>
     )
   }

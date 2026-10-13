@@ -4,7 +4,7 @@
  * Each chip fades in + slides up with 70ms delay between.
  * 0-3 chips (ruled doctrine D-K, closed 15 Jul: render up to 3 when CEE
  * offers 3; render none when CEE offers none — never fabricate a filler
- * chip; labels render verbatim as sent by CEE). Chip base: bg-panel, border
+ * chip; non-run labels render verbatim as sent by CEE). Chip base: bg-panel, border
  * border-panel-border, hover:bg-panel-hover. Role metadata preserved via
  * data-chip-role and aria-label for styling/accessibility.
  *
@@ -91,7 +91,7 @@ export function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * Product rule for the run-analysis affordance under aiPanelV2:
  *   - no analysis exists            → keep chip as-is ("Run analysis")
  *   - confirmed-current analysis    → suppress chip entirely
- *   - stale / cannot-confirm        → keep the producer label (may bypass the V5
+ *   - stale / cannot-confirm        → name the control Rerun (may bypass the V5
  *                                     readiness gate — a prior analysis exists and
  *                                     a rerun re-derives inputs from the graph)
  *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
@@ -166,6 +166,7 @@ function disclosesDetail(chip: ActionChip): boolean {
 interface HeldChipRow {
   chips: ActionChip[]
   visible: ActionChip[]
+  showRerunLabel: boolean
   runGateClosed: boolean
   runGateReason: string | undefined
   guidedProgressLine: string | undefined
@@ -308,8 +309,8 @@ export function SuggestedChips({
   const v5Active = isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
   // Compute the run-analysis product state ONCE, then both the V5
-  // readiness gate (below) AND the polish-map step downstream branch on
-  // the same verdict. Freshness admits a rerun without rewriting CEE copy.
+  // readiness gate (below) AND the presentation step downstream branch on
+  // the same verdict. Freshness identifies an existing analysis that can be rerun.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
     ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
@@ -414,7 +415,7 @@ export function SuggestedChips({
     }
   }
 
-  // Freshness controls admission, while the producer owns the visible chip label.
+  // Freshness controls admission; keep original chips for routing and host ownership.
   const polished = aiPanelV2On
     ? supported.filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
     : supported
@@ -473,6 +474,7 @@ export function SuggestedChips({
   const liveRow: HeldChipRow = {
     chips,
     visible: visibleNow,
+    showRerunLabel: runAnalysisPolish === 'allow-rerun',
     runGateClosed: runGateClosedNow,
     runGateReason: runGateReasonNow,
     guidedProgressLine: guidedProgressLineNow,
@@ -480,7 +482,7 @@ export function SuggestedChips({
   if (!isThinking || heldRowRef.current === null || heldRowRef.current.chips !== chips) {
     heldRowRef.current = liveRow
   }
-  const { visible, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
+  const { visible, showRerunLabel, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
@@ -577,7 +579,9 @@ export function SuggestedChips({
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
-          const baseLabel = chip.label
+          // Presentation only: rewriting a label-only chip can erase the identity
+          // the run gate and host detector need. Freeze this verdict with the row.
+          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary
@@ -599,7 +603,7 @@ export function SuggestedChips({
           // Deliberately the accessible name + `title`, NOT a new visible row:
           // this file's chip grammar is owned by `CHIP_CLASS`, and a jsdom
           // suite cannot see a pixel, so a layout change here would be an
-          // unmeasured one. The visible text stays `chip.label` exactly.
+          // unmeasured one. Only the existing-analysis Run control uses the shared Rerun name.
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
           // ⭐ A RESEARCH CONTROL SHOWS WHAT IT SENDS (CEE #2042). Pressing it sends
@@ -654,7 +658,7 @@ export function SuggestedChips({
               data-testid={`suggested-chip-${chip.id}`}
               data-chip-role={chip.role ?? undefined}
             >
-              {chip.label}
+              {baseLabel}
             </button>
           )
         })}

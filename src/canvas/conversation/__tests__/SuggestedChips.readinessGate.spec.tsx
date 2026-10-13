@@ -217,7 +217,7 @@ describe('SuggestedChips readiness gate', () => {
 })
 
 // The aiPanelV2 'allow-rerun' verdict bypasses the readiness gate so a stale /
-// cannot-confirm analysis can still offer the producer's Run chip. A completed analysis with NO
+// cannot-confirm analysis can still offer Rerun. A completed analysis with NO
 // freshness verdict must NOT get that bypass (there is no rerunnable analysis —
 // a click would fall back to a conversation turn), while a real cannot-confirm
 // verdict (rerun-after-edit) still must.
@@ -276,7 +276,7 @@ describe('SuggestedChips readiness gate — complete results, no freshness verdi
     )
     const chip = screen.getByTestId('suggested-chip-cc')
     expect(chip).toBeInTheDocument()
-    expect(chip).toHaveTextContent(/^\s*Run analysis\s*$/i)
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
   })
 })
 

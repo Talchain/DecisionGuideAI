@@ -27,7 +27,7 @@
  * untouched, the real constant decides — which is now the ON arm.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import fragileLinkFixture from './fixtures/run-turn-coaching-fragile-link.producer-v3.json'
@@ -502,11 +502,17 @@ describe('ONE REAL NEXT ACTION — a turn that asks for consent keeps the run ca
     expect(planCoachingLines(blocks, { consentPending: false }).get(blocks[3])?.collapsible).toBe(false)
   })
 
-  it('U7: with consent pending the coaching still renders expanded', () => {
+  it('with consent pending the run coaching stays disclosed; consent owns the next action', () => {
     installRun(RUN_COMPUTED_AT)
     render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} consentPending />)
-    expect(fragileCard()).toBeVisible()
+    expect(fragileCard()).not.toBeVisible()
     expect(screen.queryByTestId('block-detail-toggle')).toBeNull()
-    expect(screen.queryByTestId(`coaching-line-${FRAGILE_ID}`)).toBeNull()
+    const line = screen.getByTestId(`coaching-line-${FRAGILE_ID}`)
+    expect(line).not.toHaveAttribute('open')
+    expect(line).toContainElement(fragileCard())
+    const summary = screen.getByTestId(`coaching-line-summary-${FRAGILE_ID}`)
+    expect(summary.tagName).toBe('SUMMARY')
+    fireEvent.click(summary)
+    expect(fragileCard()).toBeVisible()
   })
 })
