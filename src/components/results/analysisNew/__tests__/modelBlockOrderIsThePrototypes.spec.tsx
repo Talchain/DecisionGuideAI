@@ -43,7 +43,7 @@ afterEach(() => {
 })
 
 describe('the tab mounts the model block in the prototype’s order', () => {
-  it('census → detail → "N to review" → success line → review tool', () => {
+  it('Goal row → census → detail → "N to review" → review tool', () => {
     render(
       <AnalysisNewTabBody
         resultsSectionData={openStrategicChallenge()}
@@ -66,7 +66,11 @@ describe('the tab mounts the model block in the prototype’s order', () => {
     const detail = screen.getByTestId('analysis-new-model-strip-detail')
     expect(before(rows, detail), 'census before the detail').toBe(true)
     expect(before(detail, toggle), 'the detail sits directly under the shapes (Paul, 1 Oct 2026)').toBe(true)
-    expect(before(toggle, success), '"N to review" before the success line').toBe(true)
-    expect(before(success, review), 'the success line before the review tool').toBe(true)
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The success target is the Goal row, inside the
+    // checklist above the census, so it precedes the detail, "N to review" and the review tool.
+    expect(success).toHaveAttribute('data-kind', 'goal')
+    expect(rows.contains(success), 'the Goal row is a row of the checklist').toBe(true)
+    expect(before(success, detail), 'the Goal row before the detail').toBe(true)
+    expect(before(toggle, review), '"N to review" before the review tool').toBe(true)
   })
 })

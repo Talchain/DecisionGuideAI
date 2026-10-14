@@ -243,7 +243,7 @@ describe('placement and routing — census → utilities → success line → re
       />,
     )
 
-  it('the detail sits directly under the shapes, before "N to review", the success line and the review tool', () => {
+  it('the detail sits directly under the shapes, before "N to review" and the review tool; the Goal row sits above', () => {
     renderWithReview()
     fireEvent.click(mark('r1'))
     fireEvent.click(screen.getByTestId(`${RID}-toggle`))
@@ -251,8 +251,12 @@ describe('placement and routing — census → utilities → success line → re
     const success = screen.getByTestId(`${TID}-target`)
     const review = screen.getByTestId(`${RID}-item`)
     expect(before(detail, screen.getByTestId(`${RID}-toggle`))).toBe(true)
-    expect(before(screen.getByTestId(`${RID}-toggle`), success)).toBe(true)
-    expect(before(success, review)).toBe(true)
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The success target is the checklist's Goal
+    // row, above the census, so it precedes the detail; "N to review" still precedes the review tool.
+    expect(success).toHaveAttribute('data-kind', 'goal')
+    expect(screen.getByTestId(`${TID}-rows`).contains(success)).toBe(true)
+    expect(before(success, detail)).toBe(true)
+    expect(before(screen.getByTestId(`${RID}-toggle`), review)).toBe(true)
   })
 
   it('⭐ a mark about a node the queue holds opens the REVIEW TOOL at that item, and no detail', () => {

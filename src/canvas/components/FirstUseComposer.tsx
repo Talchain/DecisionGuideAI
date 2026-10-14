@@ -624,7 +624,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   return createPortal(
     <div
       role="dialog"
-      aria-label="Describe your decision"
+      aria-label="Write your brief"
       data-testid="first-use-composer"
       className="fixed flex flex-col items-center"
       style={{

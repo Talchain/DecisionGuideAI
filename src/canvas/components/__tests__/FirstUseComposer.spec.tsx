@@ -411,7 +411,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     expect(screen.queryByText('What are you deciding?')).toBeNull()
     // The dialog still names itself for accessibility.
     const dialog = screen.getByTestId('first-use-composer')
-    expect(dialog.getAttribute('aria-label')).toBe('Describe your decision')
+    expect(dialog.getAttribute('aria-label')).toBe('Write your brief')
   })
 
   it('renders the Olumi logo above the composer', () => {
@@ -806,7 +806,7 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     render(<FirstUseComposer />, { wrapper: Wrapper })
 
     expect(screen.queryByTestId('starter-decisions')).toBeNull()
-    expect(screen.queryByText(/a real decision Olumi has modelled/i)).toBeNull()
+    expect(screen.queryByText(/a real model Olumi has built/i)).toBeNull()
     // The bite, bound by identity to a real starter id. The previous version of
     // this test asserted `plotTemplatesSpy` was never called — but P1-2 stopped
     // the strip fetching a template list at all, so that assertion had decayed

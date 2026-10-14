@@ -234,7 +234,11 @@ export interface SuccessTargetLineProps {
    * ⛔ ONLY THE PRESENTATION DIFFERS. Both variants call the same `commit`,
    * `sendWordsToOlumi` and `deferTarget`, so the write path cannot fork.
    */
-  variant?: 'inspector' | 'reasoning'
+  variant?: 'inspector' | 'reasoning' | 'checklist'
+  /** `checklist` only: the goal's own label, shown before its state. */
+  goalLabel?: string | null
+  /** `checklist` only: Olumi inferred this goal (`strip.provisionalGoalLabel`). */
+  provisional?: boolean
   /** A resolving canvas control opens the numeric form immediately, through the same seeding path as a press. */
   openOnMount?: boolean
 }
@@ -250,6 +254,8 @@ export function SuccessTargetLine({
   divider = true,
   variant = 'inspector',
   openOnMount = false,
+  goalLabel = null,
+  provisional = false,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -657,17 +663,22 @@ export function SuccessTargetLine({
     setEditScenarioId(authority.captureScenarioId())
   }
 
-  if (variant === 'reasoning') {
+  const onToggleEditor = changeGoal
+    ? openHelpDefineSuccess
+    : () => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))
+
+  if (variant === 'reasoning' || variant === 'checklist') {
+    const Row = variant === 'checklist' ? ChecklistGoalRow : ReasoningSuccessRow
     return (
-      <ReasoningSuccessRow
+      <Row
         testId={testId}
         shownText={shownText}
         unexpressible={unexpressible}
         editing={editing}
-        onToggleEditor={changeGoal
-          ? openHelpDefineSuccess
-          : () => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))}
+        onToggleEditor={onToggleEditor}
         onAsk={openHelpDefineSuccess}
+        goalLabel={goalLabel}
+        provisional={provisional}
         form={
           editing ? (
             <ReasoningSuccessForm
@@ -1067,6 +1078,8 @@ function ReasoningSuccessRow({
   onToggleEditor: () => void
   onAsk: () => void
   form: ReactNode
+  goalLabel?: string | null
+  provisional?: boolean
 }) {
   return (
     <div data-testid={testId} data-variant="reasoning" className="mt-1">
@@ -1102,6 +1115,87 @@ function ReasoningSuccessRow({
       </div>
       {form}
     </div>
+  )
+}
+
+/** The Goal row's state when no target is stated. */
+const NEEDS_TARGET = 'needs a target'
+/** The Goal row's state when Olumi inferred the goal (`strip.provisionalGoalLabel`). */
+const PROVISIONAL_STATE = 'provisional'
+
+/**
+ * Paul 14 Oct 2026: one checklist — Decision, Goal, then the census; every row marker · name · state · ✎ ✦.
+ * The Goal row of `ModelStrip`'s census grid: three grid cells (label, value · state, ✎ ✦) and the same editor
+ * form `ReasoningSuccessRow` opens, spanning the grid. The ✎ and ✦ are that row's own handlers.
+ */
+function ChecklistGoalRow({
+  testId,
+  shownText,
+  unexpressible,
+  editing,
+  onToggleEditor,
+  onAsk,
+  form,
+  goalLabel = null,
+  provisional = false,
+}: {
+  testId: string
+  shownText: string | null
+  unexpressible: boolean
+  editing: boolean
+  onToggleEditor: () => void
+  onAsk: () => void
+  form: ReactNode
+  goalLabel?: string | null
+  provisional?: boolean
+}) {
+  const state = provisional
+    ? PROVISIONAL_STATE
+    : shownText ?? (unexpressible ? COPY.successTarget.unexpressible : NEEDS_TARGET)
+  const [wrapped, setWrapped] = useState(false)
+  return (
+    <>
+      <li role="listitem" className="contents" data-testid={testId} data-variant="checklist" data-kind="goal">
+        <span className="flex min-h-7 items-center gap-1 px-1 py-0.5 min-w-0">
+          <Target className={`${icon('inline')} shrink-0 text-text-light`} aria-hidden="true" />
+          <span className={`${typography.panelMeta} text-text-light truncate`}>Goal</span>
+        </span>
+        {/* One clipped line like the Decision row; a click shows it whole. */}
+        <button
+          type="button"
+          onClick={() => setWrapped((v) => !v)}
+          aria-expanded={wrapped}
+          title={goalLabel ? `${goalLabel} · ${state}` : state}
+          className={`${typography.panelBody} text-text-body block w-full min-w-0 py-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            wrapped ? 'whitespace-normal break-words' : 'truncate'
+          }`}
+          data-testid={`${testId}-text`}
+        >
+          {goalLabel ? `${goalLabel} ` : null}
+          <span
+            className="text-text-light"
+            data-testid={shownText !== null && !provisional ? `${testId}-value` : `${testId}-none`}
+          >
+            {goalLabel ? `· ${state}` : state}
+          </span>
+        </button>
+        <span className="flex items-center shrink-0 justify-self-end">
+          <PanelIconButton
+            Icon={Pencil}
+            label={COPY.successTarget.describeSuccess}
+            expanded={editing}
+            onClick={onToggleEditor}
+            testId={`${testId}-edit`}
+          />
+          <PanelIconButton ai label={ASK_DEFINE_SUCCESS_LABEL} onClick={onAsk} testId={`${testId}-ask`} />
+        </span>
+      </li>
+      {form ? (
+        <li role="listitem" className="col-span-3 min-w-0">
+          {form}
+        </li>
+      ) : null}
+    </>
   )
 }
 

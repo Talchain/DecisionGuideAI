@@ -30,7 +30,7 @@ const LINKS = [
   { id: 'e-18', from: 'revenue_lost_to_trial_abandonment', to: 'quarterly_revenue' },
 ] as const
 const EXAMPLE_COPY =
-  'Example figure. The example decision comes with this strength so you can see a Run; change it to see how much it matters.'
+  'Example figure. The example model comes with this strength so you can see a Run; change it to see how much it matters.'
 const EXAMPLE_WHY =
   'This is an example figure, not a figure about your situation. Change it to see how much it matters.'
 const WRONG_AUTHOR = /Olumi[’']s estimate|from your brief|your figure|Confirmed by you/

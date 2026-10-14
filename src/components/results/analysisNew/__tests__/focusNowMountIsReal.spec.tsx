@@ -119,7 +119,11 @@ describe('Focus Now is not mounted on the Reasoning tab (V2 prototype, 25 Sep)',
     expect(nudge(DEFINE_SUCCESS_ID)).toBeNull()
     expect(screen.queryByTestId('focus-now-panel')).toBeNull()
     const row = screen.getByTestId('analysis-new-model-strip-target')
-    expect(row).toHaveTextContent('What would success look like?')
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The open strip's Goal row states the gap
+    // ("needs a target") where the separate "What would success look like?" row used to ask it.
+    expect(row).toHaveAttribute('data-kind', 'goal')
+    expect(screen.getByTestId('analysis-new-model-strip-target-none')).toHaveTextContent(/^needs a target$/)
+    expect(row).not.toHaveTextContent('What would success look like?')
     expect(
       within(row).getByRole('button', { name: 'Describe success in words or set an optional target' }),
     ).toBeInTheDocument()

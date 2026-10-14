@@ -149,6 +149,8 @@ export interface ModelReviewToolProps {
   request?: ReviewToolRequest | null
   /** Told which node ids the queue holds an item about, whenever that changes. */
   onQueueTargets?: (ids: readonly string[]) => void
+  /** `ModelStrip`'s Decision row carries ✎ (brief) and ✦ (framing) and hosts the brief form; this row shows only the count. */
+  framingActsInChecklist?: boolean
   testId?: string
 }
 
@@ -162,6 +164,7 @@ export function ModelReviewTool({
   successSlot = null,
   request = null,
   onQueueTargets,
+  framingActsInChecklist = false,
   testId = 'analysis-new-review',
 }: ModelReviewToolProps) {
   const showToast = useShowToastSafe()
@@ -504,6 +507,7 @@ export function ModelReviewTool({
           </span>
         )}
         {/* ✎ before ✦, the panel's one order (the success line below and the picked mark's detail), 8 Oct 2026. */}
+        {framingActsInChecklist ? null : (
         <span className="flex items-center gap-px">
           <span ref={briefPencilRef} className="inline-flex">
             <PanelIconButton
@@ -521,9 +525,10 @@ export function ModelReviewTool({
             testId={`${testId}-ask-framing`}
           />
         </span>
+        )}
       </div>
 
-      {briefOpen ? (
+      {briefOpen && !framingActsInChecklist ? (
         <BriefEditForm
           onAsk={onAsk}
           onClose={closeBrief}
