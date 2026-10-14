@@ -474,10 +474,12 @@ describe('the witnessed defect — following the advice removes the control', ()
     // is what this test exists for.
     const barSentences = Array.from(barReason.querySelectorAll('li')).map(li => li.textContent ?? '')
     expect(barSentences).toEqual(renderedSentences)
-    // …and the JOIN is still pinned, on the surface that still uses one: the
-    // disabled control's `title` (asserted below) is `display.subline`, the
-    // producer's exact join. Nothing is truncated or summarised by the split.
-    expect(barSentences.join(' ')).toBe(WITNESSED_REASON)
+    // …and the JOIN is still pinned. The headline is the first blocker's own
+    // message, so its line is not listed again beneath it (marketing post3011,
+    // `readinessDisplay.ts`): the headline THEN the list is the producer's exact
+    // join, so a dropped, doubled or re-ordered sentence still REDs here. The
+    // disabled control's `title` (asserted below) keeps the whole join.
+    expect([fourBlockers().blockers[0]!.message, ...barSentences].join(' ')).toBe(WITNESSED_REASON)
 
     // …and a run control the user can see the state of, still honest.
     const barAnalyse = screen.getByTestId('analysis-readiness-bar-analyse')
