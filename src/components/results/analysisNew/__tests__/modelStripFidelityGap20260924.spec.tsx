@@ -89,32 +89,39 @@ const DECISION_AND_GOAL = [
   needsCheckFactor('f1', 'Supplier lead time'),
 ]
 
-describe('fidelity gaps #3 / #8 — the subject line no longer clamps', () => {
-  it('⭐ PRECONDITION: the matcher can see a clamp — the goal subline (out of\n      scope, another lane owns it) still carries `truncate` while closed', () => {
+// Paul 14 Oct 2026: the decision text no longer displays at the top of the Reasoning panel.
+// The subject (`-lead`) and its goal sub-line (`-goal`) are `sr-only`: visually hidden, still in the accessibility
+// tree (the region's aria-labelledby names the lead). The clamp-vs-wrap pins below are re-pinned to that fact.
+describe('fidelity gaps #3 / #8 — the subject line is screen-reader-only, never clamped', () => {
+  it('⭐ the goal sub-line (`-goal`) is `sr-only` while closed — visually hidden, still in the accessibility tree', () => {
     setNodes(DECISION_AND_GOAL)
     render(<ModelStrip isPreRun={false} />)
     // Closed by default post-run (isPreRun=false, no override yet).
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
     const goalLine = screen.getByTestId(`${TID}-goal`)
-    expect(goalLine.className, 'the sibling this PR does not touch is still clamped').toMatch(/\btruncate\b/)
+    expect(goalLine).toHaveClass('sr-only')
+    expect(goalLine.closest('[aria-hidden="true"]'), 'hidden visually, never from assistive tech').toBeNull()
   })
 
-  it('⭐⭐ the subject (`-lead`) carries no `truncate`, closed', () => {
+  it('⭐⭐ the subject (`-lead`) is `sr-only` and carries no `truncate`, closed', () => {
     setNodes(DECISION_AND_GOAL)
     render(<ModelStrip isPreRun={false} />)
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
     const lead = screen.getByTestId(`${TID}-lead`)
-    expect(lead.className, 'the panel\'s loudest text must never be cut to one line').not.toMatch(/\btruncate\b/)
-    expect(lead.className, 'and must wrap instead').toMatch(/\bbreak-words\b/)
+    expect(lead.className, 'the subject must never be cut to one line').not.toMatch(/\btruncate\b/)
+    expect(lead).toHaveClass('sr-only')
+    expect(lead.closest('[aria-hidden="true"]'), 'hidden visually, never from assistive tech').toBeNull()
   })
 
-  it('⭐ and carries no `truncate` once opened either — never clamped, either state', () => {
+  it('⭐ and stays `sr-only` with no `truncate` once opened — either state', () => {
     setNodes(DECISION_AND_GOAL)
     render(<ModelStrip isPreRun={false} />)
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'true')
     const lead = screen.getByTestId(`${TID}-lead`)
     expect(lead.className).not.toMatch(/\btruncate\b/)
+    expect(lead).toHaveClass('sr-only')
+    expect(screen.getByTestId(`${TID}-goal`)).toHaveClass('sr-only')
   })
 })
 

@@ -5,13 +5,14 @@
  * tab, and a press must genuinely work. This is the one renderer of CEE's
  * `action_bar` (`actionBarContract.ts`); a surface chooses only its type tokens.
  *
- *   [pill] [pill] [icon] [icon] [icon] [icon] [⋯]
+ *   [pill] [pill] [icon] [icon] [icon] [icon] [bias] [⋯]
  *
  *  · ICONS ONLY, evenly spaced (Paul, 14 Oct: "just icons there, no words"). Every control's name is its
  *    aria-label and tooltip; only the ⋯ menu's rows carry words.
- *  · Pills: at most two, the reason this state is worth acting on, an icon in a ring with its hide control. Narrow: one.
+ *  · Pills: at most two, the reason this state is worth acting on, drawn as the same icon as the rest. Narrow: one.
  *  · Icons: CEE's fixed-position standards, so a reader learns their places.
  *    Narrow: three inline, the rest in ⋯.
+ *  · Bias: one icon per `bias_risk` item; a press asks Olumi to explain it here and how to counter it.
  *  · ⋯: everything else that is relevant, grouped, each with why it is offered.
  * That layout is the MAXIMUM (DL §E): only what CEE sends is drawn.
  *
@@ -23,7 +24,7 @@
  * line of a menu row is the host's label token.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MoreHorizontal, X } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 import Tooltip from '../../../components/Tooltip'
 import { ACTION_FOCUS, icon } from '../../../components/results/analysisNew/panelSurfaces'
@@ -32,7 +33,7 @@ import { useMeasuredPanelWidth } from '../../components/workspaceShell/usePanelW
 import { actionGlyph, type ActionGlyph } from './actionBarIcons'
 import type { ActionBarV1, ActionOffer } from './actionBarContract'
 import { useActionBarStore } from './actionBarStore'
-import { BiasRiskRow } from './BiasRiskRow'
+import { BiasRiskIcons } from './BiasRiskRow'
 import { pressOffer } from './pressOffer'
 
 export type ActionBarSurface = 'chat' | 'reasoning'
@@ -46,7 +47,6 @@ export const ACTION_BAR_COPY = {
   more: 'More actions',
   menu: 'More actions',
   groups: { gap: 'Gaps', method: 'Methods', review: 'Review' },
-  hide: (label: string) => `Hide ‘${label}’ for now`,
   noConversation: 'Open the Olumi tab to use this.',
 } as const
 
@@ -66,6 +66,13 @@ function offerReason(offer: ActionOffer): string {
 function offerName(offer: ActionOffer): string {
   const reason = offerReason(offer)
   return reason ? `${offer.label} — ${reason}` : offer.label
+}
+
+/** Paul 14 Oct 2026: icon-only row; bias is an icon that asks Olumi to explain and counter it. One look for every icon. */
+function iconButtonClass(enabled: boolean): string {
+  return `relative inline-flex size-7 min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-full ${
+    enabled ? 'text-text-light' : 'text-text-light opacity-40'
+  } hover:ring-1 hover:ring-inset hover:ring-border-emphasis [@media(pointer:coarse)]:size-11 ${ACTION_FOCUS}`
 }
 
 /** A control the HOST adds to the ⋯ menu: it is the surface's own, never one of CEE's actions. */
@@ -103,7 +110,6 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   const { width } = useMeasuredPanelWidth(rootRef)
   const compact = compactProp ?? width < ACTION_BAR_COMPACT_BELOW
   const dismissed = useActionBarStore((s) => s.dismissed)
-  const dismiss = useActionBarStore((s) => s.dismiss)
   const [open, setOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const type = typeScale ?? CHAT_TYPE
@@ -191,11 +197,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
         {pills.map((offer) => {
           const Glyph = actionGlyph(offer.icon)
           return (
-            <span
-              key={offer.offer_key}
-              className="inline-flex shrink-0 items-stretch rounded-full border border-field bg-panel"
-              data-testid={`${testId}-pill-${offer.action_id}`}
-            >
+            <span key={offer.offer_key} className="inline-flex shrink-0" data-testid={`${testId}-pill-${offer.action_id}`}>
               <Tooltip asChild content={offerName(offer)}>
                 <button
                   type="button"
@@ -203,22 +205,11 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                   aria-disabled={offer.enabled ? undefined : 'true'}
                   onClick={() => press(offer)}
                   data-testid={`${testId}-pill-${offer.action_id}-press`}
-                  className={`inline-flex h-6 w-7 items-center justify-center rounded-l-full pl-1 ${
-                    offer.enabled ? 'text-text-body' : 'text-text-light'
-                  } hover:bg-panel-hover [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 ${ACTION_FOCUS}`}
+                  className={iconButtonClass(offer.enabled)}
                 >
-                  <Glyph className={`${icon('row')} shrink-0`} aria-hidden={true} />
+                  <Glyph className={icon('section')} aria-hidden={true} />
                 </button>
               </Tooltip>
-              <button
-                type="button"
-                aria-label={ACTION_BAR_COPY.hide(offer.label)}
-                onClick={() => dismiss(offer.offer_key)}
-                data-testid={`${testId}-pill-${offer.action_id}-hide`}
-                className={`inline-flex h-6 w-5 shrink-0 items-center justify-center rounded-r-full text-text-light hover:bg-panel-hover hover:text-text-body [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-9 ${ACTION_FOCUS}`}
-              >
-                <X className={icon('inline')} aria-hidden={true} />
-              </button>
             </span>
           )
         })}
@@ -232,15 +223,20 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                 aria-disabled={offer.enabled ? undefined : 'true'}
                 onClick={() => press(offer)}
                 data-testid={`${testId}-icon-${offer.action_id}`}
-                className={`relative inline-flex size-7 min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-full ${
-                  offer.enabled ? 'text-text-light' : 'text-text-light opacity-40'
-                } hover:ring-1 hover:ring-inset hover:ring-border-emphasis [@media(pointer:coarse)]:size-11 ${ACTION_FOCUS}`}
+                className={iconButtonClass(offer.enabled)}
               >
                 <Glyph className={icon('section')} aria-hidden={true} />
               </button>
             </Tooltip>
           )
         })}
+        {bar.bias_risk ? (
+          <BiasRiskIcons
+            view={bar.bias_risk}
+            className={iconButtonClass(true)}
+            onResult={(result) => setNotice(result === 'none' ? ACTION_BAR_COPY.noConversation : null)}
+          />
+        ) : null}
         {menu.length > 0 || hostGroups.length > 0 ? (
           <div ref={overflowRef} className="relative shrink-0">
             <Tooltip asChild content={ACTION_BAR_COPY.more}>
@@ -324,7 +320,6 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
           </div>
         ) : null}
       </div>
-      {bar.bias_risk ? <BiasRiskRow view={bar.bias_risk} revision={bar.revision} type={type} /> : null}
       {/* Always mounted, so a screen reader hears the reason the moment it appears. */}
       <p role="status" aria-live="polite" data-testid={`${testId}-notice`} className={notice ? `${type.meta} mt-1 text-text-light` : 'sr-only'}>
         {notice ?? ''}
