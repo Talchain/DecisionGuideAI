@@ -1184,9 +1184,9 @@ export function ModelStrip({
             // ⭐ 8 Oct 2026 (Paul: "too dominating and loud"): the subject is the model's own words, not a section
             // title. Same 14px as the section titles (`panelQuestion`), one weight lighter and in body ink, so a
             // three-line goal no longer outweighs "Challenge the thinking" beneath it.
-            className={`${typography.panelQuestion} text-text-body block m-0 break-words${
-              open && subjectSubLabel === null ? ' pr-5' : ''
-            }`}
+            // Paul 14 Oct 2026: the decision text no longer shows at the top of the Reasoning panel.
+            // Kept screen-reader-only because the region's aria-labelledby points here.
+            className="sr-only"
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
@@ -1194,7 +1194,7 @@ export function ModelStrip({
           </SubjectTag>
           {subjectSubLabel === null ? null : (
             <span
-              className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
+              className="sr-only"
               data-testid={`${testId}-goal`}
               title={subjectSubLabel}
             >

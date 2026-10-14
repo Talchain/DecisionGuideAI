@@ -201,13 +201,34 @@ describe('one press, one chip turn', () => {
   })
 })
 
-describe('hiding a pill', () => {
-  it('a hidden pill leaves the pills, stays in the menu, and is remembered by its offer key', () => {
+describe('the priority action (Paul, 14 Oct: icon-only, no hide control)', () => {
+  // ⛔ EXPECTATION CHANGED (Paul, 14 Oct): old = an icon in a ring with a × "Hide ‘Set target’ for now" button;
+  // new = the same icon button as every other control, and no hide button (`ACTION_BAR_COPY.hide` removed).
+  it('is one icon button like the rest: no visible label, its label is its aria-label, and there is no hide button', () => {
+    render(<ActionBar bar={bar()} surface="chat" compact={false} />)
+    const pill = screen.getByTestId('action-bar-pill-set_target')
+    const press = screen.getByTestId('action-bar-pill-set_target-press')
+    expect(within(pill).getAllByRole('button')).toEqual([press])
+    expect(press).toHaveAttribute('aria-label', 'Set target — The goal has no target, so no chance can be worked out.')
+    expect(press.textContent).toBe('')
+    expect(pill.textContent).toBe('')
+    expect(screen.queryByText(/Set target/)).toBeNull()
+    expect(press.className).toBe(screen.getByTestId('action-bar-icon-review').className) // drawn as its neighbours are
+    expect(screen.queryByTestId('action-bar-pill-set_target-hide')).toBeNull()
+    expect(screen.queryAllByRole('button', { name: /^Hide\b/ })).toHaveLength(0)
+    expect(ACTION_BAR_COPY).not.toHaveProperty('hide')
+    // ⛔ CONTRAST: the press itself still sends its own chip.
+    fireEvent.click(press)
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith(chipOf(SET_TARGET))
+  })
+
+  it('an offer key already held as hidden leaves the pills but stays in the menu, so nothing is lost', () => {
+    // ⛔ INPUT CHANGE: the key is seeded in the store (the hide button that wrote it is gone).
+    useActionBarStore.setState({ dismissed: [SET_TARGET.offer_key] })
     render(<ActionBar bar={bar()} surface="chat" />)
-    fireEvent.click(screen.getByRole('button', { name: ACTION_BAR_COPY.hide('Set target') }))
     expect(screen.queryByTestId('action-bar-pill-set_target')).toBeNull()
     expect(screen.getByTestId('action-bar-pill-more_options')).toBeInTheDocument()
-    expect(useActionBarStore.getState().dismissed).toEqual([SET_TARGET.offer_key])
     expect(dispatch).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('action-bar-more'))
     fireEvent.click(screen.getByTestId('action-bar-menu-set_target'))

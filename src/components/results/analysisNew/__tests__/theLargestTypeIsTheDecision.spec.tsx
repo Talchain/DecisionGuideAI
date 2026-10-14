@@ -71,7 +71,6 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
-import { typography } from '../../../../styles/typography'
 import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
@@ -199,7 +198,10 @@ describe('the panel leads with the decision being made', () => {
   it('⭐ the DECISION leads even on a run that reached a conclusion', () => {
     renderBody(genuineDecision())
     const lead = screen.getByTestId('analysis-new-model-strip-lead')
-    expect(lead.className, 'the lead carries the panel ceiling, panelHeader').toContain(typography.panelHeader.split(' ')[0]!)
+    // Paul 14 Oct 2026: the decision text no longer displays at the top of the Reasoning panel.
+    // It stays in the accessibility tree (`sr-only`, never aria-hidden) so the region is still named by the decision.
+    expect(lead, 'the decision is visually hidden, not removed').toHaveClass('sr-only')
+    expect(lead.closest('[aria-hidden="true"]'), 'hidden visually, never from assistive tech').toBeNull()
 
     /**
      * ⛔⛔ AND THERE IS NO CONCLUSION AT ALL — DELETED, NOT DEMOTED.
