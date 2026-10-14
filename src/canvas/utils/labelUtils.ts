@@ -871,6 +871,20 @@ export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
 }
 
 /**
+ * Did the producer stamp this intervention `user_material_unverified: true`?
+ *
+ * The AI claimed the user as the source of the setting and the host could not
+ * verify that claim. The same field name `FactorNode` reads on a factor's
+ * `observed_state`. Only a literal `true` counts; absent, `false` or any other
+ * shape is "no stamp", never a guess. Kept beside `unwrapInterventionValue`
+ * (not folded into its result) so the thirty readers of that shape are untouched.
+ */
+export function interventionIsUserMaterialUnverified(raw: unknown): boolean {
+  return raw != null && typeof raw === 'object' && !Array.isArray(raw)
+    && (raw as { user_material_unverified?: unknown }).user_material_unverified === true
+}
+
+/**
  * Format an intervention value for display as a human-readable chip.
  * Used in OptionNode intervention chips (T8/J1).
  *
