@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
+import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -87,26 +88,9 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
-    // ⭐⭐ RE-RULED AGAIN — `missing` NOW STATES THE CAUSE, NOT THE SYMPTOM, AND
-    // THIS ASSERTION IS THE RECORD OF WHY.
-    //
-    // It used to read `option-result-unavailable-missing` / "On the data so
-    // far, no support percentage for this option", on the reasoning that
-    // `zero` resolves a share so this graph is the PARTIAL case. The PARTIAL
-    // reasoning is still right and it is pinned by the `outcome-only` case
-    // below, which is an option the run DID analyse and simply returned no
-    // share for. `missing` is not that: it has NO entry at all, so the run
-    // never scored it, and the two states have OPPOSITE next steps — wait or
-    // re-run, versus say what this option changes. One sentence covering both
-    // is the pooling the four-absence ruling exists to prevent, and the
-    // results panel has drawn this line since the no-rank ruling
-    // (`NotAnalysedOptionCard`, Paul, 14 Aug 2026) while this card did not.
-    // Two surfaces disagreeing about one option is trap 21 arriving as a
-    // rendering difference.
-    //
-    // ⚠ NOTHING IS LOST BY THE YIELD: `notAnalysedReasonCopy` states the same
-    // consequence in the same breath ("It has no rank and no probability") and
-    // adds the ground the old sentence had no room for.
+    // Missing and failed retain their independent delivery states. Measured
+    // zero remains a real comparative result, but with no goal figures this
+    // Run has no chance headline: a win share cannot become one (WS5-1).
     expect(screen.getByTestId('option-not-analysed-missing'))
       .toHaveTextContent('This option has no values set yet, so it was left out of the comparison')
     expect(screen.queryByTestId('option-result-unavailable-missing')).toBeNull()
@@ -114,19 +98,18 @@ describe('option delivery states through the real store and display selector', (
     expect(screen.queryByTestId('option-not-computed-missing')).toBeNull()
     expect(screen.getByTestId('option-not-computed-failed')).toBeInTheDocument()
     expect(screen.queryByTestId('option-result-unavailable-failed')).toBeNull()
-    expect(screen.getByTestId('option-win-readout-zero')).toHaveTextContent('0%')
+    expect(renderHook(() => useNodeDisplayMetadata('zero', 'option')).result.current.winRate).toBe(0)
+    expect(screen.queryByTestId('option-win-readout-zero')).toBeNull()
+    expect(screen.queryByTestId('option-not-analysed-zero')).toBeNull()
+    expect(screen.queryByTestId('option-not-computed-zero')).toBeNull()
     expect(screen.queryByTestId('option-result-unavailable-zero')).toBeNull()
   })
 
   it.each([0, 0.5])('does not call a computed outcome with median %s an unavailable result', median => {
     const computed = option('outcome-only')
-    // ⭐ A SIBLING THAT DID RESOLVE A SHARE KEEPS THIS IN THE PARTIAL CASE, and
-    // that is the point of the test rather than an accommodation to it. When NO
-    // option resolves a share the absence is a fact about the RUN, the cards
-    // yield the position and the Question node states it once — so mounting
-    // `outcome-only` alone would be asserting the run-wide branch while
-    // claiming to test the per-option one. See
-    // `OptionNode.supportShareRunWideAbsence.spec.tsx`.
+    // A sibling with a real share keeps this in the partial comparative
+    // delivery case. Neither option has goal figures, so neither gains a
+    // chance headline or a share-absence sentence on its card (WS5-1).
     const sibling = option('has-share')
     const options = [computed, sibling]
     useCanvasStore.setState({
@@ -141,12 +124,12 @@ describe('option delivery states through the real store and display selector', (
         [sibling.id]: { status: 'computed', win_probability: 0.4 },
       } } },
     } as never)
-    mountOptions(options)
-    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
-    // results are model-relative): the same absence, in the model's own words.
-    expect(screen.getByTestId('option-result-unavailable-outcome-only'))
-      .toHaveTextContent('On the data so far, the model gave no share of runs for this option')
-    expect(screen.getByTestId('option-result-unavailable-outcome-only').textContent).not.toMatch(/\bsupport\b/i)
+    const { container } = mountOptions(options)
+    expect(screen.queryByTestId('option-result-unavailable-outcome-only')).toBeNull()
+    expect(container.textContent).not.toContain('of runs')
+    for (const element of container.querySelectorAll('[aria-label]')) {
+      expect(element.getAttribute('aria-label')).not.toContain('of runs')
+    }
     // ⭐ THE DISCRIMINATING HALF OF THE PAIR ABOVE. This option HAS an entry —
     // the run analysed it and returned an outcome distribution without a share
     // — so it is the genuine PARTIAL case and must NOT be re-badged as one the
@@ -155,6 +138,7 @@ describe('option delivery states through the real store and display selector', (
     expect(screen.queryByTestId('option-not-analysed-outcome-only')).toBeNull()
     expect(screen.queryByText('Result unavailable', { exact: true })).toBeNull()
     expect(screen.queryByTestId('option-win-readout-outcome-only')).toBeNull()
+    expect(screen.queryByTestId('option-win-readout-has-share')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-outcome-only')).toBeNull()
     expect(screen.queryByTestId('leading-option-pill-outcome-only')).toBeNull()
   })

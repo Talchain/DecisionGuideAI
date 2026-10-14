@@ -20,13 +20,14 @@ import {
   GROUP_LABELS,
   INLINE_LABELS,
   EMPTY_STATES,
-  DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { InlineNumberEditor } from '../shared/InlineNumberEditor'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
 import { DriversList, type DriverItem } from '../shared/DriversList'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -69,7 +70,7 @@ const IMPACT_LABEL = Object.fromEntries(IMPACT_OPTIONS.map(o => [o.value, o.labe
  * as the whole of what is unsaved.
  */
 export const INSPECTOR_RISK_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them in the chat instead.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood and impact fields here are read-only — ask Olumi to record changes in the chat instead.`
 
 /**
  * ⭐ v3.1 (DESIGN-GAP-v31 row 33): the absence copy for a risk with nothing
@@ -86,6 +87,7 @@ export const RiskPanel = memo(function RiskPanel({
   techMode,
   onNavigate,
   readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -95,6 +97,7 @@ export const RiskPanel = memo(function RiskPanel({
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
 
   // Match the card's existing input contract; invalid imported values are not estimates.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a risk's own likelihood), not an analysis result
   const probabilityInput = RiskNodeDataSchema.shape.probability.safeParse(node?.data?.probability)
   const impactInput = RiskNodeDataSchema.shape.impact.safeParse(node?.data?.impact)
   const probability = probabilityInput.success ? probabilityInput.data : undefined
@@ -142,16 +145,25 @@ export const RiskPanel = memo(function RiskPanel({
     ? `${description}\n\n${body}`
     : description ?? body
   const showEditFeedback = lastConfirmed?.field === 'probability' || lastConfirmed?.field === 'impact'
+  const assessmentAbsent = probability == null && impact == null
+  const sentence = assessmentAbsent
+    ? INSPECTOR_RISK_ABSENCE
+    : `Likelihood is ${probabilityPct != null ? `${probabilityPct}%` : 'not recorded'}; impact is ${impact != null ? IMPACT_LABEL[impact].toLowerCase() : 'not recorded'}.`
 
   return (
     <div>
-      {/* ── Context group ─────────────────────────────────────── */}
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {context
-          ? <p data-testid="risk-authored-context" className={`${typography.panelBody} text-text-body whitespace-pre-wrap break-words`}>{context}</p>
-          : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.risk} />
-        }
-      </PanelGroup>
+      <div data-testid={assessmentAbsent ? 'risk-absence' : undefined}>
+        <InspectorSummary sentence={sentence} />
+      </div>
+      {summaryContext}
+      {readOnly && (
+        <p data-testid="risk-authority-route" className={`${typography.panelBody} text-text-body mt-2`}>
+          To record likelihood or impact, ask Olumi.
+        </p>
+      )}
+      {context && (
+        <p data-testid="risk-authored-context" className={`${typography.panelBody} text-text-body mt-2 whitespace-pre-wrap break-words`}>{context}</p>
+      )}
 
       {/* ── Likelihood × impact ─────────────────────────────────
           ⭐⭐ v3.1 (DESIGN-GAP-v31 row 33) — A CONTROL THAT CANNOT SAVE MUST
@@ -165,39 +177,33 @@ export const RiskPanel = memo(function RiskPanel({
           none, and NO writer mounted at all (a stronger fence than a disabled
           one). The editable arm below is unchanged and returns the day a
           carrier lands and the Router stops passing `readOnly`. */}
-      {readOnly ? (
+      {readOnly ? (!assessmentAbsent && (
         <PanelGroup kind="input" label={GROUP_LABELS.riskAssessment}>
-          {probability == null && impact == null ? (
-            <p data-testid="risk-absence" className={`${typography.panelBody} text-text-body m-0`}>
-              {INSPECTOR_RISK_ABSENCE}
-            </p>
-          ) : (
-            <div>
-              <div data-testid="risk-likelihood-row" className={inspectorDetailRow}>
-                <span className="text-text-light">{INLINE_LABELS.riskLikelihood}</span>
-                <span className="text-right text-text-body">{probabilityPct != null ? `${probabilityPct}%` : 'Not recorded'}</span>
-              </div>
-              <div data-testid="risk-impact-row" className={inspectorDetailRow}>
-                <span className="text-text-light">{INLINE_LABELS.riskImpact}</span>
-                <span className="text-right text-text-body">
-                  {impact != null ? IMPACT_LABEL[impact] : 'Not recorded'}
+          <div>
+            <div data-testid="risk-likelihood-row" className={inspectorDetailRow}>
+              <span className="text-text-light">{INLINE_LABELS.riskLikelihood}</span>
+              <span className="text-right text-text-body">{probabilityPct != null ? `${probabilityPct}%` : 'Not recorded'}</span>
+            </div>
+            <div data-testid="risk-impact-row" className={inspectorDetailRow}>
+              <span className="text-text-light">{INLINE_LABELS.riskImpact}</span>
+              <span className="text-right text-text-body">
+                {impact != null ? IMPACT_LABEL[impact] : 'Not recorded'}
+              </span>
+            </div>
+            {severity && (
+              <div className={inspectorDetailRow}>
+                <span className="text-text-light">{INLINE_LABELS.riskSeverity}</span>
+                <span
+                  data-testid="risk-severity-badge"
+                  className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.panelMeta}`}
+                >
+                  {severity.charAt(0).toUpperCase() + severity.slice(1)}
                 </span>
               </div>
-              {severity && (
-                <div className={inspectorDetailRow}>
-                  <span className="text-text-light">{INLINE_LABELS.riskSeverity}</span>
-                  <span
-                    data-testid="risk-severity-badge"
-                    className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.panelMeta}`}
-                  >
-                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </PanelGroup>
-      ) : (
+      )) : (
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <fieldset disabled={readOnly} className="contents" data-writer-fence="probability-impact">
         <PrimaryControlCard>
@@ -272,11 +278,11 @@ export const RiskPanel = memo(function RiskPanel({
           {showEditFeedback && (
             <div className="flex items-center gap-2 mt-2">
               <EditConfirmation trigger={lastConfirmed?.ts ?? null} />
-              <InlineRerunPrompt visible={isStaleAfterEdit} />
             </div>
           )}
         </PrimaryControlCard>
         </fieldset>
+        <InlineRerunPrompt elementId={nodeId} visible={isStaleAfterEdit} />
 
         {/* Only once something is entered — never said over nothing. */}
         {(probability != null || impact != null) && (
@@ -291,6 +297,7 @@ export const RiskPanel = memo(function RiskPanel({
         {inboundFactors.length === 0 && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
         <InspectorCoaching
           elementId={nodeId}
           panelType="risk"
@@ -304,11 +311,13 @@ export const RiskPanel = memo(function RiskPanel({
       {/* ⚠ `RiskAdvancedEditor`'s Description field commits `setDescription`,
           a bare store write with no carrier — fenced here exactly as the factor
           pane fences its editor (review 2038). */}
-      <TechnicalDisclosure visible={techMode}>
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
-          <RiskAdvancedEditor nodeId={nodeId} />
-        </fieldset>
-      </TechnicalDisclosure>
+      <InspectorMoreItems>
+        <TechnicalDisclosure visible={techMode}>
+          <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+            <RiskAdvancedEditor nodeId={nodeId} />
+          </fieldset>
+        </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

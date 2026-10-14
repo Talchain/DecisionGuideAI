@@ -17,6 +17,7 @@ import {
 } from './optionTargetEntry'
 import {
   classifyInterventionProvenance,
+  VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
 } from '../../../domain/valueProvenance'
 import { INSPECTOR_RULE } from '../inspectorStyle'
@@ -71,9 +72,18 @@ const INTERVENTION_ROW_CLASS = `py-2 border-b ${INSPECTOR_RULE.row} last:border-
  * they are not covered by any render test and must not be claimed as such.
  * `T-REACH` pins the reachable set, so a schemas minor that adds a literal REDs
  * rather than arriving silently on an arm nobody has read since it was typed.
+ *
+ * ⭐ THE ONE ARM THAT IS REACHED BY A STAMP, NOT BY A LITERAL: `unverified_brief`.
+ * The producer marks a setting `user_material_unverified: true` when the AI
+ * claimed the user as its source and the host could not verify that. It keeps
+ * the same words the factor card says for the same stamp (`FactorNode.tsx:64`),
+ * `VALUE_PROVENANCE_LABEL.unverified_brief` — not "Estimated by Olumi", which
+ * would name the wrong author. No source literal reaches it, so `T-REACH` (which
+ * walks literals) is unchanged; `T-UNVERIFIED` pins the stamp.
  */
 export const INSPECTOR_INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind, string> = {
   brief: 'From your brief',
+  unverified_brief: VALUE_PROVENANCE_LABEL.unverified_brief,
   ai: 'Estimated by Olumi',
   accepted: 'Olumi\u2019s estimate \u00b7 you accepted it', // AIQ 5921018606
   edited: 'Set by you',
@@ -87,6 +97,7 @@ export const INSPECTOR_INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind
 /** Border tint per kind. TEXT is the mark; this only reinforces it. */
 const INSPECTOR_INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
+  unverified_brief: 'border-panel-border',
   ai: 'border-warning/30',
   accepted: 'border-warning/30',
   edited: 'border-success/30',
@@ -197,8 +208,8 @@ interface InterventionRowProps {
    * make the row honest about not knowing.
    */
   recordedBaseline?: number
-  /** Current intervention value */
-  currentValue: number
+  /** Current intervention value; absent on a linked factor with no target yet. */
+  currentValue?: number
   /** CEE-authored display_value for the intervention — rendered verbatim when
    * present, replacing the "Currently: X → editable" numeric formatter. */
   displayValue?: string
@@ -217,6 +228,13 @@ interface InterventionRowProps {
    * one level up from the one this prop closes.
    */
   provenanceSource?: string
+  /**
+   * The producer's `user_material_unverified: true` on THIS intervention: the AI
+   * claimed the user as the source of the setting and the host could not verify
+   * it. Shown as the existing `unverified_brief` words, never as Olumi's estimate.
+   * Absent or false changes nothing; a target the user set keeps its own kind.
+   */
+  userMaterialUnverified?: boolean
   /**
    * The factor's `observed_state.cap`. With a real `unit` it is the scale a
    * typed AMOUNT is converted through — see `optionTargetEntry.ts` for when a
@@ -289,6 +307,7 @@ export function InterventionRow({
   displayValue,
   unit = '',
   provenanceSource,
+  userMaterialUnverified,
   cap,
   unapplied = null,
   onDismissUnapplied,
@@ -319,7 +338,7 @@ export function InterventionRow({
   const adornment = optionTargetEntryAdornment(frame)
   /** What the field shows: the reader's unapplied value while one stands, else the record. */
   const shownValue = unapplied ? unapplied.value : currentValue
-  const seedText = optionTargetEntrySeed(shownValue, frame, anchor)
+  const seedText = shownValue === undefined ? '' : optionTargetEntrySeed(shownValue, frame, anchor)
   const [draft, setDraft] = useState(seedText)
   /** Why the typed text was not sent — rendered, never swallowed. */
   const [entryRefusal, setEntryRefusal] = useState<string | null>(null)
@@ -386,7 +405,7 @@ export function InterventionRow({
       return
     }
     setEntryRefusal(null)
-    if (Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
+    if (currentValue !== undefined && Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
       // The saved value, typed again: nothing to send, and nothing unapplied.
       if (unapplied) onDismissUnapplied?.()
       else setDraft(seedText)
@@ -518,13 +537,14 @@ export function InterventionRow({
    * spec REDs on that surface by name.
    */
   const targetDisplay = (() => {
+    if (currentValue === undefined) return ''
     const housed = formatNumber(currentValue)
     return Number(housed) === 0 && currentValue !== 0
       ? formatNumber(currentValue, 2)
       : housed
   })()
 
-  const provenance = classifyInterventionProvenance(provenanceSource)
+  const provenance = currentValue === undefined ? null : classifyInterventionProvenance(provenanceSource, { userMaterialUnverified })
 
   /**
    * ⭐ THE BOX'S ACCESSIBLE NAME (DEFECT 5 (b)). Served `a4434670` rendered the
@@ -546,7 +566,7 @@ export function InterventionRow({
    */
   const discard = useCallback(() => {
     blurIntentRef.current = null
-    setDraft(optionTargetEntrySeed(currentValue, frame, anchor))
+    setDraft(currentValue === undefined ? '' : optionTargetEntrySeed(currentValue, frame, anchor))
     setEntryRefusal(null)
     if (unapplied) onDismissUnapplied?.()
   }, [currentValue, frame, anchor, unapplied, onDismissUnapplied])
@@ -579,6 +599,7 @@ export function InterventionRow({
         ref={inputRef}
         type="text"
         value={draft}
+        placeholder={currentValue === undefined ? 'Enter a value' : undefined}
         aria-label={inputAccessibleName}
         aria-invalid={fieldIsInvalid ? true : undefined}
         aria-describedby={underFieldMessage !== null ? messageId : undefined}

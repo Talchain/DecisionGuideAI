@@ -4,7 +4,7 @@
  * Each chip fades in + slides up with 70ms delay between.
  * 0-3 chips (ruled doctrine D-K, closed 15 Jul: render up to 3 when CEE
  * offers 3; render none when CEE offers none — never fabricate a filler
- * chip; labels render verbatim as sent by CEE). Chip base: bg-panel, border
+ * chip; non-run labels render verbatim as sent by CEE). Chip base: bg-panel, border
  * border-panel-border, hover:bg-panel-hover. Role metadata preserved via
  * data-chip-role and aria-label for styling/accessibility.
  *
@@ -18,7 +18,7 @@
  * Click failures show a brief inline error that auto-dismisses after 5s.
  */
 
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -37,8 +37,10 @@ import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
-import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
+import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
+import type { GuidedSizing } from '../../../v5/readGuidedSizing'
+import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this set are filtered out when V5 is active. On V4 the set is
@@ -63,11 +65,11 @@ const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
  * Run-analysis affordance detection. `action_type` is the primary key;
  * the fallback regex catches V4-legacy or prompt-only chips where the
  * `action_type` field is absent. Tolerant of "Run analysis", "Rerun
- * analysis", "Run the analysis", "Rerun the analysis", with or without a
+ * analysis", "Run the analysis", "Rerun the analysis", "Re-analyse" and "Run again", with or without a
  * trailing period. Conservative enough to NOT match conversational chips
  * like "Explain the analysis" or "What was the analysis?".
  */
-const RUN_ANALYSIS_RE = /^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i
+const RUN_ANALYSIS_RE = /^(?:(?:run|rerun)\s+(?:the\s+)?analysis|re-analyse|run\s+again)\.?$/i
 
 function normForMatch(s: string | undefined): string {
   return (s ?? '').trim()
@@ -89,20 +91,20 @@ export function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * Product rule for the run-analysis affordance under aiPanelV2:
  *   - no analysis exists            → keep chip as-is ("Run analysis")
  *   - confirmed-current analysis    → suppress chip entirely
- *   - stale / cannot-confirm        → relabel chip to "Rerun" (may bypass the V5
+ *   - stale / cannot-confirm        → name the control Rerun (may bypass the V5
  *                                     readiness gate — a prior analysis exists and
  *                                     a rerun re-derives inputs from the graph)
  *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
  *
  * Two positive-signal branches:
  *   - SUPPRESS requires a CONFIRMED-CURRENT verdict (semantic === 'current').
- *   - the readiness-gate-bypassing 'relabel-rerun' requires a REAL freshness
+ *   - the readiness-gate-bypassing 'allow-rerun' requires a REAL freshness
  *     verdict ('changed' / 'cannot_confirm'), which implies a prior analysis that
  *     a rerun can re-derive from the current graph.
  * A completed analysis with NO freshness verdict ('none') gets neither: it is not
  * confirmed current (so not suppressed — matching useStageAwarePlaceholder, which
  * treats it as not-"latest"), but it has nothing rerunnable to justify bypassing
- * the readiness gate. Relabelling it to "Rerun" would let a run_analysis chip
+ * the readiness gate. Allowing a rerun would let a run_analysis chip
  * survive the gate even when ceeAnalysisReady is missing, and a click then falls
  * back to a conversation turn ("promises action, delivers chat"). So it stays a
  * plain 'keep' chip, shown only when the readiness gate is satisfied.
@@ -110,7 +112,7 @@ export function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * This replaces the legacy graph-hash stale flag (deleted 2026-07-16), whose production input
  * `_internal.graphHash` is never written, so it never fired.
  */
-type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
+type RunAnalysisPolish = 'suppress' | 'allow-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
@@ -119,7 +121,7 @@ function decideRunAnalysisPolish(
   if (!resultsComplete) return 'keep'                     // no analysis yet
   if (freshnessSemantic === 'current') return 'suppress'  // confirmed-current owns the action
   if (freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm') {
-    return 'relabel-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
+    return 'allow-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
   }
   return 'keep'  // 'none': complete but no verdict → not current, but no rerunnable
                  // analysis to justify a gate bypass; the readiness gate decides visibility
@@ -150,11 +152,6 @@ function isConsentChip(chip: ActionChip): boolean {
   return typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
 }
 
-/** CEE's pre-mortem plan pick (#2480 choose_plan), by identity (its id prefix), never by label or message. */
-function isPlanPickChip(chip: ActionChip): boolean {
-  return typeof chip.id === 'string' && chip.id.startsWith(PLAN_PICK_CHIP_PREFIX)
-}
-
 /**
  * ⭐ A CHIP WHOSE CLICK IS THE DECISION SHOWS ITS `detail` BEFORE THE CLICK: the research control (what leaves
  * Olumi, CEE #2042) and the consent chip (what the click writes: the whole option name and every factor it also
@@ -165,9 +162,24 @@ function disclosesDetail(chip: ActionChip): boolean {
   return isResearchChip(chip) || isConsentChip(chip)
 }
 
+/** What the row shows, held while a turn is in flight. */
+interface HeldChipRow {
+  chips: ActionChip[]
+  visible: ActionChip[]
+  showRerunLabel: boolean
+  runGateClosed: boolean
+  runGateReason: string | undefined
+  guidedProgressLine: string | undefined
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
-  onChipClick: (chip: ActionChip) => Promise<void>
+  onChipClick: (chip: ProposalPanelAction) => Promise<void>
+  proposalFields?: unknown
+  heldProposalEarlier?: boolean
+  replyId?: string
+  openedProposalId?: string | null
+  onOpenProposal?: (id: string) => void
   /** When true, all chips are disabled while a response is pending */
   isThinking?: boolean
   /**
@@ -184,6 +196,18 @@ interface SuggestedChipsProps {
    * it through the same gate.
    */
   runGate?: RunChipGate
+  /**
+   * The host's verdict (`workspaceShell/rerunControl.ts` `hostRerunControl` → `chatRunChipStandsAside`): a rerun
+   * control is shown, or deferred to, elsewhere on screen, so a run chip stands aside — one rerun control. Absent
+   * (headless mounts) ⇒ unchanged.
+   */
+  rerunOwnedByHost?: boolean
+  /**
+   * ⭐ GOAL-REACH guided path (P02): CEE's ordered list of links to size, already checked against the current model
+   * (`guidedSizingForModel`). Its presses ARE this reply's chips (same id), so nothing is built here: those chips
+   * render first, in CEE's `order`, outside the 3-chip cap, under CEE's own progress line. Absent ⇒ unchanged.
+   */
+  guidedSizing?: GuidedSizing | null
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +220,13 @@ export function SuggestedChips({
   isThinking = false,
   isHistorical = false,
   runGate,
+  proposalFields,
+  heldProposalEarlier = false,
+  replyId,
+  openedProposalId: controlledProposalId,
+  onOpenProposal,
+  rerunOwnedByHost = false,
+  guidedSizing = null,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -203,6 +234,16 @@ export function SuggestedChips({
   // is the rules-of-hooks contract. Readiness transitions
   // (ready → missing, ready → not_ready) flip `visible` emptiness on the
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
+  const fields = useHeldProposalFields(proposalFields, replyId, chips)
+  // ⛔ ONE BINDABLE RECORD PER REPLY (P53, buddy r1 P1 + r2 P1): this reply's own record, or a reload-fallback record
+  // only when CEE says this reply's turn issued it. The amend panel, the panel's own approve and the plain approve
+  // all read it, so no path can carry another message's record (the fallback reads the CURRENT set, where a
+  // target-keyed id may be a re-offer with another digest).
+  const ownFields = useMemo(() => readProposalFields(proposalFields), [proposalFields])
+  const turnOfReply = replyId?.startsWith('restored-assistant-') ? replyId.slice('restored-assistant-'.length) : replyId
+  const bindable = useMemo(() => ownFields ?? (fields === null ? null : { ...fields,
+    proposals: fields.proposals.filter(p => p.issued_turn_id != null && p.issued_turn_id === turnOfReply) }), [ownFields, fields, turnOfReply])
+  const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
   // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
@@ -212,11 +253,11 @@ export function SuggestedChips({
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
   // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
-  // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
+  // allow rerun (gate-bypassing); complete-but-no-verdict → keep (gate decides).
   // `freshnessSemantic` is the composed trust semantic (useAnalysisTrust),
   // NOT the graph-hash stale path deleted on 2026-07-16. The orphan fold
   // means a recovered-session result with no verdict reads cannot-confirm
-  // here too, so the chip relabels to "Rerun" in step with the strip.
+  // here too, so the chip remains available in step with the strip.
   const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   // ⭐ PoC DOMAIN 5 — the chip reads the SAME held-model authority the Analyse
@@ -250,6 +291,8 @@ export function SuggestedChips({
   const runGateReasonId = useId()
   // One visible disclosure per research chip: `${disclosureIdBase}-${index}`.
   const disclosureIdBase = useId()
+  // The row as shown when the current turn went pending (see "holds still" below).
+  const heldRowRef = useRef<HeldChipRow | null>(null)
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -266,10 +309,8 @@ export function SuggestedChips({
   const v5Active = isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
   // Compute the run-analysis product state ONCE, then both the V5
-  // readiness gate (below) AND the polish-map step downstream branch on
-  // the same value. Keeping a single source of truth prevents a future
-  // change to either branch from re-introducing "filtered before
-  // relabel" behaviour.
+  // readiness gate (below) AND the presentation step downstream branch on
+  // the same verdict. Freshness identifies an existing analysis that can be rerun.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
     ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
@@ -278,10 +319,10 @@ export function SuggestedChips({
   //   action_type === 'run_analysis' → gated by `admitsRunAffordance`, i.e.
   //                                    analysisStatus === 'ready' OR CEE's own
   //                                    may_run === true,
-  //                                    EXCEPT when aiPanelV2 will relabel to
-  //                                    "Rerun" (stale/cannot-confirm), in which
+  //                                    EXCEPT when aiPanelV2 allows a rerun
+  //                                    (stale/cannot-confirm), in which
   //                                    case the chip must survive the gate so the
-  //                                    polish can apply.
+  //                                    action remains available.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable
@@ -291,7 +332,7 @@ export function SuggestedChips({
   // never a conjunct of the readiness predicate.
   //
   //  · ⚠ IT MUST NOT LIVE INSIDE THE READINESS GATE BELOW. That predicate has a
-  //    deliberate early `return true` for `runAnalysisPolish === 'relabel-rerun'`,
+  //    deliberate early `return true` for `runAnalysisPolish === 'allow-rerun'`,
   //    and an early `return true` for chips with no `action_type` — so a hold
   //    written as one more clause in it is SKIPPED in exactly the states it
   //    exists to catch. Measured, not asserted: that shape (mutant M3) turns
@@ -330,9 +371,9 @@ export function SuggestedChips({
         // the very affordance the turn had just offered. Disjunction, so nothing
         // that rendered before stops rendering; see `admitsRunAffordance`.
         if (needsReadiness && !admitsRunAffordance(analysisStatus, analysisMayRun)) {
-          // Single bypass: run_analysis survives when the polish will
-          // relabel it. The decision is upstream (`runAnalysisPolish`).
-          if (c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun') {
+          // Single bypass: the freshness verdict admits a rerun.
+          // The decision is upstream (`runAnalysisPolish`).
+          if (c.action_type === 'run_analysis' && runAnalysisPolish === 'allow-rerun') {
             return true
           }
           return false
@@ -356,7 +397,7 @@ export function SuggestedChips({
         !admitsRunAffordance(analysisStatus, analysisMayRun) &&
         // Mirror the bypass — a chip that survived shouldn't show up as
         // "removed" in the dev log.
-        !(c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun'),
+        !(c.action_type === 'run_analysis' && runAnalysisPolish === 'allow-rerun'),
     )
     if (removedUnsupported.length > 0) {
       logV5StateEvent('chip_filter_unsupported', {
@@ -374,19 +415,9 @@ export function SuggestedChips({
     }
   }
 
-  // aiPanelV2: apply the product rule to run-analysis affordances.
-  // `runAnalysisPolish` was computed once upstream — the V5 filter and
-  // this map step both consume the same value so they cannot diverge.
-  // Detection covers both V2 chips (action_type === 'run_analysis') and
-  // legacy prompt-style chips matched by the canonical regex.
+  // Freshness controls admission; keep original chips for routing and host ownership.
   const polished = aiPanelV2On
-    ? supported
-        .filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
-        .map((c) =>
-          isRunAnalysisAffordance(c) && runAnalysisPolish === 'relabel-rerun'
-            ? { ...c, label: 'Rerun' }
-            : c,
-        )
+    ? supported.filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
     : supported
 
   // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render
@@ -401,24 +432,66 @@ export function SuggestedChips({
   // M3 (CEE #2480 choose_plan): an asked pre-mortem with no plan offers one button per own option, then "Talk it
   // through". That set is the method's own question, not a suggestion: D1's four options made it five, and the cap
   // dropped the last plan and "Talk it through". A turn carrying a plan pick keeps its whole set.
-  const renderable = polished.filter(isChipRenderable)
-  const visible = renderable.some(isPlanPickChip) ? renderable : renderable.slice(0, 3)
-  if (visible.length === 0) return null
-
-  const disabled = isThinking || isHistorical
+  // S-C (CEE #2744): a widening turn's per-item Adds + "Something else" are the same kind of set (3 risks made it four, and
+  // the cap cut "Something else").
+  // ⭐ ONE RERUN CONTROL (Paul, 7 Oct: "get rid of the pill inside the chat and just have the re-analyse button").
+  // While the host shows (or defers to) a rerun control, a run chip is never a second one. Applied before the cap, so
+  // it never costs another chip its slot.
+  const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
+  // GOAL-REACH guided path: the presses are matched by IDENTITY (press id === chip id), never by label, and keep CEE's
+  // order. They are the method's own list (like a plan pick), so the cap applies only to the chips beside them.
+  // The click carries CEE's own press parameters with the chip id (the wire action has no `parameters` slot).
+  const guidedPress = new Map((guidedSizing?.links ?? []).map((l) => [l.press.id, l]))
+  const isGuided = (c: ActionChip) => typeof c.id === 'string' && guidedPress.has(c.id)
+  const guided = renderable.filter(isGuided)
+    .sort((a, b) => (guidedPress.get(a.id)?.order ?? 0) - (guidedPress.get(b.id)?.order ?? 0))
+    .map((c) => ({ ...c, parameters: { ...guidedPress.get(c.id)?.press.parameters } }))
+  const others = renderable.filter((c) => !isGuided(c))
+  const othersShown = others
+  const visibleNow = [...guided, ...othersShown]
+  const guidedProgressLineNow = guided.length > 0 ? guidedSizing?.progressLine : undefined
 
   // The host's gate, read verbatim. Closed ⇒ every Run chip in the row is
   // disabled. The sentence is the host's own (`runBlockedReason`); a blank or
   // absent one leaves the chip disabled with NO description rather than a
   // sentence this component made up.
-  const runGateClosed = runGate !== undefined && !runGate.allowed
-  const runGateReason =
-    runGateClosed && typeof runGate.reason === 'string' && runGate.reason.trim().length > 0
+  const runGateClosedNow = runGate !== undefined && !runGate.allowed
+  const runGateReasonNow =
+    runGateClosedNow && typeof runGate.reason === 'string' && runGate.reason.trim().length > 0
       ? runGate.reason
       : undefined
+
+  // ⭐ WHILE A TURN IS IN FLIGHT THE ROW HOLDS STILL (Paul, 7 Oct: "the text
+  // doesn't move … it shouldn't go blank or do anything weird"). The filters
+  // above read store state that the turn itself changes before its reply lands:
+  // a "Run analysis" turn starts and finishes the Run mid-turn, so freshness
+  // goes changed → current and the run gate closes then opens. Read live, that
+  // deleted or relabelled a chip and added or removed the gate's sentence under
+  // the reader, moving the thinking indicator below it. While pending the row
+  // keeps what it showed when the turn started (all disabled, as before), and
+  // re-reads the store once the turn settles. New chips (a different `chips`
+  // array) are never held back.
+  const liveRow: HeldChipRow = {
+    chips,
+    visible: visibleNow,
+    showRerunLabel: runAnalysisPolish === 'allow-rerun',
+    runGateClosed: runGateClosedNow,
+    runGateReason: runGateReasonNow,
+    guidedProgressLine: guidedProgressLineNow,
+  }
+  if (!isThinking || heldRowRef.current === null || heldRowRef.current.chips !== chips) {
+    heldRowRef.current = liveRow
+  }
+  const { visible, showRerunLabel, runGateClosed, runGateReason, guidedProgressLine } = heldRowRef.current
+  if (visible.length === 0) return null
+
+  const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
 
-  function handleClick(chip: ActionChip) {
+  const proposal = bindable?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
+    && visible.some(c => c.id === p.approve_action.id))
+
+  function handleClick(chip: ProposalPanelAction) {
     if (disabled) return
     const isRunChip = isRunAnalysisAffordance(chip)
     // Belt-and-braces: a gated Run chip is `disabled`, so no pointer or keyboard
@@ -426,6 +499,15 @@ export function SuggestedChips({
     // nothing.
     if (isRunChip && runGateClosed) return
     setChipError(null)
+    if (chip.id === 'agent-amend-proposal') {
+      const entry = bindable?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
+      // Nothing the panel can show (no field it draws, no missing data): keep the amend sentence, never an empty panel.
+      if (entry && (entry.fields.length > 0 || entry.missing.length > 0)) {
+        if (onOpenProposal) onOpenProposal(entry.proposal_id)
+        else setOpenedProposalId(entry.proposal_id)
+        return
+      }
+    }
     /*
      * ⭐ A RUN CHIP ASKS THE RUN GATE, NOT THE CHAT (journey blocker, RC #63
      * 5819467504). This chip used to dispatch `run_analysis` straight through
@@ -450,13 +532,29 @@ export function SuggestedChips({
       gatedRun()
       return
     }
-    onChipClick(chip).catch(() => {
+    // Every approval carries the record displayed under this reply, even when no values changed.
+    // ⛔ ONLY THIS REPLY'S RECORD (buddy r1 P1): the reload fallback reads the CURRENT set, which may hold a re-offer of
+    // the same target-keyed id with another digest. It binds only when CEE says this reply's turn issued it.
+    const held = bindable?.proposals.find(p => p.approve_action.id === chip.id)
+    const action = held && bindable && !chip.proposalEdits ? { ...chip, proposalEdits: {
+      proposal_id: held.proposal_id, revision: held.revision, digest: held.digest,
+      graph_hash: bindable.graph_hash, fields: [],
+    } } : chip
+    onChipClick(action).catch(() => {
       setChipError("That didn't work. Try typing your request instead.")
     })
   }
 
   return (
     <div className="flex flex-col self-start gap-1 mb-4">
+      {heldProposalEarlier && (
+        <p className={typography.chatMeta} data-testid="held-proposal-earlier-label">
+          An earlier suggestion, still waiting for your answer:
+        </p>
+      )}
+      {guidedProgressLine !== undefined && (
+        <p className={typography.chatMeta} data-testid="guided-sizing-progress">{guidedProgressLine}</p>
+      )}
       {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
           row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
       {visible.map((chip, i) => {
@@ -481,12 +579,9 @@ export function SuggestedChips({
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
-          const roleLabel = chip.role
-            ? chip.role.charAt(0).toUpperCase() + chip.role.slice(1)
-            : null
-          const baseLabel = roleLabel
-            ? `${roleLabel}: ${chip.label}`
-            : chip.label
+          // Presentation only: rewriting a label-only chip can erase the identity
+          // the run gate and host detector need. Freeze this verdict with the row.
+          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary
@@ -508,7 +603,7 @@ export function SuggestedChips({
           // Deliberately the accessible name + `title`, NOT a new visible row:
           // this file's chip grammar is owned by `CHIP_CLASS`, and a jsdom
           // suite cannot see a pixel, so a layout change here would be an
-          // unmeasured one. The visible text stays `chip.label` exactly.
+          // unmeasured one. Only the existing-analysis Run control uses the shared Rerun name.
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
           // ⭐ A RESEARCH CONTROL SHOWS WHAT IT SENDS (CEE #2042). Pressing it sends
@@ -563,7 +658,7 @@ export function SuggestedChips({
               data-testid={`suggested-chip-${chip.id}`}
               data-chip-role={chip.role ?? undefined}
             >
-              {chip.label}
+              {baseLabel}
             </button>
           )
         })}
@@ -583,6 +678,11 @@ export function SuggestedChips({
         >
           {runGateReason}
         </p>
+      )}
+
+      {proposal && bindable && (
+        <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${bindable.graph_hash}`}
+          proposal={proposal} graphHash={bindable.graph_hash} disabled={disabled} onAction={handleClick} />
       )}
 
       {chipError && (

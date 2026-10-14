@@ -114,4 +114,70 @@ describe('StrengthBandButtons', () => {
     const group = container.querySelector('[role="group"]')
     expect(group?.className).not.toContain('flex-wrap')
   })
+
+  it('panel reserves no empty consequence height or spacing, while focus and hover still disclose it', () => {
+    const onChange = vi.fn()
+    const { getByTestId } = render(
+      <StrengthBandButtons value={-0.3} onChange={onChange} size="panel" technicalDetails={false} />,
+    )
+    const slot = getByTestId('strength-preset-consequence')
+    const strong = getByTestId('strength-band-strong')
+    const emptySlot = '<div class="text-[11px] font-sans leading-snug text-text-light" data-testid="strength-preset-consequence"></div>'
+    const disclosedSlot = '<div class="text-[11px] font-sans leading-snug text-text-light mt-1" data-testid="strength-preset-consequence">Strong: use this strength band (decreases)</div>'
+
+    expect(slot.outerHTML).toBe(emptySlot)
+    fireEvent.focus(strong)
+    expect(slot.outerHTML).toBe(disclosedSlot)
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.blur(strong)
+    expect(slot.outerHTML).toBe(emptySlot)
+
+    fireEvent.mouseEnter(strong)
+    expect(slot.outerHTML).toBe(disclosedSlot)
+    fireEvent.mouseLeave(strong)
+    expect(slot.outerHTML).toBe(emptySlot)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [false, 'Strong: use this strength band (decreases)'],
+    [true, 'Strong: set strength to -0.55'],
+  ] as const)('chat retains the exact reserved slot markup before and after disclosure (technicalDetails=%s)', (technicalDetails, disclosure) => {
+    const onChange = vi.fn()
+    const { getByTestId } = render(
+      <StrengthBandButtons value={-0.3} onChange={onChange} size="chat" technicalDetails={technicalDetails} />,
+    )
+    const slot = getByTestId('strength-preset-consequence')
+    const strong = getByTestId('strength-band-strong')
+    // Literal pre-round-2 markup: do not derive it from the new layout branch.
+    // The plain row is HeldProposalPanel's usage; the technical row guards
+    // the component's default disclosure as well.
+    const emptySlot = '<div class="text-xs font-sans leading-snug text-text-light min-h-[1rem] mt-1" data-testid="strength-preset-consequence"></div>'
+    const disclosedSlot = `<div class="text-xs font-sans leading-snug text-text-light min-h-[1rem] mt-1" data-testid="strength-preset-consequence">${disclosure}</div>`
+
+    expect(slot.outerHTML).toBe(emptySlot)
+    fireEvent.focus(strong)
+    expect(slot.outerHTML).toBe(disclosedSlot)
+    fireEvent.blur(strong)
+    expect(slot.outerHTML).toBe(emptySlot)
+    fireEvent.mouseEnter(strong)
+    expect(slot.outerHTML).toBe(disclosedSlot)
+    fireEvent.mouseLeave(strong)
+    expect(slot.outerHTML).toBe(emptySlot)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
+
+it('unknown direction discloses magnitudes on touch and never infers a negative sign', () => {
+  const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList)
+  const onChange = vi.fn()
+  try {
+    const { getByTestId } = render(<StrengthBandButtons value={-0.3} directionUnset onChange={onChange} />)
+    expect(getByTestId('strength-preset-consequence').textContent).toBe(
+      'Each preset sets magnitude, in order: 0.10, 0.30, 0.55, 0.85; direction still needed.',
+    )
+    fireEvent.click(getByTestId('strength-band-strong'))
+    expect(onChange).toHaveBeenCalledWith(0.55)
+  } finally { media.mockRestore() }
 })

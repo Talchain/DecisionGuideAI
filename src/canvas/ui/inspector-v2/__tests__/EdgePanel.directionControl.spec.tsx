@@ -189,7 +189,7 @@ describe('a non-causal edge (contrast control)', () => {
   it('offers no direction control at all', async () => {
     renderInspector()
     // Let the panel finish mounting before asserting an absence.
-    await screen.findByText(/Price/)
+    await screen.findByText('Price → Revenue', { exact: true })
     expect(screen.queryByTestId('edge-direction-control')).toBeNull()
     expect(screen.queryByTestId('edge-direction-increases')).toBeNull()
     expect(screen.queryByTestId('edge-direction-decreases')).toBeNull()

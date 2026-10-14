@@ -170,7 +170,11 @@ describe('FactorObservablePanel wires the honest header', () => {
     // Bind to the group's own HEADER, not to the whole panel's text: "Your
     // input" appearing anywhere else must not satisfy or break this.
     const header = group!.firstElementChild
+    // The anatomy keeps the canonical neutral header over an Olumi figure.
     expect(header?.textContent).toBe(GROUP_LABELS.inputUnattributed)
     expect(header?.textContent).not.toBe(GROUP_LABELS.input)
+    // This bare model-scale value has no canonical display text, so the full
+    // source statement in More is the licensed surviving attribution.
+    expect(container.querySelector('[data-testid="observable-source-pill"]')?.textContent).toBe('Estimated by Olumi')
   })
 })

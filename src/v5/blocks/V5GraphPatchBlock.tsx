@@ -144,6 +144,12 @@ export function V5GraphPatchBlock({
           {receipt.changeSummary}
         </p>
       )}
+      {receipt.technicalSummary && (
+        <details className={typography.chatMeta}>
+          <summary className="cursor-pointer text-text-light">Details</summary>
+          <p className={`${typography.chatMeta} text-text-light`} data-testid="v5-change-technical">{receipt.technicalSummary}</p>
+        </details>
+      )}
       {showStaleHint && (
         <p
           className={`${typography.chatMeta} text-text-light`}

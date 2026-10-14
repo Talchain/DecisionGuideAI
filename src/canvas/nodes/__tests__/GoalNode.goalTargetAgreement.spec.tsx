@@ -36,7 +36,7 @@
  * that the card's target line is visible or laid out.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GoalNode } from '../GoalNode'
 import { formatGoalTarget } from '../../../components/results/utils/formatGoalTarget'
@@ -216,7 +216,7 @@ describe('the reduced line is DERIVED from the full-zoom card, never hand-copied
   for (const c of CASES) {
     it(`${c.name}: the low-zoom line is text the full-zoom card already shows`, () => {
       const full = renderCard(c.data, 'full')
-      const fullText = full.text
+      const fullText = full.text + (screen.queryByTestId('goal-node-no-target-chip')?.getAttribute('aria-label') ?? '')
       full.unmount()
 
       const low = renderCard(c.data, 'line')

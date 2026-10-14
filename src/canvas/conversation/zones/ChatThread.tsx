@@ -6,10 +6,11 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
+import { THREAD_SCROLLER_ATTRIBUTE } from '../hooks/threadScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
@@ -18,9 +19,10 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
-import { GuidanceRows } from './GuidanceRows'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
+import { readProposalFields } from '../proposalFields'
+import { guidedSizingForModel } from '../../../v5/readGuidedSizing'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 import { useCanvasStore } from '../../store'
@@ -75,16 +77,11 @@ export const THREAD_TESTID_DOCKED = 'chat-thread'
 export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
 
 /**
- * The element `useSmartScroll` aims `scrollIntoView` at (`pinOrNotify` and
- * `scrollToBottom` — the only two call sites; the reply-start hold sets the
- * thread's `scrollTop` instead). Exported so no spec has to identify it
- * by a property other elements share: `OutputsDock.runReturnsToOlumi.spec.tsx`
- * used to find it as "the scrolled element that has NO `data-testid`", which
- * any untagged element satisfied and which this constant's very existence
- * would have broken (it did — that spec is updated in the same commit).
- * One literal, one place (CLAUDE.md trap 12).
+ * ⚠ THERE IS NO END SENTINEL ANY MORE. `useSmartScroll` used to pin the thread by calling `scrollIntoView` on an
+ * empty element at its end; that call also scrolled the dock's overflow-hidden `aside` and blanked the tab for every
+ * pending turn (witnessed 15/15, 7 Oct). The thread now moves only by writing its own scroll position
+ * (`hooks/threadScroll.ts`), and specs bind to THAT write on the thread element by identity.
  */
-export const THREAD_SCROLL_SENTINEL_TESTID = 'thread-scroll-sentinel'
 
 interface ChatThreadProps {
   messages: ConversationMessage[]
@@ -145,6 +142,8 @@ interface ChatThreadProps {
    * as before. See `RunChipGate`.
    */
   runGate?: RunChipGate
+  /** Forwarded to `SuggestedChips`: the host shows, or defers to, the one rerun control (`workspaceShell/rerunControl.ts`). */
+  rerunOwnedByHost?: boolean
 }
 
 /**
@@ -211,7 +210,12 @@ export const ChatThread = memo(function ChatThread({
   scrollListRef,
   testId = THREAD_TESTID_DOCKED,
   runGate,
+  rerunOwnedByHost,
 }: ChatThreadProps) {
+  // Keep disclosure open when the latest reply remounts its chip row, but never across scenarios.
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const [openedProposal, setOpenedProposal] = useState<{ scenarioId: string | null; id: string } | null>(null)
+  useEffect(() => { setOpenedProposal(null) }, [scenarioId])
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
 
@@ -247,7 +251,7 @@ export const ChatThread = memo(function ChatThread({
 
   // `messages` lets the hook see a reply ARRIVE (appended, not restored), so a
   // reply taller than the thread lands at its first line, not its last.
-  const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
+  const { listRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: renderedMessageCount, isThinking, messages })
 
   // Mirror the internal listRef into an externally-provided ref so the
@@ -293,32 +297,34 @@ export const ChatThread = memo(function ChatThread({
   // ghost (useProposalGhostBridge.ts). Render-only; Accept stays on the chip.
   useProposalGhostBridge(messages)
 
-  // Get suggested chips from the latest reply.
-  //
-  // `SuggestedChips` below is the SOLE render surface for `actionChips`
-  // (verified at 4fbc6451: `<ActionChipRow` has zero production render sites,
-  // and `MessageBubble` renders no chips). Until 2026-08-07 this line was
-  // followed by a `suggestedChipsWillRender` predicate feeding a `hideChips`
-  // prop down ChatMessage → MessageBubble to "suppress the inline
-  // ActionChipRow". MessageBubble declared that prop and never destructured
-  // it: the whole chain was inert, and its comments described a suppression
-  // mechanism that no longer had anything to suppress. Removed rather than
-  // re-documented — a dead guard that reads as a live one is how ROADMAP
-  // 2.668's second defect came to be diagnosed against this file at all.
-  // Dividers are assistant-role transcript markers, never the owner of a reply's controls.
-  // The latest real reply still supersedes every earlier reply's chips.
-  const suggestedChips = lastReplyMsg?.actionChips ?? []
+  // Re-offers share an approve id. Only its newest reply owns that card, while distinct restored holds stay visible.
+  // ⛔ STALE-LIVE: an earlier reply's card shows only while CEE's CURRENT held set (the latest reply's proposal_fields,
+  // which projects only live proposals) still lists it; approving or declining it on a later turn retires the card.
+  // Read from the latest REAL reply: a synthetic error or notice settles nothing (buddy r1 P2).
+  const latestRealReply = [...messages].reverse().find(m => m.role === 'assistant' && !m.synthetic && typeof m.sessionDivider !== 'string')
+  const currentHeldIds = new Set((readProposalFields(latestRealReply?.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
+  const heldChipOwners = new Map<string, ConversationMessage>()
+  for (const message of messages) {
+    if (message.role !== 'assistant' || message.synthetic || message.sessionDivider) continue
+    for (const chip of message.actionChips ?? []) {
+      if (typeof chip.id === 'string' && chip.id.startsWith('agent-approve-proposal:')) heldChipOwners.set(chip.id, message)
+    }
+  }
 
   // PX-B: the settling phase, read the SAME way AIInputBar reads it —
   // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
   // a stale stream from another scenario cannot narrate over this one.
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, currentScenarioId))
   // Read as a CONJUNCT of the settling phase, never bare (same rule as
   // AIInputBar): coachingLanded is not scenario-scoped on its own.
   const coachingLanded = useDraftStore((s) => s.draftStreamCoachingLanded)
   const settlingState: DraftSettlingState =
     draftStreamPhase !== 'settling' ? 'none' : coachingLanded ? 'after_coaching' : 'settling'
+  // ⭐ P44 S2: server narration belongs only to this scenario's settling turn.
+  const draftStreamServerPhase = useDraftStore((s) => s.draftStreamServerPhase)
+  const serverPhase = settlingState === 'none' ? null : draftStreamServerPhase
 
   return (
     <div
@@ -330,6 +336,8 @@ export const ChatThread = memo(function ChatThread({
       aria-label="Conversation"
       aria-live="polite"
       data-testid={testId}
+      /* `threadScroll.ts` finds the thread a target sits in by this mark, so it scrolls the thread and nothing above. */
+      {...{ [THREAD_SCROLLER_ATTRIBUTE]: '' }}
     >
       {showEmptyState && (
         <EmptyState
@@ -369,40 +377,68 @@ export const ChatThread = memo(function ChatThread({
             compact={compact}
           />
         )
-        // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
-        const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
+        // ⭐ ONE WRAPPER TYPE PER REPLY, WHATEVER IT CARRIES (Paul, 7 Oct: "the
+        // text doesn't move … it shouldn't go blank or do anything weird").
+        // A reply used to render as a `div` while it was the latest (chips or
+        // coaching rows attached) and as a bare `ChatMessage` once a newer reply
+        // landed. Same key, different element type: React REMOUNTED the previous
+        // reply at the moment the new one arrived, rebuilding its DOM and
+        // dropping its local state (an opened disclosure snapped shut). Every
+        // assistant reply now keeps the same `div` for its whole life; only what
+        // it holds changes. User messages never carry chips, so they stay bare.
+        // Pinned by `ChatThread.pendingTurnStable.spec.tsx`.
+        if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        if (isLastAssistant && suggestedChips.length > 0) {
-          return (
-            <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
-              {chatMsg}
-              {guidanceRows}
+        // A live reply carries only its approve chip (no heldProposalId), so the id is read from the chip (buddy r1 P2).
+        const heldApproveId = msg.heldProposalId !== undefined ? `agent-approve-proposal:${msg.heldProposalId}`
+          : (msg.actionChips ?? []).find(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))?.id
+        const heldId = heldApproveId?.slice('agent-approve-proposal:'.length)
+        const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
+          && currentHeldIds.has(heldId)
+          && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)
+        // Keep ordinary chips with their owning reply; held consent keeps its single live owner.
+        // Preserve the latest reply's array identity so pending-row freezing survives host rerenders.
+        const replyChips = isLastAssistant ? (msg.actionChips ?? []) : (msg.actionChips ?? []).filter(chip => {
+          const isConsent = chip.id?.startsWith('agent-approve-proposal:')
+            || chip.id?.startsWith('agent-decline-proposal:') || chip.id === 'agent-amend-proposal'
+          return !isConsent || Boolean(ownsHeldCard && (
+            chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
+            || chip.id === `agent-decline-proposal:${heldId}`
+          ))
+        })
+        const chipGroup = replyChips.length > 0
+        return (
+          <div
+            key={msg.id}
+            className={chipGroup ? 'response-chip-group' : undefined}
+            data-testid={chipGroup ? 'response-chip-group' : undefined}
+          >
+            {chatMsg}
+            {chipGroup && (
               <SuggestedChips
-                chips={suggestedChips}
+                chips={replyChips}
+                proposalFields={msg.proposalFields}
+                guidedSizing={isLastAssistant ? guidedSizingForModel(msg.guidedSizing ?? null, lastServerGraphHash) : null}
+                heldProposalEarlier={msg.heldProposalEarlier}
+                replyId={msg.id}
+                openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
+                onOpenProposal={id => setOpenedProposal({ scenarioId, id })}
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
+                rerunOwnedByHost={rerunOwnedByHost}
               />
-            </div>
-          )
-        }
-        if (guidanceRows) {
-          return (
-            <div key={msg.id}>
-              {chatMsg}
-              {guidanceRows}
-            </div>
-          )
-        }
-        return chatMsg
+            )}
+          </div>
+        )
       })}
 
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
         <ThinkingDots
-          label={explainingRun ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
-          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun })}
+          label={explainingRun || serverPhase === 'writing' ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
+          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun, serverPhase })}
         />
       )}
 
@@ -426,12 +462,6 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
 
-      {/* The scroll sentinel `useSmartScroll` calls `scrollIntoView` on. It
-          carries a testid so a spec can assert the scroll was aimed at THIS
-          element by identity, rather than counting calls on a globally stubbed
-          `Element.prototype.scrollIntoView` that any element would satisfy
-          (CLAUDE.md trap 19). */}
-      <div ref={listEndRef} data-testid={THREAD_SCROLL_SENTINEL_TESTID} />
     </div>
   )
 })

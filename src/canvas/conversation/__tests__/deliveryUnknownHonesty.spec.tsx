@@ -122,12 +122,11 @@ describe('transport-failure copy discriminates verified from unverified', () => 
     expect(assertsDeliveryUnknown(copy)).toBe(true)
   })
 
-  it('a network throw (network:true) STILL claims non-delivery — it is verified', () => {
-    // The other half of the pair. If this went green-by-softening too, the fix
-    // would have removed a TRUE statement, which is its own honesty defect.
+  it('a network throw (network:true) leaves delivery unverified', () => {
+    // DL Round 3: rejection proves no response, not that dispatch never started.
     const copy = buildTransportFailureCopy({ network: true }, true)
-    expect(copy).toMatch(/didn['’]t reach the server/i)
-    expect(assertsNonDelivery(copy)).toBe(true)
+    expect(assertsDeliveryUnknown(copy)).toBe(true)
+    expect(assertsNonDelivery(copy)).toBe(false)
   })
 
   it('isUnverifiedDelivery is true for a proxy timeout body', () => {
@@ -141,7 +140,7 @@ describe('transport-failure copy discriminates verified from unverified', () => 
     ).toBe(true)
   })
 
-  it('isUnverifiedDelivery is false for a network throw', () => {
+  it('isUnverifiedDelivery is true for a network throw', () => {
     expect(
       isUnverifiedDelivery({
         hasBoundaryError: false,
@@ -149,7 +148,7 @@ describe('transport-failure copy discriminates verified from unverified', () => 
         recovery,
         rawBody: undefined,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('isUnverifiedDelivery is false for a CEE-class failure', () => {

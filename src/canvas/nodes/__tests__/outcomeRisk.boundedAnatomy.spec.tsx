@@ -170,11 +170,21 @@ describe('ED 5809278282 — ONE body line in Standard view, at every rung, in bo
     draw(kind, f.data)
     const line = screen.getByTestId(f.lineTestId)
     // Identity: THIS element is the card's primary line, and it is on the face.
-    expect(line.getAttribute('data-card-primary-line')).toBe(kind)
     expect(cardFace(kind).contains(line)).toBe(true)
-    // …and nothing else in the body takes a row.
-    const body = line.parentElement!
-    expect(flowChildren(body).map(c => c.getAttribute('data-testid'))).toEqual([f.lineTestId])
+    if (line.hasAttribute('data-card-mark')) {
+      expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+      expect(line.getAttribute('aria-label')).toBeTruthy()
+      // The state moved to a mark; a recorded quantity remains the body control.
+      const placeholder = cardFace(kind).querySelector('[data-card-primary-line]')
+      if (placeholder) {
+        expect(placeholder).toHaveClass('h-[1lh]')
+        expect(placeholder.textContent?.trim()).toBe('')
+      }
+    } else {
+      expect(line.getAttribute('data-card-primary-line')).toBe(kind)
+      const body = line.parentElement!
+      expect(flowChildren(body).map(c => c.getAttribute('data-testid'))).toEqual([f.lineTestId])
+    }
     // The authored context left the face (it is in the popover — see below).
     expect(cardFace(kind).textContent).not.toContain(CONTEXT)
   })
@@ -197,35 +207,15 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     ['risk', 'entered (impact only)', { impact: 'high' }, 'risk-exposure-line', 'High impact', 'Entered estimate · High impact'],
   ] as const
 
-  it.each(TEXT_STATES)('%s %s: visible form, full sentence in sr-only, no native title', (kind, _s, data, testId, short, full) => {
+  it.each(TEXT_STATES)('%s %s: original words name the bottom visual, with no native title', (kind, _s, data, testId, short, full) => {
     draw(kind, data)
     const line = screen.getByTestId(testId)
-    if (testId === 'outcome-unquantified' || testId === 'risk-exposure-unset') {
-      // v3.1 `.small-state`: the whole state label, wrapping, never cut.
-      expect(Array.from(line.classList)).toContain('break-words')
-      expect(Array.from(line.classList)).not.toContain('text-ellipsis')
-      expect(Array.from(line.classList)).not.toContain('whitespace-nowrap')
-    } else if (testId === 'risk-exposure-line') {
-      // ⚠ The entered pair keeps its provenance ON the card (ED 5809278282:
-      // never tooltip-only) — `· entered` after the figures — and may wrap
-      // rather than cut a figure or its qualifier.
-      expect(Array.from(line.classList)).toContain('break-words')
-      expect(Array.from(line.classList)).not.toContain('text-ellipsis')
-      expect(screen.getByTestId('risk-exposure-provenance').textContent).toBe(' · entered')
-    } else {
-      expect(Array.from(line.classList)).toEqual(expect.arrayContaining(['whitespace-nowrap', 'overflow-hidden', 'text-ellipsis']))
-    }
-    const visible = line.querySelector('[aria-hidden="true"]')
-    const announced = line.querySelector('.sr-only')
-    expect(visible?.textContent).toBe(short)
-    expect(announced?.textContent).toBe(full)
-    // Design audit #13 (26 Sep): no native `title`. The line wraps and is
-    // never cut (v3.1), provenance rides the line (" · entered"), and the full
-    // sentence stays sr-only and in the popover (MOVE, DON'T DELETE, below).
-    expect(line.hasAttribute('title')).toBe(false)
-    // The short form IS the tail of the sentence it stands in for — the state
-    // (or the figures) — so the words that moved off are the leading label.
-    expect(full.toLowerCase().endsWith(short.toLowerCase())).toBe(true)
+    expect(line).toHaveAttribute('aria-label', short)
+    expect(line.getAttribute('title') ?? '').toBe('')
+    expect(line.getAttribute('aria-description') ?? line.getAttribute('aria-label')).toBe(full)
+    expect(line.textContent).not.toContain(short)
+    expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+    if (testId === 'risk-exposure-line') expect(screen.getByTestId('risk-exposure-provenance')).toHaveAttribute('aria-label', ' · entered')
   })
 
   it('the two absence forms fit the landing measure — the STATE is never what an ellipsis eats', () => {
@@ -252,7 +242,8 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     expect(Array.from(readout.classList)).not.toEqual(expect.arrayContaining(['truncate']))
     expect(Array.from(readout.classList)).not.toContain('text-ellipsis')
     const mark = screen.getByTestId(markId)
-    expect(row.contains(mark)).toBe(true)
+    expect(row.contains(mark)).toBe(false)
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(row.firstElementChild).toBe(readout)
   })
 
@@ -278,17 +269,17 @@ describe('Detailed view keeps its inline detail (contrast — the fit is a Stand
 
   it('outcome: full state sentence and the authored context stay on the card', () => {
     draw('outcome', { description: CONTEXT })
-    expect(screen.getByTestId('outcome-unquantified').textContent).toBe(OUTCOME_UNQUANTIFIED_LINE)
+    expect(screen.getByTestId('outcome-unquantified').getAttribute('aria-label')).toBe(OUTCOME_UNQUANTIFIED_LINE)
     expect(screen.getByTestId('outcome-context-preview').textContent).toBe(CONTEXT)
   })
 
   it('risk: the full unset sentence, the entered line with its qualifier, and the context stay on the card', () => {
     draw('risk', { description: CONTEXT })
-    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(screen.getByTestId('risk-exposure-unset').getAttribute('aria-label')).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(screen.getByTestId('risk-context-preview').textContent).toBe(CONTEXT)
     cleanup()
     draw('risk', { probability: 0.9, impact: 'high' })
-    expect(screen.getByTestId('risk-exposure-line').textContent).toBe('Entered estimate · 90% likely · High impact')
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-label')).toBe('Entered estimate · 90% likely · High impact')
   })
 })
 

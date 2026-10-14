@@ -15,6 +15,8 @@ export interface ServerConversationTurnsOffer {
   readonly run: RestoreRunContext
   /** Raw opt-in held-offer sidecar; the conversation reader validates it. */
   readonly heldProposalOffers?: unknown
+  /** Raw opt-in S-D `proposal_fields` (§15); `proposalFields.ts` validates it. */
+  readonly proposalFields?: unknown
 }
 
 interface ServerConversationTurnsState {

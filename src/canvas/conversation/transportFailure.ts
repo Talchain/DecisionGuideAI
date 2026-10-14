@@ -70,64 +70,67 @@ export function isTransportFailure(args: {
   return true
 }
 
-/**
- * ROADMAP 2.665 — is this failure one whose DELIVERY WE HAVE NOT VERIFIED?
- *
- * True for exactly one shape: transport-class with `network === false`, i.e. a
- * response arrived but carried no CEE outcome (proxy `PROXY_UPSTREAM_TIMEOUT`,
- * edge timeout). The request reached CEE, and CEE commits turns whether or not
- * anything downstream is still listening.
- *
- * False for a network throw (`network === true`) — nothing left the client, so
- * non-delivery is verified — and false for CEE-class failures, where the server
- * answered with its own typed verdict.
- *
- * Derived from `isTransportFailure` rather than re-testing its conditions, so
- * the two can never disagree about what "transport-class" means.
- */
+/** A transport failure is uncertain unless the client proves dispatch never started. */
 export function isUnverifiedDelivery(args: {
   hasBoundaryError: boolean
   transportMeta: TypedErrorTransportMeta | undefined
   recovery: CeeRecovery
   rawBody: unknown
 }): boolean {
-  return isTransportFailure(args) && args.transportMeta?.network === false
+  return isTransportFailure(args) && args.transportMeta?.requestNotStarted !== true
 }
 
-/**
- * Honest copy for a transport-class failure.
- *
- * ⚠ ROADMAP 2.665 — THE TWO HALVES OF THIS CLASS ARE NOT THE SAME CLAIM, and
- * treating them as one shipped a falsehood on the half that matters.
- *
- *   · `meta.network === true` — the fetch threw: offline, DNS, CORS preflight.
- *     No request ever completed, so non-delivery is VERIFIED and the original
- *     copy is exactly right. Unchanged.
- *   · `meta.network === false` — a NON-2xx RESPONSE ARRIVED carrying no CEE
- *     signal, i.e. the proxy's own `PROXY_UPSTREAM_TIMEOUT` body or an edge
- *     timeout. The request reached CEE; something downstream stopped waiting
- *     for it. CEE goes on to complete and COMMIT that turn — live-witnessed
- *     2026-08-07 at 123.1s — so "your message didn't go through" and "it hasn't
- *     been added to the conversation" were both claims we had not verified and
- *     could not verify. That half now says the outcome is unknown.
- *
- * This half is not hypothetical and is not a spare-time tidy-up: reconciling
- * the client wait with CEE's 125s proxy deadline (2.665 (b)) means a long turn
- * that used to expire client-side now arrives HERE instead. Fixing the client
- * timeout alone would only have moved the same false sentence one branch over.
- *
- * A retry is never instructed on the unknown half, whatever `showRetry` says —
- * retrying duplicates (CEE keys its commit on its own per-request id, not on
- * `payload.turn_id`; see `deliveryUnknown.ts`).
- */
+/** Separate from the historical timeout constants; no reload promise or retry instruction. */
+export const NETWORK_AFTER_SEND_UNKNOWN_COPY =
+  'We cannot confirm whether your message reached the server. It may still have been processed. ' +
+  'Nothing you typed was lost. Check your connection, then ask your next question as normal. ' +
+  'Sending this same message again could ask the same thing a second time.'
+
+/** Only positive pre-dispatch proof licenses non-delivery copy. */
 export function buildTransportFailureCopy(
   meta: TypedErrorTransportMeta,
   showRetry: boolean,
 ): string {
-  if (!meta.network) return PROXY_TIMEOUT_UNKNOWN_COPY
+  if (meta.requestNotStarted !== true) {
+    return meta.network ? NETWORK_AFTER_SEND_UNKNOWN_COPY : PROXY_TIMEOUT_UNKNOWN_COPY
+  }
   const what = "Your message didn't reach the server."
   const consequence =
     "It hasn't been added to the conversation and is marked as not delivered above. Nothing you typed was lost."
   const action = showRetry ? "Try again when you're ready." : ''
   return [what, consequence, action].filter((s) => s.length > 0).join(' ')
 }
+
+/**
+ * Recovery Batch B (PL amendment, accepted by the DL, 12 Oct): a send that got NO response has two honest readings.
+ *
+ * (a) `not_sent`: positive proof the request was never dispatched. No transport reached its own dispatch boundary
+ *     (`onRequestStarted`, called immediately before `fetch`), and the transport's result, when there is one, says so
+ *     too (`requestNotStarted`). Offline before send, or a failure before the fetch started.
+ * (b) `delivery_unknown`: anything else. A request that was dispatched and never answered (network error after
+ *     dispatch, a timeout, an abort mid-flight) may have been received and applied, so it is never called "not sent".
+ *
+ * Fails toward (b): an absent proof is not a proof. Error names and elapsed time are never evidence.
+ */
+export type UnansweredSendOutcome = 'not_sent' | 'delivery_unknown'
+
+export function classifyUnansweredSend(evidence: {
+  /** Some transport in this send reached its dispatch boundary. */
+  requestStarted: boolean
+  /**
+   * The transport result's own pre-dispatch proof, when a result exists (`TypedErrorTransportMeta.requestNotStarted`).
+   * Omit when there is no result (a throw), where the dispatch boundary alone decides.
+   */
+  transportProvedNotStarted?: boolean
+}): UnansweredSendOutcome {
+  if (evidence.requestStarted) return 'delivery_unknown'
+  if (evidence.transportProvedNotStarted === false) return 'delivery_unknown'
+  return 'not_sent'
+}
+
+/** (a) Confirmed not sent. */
+export const NOT_DELIVERED_COPY = "Your message wasn't sent. Check your connection and try again."
+
+/** (b) Dispatched, no response or acknowledgement. */
+export const DELIVERY_UNKNOWN_COPY =
+  "We couldn't confirm your message arrived. Check the conversation before sending it again."

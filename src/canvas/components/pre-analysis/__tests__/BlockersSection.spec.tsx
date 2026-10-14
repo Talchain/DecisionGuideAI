@@ -146,7 +146,7 @@ describe('BlockersSection', () => {
         />,
       )
 
-      expect(screen.getByText(/Try rephrasing your decision brief/)).toBeInTheDocument()
+      expect(screen.getByText(/Try rephrasing your brief\./)).toBeInTheDocument()
     })
 
     it('does not show helper text when retryable is true', () => {
@@ -162,7 +162,7 @@ describe('BlockersSection', () => {
         />,
       )
 
-      expect(screen.queryByText(/Try rephrasing your decision brief/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Try rephrasing your brief\./)).not.toBeInTheDocument()
     })
 
     it('calls onEditBrief when "Edit brief" button is clicked', () => {

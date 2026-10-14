@@ -232,7 +232,7 @@ export const EdgeDataSchema = z.object({
    * CEE display provenance label. Distinct from `provenance` above (short rationale tag).
    * Drives "From brief" / "AI estimate" / "User set" pills. UI never invents this value.
    */
-  provenanceDisplay: z.enum(['from_brief', 'ai_inferred', 'user_set']).optional(),
+  provenanceDisplay: z.enum(['from_brief', 'ai_inferred', 'user_set', 'unverified_brief']).optional(),
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 
@@ -285,6 +285,8 @@ export const EdgeDataSchema = z.object({
    * edge; displays show the existence the Run USES. ⚠ ABSENT ⇒ NOT HELD. Never defaulted; never sent anywhere.
    */
   existenceHeld: z.literal(true).optional(),
+  /** S-DEF: the hold above is a VALIDATED DEFINITION's (`existenceHeldPatch`); absent on a user-range hold. Never defaulted. */
+  existenceHeldByDefinition: z.literal(true).optional(),
 
   /** RT-12: the signed admitted example strength; shares the natural-effect staleness rule, never defaulted. */
   strengthExampleFigure: z.number().finite().optional(),
@@ -635,7 +637,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  */
 export const USER_EDGE_DEFAULTS: EdgeData = {
   weight: 0.3,            // Moderate starting strength (encourages calibration)
-  direction: 'positive',  // Default positive causal direction
+  // Direction is absent until explicitly reviewed; drawing makes no sign claim.
   style: 'solid',
   curvature: 0.15,
   pathType: 'bezier',
@@ -1454,5 +1456,8 @@ export function readWireEdgeStrengthAuthor(
   if (!wireEdge) return undefined
   const provenance = wireEdge.provenance as Record<string, unknown> | undefined | null
   if (!provenance || typeof provenance !== 'object') return undefined
+  // Science 393023 LICENCE ruling 1 (7 Oct 20:48Z): a projected mean is CEE's number even on a link the user drew
+  // (`user_specified` + `mean_projected` = drawn, no number given), so the strength is never credited to the user.
+  if (provenance.mean_projected === true) return undefined
   return provenance.source === 'user_specified' ? 'user' : undefined
 }

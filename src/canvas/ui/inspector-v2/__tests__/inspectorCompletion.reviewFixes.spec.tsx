@@ -27,7 +27,7 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { requestNodeRename, clearNodeRename } from '../renameIntent'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
-import { EMPTY_STATES, OPTION_STRINGS, DECISION_STRINGS } from '../inspectorStrings'
+import { EMPTY_STATES, OPTION_STRINGS } from '../inspectorStrings'
 
 vi.mock('@xyflow/react', () => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -341,7 +341,9 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
     expect(impact?.textContent).not.toContain(OPTION_STRINGS.impactUnavailable)
   })
 
-  it('STILL shows the comparison to an option the run DID cover', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "Existing A" presence assertion (the share comparison to the other option) is
+  // deleted — OptionPanel shows no share comparison in C. The per-node negative stays.
+  it('an option the run DID cover is never told it was added after the run', () => {
     // Discriminating twin: the fix must suppress foreign data for a node the
     // run never saw, not delete the comparison for nodes it did.
     setStore({
@@ -361,9 +363,7 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
       },
     })
     mockDisplayMetadata.mockReturnValue({ ...baseMetadata, winRate: 0.55 })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact?.textContent).toContain('Existing A')
+    render(<OptionPanel {...optionProps} />)
     expect(screen.queryByTestId('option-impact-not-in-run')).toBeNull()
   })
 })
@@ -408,9 +408,12 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
   it('does NOT claim "No connections yet." while two edges are on the canvas', () => {
     setInboundStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const connections = container.querySelector('[data-panel-group="connections"]')
-    expect(connections?.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
-    expect(screen.getByTestId('decision-connections-are-options').textContent).toContain('2')
+    const alternatives = container.querySelector('[data-panel-group="alternatives"]')
+    expect(alternatives).not.toBeNull()
+    expect(alternatives?.textContent).toContain('Option A')
+    expect(alternatives?.textContent).toContain('Option B')
+    expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
   })
 
   it('counts an option connected in BOTH directions exactly once', () => {
@@ -425,7 +428,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
       ],
     })
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('decision-connections-are-options').textContent).toContain('1')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 1 option.')
     expect(screen.getAllByText('Option A')).toHaveLength(1)
   })
 
@@ -442,8 +445,11 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 
-  it('exposes the count copy for both directions from ONE constant', () => {
-    expect(DECISION_STRINGS.connectionsAreOptions).toContain('{count}')
+  it('states the count for both directions in the single summary location', () => {
+    setInboundStore()
+    render(<DecisionPanel {...decisionProps} />)
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
+    expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 })
 
@@ -452,6 +458,14 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
 // ─────────────────────────────────────────────────────────────────────
 
 describe('4 · a run_exercise action is labelled for what it does', () => {
+  beforeEach(() => {
+    // Each exercise starts with its own graph and stage, independent of the
+    // decision connection rows above (including their named "Untouched" node).
+    setStore({
+      nodes: [{ id: 'node-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing Budget' } }],
+      edges: [], hasCompletedFirstRun: false, v5AnalysisFact: null,
+    })
+  })
   const coachingProps = {
     elementId: 'node-1',
     panelType: 'factor-controllable',
@@ -478,6 +492,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
       guidanceItems: [exerciseItem()],
       _sendMessage: vi.fn(),
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Try it')).toBeTruthy()
@@ -486,18 +501,37 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     expect(screen.queryByText('Ask about this')).toBeNull()
   })
 
-  it('still sends the command when that label is clicked — as a chip, never through _sendMessage (UI N2)', () => {
+  it('sends the question-table pre-mortem as one chip, never through the composer', () => {
     const send = vi.fn()
     const dispatch = vi.fn()
     useGuidanceStore.setState({
       guidanceItems: [exerciseItem()],
       _sendMessage: send,
       _dispatchAction: dispatch,
-      _prefillChat: vi.fn(),
+      _prefillChat: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Try it'))
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ message: '/exercise pre_mortem', source: 'chip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:pre-mortem', label: 'What could make this decision go badly that isn’t in the model yet?', message: 'What could make this decision go badly that isn’t in the model yet?', source: 'chip' })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('names the current decision in the exact pre-mortem chip', () => {
+    setStore({ nodes: [
+      { id: 'node-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing Budget' } },
+      { id: 'dec1', type: 'decision', position: { x: 1, y: 0 }, data: { label: 'Budget strategy' } },
+    ] })
+    const dispatch = vi.fn()
+    const send = vi.fn()
+    useGuidanceStore.setState({ guidanceItems: [exerciseItem()], _dispatchAction: dispatch,
+      _sendMessage: send, _isConversationBusy: () => false })
+    render(<InspectorCoaching {...coachingProps} />)
+    fireEvent.click(screen.getByText('Try it'))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:pre-mortem',
+      label: 'What could make ‘Budget strategy’ go badly that isn’t in the model yet?',
+      message: 'What could make ‘Budget strategy’ go badly that isn’t in the model yet?', source: 'chip' })
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -507,6 +541,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     useGuidanceStore.setState({
       guidanceItems: [{ ...exerciseItem(), primary_action: { type: 'navigate', target: 'x' } } as GuidanceItem],
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Ask about this')).toBeTruthy()

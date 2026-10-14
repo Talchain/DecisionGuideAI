@@ -76,7 +76,8 @@ function renderDrivers() {
 }
 
 function briefDriverItems(): string[] {
-  render(<DecisionBriefSectionContainer leaderClaimPermitted={false} />)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  render(<DecisionBriefSectionContainer hasOptionResult={data.recommendation.hasOptionResult} leaderClaimPermitted={false} />)
   return Array.from(screen.getByTestId('decision-brief-drivers').querySelectorAll('li')).map((li) => li.textContent ?? '')
 }
 
@@ -101,12 +102,12 @@ describe('the evidence: the served run ranked an unvalued factor as its main dri
 describe('hero "Main driver"', () => {
   it('⭐ the unvalued main driver reads "· no value yet"', () => {
     seed()
-    expect(heroPill()).toBe(`Main driver: ${TOP_LABEL} · no value yet`)
+    expect(heroPill()).toBe(`Moves the result most: ${TOP_LABEL} · no value yet`)
   })
 
-  it('CONTROL: the model now states a value for it → the served words, unchanged', () => {
+  it('CONTROL: the model now states a value for it → no note', () => {
     seed([TOP])
-    expect(heroPill()).toBe(DOM['hero-quicklink-driver'])
+    expect(heroPill()).toBe(`Moves the result most: ${TOP_LABEL}`)
   })
 })
 
@@ -153,4 +154,16 @@ describe('decision brief "What matters"', () => {
     ]
     expect([...uniqueLabelsOf(nodes, new Set(['a', 'b']))]).toEqual(['Alpha'])
   })
+})
+
+it('D2-a mounted container: no option results cannot attribute top drivers', () => {
+  seed()
+  const state = useCanvasStore.getState()
+  useCanvasStore.setState({ results: { ...state.results, report: { ...state.results.report, option_probabilities: {} } } } as never)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  render(<DecisionBriefSectionContainer hasOptionResult={data.recommendation.hasOptionResult} leaderClaimPermitted={false} />)
+  const group = screen.getByTestId('decision-brief-drivers')
+  expect(group.querySelectorAll('li')).toHaveLength(0)
+  expect(group.querySelectorAll('p')).toHaveLength(1)
+  expect(group).toHaveTextContent('No result yet to attribute these to.')
 })

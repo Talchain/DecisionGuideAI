@@ -218,7 +218,9 @@ import {
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 import { action, icon } from '../panelSurfaces'
-import { useCurrentBriefText } from './BriefEditForm'
+import { BRIEF_EDIT_COPY, BriefEditForm, useCurrentBriefText } from './BriefEditForm'
+import { useBriefEditStore } from '../briefEditStore'
+import { REVIEW_TOOL_COPY, WHOLE_FRAMING_ASK } from '../buildReviewQueue'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -443,6 +445,11 @@ export interface ReviewSlotProps {
   request: ReviewToolRequest | null
   /** The node ids the queue holds an item about, reported by the tool. */
   onQueueTargets: (ids: readonly string[]) => void
+  /**
+   * The strip's Decision row carries the question's ✎ (edit the brief) and ✦ (check the framing) and hosts the
+   * brief form, so the tool's own row shows only "N to review".
+   */
+  framingActsInChecklist?: boolean
 }
 
 export function ModelStrip({
@@ -531,6 +538,8 @@ export function ModelStrip({
     return null
   })
   const briefText = useCurrentBriefText()
+  /** The Brief row shows the user's own words (Paul 14 Oct 2026: brief = what the user wrote); the question only when there is no brief. */
+  const briefRowText = briefText !== null && briefText.trim() !== '' ? briefText.trim() : null
   const questionLead =
     decisionQuestion !== null
       ? oneSentence(decisionQuestion)
@@ -685,6 +694,13 @@ export function ModelStrip({
    * proposal is then `not_encodable`, which is the honest answer.
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
+  // The Decision row's ✎ and its brief form: the SAME store `ModelReviewTool` hosts (one form, one open state).
+  const briefOpen = useBriefEditStore((s) => s.isOpen)
+  const briefOpenRequest = useBriefEditStore((s) => s.openRequest)
+  const setBriefOpen = useBriefEditStore((s) => s.setOpen)
+  const briefPencilRef = useRef<HTMLSpanElement | null>(null)
+  /** The Decision row's text: one clipped line at rest, the whole question on click. */
+  const [decisionWrapped, setDecisionWrapped] = useState(false)
 
   /* ⭐ `openAtRest` IS THE PROTOTYPE'S STATIC HEADER (design audit B2): the
      question is an h2 and the census always shows, so there is no fold for a
@@ -905,9 +921,9 @@ export function ModelStrip({
   }
 
   /** The review slot, in whichever form the host passed it. */
-  const renderReviewSlot = (successSlot: ReactNode): ReactNode =>
+  const renderReviewSlot = (successSlot: ReactNode, framingActsInChecklist = false): ReactNode =>
     typeof reviewSlot === 'function' ? (
-      reviewSlot({ successSlot, request: reviewRequest, onQueueTargets })
+      reviewSlot({ successSlot, request: reviewRequest, onQueueTargets, framingActsInChecklist })
     ) : (
       <>
         {reviewSlot}
@@ -1078,13 +1094,17 @@ export function ModelStrip({
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
 
-  /** The success line, handed to the review slot — see `reviewSlot`. */
-  const successLine = (
-    <>
+  /**
+   * The success target, in either shape: the Goal row of the checklist (`checklist`, while the census is open) or
+   * the old success line handed to the review slot (a closed bare mount). One element, so the handlers cannot fork.
+   */
+  const goalTarget = (variant: 'reasoning' | 'checklist') => (
     <SuccessTargetLine
       goalNodeId={strip.goalNodeId}
       divider={false}
-      variant="reasoning"
+      variant={variant}
+      goalLabel={goalLabel}
+      provisional={Boolean(strip.provisionalGoalLabel)}
       /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
          This read TWO, on the premise that no server carrier for a goal
          threshold exists, and told every reader "It will be used the next time
@@ -1127,6 +1147,11 @@ export function ModelStrip({
       }}
       testId={`${testId}-target`}
     />
+  )
+  /** The success line, handed to the review slot — see `reviewSlot`. Open, the Goal row carries the target. */
+  const successLine = (
+    <>
+    {open ? null : goalTarget('reasoning')}
     <LimitVerdictLines view={limitVerdicts} testId={`${testId}-limit-verdicts`} />
     </>
   )
@@ -1167,6 +1192,7 @@ export function ModelStrip({
               ⚠ `aria-labelledby` points HERE, so the landmark is announced as
               the decision when there is one and the goal when there is not —
               never as an empty string. */}
+          {open ? null : (
           <SubjectTag
             id={subjectId}
             // ⚠⚠ 24 Sep 2026 — NO LONGER CLAMPED. Reasoning-V2 fidelity gap #8
@@ -1181,24 +1207,29 @@ export function ModelStrip({
             // second copy of the subject inside the region would put the same
             // sentence on screen twice, which is exactly what the
             // first-viewport census exists to stop. Only the clamp is gone.
-            className={`${typography.panelHeader} text-text-header block m-0 break-words${
-              open && subjectSubLabel === null ? ' pr-5' : ''
-            }`}
+            // ⭐ 8 Oct 2026 (Paul: "too dominating and loud"): the subject is the model's own words, not a section
+            // title. Same 14px as the section titles (`panelQuestion`), one weight lighter and in body ink, so a
+            // three-line goal no longer outweighs "Challenge the thinking" beneath it.
+            // Paul 14 Oct 2026: the decision text no longer shows at the top of the Reasoning panel.
+            // Kept screen-reader-only because the region's aria-labelledby points here.
+            className="sr-only"
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
             {leadLabel ?? NO_SUBJECT_LABEL}
           </SubjectTag>
-          {subjectSubLabel === null ? null : (
+          )}
+          {open || subjectSubLabel === null ? null : (
             <span
-              className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
+              className="sr-only"
               data-testid={`${testId}-goal`}
               title={subjectSubLabel}
             >
               {subjectSubLabel}
             </span>
           )}
-          {strip.provisionalGoalLabel ? (
+          {/* Open, the Goal row says "provisional" — this line only survives on a closed bare mount. */}
+          {!open && strip.provisionalGoalLabel ? (
             <span className={`${typography.panelMeta} text-text-light block`}
               data-testid={`${testId}-provisional-objective`}>
               Provisional objective: {strip.provisionalGoalLabel}.
@@ -1404,8 +1435,63 @@ export function ModelStrip({
         <ul
           role="list"
           data-testid={`${testId}-rows`}
-          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1"
+          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-start gap-x-2 gap-y-1"
         >
+          {/* Paul 14 Oct 2026: one checklist — Decision, Goal, then the census; every row marker · name · state · ✎ ✦.
+              Decision: the lead text (one clipped line; a click shows it whole), ✎ = the brief form ("Edit the full
+              question", the store `ModelReviewTool` hosts), ✦ = the whole-framing ask — the pair that sat on the
+              "N to review" row. The text element carries `subjectId`, so the landmark keeps its name. */}
+          <li role="listitem" className="contents" data-testid={`${testId}-decision`} data-kind="decision">
+            <span className="flex min-h-7 items-center gap-1 py-0.5 min-w-0">
+              <NodeMark kind="decision" />
+              <span className={`${typography.panelMeta} text-text-light truncate`}>Brief</span>
+            </span>
+            <SubjectTag id={subjectId} className="m-0 min-w-0" data-testid={`${testId}-lead`}>
+              <button
+                type="button"
+                onClick={() => setDecisionWrapped((v) => !v)}
+                aria-expanded={decisionWrapped}
+                title={briefRowText ?? leadLabel ?? undefined}
+                className={`${typography.panelBody} text-text-body block w-full min-w-0 py-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                  decisionWrapped ? 'whitespace-normal break-words' : 'truncate'
+                }`}
+                data-testid={`${testId}-lead-text`}
+              >
+                {briefRowText ?? leadLabel ?? NO_SUBJECT_LABEL}
+              </button>
+            </SubjectTag>
+            <span className="flex items-center shrink-0 justify-self-end">
+              <span ref={briefPencilRef} className="inline-flex">
+                <PanelIconButton
+                  Icon={Pencil}
+                  label={BRIEF_EDIT_COPY.open}
+                  expanded={briefOpen}
+                  onClick={() => setBriefOpen(!briefOpen)}
+                  testId={`${testId}-decision-edit`}
+                />
+              </span>
+              <PanelIconButton
+                ai
+                label={REVIEW_TOOL_COPY.askFraming}
+                onClick={() => openAskOlumi(WHOLE_FRAMING_ASK)}
+                testId={`${testId}-decision-ask`}
+              />
+            </span>
+          </li>
+          {briefOpen ? (
+            <li role="listitem" className="col-span-3 min-w-0">
+              <BriefEditForm
+                onAsk={openAskOlumi}
+                onClose={() => {
+                  setBriefOpen(false)
+                  briefPencilRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+                }}
+                focusRequest={briefOpenRequest}
+                testIdPrefix={testId}
+              />
+            </li>
+          ) : null}
+          {goalTarget('checklist')}
           {visible.map(({ row, nodes, drawMarks, narrowed, uncapped, zero }) => zero ? (
             <li
               key={row.kind}
@@ -1416,13 +1502,13 @@ export function ModelStrip({
               data-zero="true"
             >
               {/* Not a control: there is nothing of this kind to ring or narrow to. */}
-              <span className="flex items-center gap-1 px-1 py-0.5 min-w-0">
+              <span className="flex min-h-6 items-center gap-1 py-0.5 min-w-0">
                 <NodeMark kind={row.kind} />
                 <span className={`${typography.panelMeta} text-text-light truncate`}>{row.label}</span>
               </span>
               <span data-testid={`${testId}-marks`} />
               <span
-                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                className={`${typography.panelMeta} text-text-light tabular-nums justify-self-end flex min-h-6 items-center`}
                 data-testid={`${testId}-row-count`}
                 data-kind={row.kind}
               >
@@ -1449,7 +1535,7 @@ export function ModelStrip({
                 onClick={() => pickKind(row.kind)}
                 aria-pressed={kindFilter === row.kind}
                 aria-label={COPY.modelStrip.onlyKind(row.label)}
-                className={`flex items-center gap-1 rounded px-1 py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                className={`flex min-h-6 items-center gap-1 rounded py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                   kindFilter === row.kind ? 'bg-panel-hover' : 'hover:bg-panel-hover'
                 }`}
                 data-testid={`${testId}-row-filter`}
@@ -1568,7 +1654,7 @@ export function ModelStrip({
                   narrowed count alone would read as the row's size and
                   silently shrink the model. */}
               <span
-                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                className={`${typography.panelMeta} text-text-light tabular-nums justify-self-end flex min-h-6 items-center`}
                 data-testid={`${testId}-row-count`}
                 data-kind={row.kind}
               >
@@ -1609,7 +1695,9 @@ export function ModelStrip({
           data-testid={`${testId}-detail`}
           data-node-id={active.id}
         >
-          <div className="flex items-center justify-between gap-1 min-w-0">
+          {/* ⭐ 8 Oct 2026 (Paul: "icons on the left and some on the right … very confusing"): ONE row of acts, on
+              the right of the name, in the panel's fixed order — ✎ propose, ⌖ show on canvas, ✦ ask, then ✕. */}
+          <div className="flex items-start justify-between gap-2 min-w-0">
             <h4
               className={`${typography.panelHeader} text-text-header m-0 min-w-0 break-words`}
               data-testid={`${testId}-detail-title`}
@@ -1619,12 +1707,53 @@ export function ModelStrip({
                   substitution the mark's own accessible name makes. */}
               {active.label || COPY.modelStrip.kindNoun[active.kind]}
             </h4>
-            <PanelIconButton
-              Icon={X}
-              label={CLOSE_DETAIL_LABEL}
-              onClick={() => setActiveNodeId(null)}
-              testId={`${testId}-detail-close`}
-            />
+            <span className="flex shrink-0 items-center gap-px -my-1" data-node-id={active.id} data-testid={`${testId}-detail-acts`}>
+              <PanelIconButton
+                Icon={Pencil}
+                label={PROPOSE_CHANGE_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: proposeChangeDraft(label),
+                    label: PROPOSE_CHANGE_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-propose`}
+              />
+              {/* The detail's own canvas route: activating the mark already
+                  focused the canvas, and on touch that tap is what opened this,
+                  so this is the only way to ask again without closing it. */}
+              <PanelIconButton
+                Icon={Crosshair}
+                label={COPY.modelStrip.showOnCanvas}
+                onClick={() => focusOrSay(active.id)}
+                testId={`${testId}-detail-focus`}
+              />
+              <PanelIconButton
+                ai
+                label={ASK_ABOUT_ITEM_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: askAboutItemDraft(label),
+                    label: ASK_ABOUT_ITEM_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-ask`}
+              />
+              <PanelIconButton
+                Icon={X}
+                label={CLOSE_DETAIL_LABEL}
+                onClick={() => setActiveNodeId(null)}
+                testId={`${testId}-detail-close`}
+              />
+            </span>
           </div>
 
             {/* ⭐ THE PROTOTYPE'S ONE BULLET (`tiny-list`), FILLED ONLY BY THE
@@ -1729,9 +1858,13 @@ export function ModelStrip({
                 something false about a node that has no observed value to
                 carry. */}
             {active.kind === 'factor' ? (
-              <div className="space-y-1 min-w-0" data-testid={`${testId}-detail-value`}>
+              <div className="mt-1 space-y-1 min-w-0" data-testid={`${testId}-detail-value`}>
+                {/* ⭐ 8 Oct 2026 (Paul: "Change this value … looks shoehorned in … maybe it goes on the right"; "all
+                    the text … a similar size"): one line at body size — label, value, whose it is — with the edit
+                    act on the right of the same line. */}
+                <div className="flex items-baseline justify-between gap-2 min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
-                  <span className={`${typography.panelMeta} text-text-light`}>
+                  <span className={`${typography.panelBody} text-text-light`}>
                     {COPY.modelStrip.valueLabel}
                   </span>
                   <span
@@ -1751,12 +1884,45 @@ export function ModelStrip({
                   </span>
                   {activeValueProvenance !== null ? (
                     <span
-                      className={`${typography.panelMeta} text-text-light`}
+                      className={`${typography.panelBody} text-text-light`}
                       data-testid={`${testId}-detail-value-source`}
                     >
                       {activeValueProvenance}
                     </span>
                   ) : null}
+                </div>
+                {isEditingActive ? null : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      /* ⚠ NEVER PRE-FILLED FROM `valueText`. That string is a
+                         DISPLAY rendering — it can carry a currency symbol, a
+                         percent sign, thousands separators or a qualitative tier
+                         word — and seeding a numeric input with it would either be
+                         silently dropped or parse to a different number.
+
+                         ⭐ SEEDED FROM THE CANONICAL FIELD INSTEAD, by the SAME
+                         `resolveValueInputSeed` that `buildFactorValueEditEvent`
+                         uses to read a typed number as user units or model scale
+                         — so what the field shows and how the commit reads it
+                         cannot disagree (the 24 Sep 08:09Z P0 was that
+                         disagreement). Served witness `11ed8874`: the field opened
+                         EMPTY over "5,000 customers". No number → still empty. */
+                      const nodeData = (useCanvasStore.getState().nodes ?? []).find(
+                        (n) => (n as { id?: string }).id === active.id,
+                      )?.data
+                      const { seed } = resolveValueInputSeed(nodeData)
+                      setDraft(seed != null ? String(seed) : '')
+                      setEditingFor(active.id)
+                    }}
+                    aria-label={COPY.modelStrip.changeValue}
+                    className={`${typography.panelBody} ${action('text')} shrink-0`}
+                    data-testid={`${testId}-detail-value-edit`}
+                    data-node-id={active.id}
+                  >
+                    {COPY.modelStrip.changeValueShort}
+                  </button>
+                )}
                 </div>
 
                 {isEditingActive ? (
@@ -1805,93 +1971,20 @@ export function ModelStrip({
                       {COPY.modelStrip.cancelValue}
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      /* ⚠ NEVER PRE-FILLED FROM `valueText`. That string is a
-                         DISPLAY rendering — it can carry a currency symbol, a
-                         percent sign, thousands separators or a qualitative tier
-                         word — and seeding a numeric input with it would either be
-                         silently dropped or parse to a different number.
-
-                         ⭐ SEEDED FROM THE CANONICAL FIELD INSTEAD, by the SAME
-                         `resolveValueInputSeed` that `buildFactorValueEditEvent`
-                         uses to read a typed number as user units or model scale
-                         — so what the field shows and how the commit reads it
-                         cannot disagree (the 24 Sep 08:09Z P0 was that
-                         disagreement). Served witness `11ed8874`: the field opened
-                         EMPTY over "5,000 customers". No number → still empty. */
-                      const nodeData = (useCanvasStore.getState().nodes ?? []).find(
-                        (n) => (n as { id?: string }).id === active.id,
-                      )?.data
-                      const { seed } = resolveValueInputSeed(nodeData)
-                      setDraft(seed != null ? String(seed) : '')
-                      setEditingFor(active.id)
-                    }}
-                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-                    data-testid={`${testId}-detail-value-edit`}
-                    data-node-id={active.id}
-                  >
-                    <Pencil className={`${icon('inline')}`} aria-hidden={true} />
-                    {COPY.modelStrip.changeValue}
-                  </button>
-                )}
+                ) : null}
               </div>
             ) : null}
 
-            {/* ⭐⭐ E10: EVERY KIND, NOT ONLY FACTORS — the prototype's ✎ ⌖ ✦, in its
-                order, ICON-ONLY. Both asks open the shared composer; neither
-                writes the model. The value editor above is a SEPARATE act — a
-                direct numeric write — so a factor legitimately carries both. */}
-            <div className="flex flex-wrap items-center gap-1 mt-1" data-node-id={active.id}>
-              <PanelIconButton
-                Icon={Pencil}
-                label={PROPOSE_CHANGE_LABEL}
-                onClick={() => {
-                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                  openAskOlumi({
-                    context: label,
-                    draft: proposeChangeDraft(label),
-                    label: PROPOSE_CHANGE_LABEL,
-                    targetId: active.id,
-                    source: 'chip',
-                  })
-                }}
-                testId={`${testId}-detail-propose`}
-              />
-              {/* The detail's own canvas route: activating the mark already
-                  focused the canvas, and on touch that tap is what opened this,
-                  so this is the only way to ask again without closing it. */}
-              <PanelIconButton
-                Icon={Crosshair}
-                label={COPY.modelStrip.showOnCanvas}
-                onClick={() => focusOrSay(active.id)}
-                testId={`${testId}-detail-focus`}
-              />
-              <PanelIconButton
-                ai
-                label={ASK_ABOUT_ITEM_LABEL}
-                onClick={() => {
-                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                  openAskOlumi({
-                    context: label,
-                    draft: askAboutItemDraft(label),
-                    label: ASK_ABOUT_ITEM_LABEL,
-                    targetId: active.id,
-                    source: 'chip',
-                  })
-                }}
-                testId={`${testId}-detail-ask`}
-              />
-            </div>
+            {/* ⭐⭐ E10's ✎ ⌖ ✦ now sit in the title row, on the right (8 Oct 2026). Both asks open the shared
+                composer; neither writes the model. The value's "Change" above is a SEPARATE act — a direct numeric
+                write — so a factor legitimately carries both. */}
         </div>
       ) : null}
       {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
           review", then the success line, then the review tool, then the
           picked mark's detail. The success line is handed to the review slot
           so it can sit between the tool's row and its open item. */}
-      {renderReviewSlot(successLine)}
+      {renderReviewSlot(successLine, open)}
     </section>
   )
 }

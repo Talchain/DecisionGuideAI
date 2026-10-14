@@ -517,13 +517,14 @@ export function resolveEdgeValueDisplay(
   // NUMERIC fields only — see `EdgeNumericProvenancedField`. Passing
   // `'direction'` is a compile error, not a silent permanent `absent`.
   field: EdgeNumericProvenancedField,
+  ctx?: { routeOnceHeld?: boolean },
 ): EdgeValueDisplay {
   if (!data) return { show: false, reason: 'absent' }
 
   // ⭐ D3 cut 6 HOLD-AT-1.0: CEE holds this user link at existence 1.0 on every Run's input (`existenceHeld`, written at
   // ingestion by the ONE reader `existenceHeldPatch` from the raw wire edge). Every existence surface shows the value the
   // Run USES — never Olumi's stored doubt for a link the user's own range says is there.
-  if (field === 'beliefExists' && data.existenceHeld === true) return { show: true, value: 1, source: 'cee' }
+  if (field === 'beliefExists' && (data.existenceHeld === true || ctx?.routeOnceHeld === true)) return { show: true, value: 1, source: 'cee' }
 
   const raw =
     field === 'beliefExists'
@@ -740,11 +741,12 @@ export interface CausalLensEdgeParams {
 /** Resolve every causal-lens channel for one edge — THE lens read-side gate. */
 export function resolveCausalLensEdgeParams(
   data: Record<string, unknown> | undefined | null,
+  ctx?: { routeOnceHeld?: boolean },
 ): CausalLensEdgeParams {
   const strength = resolveEdgeSignedStrengthDisplay(data)
   const direction = resolveEdgeDirectionDisplay(data)
   const std = resolveEdgeValueDisplay(data, 'strengthStd')
-  const exists = resolveEdgeValueDisplay(data, 'beliefExists')
+  const exists = resolveEdgeValueDisplay(data, 'beliefExists', ctx)
   return {
     magnitude: strength.show ? Math.abs(strength.value) : null,
     direction: direction.show ? direction.direction : null,

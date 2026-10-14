@@ -1,3 +1,5 @@
+import { BottomCardMark } from './CardMark'
+import { History } from 'lucide-react'
 /**
  * ⭐ THE FACTOR'S TINY RELATIVE DRIVER VISUAL (locked spec §3 "Tiny driver visual
  * — restore"; ED 02:31Z D1a; ED 11:52Z point 3).
@@ -168,6 +170,7 @@ export interface FactorDriverLineProps {
    * wraps at the slot's edge instead.
    */
   inSlot?: boolean
+  onCard?: boolean
 }
 
 /** The bar's whole percentage, or null when there is no finite figure to draw. */
@@ -254,6 +257,7 @@ export function FactorDriverLine({
   noValueYet = false,
   testId = 'factor-driver-line',
   inSlot = false,
+  onCard = false,
 }: FactorDriverLineProps) {
   const pct = barPercent(value)
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
@@ -269,11 +273,14 @@ export function FactorDriverLine({
     : `${lastRun}${driverLineCaption(rank, fromLastRun, noValueYet)}`
   const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun, noValueYet })}`
   const denominatorNote = driverLineDenominatorNote(rank, fromLastRun)
-  return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={`${explanation} ${denominatorNote}`}>
+  const tooltipWords = `${explanation} ${denominatorNote}`
+  const visual = inSlot || onCard
+  const line = (
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tooltipWords.includes(caption) ? tooltipWords : `${caption} · ${tooltipWords}`}>
       <button
         type="button"
         data-testid={testId}
+        data-card-mark={visual ? fromLastRun ? 'driver-last-run' : 'driver' : undefined}
         data-node-tooltip="true"
         aria-label={explanation}
         aria-description={denominatorNote}
@@ -282,7 +289,9 @@ export function FactorDriverLine({
         // zoom the counter-scaled caption wraps, and a flex-wrap row then put the
         // bar on a line of its own; inline, it follows the last word, so the card
         // is one line shorter (NODE-ANATOMY v3.2 L4: shorter cards, not smaller type).
-        className={inSlot
+        className={visual
+          ? `group nodrag nopan inline-flex shrink-0 items-center gap-x-1.5 whitespace-nowrap rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${fromLastRun ? 'opacity-50' : ''}`
+          : inSlot
           ? 'group nodrag nopan flex h-full w-full min-w-0 flex-wrap content-start items-center gap-x-1.5 gap-y-0 whitespace-nowrap text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-info rounded'
           : 'group nodrag nopan mt-1 block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded'}
         onClick={(e) => {
@@ -294,11 +303,12 @@ export function FactorDriverLine({
       >
         <span
           data-testid={`${testId}-caption`}
+          aria-label={caption}
           // Regular weight (contract `.driver`; audit T10): the rank is a finding
           // about the factor, secondary to its value line above.
-          className={`${typography.edgeLabel} text-text-body underline-offset-[3px] group-hover:underline${inSlot ? ' shrink-0 max-w-full truncate' : ''}`}
+          className={`${typography.edgeLabel} text-text-body underline-offset-[3px] group-hover:underline${visual ? ' shrink-0' : ''}`}
         >
-          {caption}
+          {visual ? rank.rank : caption}
         </span>
         {/* No figure → no bar. In the slot the 6px before it is the row's
             `gap-x-1.5` (contract `.driver` gap 6px), which only exists while
@@ -312,7 +322,7 @@ export function FactorDriverLine({
             // its proportion to the words instead of shrinking to ~20 × 2px.
             // `shrink-0` in the slot: never squashed, so the fill always reads
             // against the whole track (see `inSlot`).
-            className={`inline-block align-middle h-[calc(3px*var(--canvas-label-scale,1))] w-[calc(30px*var(--canvas-label-scale,1))] overflow-hidden rounded-full bg-panel-border${inSlot ? ' shrink-0' : ' ml-1.5'}`}
+            className={`inline-block align-middle h-[calc(3px*var(--canvas-label-scale,1))] w-[calc(30px*var(--canvas-label-scale,1))] overflow-hidden rounded-full bg-panel-border${visual ? ' shrink-0' : ' ml-1.5'}`}
           >
             <span
               data-testid={`${testId}-bar-fill`}
@@ -323,7 +333,9 @@ export function FactorDriverLine({
             />
           </span>
         )}
+        {visual && fromLastRun && <History aria-hidden="true" data-testid={`${testId}-history`} className="h-3 w-3" />}
       </button>
     </Tooltip>
   )
+  return visual ? <BottomCardMark>{line}</BottomCardMark> : line
 }

@@ -1,6 +1,10 @@
 /**
  * ⭐⭐ UI-SEM-097 — A WITHHELD LEADER IS NOT RANKED BY WIN SHARE.
  *
+ * #2747 re-scope 2 (DL ruling (A)): C shows no win-share row on any Run. The withheld negatives below are kept as
+ * written; the leader-named permitted control is rewritten as the absence check, and the row whose only subject was
+ * the row's presence under a permitting report is deleted in place.
+ *
  * ── THE SERVED DEFECT (final tuple UI `b017e3c2` · CEE `9417228`, #69 5827478637)
  * Pricing's explicit Run: `leader_claim { permitted: false, withheld_reason:
  * 'constraint_verdict_withheld' }`, `analysis_result.leading_option_id: null`,
@@ -22,7 +26,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { mapV5Blocks } from '../mapV5Blocks'
@@ -129,31 +133,26 @@ describe('a withheld leader is not ranked by win share', () => {
 // CONTROLS — a permitted run is unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('PERMITTED controls keep the win-share row', () => {
-  it('the same served block, with a leader named and no refusal held, shows every share (in canvas order: no leader is LICENSED here)', () => {
-    // RE-PINNED (RC ruling #69 5829442152 §4). This was "largest first". The
-    // served block is the producer's near tie (`is_tie: true`) and carries no
-    // band, so the verdict licenses no leader. Such a card keeps EVERY number
-    // ("the claim is withheld, never the numbers" still holds) and lists the
-    // options in canvas order; this test's canvas has no options, so the order
-    // is the wire's own. Largest-first is `unlicensedCanvasOrder.spec.tsx`'s
-    // licensed control.
+describe('PERMITTED controls: still no win-share row in C (ruling (A))', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "the same served block, with a leader named and no refusal held, shows every
+  // share (in canvas order: no leader is LICENSED here)" (describe: "PERMITTED controls keep the win-share row"). The
+  // same leader-named served mount, which used to SHOW every share, now pins that C shows no win share (DL ruling (A)).
+  it('the same served block, with a leader named and no refusal held: still no win-share row in C (ruling (A))', () => {
     const shares = servedResultBlock().win_probabilities ?? {}
     const [rank1] = Object.entries(shares).sort(([, a], [, b]) => b - a)[0]
     render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: rank1 }} />)
-    const pills = within(screen.getByTestId(ROW)).getAllByRole('listitem')
-    const wire = Object.keys(shares)
-    expect(pills).toHaveLength(wire.length)
-    wire.forEach((label, i) => expect(pills[i]).toHaveTextContent(label))
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(servedResultBlock().summary)
+    expect(screen.queryByTestId(ROW)).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
-  it('a held report that PERMITS does not withhold (the stamp only ever withholds)', () => {
-    const [rank1] = Object.entries(servedResultBlock().win_probabilities ?? {}).sort(([, a], [, b]) => b - a)[0]
-    holdReportWithPermission(true)
-    render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: rank1 }} />)
-    expect(screen.getByTestId(ROW)).toBeInTheDocument()
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "a held report that PERMITS does not withhold (the stamp only ever withholds)".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
+  // #2747 re-scope 2: kept as written. A negative that still holds, now because C shows no win-share row on any Run.
   it('an EARLIER withheld run stays withheld after a later run permits (per-card, not the latest verdict)', () => {
     // The held report now belongs to a later, permitting run.
     holdReportWithPermission(true)

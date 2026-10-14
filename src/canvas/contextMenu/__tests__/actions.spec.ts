@@ -454,7 +454,7 @@ describe('askAI', () => {
       vi.advanceTimersByTime(1100)
 
       expect(showToast).toHaveBeenCalledWith(
-        'Could not open a draft — try typing your question directly.',
+        'Your question was not sent. Try again in the conversation.',
         'warning',
       )
 

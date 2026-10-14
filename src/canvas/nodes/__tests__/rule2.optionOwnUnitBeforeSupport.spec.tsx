@@ -1,3 +1,5 @@
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐⭐⭐ RULE 2 ON THE OPTION CARD: WHAT IT SETS COMES BEFORE HOW IT SCORED.
  *
@@ -97,11 +99,12 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const mount = () => render(<ReactFlowProvider><OptionNode
+const chanceCells = optionChanceFixture({ candidate: 41, reference: 29 })
+const mount = () => render(<ReactFlowProvider><CanvasOptionChanceContext.Provider value={chanceCells}><OptionNode
   id={candidate.id} type="option" data={candidate.data} selected={false}
   isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
   dragging={false} zIndex={0} deletable selectable draggable
-/></ReactFlowProvider>)
+/></CanvasOptionChanceContext.Provider></ReactFlowProvider>)
 
 describe('rule 2 — an option states what it sets before how it scored', () => {
   it('precondition: BOTH blocks render, so an ordering claim is meaningful', () => {
@@ -115,7 +118,7 @@ describe('rule 2 — an option states what it sets before how it scored', () => 
     expect(screen.getAllByText('Reference: Keep the original plan').length).toBeGreaterThan(0)
   })
 
-  it('the own-unit change row precedes the support score in the DOM', () => {
+  it('the own-unit change row precedes the Results chance cell in the DOM', () => {
     mount()
     // Bound to the CARD's own change row by identity (contract v3.1 OPT-03) —
     // `getAllByText(...)[0]` would now resolve to whatever else carries the text.
@@ -130,7 +133,9 @@ describe('rule 2 — an option states what it sets before how it scored', () => 
      * A guard whose discrimination depends on a fixture that nothing pins is a
      * guard agreeing with itself.
      */
-    expect(support, 'the support readout must render, or this test asserts nothing').not.toBeNull()
+    expect(support, 'the chance cell must render, or this test asserts nothing').not.toBeNull()
+    expect(support!.textContent).toContain(chanceCells(candidate.id).text)
+    expect(support!.textContent).not.toContain('of runs')
     const rel = delta.compareDocumentPosition(support as Element)
     // DOCUMENT_POSITION_FOLLOWING === 4: `support` comes AFTER `delta`.
     expect(rel & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

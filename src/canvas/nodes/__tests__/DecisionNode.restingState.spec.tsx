@@ -112,6 +112,10 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 
+vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
+import { revealOlumiSurface } from '../../conversation/revealOlumi'
+import { takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
+
 const hoisted = vi.hoisted(() => ({ state: null as any }))
 
 vi.mock('../../store', () => ({
@@ -315,7 +319,7 @@ describe('DecisionNode — honest resting state', () => {
   // draft is the thing under test, because the previous seam wrote its store
   // faithfully and rendered a read-only panel.
 
-  it('CTA: the composer receives the exact ask text, and nothing is sent', () => {
+  it('CTA: sends one bound chip and fronts Olumi', () => {
     const prefill = vi.fn()
     const send = vi.fn()
     const dispatch = vi.fn()
@@ -324,26 +328,31 @@ describe('DecisionNode — honest resting state', () => {
     renderDecision()
     fireEvent.click(screen.getByTestId(RESTING_CTA))
 
-    // THE DESTINATION: the composer's own callback, with the exact text.
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith(DECISION_RESTING_COPY.noOptionsAsk)
-    // NEVER auto-sent — the user presses Send on a draft they can see and edit.
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'agent-next-widen', source: 'chip',
+      label: 'What other ways could we reach the goal that aren’t on the board yet?',
+      message: 'What other ways could we reach the goal that aren’t on the board yet?' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set([DECISION_ID]))
+    expect(revealOlumiSurface).toHaveBeenCalledTimes(1)
+    expect(prefill).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
   })
 
-  it('CTA: with no composer registered the ask lands in the Ask-Olumi drawer, still unsent', () => {
+  it('CTA: with no composer the naming ask sends one bound chip, without a drawer', () => {
     const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: send, _dispatchAction: null } as any)
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: send, _dispatchAction: dispatch } as any)
 
     renderDecision({ data: { type: 'decision' } as any })
     fireEvent.click(screen.getByTestId(RESTING_CTA))
 
-    // THE FALLBACK DESTINATION: the drawer holds the draft, bound to THIS node.
-    const drawer = useAskOlumiStore.getState()
-    expect(drawer.isOpen).toBe(true)
-    expect(drawer.draft).toBe(DECISION_RESTING_COPY.unnamedAsk)
-    expect(drawer.targetId).toBe(DECISION_ID)
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:name', source: 'chip',
+      label: 'Help me find a clear name for this part of the model so I can choose the wording.',
+      message: 'Help me find a clear name for this part of the model so I can choose the wording.' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set([DECISION_ID]))
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
+    expect(revealOlumiSurface).toHaveBeenCalledTimes(1)
     expect(send).not.toHaveBeenCalled()
   })
 

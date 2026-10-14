@@ -33,6 +33,8 @@ import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useAnalyseAfterCommittedChange } from '../analysis/useAnalyseAfterCommittedChange'
+import { useEditDeliveryHeld } from '../registration/editDeliveryHold'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
@@ -143,6 +145,8 @@ import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget, focusModelTarget } from '../utils/focusHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
+import { shellRerunControl, useReanalyseBarInputs } from './workspaceShell/rerunControl'
+import { useHeldHeightWhile } from '../conversation/hooks/useHeldHeightWhile'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
 import {
   deriveReadinessCheck,
@@ -807,6 +811,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
+  // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
+  // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
+  const rerunInputs = useReanalyseBarInputs()
+  const shellRerun = shellRerunControl(rerunInputs)
   // Reasoning's pre-run status names a Run on record instead of "No analysis has run yet" (DL #75 5922639119).
   const runOnRecordWithoutResult = selectRunOnRecordWithoutResult({ isPreRun, savedRunUnconfirmed, runStateKind: runStateKindForStatus })
   // Empty state: hide panel when canvas has no nodes (FF off).
@@ -868,6 +876,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // non-click paths (programmatic setActiveOutputTab, persisted state on
   // page load) we add a guard effect below so the duplicate-readable-
   // surface invariant ("never both at once") still holds.
+  // Paul 14 Oct 2026: all five tabs shown from the start. Compare is no longer held back until a run pair
+  // exists (supersedes workstream D, 8 Oct); before then its body shows its own "No comparison yet" state.
   const effectiveActiveTab = state.activeTab
 
   /**
@@ -961,6 +971,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // isThinking=false without a preceding true, so a page load never trips it,
   // and a background/system failure (which adds no user bubble) surfaces nothing.
   const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
+  // ⭐ THE FOOTER KEEPS ITS SPACE WHILE A TURN IS IN FLIGHT (S-F): a bar collapsing mid-turn moved a bottom reader's
+  // dialogue. Its wording is never held — only the space, released when the turn settles (`useHeldHeightWhile`).
+  const heldFooter = useHeldHeightWhile(conversationIsThinking)
   const prevConversationThinkingRef = useRef(conversationIsThinking)
   const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
   conversationMessagesRef.current = conversationCtxForFirstUse?.messages
@@ -1780,6 +1793,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  // Paul 14 Oct (#94 6166259456): every committed change (an edit, Olumi's approved change, Undo, Redo) is analysed
+  // through this same runner once nothing else is in flight; the rerun surfaces compare it with the preceding Run.
+  const editDeliveryHeld = useEditDeliveryHeld()
+  useAnalyseAfterCommittedChange({
+    run: runCanonicalAnalysis,
+    idle: !isRunning && !conversationIsThinking && !editDeliveryHeld,
+    hasRunOnRecord: rerunInputs.hasRunOnRecord,
+  })
 
   const handleRunAnalysis = useCallback(async () => {
     const outcome = await runCanonicalAnalysis()
@@ -3181,12 +3203,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             // omitting it here left a never-run model showing a freshness glyph
             // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
             hasCompletedFirstRun={hasCompletedFirstRun}
-            // The ⓘ "Inspect this analysis": front Reasoning like a tab click,
-            // then ask its About section to open (the consumer clears it).
-            onInspectAnalysis={() => {
-              handleTabClick('analysisNew')
-              useUIStore.getState().requestReasoningAbout(true)
-            }}
+            // No `onInspectAnalysis`: the ⓘ "Inspect this analysis" is off the golden journey (workstream D,
+            // 8 Oct). Reasoning's own "About this analysis" section stays one scroll away on that tab.
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
@@ -3491,7 +3509,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
                   const isComplexGraph = nodes.length > 15
                   if (isCeeTimeout && isComplexGraph) {
-                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                    friendlyError.explanation = 'Your model has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
                   }
 
                   return (
@@ -3652,7 +3670,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                       data-testid="outputs-analysis-empty-describe"
                     >
-                      Describe your decision to Olumi
+                      Describe your situation to Olumi
                     </button>
                   </div>
                 )}
@@ -4288,7 +4306,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
         {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' && !isViewer ? (
-          <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
+          <div
+            ref={heldFooter.ref}
+            style={heldFooter.style}
+            className="flex-shrink-0"
+            data-testid="shell-surface-footer-bar"
+          >
             {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
                 `footerBar` and switches on its value; it does not test a tab id
                 and it does not grow a second, parallel condition beside the
@@ -4314,7 +4337,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 // screen. After the first run this arm IS the 'reanalyse' arm.
                 case 'reanalyseAfterFirstRun':
                 case 'reanalyse':
-                  if (bar === 'reanalyseAfterFirstRun' && isPreRun) return null
+                  if (bar === 'reanalyseAfterFirstRun' && !rerunInputs.hasRunOnRecord) return null
                   return (
                     <ReanalyseBar
                       onReanalyse={handleRunAnalysis}
@@ -4343,7 +4366,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   // SAME bar and gate trio as the 'reanalyse' arm above: it renders
                   // its own null unless the model changed (or a held import cannot
                   // confirm), so a fresh Run shows nothing here.
-                  if (!isPreRun) {
+                  if (rerunInputs.hasRunOnRecord) {
                     return (
                       <ReanalyseBar
                         onReanalyse={handleRunAnalysis}
@@ -4355,7 +4378,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   }
                   return (
                     <AnalysisReadinessBar
-                      preRunWithModel={isPreRun && nodes.length > 0}
+                      preRunWithModel={rerunInputs.preRunWithModel}
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
                       /* The SAME pair `PreAnalysisPanelV3` receives above, from
@@ -4423,7 +4446,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                  `StaleAnalysisBadge`, whose rerun bypassed the canonical
                  runner, is the counter-example this avoids. */
               analysisAction={
-                nodes.length > 0 && !isPreRun
+                /* ⚠ AND NOT BESIDE THE BAR (Paul, 7 Oct: one rerun control). While the footer's ReanalyseBar shows
+                   "Model changed… [Re-analyse]", that button is the rerun; this icon returns when the bar leaves. */
+                nodes.length > 0 && !isPreRun && shellRerun === 'composer'
                   ? {
                       onRun: handleRunAnalysis,
                       canRun: canRunAnalysis,

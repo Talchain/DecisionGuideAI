@@ -85,10 +85,10 @@ describe('quick actions are reachable targets that do not touch', () => {
     // This spec measures the HOVER row with its Ask button, which renders at the
     // quiet rung.
     useCanvasStore.setState({ nodes: [NODE], lodRung: 'quiet' } as never)
-    // The send channel makes both AI shortcuts available; with no channel,
+    // The typed dispatcher makes both AI shortcuts available; with no channel,
     // only More renders. Assert the actual button count below so the spacing
     // test cannot pass on a single isolated button.
-    useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
+    useGuidanceStore.setState({ _sendMessage: vi.fn(), _dispatchAction: vi.fn() } as never)
   })
 
   it('gives EVERY quick action a >= 24px target, enumerated from the DOM', () => {

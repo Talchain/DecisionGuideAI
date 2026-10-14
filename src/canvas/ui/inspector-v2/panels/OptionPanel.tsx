@@ -1,3 +1,5 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 /**
  * OptionPanel — Inspector panel for option nodes (spec §6, v6.2 three-group layout)
  * Groups: Context → Input (what this option changes) → Impact (post-analysis) → Connections
@@ -7,27 +9,22 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
-import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
+import { resolveNodeTypeLiteral } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
-import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
-import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
-import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '../../../nodes/shared/runCurrency'
-import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
-import { optionEntryScaleOf, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
+import { resolveOptionTargetDisplayFrame, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
   OPTION_STRINGS,
 } from '../inspectorStrings'
-import { unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
+import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
@@ -35,13 +32,16 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InterventionRow } from '../shared/InterventionRow'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
+import { classifyInterventionProvenance } from '../../../domain/valueProvenance'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
-import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../../lib/decisionVerdict'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
@@ -51,26 +51,10 @@ import {
   readingShowsModelValue,
   resolveBaselineOptionReference,
   resolveOptionTargets,
+  analysisViewIsStale,
   type CeeOptionTargetsLike,
   type TargetNodeLike,
 } from '../../../nodes/shared/optionTargetDisplay'
-
-/**
- * ⭐ ONE SENTENCE, ONCE, AT THE TOP OF THE LIST — never repeated per row.
- *
- * A refusal printed against every factor turns a useful inventory into a wall
- * of the same message, and the inventory is the part worth keeping: a reader who
- * cannot edit still learns which factors this option could act on and which are
- * already spoken for.
- *
- * ⚠ IT NAMES A ROUTE THAT WORKS. `INSPECTOR_READ_ONLY_REASON` already points at
- * the Model tab for supported factor values; this is its short form for the one
- * place a reader is looking at a list of factors and wondering why none of them
- * responds. Copy that promises an affordance is honest only while the affordance
- * answers — the lesson from the goal chip's withdrawn "add one".
- */
-export const OPTION_EDIT_ROUTE_NOTE =
-  'Read-only here. Use the Model tab to change a factor value, or ask Olumi.'
 
 /**
  * ⭐ THE ROUTE TO A TARGET WHOSE BOX IS NOT IN THE DEFAULT VIEW (DEFECT 5 (b)).
@@ -82,7 +66,7 @@ export const OPTION_EDIT_ROUTE_NOTE =
  * this sentence is what makes that true — it names the control that opens the
  * box, by the accessible name `InspectorShell` gives it.
  *
- * ⚠ ONCE, ABOVE THE LIST, never per row — `OPTION_EDIT_ROUTE_NOTE`'s ruling on
+ * ⚠ ONCE, ABOVE THE LIST, never per row — the factor inventory's ruling on
  * this same panel: a sentence repeated against every factor turns the
  * inventory into a wall of the same message.
  *
@@ -100,7 +84,6 @@ export const OPTION_TARGET_EDIT_ROUTE_NOTE =
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
   techMode,
-  onClose,
   onNavigate,
   /**
    * ⛔ A DUTY, NOT A PERMISSION — see `types.ts`. The Router has stopped
@@ -115,47 +98,18 @@ export const OptionPanel = memo(function OptionPanel({
    * called that "every control in OptionPanel". It was not.
    */
   readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  /** The card's rule (`analysisViewIsStale`): on a stale analysis view the saved numbers stand. */
+  const analysisViewStale = useCanvasStore(s => analysisViewIsStale(s.ceeAnalysisReady, s.lastServerGraphHash))
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
   const storyHeadlines = useCanvasStore(s => s.results?.report?.story_headlines)
-  // SINGLE VERDICT: the shared "is there a leading option?" answer, derived
-  // from the same PLoT report the canvas badge and results panel read.
-  const resultsReport = useCanvasStore(s => s.results?.report)
-
-  /*
-   * ⭐ Q1 OF TWO, IMPORTED — NEVER RE-SPELLED HERE.
-   *
-   * A leader claim needs both: Q1 — does the MODEL license a comparative claim
-   * at all (`permitted_analysis_mode`)? — and Q2 — did THIS RESULT separate the
-   * arms (`verdict.hasLeadingOption`)? This panel consulted Q2 alone at both
-   * its comparative sites, so CEE could withhold the designation while the
-   * inspector still said "Came out ahead in 72% of simulated scenarios" and
-   * "Behind X by Npp". UI #1202 closed the same defect on the canvas nodes;
-   * the inspector was outside its diff.
-   *
-   * ⚠ CONJOINED AT THE POINT OF USE, ON THEIR OWN LINES, because their ABSENCE
-   * ARMS ARE OPPOSITE: Q1 absent -> `true` (an older producer has not spoken,
-   * so nothing changes), Q2 absent -> `false` (no result, so no claim may be
-   * authored). Folding either into the other's default would silence every
-   * legacy payload or license every one — `useAnalysisReady.ts:110-116`.
-   */
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
-
-  const verdict = useMemo(
-    () => deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null | undefined, {
-      visibleOptionIds: new Set(
-        nodes.filter(n => n.type === 'option' || n.data?.type === 'option').map(n => n.id),
-      ),
-    }),
-    [resultsReport, nodes],
-  )
-
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
 
@@ -223,23 +177,6 @@ export const OptionPanel = memo(function OptionPanel({
     unapplied: unappliedIntervention,
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
-  const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
-  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds the share hero AND the comparison bars;
-  // the panel says why instead (`winShareGate.ts`).
-  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
-  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
-  /**
-   * ⭐ THE RESULT'S CAPTION FOLLOWS THE RUN'S CURRENCY, AS THE CARD'S DOES
-   * (canvas audit edit-values F5). This read `Current model` unconditionally,
-   * so after an edit the card said `Last run 62% of runs` and this panel said
-   * `62% Current model · of runs`, titled "the model as it stands" — a result
-   * CEE itself had marked `complete_stale`. Same owner as the card
-   * (`OptionNode`): `useRunCurrency` → `optionResultCaption`.
-   */
-  const runCurrency = useRunCurrency()
-  const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
-  const resultCurrencyNote = optionResultCurrencyNote(runCurrency)
-
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
   // (option-rephrase-merge.ts:459-462), so before this split they rendered
@@ -291,32 +228,28 @@ export const OptionPanel = memo(function OptionPanel({
     [mutations, draftingNotes],
   )
 
-  // Dropdown state for "Add a change"
-  const [showDropdown, setShowDropdown] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showDropdown) return
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [showDropdown])
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [focusTarget, setFocusTarget] = useState<string | null>(null)
 
   // Interventions
   // Map values may be plain numbers (legacy/analysis_ready) or
   // UIInterventionValue/CEEInterventionV3 objects ({ value, source, ... });
-  // unwrapInterventionValue normalises both. Entries that fail to unwrap
-  // (malformed objects, non-finite numbers) are dropped — InterventionRow
-  // requires a finite numeric `currentValue`.
-  const interventions = useMemo(() => {
-    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-    if (!raw) return []
-    return Object.entries(raw).flatMap(([factorId, rawValue]) => {
+  // unwrapInterventionValue normalises both. Malformed recorded entries are
+  // dropped. A linked factor with no entry gets the same row with no value;
+  // absence stays distinct from a saved zero.
+  const interventionRows = useMemo(() => {
+    const raw = ((node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined) ?? {}
+    const linkedWithoutValues = [...new Set(edges
+      .filter(e => e.source === nodeId)
+      .map(e => e.target))]
+      .filter(factorId => !Object.prototype.hasOwnProperty.call(raw, factorId) && nodes.some(n =>
+        n.id === factorId && resolveNodeTypeLiteral(n) === 'factor',
+      ))
+    const entries = [
+      ...Object.entries(raw),
+      ...linkedWithoutValues.map(factorId => [factorId, undefined] as const),
+    ]
+    return entries.flatMap(([factorId, rawValue]) => {
       /*
        * ⭐⭐ `source` IS THE THIRD NAME HERE, AND ITS ABSENCE WAS THE WHOLE
        * DEFECT (B1-b). #827 made `unwrapInterventionValue` carry the producer's
@@ -328,9 +261,10 @@ export const OptionPanel = memo(function OptionPanel({
        * prescribes.
        */
       const { value, displayValue, source } = unwrapInterventionValue(rawValue)
-      if (value == null) return []
+      if (value == null && !linkedWithoutValues.includes(factorId)) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+      const displayFrame = resolveOptionTargetDisplayFrame(factorNode?.data, rawValue)
       // Defensive unwrap: observedState.value / .raw_value should be plain
       // numbers, but legacy/wrapped shapes ({ value: 0.5, unit: 'scale' })
       // would otherwise flow into InterventionRow as the baseline prop and
@@ -339,8 +273,8 @@ export const OptionPanel = memo(function OptionPanel({
       return [{
         factorId,
         factorLabel: resolveElementLabel(factorNode?.data),
-        baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
-        rawBaseline: unwrapInterventionValue(obs?.raw_value).value ?? undefined,
+        baseline: displayFrame.observedValue,
+        rawBaseline: displayFrame.observedRawValue,
         /*
          * ⚠ CARRIED SO THE ROW CAN DECLINE TO CLAIM, NEVER SO IT CAN DISPLAY.
          * `observed_state.baseline` is a real contract field whose ROLE AND
@@ -351,16 +285,9 @@ export const OptionPanel = memo(function OptionPanel({
          * It is never rendered — see `recordedBaseline` in InterventionRow.
          */
         recordedBaseline: unwrapInterventionValue(obs?.baseline).value ?? undefined,
-        unit: obs?.unit as string | undefined,
-        /*
-         * ⭐ THE FACTOR'S CAP, so the row can take the amount the CARD shows
-         * (`£80,000`) and convert it through the one raw→model rule — rather
-         * than showing `0.5` beside a card that says `£60k` and ignoring
-         * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
-         */
-        // …else CEE's node-level `scale_frame` (`optionEntryScaleOf`), the same reference the card's editor uses.
-        cap: optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, (factorNode?.data as Record<string, unknown> | undefined)?.scale_frame),
-        value,
+        unit: displayFrame.unit,
+        cap: displayFrame.cap,
+        value: value ?? undefined,
         displayValue: displayValue ?? undefined,
         /*
          * ⚠ THE INTERVENTION'S OWN STAMP, NOT THE OPTION NODE'S, and the two
@@ -375,11 +302,44 @@ export const OptionPanel = memo(function OptionPanel({
          * the one that renders a guess. Absent is the fact.
          */
         provenanceSource: source ?? undefined,
+        userMaterialUnverified: interventionIsUserMaterialUnverified(rawValue),
       }]
     })
-  }, [node?.data, nodes])
+  }, [node?.data, nodes, edges, nodeId])
 
-  // Set of already-intervened factor IDs for the dropdown and connection filter
+  // Readings and summaries describe recorded targets only, never empty boxes.
+  const interventions = useMemo(() => interventionRows.filter(
+    (iv): iv is typeof iv & { value: number } => iv.value !== undefined,
+  ), [interventionRows])
+  const linkedWithoutValueCount = interventionRows.length - interventions.length
+  /**
+   * EDIT-UX 3b-i (Codex head review P1): an EMPTY linked target takes the SAME guard as a set one. Its box is shown in the
+   * default view only when the entry frame is the factor's own units; a model-scale (0–1) entry stays under technical
+   * detail, labelled, with the route note — otherwise "0.5" meant as £0.50 would be recorded as the model value 0.5.
+   */
+  const emptyTargetTakesUserUnits = useCallback((iv: { unit?: string; cap?: number; baseline?: number; rawBaseline?: number }) =>
+    resolveOptionTargetEntryFrame({
+      unit: iv.unit,
+      cap: iv.cap,
+      observedValue: iv.baseline,
+      observedRawValue: iv.rawBaseline,
+    }).kind === 'user_units', [])
+
+  // After linking, focus only a target entered in the factor's own units.
+  // Model-scale targets keep their technical-detail route note and receive no focus.
+  useEffect(() => {
+    if (focusTarget === null) return
+    const target = interventionRows.find(iv => iv.factorId === focusTarget)
+    if (!target) return
+    if (emptyTargetTakesUserUnits(target)) {
+      const row = [...(panelRef.current?.querySelectorAll<HTMLElement>('[data-testid]') ?? [])]
+        .find(element => element.dataset.testid === `inspector-intervention-${focusTarget}`)
+      row?.querySelector<HTMLInputElement>('input')?.focus()
+    }
+    setFocusTarget(null)
+  }, [focusTarget, interventionRows, emptyTargetTakesUserUnits])
+
+  // Set of already-intervened factor IDs for the picker and connection filter
   const interventionIds = useMemo(() => {
     const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     return new Set(raw ? Object.keys(raw) : [])
@@ -396,7 +356,7 @@ export const OptionPanel = memo(function OptionPanel({
         if (!tgt) return null
         const kind = (tgt.type || tgt.data?.kind || 'factor') as NodeType
         if (kind === 'decision') return null
-        if (interventionIds.has(e.target)) return null
+        if (interventionIds.has(e.target) || interventionRows.some(iv => iv.factorId === e.target)) return null
         return {
           edgeId: e.id,
           nodeId: e.target,
@@ -412,7 +372,7 @@ export const OptionPanel = memo(function OptionPanel({
         label: string
         strength: EdgeValueDisplay
       }>
-  }, [edges, nodes, nodeId, interventionIds])
+  }, [edges, nodes, nodeId, interventionIds, interventionRows])
 
   /**
    * ⛔⛔ DOES THIS OPTION HAVE ANY CONNECTION AT ALL — a DIFFERENT question from
@@ -446,9 +406,10 @@ export const OptionPanel = memo(function OptionPanel({
   // Controllable factors available to add
   const controllableFactors = useMemo(() => {
     return nodes
-      .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
+      .filter(n => resolveNodeTypeLiteral(n) === 'factor'
+        && n.data?.category === 'controllable' && n.id !== nodeId
+        && !interventionIds.has(n.id) && !interventionRows.some(iv => iv.factorId === n.id))
       .map(n => {
-        const obs = (n.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
         // The card's own reader (`factorDisplayText`), so the add list says what the
         // factor card says: "£0", "$10,000 / year". It read the deprecated
         // `formatFactorValue`, which printed "GBP 0" (Paul's test, 28 Sep).
@@ -457,35 +418,25 @@ export const OptionPanel = memo(function OptionPanel({
           id: n.id,
           label: resolveElementLabel(n.data),
           valueDisplay,
-          // Defensive unwrap: see the interventions memo above. baseline flows
-          // into mutations.setIntervention as the initial intervention value
-          // for newly-added factor changes; passing an object would corrupt the
-          // store and propagate "[object Object]" through downstream renders.
-          baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
         }
       })
-  }, [nodes, nodeId])
-
-  const handleAddFactor = useCallback((factorId: string, baseline: number | undefined) => {
-    mutations.setIntervention(factorId, baseline ?? 0)
-    setShowDropdown(false)
-  }, [mutations])
+  }, [nodes, nodeId, interventionIds, interventionRows])
+  const candidateFactorIds = useMemo(() => controllableFactors.map(f => f.id), [controllableFactors])
+  const candidateValueDisplays = useMemo(
+    () => new Map(controllableFactors.map(f => [f.id, f.valueDisplay])),
+    [controllableFactors],
+  )
 
   // All option results for comparison bars
   const allOptions = useMemo(() => {
     if (!optionComparison || !Array.isArray(optionComparison)) return []
-    return (optionComparison as Array<{ option_id: string; win_probability?: number; label?: string }>).map(o => ({
+    return (optionComparison as Array<{ option_id: string; label?: string }>).map(o => ({
       id: o.option_id,
       // Two legitimate name sources, then honest absence — never the id. The
       // graph node's own label wins; the analysis payload's `label` is the
       // fallback for an option the graph no longer holds; `o.option_id` is NOT
       // a third source, it is a database key and has been dropped.
       label: resolveFirstStatedLabel(nodes.find(n => n.id === o.option_id)?.data, { label: o.label }),
-      // winPct: integer percent used for bar width + close-call gap arithmetic.
-      // winLabel: user-facing string; routes through formatWinProbability so a
-      // non-zero probability that rounds to 0 renders as "< 1%" rather than "0%".
-      winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : null,
-      winLabel: typeof o.win_probability === 'number' ? formatWinProbability(o.win_probability) : null,
       isCurrent: o.option_id === nodeId,
     }))
   }, [optionComparison, nodes, nodeId])
@@ -542,11 +493,12 @@ export const OptionPanel = memo(function OptionPanel({
       readingIsTarget: boolean
       inputMatchesReading: boolean
       provenanceSource: string | undefined
+      userMaterialUnverified: boolean
     }>()
     if (!nodeId || !node) return out
     const ceeOptions = (ceeAnalysisReady as { options?: CeeOptionTargetsLike[] } | null | undefined)?.options
     const ceeOpt = ceeOptions?.find(o => o.id === nodeId)
-    const resolved = resolveOptionTargets(node.data as Record<string, unknown> | undefined, ceeOpt)
+    const resolved = resolveOptionTargets(node.data as Record<string, unknown> | undefined, ceeOpt, { viewStale: analysisViewStale })
     const baselineReference = isBaselineOption
       ? null
       : resolveBaselineOptionReference(nodes as ReadonlyArray<TargetNodeLike>, ceeOptions, nodeId)
@@ -555,6 +507,7 @@ export const OptionPanel = memo(function OptionPanel({
         value: iv.value,
         displayValue: iv.displayValue ?? null,
         source: iv.provenanceSource ?? null,
+        userMaterialUnverified: iv.userMaterialUnverified,
       }
       const factorNode = nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined
       const row = buildOptionTargetRow({
@@ -570,29 +523,56 @@ export const OptionPanel = memo(function OptionPanel({
         row.target !== '' &&
         target.value === iv.value &&
         resolveOptionTargetEntryFrame({
-          unit: iv.unit,
-          cap: iv.cap,
-          observedValue: iv.baseline,
-          observedRawValue: iv.rawBaseline,
+          ...resolveOptionTargetDisplayFrame(factorNode?.data, target),
         }).kind === 'user_units'
       out.set(iv.factorId, {
         reading,
         readingIsTarget: row.target !== '',
         inputMatchesReading: fieldTakesTheReadingsUnit || readingShowsModelValue(reading, iv.value),
         provenanceSource: target.source ?? undefined,
+        userMaterialUnverified: target.userMaterialUnverified === true,
       })
     }
     return out
-  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption])
+  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption, analysisViewStale])
 
   /** The option's own name, for each target box's accessible name. */
   const optionAccessibleLabel = resolveElementLabel(node?.data)
+  const firstTarget = interventions[0]
+  const firstReading = firstTarget ? targetReadings.get(firstTarget.factorId) : undefined
+  const firstTargetProvenance = classifyInterventionProvenance(
+    firstReading ? firstReading.provenanceSource : firstTarget?.provenanceSource,
+    { userMaterialUnverified: firstReading ? firstReading.userMaterialUnverified : firstTarget?.userMaterialUnverified },
+  )
+  const summaryChip = firstTargetProvenance?.kind === 'brief'
+    ? 'brief'
+    : firstTargetProvenance?.kind === 'ai' || firstTargetProvenance?.kind === 'accepted'
+      ? 'olumi'
+      : firstTargetProvenance?.userOwned ? 'user' : null
+  const summarySentence = firstTarget
+    // EDIT-UX: name WHAT it changes; each target's value is the row directly below.
+    // Restating the reading here repeated the factor's name ("Sets X to X active").
+    ? interventions.length === 1
+      ? `Changes ${firstTarget.factorLabel}.`
+      : interventions.length === 2
+        ? `Changes 2 factors: ${firstTarget.factorLabel} and ${interventions[1].factorLabel}.`
+        : `Changes ${interventions.length} factors: ${firstTarget.factorLabel}, ${interventions[1].factorLabel} and ${interventions.length - 2} more.`
+    : linkedWithoutValueCount > 0
+      ? OPTION_STRINGS.linksWithoutValues
+        .replace('{count}', String(linkedWithoutValueCount))
+        .replace('{s}', linkedWithoutValueCount === 1 ? '' : 's')
+      : EMPTY_STATES.noInterventions
 
   if (!nodeId || !node) return null
 
   return (
-    <div>
+    <div ref={panelRef}>
+      <div data-testid={!firstTarget && linkedWithoutValueCount > 0 ? 'option-links-without-values' : undefined}>
+        <InspectorSummary sentence={summarySentence} chip={summaryChip} />
+      </div>
+      {summaryContext}
       {/* ── Context group ─────────────────────────────────────── */}
+      {(isBaselineOption || draftingNotes.length > 0 || descriptionBody) && (
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {isBaselineOption && (
           <div className="mb-2" data-testid="option-baseline-badge">
@@ -622,58 +602,50 @@ export const OptionPanel = memo(function OptionPanel({
           </div>
         )}
 
-        {/* WRITER 1 of 5 — `setDescription`. */}
-        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
-        {/* ⛔ READ-ONLY READS THE RECORD, NEVER THE EDIT BUFFER. The buffer is
-            an editing artefact; showing it to a reader who cannot edit offers
-            them a value whose provenance is "whatever was last typed into a
-            control that is no longer there". `descriptionBody` is what the model
-            holds. */}
-        {readOnly ? (
-          descriptionBody ? (
-            <p
-              className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`}
-              data-testid="option-description-readonly"
-            >
-              {descriptionBody}
-            </p>
-          ) : (
-            /* ⚠ NO `onStartEditing`, AND THE COMPONENT ALREADY KNEW HOW.
-                `EmptyDescriptionPrompt` treats the prop as optional and drops
-                `role="button"`, `tabIndex` and its click handler when it is
-                absent — it was built for exactly this case. Passing `() => {}`
-                turned it back into a button that answers nothing: a tab stop
-                announcing as an action, doing nothing when pressed. */
-            <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.option} />
-          )
-        ) : description || isEditingDescription ? (
-          <textarea
-            ref={descriptionRef}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              commitDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder={DESCRIPTION_PLACEHOLDERS.option}
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} ${controls.editableTextarea}`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.option}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
+        {descriptionBody && (
+          <p
+            className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`}
+            data-testid="option-description-readonly"
+          >
+            {descriptionBody}
+          </p>
         )}
-        </fieldset>
       </PanelGroup>
+      )}
+
+      <InspectorMoreItems>
+        {/* The description writer keeps its own authority fence after moving. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+          {!readOnly && (description || isEditingDescription ? (
+            <textarea
+              ref={descriptionRef}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onBlur={() => {
+                commitDescription(description)
+                if (!description.trim()) setIsEditingDescription(false)
+              }}
+              autoFocus={isEditingDescription && !description}
+              placeholder={DESCRIPTION_PLACEHOLDERS.option}
+              rows={2}
+              maxLength={500}
+              className={`${typography.panelBody} ${controls.editableTextarea}`}
+            />
+          ) : (
+            <EmptyDescriptionPrompt
+              placeholder={DESCRIPTION_PLACEHOLDERS.option}
+              onStartEditing={() => setIsEditingDescription(true)}
+            />
+          ))}
+        </fieldset>
+      </InspectorMoreItems>
 
       {/* ── Input group (what this option changes) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.whatThisChanges}>
         <PrimaryControlCard>
-          {!techMode && interventions.some(iv => targetReadings.get(iv.factorId)?.inputMatchesReading === false) && (
+          {!techMode && interventionRows.some(iv => (iv.value === undefined
+            ? !emptyTargetTakesUserUnits(iv)
+            : targetReadings.get(iv.factorId)?.inputMatchesReading === false)) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-0 mb-1.5`}
               data-testid="option-target-edit-route"
@@ -681,30 +653,8 @@ export const OptionPanel = memo(function OptionPanel({
               {OPTION_TARGET_EDIT_ROUTE_NOTE}
             </p>
           )}
-          {interventions.length === 0 ? (
-            /* L-40 — the empty state is derived from THE SAME edge data the
-               Connections group below reads (`outboundConnections`), not from
-               `data.interventions` alone. An add-path option carries real
-               factor edges and no intervention map, so the old copy denied
-               three "Very strong +" connections that were on screen inches
-               below it. Two data sources, one user-facing question, is how a
-               panel comes to contradict itself. */
-            outboundConnections.length > 0 ? (
-              <p
-                data-testid="option-links-without-values"
-                className={`${typography.panelMeta} text-text-light py-2 text-center`}
-              >
-                {OPTION_STRINGS.linksWithoutValues
-                  .replace('{count}', String(outboundConnections.length))
-                  .replace('{s}', outboundConnections.length === 1 ? '' : 's')}
-              </p>
-            ) : (
-              <p className={`${typography.panelMeta} text-text-light py-2 text-center`}>
-                {EMPTY_STATES.noInterventions}
-              </p>
-            )
-          ) : (
-            interventions.map(iv => (
+          {interventionRows.length > 0 && (
+            interventionRows.map(iv => (
               <InterventionRow
                 /*
                  * ⭐⭐ THE KEY IS THE ENTITY'S IDENTITY, AND THE ENTITY IS
@@ -754,9 +704,18 @@ export const OptionPanel = memo(function OptionPanel({
                     ? targetReadings.get(iv.factorId)!.provenanceSource
                     : iv.provenanceSource
                 }
-                reading={targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
+                userMaterialUnverified={
+                  targetReadings.has(iv.factorId)
+                    ? targetReadings.get(iv.factorId)!.userMaterialUnverified
+                    : iv.userMaterialUnverified
+                }
+                reading={iv.value === undefined
+                  ? `${iv.factorLabel} to …`
+                  : targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
                 readingIsTarget={targetReadings.get(iv.factorId)?.readingIsTarget ?? true}
-                inputMatchesReading={targetReadings.get(iv.factorId)?.inputMatchesReading ?? false}
+                inputMatchesReading={iv.value === undefined
+                  ? emptyTargetTakesUserUnits(iv)
+                  : (targetReadings.get(iv.factorId)?.inputMatchesReading ?? false)}
                 optionLabel={optionAccessibleLabel}
                 /* ⭐ A value that did not land stays on ITS row, marked, until
                    dismissed — bound by factor identity, never by position. */
@@ -791,9 +750,9 @@ export const OptionPanel = memo(function OptionPanel({
                  * prop, and so the diff that ever restores `readOnly` has to
                  * delete this paragraph to do it.
                  *
-                 * ⛔ THE OTHER THREE FENCES STAY. `description`, `add-factor`
-                 * and `advanced-editor` are unchanged: the first two write
-                 * locally and the third's own intervention rows already route
+                 * ⛔ THE LOCAL-ONLY FENCES STAY. `description` and
+                 * `advanced-editor` remain. The factor picker uses the canvas
+                 * gesture's structural carrier; the editor's own rows route
                  * through this same owner while its remaining fields do not.
                  * Unfencing per PANEL rather than per WRITER is what the
                  * Router's blanket did, and this panel exists to be finer than
@@ -822,7 +781,7 @@ export const OptionPanel = memo(function OptionPanel({
               a sentence the row is already saying. */}
           {interventionNotice !== null &&
             !(unappliedIntervention !== null &&
-              interventions.some(iv => iv.factorId === unappliedIntervention.factorId)) && (
+              interventionRows.some(iv => iv.factorId === unappliedIntervention.factorId)) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-1.5`}
               data-testid="option-intervention-notice"
@@ -832,79 +791,16 @@ export const OptionPanel = memo(function OptionPanel({
             </p>
           )}
 
-          {/* Add a change — inside PrimaryControlCard as the list footer */}
-          <div className="relative mt-1" ref={dropdownRef}>
-            {/* ⭐ NOT FENCED, AND RENAMED. This toggle mutates a `useState` and
-                nothing else, so the fence has no business reaching it — and
-                under the blanket wrap it was inert, which meant the list could
-                not even be OPENED. The affordance was dead twice over: you
-                could not click an item, and you could not see what the items
-                were.
-
-                "Add a change" promised an action this route cannot perform.
-                "Explore other factors" names what it does do — and what it
-                still buys a reader who cannot edit: which factors this option
-                could act on, and which are already spoken for. That is content
-                worth keeping, which is why the list opens rather than hides. */}
-            <button
-              type="button"
-              onClick={() => setShowDropdown(v => !v)}
-              className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 border-t border-dashed border-panel-border text-info hover:bg-panel-hover transition-colors`}
-              data-testid="option-explore-factors"
-            >
-              Explore other factors
-            </button>
-
-            {showDropdown && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
-                {/* ⚠ ONE explanation of the edit route, at the top of the
-                    list — never an error repeated on every row. A message per
-                    item would turn a useful inventory into a wall of the same
-                    refusal, which is the density Paul has twice asked us to
-                    stop spending. */}
-                {readOnly && controllableFactors.length > 0 && (
-                  <p
-                    className={`${typography.panelMeta} text-text-light px-3 py-2 border-b border-panel-border m-0`}
-                    data-testid="option-explore-factors-route"
-                  >
-                    {OPTION_EDIT_ROUTE_NOTE}
-                  </p>
-                )}
-                {/* WRITERS 3 of 5 — each item calls `handleAddFactor`. */}
-                <fieldset disabled={readOnly} className="contents" data-writer-fence="add-factor">
-                {controllableFactors.length === 0 ? (
-                  <div className={`${typography.panelMeta} text-text-light px-3 py-2`}>
-                    No controllable factors in this model
-                  </div>
-                ) : (
-                  controllableFactors.map(f => {
-                    const alreadySet = interventionIds.has(f.id)
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        disabled={alreadySet}
-                        onClick={() => !alreadySet && handleAddFactor(f.id, f.baseline)}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
-                          alreadySet
-                            ? 'opacity-40 cursor-not-allowed'
-                            : 'hover:bg-panel-hover cursor-pointer'
-                        }`}
-                      >
-                        <span className={`${typography.panelBody} text-text-body truncate`}>{f.label}</span>
-                        <span className={`${typography.panelMeta} text-text-light ml-2 shrink-0`}>
-                          {alreadySet ? 'Already set' : (f.valueDisplay ?? '—')}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
-                </fieldset>
-              </div>
-            )}
-          </div>
+          <InspectorConnectPicker
+            nodeId={nodeId}
+            label="Choose a factor it changes"
+            candidateIds={candidateFactorIds}
+            candidateValueDisplays={candidateValueDisplays}
+            onConnected={setFocusTarget}
+          />
         </PrimaryControlCard>
 
+        <InlineRerunPrompt visible={false} elementId={nodeId} />
         {interventions.length > 0 && (
           <InspectorCoaching
             elementId={nodeId}
@@ -916,168 +812,25 @@ export const OptionPanel = memo(function OptionPanel({
       </PanelGroup>
 
       {/* ── Impact group — post-analysis only, absent from DOM otherwise ──
-          When results are complete but impact data is missing (winRate null,
-          no headline, no comparison bars) the group still renders with a
-          fallback message rather than showing an empty bordered section —
-          mirrors GoalPanel Task 1 pattern. */}
+          #2747 re-scope 2 (DL ruling (A)): no win share in C — no share hero, no "N% of runs supported this option", no
+          gap to the leader, no share bars. CEE serves no wording or Run authority for the share. The group keeps CEE's
+          story headline and the way to the Analysis tab, where each option's chance is said in CEE's words. Restore
+          trigger: a CEE-served share string with its own Run licence (post-C). Each branch stays per node (L-24): an
+          option added since the run and one the run covered read differently. */}
       {isResultsMode && (() => {
-        // L-24 — every branch below is derived PER NODE. Previously the only
-        // per-node signal was `hasImpactContent`; the fallback sentence was
-        // shared, so an option ADDED SINCE the run and an option the run
-        // covered-and-returned-nothing-for read identically. They are
-        // different situations and only one of them is the user's to fix.
-        // Was THIS node in the run's own comparison? `allOptions` is built
-        // from `option_comparison`, i.e. the run's own record of what it
-        // analysed — not from the canvas, and not from global mode.
-        const runCoveredSomething = allOptions.length > 0
         const nodeWasInRun = allOptions.some(o => o.isCurrent)
-        const addedSinceRun = runCoveredSomething && !nodeWasInRun
-        // ⚠ THE THIRD DISJUNCT WAS RUN-LEVEL, NOT PER-NODE (review D2), so the
-        // fix above never fired on the mainline shape. A run compares two or
-        // more options; the user then adds a third. `allOptions.length > 1 &&
-        // some(winPct != null)` is true of THE RUN, so the new option scored
-        // as having impact content and rendered the OTHER options' bars —
-        // foreign data under its own heading — instead of saying it was added
-        // afterwards. The first round's fixture used a ONE-option comparison,
-        // the single shape in which the old predicate happened to be false.
-        // Gating on `nodeWasInRun` makes the whole predicate per-node.
-        const showsShares = !winSharesWithheld
-        const hasImpactContent =
-          (showsShares && displayMetadata.winRate !== null)
-          || (!showsShares && nodeWasInRun && winShareWithheldReason !== null)
-          || !!headline
-          || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
+        const addedSinceRun = allOptions.length > 0 && !nodeWasInRun
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           <StaleGuardBanner hasResults={isResultsMode}>
-            {hasImpactContent ? (
+            {nodeWasInRun || headline ? (
             <div>
-              {!showsShares && nodeWasInRun && winShareWithheldReason !== null && (
-                <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-not-ranked">
-                  {winShareWithheldReason}
-                </p>
-              )}
-              {/* Win probability hero */}
-              {showsShares && displayMetadata.winRate !== null && (
-                <div className="flex items-center gap-3">
-                  <div className="text-center">
-                    <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
-                      {formatWinProbability(displayMetadata.winRate)}
-                    </div>
-                    <div
-                      className={`${typography.panelMeta} text-text-light`}
-                      title={[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
-                      data-testid="option-panel-result-caption"
-                    >
-                      {resultCaption} · of runs
-                    </div>
-                    {/* SC-24 v3: Compare is now previous Run vs this Run; the options are compared on Analysis. */}
-                    <ResultsLink label="Compare all options" tab="results" />
-                  </div>
-                </div>
-              )}
-
-              {/* Comparative context */}
-              {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
-                // The NUMBER, for the pp arithmetic below.
-                const myPct = Math.round(displayMetadata.winRate * 100)
-                // The STRING, from the shared formatter the hero readout at
-                // the top of this panel already uses. Hand-formatting it a
-                // second time is how one surface came to print "0%" where the
-                // other printed "< 1%" for the same win rate, three lines
-                // apart in one panel.
-                const myReadout = formatWinProbability(displayMetadata.winRate)
-                const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
-                const leaderPct = leader.winPct ?? 0
-                const gap = leaderPct - myPct
-                if (leader.isCurrent) {
-                  // SINGLE VERDICT (2026-07-25): the inspector may only say
-                  // "the leading option" when the shared verdict says one
-                  // exists. Previously this fired on being the local win-max,
-                  // so it could assert a leader in the same session where the
-                  // results panel said "no clear leading option".
-                  if (verdict.hasLeadingOption === false) return null
-                  if (!modelLicensesComparativeClaim) return null
-                  return (
-                    <p className={`${typography.panelBody} text-success mt-1`}>
-                      {COMPARATIVE_COPY.sentence(myReadout)}
-                    </p>
-                  )
-                }
-                // ROADMAP 1.223: both remaining branches presuppose a leading
-                // option — one names it ("the leading option"), one names the
-                // option that is ahead ("Behind {label} by Npp"). Each was
-                // ungated, firing off the local win-max and its own 5pp/10pp
-                // threshold, so on a withheld turn they reinstated exactly the
-                // claim the branch above had just declined to make. Same gate,
-                // same silent-omission convention.
-                if (verdict.hasLeadingOption === false) return null
-                if (!modelLicensesComparativeClaim) return null
-                /**
-                 * ⭐⭐ TWO INVENTED CUTOFFS WITH A SILENT DEAD BAND BETWEEN THEM.
-                 *
-                 * `gap <= 5` and `gap > 10` are numbers this panel chose, and
-                 * an option **6 to 10pp behind the leader fell through both and
-                 * was told nothing at all** — not "we are unsure", literally no
-                 * sentence. An absence read as a non-fact, on the surface where
-                 * the reader is comparing their options.
-                 *
-                 * ⛔ AND THE 5pp ARM MADE A CLAIM IT CANNOT SUPPORT: *"Small
-                 * model changes could shift this"* is a ROBUSTNESS statement,
-                 * and robustness is computed — by the producer, from the
-                 * samples. A 5-point gap is not evidence about stability.
-                 *
-                 * `gap` is arithmetic on two figures already on screen, so
-                 * stating it is representation, not interpretation. Every
-                 * option now gets the same true sentence.
-                 */
-                if (gap === 0) {
-                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Level with {leader.label} on support.</p>
-                }
-                return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
-              })()}
-
-              {/* Story headline */}
               {headline && (
-                <div className="bg-panel border rounded-lg p-2.5 mt-2" style={{ borderColor: 'var(--option)4D' }}>
+                <div className="bg-panel border rounded-lg p-2.5" style={{ borderColor: 'var(--option)4D' }}>
                   <p className={`${typography.panelBody} italic text-text-body`}>&ldquo;{headline}&rdquo;</p>
                 </div>
               )}
-
-              {/* Comparison bars */}
-              {showsShares && allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
-                <div className="mt-2">
-                  {/* F5: after the model changes these are the LAST run's
-                      shares — labelled with the contract's stale-option words
-                      (v3 §02, `lastRunNoNewComparison`), never shown bare. */}
-                  {runCurrency === 'changed' && (
-                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-compare-last-run">
-                      {OPTION_RESULT_COPY.lastRunNoNewComparison}
-                    </p>
-                  )}
-                  {allOptions.map(o => (
-                    <div key={o.id} className="flex items-center gap-2 py-0.5">
-                      <span
-                        className={`${typography.panelMeta} w-[110px] truncate text-text-light`}
-                      >
-                        {o.label}
-                      </span>
-                      <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${o.winPct ?? 0}%`,
-                            background: o.isCurrent ? 'var(--option)' : 'var(--text-light)',
-                          }}
-                        />
-                      </div>
-                      <span className={`${typography.panelMeta} w-7 text-right text-text-light`}>
-                        {o.winLabel ?? '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {nodeWasInRun && <div className="mt-1"><ResultsLink label="Compare all options" tab="results" /></div>}
             </div>
             ) : addedSinceRun ? (
               <p
@@ -1130,11 +883,13 @@ export const OptionPanel = memo(function OptionPanel({
           my first audit of "every control in OptionPanel" reported them absent
           — while the comment at the intervention call site above literally
           names this component. Audit the tree, not the file. */}
+      <InspectorMoreItems>
       <TechnicalDisclosure visible={techMode}>
         <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
           <OptionAdvancedEditor nodeId={nodeId} />
         </fieldset>
       </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

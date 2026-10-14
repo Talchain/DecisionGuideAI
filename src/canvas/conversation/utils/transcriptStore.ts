@@ -41,6 +41,7 @@
 
 import { readGuidanceSlots } from '../guidanceRows'
 import type { ConversationMessage } from '../types'
+import { isUUID } from '../../../services/turn-request-builder'
 import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
 import { parseAnswerShape, type AnswerShape } from '../answerShape'
@@ -193,6 +194,7 @@ interface StoredMessage {
   blocks?: unknown[]
   insights?: unknown[]
   clientTurnId?: string
+  serverTurnId?: string
   chipInitiated?: boolean
   /** G1 — the card action that created this user message. Optional: saves
    *  written before it existed load exactly as they always did. */
@@ -207,6 +209,8 @@ interface StoredMessage {
    * absent.
    */
   deliveryState?: 'unconfirmed'
+  deliveryRequestId?: string
+  deliveryScenarioId?: string
   /** The turn asked for consent (`turnOfferedConsent`). The chips themselves
    *  are never stored. Absent on older saves and on every other turn. */
   consentOffered?: true
@@ -223,6 +227,8 @@ interface StoredMessage {
    * turn uses; a malformed or older save simply renders the full text.
    */
   answerShape?: AnswerShape
+  /** Run-3 judge U2: the model state the answer was given in; restored only beside a valid `answerShape`. */
+  answerStateKey?: string
   openQuestionList?: string[]
   /** `{view, reasoning?, confirm_step?, heading?}` as the wire spells it; re-read on restore. */
   provisionalView?: Record<string, string>
@@ -329,16 +335,24 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.blocks && m.blocks.length > 0) out.blocks = m.blocks as unknown[]
   if (m.insights && m.insights.length > 0) out.insights = m.insights as unknown[]
   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
+  // A live echo becomes a restoration association only in storage. Re-saves retain an already restored id.
+  const serverTurnId = m.serverTurnId ?? m.pendingServerTurnId
+  if (m.role === 'assistant' && isUUID(serverTurnId)) out.serverTurnId = serverTurnId
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
+  if (m.role === 'user' && m.deliveryRequestId && m.deliveryScenarioId) {
+    out.deliveryRequestId = m.deliveryRequestId
+    out.deliveryScenarioId = m.deliveryScenarioId
+  }
   if (turnOfferedConsent(m)) out.consentOffered = true
-  const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
-  if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) {
+  const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
+  if (m.role === 'assistant' && typeof heldId === 'string' && /^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(heldId)) {
     out.heldProposalId = heldId
     if (typeof m.heldTurnId === 'string' && m.heldTurnId.length > 0) out.heldTurnId = m.heldTurnId
   }
   if (m.answerShape) out.answerShape = m.answerShape
+  if (m.answerShape && m.answerStateKey) out.answerStateKey = m.answerStateKey
   if (m.openQuestionList) out.openQuestionList = [...m.openQuestionList]
   if (m.provisionalView) {
     const pv = m.provisionalView
@@ -372,22 +386,28 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       ? { insights: s.insights as ConversationMessage['insights'] }
       : {}),
     ...(s.clientTurnId ? { clientTurnId: s.clientTurnId } : {}),
+    ...(s.role === 'assistant' && isUUID(s.serverTurnId) ? { serverTurnId: s.serverTurnId } : {}),
     ...(s.chipInitiated ? { chipInitiated: true } : {}),
     ...(typeof s.sourceBlockKey === 'string' && s.sourceBlockKey
       ? { sourceBlockKey: s.sourceBlockKey }
       : {}),
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
+    ...(s.role === 'user' && typeof s.deliveryRequestId === 'string' && s.deliveryRequestId.length > 0
+      && typeof s.deliveryScenarioId === 'string' && s.deliveryScenarioId.length > 0
+      ? { deliveryRequestId: s.deliveryRequestId, deliveryScenarioId: s.deliveryScenarioId } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
-    ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^prop_[0-9a-f]{32}$/.test(s.heldProposalId)
+    ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(s.heldProposalId)
       ? { heldProposalId: s.heldProposalId,
         ...(typeof s.heldTurnId === 'string' && s.heldTurnId.length > 0 ? { heldTurnId: s.heldTurnId } : {}) } : {}),
-    ...restoredAnswerShape(s.answerShape),
+    ...restoredAnswerShape(s.answerShape, s.answerStateKey),
     ...restoredOpenQuestionList(s.openQuestionList),
     ...restoredProvisionalView(s.provisionalView),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
     ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
-    ...(s.narration && typeof s.narration.runKey === 'string' && s.narration.runKey &&
+    // A 'stale' narration may carry an empty key (original Run unknown, U1); every other status needs a real key.
+    ...(s.narration && typeof s.narration.runKey === 'string'
+      && (s.narration.runKey.trim() !== '' || (s.narration.status === 'stale' && s.narration.runKey === '')) &&
       ['pending', 'ready', 'stale', 'unavailable'].includes(s.narration.status)
       ? { narration: { status: s.narration.status as 'pending' | 'ready' | 'stale' | 'unavailable', runKey: s.narration.runKey } }
       : {}),
@@ -407,9 +427,10 @@ function restoredOpenQuestionList(raw: unknown): { openQuestionList?: string[] }
   return list ? { openQuestionList: list } : {}
 }
 
-function restoredAnswerShape(raw: unknown): { answerShape?: AnswerShape } {
+function restoredAnswerShape(raw: unknown, stateKey?: unknown): { answerShape?: AnswerShape; answerStateKey?: string } {
   const shape = parseAnswerShape(raw)
-  return shape ? { answerShape: shape } : {}
+  if (!shape) return {}
+  return typeof stateKey === 'string' && stateKey !== '' ? { answerShape: shape, answerStateKey: stateKey } : { answerShape: shape }
 }
 
 function isStoredMessage(v: unknown): v is StoredMessage {
@@ -606,6 +627,6 @@ export function clearTranscript(scenarioId: string | null | undefined): void {
  */
 export function formatTruncationNotice(droppedCount: number): string {
   return droppedCount === 1
-    ? 'The earliest message from this decision could not be restored'
-    : `The earliest ${droppedCount} messages from this decision could not be restored`
+    ? 'The earliest message from this scenario could not be restored'
+    : `The earliest ${droppedCount} messages from this scenario could not be restored`
 }

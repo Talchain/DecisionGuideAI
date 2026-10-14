@@ -40,6 +40,8 @@ vi.mock('../../../nodes/shared/useNodeAttention', () => ({
 vi.mock('@xyflow/react', () => ({ useViewport: () => ({ x: 0, y: 0, zoom: 1 }) }))
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
 
+import { takeAskTargetBinding } from '../askTargetBinding'
+import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_GOAL_REASON } from '../panels/GoalPanel'
 import { INSPECTOR_RISK_REASON } from '../panels/RiskPanel'
@@ -217,24 +219,32 @@ describe('Paul 23 Sep point 11 — attention → inspector has a route back to t
   it('Explore with Olumi opens the conversation with this element and its attention reason as context', () => {
     attentionByNode.set('fc', [REASON])
     const send = vi.fn()
-    useGuidanceStore.setState({ _sendMessage: send } as never)
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={vi.fn()} />)
 
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
-    const drawer = useAskOlumiStore.getState()
-    expect(drawer.isOpen).toBe(true)
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    const chip = dispatch.mock.calls[0][0]
+    expect(chip).toMatchObject({ id: 'ask:explain', source: 'chip' })
     expect(send).not.toHaveBeenCalled()
-    expect(drawer.targetId).toBe('fc')
-    expect(drawer.draft).toContain('Budget')
-    expect(drawer.context).toContain(REASON.label)
+    expect(takeAskTargetBinding(chip.message)?.nodeIds).toEqual(new Set(['fc']))
+    expect(chip.message).toContain('Budget')
+    expect(chip.message).toContain(REASON.label)
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
+    expect(revealOlumiSurface).toHaveBeenCalled()
   })
 
   it('⭐ CONTRAST — an unflagged node renders no attention block, and the ask carries no invented reason', () => {
-    useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _sendMessage: vi.fn(), _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={vi.fn()} />)
     expect(screen.queryByTestId('inspector-attention-context')).toBeNull()
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
-    expect(useAskOlumiStore.getState().context).not.toMatch(/Worth reviewing/)
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0].message).toBe('What does ‘Budget’ do in this decision, and what is it assumed to depend on?')
+    expect(dispatch.mock.calls[0][0].message).not.toMatch(/Worth reviewing/)
+    expect(dispatch.mock.calls[0][0].message).not.toContain(REASON.label)
   })
 })
 

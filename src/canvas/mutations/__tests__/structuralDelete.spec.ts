@@ -432,7 +432,7 @@ describe('STRUCTURAL_DELETE_NOTICE', () => {
     const copy = STRUCTURAL_DELETE_NOTICE.base_hash_diverged
     expect(copy).toMatch(/ask me|send me|message/i)
     expect(copy.toLowerCase()).not.toMatch(/\btry again\b/)
-    expect(copy).not.toMatch(/reload this decision.*delete it again/i)
+    expect(copy).not.toMatch(/reload this scenario.*delete it again/i)
   })
 
   it('the mechanism that copy names is the one in the code (the pin, not the phrase)', () => {

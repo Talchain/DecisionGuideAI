@@ -5,9 +5,8 @@
  * 150ms open delay, 200ms close delay. Same styling as parent menu.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { isDivider, isMenuItem, type MenuEntry, type MenuItemDef } from './types'
 import { CANVAS_LAYER_CLASS } from '../layers'
@@ -20,30 +19,66 @@ interface SubmenuProps {
   onHideTooltip?: () => void
 }
 
+interface SubmenuPosition {
+  left: number
+  top: number
+  maxWidth: number
+  maxHeight: number
+}
+
+/** The anchor spans the parent panel horizontally and the trigger row vertically. */
+export function getSubmenuPosition(
+  anchor: Pick<DOMRect, 'left' | 'right' | 'top'>,
+  size: Pick<DOMRect, 'width' | 'height'>,
+  viewport: { width: number; height: number },
+): SubmenuPosition {
+  const gap = 2
+  const margin = 8
+  const rightSpace = Math.max(0, viewport.width - margin - anchor.right - gap)
+  const leftSpace = Math.max(0, anchor.left - gap - margin)
+  // Prefer a full-width flyout on the right, then the left. If neither side
+  // fits, constrain it to the wider side rather than moving over the parent.
+  const opensRight = size.width <= rightSpace
+    || (size.width > leftSpace && rightSpace >= leftSpace)
+  const maxWidth = Math.min(320, opensRight ? rightSpace : leftSpace)
+  const width = Math.min(size.width, maxWidth)
+  const maxHeight = Math.max(0, viewport.height - margin * 2)
+  const height = Math.min(size.height, maxHeight)
+
+  return {
+    left: Math.max(margin, Math.min(
+      viewport.width - width - margin,
+      opensRight ? anchor.right + gap : anchor.left - width - gap,
+    )),
+    top: Math.max(margin, Math.min(anchor.top, viewport.height - height - margin)),
+    maxWidth,
+    maxHeight,
+  }
+}
+
 export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideTooltip }: SubmenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
+  const [position, setPosition] = useState<SubmenuPosition>({
+    left: 0, top: 0, maxWidth: 320, maxHeight: window.innerHeight - 16,
+  })
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
   const actionableItems = items.filter(isMenuItem)
 
-  useEffect(() => {
+  // Re-measure after constraining the width: wrapped labels can change height.
+  useLayoutEffect(() => {
     if (!anchorRect || !menuRef.current) return
-    const rect = menuRef.current.getBoundingClientRect()
-    let left = anchorRect.right + 2
-    let top = anchorRect.top
-
-    // Flip left if would overflow
-    if (left + rect.width > window.innerWidth) {
-      left = anchorRect.left - rect.width - 2
+    const updatePosition = () => {
+      if (!menuRef.current) return
+      setPosition(getSubmenuPosition(anchorRect, menuRef.current.getBoundingClientRect(), {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }))
     }
-    // Adjust vertical if overflow
-    if (top + rect.height > window.innerHeight) {
-      top = Math.max(8, window.innerHeight - rect.height - 8)
-    }
-
-    setPosition({ left, top })
-  }, [anchorRect])
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    return () => window.removeEventListener('resize', updatePosition)
+  }, [anchorRect, position.maxWidth, position.maxHeight])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -74,7 +109,11 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
       ref={menuRef}
       role="menu"
       className={`fixed ${CANVAS_LAYER_CLASS.submenu} min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
-      style={{ left: position.left, top: position.top }}
+      style={{
+        ...position,
+        minWidth: Math.min(180, position.maxWidth),
+        overflowY: 'auto',
+      }}
       onKeyDown={handleKeyDown}
     >
       {items.map((entry, i) => {

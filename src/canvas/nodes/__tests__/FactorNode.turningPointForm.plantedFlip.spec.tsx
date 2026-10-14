@@ -125,7 +125,7 @@ describe('PRECONDITION — the real run shows no turning point here, so the foun
     renderFactor(blockWith(null))
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
     // Contrast from the same render: the card is ranked (the at-rest gate).
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 2 ranked')
+    expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 2 ranked')
   })
 })
 

@@ -65,3 +65,8 @@
 .react-flow__node button {
   text-align: left;
 }
+
+/* #2649 r3: overflow marks are named by the band's focusable +N tooltip. */
+[data-card-bottom-band] > [data-band-overflow="true"] {
+  display: none;
+}

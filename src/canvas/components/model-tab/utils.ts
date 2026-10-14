@@ -18,7 +18,7 @@ import {
 } from '../../mutations/mutationAuthority'
 import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../../domain/valueProvenance'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
-import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, extractPolicyRow, readDriverLevel, type DriverLevelNode } from '../../../components/results/driverDisplayModel'
 import {
   GENERIC_PLACEHOLDER_UNITS,
   CURRENCY_SYMBOLS,
@@ -282,7 +282,7 @@ export function signedScalarText(
  * this function in COMMENTS only — they are doctrine cross-references, not call
  * sites, and must not be mistaken for live consumers.
  */
-export function deriveFactorInfluenceMap(report: unknown): Map<string, number> | undefined {
+export function deriveFactorInfluenceMap(report: unknown, nodes: ReadonlyArray<DriverLevelNode> = []): Map<string, number> | undefined {
   if (report == null || typeof report !== 'object') return undefined
   const r = report as Record<string, unknown>
   const enrichment = r.enrichment as Record<string, unknown> | undefined
@@ -299,7 +299,10 @@ export function deriveFactorInfluenceMap(report: unknown): Map<string, number> |
   // Rows come from the SHARED extractor (panel-parity field semantics) so
   // the coverage-complete verdict cannot skew per surface.
   const rows = factors
-    .map((raw) => extractPolicyRow(raw))
+    .map((raw) => {
+      const row = extractPolicyRow(raw)
+      return row ? extractPolicyRow(raw, readDriverLevel(nodes.find((node) => node.id === row.key)?.data)) : null
+    })
     .filter((row): row is NonNullable<ReturnType<typeof extractPolicyRow>> => row != null)
   if (rows.length === 0) return undefined
 

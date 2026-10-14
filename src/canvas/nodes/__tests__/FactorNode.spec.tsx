@@ -146,7 +146,7 @@ afterEach(() => {
 const COACHING_ICON = 'node-coaching-icon-factor-1'
 
 /** The driver line's caption / fill, bound by the line's own test id. */
-const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent
+const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).getAttribute('aria-label')
 const fillOf = (line: HTMLElement) =>
   (within(line).getByTestId(/-bar$/).firstElementChild as HTMLElement).style.width
 
@@ -774,7 +774,7 @@ describe('FactorNode', () => {
     })
     // factor_type "binary" is suppressed by isSuppressedUnit, value-only path
     expect(screen.getByText('No hire decision in place')).toBeDefined()
-    expect(screen.queryByText('Very low')).toBeNull()
+    expect(screen.queryByLabelText('Very low')).toBeNull()
   })
 
   it('shows contextual text for value===1 with factor_type "binary" and no unit', () => {
@@ -1381,7 +1381,7 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
     expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(container.querySelector('[data-testid="estimate-marker"]')).toBeNull()
-    const mark = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')
+    const mark = container.querySelector('[data-card-bottom-band] [data-value-source="you"]')
     expect(mark).not.toBeNull()
     // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): the person GLYPH, not
     // the word "you"; the name stays "Set by you".
@@ -1432,7 +1432,7 @@ describe('FactorNode — QA Brief A-series', () => {
   // A18: Tier labels removed — non-binary values without raw_value show no display text
   it('A18: value=0.2 → no tier label (non-binary without raw_value returns null)', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.2 } })
-    expect(screen.queryByText('Very low')).toBeNull()
+    expect(screen.queryByLabelText('Very low')).toBeNull()
   })
   it('A18: value=0.21 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.21 } })
@@ -1452,7 +1452,7 @@ describe('FactorNode — QA Brief A-series', () => {
   })
   it('A18: value=0.81 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.81 } })
-    expect(screen.queryByText('Very high')).toBeNull()
+    expect(screen.queryByLabelText('Very high')).toBeNull()
   })
 })
 

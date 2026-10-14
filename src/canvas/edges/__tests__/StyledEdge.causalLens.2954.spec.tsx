@@ -245,7 +245,7 @@ const NEITHER_DATA = ingest(NEITHER_WIRE)
 /**
  * A user-drawn edge, byte-identical to the store's own construction site
  * (`store.ts` onConnect: `data: { ...USER_EDGE_DEFAULTS }`). Every channel is
- * an unstamped default: weight 0.3, direction 'positive', beliefExists 0.8,
+ * an unstamped default: weight 0.3, no direction, beliefExists 0.8,
  * strengthStd 0.15 — the lens previously printed ALL FOUR as measurements.
  */
 const USER_DATA: Record<string, unknown> = { ...USER_EDGE_DEFAULTS }
@@ -378,11 +378,11 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
 
     it('USER edge: all four channels are unstamped defaults — nothing may speak', () => {
       expect(USER_DATA.weight).toBe(0.3)
-      expect(USER_DATA.direction).toBe('positive')
+      expect(USER_DATA.direction).toBeUndefined()
       expect(USER_DATA.beliefExists).toBe(0.8)
       expect(USER_DATA.strengthStd).toBe(0.15)
       expect(resolveEdgeSignedStrengthDisplay(USER_DATA)).toEqual({ show: false, reason: 'not_set' })
-      expect(resolveEdgeDirectionDisplay(USER_DATA)).toEqual({ show: false, reason: 'not_set' })
+      expect(resolveEdgeDirectionDisplay(USER_DATA)).toEqual({ show: false, reason: 'absent' })
       expect(resolveEdgeValueDisplay(USER_DATA, 'beliefExists')).toEqual({ show: false, reason: 'not_set' })
       expect(resolveEdgeValueDisplay(USER_DATA, 'strengthStd')).toEqual({ show: false, reason: 'not_set' })
     })

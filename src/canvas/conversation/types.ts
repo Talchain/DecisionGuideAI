@@ -5,12 +5,14 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
+import type { OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import type { ProvisionalView } from './provisionalView'
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
 import type { GroundedSelection } from './groundedSelection'
 import type { ModelBuildingNoticesView } from './modelBuildingNotices'
+import type { GuidedSizing } from '../../v5/readGuidedSizing'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -22,11 +24,24 @@ export interface ConversationMessage {
   content: string
   blocks?: ConversationBlock[]
   actionChips?: ActionChip[]
+  /** Validated server refusal; controls retry affordances on this message. */
+  ownershipRefusal?: OwnershipRefusalReason
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Ephemeral live Agent-turn association with its undo journal gesture; never restored from a thread. */
+  undoTurnId?: string
+  /** Recorded server echo on a live answer; only the transcript serializer promotes it to a restored association. */
+  pendingServerTurnId?: string
+  /** Deserialised server answer association; only a fresh server read authorises restored next steps. */
+  serverTurnId?: string
+  /** Exact X-Request-Id and owning scenario, retained only while server receipt/reply needs readback. */
+  deliveryRequestId?: string
+  deliveryScenarioId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
+  /** The fresh held record could not be associated with its issuing reply. */
+  heldProposalEarlier?: boolean
   /** Request correlation for the held card, separate from durable message deduplication. */
   heldTurnId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
@@ -57,6 +72,8 @@ export interface ConversationMessage {
   narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
   /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
   guidance?: import('./guidanceRows').TurnGuidance
+  /** Validated decision-science claim receipt on this live action reply. */
+  actionScience?: V5DskClaimProvenance
   /**
    * Suggestion preview (`proposal_preview`, proposalPreview.ts): the proposal this turn offers on its consent chip,
    * as a display projection the canvas draws as a ghost. NOT persisted (transcriptStore keeps no chips and no preview),
@@ -76,6 +93,10 @@ export interface ConversationMessage {
    * persist — late chunks arriving after abort MUST NOT clear it.
    */
   stoppedByUser?: boolean
+  /** Ephemeral §15 held projection; reload reads fresh server authority. */
+  proposalFields?: unknown
+  /** GOAL-REACH guided path (P02): CEE's ordered links to size on this reply; ephemeral, live turns only. */
+  guidedSizing?: GuidedSizing
   /**
    * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
    * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.
@@ -99,6 +120,12 @@ export interface ConversationMessage {
    * until the agent lane began emitting it on every Run turn.)
    */
   answerShape?: AnswerShape
+  /**
+   * Run-3 judge U2: the model state this answer was given in (`answerStateKeyOf`: graph hash + the run it described).
+   * Replies sharing it draw CEE's repeated status headline and bullets once (`statusDrawnBefore`). Persisted with
+   * `answerShape`; absent ⇒ nothing about this answer is folded.
+   */
+  answerStateKey?: string
   /**
    * CEE hop 4b: WHICH model elements this turn's answer was grounded on —
    * `_grounded_selection` on the V5 body, parsed + fail-closed by
@@ -253,6 +280,17 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * The wire block's graph hash at its Run (CEE `computed_against_hash`): how the card's Run is matched to the scenario's
+   * canonical view by the chance authority gate (#2747). Absent on cards stored before it was kept: they quote no chance.
+   */
+  computed_against_hash?: string
+  /**
+   * #2747 r2: the Run's id, stamped from the SAME turn's canonical view when its graph hash is this card's
+   * (`turnCanonicalRunOf`). The gate binds the card to the current canonical Run by run id AND graph hash; a card
+   * without it (stored before, or from a turn whose canonical view named another Run) quotes no chance.
+   */
+  run_id?: string
   /**
    * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
    * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis

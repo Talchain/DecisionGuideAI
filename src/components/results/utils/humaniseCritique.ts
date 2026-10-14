@@ -39,6 +39,15 @@ export const GOAL_DIRECTION_UNATTESTED_TITLE =
 /** The goal's target line can set 'at most' (`goalDirectionCorrectableByTarget`): CEE's correction, verbatim. */
 export const GOAL_DIRECTION_CORRECTABLE_TITLE =
   `${GOAL_DIRECTION_ASSUMED} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+export const GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE =
+  'In this model I’ve assumed a higher value is better for your goal.'
+export const GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE =
+  `${GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+
+export interface CritiqueRunContext {
+  hasRankedOptions: boolean
+}
+
 const GOAL_DIRECTION_UNATTESTED_DESCRIPTION =
   'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest in this model was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.'
 
@@ -502,14 +511,14 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
     title:
-      "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the share of model runs that reach it is not shown rather than guessed.",
+      "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the chance of meeting your goal, in this model is not shown rather than guessed.",
     description:
-      "Your target was captured. To compare it, Olumi needs where the goal stands today, and usually no current level is recorded for the goal. Until it has one, the share of model runs that reach your target is not shown rather than guessed.",
+      "Your target was captured. To compare it, Olumi needs where the goal stands today, and usually no current level is recorded for the goal. Until it has one, the chance of meeting your goal, in this model is not shown rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so the share of model runs that reach it is not shown rather than guessed. Restate it, then run the analysis again.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the chance of meeting your goal, in this model is not shown rather than guessed. Restate it, then run the analysis again.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
@@ -556,11 +565,13 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // must say the rest still stands, or an honest caveat reads as a broken run.
 
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
+  // Run-4 judge (DL 12 Oct, the class): the run-share clauses ("before a different option is the most supported in this
+  // model", "which option is the most supported in this model") are cut; each sentence keeps its other facts.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'E-value analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
+      'Link margin analysis was skipped for time. It does not affect the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -571,14 +582,15 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'The confidence bands around the tipping points didn\'t run. The analysis hit its time limit. Your results stand; re-run to add them.',
     description:
-      'Flip-stability bands ride on the E-value sweep, which the request budget could not fund. Nothing else shown is affected.',
+      'Flip-stability bands ride on the Link margin sweep, which the request budget could not fund. Nothing else shown is affected.',
   }),
 
   // Reasons: request_budget_exhausted | factor_flip_budget_exceeded.
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
+      // Run-4 judge (DL 12 Oct, the class): the run-share clause is cut; the sentence keeps its other facts.
+      'How far each factor would have to move wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -826,7 +838,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'Some links have no figure for how much it would take to overturn them, because reversing them would give the same answer. Your results stand.',
     description:
-      'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the evidence list rather than empty. Every other part of this analysis stands.',
+      'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the Link margin list rather than empty. Every other part of this analysis stands.',
   }),
 
   /**
@@ -1172,6 +1184,7 @@ export function codesRenderingUnresolvedLabel(): readonly string[] {
 export function humaniseCritique(
   item: UncertaintyItem,
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): HumanisedCritique {
   const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
@@ -1203,6 +1216,13 @@ export function humaniseCritique(
       ...(item.suggestion ? { suggestion: item.suggestion } : {}),
       factorId,
     }
+  }
+
+  if (item.code === 'GOAL_DIRECTION_UNATTESTED' && context?.hasRankedOptions === false) {
+    const title = item.goalDirectionCorrectable === true
+      ? GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE
+      : GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE
+    return { title, description: '', displayText: title, factorId }
   }
 
   // B′: the one code whose correction depends on the goal, carried on the item by the adapter (never by the producer).

@@ -85,10 +85,8 @@ export interface StabilityClassification {
   heroLabel: string
   /** Short explanatory text for the hero section */
   heroShortText: string
-  /** Expanded text for disclosure/tooltip */
-  heroExpandedText: string
-  /** Coaching text shown when stability is not high (null when stable) */
-  coaching: string | null
+  // Run-4 judge (DL 12 Oct, the class): `heroExpandedText` and `coaching` are deleted. Every one said "The most-supported
+  // option was the same / changed …" (run-share wording) and nothing rendered them.
   /** Semantic colour class for text (e.g., "text-success") */
   colorClass: string
   /** Border class for hero card */
@@ -113,8 +111,6 @@ export function getStabilityClassification(
       badgeLabel: ROBUSTNESS_BADGE_LABELS.high,
       heroLabel: 'Stable ranking',
       heroShortText: 'Across sampled scenarios',
-      heroExpandedText: 'The most-supported option was the same in nearly every scenario we sampled. Individual estimates can still be off.',
-      coaching: null,
       colorClass: 'text-success',
       borderClass: 'border-success/30',
     }
@@ -126,8 +122,6 @@ export function getStabilityClassification(
       badgeLabel: ROBUSTNESS_BADGE_LABELS.moderate,
       heroLabel: 'Mostly stable ranking',
       heroShortText: 'In most sampled scenarios',
-      heroExpandedText: 'The most-supported option was the same in most of the scenarios we sampled.',
-      coaching: 'The most-supported option was the same in most of the scenarios we sampled. A few edge cases could change it.',
       colorClass: 'text-success',
       borderClass: 'border-info/30',
     }
@@ -139,8 +133,6 @@ export function getStabilityClassification(
       badgeLabel: ROBUSTNESS_BADGE_LABELS.low,
       heroLabel: 'Ranking sensitive to assumptions',
       heroShortText: 'Review key inputs',
-      heroExpandedText: 'The most-supported option changed across the scenarios we sampled. Review key inputs.',
-      coaching: 'The most-supported option changed across the scenarios we sampled. Small changes could change it again.',
       colorClass: 'text-warning',
       borderClass: 'border-factor/30',
     }
@@ -151,8 +143,6 @@ export function getStabilityClassification(
     badgeLabel: ROBUSTNESS_BADGE_LABELS.very_low,
     heroLabel: 'Ranking highly sensitive',
     heroShortText: 'Treat as directional',
-    heroExpandedText: 'The most-supported option changed often across the scenarios we sampled. Treat as directional.',
-    coaching: 'The most-supported option changed often across the scenarios we sampled. Consider strengthening key assumptions before committing.',
     colorClass: 'text-danger',
     borderClass: 'border-factor/30',
   }

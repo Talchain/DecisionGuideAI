@@ -1,3 +1,5 @@
+import { CardMark } from './shared/CardMark'
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
@@ -7,6 +9,7 @@ import { ConstraintBadge } from './ConstraintBadge'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
+import { resolveFactorStoredRangeLine } from './shared/factorStatedRange'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -29,9 +32,8 @@ import { useHasCompletedFirstRun } from '../selectors/results'
 import {
   FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
   FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT,
-  FACTOR_NO_ANALYSIS_YET,
-  FACTOR_NO_ANALYSIS_YET_SHORT,
   FACTOR_VALUE_MODEL_SCALE_HINT,
+  FACTOR_NO_ANALYSIS_YET,
 } from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
@@ -48,7 +50,7 @@ import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyObservedValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyNodeProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
@@ -59,10 +61,15 @@ import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
-  const currentValueOrigin = classifyObservedValueProvenance(observedState)
+  const userMaterialUnverified = observedState?.user_material_unverified === true || props.data?.provenance === 'unverified_brief'
+  const currentValueOrigin = userMaterialUnverified
+    ? classifyNodeProvenance('unverified_brief') : classifyObservedValueProvenance(observedState)
   // Derived once: the drivers that are actually evidence. See
   // `meaningfulUncertaintyDrivers` for why a placeholder is not one.
   const meaningfulDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
+    // A native value edit withdraws its old extraction marker; its approximation
+    // text is historical evidence, not a description of the newly typed value.
+    .filter(driver => observedState?.extractionType !== null || !/^about\s+/i.test(driver))
   const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
@@ -70,7 +77,8 @@ export const FactorNode = memo((props: NodeProps) => {
   // The counterfactual affordance's ONE sentence — rendered AND sent. Null when
   // the label is blank: no affordance rather than a degenerate question.
   const counterfactualQuestion = composeCounterfactualQuestion(cleanedLabel)
-  const cleanedData = cleanedLabel ? { ...props.data, label: cleanedLabel } : props.data
+  const cleanedData = { ...props.data, ...(cleanedLabel ? { label: cleanedLabel } : {}),
+    ...(userMaterialUnverified ? { provenance: 'unverified_brief' } : {}) }
 
   /**
    * ⭐ v3.1 (DESIGN-GAP-v31 row 6): the option whose targets this card marks is
@@ -85,7 +93,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const markedOptionId = useCanvasStore(state =>
     state.lens?.active === 'option' ? state.lens.selectedOptionId ?? null : null,
   )
-  const nodes = useCanvasStore(state => state.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
@@ -202,7 +210,7 @@ export const FactorNode = memo((props: NodeProps) => {
      * had written "Low (0.2)". See `resolveOptionInterventionsForDisplay`.
      */
     const interventions = resolveOptionInterventionsForDisplay(option, ceeOption)
-    return factorOptionSetting(interventions?.[props.id], observedState)
+    return factorOptionSetting(interventions?.[props.id], observedState, nodes.find(n => n.id === props.id)?.data)
   }, [markedOptionId, nodes, ceeAnalysisReady, props.id, observedState])
   const isAffectedByHover = interventionDisplayValue !== null
 
@@ -232,7 +240,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // against internal descriptors such as "other" being shown as units.
   const valueDisplayData = useMemo(
     () => ({
-      ...props.data,
+      ...(nodes.find(n => n.id === props.id)?.data ?? props.data),
       label: cleanedLabel,
       // Top level, never inside observedState: the observed state is the
       // persisted model and an unacknowledged keystroke must not reach it.
@@ -242,7 +250,7 @@ export const FactorNode = memo((props: NodeProps) => {
         unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
       },
     }),
-    [props.data, cleanedLabel, observedState, pendingEditValue],
+    [props.data, props.id, nodes, cleanedLabel, observedState, pendingEditValue],
   )
   const valueDisplay = useMemo(() => factorDisplayText(valueDisplayData), [valueDisplayData])
   // Contract §02: the SAME value split into figure + unit word, from the same
@@ -272,6 +280,10 @@ export const FactorNode = memo((props: NodeProps) => {
   // A bare 0–1 range ("Range: 0.2 to 0.6") is KEPT there (review F2, #2085):
   // its origin is unrecorded and may be the person's inspector edit, so it
   // shows with its `no source` mark (see `resolveFactorPriorRangeOnCard`).
+  // DL ruling (12 Oct, after run 5): the factor's STORED bounds (`observedState.range`), said neutrally — "Range: 20%–30%
+  // of monthly team capacity" — with no "your range" and no Olumi label (`resolveFactorStoredRangeLine`). Drawn only
+  // where the prior-range line is not, so one card never states two ranges.
+  const storedRangeLine = useMemo(() => resolveFactorStoredRangeLine(props.data), [props.data])
   const priorRangeDisplay = useMemo(
     () => resolveFactorPriorRangeOnCard({
       data: props.data as Record<string, unknown> | undefined,
@@ -300,7 +312,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * the source. The third, the reduced line, had no copy at all and printed
    * the number without the mark. One owner, three readers.
    */
-  const isInferred = factorValueIsUnconfirmedEstimate(props.data)
+  const isInferred = !userMaterialUnverified && factorValueIsUnconfirmedEstimate(props.data)
 
   // ⭐ ONE readout, two affordances. The on-graph editor and the read-only span
   // render the SAME recorded readout, so the card cannot show two different
@@ -324,6 +336,11 @@ export const FactorNode = memo((props: NodeProps) => {
    * the inspector and Model tab still state the figure.
    */
   const bareModelValue = readoutIsBareModelScale(valueDisplay, valueDisplayData)
+  // Only the bare 0–1 figure becomes the tier meter. A value that already reads in words ("Very high") keeps its value
+  // line, because that line IS the on-graph editor (#2633 r2: matching worded values here hid the editor on every
+  // tier-worded factor).
+  const tierWords = bareModelValue ? qualitativeTierLabel(Number(valueDisplay)) : null
+  const tierLevel = tierWords ? ['Very low', 'Low', 'Medium', 'High', 'Very high'].indexOf(tierWords) + 1 : 0
 
   // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
   // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
@@ -333,7 +350,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // neutral "no source" mark, never this one — see the range line below.) This supersedes R6's rest-only `est.` (the collapse above stays
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
-  const valueSourceMark = factorValueSourceMark(props.data)
+  const valueSourceMark = factorValueSourceMark(cleanedData)
   // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
   // factor's source detail — the inspector.
   const openSourceDetail = () => { openNodeInspector(props.id) }
@@ -800,7 +817,7 @@ export const FactorNode = memo((props: NodeProps) => {
         state: {
           needsInput,
           isExternalCategory: nodeCategory === 'external',
-          isInferred,
+          isInferred: isInferred || userMaterialUnverified,
           /*
            * ⭐⭐ THE LICENCE AND THE RANK, READ FROM THEIR EXISTING OWNERS.
            *
@@ -813,7 +830,7 @@ export const FactorNode = memo((props: NodeProps) => {
            * decided here, which is what `influenceScaleCopy.ts:347-361`
            * requires.
            */
-          leadsInfluence: influenceRank !== null && displayMetadata.sensitivityRank === 1,
+          leadsInfluence: !userMaterialUnverified && influenceRank !== null && displayMetadata.sensitivityRank === 1,
         },
         context: {
           label: cleanedLabel,
@@ -821,7 +838,7 @@ export const FactorNode = memo((props: NodeProps) => {
           influencePhrase: influenceRank?.phrase,
         },
       }),
-    [needsInput, nodeCategory, isInferred, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
+    [needsInput, nodeCategory, isInferred, userMaterialUnverified, cleanedLabel, influenceRank, displayMetadata.sensitivityRank],
   )
 
 
@@ -1037,6 +1054,7 @@ export const FactorNode = memo((props: NodeProps) => {
             <FactorDriverLine
               nodeId={props.id}
               testId="factor-driver-line-detail"
+              onCard
               rank={driverLine.rank}
               value={driverLine.value}
               fromLastRun={resultsFromLastRun}
@@ -1179,24 +1197,16 @@ export const FactorNode = memo((props: NodeProps) => {
    */
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
   // Row 10: whole here when the card's one-line driver slot cuts it.
-  const noAnalysisYetMoved = !isDetailed && noAnalysisYet
   // The Standard driver slot renders nothing visible (no ranked line, no pre-run
   // line) while a range line follows it: draw the range first (see the slot).
   const rangeBeforeEmptySlot = !isDetailed && driverLine === null && !noAnalysisYet && priorRangeLine !== null
   // PROTOTYPE AT REST (Paul 25 Sep): the driver line and the top driver's
   // turning point render on the card; only what is NOT at rest moves here.
   const turningPointInPopover = !isDetailed && turningPointShown && turningPointState !== null && !turningPointAtRest
-  const hasStandardFindings = !isDetailed && (needsInputSentenceMoved || noAnalysisYetMoved || turningPointInPopover)
+  const hasStandardFindings = !isDetailed && (needsInputSentenceMoved || turningPointInPopover)
   const standardFindings = hasStandardFindings ? (
     <div data-testid={`factor-popover-findings-${props.id}`} className="mb-1">
-      {noAnalysisYetMoved && (
-        <p
-          data-testid={`factor-popover-no-analysis-${props.id}`}
-          className={`${typography.edgeLabel} text-text-light m-0`}
-        >
-          {FACTOR_NO_ANALYSIS_YET}
-        </p>
-      )}
+
       {needsInputSentenceMoved && (
         <p
           data-testid={`factor-popover-needs-input-${props.id}`}
@@ -1349,7 +1359,7 @@ export const FactorNode = memo((props: NodeProps) => {
             (`NodeValueEditor restingFlow="inline"`, the glue and mark passed as
             its `trailing`): the mark can only wrap WITH the value's last word.
             The option rows' N5 rule: the break is governed by the nowrap cell. */}
-        {valueDisplay !== null && !bareModelValue && (
+        {valueDisplay !== null && tierWords === null && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
@@ -1460,13 +1470,18 @@ export const FactorNode = memo((props: NodeProps) => {
             {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
           </div>
         )}
+        {storedRangeLine !== null && !priorRangeShown && (
+          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`} data-testid={`factor-stored-range-${props.id}`}>
+            {storedRangeLine}
+          </div>
+        )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
             "Omit, never invent" licenses dropping the bare 0–1 figure — never
             the mark saying whose number it is. The same mark, in the same
             slot, with no figure beside it and no words added: the reader can
             still see WHICH factor holds an assumption Olumi made for them,
             and the mark still opens the inspector, which states the figure. */}
-        {bareModelValue && valueSourceMark !== null && (
+        {tierWords !== null && valueSourceMark !== null && (
           <div
             className={`${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
             data-testid={`factor-value-mark-only-${props.id}`}
@@ -1475,25 +1490,13 @@ export const FactorNode = memo((props: NodeProps) => {
                 words (`qualitativeTierLabel`), never a bare 0–1 number and never
                 an orphan mark. The same inline value line as above (DIFF item
                 3): the tier word, one breakable space, the mark. */}
-            <span data-testid={`factor-value-tier-${props.id}`}>
-              {qualitativeTierLabel(Number(valueDisplay))}
-            </span>
+            <CardMark id="factor-tier" testId={`factor-value-tier-${props.id}`} words={tierWords} level={tierLevel} />
             {' '}
             <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
               {renderValueSourceMark()}
             </span>
           </div>
         )}
-        {/* Row 10, Detailed ("adds information"): the pre-run state inline. */}
-        {isDetailed && noAnalysisYet && (
-          <p
-            className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}
-            data-testid={`factor-no-analysis-${props.id}`}
-          >
-            {FACTOR_NO_ANALYSIS_YET}
-          </p>
-        )}
-
         {/* ⭐ NODE-ANATOMY v3.2, Factor, missing: "`Needs input · Value not set
             yet` in the BODY, not a border pill" (contract `nodeHTML`:
             `.own-value` → `.state-word` Needs input + `Value not set yet`). The
@@ -1558,7 +1561,7 @@ export const FactorNode = memo((props: NodeProps) => {
           <div
             data-testid={`factor-driver-slot-${props.id}`}
             className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
-            aria-hidden={driverLine === null && !noAnalysisYet ? true : undefined}
+            aria-hidden={driverLine === null ? true : undefined}
           >
             {driverLine ? (
               <FactorDriverLine
@@ -1569,20 +1572,14 @@ export const FactorNode = memo((props: NodeProps) => {
                 noValueYet={driverLine.noValueYet}
                 inSlot
               />
-            ) : noAnalysisYet ? (
-              <span
-                data-testid={`factor-driver-slot-no-analysis-${props.id}`}
-                className="block truncate text-text-light"
-              >
-                {/* Design bundle 3: at landing the full line truncated to "Working assumption · no
-                    anal…" (served caa64d0f). The visible slot says the state; the rest stays in the
-                    popover and, here, for assistive technology — the text content is unchanged. */}
-                {FACTOR_NO_ANALYSIS_YET_SHORT}
-                <span className="sr-only">{FACTOR_NO_ANALYSIS_YET.slice(FACTOR_NO_ANALYSIS_YET_SHORT.length)}</span>
-              </span>
             ) : null}
           </div>
         )}
+        {/* G1/G2 slice (Paul 7 Oct "repeated text → icons"): "Working assumption · no analysis yet" is a bottom-band
+            mark on the card it describes (BookOpen), its words in aria + tooltip. AnalysisStateCue stays P48's. */}
+        {noAnalysisYet ? (
+          <CardMark id="working-assumption" testId={`factor-working-assumption-mark-${props.id}`} words={FACTOR_NO_ANALYSIS_YET} />
+        ) : null}
         {turningPointAtRest && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}

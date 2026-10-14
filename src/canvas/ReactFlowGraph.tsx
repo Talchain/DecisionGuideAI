@@ -1,3 +1,7 @@
+import { OptionChanceCellProvider } from './nodes/shared/OptionChanceCellProvider'
+import { routeOnceHeldIds } from './domain/routeOnceHeld'
+import { CanvasEditNote } from './nodes/EditNoteAnchor'
+import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
@@ -52,7 +56,7 @@ import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
-import { useConnectGesture } from './hooks/useConnectGesture'
+import { useConnectGesture, openNewCausalLinkStrengthEditor } from './hooks/useConnectGesture'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -70,6 +74,7 @@ import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
+import { useCanvasNoticeBridge } from './hooks/useCanvasNoticeBridge'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
@@ -206,7 +211,6 @@ const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { RunChangesSummary } from './components/RunChangesSummary'
-import { CanvasProvenanceKey } from './components/CanvasProvenanceKey'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
@@ -1063,8 +1067,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       nodeLabelById,
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
+      routeOnceHeldIds(nodes, edges),
     )
-  }, [edges, memoizedNodes])
+  }, [edges, memoizedNodes, nodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)
@@ -1086,9 +1091,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const handleDockOpened = () => setShowFullInspector(false)
     const handleOpenInspector = () => setShowFullInspector(true)
     window.addEventListener('outputs-dock-opened', handleDockOpened)
+    const handleEditNoteLink = () => setShowFullInspector(false)
+    window.addEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     return () => {
       window.removeEventListener('outputs-dock-opened', handleDockOpened)
+      window.removeEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     }
   }, [])
@@ -1318,15 +1326,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
   const showToast = useShowToast()
 
-  // Listen for toast events from TopBar (outside ToastProvider scope)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { message, level } = (e as CustomEvent).detail ?? {}
-      if (message) showToast(message, level ?? 'info')
-    }
-    window.addEventListener('topbar:show-toast', handler)
-    return () => window.removeEventListener('topbar:show-toast', handler)
-  }, [showToast])
+  // Listen for toast events from TopBar (outside ToastProvider scope), and show any notice held while no canvas was
+  // mounted (the user had left the model before it was raised).
+  useCanvasNoticeBridge(showToast)
 
   const handleOpenCompare = useCallback(() => {
     // Check if we have runs to compare (need at least 2)
@@ -1777,6 +1779,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       return
     }
     if (connectPrompt) {
+      const edgeIdsBefore = new Set(useCanvasStore.getState().edges.map(edge => edge.id))
       const result = addEdge({
         source: connectPrompt.newNodeId,
         target: connectPrompt.targetNodeId,
@@ -1784,6 +1787,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       })
       if (result.created) {
         showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
+        // EDIT-UX slice 3a parity: a new causal link opens at its strength question, as the drag path does.
+        openNewCausalLinkStrengthEditor(edgeIdsBefore, connectPrompt.newNodeId, connectPrompt.targetNodeId)
       } else if (result.reason === 'cycle') {
         showToast('This would create a circular dependency.', 'warning')
       } else if (result.reason === 'duplicate') {
@@ -1851,11 +1856,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
     // Create edges with v1.2 metadata (weight, belief, provenance)
     const newEdges = graph.edges.map(edge => {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
 
       // Detect edge kind: influence network (has weight, no probability) vs decision tree (has probability)
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
       const isInfluenceEdge = edge.weight !== undefined && edge.probability === undefined
       const edgeKind = isInfluenceEdge ? 'influence-weight' as const : 'decision-probability' as const
 
@@ -1869,7 +1876,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           kind: edgeKind,                                // Auto-detect influence vs probability edges
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           confidence: edge.probability,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
           provenance: edge.provenance ?? 'template',    // v1.2: default to template source
           // Set-vs-defaulted markers (domain/edgeValueProvenance.ts). A blueprint
@@ -2903,6 +2912,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 renderer, so every card and edge paints over it. It still takes
                 the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
             <AnalysisStateCue />
+            <CanvasEditNote inspectorOpen={showFullInspector} />
           </ReactFlow>
         )}
       </div>
@@ -3049,7 +3059,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
+      {/* ⭐ E4: a ghost door's "What else…?" chooser (chips send questions; free text sends the person’s words). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
@@ -3076,7 +3086,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
       <DegradedBanner />
-      <CanvasProvenanceKey />
+      {/* The bottom-right Key pill is gone (Paul 7 Oct): its entries are the bottom-left Key's own derived rows. */}
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
@@ -3615,7 +3625,9 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
             {/* HighlightProvider wraps ReactFlowGraphInner so canvas hover handlers
                 inside the inner component are consumers, not creators, of the context. */}
             <HighlightProvider>
-              <ReactFlowGraphInner {...props} />
+              <OptionChanceCellProvider>
+                <ReactFlowGraphInner {...props} />
+              </OptionChanceCellProvider>
             </HighlightProvider>
           </ReactFlowProvider>
         </LayerProvider>

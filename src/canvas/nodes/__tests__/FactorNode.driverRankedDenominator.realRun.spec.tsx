@@ -110,9 +110,10 @@ function renderBoard(fx: Fixture) {
 }
 
 const slot = (id: string) => screen.getByTestId(`factor-driver-slot-${id}`)
-const caption = (id: string) => within(slot(id)).queryByTestId('factor-driver-line-caption')?.textContent ?? null
-const lineOf = (id: string) => within(slot(id)).getByTestId('factor-driver-line')
-const fillWidth = (id: string) => within(slot(id)).getByTestId('factor-driver-line-bar-fill').style.width
+const band = (id: string) => screen.getByTestId(`factor-bottom-marks-${id}`)
+const caption = (id: string) => within(band(id)).queryByTestId('factor-driver-line-caption')?.getAttribute('aria-label') ?? null
+const lineOf = (id: string) => within(band(id)).getByTestId('factor-driver-line')
+const fillWidth = (id: string) => within(band(id)).getByTestId('factor-driver-line-bar-fill').style.width
 const nameOf = (id: string) => lineOf(id).getAttribute('aria-label') ?? ''
 
 /** Every factor card on the board that SHOWS a rank — the set M must count. */
@@ -261,7 +262,7 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
         const lines = screen.getAllByTestId('factor-driver-line')
         expect(lines.length).toBeGreaterThan(0)
         for (const line of lines) {
-          const text = within(line).getByTestId('factor-driver-line-caption').textContent ?? ''
+          const text = within(line).getByTestId('factor-driver-line-caption').getAttribute('aria-label') ?? ''
           seen.push(text)
           expect(captionWidthPx(text, MAX_LABEL_COUNTER_SCALE), text).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
           // The visible words open the accessible name, which keeps the full sentence.
@@ -289,7 +290,9 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
           const bar = within(line).getByTestId('factor-driver-line-bar').className.split(/\s+/)
           expect(bar).toContain('shrink-0')
           expect(bar.some((t) => t.includes('flex-shrink') || t === 'min-w-0')).toBe(false)
-          expect(line.className.split(/\s+/)).toContain('flex-wrap')
+          expect(line.className.split(/\s+/)).toContain('inline-flex')
+          expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+          expect(within(line).getByTestId('factor-driver-line-caption').textContent).toMatch(/^\d+$/)
         }
       }
     }

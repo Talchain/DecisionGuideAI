@@ -193,12 +193,12 @@ export const ANALYSIS_REFUSAL_REASON_COPY: Readonly<Record<string, string>> = {
     // blockerIssue 'constraint_dropped' (:702-708): `Review the unresolved
     // constraint…`; `requiredInputForIssue` gives it its own
     // `constraint_review` kind (:743).
-    'A constraint on this decision was left unresolved, so the analysis stopped rather than ignore it.',
+    'A constraint in this model was left unresolved, so the analysis stopped rather than ignore it.',
   UNREACHABLE_CONTROLLABLE_FACTOR:
     // blockerIssue mapping-with-no-option (:672-679): fires when the payload is
     // `needs_user_mapping` and the blocker names a FACTOR but no option —
     // `Choose which option changes "<factor>" and by how much.`
-    'A factor you can control is not changed by any of your options, so nothing connects it to the decision.',
+    'A factor you can control is not changed by any of your options, so nothing connects it to the question.',
   OPTION_NEEDS_MAPPING:
     // per-option sweep (:923-937), `option.status === 'needs_user_mapping'`:
     // `Choose which factor "<option>" changes and by how much.`
@@ -223,9 +223,9 @@ export const ANALYSIS_REFUSAL_REASON_COPY: Readonly<Record<string, string>> = {
 
   // ── reason_code, StructuralViolationCode (graph-structure-validator.ts:22-32)
   NO_GOAL: 'The model has no goal, so there was nothing to analyse towards.',
-  NO_DECISION: 'The model has no decision to analyse.',
+  NO_DECISION: 'The model has no question to analyse.',
   FEWER_THAN_TWO_OPTIONS:
-    'The decision needs at least two options before they can be compared.',
+    'The question needs at least two options before they can be compared.',
   NO_PATH_TO_GOAL:
     'No option connects to the goal through the model, so there was nothing to compute.',
   CYCLE_DETECTED:
@@ -233,7 +233,7 @@ export const ANALYSIS_REFUSAL_REASON_COPY: Readonly<Record<string, string>> = {
   ORPHAN_NODE: 'The model has a node that is not connected to anything.',
   OPTION_NO_FACTOR_EDGES:
     'An option is not linked to any factor, so it has no measurable effect.',
-  OPTION_NOT_LINKED_TO_DECISION: 'An option is not linked to the decision.',
+  OPTION_NOT_LINKED_TO_DECISION: 'An option is not linked to the question.',
   NODE_LIMIT_EXCEEDED: 'The model has more nodes than the analysis can handle.',
   EDGE_LIMIT_EXCEEDED:
     'The model has more connections than the analysis can handle.',

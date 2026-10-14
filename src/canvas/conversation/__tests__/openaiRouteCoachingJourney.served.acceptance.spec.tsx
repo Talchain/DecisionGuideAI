@@ -367,7 +367,7 @@ describe.each(JOURNEYS)('the served OpenAI run turn (%s), through the shipped ch
  * is the one live action on the face.
  */
 describe('the served first pass that ALSO asks for consent (browser capture, e39f6e0)', () => {
-  it('one real next action: the consent pair is live; the run card keeps its line', async () => {
+  it('the consent pair stays live while run coaching remains disclosed', async () => {
     await mount(servedFirstPassWithConsent as Journey)
     await step('C1 — the reply asks for consent and carries the first-pass card', async () => {
       await say('C1 brief', 'We sell a Pro plan at £49/month. Should we raise it to £59 with the next feature release?')
@@ -375,11 +375,13 @@ describe('the served first pass that ALSO asks for consent (browser capture, e39
       expect(approve, 'the consent chip is offered').not.toBeNull()
       expect(approve!.disabled).toBe(false)
       const line = document.querySelector(`[data-testid="coaching-line-${String(C1_CARD.block_id)}"]`) as HTMLDetailsElement | null
-      expect(line, 'the run card keeps its line (not promoted)').not.toBeNull()
-      expect(line!.open, 'the line is closed at rest').toBe(false)
-      expect(line!.contains(cardEl(C1_CARD)), 'the card is inside its line').toBe(true)
-      const onTheFace = liveCardActions().filter((b) => b.closest('details:not([open])') === null)
-      expect(onTheFace, 'no live card action competes with the consent pair').toEqual([])
+      expect(line, 'consent owns the next action on this turn').not.toBeNull()
+      expect(line!.open).toBe(false)
+      expect(cardEl(C1_CARD)).not.toBeVisible()
+      fireEvent.click(line!.querySelector('summary')!)
+      expect(cardEl(C1_CARD)).toBeVisible()
+      // The consent chip remains a separate human action; rendering coaching grants no write authority.
+      expect(approve!.getAttribute('data-testid')).toContain('agent-approve-proposal:')
     })
   })
 })

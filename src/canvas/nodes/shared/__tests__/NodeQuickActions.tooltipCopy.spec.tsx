@@ -72,7 +72,7 @@ describe('quick-action hints name the action, not the node', () => {
     useCanvasStore.setState({ nodes: [NODE], lodRung: 'quiet' } as never)
     // Both AI shortcuts need the send channel; with none, only More renders and
     // the label-absence sweep below would be near-vacuous.
-    useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
+    useGuidanceStore.setState({ _sendMessage: vi.fn(), _dispatchAction: vi.fn() } as never)
   })
 
   it('gives each button a short hint that does NOT repeat the node label', () => {

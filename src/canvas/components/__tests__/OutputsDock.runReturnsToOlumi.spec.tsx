@@ -56,13 +56,35 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { ConversationMessage } from '../../conversation/types'
-import { THREAD_SCROLL_SENTINEL_TESTID } from '../../conversation/zones/ChatThread'
+import { THREAD_TESTID_DOCKED } from '../../conversation/zones/ChatThread'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
 // ---------------------------------------------------------------------------
 // Heavy-import stubs — must precede any OutputsDock evaluation. Layout mirrors
 // OutputsDock.conversationSingleton.spec.tsx (the established dock harness).
 // ---------------------------------------------------------------------------
+/**
+ * Every scroll the conversation asks for goes through `threadScroll.ts` (the thread scrolls itself and nothing
+ * above it: `scrollIntoView` also moved the dock's overflow-hidden aside, the 7 Oct blank-chat witness). The
+ * recorder below wraps that owner, so each request is recorded with the ELEMENT it was for — the card brought to
+ * the thread's top, or the thread pinned to its end — and the wrapper's state at call time, then performed as normal.
+ */
+type ThreadScrollRequest = { kind: 'within' | 'end'; target: Element; opts: unknown }
+const threadScrollSink: { record: ((r: ThreadScrollRequest) => void) | null } = { record: null }
+vi.mock('../../conversation/hooks/threadScroll', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../conversation/hooks/threadScroll')>()
+  return {
+    ...actual,
+    scrollWithinThread: (target: Element, opts: { behavior: ScrollBehavior; block: 'start' | 'nearest' }) => {
+      threadScrollSink.record?.({ kind: 'within', target, opts })
+      return actual.scrollWithinThread(target, opts)
+    },
+    scrollThreadToEnd: (thread: HTMLElement, behavior: ScrollBehavior) => {
+      threadScrollSink.record?.({ kind: 'end', target: thread, opts: { behavior } })
+      return actual.scrollThreadToEnd(thread, behavior)
+    },
+  }
+})
 vi.mock('../../../lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
   isSupabaseAvailable: () => false,
@@ -189,29 +211,34 @@ function ensureScrollIntoView() {
  * would have passed against the defect.
  */
 interface RecordedScroll {
+  kind: 'within' | 'end' | 'scrollIntoView'
   target: Element
   opts: ScrollIntoViewOptions | boolean | undefined
   wrapperHidden: boolean
 }
 
-function recordScrollIntoView(): { calls: RecordedScroll[]; restore: () => void } {
+function recordThreadScrolls(): { calls: RecordedScroll[]; restore: () => void } {
   const proto = Element.prototype as unknown as {
     scrollIntoView?: (arg?: ScrollIntoViewOptions | boolean) => void
   }
   const previous = proto.scrollIntoView
   const calls: RecordedScroll[] = []
-  proto.scrollIntoView = function (this: Element, opts?: ScrollIntoViewOptions | boolean) {
+  const wrapperHidden = () => {
     const wrapper = document.querySelector('[data-testid="olumi-tab-wrapper"]')
-    calls.push({
-      target: this,
-      opts,
-      wrapperHidden: wrapper ? wrapper.classList.contains('hidden') : true,
-    })
+    return wrapper ? wrapper.classList.contains('hidden') : true
+  }
+  // Any `scrollIntoView` is recorded too: none may be issued at the conversation (it scrolls the dock).
+  proto.scrollIntoView = function (this: Element, opts?: ScrollIntoViewOptions | boolean) {
+    calls.push({ kind: 'scrollIntoView', target: this, opts, wrapperHidden: wrapperHidden() })
+  }
+  threadScrollSink.record = (r) => {
+    calls.push({ kind: r.kind, target: r.target, opts: r.opts as ScrollIntoViewOptions, wrapperHidden: wrapperHidden() })
   }
   return {
     calls,
     restore: () => {
       proto.scrollIntoView = previous
+      threadScrollSink.record = null
     },
   }
 }
@@ -721,7 +748,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     )
     startRunFromKeyboardShortcut()
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurn(rerender)
 
@@ -735,16 +762,14 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
       // that element an identity turned this assertion red without anything
       // about the scroll behaviour changing. Bound to the exported constant now,
       // so the spec and the component cannot drift apart.
+      // (Since 7 Oct the pin is the thread's own end pin, `threadScroll.scrollThreadToEnd`, not `scrollIntoView` on
+      // an end sentinel; bound to the docked thread by its testid.)
       const bottomPin = probe.calls.find(
-        (c) =>
-          c.target.getAttribute('data-testid') === THREAD_SCROLL_SENTINEL_TESTID &&
-          typeof c.opts === 'object' &&
-          c.opts !== null &&
-          (c.opts as ScrollIntoViewOptions).block === undefined,
+        (c) => c.kind === 'end' && c.target.getAttribute('data-testid') === THREAD_TESTID_DOCKED,
       )
       expect(
         bottomPin,
-        'no scroll was aimed at the thread-end sentinel — the diagnosis this case pins no longer holds',
+        'no end pin was asked of the thread — the diagnosis this case pins no longer holds',
       ).toBeDefined()
       // …and it was asked for while the wrapper still carried `hidden`. In a
       // real browser that subtree has no layout box, so this call does nothing.
@@ -766,13 +791,15 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurn(rerender)
 
       expect(olumiTabIsFronted()).toBe(true)
       const card = screen.getByTestId('v5-analysis-result')
       const cardScrolls = probe.calls.filter((c) => c.target === card)
+      // Within the thread only: nothing may `scrollIntoView` the card (that moved the dock's aside, 7 Oct).
+      expect(cardScrolls.every((c) => c.kind === 'within')).toBe(true)
 
       // The card itself is the target — not the thread's end sentinel, whose
       // bottom-pin would land the tester PAST a 1,218 px card in a 676 px
@@ -804,7 +831,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
       fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
     })
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurn(rerender)
 
@@ -835,7 +862,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     landAnalysisTurn(rerender)
     expect(olumiTabIsFronted()).toBe(true)
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       const card = screen.getByTestId('v5-analysis-result')
       act(() => {
@@ -930,7 +957,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     )
     expect(olumiTabIsFronted()).toBe(true)
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurnBatched(rerender)
 
@@ -962,7 +989,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         <OutputsDock />
       </Wrapper>,
     )
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurnBatched(rerender)
       const card = screen.getByTestId('v5-analysis-result')
@@ -1007,7 +1034,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
-    const probe = recordScrollIntoView()
+    const probe = recordThreadScrolls()
     try {
       landAnalysisTurn(rerender, 'm-rerun')
 

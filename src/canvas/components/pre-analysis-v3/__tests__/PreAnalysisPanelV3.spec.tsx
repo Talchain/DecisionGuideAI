@@ -627,7 +627,8 @@ describe('footer readiness', () => {
     seedReadiness(false, 'Two options need target values before analysis.')
     renderPanel()
     const footer = screen.getByTestId('pre-analysis-v3-footer')
-    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(screen.getByTestId('pre-analysis-v3-footer-headline').textContent).toBe('')
+    expect(screen.getByTestId('pre-analysis-v3-footer-subline').textContent).toBe('Two options need target values before analysis.')
     expect(footer).toHaveTextContent('Two options need target values before analysis.')
   })
 
@@ -677,7 +678,8 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
   it('footer is coherent when the run gate is blocked: copy, dot and button agree', () => {
     renderPanel({ canRun: false, blockedReason: 'Add a goal before running the analysis' })
     const footer = screen.getByTestId('pre-analysis-v3-footer')
-    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(screen.getByTestId('pre-analysis-v3-footer-headline').textContent).toBe('')
+    expect(screen.getByTestId('pre-analysis-v3-footer-subline').textContent).toBe('Add a goal before running the analysis')
     expect(footer).toHaveTextContent('Add a goal before running the analysis')
     expect(footer).not.toHaveTextContent('Analysis available')
     expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeDisabled()
@@ -986,7 +988,8 @@ describe('assessment-pass regressions', () => {
       ),
     })
     const footer = screen.getByTestId('pre-analysis-v3-footer')
-    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(screen.getByTestId('pre-analysis-v3-footer-headline').textContent).toBe('')
+    expect(screen.getByTestId('pre-analysis-v3-footer-subline').textContent).toBe('"Partner with a specialist consultancy" has no effect values yet. Tell Olumi what it changes and the analysis can run.')
     expect(footer).toHaveTextContent(
       '"Partner with a specialist consultancy" has no effect values yet. Tell Olumi what it changes and the analysis can run.',
     )

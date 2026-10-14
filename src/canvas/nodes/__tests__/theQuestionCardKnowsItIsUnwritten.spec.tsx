@@ -134,7 +134,9 @@ describe('the Question card knows when its question is unwritten', () => {
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: vi.fn() } as never)
     renderCard(DECISION_NODE_LABEL)
     fireEvent.click(screen.getByText(DECISION_RESTING_COPY.unnamedCta))
-    expect(prefill).toHaveBeenCalledWith(DECISION_RESTING_COPY.unnamedAsk)
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledTimes(1)
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:name', source: 'chip', message: 'Help me find a clear name for this part of the model so I can choose the wording.' }))
+    expect(prefill).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
   })
 

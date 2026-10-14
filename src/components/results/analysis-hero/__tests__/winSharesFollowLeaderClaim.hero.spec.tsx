@@ -15,6 +15,9 @@
  *   1. 4276f3f9 → no row carries a win share; the exploratory reason line once;
  *   2. CONTROL: `{permitted: true}` keeps each row's share (Convertible bridge "80%");
  *   3. CONTROL: `separation_unavailable` hides them too, in that cause's own words.
+ *
+ * #2747 re-scope 2 (DL ruling (A)): no win share is said on the Results hero in C, PERMITTED or not; `detail.winChance`,
+ * `hero-detail-win` and `hero-win-meta` are gone and `comparativeReadout` is always null. Row 2 now pins that absence.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
@@ -63,7 +66,8 @@ describe('CURRENT-READ row 9 — the hero rows (buildHeroModel → HeroOptionRow
     for (const o of SCORED) {
       const row = model.rows.find((r) => r.id === o.id)!
       expect(row, `row for ${o.label}`).toBeTruthy()
-      expect(row.detail.winChance).toBeUndefined()
+      // #2747 re-scope 2 (DL ruling (A)): `winChance` left the row detail type; the negative is kept by key.
+      expect(row.detail).not.toHaveProperty('winChance')
       expect(row.comparativeReadout ?? null).toBeNull()
     }
     expect(model.designationWithheldReason).toBe(EXPLORATORY_REASON_LINE)
@@ -79,19 +83,25 @@ describe('CURRENT-READ row 9 — the hero rows (buildHeroModel → HeroOptionRow
     expect(container.textContent).not.toMatch(/supported in \d/i)
   })
 
-  it('⭐ ROW 2 — CONTROL: a PERMITTED Run keeps each row\'s share (Convertible bridge 80%) and no reason line', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share on the hero in C, even on a PERMITTED Run (was: Convertible bridge's
+  // "80%" kept, in the opened detail or as persistent meta). The share is still in the data (control); it is not said.
+  it('⭐ ROW 2 — CONTROL: a PERMITTED Run says no share either (Convertible bridge 80% not said) and no reason line', () => {
     seedPaulRun(PERMITTED_STAMP)
+    const data = renderHook(() => useResultsSectionData()).result.current
+    expect(data.winSharesWithheld).toBe(false)
+    expect(data.recommendation.allOptions.find((o) => o.id === CONVERTIBLE)?.winProbability).toBeCloseTo(0.7966, 4) // shown as 80% before C
     const model = heroModel()
     const convertible = model.rows.find((r) => r.id === CONVERTIBLE)!
-    expect(convertible.comparativeReadout).toBe('80%')
-    expect(convertible.detail.winChance).toBe('Supported in 80% of simulated scenarios.')
+    expect(convertible.comparativeReadout).toBeNull()
+    expect(convertible.detail).not.toHaveProperty('winChance')
+    expect(model.rows.map((r) => r.comparativeReadout ?? null).filter((v) => v !== null)).toEqual([])
     expect(model.designationWithheldReason).not.toBe(EXPLORATORY_REASON_LINE)
 
     renderOpenedRows(model)
-    // A row whose only detail is its share renders it as persistent meta (`hero-win-meta`), otherwise in the
-    // opened detail (`hero-detail-win`): either way, the share is on screen.
-    expect([...screen.queryAllByTestId('hero-detail-win'), ...screen.queryAllByTestId('hero-win-meta')].map((el) => el.textContent))
-      .toContain('Supported in 80% of simulated scenarios.')
+    expect(screen.queryAllByTestId('hero-detail-win')).toHaveLength(0)
+    expect(screen.queryAllByTestId('hero-win-meta')).toHaveLength(0)
+    expect(document.body.textContent).not.toMatch(/supported in \d/i)
+    expect(document.body.textContent).not.toContain('80%')
   })
 
   it('⭐ ROW 3 — CONTROL: a Run withheld for ANOTHER reason hides every share too, in that reason\'s own words', () => {
@@ -99,7 +109,8 @@ describe('CURRENT-READ row 9 — the hero rows (buildHeroModel → HeroOptionRow
     const model = heroModel()
     for (const o of SCORED) {
       const row = model.rows.find((r) => r.id === o.id)!
-      expect(row.detail.winChance).toBeUndefined()
+      // #2747 re-scope 2 (DL ruling (A)): `winChance` left the row detail type; the negative is kept by key.
+      expect(row.detail).not.toHaveProperty('winChance')
       expect(row.comparativeReadout ?? null).toBeNull()
     }
     expect(OTHER_CAUSE_WORDS).not.toBeNull()

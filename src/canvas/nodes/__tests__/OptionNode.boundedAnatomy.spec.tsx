@@ -13,7 +13,7 @@
  *   · the card's rows follow the ONE shared change order, value never cut, the
  *     factor label the only part allowed to ellipsize (CSS, with its title);
  *   · the rows and `+N more` are ON THE CARD in both phases, never repeated in
- *     the popover; post-run the share line is ADDED below them;
+ *     the popover; post-run the chance line is ADDED below them;
  *   · the computed differentiator's full sentence stays in the popover;
  *   · the card body is byte-identical at the Normal and landing rungs (height
  *     safety: no rung-triggered re-layout — ED's rule, which the prototype does
@@ -36,6 +36,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -128,6 +129,22 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
+// Layout tests consume a real licensed cell independently of the mocked runs share.
+vi.mock('../shared/useOptionChanceCell', () => ({
+  useOptionChanceCell: (id: string) => {
+    const results = useCanvasStore(state => state.results)
+    const nodes = useCanvasStore(state => state.nodes)
+    const context = {
+      goalChanceHeroSays: true,
+      labelOf: (nodeId: string) => {
+        const label = nodes.find(node => node.id === nodeId)?.data.label
+        return typeof label === 'string' ? label : null
+      },
+    }
+    return canonicalFixtureRunView(results.report, context).chanceCellOf(id, context)
+  },
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -161,7 +178,11 @@ const baseProps = {
   draggable: true,
 }
 
-const COMPLETE = { status: 'complete', report: {} }
+const COMPLETE = { status: 'complete', report: { inference_warnings: [{
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['option-1', 'option-2', 'option-b'],
+  pct_by_option: { 'option-1': 41, 'option-2': 32, 'option-b': 12 },
+  target: { comparator: 'at_least', value: 100, unit: 'customers' },
+}] } }
 
 const renderCard = (
   { id = 'option-1', data = {}, store = {} }: { id?: string; data?: Record<string, unknown>; store?: Record<string, unknown> } = {},
@@ -244,7 +265,9 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // Truth stays on the card: the mark is the row's own `you` (user_specified).
       expect(mark.getAttribute('data-value-source')).toBe('you')
       expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(dd.contains(mark)).toBe(true)
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      expect(mark.querySelector('.lucide-user-check')).not.toBeNull()
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
       const lt = tokens(dt)
@@ -363,13 +386,13 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     })
   })
 
-  describe('post-run: the share line is ADDED below the rows', () => {
-    it('the card carries the rows AND the share line, rows first', () => {
+  describe('post-run: the chance line is ADDED below the rows', () => {
+    it('the card carries the rows AND the chance line, rows first', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const share = onCard('option-analysis-currency-option-1')
       const rows = onCard('option-change-rows-option-1')
-      expect(share, 'precondition: the share line renders').not.toBeNull()
+      expect(share, 'precondition: the chance line renders').not.toBeNull()
       expect(rows, 'the rows survive the run').not.toBeNull()
       expect(rows!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
@@ -383,22 +406,24 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
 
   describe('the baseline', () => {
     // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): the reference line is dropped; the meta is followed by the slot.
-    it('pre-run it reads its meta, then the share line\'s reserved slot (no reference line)', () => {
+    it('pre-run it reads its meta, then the chance line\'s reserved slot (no reference line)', () => {
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
-      expect(meta?.textContent).toBe('Baseline option')
-      // …then the share line's slot, reserved (empty) before the run so a run never grows the card.
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline option')
+      // …then the chance line's slot, reserved (empty) before the run so a run never grows the card.
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
-      expect(bodyLines(meta!)).toEqual([meta, onCard('option-share-slot-option-b')])
+      const reserved = onCard('option-baseline-slot-option-b')!
+      expect(bodyLines(reserved)).toEqual([reserved, onCard('option-share-slot-option-b')])
+      expect(screen.getByTestId('option-bottom-marks-option-b').contains(meta!)).toBe(true)
     })
 
-    it('post-run the baseline meta STAYS on the card, above the share line', () => {
+    it('post-run the baseline meta STAYS on the card, above the chance line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', store: { results: COMPLETE } })
       const share = onCard('option-analysis-currency-option-b')
       const meta = onCard('option-baseline-meta-option-b')
       expect(share).not.toBeNull()
-      expect(meta?.textContent).toBe('Baseline option')
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline option')
       expect(meta!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(inPopover('option-baseline-meta-option-b')).toBeNull()
     })
@@ -421,7 +446,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
 
     it('CEE says is_baseline true → the baseline meta, even with no node flag', () => {
       renderCard({ id: 'option-keep', store: withKeep({ is_baseline: true }) })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
 
     /**
@@ -445,12 +470,12 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     it('CONTRAST: with no typed source ANYWHERE on the board, the label heuristic still decides (unchanged)', () => {
       const store = withKeep(null)
       renderCard({ id: 'option-keep', store: { ...store, nodes: store.nodes.filter((n) => n.id !== 'option-b') } })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
 
     it('the node\'s own flag still wins over CEE', () => {
       renderCard({ id: 'option-keep', data: { is_baseline: true }, store: withKeep({ is_baseline: false }) })
-      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-keep')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     })
   })
 

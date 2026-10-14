@@ -40,6 +40,12 @@
  */
 
 import { useCanvasStore } from '../store'
+import {
+  analysisReplacedSince,
+  captureAnalysisCurrency,
+  restoreAnalysisCurrencyAfterRevert,
+  type AnalysisCurrencySnapshot,
+} from '../store/analysisCurrencySnapshot'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
@@ -64,6 +70,7 @@ import {
  * (see `mergeOptimisticFactorEdit`), which an opaque `() => void` cannot express.
  */
 export interface OptimisticFactorEdit {
+  currency?: AnalysisCurrencySnapshot
   /** The factor node's id — also the `target_id` the wire event names. */
   nodeId: string
   /**
@@ -161,6 +168,7 @@ export function captureOptimisticFactorEdit(
     sentValue,
     prevObservedState: readObservedState(nodeData),
     prevDisplayValue: d.display_value,
+    currency: captureAnalysisCurrency(),
     ...(reviewedStamp ? { reviewedStamp } : {}),
   }
 }
@@ -688,7 +696,7 @@ export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
    * shows the fence's own sentence (`fenceRefusalCopyForCategory`) instead.
    */
   proven_no_write:
-    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this decision and I'll re-sync with the saved model, then you can make the change again.",
+    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this scenario and I'll re-sync with the saved model, then you can make the change again.",
   /**
    * The turn reached the server and failed there, but nothing states the write
    * did not land — the untyped 500 a contended commit actually returns, an
@@ -954,8 +962,9 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
  * the ABSENCE of keys that were absent, which no per-key setter can express.
  *
  * Goes through the store's `updateNode` chokepoint, so the analytical-change
- * recognition (and with it the freshness overlay) sees the revert exactly as it
- * saw the edit. It writes only `observedState` + `display_value` — the two
+ * recognition sees the revert as an edit, then currency is restored only if the
+ * original analytical graph is back and no newer analysis arrived. It writes
+ * only `observedState` + `display_value` — the two
  * fields `setObservedValue` already declares in `NODE_SETTER_FIELDS`, so the
  * editor-written-field registry is unchanged by this path.
  *
@@ -973,6 +982,8 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   const obs = (readObservedState(node.data) ?? {}) as Record<string, unknown>
   const currentValue = obs.value
   if (currentValue !== edit.sentValue) return 'value_moved_on'
+  // updateNode clears readiness during rollback; do not lose the newer-analysis guard.
+  const analysisReplaced = edit.currency ? analysisReplacedSince(edit.currency) : true
 
   // ⚠ NOT A USER EDIT — a ROLLBACK to the value that was there before. The graph
   // ends up back where the coaching was authored, so treating it as an edit
@@ -987,6 +998,8 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   } finally {
     store.endExternalGraphMutation?.()
   }
+
+  if (edit.currency && !analysisReplaced) restoreAnalysisCurrencyAfterRevert(edit.currency)
 
   // PERSIST THE REVERT NOW — the same flush `confirmOptimisticFactorEdit` does
   // on 'stamped', and here it is load-bearing rather than a nicety.
@@ -1009,6 +1022,56 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   } catch {
     // Non-critical: the in-memory revert is already applied; the periodic
     // autosave remains the fallback writer.
+  }
+  return 'reverted'
+}
+
+
+/** A prior judgement uses the same capture/revert discipline, without a value stamp. */
+export interface OptimisticPriorRangeEdit {
+  nodeId: string
+  sentMin: number
+  sentMax: number
+  prevPrior: unknown
+  hadPrior: boolean
+  currency: AnalysisCurrencySnapshot
+}
+
+export function captureOptimisticPriorRangeEdit(
+  nodeId: string, sentMin: number, sentMax: number, nodeData: unknown,
+): OptimisticPriorRangeEdit {
+  const data = (nodeData ?? {}) as Record<string, unknown>
+  return {
+    nodeId, sentMin, sentMax,
+    prevPrior: data.prior && typeof data.prior === 'object' ? { ...data.prior } : data.prior,
+    hadPrior: Object.prototype.hasOwnProperty.call(data, 'prior'),
+    currency: captureAnalysisCurrency(),
+  }
+}
+
+/** Restore only this range, and never overwrite a later edit or server readback. */
+export function revertOptimisticPriorRangeEdit(edit: OptimisticPriorRangeEdit): RevertOutcome {
+  const store = useCanvasStore.getState()
+  const node = store.nodes.find(n => n.id === edit.nodeId)
+  if (!node) return 'node_gone'
+  const data = (node.data ?? {}) as Record<string, unknown>
+  const prior = data.prior as Record<string, unknown> | undefined
+  if (prior?.range_min !== edit.sentMin || prior?.range_max !== edit.sentMax) return 'value_moved_on'
+  const analysisReplaced = analysisReplacedSince(edit.currency)
+  const restored = { ...data }
+  if (edit.hadPrior) restored.prior = edit.prevPrior
+  else delete restored.prior
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    store.updateNode(edit.nodeId, { data: restored } as never)
+  } finally {
+    store.endExternalGraphMutation?.()
+  }
+  if (!analysisReplaced) restoreAnalysisCurrencyAfterRevert(edit.currency)
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // The in-memory revert is applied; periodic autosave is the fallback.
   }
   return 'reverted'
 }

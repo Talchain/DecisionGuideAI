@@ -74,9 +74,9 @@ describe('RangeVisualization', () => {
       )
 
       // goalProbability of 0.75 → "75% hit target"
-      expect(screen.getByText('reaches the target in 75% of model runs')).toBeInTheDocument()
+      expect(screen.getByText('about 75% chance of meeting your goal')).toBeInTheDocument()
       // goalProbability of 0.55 → the A register
-      expect(screen.getByText('reaches the target in 55% of model runs')).toBeInTheDocument()
+      expect(screen.getByText('about 55% chance of meeting your goal')).toBeInTheDocument()
     })
   })
 

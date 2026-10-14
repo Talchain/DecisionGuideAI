@@ -10,7 +10,7 @@
 .artefactBlock {
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 8px;
-  background: var(--bg-panel, #FEF9F3);
+  background: var(--bg-panel, #FEFEFE);
   overflow: hidden;
   margin-top: 8px;
 }
@@ -28,7 +28,7 @@
 }
 
 .header:hover {
-  background: var(--bg-panel-hover, #FCF7F1);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 .headerLeft {
@@ -128,13 +128,13 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  background: var(--bg-panel, #FEF9F3);
+  background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   transition: background 150ms, color 150ms;
 }
 
 .actionChip:hover {
-  background: var(--bg-panel-hover, #FCF7F1);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 .actionChip:focus-visible {
@@ -166,7 +166,7 @@
   width: 100%;
   max-width: 800px;
   max-height: 80vh;
-  background: var(--bg-panel, #FEF9F3);
+  background: var(--bg-panel, #FEFEFE);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.16);

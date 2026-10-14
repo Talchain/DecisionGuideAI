@@ -11,8 +11,11 @@
  *    the journal, and the next restore's identity check refuses it.
  *  - A judgement the journal cannot undo (a prior range, an edge verdict) →
  *    a barrier, so ⌘Z says so instead of reverting an OLDER graph edit.
- *  - Any other turn carrying a receipt (chat, the Agent, a Run) → a foreign
+ *  - Any other turn carrying a receipt (chat, a Run) → a foreign
  *    write: nothing before it can be undone from the canvas.
+ *  - An Agent turn whose `_agent.receipts` name the versions it minted (an
+ *    approved proposal, an adopted option) → ONE undo step for Olumi's change
+ *    (P48, `captureAgentTurnForUndo.ts`).
  */
 
 import { create } from 'zustand'
@@ -25,6 +28,8 @@ import {
   type UndoReceipt,
 } from './undoJournal'
 import { isModelChangingSystemEvent } from '../conversation/types'
+import { captureAgentTurnForUndo, readAgentTurnReceipts } from './captureAgentTurnForUndo'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 
 export const useUndoJournalStore = create<{ journal: UndoJournalState }>(() => ({
   journal: EMPTY_UNDO_JOURNAL,
@@ -86,6 +91,22 @@ export function captureTurnForUndo(input: {
   const { journal } = useUndoJournalStore.getState()
   const event = input.systemEvent
 
+  // P48: the Agent's own versions (`_agent.receipts`) and no `model_version_receipt` → ONE undo step for the change,
+  // whatever model-changing event rode with the turn (buddy r1 P1). A judgement the journal cannot undo keeps its
+  // barrier first (buddy r2 P1). The step is keyed by the CHAT TURN, so the reply's "Undo this change" binds to it
+  // (buddy r2 P1). Async; fail-closed.
+  const neverUndoable = event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)
+  const agentReceipts = readAgentTurnReceipts(input.response)
+  if (!neverUndoable && receipt === null && (agentReceipts === null || agentReceipts.length > 0)) {
+    void captureAgentTurnForUndo({
+      scenarioId: input.scenarioId,
+      turnId: input.turnId,
+      response: input.response,
+      ...(event !== undefined && isModelChangingSystemEvent(event.type) ? { label: undoLabelFor(event) } : {}),
+    })
+    return
+  }
+
   let next: UndoJournalState = journal
   if (event !== undefined && isModelChangingSystemEvent(event.type)) {
     if (receipt === null) return
@@ -95,13 +116,21 @@ export function captureTurnForUndo(input: {
       gestureId: input.undoGestureId ?? input.turnId,
       label: undoLabelFor(event),
     })
+    // A direct canvas edit CEE saved (a replayed receipt is not a new commit): analysed after it settles.
+    if (next !== journal && next.head?.versionId === receipt.versionId) {
+      useUndoJournalStore.setState({ journal: next })
+      noteCanvasLocalCommit(receipt.versionId)
+      return
+    }
   } else if (event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)) {
     next = recordBarrier(journal, { scenarioId: input.scenarioId, reason: 'not_undoable' })
   } else if (receipt !== null) {
-    next = recordForeignWrite(journal, {
-      scenarioId: input.scenarioId,
-      head: { versionId: receipt.versionId, fullHash: receipt.fullHash },
-    })
+    const head = { versionId: receipt.versionId, fullHash: receipt.fullHash }
+    // A version holding the very model the head holds (a Run's own turn) changed nothing: the steps stay undoable. Bound
+    // by the model's identity hash, the one the restore route checks.
+    next = journal.scenarioId === input.scenarioId && journal.head !== null && journal.head.fullHash === receipt.fullHash
+      ? { ...journal, head }
+      : recordForeignWrite(journal, { scenarioId: input.scenarioId, head })
   }
   if (next !== journal) useUndoJournalStore.setState({ journal: next })
 }

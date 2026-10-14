@@ -1,30 +1,4 @@
-/**
- * ⭐ AFTER A RUN, NO EMPTY "Analysis result ▸ Details" CARD (design audit #8, 26 Sep 2026).
- *
- * Served on UI `853feeb7` (pricing starter, one OpenAI Run, 1280×800): the Olumi
- * tab held a 382×107.5 bordered card whose whole face was a heading, a closed
- * "▸ Details" and one sentence, "This result is tentative. The uncertainty is
- * substantial." The folded summary restates the reply directly above it, so the
- * card read as an empty frame (screenshot
- * `run-1280x800-pricing-model-03-tab-Olumi.png`; rerun capture
- * `joined-1-cd6a82e4-5f941f2/06-rerun.png` shows one such frame per Run).
- *
- * THE RULE: when the summary is behind the disclosure (the reply is on screen)
- * and nothing else would render on the card (no win-share row, no review prose),
- * there is no card FRAME: no heading, no border. The closed "Details" fold (the
- * summary, verbatim) and the uncertainty line render inline. Nothing is removed:
- * `assistantTextWordCount > 0` holds for a one-word reply too, so the reply is
- * never assumed to carry the summary's account. The `v5-analysis-result` element
- * stays as the unframed anchor the Run-return scroll lands on.
- *
- * FIXTURE: the served `analysis_result` block of the c673223 "C2 run" turn,
- * whole (summary, enrichment, win_probabilities, `leading_option_id: null`).
- * That is the audit's shape: a withheld leader (no pill row), `decision_review:
- * null` (no prose), `robustness.level: 'low'` (the TENTATIVE line).
- *
- * CLAIM TYPE: jsdom DOM through `InlineBlocks`, the call site that sets
- * `summaryBehindDisclosure`. No model calls.
- */
+/** U7: the full summary remains visible. K1: preserve uncertainty and never expose an unlicensed probability. */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
@@ -65,11 +39,18 @@ const TENTATIVE = 'This result is tentative. The uncertainty is substantial.'
 const servedBlock = (): V5AnalysisResultBlockType =>
   ({ ...JSON.parse(JSON.stringify(SERVED)), type: 'v5_analysis_result' }) as V5AnalysisResultBlockType
 
-/** The same bytes with the producer's leader named: the win-share row renders, so the card has a body. */
+/** The same bytes with the producer's leader named. In C no win-share row renders for it (ruling (A)), so no body. */
 const leaderNamedTwin = (): V5AnalysisResultBlockType => ({
   ...servedBlock(),
   leading_option_id: 'Raise to £59 with release',
 })
+
+/** The same bytes with review prose (the 0.30 `decision_review` shape): a body, so the card keeps its frame. */
+const proseTwin = (): V5AnalysisResultBlockType => {
+  const b = servedBlock() as unknown as { enrichment: Record<string, unknown> }
+  return { ...b, enrichment: { ...b.enrichment, decision_review: { produced_at: '2026-07-30T00:00:00.000Z',
+    narrative_summary: 'The review’s own account of the run.' } } } as unknown as V5AnalysisResultBlockType
+}
 
 function mount(block: V5AnalysisResultBlockType, assistantTextWordCount: number) {
   return render(
@@ -88,9 +69,9 @@ describe('audit #8: the served withheld Run renders no empty result card', () =>
     expect(REPLY_WORDS).toBeGreaterThan(0)
   })
 
-  it('⭐ with the reply on screen: no heading, no frame; the fold and the uncertainty line are inline', () => {
+  it('U7: with the reply on screen, the whole summary and uncertainty remain visible', () => {
     const { getByTestId, queryByTestId } = mount(servedBlock(), REPLY_WORDS)
-    expect(queryByTestId('v5-analysis-result-heading')).toBeNull()
+    expect(getByTestId('v5-analysis-result-heading')).toBeVisible()
 
     const line = getByTestId('v5-analysis-result-uncertainty-copy')
     expect(line.textContent).toBe(TENTATIVE)
@@ -98,28 +79,32 @@ describe('audit #8: the served withheld Run renders no empty result card', () =>
 
     // The anchor the Run-return scroll lands on survives, unframed.
     const anchor = getByTestId('v5-analysis-result')
-    expect(anchor.getAttribute('data-presentation')).toBe('inline')
-    expect(anchor.className.split(/\s+/)).not.toContain('border')
+    expect(anchor.getAttribute('data-presentation')).toBe('card')
+    expect(anchor.className.split(/\s+/)).toContain('border')
 
-    // Nothing is removed: the served summary is one click away, verbatim, behind a CLOSED fold.
-    const fold = getByTestId('v5-analysis-result-summary-details') as HTMLDetailsElement
-    expect(fold.open).toBe(false)
-    expect(getByTestId('v5-analysis-result-summary-toggle').textContent).toContain('Details')
+    expect(queryByTestId('v5-analysis-result-summary-details')).toBeNull()
+    expect(getByTestId('v5-analysis-result-summary')).toBeVisible()
     expect(getByTestId('v5-analysis-result-summary').textContent).toBe(String(SERVED.summary))
   })
 
-  it('⭐ a ONE-WORD reply ("Done.") also folds the summary, so it must stay reachable, never dropped', () => {
-    const { getByTestId, queryByTestId } = mount(servedBlock(), 1)
-    expect(queryByTestId('v5-analysis-result-heading')).toBeNull()
+  it('U7: even a one-word reply keeps the full summary visible', () => {
+    const { getByTestId } = mount(servedBlock(), 1)
+    expect(getByTestId('v5-analysis-result-heading')).toBeVisible()
     expect(getByTestId('v5-analysis-result-summary').textContent).toBe(String(SERVED.summary))
   })
 
-  it('CONTROL — the leader-named twin keeps the framed card (the pill row is a body)', () => {
-    const { getByTestId } = mount(leaderNamedTwin(), REPLY_WORDS)
-    expect(getByTestId('v5-analysis-result-probabilities')).toBeInTheDocument()
+  // #2747 re-scope 2 (U0 rewrite): the leader-named twin's body was the win-share pill row, which C does not show (DL ruling
+  // (A)). The body is now the review's prose; the leader-named twin has no body, so it is unframed like the served block.
+  it('K1: review prose stays visible; a named leader never exposes an unlicensed probability', () => {
+    const { getByTestId, unmount } = mount(proseTwin(), REPLY_WORDS)
+    expect(getByTestId('v5-analysis-result-narrative-summary')).toBeInTheDocument()
     expect(getByTestId('v5-analysis-result-heading').textContent).toBe('Analysis result')
-    expect(getByTestId('v5-analysis-result-summary-details')).toBeInTheDocument()
+    expect(getByTestId('v5-analysis-result-summary')).toBeVisible()
     expect(getByTestId('v5-analysis-result').getAttribute('data-presentation')).toBe('card')
+    unmount()
+    const named = mount(leaderNamedTwin(), REPLY_WORDS)
+    expect(named.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(named.getByTestId('v5-analysis-result').getAttribute('data-presentation')).toBe('card')
   })
 
   it('CONTROL — no reply text on the turn: the framed card with the open summary stays (it is the only account)', () => {

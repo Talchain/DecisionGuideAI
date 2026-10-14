@@ -100,7 +100,7 @@ describe('point 9 — the driver bar is neutral, so it never competes with the I
 describe('NODE-ANATOMY v3.2 — "Driver N of M ranked in this run" defines its M (the ranked factors); an unranked factor shows no rank', () => {
   it('the caption is the contract’s exact wording, M from rank.setSize; the stale form drops "in this run"', () => {
     renderLine({ rank: 2, setSize: 3 })
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 2 of 3 ranked in this run')
     expect(driverLineCaption({ rank: 2, setSize: 3 })).toBe('Driver 2 of 3 ranked in this run')
     expect(driverLineCaption({ rank: 2, setSize: 3 }, true)).toBe('Driver 2 of 3 ranked')
   })
@@ -128,7 +128,7 @@ describe('NODE-ANATOMY v3.2 — "Driver N of M ranked in this run" defines its M
   it('the stale form: the caption opens with `Last run · `, drops "in this run", and the name opens with the caption', () => {
     renderLine({ rank: 2, setSize: 3 }, { fromLastRun: true })
     const el = line()
-    const caption = screen.getByTestId('factor-driver-line-caption').textContent!
+    const caption = screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')!
     expect(caption).toBe('Last run · Driver 2 of 3 ranked')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
     expect(el.getAttribute('aria-label')!.startsWith(`${caption}. `)).toBe(true)
@@ -181,7 +181,7 @@ describe('DIFF item 4 — the bar is relative sensitivity against the top-ranked
 
   it('no figure → the rank still shows, but no bar and no bar sentence', () => {
     renderLine({ rank: 2, setSize: 3 }, { value: null })
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 2 of 3 ranked in this run')
     expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
     expect(line().getAttribute('aria-label')).not.toContain('Bar:')
   })
@@ -194,11 +194,11 @@ describe('the in-slot line never clips mid-glyph (Paul, MRR model, 27 Sep 2026)'
     const tokens = (button.getAttribute('class') ?? '').split(/\s+/)
     // Served e8ba18e6: without `w-full` a <button> shrinks to fit its content,
     // and the slot cut the caption — "…Driver 1 of 6 analysec".
-    expect(tokens).toContain('w-full')
-    expect(tokens).toContain('min-w-0')
+    expect(tokens).toContain('inline-flex')
+    expect(tokens).toContain('shrink-0')
     // In the slot: the longest form that fits at the landing bound (Canvas
     // owner, 27 Sep 2026); the accessible name keeps the full sentence.
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     expect(line().getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 3 ranked\. /)
     // Whether the caption FITS at landing, and how the bar gives way, is a width
     // claim: `FactorDriverLine.landingFit.spec.tsx` (measured glyph advances,

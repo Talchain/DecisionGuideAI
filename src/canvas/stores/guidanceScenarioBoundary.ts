@@ -27,7 +27,7 @@ export function leavesDecision(previous: string | null | undefined, next: string
 export function installGuidanceScenarioBoundary(): () => void {
   return useCanvasStore.subscribe((state, prev) => {
     if (!leavesDecision(prev.currentScenarioId, state.currentScenarioId)) return
-    if (useGuidanceStore.getState().guidanceItems.length === 0) return
+    // Empty live turns and empty delivered records still carry origin that must not cross scenarios.
     useGuidanceStore.getState().clearGuidanceItems()
   })
 }

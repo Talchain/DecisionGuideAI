@@ -1,3 +1,4 @@
+import { CardMark } from './shared/CardMark'
 /**
  * Decision ("Question") node component.
  *
@@ -38,8 +39,6 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { DRIVER_LINE_COPY, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
-import Tooltip from '../../components/Tooltip'
-import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { NodePopover } from './shared'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
@@ -246,7 +245,7 @@ export function selectEvidencePriorityFactorId(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: { type?: unknown } | null }>,
 ): string | null {
   if (!report || typeof report !== 'object') return null
-  const feed = selectDriverPolicyFeed(report as ResultsReport)
+  const feed = selectDriverPolicyFeed(report as ResultsReport, nodes)
   if (feed.policyRows.length === 0) return null
   for (const node of nodes) {
     if (node.type !== 'factor' && node.data?.type !== 'factor') continue
@@ -964,9 +963,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       text: restingAsk,
       label: restingAskLabel,
       targetId: restingNodeId,
-      source: 'decision-node-resting',
+      source: 'decision-node-resting', intent: isUnnamed ? 'name' : 'widen',
     })
-  }, [restingAsk, restingAskLabel, restingNodeId])
+  }, [restingAsk, restingAskLabel, restingNodeId, isUnnamed])
 
   /**
    * How many alternatives are in play — the card-face line and the reduced line
@@ -1150,17 +1149,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         : assumptionsOpen
           ? ASSUMPTIONS_OPEN_LINE
           : null
-  const rowMetaClause = rowMetaClauseText !== null ? (
-    <Tooltip asChild content={rowMetaClauseText} delay={NODE_TOOLTIP_DELAY_MS}>
-      <span
-        data-testid="decision-row-meta-clause"
-        className={`${typography.edgeLabel} text-text-light`}
-      >
-        {optionCountLineText !== null && rowMetaSeparator}
-        {focusSignal}
-      </span>
-    </Tooltip>
-  ) : null
+  const rowMetaClause = rowMetaClauseText !== null ? <CardMark id={evidencePriority !== null ? 'evidence-priority' : 'assumptions-open'} testId={evidencePriority !== null ? 'decision-evidence-priority' : 'decision-assumptions-open'} words={rowMetaClauseText} factorId={evidencePriority?.factorId} /> : null
 
   // The card's ONE coaching question (rail): before a run, "Explore more
   // options"; after it, "Challenge this result" — TYPED `what_would_flip`,

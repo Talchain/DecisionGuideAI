@@ -31,11 +31,16 @@
  * was DELETED along with `winnerLabel`, because the surfaces reading it were
  * asking a client-side argmax a question `leaderVerdict` already answers. The
  * arithmetic that forced the `?? 0` is gone with it.
+ *
+ * ⚠ NARROWED 2026-10-07 — THE COMPARE CONSUMER WAS DELETED, NOT EXCUSED. The `deriveCompareState`
+ * re-introduction guard is gone with the state machine it guarded.
+ * The pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers; the live tab (`CompareRunPairBody`)
+ * reads CEE's `run_delta`, not these snapshots. The factory assertions stand.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { buildAnalysisSnapshot } from '../analysisSnapshotFactory'
-import { deriveCompareState } from '../../compare-tab/deriveCompareState'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
@@ -110,34 +115,5 @@ describe('buildAnalysisSnapshot — runner-up win probability absence', () => {
     ])
 
     expect(snap.runnerUpProbability).toBe(31)
-  })
-})
-
-describe('the out-of-scope state machine is undisturbed', () => {
-  it('deriveCompareState returns the same verdict for an unscored runner-up', () => {
-    // ⚠ THE REASON THIS HOLDS CHANGED, AND THE OLD REASON IS NOW FALSE.
-    //
-    // It used to read: "`deriveCompareState` already coerces null with its own
-    // `?? 0`, so absent → 0 and absent → null → 0 are the SAME input to it."
-    // That `?? 0` is gone (ROADMAP 2.835). The equivalence now holds for a
-    // STRONGER reason: `deriveCompareState` does not read
-    // `runnerUpProbability` at all — it quotes the run's `leaderVerdict`.
-    //
-    // Left in place, and worth keeping, because it is now a guard against
-    // RE-INTRODUCTION: if any future edit makes the state machine read the
-    // runner-up again, a fabricated 0 and an honest null stop agreeing and
-    // this REDs. Recording why a passing test passes is the difference between
-    // a guard and a guard agreeing with itself.
-    const unscored = build([
-      { option_id: 'opt-1', option_label: 'Option A', win_probability: 0.05 },
-      { option_id: 'opt-2', option_label: 'Option B' },
-    ])
-    const fabricatedZero = { ...unscored, runnerUpProbability: 0 }
-
-    const previous = { ...unscored, runId: 'run-0', winnerId: 'opt-1' }
-
-    expect(deriveCompareState([previous, unscored], false)).toBe(
-      deriveCompareState([previous, fabricatedZero], false),
-    )
   })
 })

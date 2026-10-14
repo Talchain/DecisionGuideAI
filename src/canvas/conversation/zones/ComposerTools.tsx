@@ -38,7 +38,7 @@ const EXAMPLE_TEXT =
   'Given our goal of reaching £20k MRR within 12 months while keeping monthly churn under 4%, should we increase the Pro plan price from £49 to £59 per month with the next Pro feature release?'
 
 const HELP_TEXT =
-  'A good brief states the decision, lists alternatives, defines a measurable outcome, and notes constraints or risks.'
+  'A good brief states the question, lists alternatives, defines a measurable outcome, and notes constraints or risks.'
 
 interface ThinkingModeCard {
   id: ThinkingMode
@@ -167,7 +167,7 @@ export function ComposerTools({
           data-testid="composer-tools-guide-scaffold"
         >
           <Layout className="w-4 h-4 text-text-light flex-shrink-0" aria-hidden="true" />
-          <span>Use a decision scaffold</span>
+          <span>Use a brief scaffold</span>
         </button>
 
         <button
@@ -294,7 +294,7 @@ export function ComposerTools({
             }
           }
           .composer-tools-trigger:hover {
-            background: var(--bg-panel-hover, #FCF7F1);
+            background: var(--bg-panel-hover, #FEF9F3);
             color: var(--text-body, #3F3F3E);
           }
         `}</style>

@@ -100,7 +100,7 @@ const CLAIMS_RESULTS_WITHHELD = /goal-fit\s+results\s+(were|are)\s+withheld/i
  * not have separated them; what the run withheld is the share of model runs
  * that REACH THE TARGET (AIQ #72 5885033487: a goal figure is a share of model runs).
  */
-const NAMES_THE_QUANTITY = /share of model runs that reach/i
+const NAMES_THE_QUANTITY = /chance of meeting your goal, in this model/i
 
 const NODES = [
   { id: 'g1', type: 'goal', data: { label: 'Sustained margin' } },

@@ -45,6 +45,7 @@ vi.mock('../../conversation/ConversationPanel', () => ({
 import * as ConversationContextModule from '../../conversation/ConversationContext'
 import { OlumiTabBody } from '../OlumiTabBody'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { askAi } from '../../conversation/askAi'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 
 const TestConversationContext = (ConversationContextModule as unknown as {
@@ -55,6 +56,7 @@ type Message = { id: string; role: string; content: string; synthetic?: boolean 
 function makeConvo(messages: Message[] = []) {
   return {
     messages,
+    isThinking: false,
     sendMessage: vi.fn(async () => {}),
     setDraft: vi.fn(),
     dispatchAction: vi.fn(async () => {}),
@@ -121,7 +123,7 @@ function slots() {
 beforeEach(() => {
   useGuidanceStore.setState({
     _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null,
-    _prefillChat: null, _dispatchAction: null, _registrationToken: null,
+    _prefillChat: null, _dispatchAction: null, _isConversationBusy: null, _registrationToken: null,
   })
 })
 
@@ -321,5 +323,24 @@ describe('OlumiTabBody fallback registration — ownership by identity', () => {
     expect(texts(a.setDraft)).toEqual([])
     expect(texts(a.sendMessage)).toEqual([])
     expect(a.dispatchAction).not.toHaveBeenCalled()
+  })
+})
+
+describe('fallback conversation busy gate', () => {
+  it('tracks live thinking, refuses without aborting the turn, survives collapse, and preserves a fuller owner', () => {
+    const convo = makeConvo()
+    const mounted = render(<Mount convo={convo} />)
+    expect(useGuidanceStore.getState()._isConversationBusy?.()).toBe(false)
+    mounted.rerender(<Mount convo={{ ...convo, isThinking: true }} />)
+    expect(useGuidanceStore.getState()._isConversationBusy?.()).toBe(true)
+    expect(askAi({ intent: 'gaps', nodeIds: [], edgeIds: [] })).toBe('busy')
+    expect(convo.dispatchAction).not.toHaveBeenCalled()
+    expect(convo.sendMessage).not.toHaveBeenCalled()
+    mounted.unmount()
+    expect(useGuidanceStore.getState()._isConversationBusy?.()).toBe(true)
+    const busy = () => false
+    act(() => { useGuidanceStore.getState().registerConversationCallbacks(vi.fn(), vi.fn(), undefined, undefined, vi.fn(), vi.fn(), busy) })
+    render(<Mount convo={{ ...makeConvo(), isThinking: true }} />)
+    expect(useGuidanceStore.getState()._isConversationBusy).toBe(busy)
   })
 })

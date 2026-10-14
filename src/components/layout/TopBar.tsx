@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, UserPlus, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Share2, Users, UserPlus, AlertTriangle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -34,6 +34,7 @@ interface TopBarProps {
   isDirty?: boolean
   // C.1a: Supabase persistence status
   saveStatus?: 'saved' | 'saving' | 'error'
+  serverLastSavedAt?: number | null
   saveError?: string | null
   isPersisted?: boolean
   /**
@@ -78,12 +79,12 @@ export const TopBar = ({
   onShare,
   isDirty = false,
   saveStatus,
+  serverLastSavedAt,
   saveError,
   isPersisted = false,
   panelScenarioId = null,
   shareScenarioId = null,
 }: TopBarProps) => {
-  const [showSavedPill, setShowSavedPill] = useState(false)
   const isViewer = useIsViewer()
   const isConfirmedOwner = useIsConfirmedOwner()
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -109,19 +110,10 @@ export const TopBar = ({
 
   const menuRef = useRef<HTMLDivElement | null>(null)
 
-  // C.1a: Auto-fade "Saved" pill after 2s
-  const prevSaveStatusRef = useRef(saveStatus)
-  useEffect(() => {
-    if (saveStatus === 'saved' && prevSaveStatusRef.current === 'saving') {
-      setShowSavedPill(true)
-      const timer = setTimeout(() => setShowSavedPill(false), 2000)
-      return () => clearTimeout(timer)
-    }
-    if (saveStatus === 'saving') {
-      setShowSavedPill(false)
-    }
-    prevSaveStatusRef.current = saveStatus
-  }, [saveStatus])
+  // ⭐ ONE SAVE INDICATOR (Paul 7 Oct: "Saved 49m ago" while editing; and no repeated copy). For a persisted model
+  // this right-hand indicator owns the LIVE states (saving / failed / unsaved). The pill beside the model name
+  // (`ScenarioSwitcher` → `SaveStatusPill`) shows only the last save, and hides while a live state shows here. The
+  // old 2 s "Saved" flash is gone: the pill now says "Saved just now", so the flash said it twice.
 
   // The pill covers only the top-LEFT corner, so `--topbar-h` (a band across the whole screen) stays 0 and the dock
   // runs the full height. The pill's bottom edge is published as `--chrome-top-left` for the top-left column only:
@@ -284,6 +276,8 @@ export const TopBar = ({
             // list/switch/delete read and write localStorage, so they steer the
             // wrong collection there. `ScenarioListPage` is the single owner.
             isPersisted={isPersisted}
+            serverLastSavedAt={serverLastSavedAt}
+            serverSaveStatus={isPersisted ? saveStatus : undefined}
           />
         )}
 
@@ -320,14 +314,6 @@ export const TopBar = ({
               <span className={styles.saveStatus} role="status" aria-live="polite">
                 <span className="inline-block w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin text-text-light" aria-hidden="true" />
                 <span className="text-text-light">Saving{'\u2026'}</span>
-              </span>
-            )
-          }
-          if (saveStatus === 'saved' && showSavedPill) {
-            return (
-              <span className={styles.saveStatus} role="status" aria-live="polite">
-                <CheckCircle size={12} className="text-text-light" aria-hidden="true" />
-                <span className="text-text-light">Saved</span>
               </span>
             )
           }
@@ -398,12 +384,12 @@ export const TopBar = ({
             now states what the link carries, because "Generate shareable link"
             was equally true of the link that carried nothing. */}
         {shareScenarioId != null && shareScenarioId !== '' && (
-          <Tooltip content="Copy a link to this decision's brief — anyone with the link can open it">
+          <Tooltip content="Copy a link to this scenario's summary — anyone with the link can open it">
             <button
               type="button"
               onClick={onShare}
               className={styles.shareButton}
-              aria-label="Copy link to decision brief"
+              aria-label="Copy link to summary"
               data-testid="topbar-share"
             >
               <Share2 size={14} aria-hidden="true" />
@@ -416,12 +402,12 @@ export const TopBar = ({
             never while that answer is pending (Codex R4): a viewer's canvas can hold the
             scenario id before its access lands. The server enforces ownership too. */}
         {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
-          <Tooltip content="Invite a colleague to view this decision">
+          <Tooltip content="Invite a colleague to view this scenario">
             <button
               type="button"
               onClick={() => setInviteOpen(true)}
               className={styles.shareButton}
-              aria-label="Invite a colleague to view this decision"
+              aria-label="Invite a colleague to view this scenario"
               data-testid="topbar-invite"
             >
               <UserPlus size={14} aria-hidden="true" />
@@ -455,7 +441,7 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        <Tooltip content="Decision brief: the saved model and its latest Run, to print or share">
+        <Tooltip content="Summary: the saved model and its latest Run, to print or share">
           <DecisionBriefTrigger className={styles.iconButton} />
         </Tooltip>
 

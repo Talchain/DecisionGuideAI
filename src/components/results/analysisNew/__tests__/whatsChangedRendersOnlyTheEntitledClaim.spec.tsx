@@ -69,7 +69,8 @@ describe('only C1 reads as caused by the person', () => {
       pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
     })} />)
     const limit = screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent ?? ''
-    expect(limit).toMatch(/did not change/i)
+    // COPY-SHAPE 7 Oct: part A carries "nothing the analysis uses differed"; the rider states only the consequence.
+    expect(limit).toMatch(/no difference below comes from an edit to anything the analysis uses/i)
     // C0 is the one arm entitled to rule an edit out. It must NOT be worded as
     // a gap in what we can establish.
     expect(limit).not.toMatch(/cannot be established/i)
@@ -101,13 +102,14 @@ describe('an unmatched pair is never rendered as stillness', () => {
 })
 
 describe('the noise tag governs what the screen shows', () => {
-  it('within_noise shows the numbers AND the qualifier', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "60%" presence assertion is deleted — a movement is a win share and the line says
+  // the direction only in C. The noise tag and the qualifier stay.
+  it('within_noise shows the qualifier', () => {
     render(<WhatsChanged view={view({
       win_probabilities: [{ option_id: 'opt_a', prior: 0.6, current: 0.7, noise_verdict: 'within_noise' }],
     })} />)
     const row = screen.getByTestId(`${WHATS_CHANGED_TESTID}-movement`)
     expect(row).toHaveAttribute('data-noise-verdict', 'within_noise')
-    expect(row.textContent).toMatch(/60%/)
     expect(row.textContent).toMatch(/run-to-run/i)
   })
 
@@ -122,11 +124,11 @@ describe('the noise tag governs what the screen shows', () => {
     expect(row).toHaveAttribute('data-prior', '0.2')
   })
 
-  it('signal shows the numbers with no hedge', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "60%" / "70%" presence assertions are deleted — a movement is a win share and the
+  // line says the direction only in C. The no-hedge negative stays.
+  it('signal shows no hedge', () => {
     render(<WhatsChanged view={view()} />)
     const row = screen.getByTestId(`${WHATS_CHANGED_TESTID}-movement`)
-    expect(row.textContent).toMatch(/60%/)
-    expect(row.textContent).toMatch(/70%/)
     expect(row.textContent).not.toMatch(/run-to-run|no basis/i)
   })
 })

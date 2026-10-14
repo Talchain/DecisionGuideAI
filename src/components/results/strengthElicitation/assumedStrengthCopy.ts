@@ -320,7 +320,9 @@ export const ASSUMED_STRENGTH_REFUSAL_COPY: Record<AssumedStrengthRefusal, strin
   all_strengths_set:
     'No unresolved assumed strength was found among the relationships this run was sensitive to.',
   // Red team (#2548 witness): "measured weak-link rate" was jargon for PLoT's switch_probability under the 0.15 floor,
-  // said in Science d5's words for that measure (#87 6007954023).
+  // said in Science d5's words for that measure (#87 6007954023). Science 393023, 7 Oct: "how the options compare", not
+  // "the most-supported option", because on a Run whose leader is withheld there is no most-supported option to change (prod
+  // cut 7, Canvas robleak witness), and the sentence stays true when a leader is permitted.
   no_fragile_edges:
-    'This run found no relationship that changed the most-supported option often enough to show here.',
+    'In this run, no link’s assumed strength changed how the options compare often enough to show here.',
 }

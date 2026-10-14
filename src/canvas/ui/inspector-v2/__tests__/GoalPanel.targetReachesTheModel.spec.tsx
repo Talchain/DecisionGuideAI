@@ -35,7 +35,7 @@
  * Every expectation is a literal (trap 13b).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Node } from '@xyflow/react'
 
@@ -222,6 +222,7 @@ describe('a stated target SENDS goal_target_edit through proposeGoalTarget', () 
 describe('every other writer on the goal pane stays fenced', () => {
   it('fences the DESCRIPTION', () => {
     const { container } = openGoal()
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
     const fence = container.querySelector('fieldset[data-writer-fence="description"]')
     expect(fence, 'the description writer must sit behind its own fence').not.toBeNull()
     expect(isInert(within(fence as HTMLElement).getByRole('textbox'))).toBe(true)
@@ -251,6 +252,7 @@ describe('every other writer on the goal pane stays fenced', () => {
   it('fences the ADVANCED EDITOR — its threshold setters are bare store writes', async () => {
     const { container } = openGoal()
     const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'More' }))
     await user.click(screen.getByRole('button', { name: 'Show technical detail' }))
     await user.click(screen.getByRole('button', { name: /Show model detail/i }))
     const fence = container.querySelector('fieldset[data-writer-fence="advanced-editor"]')

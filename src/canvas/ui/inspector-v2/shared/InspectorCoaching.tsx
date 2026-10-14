@@ -5,19 +5,9 @@
  * Maximum ONE coaching card visible. If a GuidanceItem exists for this element,
  * it renders instead of the static fallback.
  *
- * ⚠ THIS COMPONENT USED TO AUTO-SEND (ledger L-18, a trap-21 pair). "Ask about
- * this" dispatched via `_sendMessage` immediately, while the inspector's OTHER
- * ask affordance (DiscussWithAiButton) prefilled an editable draft and waited.
- * Same user intent, opposite semantics, one panel. Auto-send is the half that
- * lies: the question lands in a surface the user may not be looking at, so the
- * control reads as dead.
- *
- * Both now run the ONE semantic in `askSemantic.ts` — prefill-and-confirm.
- * The ask never dispatches; the user presses Send.
- *
- * ONE deliberate exception, and it is not an ask: `run_exercise` is a slash
- * COMMAND whose button IS the confirmation. A prefilled '/exercise …' would sit
- * in the composer as literal text instead of executing.
+ * Ask actions submit chip questions through the shared builder and reveal Olumi.
+ * Exercises map to the question table; navigation and existing approval cards
+ * perform the guidance item's own action.
  *
  * Replaces the separate CoachingCard + InspectorGuidanceSection pattern.
  *
@@ -39,8 +29,8 @@ import { useMemo, useCallback } from 'react'
 import { useGuidanceStore, compareGuidanceDisplayOrder } from '../../../stores/guidanceStore'
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { CoachingCard } from './CoachingCard'
-import { resolveAskTemplate } from '../inspectorStrings'
-import { requestAsk } from '../askSemantic'
+import { openNodeInspector } from '../../../nodes/shared/openNodeInspector'
+import { requestAsk, canReceiveAsk } from '../askSemantic'
 
 interface InspectorCoachingProps {
   /** Node or edge ID for guidance filtering */
@@ -58,11 +48,11 @@ interface InspectorCoachingProps {
 export function InspectorCoaching({
   elementId,
   panelType,
-  labelContext,
+  labelContext: _labelContext,
   actionLabel = 'Ask about this',
 }: InspectorCoachingProps) {
-  // Check if chat interaction is available (prefill or send)
-  const canInteract = useGuidanceStore(s => s._prefillChat !== null || s._sendMessage !== null)
+  // Questions require the chip dispatcher.
+  const canInteract = useGuidanceStore(canReceiveAsk)
 
   // Get guidance items for this element (sorted by priority, take top 1)
   const guidanceItems = useGuidanceStore(s => s.guidanceItems)
@@ -86,53 +76,38 @@ export function InspectorCoaching({
     })[0]
   }, [guidanceItems, elementId])
 
-  // Resolve the question text
-  const questionText = useMemo(
-    () => resolveAskTemplate(panelType, labelContext),
-    [panelType, labelContext],
-  )
+  const ask = useCallback((intent: 'evidence' | 'explain' | 'pre-mortem' | 'method:opposite' | 'challenge') => {
+    requestAsk({ text: 'Ask about this', label: 'Ask about this', targetId: elementId,
+      intent: panelType === 'edge' ? 'question-link' : intent })
+  }, [elementId, panelType])
 
-  // ASK — the one semantic. Lands an editable draft the user sends; never
-  // dispatches. Routing (composer vs drawer) is askSemantic's decision.
-  const ask = useCallback((text: string) => {
-    requestAsk({
-      text,
-      label: 'Ask about this',
-      context: '',
-      targetId: elementId,
-    })
-  }, [elementId])
-
-  // COMMAND — not an ask. The button is the confirmation, and a prefilled
-  // slash command would sit in the composer as literal text.
-  // UI N2: the command text is Olumi's, so it travels as a chip (never through
-  // `_sendMessage`, which reaches CEE as words the user typed).
-  const runCommand = useCallback((text: string, chipId: string) => {
-    const state = useGuidanceStore.getState()
-    if (state._dispatchAction) {
-      state._dispatchAction({ parameters: { chip_id: chipId }, label: text, message: text, source: 'chip' })
-      revealOlumiSurface()
-    }
-  }, [])
-
-  // Handle guidance item action
   const handleGuidanceAction = useCallback(() => {
     if (!topGuidanceItem) return
     const action = topGuidanceItem.primary_action
-
     switch (action.type) {
       case 'discuss':
-        ask(action.prompt)
+        ask(topGuidanceItem.signal_code === 'evidence_gap' ? 'evidence' : 'explain')
         break
       case 'run_exercise':
-        // Slash command: a COMMAND, not an ask — see the header note.
-        runCommand(`/exercise ${action.exercise}`, `inspector_exercise:${action.exercise}`)
+        ask(action.exercise === 'pre_mortem' ? 'pre-mortem'
+          : action.exercise === 'devil_advocate' ? 'method:opposite' : 'challenge')
         break
-      default:
-        // For other action types, fall back to "Ask about this"
-        if (questionText) ask(questionText)
+      case 'open_inspector': {
+        if (action.field) useGuidanceStore.setState({ inspectorDeepLinkField: action.field })
+        openNodeInspector(action.node_id)
+        break
+      }
+      case 'approve_patch': {
+        const patchId = action.operations[0]?.patch_id
+        useGuidanceStore.getState()._scrollToPatch?.(typeof patchId === 'string' ? patchId : topGuidanceItem.item_id)
+        revealOlumiSurface()
+        break
+      }
+      case 'navigate':
+        if (action.target.startsWith('#') || action.target.startsWith('/')) window.location.hash = action.target
+        break
     }
-  }, [topGuidanceItem, questionText, ask, runCommand])
+  }, [topGuidanceItem, ask])
 
   // v3.1: grounded only — no guidance item for this element, no card.
   if (!topGuidanceItem) return null

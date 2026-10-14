@@ -1,3 +1,4 @@
+import type { CritiqueRunContext } from '../../../components/results/utils/humaniseCritique'
 /**
  * Audit-trail inference warnings — a machine code is correct content here, a
  * machine code ALONE is not.
@@ -89,8 +90,8 @@ const UNMAPPABLE_SENTINEL = '__OLUMI_AUDIT_UNMAPPED_SENTINEL__'
  *  template interpolates a label it cannot identify. */
 const PROBE_NODE = '__OLUMI_AUDIT_LABEL_PROBE__'
 
-function titleFor(code: string): string {
-  return humaniseCritique({ code, message: '' }).title
+function titleFor(code: string, context?: CritiqueRunContext): string {
+  return humaniseCritique({ code, message: '' }, undefined, context).title
 }
 
 /** The same code resolved for a node the surface CANNOT name — no map entry,
@@ -160,12 +161,12 @@ function dependsOnAFactorLabel(code: string): boolean {
  * the caveat strip already does with the same input, and it is the same rule as
  * the rest of this module: withhold rather than render a placeholder.
  */
-export function describeAuditInferenceWarningCode(code: string | null): string {
+export function describeAuditInferenceWarningCode(code: string | null, context?: CritiqueRunContext): string {
   const generic = titleFor(UNMAPPABLE_SENTINEL)
   const c = code ?? ''
   if (c === '') return generic
 
-  const title = titleFor(c)
+  const title = titleFor(c, context)
   // Unmapped already resolves to the generic sentence — no probe needed, and
   // probing would only emit two more unmapped-code warnings.
   if (title === generic) return generic
@@ -185,6 +186,7 @@ export function describeAuditInferenceWarningCode(code: string | null): string {
  */
 export function describeAuditInferenceWarnings(
   warnings: readonly AuditInferenceWarning[] | null | undefined,
+  context?: CritiqueRunContext,
 ): AuditInferenceWarningRow[] {
   if (!Array.isArray(warnings) || warnings.length === 0) return []
 
@@ -199,7 +201,7 @@ export function describeAuditInferenceWarnings(
   }
 
   return order.map((code) => ({
-    text: describeAuditInferenceWarningCode(code),
+    text: describeAuditInferenceWarningCode(code, context),
     code,
     count: counts.get(code) ?? 1,
   }))

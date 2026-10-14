@@ -6,7 +6,6 @@ import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
-import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { PANEL_RULE } from '../../../components/results/analysisNew/panelSurfaces'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
@@ -51,14 +50,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useAskOlumiStore.setState(originalAsk, true) })
 
 describe('Compare v1 anatomy and producer-only rendering', () => {
-  it('orders the headline (with its ✦ Ask), then the canvas-linked inputs with the reading note, then result details — one change list, not two', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "then result details" assertions (the details row after the inputs) are deleted —
+  // Compare has no "Result details" section in C (no share figures). The section order, Ask and input rows stay.
+  it('orders the headline (with its ✦ Ask), then the canvas-linked inputs with the reading note — one change list, not two', () => {
     const { container } = mount()
     expect([...container.querySelectorAll('[data-compare-section]')].map(el => el.getAttribute('data-compare-section'))).toEqual(['headline', 'inputs'])
     expect(within(section('What changed between runs')).getByRole('button', { name: 'Ask Olumi about this comparison' })).toBeInTheDocument()
     expect(screen.getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(1)
-    // The details row follows the inputs: the last thing in the body.
-    const details = screen.getByTestId('compare-result-details')
-    expect(section('What you changed').compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('reads each section from the licensed producer pair and ignores current graph values and unrelated result prose', () => {
@@ -69,11 +67,11 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
     expect(runTimes()).not.toHaveTextContent('run-a')
     expect(runTimes()).not.toHaveTextContent('run-b')
-    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Previous run')
-    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest run')
+    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Earlier')
+    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest')
     expect([...runTimes().querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
-    expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
+    expect(section('What changed in the model')).toHaveTextContent('Pro price, Raise to £60')
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(container.textContent).not.toMatch(/POISON|999999/)
     expect(globalThis.fetch).not.toHaveBeenCalled()
@@ -85,8 +83,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(hero).toHaveTextContent('In this model, the most runs supported Raise to £60 on the latest run; the previous run named no option')
     expect(hero).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
     expect(hero).not.toHaveTextContent('changed')
-    // No pair of figures: the producer's reason stands in the figures' place, and no details row promises figures.
-    expect(hero).toHaveTextContent('The options can be compared for the first time.')
+    // #2747 re-scope 2 (DL ruling (A)): the "The options can be compared for the first time." presence is deleted — it was
+    // the reason no pair of share figures is drawn, and Compare draws no share figures in C. No details row either.
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
   })
 
@@ -130,13 +128,13 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/)).toBeNull()
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
     expect(screen.queryByText(/%/)).toBeNull()
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
   })
 
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
     expect(section('What changed between runs')).toHaveTextContent('In this model, the option the most runs supported changed from Keep £49 to Raise to £60')
-    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
+    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run variation.')
     // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
     expect(screen.queryByText(/too close to call/i)).toBeNull()
   })
@@ -149,31 +147,30 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('renders missing endpoints, inputs and leader claims as absence, never a probability-based substitute', () => {
     mount(runChangeDelta({ endpoints: undefined, input_changes: undefined, input_coverage: undefined }))
-    expect(runTimes()).toHaveTextContent('Previous run time not recorded · Latest run time not recorded')
-    expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
+    expect(runTimes()).toHaveTextContent('Earlier time not recorded')
+    expect(runTimes()).toHaveTextContent('Latest time not recorded')
+    expect(runTimes().querySelector('time')).toBeNull()
+    expect(section('What changed in the model')).toHaveTextContent('Input changes were not recorded for this pair.')
     expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
     expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()
     expect(screen.queryByText('Both runs used the same input values.')).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
 
-  it('keeps business quantities visible and hides science numerics until result disclosure', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the disclosure clicks and the two "supported by 41% → 44% / 59% → 56% of runs"
+  // presence assertions are deleted — Compare has no "Result details" section and no share figures in C. The business
+  // quantity and the share-numeric negative stay.
+  it('keeps business quantities visible and shows no share numerics', () => {
     mount()
-    expect(section('What you changed')).toHaveTextContent('£59 → £60')
-    expect(screen.queryByText(/41%.*44%/)).toBeNull()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
-    expect(screen.getByText('Keep £49: 59% → 56% chance of leading.')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
+    expect(section('What changed in the model')).toHaveTextContent('£59 → £60')
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
   })
 
-  it('keeps the not-noise-qualified magnitude withheld even on disclosure', () => {
-    mount(runChangeDelta({ win_probabilities: [{ option_id: 'opt_60', prior: 0.1, current: 0.9, noise_verdict: 'not_noise_qualified' }] }))
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('10%')
-    expect(screen.getByTestId('compare-result-details-region')).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "says each exact figure as a share of runs, never a chance and never
+  // who leads": its only subject (the share figures in the Result details region; its negative was bound to that region)
+  // is removed from Compare in C.
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "keeps the not-noise-qualified magnitude withheld even on disclosure":
+  // its only subject (a share magnitude in the Result details region; both assertions bound to that region) is removed.
 
   it('opens the existing editable Ask Olumi draft only on user click, with producer pair context', () => {
     mount()
@@ -194,7 +191,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const nodes = useCanvasStore.getState().nodes
     useCanvasStore.setState({ nodes: [{ ...nodes[0], id: 'decoy' }, ...nodes] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
+    const button = within(section('What changed in the model')).getByTestId('analysis-new-whats-changed-input-row-focus')
     expect(button).toHaveAccessibleName('Show on the canvas: Pro price, Raise to £60: £59 → £60')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' }, { route: true })
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' })
@@ -211,13 +208,12 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(vi.mocked(canvasLinkOfTarget).mock.calls.some(([target]) => target?.id === 'decoy')).toBe(false)
   })
 
-  it('keeps every producer input reachable in order beyond the two-row preview', () => {
+  it('keeps every producer input visible immediately in order', () => {
     const delta = runChangeDelta()
     mount(runChangeDelta({ input_changes: [delta.input_changes![0], { ...delta.input_changes![0], option_id: 'opt_49' }, { ...delta.input_changes![0], entity_id: 'other', label_after: 'Another input', option_id: 'opt_49' }] }))
-    expect(within(section('What you changed')).queryByText(/Another input/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'See all 3 changes' }))
-    expect(within(section('What you changed')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
-    expect(within(section('What you changed')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: 'See all 3 recorded changes' })).toBeNull()
+    expect(within(section('What changed in the model')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
+    expect(within(section('What changed in the model')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
   })
 
 
@@ -225,7 +221,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const hash = seed(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     useCanvasStore.setState({ edges: [{ id: 'wrong-edge', source: 'fac_price', target: 'opt_49' }, { id: 'actual-edge', source: 'fac_price', target: 'opt_60' }] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
+    const button = within(section('What changed in the model')).getByTestId('analysis-new-whats-changed-input-row-focus')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'edge', id: 'actual-edge' }, { route: false })
     fireEvent.mouseEnter(button)
     expect(lightOn).toHaveBeenLastCalledWith(expect.objectContaining({ target: { kind: 'edge', id: 'actual-edge' } }))
@@ -237,35 +233,33 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('shows science input bands in plain words and never fabricates an exact value absent from the wire', () => {
     mount(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     // The shared link wording (`linkRowText`), the same sentence every surface prints.
-    expect(section('What you changed')).toHaveTextContent('moderate → strong')
-    expect(section('What you changed')).not.toHaveTextContent('0.5')
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('0.5')
+    expect(section('What changed in the model')).toHaveTextContent('moderate → strong')
+    expect(section('What changed in the model')).not.toHaveTextContent('0.5')
+    // #2747 re-scope 2 (DL ruling (A)): the Result details disclosure (and its region-bound '0.5' negative) is deleted —
+    // Compare has no "Result details" section in C.
   })
 
-  it('is built from Reasoning\'s own parts: its measure, its rule, its heading row, its disclose row', () => {
+  it('is built from Reasoning\'s own parts: its measure, its rule, its heading row', () => {
     mount()
     // Reasoning's inner measure (AnalysisNewTabBody), owned by the body (`padding: 'self'`).
     expect(screen.getByTestId('compare-run-pair').className).toBe('px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto')
     // Sections are divided by the shared full-width rule, never boxed.
-    expect(section('What you changed').className).toBe(PANEL_RULE)
-    // The one headline uses Reasoning's section heading style; it is the only heading in the body.
+    expect(section('What changed in the model').className).toBe(PANEL_RULE)
+    // The headline uses Reasoning's section heading style. Since Compare v3 the inputs section has its own heading, in
+    // the same style; those two are the only headings in the body.
     const heading = screen.getByRole('heading', { name: 'The latest run names no option' })
     expect(heading.className).toContain('text-sm font-medium')
     expect(heading.className).toContain('text-text-header')
-    expect(screen.getAllByRole('heading')).toHaveLength(1)
+    expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual(['The latest run names no option', 'What changed in the model'])
+    expect(screen.getAllByRole('heading')[1].className).toContain('text-sm font-medium')
     // CommitmentSummary's ✦: the shared PanelIconButton carrying the Olumi AI mark, beside the headline.
     const ask = screen.getByRole('button', { name: 'Ask Olumi about this comparison' })
     expect(ask).toHaveAttribute('data-ai', 'true')
     expect(heading.parentElement).toContainElement(ask)
-    // The exact shares sit behind SectionShell's `disclose` row, closed by default.
-    expect(screen.getByTestId('compare-result-details')).toHaveAttribute('data-section-open', 'false')
+    // #2747 re-scope 2 (DL ruling (A)): the "disclose row" assertion (compare-result-details, closed by default) is deleted —
+    // the exact shares and their Result details row are removed from Compare in C.
   })
 
-  it('also respects advanced mode through the shared science gate', () => {
-    const hash = seed()
-    render(<DetailToggleContext.Provider value={{ showDetail: true }}><CompareRunPairBody responseHash={hash} /></DetailToggleContext.Provider>)
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "also respects advanced mode through the shared science gate": its only
+  // subject (the share figures behind Result details, under advanced mode) is removed from Compare in C.
 })

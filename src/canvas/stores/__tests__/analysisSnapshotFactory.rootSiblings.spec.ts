@@ -26,12 +26,17 @@
  * labels. That is T2b honest absence, not drift — the coherence pin in
  * analysisSnapshotFactory.inferenceWarnings.spec.ts therefore compares label
  * bytes only on ids no node resolves.
+ *
+ * ⚠ NARROWED 2026-10-07 — THE COMPARE CONSUMER WAS DELETED, NOT EXCUSED. The `deriveTransitions`
+ * consumer describe is gone with it.
+ * The pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers; the live tab (`CompareRunPairBody`)
+ * reads CEE's `run_delta`, not these snapshots. The factory assertions stand.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { buildAnalysisSnapshot } from '../analysisSnapshotFactory'
 import { buildSnapshotFromPersistedRun } from '../persistedRunSnapshotFactory'
-import { deriveTransitions } from '../../compare-tab/deriveTransitions'
 import { makePersistedRunFactRow } from '../../compare-tab/__tests__/__fixtures__/persistedRunFact'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
@@ -165,39 +170,6 @@ describe('buildAnalysisSnapshot — edge_e_values root-wins dual read (ROADMAP 2
 
   it('ABSENCE control: neither slot → [] (no fabrication, current empty state kept)', () => {
     expect(build({}).edgeEValues).toEqual([])
-  })
-})
-
-describe('Compare consumer (deriveTransitions) — the surface the asymmetry blanked', () => {
-  // Both snapshots share factor n1 with an elasticity change >20%, so n1 is an
-  // AFFECTED factor and findConditionalWinner can match CW_ROOT's factor_id.
-  const factors = (elasticity: number) => [
-    { node_id: 'n1', factor_label: 'Factor One', elasticity, rank_flip_rate: 0.1 },
-  ]
-
-  it('POSITIVE control: live-captured root-slot data reaches the transition (was null/null before adoption)', () => {
-    const from = build({ factor_sensitivity: factors(0.4) }, 1)
-    const to = build(
-      {
-        factor_sensitivity: factors(0.6),
-        conditional_winners: CW_ROOT,
-        edge_e_values: EEV_ROOT,
-      },
-      2,
-    )
-    const [t] = deriveTransitions([from, to])
-    expect(t.eValue).toBe(1.8)
-    expect(t.eValueEdge).toBe('A → goal')
-    expect(t.conditionalWinner).toBe('When Factor One exceeds 12, support moves to Option B')
-  })
-
-  it('ABSENCE: both-absent snapshots keep the current empty rendering (null eValue, null winner)', () => {
-    const from = build({ factor_sensitivity: factors(0.4) }, 1)
-    const to = build({ factor_sensitivity: factors(0.6) }, 2)
-    const [t] = deriveTransitions([from, to])
-    expect(t.eValue).toBeNull()
-    expect(t.eValueEdge).toBeNull()
-    expect(t.conditionalWinner).toBeNull()
   })
 })
 

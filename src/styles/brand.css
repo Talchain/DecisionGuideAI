@@ -110,12 +110,12 @@
    * marking editable fields, and a dot grid must not borrow that meaning. */
   --canvas-grid-dot-rgb: 140 131 118;
   --canvas-grid-dot: rgb(var(--canvas-grid-dot-rgb));
-  /* Paul, 1 Oct 2026: "every stark white background takes our softest, lightest palette colour". Panels, cards, nodes,
-     menus and banners are the cream that used to be the hover. Hover steps one notch toward the canvas sand: the
-     darkest notch on which `--info` text still clears WCAG 4.5:1 (4.53; the full canvas sand gives 4.25). */
-  --bg-panel-rgb: 254 249 243;
+  /* Neutral surface rollback, 6 Oct 2026: restore the pre-1 October pair from #2393.
+     Resting panels, cards and menus are near-white; neutral hover remains cream.
+     Preserve the channel-triple form and all later focus, icon and coaching changes. */
+  --bg-panel-rgb: 254 254 254;
   --bg-panel: rgb(var(--bg-panel-rgb));
-  --bg-panel-hover-rgb: 252 247 241;
+  --bg-panel-hover-rgb: 254 249 243;
   --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
   --border-default-rgb: 238 230 216;
   --border-default: rgb(var(--border-default-rgb));

@@ -28,7 +28,7 @@
  * jsdom cannot prove visibility and nothing here claims it does.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult } from '../types'
 
@@ -97,6 +97,9 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['the direction-neutral leader chip', /most runs in this model support/i],
   ['the most runs', /the most runs|be supported by the most runs/i],
   ['the softened leader chip', /What does this rest on in this model\?/],
+  // #2747 re-scope 2 (U0, DL ruling (A)): union — the permitted winner claim now carries no magnitude, so the withheld turn
+  // must not say that form either (the 'Highest leading-option likelihood' regex above cannot see it).
+  ['the no-magnitude winner claim', /supported in more simulated scenarios than any other option/i],
 ]
 
 describe('OptionCards — withheld leader claim', () => {
@@ -108,14 +111,18 @@ describe('OptionCards — withheld leader claim', () => {
     }
   })
 
-  it('still renders both options and their win probabilities — data is not a claim', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'still renders both options and their win probabilities — data is not a
+  // claim'; no card shows a win share in C, so the positive control is both cards by identity, with no share on either.
+  it('still renders both options (and, in C, no win probability on either) — data is not a claim', () => {
     // Positive control for the suppression above (trap 13): if the cards
     // stopped rendering, every absence assertion would pass vacuously.
     renderCards(false)
     expect(screen.getByText('Standardise on MacBook Pro')).toBeDefined()
     expect(screen.getByText('Standardise on Dell XPS')).toBeDefined()
-    expect(screen.getByTestId(`win-pct-${WINNER_ID}`).textContent).toMatch(/\d/)
-    expect(screen.getByTestId(`win-pct-${RUNNER_UP_ID}`).textContent).toMatch(/\d/)
+    expect(screen.getByTestId(`option-card-${WINNER_ID}`)).toBeDefined()
+    expect(screen.getByTestId(`option-card-${RUNNER_UP_ID}`)).toBeDefined()
+    expect(screen.queryByTestId(`win-pct-${WINNER_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`win-pct-${RUNNER_UP_ID}`)).toBeNull()
   })
 
   it('withholds the downside pill, which is phrased as a leader claim', () => {
@@ -123,19 +130,31 @@ describe('OptionCards — withheld leader claim', () => {
     expect(screen.queryByTestId(`leading-option-downside-${WINNER_ID}`)).toBeNull()
   })
 
-  it('offers the forward-looking chip instead of "best supported"', () => {
+  it('offers no "better supported" chip on either card (the chip is removed), and no "best supported" either', () => {
     renderCards(false)
-    // Existing copy, not invented: this is already the module's phrasing for
-    // an option that does not hold a lead.
-    expect(screen.getAllByText('What would make this better supported?').length).toBeGreaterThan(0)
+    // Run-4 judge (DL 12 Oct, the class): the forward-looking chip "What would make this better supported?" is removed on every card; nothing
+    // replaces it. Twin of the permitted row below, bound to each card by testid; the labels are the presence control.
+    for (const [id, label] of [[WINNER_ID, 'Standardise on MacBook Pro'], [RUNNER_UP_ID, 'Standardise on Dell XPS']] as const) {
+      const card = screen.getByTestId(`option-card-${id}`)
+      expect(within(card).getByText(label)).toBeDefined()
+      expect(within(card).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
+    }
+    expect(screen.queryAllByText('What would make this better supported?')).toHaveLength(0)
+    expect(screen.queryByText(/best supported/i)).toBeNull()
   })
 })
 
 describe('OptionCards — permitted leader claim (over-suppression controls)', () => {
-  it('keeps the winner sentence, and the non-leader card keeps its OWN number', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'keeps the winner sentence, and the non-leader card keeps its OWN number'. The
+  // winner sentence is kept, verbatim and with no magnitude; the non-leader card is kept by identity but carries no share.
+  // Run-4 judge, BLOCKING (DL 12 Oct): was 'keeps the winner sentence (no magnitude), …'. Even a permitted claim makes no
+  // leader sentence from a win share ("more simulated scenarios than any other option"); the cards themselves stay.
+  it('makes no win-share leader sentence even when permitted, and keeps the non-leader card — with no share of its own', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
-    expect(text).toMatch(/supported in .+ of simulated scenarios/i)
+    expect(text).not.toMatch(/than any other option/i)
+    expect(screen.getByTestId(`option-card-${WINNER_ID}`)).toBeDefined()
+    expect(text).not.toMatch(/supported in .+ of simulated scenarios/i)
 
     // ⭐ SUPERSEDED 2026-08-10. This asserted the non-leader's sentence was
     // `/behind by \d+ percentage point/i` — the percentage-point gap between
@@ -144,7 +163,9 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // not OVER-suppress the non-leader card. It is simply rebound to what now
     // carries that card's non-suppressed content — its own probability
     // readout, by testid rather than by a value another element could satisfy.
-    expect(screen.getByTestId(`win-pct-${RUNNER_UP_ID}`).textContent).toMatch(/\d/)
+    // #2747 re-scope 2 (U0, DL ruling (A)): in C that readout is gone too; the card itself must still render.
+    expect(screen.getByTestId(`option-card-${RUNNER_UP_ID}`)).toBeDefined()
+    expect(screen.queryByTestId(`win-pct-${RUNNER_UP_ID}`)).toBeNull()
     expect(text).not.toMatch(/behind by \d+ percentage point/i)
     expect(text).not.toMatch(/percentage\s+points?/i)
   })
@@ -154,11 +175,18 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     expect(screen.getByTestId(`leading-option-downside-${WINNER_ID}`)).toBeDefined()
   })
 
-  it('keeps the leader chip copy', () => {
+  // Run-4 judge (DL 12 Oct, the class): the leader chip ("Why did the most runs in this model support this?" / "What does
+  // this rest on in this model?") is removed; nothing replaces it. Was 'keeps the leader chip copy'.
+  it('draws no leader chip even when permitted; the non-leader card draws none either', () => {
     const { container } = renderCards(true)
-    // `fair` tier + stability 0.5 is the softened branch, i.e. the exact
-    // combination that produces the softened chip.
-    expect(container.textContent ?? '').toMatch(/What does this rest on in this model\?/)
+    const leader = screen.getByTestId(`option-card-${WINNER_ID}`)
+    expect(within(leader).queryByRole('button', { name: /better supported|most runs|rest on/i })).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/What does this rest on in this model\?|most runs in this model support/)
+    // Run-4 judge (DL 12 Oct, the class): the non-leader's "What would make this better supported?" chip is removed; nothing replaces it.
+    // The card itself still renders (its label), so the absence is not an empty render.
+    const runnerUp = screen.getByTestId(`option-card-${RUNNER_UP_ID}`)
+    expect(within(runnerUp).getByText('Standardise on Dell XPS')).toBeDefined()
+    expect(within(runnerUp).queryByRole('button', { name: 'What would make this better supported?' })).toBeNull()
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {
@@ -166,17 +194,23 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // the default cannot drift to silence and quietly blank every legacy
     // caller's cards.
     const { container } = renderCards(undefined)
-    expect(container.textContent ?? '').toMatch(/supported in .+ of simulated scenarios/i)
+    // Run-4 judge (DL 12 Oct): there is no winner sentence to compare, so the control binds to what a permitted claim
+    // keeps: the downside pill (see 'keeps the downside pill'), and the same absence of any win-share leader sentence.
+    expect(screen.getByTestId(`leading-option-downside-${WINNER_ID}`)).toBeDefined()
+    expect(container.textContent ?? '').not.toMatch(/than any other option/i)
   })
 })
 
 describe('OptionCards — the identity/entitlement split', () => {
-  it('withheld turns keep the winner card FIRST and keep its bar — only sentences go', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'withheld turns keep the winner card FIRST and keep its bar — only sentences
+  // go'. The order was read off the win readouts, which C no longer prints; it is now read off the cards themselves.
+  it('withheld turns keep the winner card FIRST — only sentences go (and, in C, no win-share readout on any card)', () => {
     // `winnerId` is deliberately still honoured for ordering and styling: the
     // point of this change is that identity and entitlement are different
     // questions, not that the leader is erased from the UI.
     renderCards(false)
-    const cards = screen.getAllByTestId(/^win-pct-/)
-    expect(cards[0].getAttribute('data-testid')).toBe(`win-pct-${WINNER_ID}`)
+    const cards = screen.getAllByTestId(/^option-card-/)
+    expect(cards[0].getAttribute('data-testid')).toBe(`option-card-${WINNER_ID}`)
+    expect(screen.queryAllByTestId(/^win-pct-/)).toEqual([])
   })
 })

@@ -254,7 +254,7 @@ describe('the frozen capture, on the mounted control', () => {
     const footer = screen.getByTestId('pre-analysis-v3-footer')
     expect(footer).not.toHaveTextContent(BLOCKED_REASON_COPY.unspecified)
     expect(footer).not.toHaveTextContent(FOOTER_COPY.notReadySubFallback)
-    expect(footer).not.toHaveTextContent(FOOTER_COPY.notReady)
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
   }, 30_000)
 
   it('AC2 — real blockers: DISABLED, and the tooltip carries the PRODUCER\'S OWN sentence', async () => {

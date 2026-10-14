@@ -86,11 +86,11 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     // This spec measures the HOVER row with its Ask button, which renders at the
     // quiet rung.
     useCanvasStore.setState({ lodRung: 'quiet' } as never)
-    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null } as never)
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null } as never)
   })
 
   it('offers Ask, Challenge and More with accessible names naming the element', () => {
-    useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
+    useGuidanceStore.setState({ _dispatchAction: vi.fn(), _isConversationBusy: () => false } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     expect(screen.getByRole('button', { name: 'Ask Olumi about Hiring spend' })).toBeInTheDocument()
@@ -101,7 +101,7 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
 
   it('routes "ask about this" through the existing selection→conversation machinery', () => {
     const sendMessage = vi.fn()
-    useGuidanceStore.setState({ _sendMessage: sendMessage } as never)
+    useGuidanceStore.setState({ _dispatchAction: sendMessage, _isConversationBusy: () => false } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     fireEvent.click(screen.getByTestId('node-action-ask-node-a'))
@@ -130,10 +130,10 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
    * which a prefill-only host CAN receive — so the question it asks is
    * `canReceiveAsk`, and a send-only gate would hide a working button.
    */
-  it('gates on canReceiveAsk — a prefill-only host gets the button, because askAI now drafts', () => {
-    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: vi.fn() } as never)
+  it('gates on canReceiveAsk — a prefill-only host hides the immediate-send button', () => {
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: vi.fn(), _dispatchAction: null } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
-    expect(screen.getByTestId('node-action-ask-node-a')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
   })
 
   it('is quiet at rest and revealed by selection, focus-within and touch — never by hover (Paul 1 Oct: icons "keep appearing and disappearing")', () => {
@@ -155,7 +155,7 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
   })
 
   it('keeps the buttons in the tab order at rest (opacity, never display:none)', () => {
-    useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
+    useGuidanceStore.setState({ _dispatchAction: vi.fn(), _isConversationBusy: () => false } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     // Native buttons, no tabIndex=-1, no hidden attribute: reachable by Tab

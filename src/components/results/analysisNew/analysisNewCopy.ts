@@ -17,7 +17,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import type { UnsizedPathAsk } from '../strengthen/strengthenTypes'
 
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
-import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 /**
  * Stands in for a label that cannot be safely interpolated into a generated
@@ -328,6 +328,30 @@ export function goalPathUnsizedCause(
 type LinkEnds = { from: string; to: string }
 
 /**
+ * The same unsized links as `goalPathUnsizedCause`, as data for the commitment zone's short form: every link whose two
+ * ends have a display label (`named`, the Run's order) and how many there are in all (`total`). Null when there is no
+ * such warning or not one link can be named.
+ */
+export function unsizedAssumptionsOf(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): { named: LinkEnds[]; total: number } | null {
+  const links = unsizedLinksOf(inferenceWarnings)
+  if (links.length === 0) return null
+  const label = (id: string): string | null => {
+    const raw = labelOf(id)
+    const text = typeof raw === 'string' ? raw.trim() : ''
+    return text.length > 0 && text.length <= 120 ? text : null
+  }
+  const named = links.flatMap((l) => {
+    const from = label(l.from)
+    const to = label(l.to)
+    return from === null || to === null ? [] : [{ from, to }]
+  })
+  return named.length > 0 ? { named, total: links.length } : null
+}
+
+/**
  * Science's ONE plural rule for both strings (#87; MC github-21): name up to three links in the carrier's order
  * (nearest the goal first, ties by graph edge order: MC's), then "and N more".
  * - `named`: every link that is NAMED has both labels; links counted in "N more" need none.
@@ -370,7 +394,7 @@ function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
  * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
  * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
  */
-function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+export function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
   return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
 }
 
@@ -449,9 +473,12 @@ export function unsizedPathAskOf(
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   const warning = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH')
   const upstream = unsizedLinksOf(inferenceWarnings).length > 0
-  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return undefined
+  // Near tie (DL #87, 6 Oct): with no unsized-path withhold, the target warning's own typed ask, whatever the leader cause.
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return targetLinkAskOf(inferenceWarnings, labelOf)
   const ask = warning?.first_ask
-  if (ask === null || typeof ask !== 'object') return null
+  // RT-19 fx1 (DL #87, 6 Oct): no typed ask → name the withhold's own first link; a typed ask is still read by identity.
+  if (ask === null || ask === undefined) return withheldLinkOf(warning, labelOf)
+  if (typeof ask !== 'object') return null
   const a = ask as Record<string, unknown>
   const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
   if (a.kind === 'goal_level') {
@@ -471,6 +498,34 @@ export function unsizedPathAskOf(
     return from === null || to === null ? null : { kind: 'link', fromId: a.from as string, toId: a.to as string, from, to }
   }
   return null
+}
+
+/**
+ * ⭐ RT-19 fx1 (DL #87, 6 Oct): the withhold's own first link (its goal-ordered `links`, CEE's list) and how many more,
+ * named when it typed no first ask. `null` when it names none, or an end can't be named from the canvas.
+ */
+function withheldLinkOf(warning: Record<string, unknown> | null, labelOf: (nodeId: string) => string | null | undefined): UnsizedPathAsk | null {
+  const links = warningLinksOf(warning)
+  const first = links[0]
+  if (first === undefined) return null
+  const from = labelOf(first.from)?.trim() || null
+  const to = labelOf(first.to)?.trim() || null
+  return from === null || to === null ? null : { kind: 'withheld_link', fromId: first.from, toId: first.to, from, to, more: links.length - 1 }
+}
+
+/**
+ * ⭐ Near tie (red team 19; DL #87, 6 Oct): CEE's `GOAL_FIGURES_TARGET_NOT_TESTABLE` types the link its words ask for
+ * (`first_ask`, kind `link`, only when the words ask exactly that link). `undefined` when it carries none, so the panel
+ * keeps its own next input; `null` when it does but an end can't be named from the canvas.
+ */
+function targetLinkAskOf(inferenceWarnings: unknown, labelOf: (nodeId: string) => string | null | undefined): UnsizedPathAsk | null | undefined {
+  const ask = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_TARGET_NOT_TESTABLE')?.first_ask
+  if (ask === null || typeof ask !== 'object' || (ask as Record<string, unknown>).kind !== 'link') return undefined
+  const a = ask as Record<string, unknown>
+  const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
+  const from = name(a.from)
+  const to = name(a.to)
+  return from === null || to === null ? null : { kind: 'target_link', fromId: a.from as string, toId: a.to as string, from, to }
 }
 
 /**
@@ -582,7 +637,7 @@ export const ANALYSIS_NEW_COPY = {
     /** Drivers, what is worth resolving, and the method receipts. */
     whatMovesTheOutcome: 'What moves the outcome',
     strengthen: 'Strengthen the reasoning',
-    drivers: 'Drivers and dynamics',
+    drivers: 'What changes the outcome most, in this model',
     /**
      * ⭐ THE ONLY SECTION A PERSON REACHES WITHOUT THE PRODUCER OFFERING IT.
      * Named here rather than inline in the component so the section censuses
@@ -1797,7 +1852,7 @@ export const ANALYSIS_NEW_COPY = {
      * when no dispatcher is mounted, and it now says exactly that.
      */
     changedLocally:
-      'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
+      "Not saved: this target can't be sent to Olumi right now.",
     notEncodable: 'That target could not be applied, so nothing changed.',
     /**
      * ⭐⭐⭐ A FIFTH OUTCOME, AND IT IS THE ONE PAUL ACTUALLY HIT.
@@ -1906,8 +1961,8 @@ export const ANALYSIS_NEW_COPY = {
    * question either answers, which is worse than one. So the goal figure is
    * NAMED and the comparative one is named beside it, and neither ships alone.
    *
-   * ⚠ SUPERSEDED 29 Sep (AIQ #72 5885033487): the label is now the register's
-   * "Share of model runs that reach the target". The note below is kept for provenance.
+   * ⚠ SUPERSEDED 6 Oct (#87): the label now shares the Analysis hero's earned
+   * goal-chance wording. The note below is kept for provenance.
    * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
    * USER set, which is the only case this surface renders (a substituted joint
    * figure is suppressed upstream rather than relabelled — see the view model).
@@ -1924,8 +1979,8 @@ export const ANALYSIS_NEW_COPY = {
     /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
     axisLower: 'Lower',
     axisHigher: 'Higher',
-    // AIQ #72 5885033487 / 5885116642: a goal figure is a share of model runs; the register's label.
-    goalLabel: GOAL_ANCHOR_COPY.label(false),
+    // #87, 6 Oct: the earned figure shares the Analysis hero's per-option goal-chance wording.
+    goalLabel: GOAL_CHANCE_LABEL,
     winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments
@@ -2051,6 +2106,8 @@ export const ANALYSIS_NEW_COPY = {
      * as a mode, and the reader is being offered one specific change.
      */
     changeValue: 'Change this value',
+    /** The act's visible word on the value row; `changeValue` stays its accessible name (8 Oct 2026). */
+    changeValueShort: 'Change',
     valueInputLabel: (name: string) => `New value for ${name}`,
     saveValue: 'Save',
     cancelValue: 'Cancel',
@@ -3062,8 +3119,7 @@ export const ANALYSIS_NEW_COPY = {
        * a fact stated twice in one scroll, which is the defect this split
        * exists to remove.
        */
-      orderingCaveat:
-        'A list with no figures beside it is not a finding that the options are level.',
+      orderingCaveat: 'No figures yet. It is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

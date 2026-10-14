@@ -1,11 +1,14 @@
+import { servedSwitchReading } from '../domain/switchFactors'
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
+import { CardMark } from './shared/CardMark'
+import { pickOptionStatusMark } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
@@ -19,9 +22,9 @@ import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { useAnchorRailFloorStore, selectAtOrAboveIconLegibleZoom } from './shared/anchorRailFloor'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow, readDriverLevel, isRankedDriverRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS, REPEATED_CARD_W, rowAmountMaxCharsFor } from '../utils/nodeLayoutConstants'
 import { useLayoutStore } from '../layoutStore'
 import {
@@ -141,12 +144,6 @@ export function optionTargetsChannels({
 }
 
 import {
-  selectGoalProbability,
-  basisWithholdsPossessive,
-} from '../../components/results/utils/selectGoalProbability'
-import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
-import {
-  NOT_ANALYSED_BADGE,
   NOT_ANALYSED_IN_LAST_ANALYSIS,
   NOT_COMPUTED_BADGE,
   notAnalysedReasonCopy,
@@ -162,7 +159,7 @@ import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/u
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import {
-  NOT_RANKED_MARKER,
+  optionWinShareOf,
   selectOptionComparedInRun,
   selectWinShareWithheldReason,
   selectWinSharesWithheld,
@@ -187,20 +184,23 @@ import {
   optionTargetReading,
   resolveBaselineOptionReference,
   resolveOptionTargets,
+  analysisViewIsStale,
+  withSavedValuesOverStaleView,
   resolveUnsetOptionTargets,
   type CeeOptionTargetsLike,
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { useOptionChanceCell } from './shared/useOptionChanceCell'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
-import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
-import { leaderWithholdCause, olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
+import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from './shared/runCurrency'
+import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
-import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
+import { resolveOptionTargetDisplayFrame } from '../ui/inspector-v2/shared/optionTargetEntry'
 
 /**
  * ⭐ THE ONE-LINE OPTION BODY IS RETIRED — Paul, 25 Sep 2026, from live
@@ -212,20 +212,6 @@ import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
  * nothing checks). The rows themselves are `renderChangeRows` below; the height
  * they add is reserved by measurement (`measureNodeHeightsAtLabelBound`).
  */
-
-/**
- * The share caption's two forms, switched by the share slot's own width in em
- * (the slot is an inline-size container; see the slot's header). At 17.5em and
- * wider the full caption shows; narrower, its compact form. Whole class strings,
- * so Tailwind's scanner sees them.
- */
-const SHARE_CAPTION_WIDE_ONLY = 'hidden [@container(min-width:17.5em)]:block'
-const SHARE_CAPTION_NARROW_ONLY = '[@container(min-width:17.5em)]:hidden'
-/**
- * `Current model supported by 100% · Provisional` ≈ 22em (letters-estimated, as above: the old 40-letter `best in`
- * line was 19.5em, so 45 letters ≈ 21.94em): the prefix shows from there.
- */
-const SHARE_PREFIX_WIDE_ONLY = 'hidden [@container(min-width:22em)]:inline'
 
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
@@ -312,6 +298,18 @@ interface BehindReasonContext {
   winnerInterventions: Record<string, unknown>
   /** cee identity the context was built against — revalidated on read */
   ceeRef: unknown
+  /** Graph levels participate in eligibility, so a changed graph invalidates the leader. */
+  nodesRef: unknown
+}
+
+function extractOptionPolicyRow(
+  raw: unknown,
+  nodes: readonly { id: string; data?: any }[],
+): ReturnType<typeof extractPolicyRow> {
+  const row = extractPolicyRow(raw)
+  if (!row) return null
+  const data = nodes.find((node) => node.id === row.key)?.data
+  return extractPolicyRow(raw, readDriverLevel(data))
 }
 
 /**
@@ -332,7 +330,7 @@ function getBehindReasonContext(
   nodes: readonly { id: string; type?: string; data?: any }[],
 ): BehindReasonContext {
   const cached = behindContextCache.get(report)
-  if (cached && cached.ceeRef === ceeAnalysisReady) return cached
+  if (cached && cached.ceeRef === ceeAnalysisReady && cached.nodesRef === nodes) return cached
 
   const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
   // P0-2 (external review 2026-07-14): certified factor_sensitivity FIRST
@@ -351,11 +349,12 @@ function getBehindReasonContext(
     // `sensitivity` (the V5 magnitude key) and preferring importance — so it
     // could crown a different driver than the panel under partial coverage.
     const rows = (sensitivity as unknown[])
-      .map((f: unknown) => extractPolicyRow(f))
+      .map((f: unknown) => extractOptionPolicyRow(f, nodes))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
     const model = selectDriverDisplayModel(rows)
     const ranked = rows
-      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)?.value ?? 0 }))
+      .filter((r) => model.has(r.key) && isRankedDriverRow(r))
+      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)!.value }))
       .sort(compareByDisplayModel)
     topFactorId = ranked[0] && ranked[0].value > 0 ? ranked[0].key : undefined
     if (topFactorId) {
@@ -379,6 +378,7 @@ function getBehindReasonContext(
     strippedLabel,
     winnerInterventions: winnerCee?.interventions ?? {},
     ceeRef: ceeAnalysisReady,
+    nodesRef: nodes,
   }
   if (report && typeof report === 'object') behindContextCache.set(report, context)
   return context
@@ -495,9 +495,9 @@ export function differentiatorAddsBeyondRows(
  * read the same on screen are indistinguishable to a user however their
  * hover text differs.
  */
-function computeAllDifferentiators(
+export function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
-  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }[] } | null,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null; intervention_details?: Record<string, unknown> }[] } | null,
 ): Map<string, OptionDifferentiator | null> {
   const result = new Map<string, OptionDifferentiator | null>()
   // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
@@ -521,7 +521,7 @@ function computeAllDifferentiators(
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
-    for (const [fid, raw] of Object.entries(interventions)) {
+    for (const [fid, raw] of joinInterventionDetails(interventions, ceeOpt?.intervention_details)) {
       const { value, displayValue } = unwrapInterventionValue(raw)
       if (value != null) map.set(fid, { value, displayValue: displayValue ?? undefined })
     }
@@ -612,6 +612,8 @@ function computeAllDifferentiators(
         // Unique factor — simple sentence
         return `${leading} is the key difference`
       }
+      const switchText = servedSwitchReading(factorNode?.data, myValue)
+      if (switchText !== null) return `${leading} → ${switchText}`
       if (myDisplayValue) {
         // Shared factor with CEE display_value — the producer's reading, no
         // unit/tier inference. At rest it sheds its parenthesised internal-scale
@@ -705,6 +707,7 @@ function stripEcho(label: string, displayValue: string): string {
 // so every option-intervention surface renders identical statements.
 
 interface InterventionChip {
+  factorData?: unknown
   factorId: string
   label: string
   value: number
@@ -734,7 +737,6 @@ interface StructuredDelta {
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
-  const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
   /* ⭐ THE FOURTH ABSENCE — did the run that HAS happened leave this option out?
      Distinct from `winComputationFailed` (it ran and could not compute) and
      from the `excluded-from-analysis-pill` (CEE predicting the NEXT run will
@@ -748,7 +750,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const absentFromRunReason = useOptionAbsentFromRunShown(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
-  const nodes = useCanvasStore(state => state.nodes)
+  const nodes = useSwitchFactorNodes()
   // ⭐ E1b: the option's values are edited ON the card, through the inspector's own writer (`option_intervention_edit`).
   const optionEditAuthority = useModelEditAuthority(props.id)
   const resultsReport = useCanvasStore(state => state.results.report)
@@ -824,20 +826,14 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  /** The analysis view describes a graph other than the saved one (`analysisViewIsStale`): the saved numbers stand. */
+  const analysisViewStale = useCanvasStore(state => analysisViewIsStale(state.ceeAnalysisReady, state.lastServerGraphHash))
   /**
    * POM-3: does any option on this board DECLARE the baseline? Then the label
    * guess may not make this card (or a sibling) a second one. One derivation,
    * read by every `resolveOptionIsBaseline` call on this card.
    */
   const declaredBaseline = useMemo(() => graphDeclaresBaseline(nodes, ceeAnalysisReady?.options), [nodes, ceeAnalysisReady])
-  // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
-  // gates on the USER target (store goalThreshold) — never on producer value
-  // presence. The producer returns a joint/goal probability even with no user
-  // target (auto_goal_threshold, UI-SEM-071 class); the panel twin OptionCards
-  // already suppresses via hasGoalThreshold, and the GoalNode beside this option
-  // suppresses its own "chance of reaching target" when no target is set. This
-  // keeps the canvas node consistent with both.
-  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
@@ -911,15 +907,12 @@ export const OptionNode = memo((props: NodeProps) => {
     // file and REDs on a reader that arrives without a gate, so the counting is
     // done by something that cannot forget to update itself (CLAUDE.md trap 12).
     if (displayMetadata.winComputationFailed === true) return null
-    const report = resultsReport as any
-    const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
-    if (!probs) return null
-    const thisWin = probs[props.id]?.win_probability
+    const thisWin = optionWinShareOf(resultsReport, props.id)
     if (typeof thisWin !== 'number') return null
     // SINGLE VERDICT: leader identity comes from the shared verdict, not a
     // second local resolution of `recommended_option_id`-else-argmax.
     const leaderId = verdict.leaderId
-    const leaderWin = leaderId != null ? probs[leaderId]?.win_probability : undefined
+    const leaderWin = leaderId != null ? optionWinShareOf(resultsReport, leaderId) : undefined
     if (typeof leaderWin !== 'number') return null
     const gap = leaderWin - thisWin
     if (gap < 0 || gap > 0.05) return null
@@ -933,19 +926,21 @@ export const OptionNode = memo((props: NodeProps) => {
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+    const optionNode = nodes.find(n => n.id === props.id)
+    const targets = resolveOptionTargets(optionNode?.data, ceeOption, { viewStale: analysisViewStale })
     let interventionEntries: [string, unknown][] = []
 
     if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
       // ⭐ CEE authors the display string for every intervention; print it.
       // See `joinInterventionDetails` for the measured defects this closes and
-      // why BOTH sides of a comparison must be joined the same way.
-      interventionEntries = joinInterventionDetails(
+      // why BOTH sides of a comparison must be joined the same way. On a STALE
+      // view the saved number stands (`withSavedValuesOverStaleView`).
+      interventionEntries = withSavedValuesOverStaleView(joinInterventionDetails(
         ceeOption.interventions as Record<string, unknown>,
         (ceeOption as { intervention_details?: Record<string, unknown> }).intervention_details,
-      )
+      ), (optionNode?.data as any)?.interventions, analysisViewStale)
     } else {
       // Fallback: option node data.interventions (pre-CEE state)
-      const optionNode = nodes.find(n => n.id === props.id)
       const nodeInterventions = (optionNode?.data as any)?.interventions
       if (nodeInterventions && typeof nodeInterventions === 'object') {
         interventionEntries = Object.entries(nodeInterventions)
@@ -977,15 +972,14 @@ export const OptionNode = memo((props: NodeProps) => {
         const observedState = factorNode?.data?.observedState as {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined
-        const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
+        const displayFrame = resolveOptionTargetDisplayFrame(factorNode?.data, targets.get(factorId) ?? rawValue)
         return [{
-          factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
-          factorType: observedState?.factor_type, cap: optionEntryScaleOf(observedState?.cap, factorNode?.data?.scale_frame),
-          observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
+          factorId, factorData: factorNode?.data, label: cleanedLabel, value, displayValue: servedSwitchReading(factorNode?.data, value) ?? displayValue ?? undefined,
+          factorType: observedState?.factor_type, ...displayFrame,
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-  }, [ceeAnalysisReady, props.id, nodes])
+  }, [ceeAnalysisReady, props.id, nodes, analysisViewStale])
 
   // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
   // "What this option changes:" block needs the FULL built list so its
@@ -1064,6 +1058,7 @@ export const OptionNode = memo((props: NodeProps) => {
           baselineValue: baseline,
           targetValue: c.value,
           label: shortLabel,
+          factorData: c.factorData,
           unit: c.unit,
           factorType: c.factorType,
           cap: c.cap,
@@ -1076,7 +1071,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         // A supplied label belongs to the reference option's own value,
         // never the factor's observed display string or this option's target.
-        const baselineLabel = reference?.displayValue
+        const baselineLabel = servedSwitchReading(c.factorData, baseline) ?? reference?.displayValue
         // A labelled target and an unlabelled reference may use different
         // frames. Preserve the supplied target in details without a pair.
         if (Boolean(c.displayValue) !== Boolean(baselineLabel)) return null
@@ -1211,6 +1206,7 @@ export const OptionNode = memo((props: NodeProps) => {
       const targets = resolveOptionTargets(
         n.data as Record<string, unknown> | undefined,
         ceeOpt as CeeOptionTargetsLike | undefined,
+        { viewStale: analysisViewStale },
       )
       // Row 22: the targets it NAMES with no value — kept, as `Needs input` rows.
       const unset = resolveUnsetOptionTargets(
@@ -1220,7 +1216,7 @@ export const OptionNode = memo((props: NodeProps) => {
       out.push({ id: n.id, isBaseline, targets, unsetTargets: new Set(unset.keys()), unsetSources: unset })
     }
     return out
-  }, [nodes, ceeAnalysisReady, declaredBaseline])
+  }, [nodes, ceeAnalysisReady, declaredBaseline, analysisViewStale])
 
   // Every CONCRETE change this option makes, in the shared order — computed for
   // the baseline too, whose card states no rows but must say whether it makes
@@ -1350,15 +1346,16 @@ export const OptionNode = memo((props: NodeProps) => {
     // Intervening on a globally influential factor does not establish its
     // signed contribution to this option's result, so no causal claim follows.
     const rows = sensitivity
-      .map((f: unknown) => extractPolicyRow(f))
+      .map((f: unknown) => extractOptionPolicyRow(f, nodes))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
     if (rows.length === 0) return null
 
     const displayModel = selectDriverDisplayModel(rows)
     const ranked = rows
+      .filter((r) => displayModel.has(r.key) && isRankedDriverRow(r))
       .map((r) => ({
         id: r.key,
-        value: displayModel.get(r.key)?.value ?? 0,
+        value: displayModel.get(r.key)!.value,
         elasticity: r.rawElasticity,
         key: r.key,
       }))
@@ -1390,100 +1387,8 @@ export const OptionNode = memo((props: NodeProps) => {
     return olumiSuppliedFiguresDisclosure(readInferenceWarnings(resultsReport), labelOf)
   }, [isPostAnalysis, isRecommended, resultsReport, nodes])
 
-  // Goal probability for warning.
-  // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
-  // one useResultsSectionData applies for OptionCards/hero/GoalNode) so this
-  // badge can't show a different number than those surfaces on a
-  // constrained-goal run.
-  //
-  // Goal-probability IDENTITY: the WHOLE decision is kept, not just the
-  // number. This site previously took `.goalProbability` and discarded the
-  // provenance, so the badge rendered a joint-basis figure with no caveat
-  // while OptionCards, the hero and GoalNode rendered the same figure WITH
-  // one. The caveat now travels with the number to every surface showing it.
-  const goalDecision = useMemo(() => {
-    if (!isPostAnalysis || !resultsReport) return null
-    // ⭐ THE THIRD READER OF A NON-MEASUREMENT, and the worst of them.
-    //
-    // A review found the card reading, in one vertical stack:
-    //
-    //     Hold the current plan · Not computed
-    //     …so it has no rank and no probability. This is not a verdict on the
-    //     option.
-    //     < 1% chance of target
-    //
-    // The card denies having a probability and then prints one. That is worse
-    // than the bare `0%` this change set removes, because the denial and the
-    // number are three lines apart and the number wins — a reader takes the
-    // figure and treats the sentence as boilerplate.
-    //
-    // `selectGoalProbability` is correct and is not the problem: it answers
-    // "what goal figure does this option's block carry, and on what basis",
-    // and it has no business knowing about compute status. The defect was that
-    // NOTHING asked the prior question — whether this option has a measurement
-    // at all — before handing it that block. Gated here, at the reader, for the
-    // same reason the other two are.
-    //
-    // ⚠ AND IT RESTORES THE PARITY THAT IS THE WHOLE REASON FOR SHARING THE
-    // PREDICATE: the results panel forks a failed option to
-    // `NotComputedOptionCard`, which prints NO goal figure. Without this gate
-    // the canvas and the panel disagreed about one option in one run, which is
-    // precisely the two-authorities defect the shared predicate exists to
-    // prevent (CLAUDE.md trap 21).
-    //
-    // ⛔⛔ AND THE NUMBER IT SUPPRESSES IS WORSE THAN "SMALL" — established by a
-    // producer derivation, not assumed here. ISL computes
-    // `probability_of_goal` over the RAW unfiltered sample array with no
-    // finiteness gate. On the very shape that produces `status: 'failed'`
-    // (`n_valid === 0`, i.e. every draw non-finite), `inf >= threshold` holds
-    // for every draw, so the option ships **`probability_of_goal: 1.0`**.
-    //
-    // A failed option can therefore arrive carrying a 0.0 chance of winning AND
-    // a 1.0 chance of hitting the goal — both fabricated, both from the
-    // producer. Without this gate the card would print the most confident
-    // possible statement about the one option nothing was measured for.
-    //
-    // ⚠ SO THIS FIX IS NECESSARY AND NOT SUFFICIENT. The producer defect is
-    // real, is outside this repo, and has its own lane. Suppressing the render
-    // stops the UI repeating a fabrication; it does not stop the fabrication.
-    if (displayMetadata.winComputationFailed === true) return null
-    const report = resultsReport as any
-    const optionProbs = report?.option_probabilities?.[props.id]
-    return selectGoalProbability(optionProbs)
-  }, [isPostAnalysis, resultsReport, props.id, displayMetadata.winComputationFailed])
-  const goalProbability = goalDecision?.goalProbability ?? null
-
-  // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
-  // means this number is P(all constraints jointly satisfied) STANDING IN for
-  // an absent `probability_of_goal`, so the possessive "chance of target"
-  // names a question it does not answer. Read off the owner's own published
-  // decision — the same expression `useResultsSectionData` uses to set
-  // `OptionResult.goalFitIsSubstitutedJoint` — never re-derived here.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted`, NOT to "the figure is joint".
-  // `joint_goal_constrained` is the user's own goal AND the user's own
-  // limits, where the possessive is EARNED and stays. `OptionNode.spec.tsx`'s
-  // ROADMAP 1.49 positive control is exactly that constrained case and must
-  // keep rendering "chance of target."
-  //
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE FIX.
-  // `selectGoalProbability` no longer substitutes: on that basis it returns NO
-  // number (`'joint_goal_withheld'`, `goalProbability: null`), so a badge is
-  // never rendered in the withheld state and there is nothing left to re-voice.
-  // The bases that still carry a number — `'goal_probability'` and
-  // `'joint_goal_constrained'` — both EARN the possessive, which is why this
-  // reads the owner's own published permission rather than re-testing a basis
-  // literal: if the owner ever re-permits a number it forbids the possessive
-  // for, this lights up again without an edit here.
-  const goalFitSubstituted =
-    goalDecision?.goalProbability != null && basisWithholdsPossessive(goalDecision.basis)
-  // The badge readout, built ONCE above both arms so the withheld and
-  // permitted wordings cannot show different numbers for the same option.
-  // `'< '` + the smallest whole percent STRICTLY above the figure (graph audit 29 Sep: `Math.round` put 7.4% under "< 7%").
-  const goalBadgeReadout =
-    goalProbability !== null && goalProbability < 0.10
-      ? `< ${goalProbability < 0.01 ? '1' : Math.floor(goalProbability * 100) + 1}%`
-      : null
+  // The canvas provider carries Results' chance and basis metadata for this option.
+  const chanceCell = useOptionChanceCell(props.id)
 
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
@@ -1546,10 +1451,9 @@ export const OptionNode = memo((props: NodeProps) => {
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
 
-    const probs: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     const rates = optionNodes
-      .map(n => probs[n.id]?.win_probability)
+      .map(n => optionWinShareOf(report, n.id))
       .filter((v): v is number => typeof v === 'number')
     const maxRate = rates.length > 0 ? Math.max(...rates) : null
     // Mirrors isRecommended: a sibling is the leader when its win probability
@@ -1557,7 +1461,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // (such options also render "Behind:" copy).
     // UI-SEM-067: leader tolerance + identical-reason suppression (display gate).
     const isLeader = (id: string): boolean => {
-      const w = probs[id]?.win_probability
+      const w = optionWinShareOf(report, id)
       return maxRate != null && typeof w === 'number' && w >= maxRate - 0.0001
     }
     const hasDuplicate = optionNodes.some(n => {
@@ -1579,14 +1483,6 @@ export const OptionNode = memo((props: NodeProps) => {
     store.setHighlightedNodes([winsVia.id])
     setTimeout(() => store.setHighlightedNodes([]), 3000)
   }, [winsVia])
-
-  const handleGoalReviewClick = useCallback(() => {
-    const store = useCanvasStore.getState()
-    const goalNode = store.nodes.find(n => n.type === 'goal' || n.data?.type === 'goal')
-    if (goalNode) {
-      openNodeInspector(goalNode.id)
-    }
-  }, [])
 
   // "View parameters" handler (Detailed view)
   const handleViewParams = useCallback((e: React.MouseEvent) => {
@@ -1679,46 +1575,17 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
-      {/* Goal probability warning (< 10%) -- post-analysis only.
-          UI-SEM-082: gated on a USER target (goalThreshold != null) so it never
-          crowns a target the user never set, matching GoalNode + OptionCards. */}
-      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null && (
-        <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-          {/* ROADMAP 2.282: the withheld arm is the shared register's SENTENCE
-              form verbatim (phrase + full stop) — the same wording the results
-              panel, the hero and the V7 goal lens render for this basis. The
-              permitted arm is byte-identical to the string it replaced. */}
-          {GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)}{' '}
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-            onClick={handleGoalReviewClick}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            Review
-          </button>
-        </p>
-      )}
-      {/* ISL #207 (AIQ #72 5877139338): the goal badge above is never bare when the
-          goal's level today was worked out rather than given. Same gate as the badge. */}
-      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null &&
-        goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat) !== null && (
+      {/* Basis caveats qualify only the same licensed figure Results displays. */}
+      {isPostAnalysis && chanceCell.kind === 'figure' &&
+        goalFitBaseCaveatCopy(chanceCell.goalFitBaseCaveat) !== null && (
         <p
           className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
           data-testid={`goal-fit-base-caveat-option-node-${props.id}`}
         >
-          {goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat)}
+          {goalFitBaseCaveatCopy(chanceCell.goalFitBaseCaveat)}
         </p>
       )}
-
-      {/* Display-honesty (ROADMAP 1.6b, claim-integrity): the number above is
-          scored from a MODELLED forward-propagated outcome distribution, not
-          a directly-set base. Same gate and same shared wording as
-          OptionCards / GoalNode / OutcomeNode / NodeInspector — the flag is
-          read off the shared selector, never re-derived, so no surface can
-          show this number with the caveat while another shows it bare. */}
-      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 &&
-        goalDecision?.goalFitIsModelledBasis === true && (
+      {isPostAnalysis && chanceCell.kind === 'figure' && chanceCell.goalFitIsModelledBasis === true && (
         <p
           className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
           data-testid={`goal-fit-basis-caveat-option-node-${props.id}`}
@@ -1802,7 +1669,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, chanceCell, props.id, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -1970,34 +1837,12 @@ export const OptionNode = memo((props: NodeProps) => {
    * hover, tap and keyboard focus (`usePopoverHover`).
    */
 
-  // Win-probability readout, derived ONCE.
-  //
-  // The visible number, the hover text and the text announced to assistive
-  // technology are now three renderings of one statistic, so they are built
-  // from a single `formatWinProbability` call rather than three. Two calls
-  // could not disagree today — the function is pure — but a later change to
-  // one call site and not the others is exactly how a card comes to show a
-  // number its own sentence contradicts.
-  //
-  // `rate` is carried alongside because the bar width needs the raw value and
-  // a non-null `winReadout` does not narrow `displayMetadata.winRate` for the
-  // type checker.
-  // ⭐ CURRENT-READ row 9 (Paul's test 4276f3f9, finding 9): a withheld leader withholds every per-option
-  // share, for ANY reason (AIQ 5912710392). The slot shows `Compared · share not shown` with the reason instead
-  // (`winShareGate.ts`).
+  // Chance and withholding words are the Results matrix's own RunView cell.
+  // Win share remains available for the independent comparative marks below.
   const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
-  // F1b's "was it compared?" (52f8cd): the marker SAYS "Compared", so it renders only where the panel counts it.
   const comparedInRun = useCanvasStore((state) => selectOptionComparedInRun(state, props.id))
   const winShareWithheldReasonLine = useCanvasStore(selectWinShareWithheldReason)
-  const winReadout = useMemo(() => {
-    if (!displayMetadata.isResultsMode || displayMetadata.winRate === null || winSharesAreWithheld) return null
-    const formatted = formatWinProbability(displayMetadata.winRate)
-    return {
-      rate: displayMetadata.winRate,
-      formatted,
-      phrase: COMPARATIVE_COPY.phrase(formatted),
-    }
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, winSharesAreWithheld])
+  const chanceText = displayMetadata.isResultsMode ? chanceCell.text : null
   const runCurrency = useRunCurrency()
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
   /**
@@ -2030,35 +1875,8 @@ export const OptionNode = memo((props: NodeProps) => {
     return cause === 'constraint_verdict_withheld' || cause === 'analysis_out_of_date' ? null : cause
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
-  /**
-   * The caption's narrow form, only when a qualifier shares the line: without
-   * one, `Current model 100% of runs` fits at the landing counter-scale, so the
-   * full caption is the only one rendered.
-   */
-  const compactCaption = shareIsGoalOnly || shareIsProvisional ? optionResultCompactCaption(runCurrency) : null
-  /*
-   * ED #63 5806207128 / 5806266691 choice 3: the short `Goal only` is VISIBLE on
-   * the share line; its full meaning comes straight after the visible string
-   * in the name AND the hover/focus tooltip (this one string feeds both), so
-   * the spoken form opens with what is on screen (label in name, WCAG 2.5.3)
-   * and the limitation is never hover-only.
-   */
-  const winReadoutDescription = winReadout
-    ? [
-        shareIsGoalOnly
-          ? `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)} · ${OPTION_RESULT_COPY.goalOnly}. ${OPTION_RESULT_COPY.goalOnlyNote}`
-          : shareIsProvisional
-            ? `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)} · ${OPTION_RESULT_COPY.provisional}. ${OPTION_RESULT_COPY.provisionalNote}`
-            : `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
-        OPTION_RESULT_COPY.sentence(winReadout.formatted),
-        shareIsGoalOnly
-          ? leaderWithholdCause('constraint_verdict_withheld')
-          : shareIsProvisional
-            ? leaderWithholdCause(shareProvisionalCause)
-            : null,
-        optionResultCurrencyNote(runCurrency),
-      ].filter(Boolean).join(' ')
-    : ''
+  const chanceReadoutDescription = chanceText === null ? ''
+    : [`${resultCaption} · ${chanceText}`, optionResultCurrencyNote(runCurrency), runCurrency === 'changed' ? OPTION_RESULT_COPY.noNewComparisonNote : null].filter(Boolean).join(' ')
 
   /**
    * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER.
@@ -2102,11 +1920,6 @@ export const OptionNode = memo((props: NodeProps) => {
       : null,
   ].filter(Boolean).join(' ')
   const notComputedRenders = displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true
-  const resultUnavailableRenders =
-    displayMetadata.isResultsMode && displayMetadata.winRate === null &&
-    displayMetadata.winComputationFailed !== true &&
-    absentFromRunReason === null &&
-    !supportShareRunWideAbsent
 
   /**
    * A change row's whole sentence — the row's hover and accessible name (the
@@ -2189,7 +2002,7 @@ export const OptionNode = memo((props: NodeProps) => {
           return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
         }}
         onCommit={(v, { onSendSettled }) => {
-          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st) } })
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st, detail) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st, detail) } })
           if (outcome === 'dispatched') return 'dispatched'
           return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
         }}
@@ -2459,10 +2272,10 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   const baselineMeta = (
     <div
-      className={`${typography.edgeLabel} mt-1 text-text-light`}
-      data-testid={`option-baseline-meta-${props.id}`}
+      className={`${typography.edgeLabel} mt-1 h-[1lh] text-text-light`}
+      data-testid={`option-baseline-slot-${props.id}`}
     >
-      {concreteChangeRows.length === 0 ? 'Baseline · no changes' : 'Baseline option'}
+      <CardMark id={concreteChangeRows.length === 0 ? 'baseline-no-changes' : 'baseline-option'} testId={`option-baseline-meta-${props.id}`} />
     </div>
   )
   const baselineMetaOnCard = isBaselineOption
@@ -2473,17 +2286,26 @@ export const OptionNode = memo((props: NodeProps) => {
    * `useRunCurrency` the share caption reads) — never on cannot-confirm, where
    * no "last run" may be manufactured (ED 02:31Z). The last run's result is NOT
    * replaced: the card keeps `Last run` + share (ED 11:52Z point 8); this line
-   * adds that no comparison of the current model exists yet. Inline in
-   * Detailed; in the popover in Standard, and in the share line's accessible
-   * name and tooltip. (The prototype ruling of 25 Sep moved the change rows and
-   * the baseline lines onto the card; it did not rule on this line, so its
-   * placement is unchanged.)
+   * adds that no comparison of the current model exists yet. Slice A puts its
+   * glyph in the bottom band in both views. Detailed keeps its reserved line;
+   * Standard keeps the full sentence in the preview. The share line's accessible
+   * name and tooltip retain the existing explanation.
    */
   const staleStateShown = isPostAnalysis && runCurrency === 'changed'
+  // ⭐ AT MOST ONE status mark in the band (DL 8 Oct, workstream D): withheld > stale > not analysed > provisional;
+  // the demoted marks are named in its tooltip. Each candidate keeps the gate and test id it had when it rendered alone.
+  const statusMark = pickOptionStatusMark([
+    notRankedRenders && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
+    notAnalysedRenders && runCurrency === 'changed' && { id: 'last-run', testId: `option-not-analysed-last-run-${props.id}` },
+    chanceText !== null && !winSharesAreWithheld && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
+    staleStateShown && { id: 'no-new-comparison', testId: `option-stale-state-${props.id}` },
+    notAnalysedRenders && { id: 'not-analysed', testId: `option-not-analysed-chip-${props.id}` },
+    displayMetadata.isResultsMode && displayMetadata.winRate !== null && !winSharesAreWithheld && takenOutLine === null && shareIsProvisional && { id: 'provisional', testId: `option-share-provisional-${props.id}` },
+  ])
   const staleStateLine = staleStateShown ? (
     <p
       className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
-      data-testid={`option-stale-state-${props.id}`}
+      data-testid={`option-stale-preview-${props.id}`}
     >
       {OPTION_RESULT_COPY.lastRunNoNewComparison}
     </p>
@@ -2532,6 +2354,7 @@ export const OptionNode = memo((props: NodeProps) => {
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
       <BaseNode
+        optionChanceCell={chanceCell}
         {...props}
         nodeType="option"
         icon={metadata.icon}
@@ -2734,259 +2557,38 @@ export const OptionNode = memo((props: NodeProps) => {
             (`mt-1`, or `mt-0.5` on the Detailed-only lines), so each gap is
             that block's own top margin and the new adjacency can keep or
             shrink a gap, never widen one. */}
-        {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
-            ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
-            same copy on every node is a waste of space… It should show the bar
-            with the percentage next to it to save space." Five option cards
-            each carried the identical ratified sentence and only the number
-            varied, so four fifths of that block was repetition — and on a
-            canvas card the sentence wraps to two or three lines at the
-            legibility floor.
-
-            THE SENTENCE IS NOT DROPPED, because the number alone does not say
-            what it measures. It survives twice:
-              · in the positioned tooltip on hover or keyboard focus;
-              · in the row's accessible name, including any currentness caveat.
-            The bar is deliberately a focusable graphic for keyboard disclosure.
-            Its role makes descendants presentational, so aria-label is the
-            single accessible name; an additional screen-reader-only child
-            would not provide another announcement.
-
-            The copy is never re-typed here: it comes from
-            `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
-            which is the ratified wording and the one owner of it. */}
-        {/* ⭐⭐ THE SHARE LINE HAS ONE RESERVED SLOT, PRE-RUN AND POST-RUN — A RUN
-            NEVER GROWS THE CARD (ED #63 5809278282: "Option = … current-model
-            share post-run", "no rung-triggered re-layout"; ED 5810951997: no
-            card grows). MEASURED on served 853feeb7 (pricing, 1280x800, design
-            audit 26 Sep #4): each option grew +49.4px on screen after the Run,
-            because this row did not exist pre-run and then wrapped to THREE
-            lines ("Current model ▬" / "34% of runs" / "· Goal only"). The
-            layout reserves the height it measured before the run, so the taller
-            cards pushed 7 edges under non-endpoint cards and 2 more cards off
-            screen.
-              · The slot is ONE `edgeLabel` line (`h-[1lh]`) with identical
-                classes in both phases, so the layout reserves the post-run
-                height before the run. Empty and aria-hidden before a run.
-              · It holds the run's ONE line for this option: the share, or, for
-                an option the run left out, `Not analysed` (DIFF 27 Sep item 5).
-                That state used to be a second row under this slot, so the run
-                grew the card by a line; on a stale run it became a three-line
-                sentence (+20.6px measured on Paul's mrr-90b8f080).
-              · The share row never wraps, and what gives way is fixed (DIFF
-                27 Sep item 1). The old order gave way with the bar, then
-                `Current model`. On Paul's mrr-90b8f080 at landing that left a
-                bare `68% of runs · Goal only` on all five cards, on a run where
-                no option reaches the goal, and the bar never painted at 100%
-                either. Now:
-                  – NEVER gives way: the model-relative caption, the figure, and
-                    `· Goal only` / `· Provisional` (no ellipsis).
-                  – `of runs` gives way first, as a whole word. It stays in the
-                    row's name and tooltip.
-                  – With a qualifier on the line, `Current model` and
-                    `Model result` narrow to `Model` when the slot is under
-                    17.5em. The query reads the slot's own width in ITS em, the
-                    counter-scaled label size, so it flips when the counter-scale
-                    squeezes the line (zoom ≈ 0.87 and below). Budget: the
-                    line holds ≈ 20.2em at 100% and ≈ 14.8em at the 1.36 cap;
-                    `Current model 100% · Provisional` is ≈ 16.2em and
-                    `Last run 100% · Provisional` ≈ 13.2em. Widths are from the
-                    27 Sep capture at 11px in the system-ui fallback (Inter was
-                    blocked there, so it is not measured), and `Provisional` is
-                    estimated from its letters.
-                  – The bar is not in the text flow. It sits under the line in
-                    a 3px strip the row keeps inside the slot, at a fixed 54px,
-                    so it always paints and is the same width on every card.
-            Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx` and
-            `__tests__/OptionNode.shareLineOnPaulsRun.spec.tsx`. */}
-        {/* Rendered in EVERY phase (MG, #2123 review B1): an option the Run does not score keeps this slot too,
-            or it would shrink after the Run and re-lay the board. */}
+        {/* The same slot is reserved before and after a Run. Its caption precedes the exact Results
+            chance cell; the full text stays available in the accessible name and focusable tooltip. */}
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
-          aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
+          aria-hidden={chanceText === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
         >
         {takenOutLine !== null && (
           <div className="flex h-full min-w-0 items-center whitespace-nowrap" data-testid={`option-taken-out-${props.id}`}>
             <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
           </div>
         )}
-        {notRankedRenders && (
-          <Tooltip asChild content={winShareWithheldReasonLine ?? ''} delay={NODE_TOOLTIP_DELAY_MS}>
+        {chanceText !== null && takenOutLine === null && (
+          <Tooltip asChild content={chanceReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
             <div
-              className="flex h-full min-w-0 items-center whitespace-nowrap"
-              data-testid={`option-not-ranked-${props.id}`}
-              aria-label={`${NOT_RANKED_MARKER}. ${winShareWithheldReasonLine ?? ''}`}
+              data-testid={`option-analysis-currency-${props.id}`}
+              className="relative flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap"
+              role="img"
+              data-node-tooltip="true"
               tabIndex={0}
+              aria-label={chanceReadoutDescription}
             >
-              <span className={`${typography.edgeLabel} text-text-light`} aria-hidden="true">{NOT_RANKED_MARKER}</span>
+              <span data-testid={`option-win-anchor-${props.id}`}
+                className={`${typography.edgeLabel} text-text-light shrink-0`}
+                aria-label={resultCaption} aria-description={statusMark?.id === 'last-run' ? statusMark.description : undefined} aria-hidden="true">
+                {resultCaption}
+              </span>
+              <span data-testid={`option-win-readout-${props.id}`}
+                className={`${typography.edgeLabel} text-text-body ml-1.5 min-w-0 truncate`} aria-hidden="true">
+                {chanceText}
+              </span>
             </div>
-          </Tooltip>
-        )}
-        {winReadout !== null && takenOutLine === null && (
-          <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
-          <div
-            className="relative flex h-full min-w-0 flex-nowrap items-center pb-[3px] whitespace-nowrap cursor-help"
-            role="img"
-            aria-label={winReadoutDescription}
-            tabIndex={0}
-            data-node-tooltip="true"
-            data-testid={`option-analysis-currency-${props.id}`}
-          >
-            {/* ⭐⭐ `max(4px, N%)` IS THE ONLY THING PREVENTING A 0px FILL HERE.
-                DO NOT REMOVE IT AS REDUNDANT — it is not.
-
-                MEASURED on deployed `ce32426c`, all four option nodes, by
-                `getBoundingClientRect` (a peer lane, driving the live canvas):
-                the "< 1%" option's computed style reads literally
-                `width: max(4px, 0%)`. So `Math.round(rate * 100)` DOES produce
-                `0` on this surface for a genuine, measured, non-zero share —
-                the same rounding defect that is an open P0 on the results
-                panel's own bar. This floor is what stops it landing here, and
-                deleting it re-opens that P0 on the canvas.
-
-                ⚠ AND THE TRADE IT BUYS, STATED RATHER THAN LEFT SILENT. On the
-                54px track (below), 4px is 7.4%. A genuine 7% share therefore
-                renders `max(4px, 3.78px)` = 4px — IDENTICAL to a 0.4% share
-                beside it. So ordering collapses below about 7%: the floor that
-                prevents "a measured value looks like nothing" creates "two
-                different measurements look the same". That is the smaller harm
-                and it is deliberate, because anything thinner is invisible at
-                canvas zoom — and the exact share is printed beside the bar.
-
-                The results panel keeps 2px on a 371px track (0.54%) for the
-                same reason at a different scale. If the two ever have to agree,
-                the honest form is a floor expressed as a FRACTION of the track
-                rather than a pixel count — not needed today.
-
-                ⭐ CONTRACT v3.1 OPT-01/OPT-08 (Paul point 9: "make the driver bar
-                neutral, so it does not compete with attention"). The track WAS
-                `flex-1` (~190px on a 336 card) with an option-purple fill, so a
-                long bar dominated the card and one kind of element wore two
-                colours on one board. It is now the factor run bar's own anatomy
-                (`FactorDriverLine`: `w-[54px]` track, `bg-text-light` fill on
-                `bg-panel-border`) — short, fixed, neutral, secondary. It no
-                longer gives way at all: it sits under the text (DIFF 27 Sep
-                item 1, header above), so its 54px is the same on every card. */}
-            {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
-                The density change put `phrase()` behind a `title` and left the
-                number bare. At that time the row was not focusable, so its
-                `title` was unreachable by KEYBOARD and absent on TOUCH, and
-                two input classes got a number with no statement of what it
-                measures — on the only unlabelled percentage on a canvas where
-                every other one is anchored, and beside the rank badge, which is
-                already a bare numeral.
-                The word comes from the register, never re-typed here. The
-                `w-14` column matches `FactorNode`'s "Influence" / "Confidence"
-                rows exactly, so this is the canvas's existing anchored-row
-                pattern rather than a second one. */}
-            {/* ⭐⭐ MODEL-RELATIVE, NEVER `Support` (ED 11:52Z point 4: "Do not use
-                `Support` as the result label. It reads as endorsement. Any result
-                shown at rest must be explicitly model-relative, e.g. `Current
-                model · 55% of runs`"). The caption follows the run's currency:
-                `Current model`; `Last run` only when the model is KNOWN to have
-                changed (ED 02:31Z Q2); `Model result` when currency cannot be
-                confirmed — it claims neither. */}
-            <span
-              data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light shrink-0 ${compactCaption !== null ? SHARE_CAPTION_WIDE_ONLY : ''}`}
-              aria-hidden="true"
-            >
-              {resultCaption}
-            </span>
-            {compactCaption !== null && (
-              <span
-                data-testid={`option-win-anchor-compact-${props.id}`}
-                className={`${typography.edgeLabel} text-text-light shrink-0 ${SHARE_CAPTION_NARROW_ONLY}`}
-                aria-hidden="true"
-              >
-                {compactCaption}
-              </span>
-            )}
-            {/* The readout keeps its one element and its "N% of runs" text, but
-                draws no box (`contents`), so the figure and the unit are items of
-                the row: the figure never shrinks, and the unit is a whole-or-
-                nothing box that gives way first. A unit that does not fit wraps
-                onto the box's clipped second line; the zero-width spacer keeps
-                line 1 open, so no sliver of a glyph is left. */}
-            {/* "supported by" (R3 5903852225 / AIQ 5903874730; verb per DL #87 6004906342): the share is not a chance. With a qualifier it narrows
-                with the caption (`SHARE_PREFIX_WIDE_ONLY`), so `Model 100% · Provisional` still fits the capped slot. */}
-            <span
-              data-testid={`option-win-prefix-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0 ${compactCaption !== null ? SHARE_PREFIX_WIDE_ONLY : ''}`}
-              aria-hidden="true"
-            >
-              {OPTION_RESULT_COPY.sharePrefix}
-            </span>
-            <span
-              data-testid={`option-win-readout-${props.id}`}
-              className={`${typography.edgeLabel} text-text-body contents`}
-              aria-hidden="true"
-            >
-              <span
-                data-testid={`option-win-figure-${props.id}`}
-                className={`${typography.edgeLabel} text-text-body ml-1 shrink-0 tabular-nums`}
-              >
-                {winReadout.formatted}
-              </span>
-              <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden">
-                <span className="h-full w-0" />
-                <span
-                  data-testid={`option-win-unit-${props.id}`}
-                  className={`${typography.edgeLabel} text-text-body whitespace-nowrap pl-[0.3em]`}
-                >
-                  {` ${OPTION_RESULT_COPY.shareUnit}`}
-                </span>
-              </span>
-            </span>
-            {/* ⭐ `Goal only` ON THE SHARE LINE (ED #63 5806207128 / 5806266691
-                choice 3; NODE-ANATOMY v3.2 Option: "a short `Goal only`
-                qualifier on the same line, with the full sentence in the hover
-                and aria (it keeps #1921's per-card fact without the two-line
-                wrap)"). Gated exactly as #1921 gated its second line — the
-                producer's own `constraint_verdict_withheld`, read from the
-                RESULT's persisted stamp, so it survives a reload. Muted
-                `text-light`, regular weight, no colour: a limitation, never
-                styled as a verdict or an endorsement. Its meaning rides the
-                row's name and tooltip (`winReadoutDescription`), which this
-                row's hover AND keyboard focus open. */}
-            {shareIsGoalOnly && (
-              // The separator and the words are one item that never gives way.
-              <span className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0`} aria-hidden="true">
-                {'· '}
-                <span
-                  data-testid={`option-share-goal-only-${props.id}`}
-                  className={`${typography.edgeLabel} text-text-light`}
-                >
-                  {OPTION_RESULT_COPY.goalOnly}
-                </span>
-              </span>
-            )}
-            {shareIsProvisional && (
-              <span className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0`} aria-hidden="true">
-                {'· '}
-                <span
-                  data-testid={`option-share-provisional-${props.id}`}
-                  className={`${typography.edgeLabel} text-text-light`}
-                >
-                  {OPTION_RESULT_COPY.provisional}
-                </span>
-              </span>
-            )}
-            {/* The bar, under the line (header above): out of the text flow, in
-                the 3px strip the row's `pb-[3px]` keeps. The text is centred in
-                the space above the strip, which lifts it 1.5px; nothing under
-                the bar's 54px has a descender, whatever the caption. */}
-            <div
-              className="absolute bottom-0 left-0 h-[3px] w-[54px] bg-panel-border rounded-full overflow-hidden"
-              aria-hidden="true"
-            >
-              <div
-                className="h-full bg-text-light rounded-full transition-all duration-300"
-                style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
-              />
-            </div>
-          </div>
           </Tooltip>
         )}
         {/* ⭐ THE OPTION THE RUN LEFT OUT — its one line, in this slot. The long
@@ -3015,16 +2617,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 ink, not muted text (Paul, 30 Sep: "'not analysed' really
                 subtly invisible"). `Last run ·` and the reason stay muted. */}
             <span className={`${typography.edgeLabel} inline-flex items-center gap-[0.3em] text-text-light shrink-0`} aria-hidden="true">
-              {runCurrency === 'changed' && (
-                <span data-testid={`option-not-analysed-last-run-${props.id}`}>{LAST_RUN_PREFIX}</span>
-              )}
-              <span
-                className={STATE_WORD_CLASSES}
-                style={{ ...STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
-                data-testid={`option-not-analysed-chip-${props.id}`}
-              >
-                {NOT_ANALYSED_BADGE}
-              </span>
+              {/* "Last run" and "Not analysed" are the band's ONE status mark (optionStatusMark). */}
             </span>
             {missingValueBlocker && (
               <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden" aria-hidden="true">
@@ -3060,8 +2653,9 @@ export const OptionNode = memo((props: NodeProps) => {
             {olumiSuppliedFigures}
           </p>
         )}
-        {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
-        {isDetailed && staleStateLine}
+        {/* Row 22: the status mark is in the bottom band; Detailed keeps its old line box. */}
+        {statusMark !== null && !(chanceText !== null && statusMark.id === 'last-run') && <CardMark id={statusMark.id} testId={statusMark.testId} description={statusMark.description} />}
+        {isDetailed && staleStateShown && <p className={`${typography.edgeLabel} text-text-light mt-1 m-0 h-[1lh]`} data-testid={`option-stale-slot-${props.id}`} aria-hidden="true" />}
         {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}
         {displayMetadata.isResultsMode && keptProvisionalSentence !== null && (
           <div
@@ -3233,68 +2827,6 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Missing win share is distinct from measured zero and a reported
-            failure. Outcome ranges may still exist: name only the missing
-            percentage, without claiming the whole result is unavailable.
-
-            ⭐⭐ AND IT IS ALSO DISTINCT FROM *EVERY* OPTION MISSING ONE, which is
-            what this gate adds. Measured on the deployed build `08a3724d`
-            (`staging--olumi.netlify.app`): a three-option model rendered
-            "Support percentage unavailable" on all three cards, identically, in
-            the position where the comparison belongs. Stated three times it is
-            not three facts about three options. It is one fact about the RUN,
-            and repeating it per card tells the reader nothing while occupying
-            the row they came to compare.
-
-            `supportShareRunWideAbsent` separates the two:
-
-              - PARTIAL (some cards resolved a share, this one did not) → the
-                line renders, and now EARNS its place: it is the only thing
-                telling the reader why this card differs from its siblings.
-                PLoT's `IDENTICAL_OPTIONS_DEDUPED` produces exactly this shape.
-
-              - RUN-WIDE (no card resolved one) → the cards YIELD this position.
-                The Question node states it ONCE instead (`DecisionNode`), which
-                is where a fact about the whole run belongs.
-
-            ⚠ YIELDING IS NOT SILENCE, AND THAT DISTINCTION IS LOAD-BEARING —
-            the sibling `n_valid === 0` block twenty lines above argues,
-            correctly, that "silence in a row of bars reads as a rendering gap".
-            It is not silenced here; it is MOVED to the one surface that can say
-            it once. Delete the DecisionNode statement and this becomes the
-            rendering gap that comment warns about.
-
-            ⛔ The copy no longer opens with the missing quantity's name. It
-            conditions on the data ("On the data so far…"), because what this
-            run produced is a fact about this run and not a property of the
-            option.
-
-            ⭐⭐ AND IT NOW YIELDS TO `absentFromRunReason` TOO — a THIRD conjunct,
-            stated here rather than left to be inferred from the gate. (It read
-            the LICENSED reason until 27 Sep, so on a stale run this line came
-            back for an option the run never had: DIFF item 5.)
-
-            This line's own subject is an option the run HAD and could not
-            resolve a share for. An option the run never had is a different
-            state with a different next step, and before the row above existed
-            this line was the only thing said about it: one sentence pooling
-            two absences, which is the defect the four-absence ruling exists to
-            prevent. So the yield is not silence and it is not a move either —
-            the not-analysed line in the share slot states the MORE SPECIFIC
-            true sentence on the same card, and names the ground it rests on.
-
-            ⚠ Deleting that line turns this into the pooled sentence again,
-            not into a rendering gap — which is why this conjunct must be read
-            WITH it and never tidied away on its own. */}
-        {resultUnavailableRenders && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-1`}
-            data-testid={`option-result-unavailable-${props.id}`}
-          >
-            On the data so far, the model gave no share of runs for this option
-          </p>
-        )}
-
         {/* Global influence identifies a factor to inspect, not why an option won. */}
         {isDetailed && isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
@@ -3310,39 +2842,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Graph v2 Task 4: close-call line — only when within 5pp of leader.
-            Renders ABOVE the existing "Behind:" reason so users see both the
-            closeness signal and the causal explanation.
+        {/* ⭐ Run-4 judge (DL 12 Oct, the class): the close-call line ("Close to the option most runs supported in this
+            model") was a leader claim from a win share, and is removed; nothing replaces it. `closeCallGapPp` still
+            feeds the card's display metadata (`closeCallGapIsSet`). */}
 
-            ⭐⭐ THE QUANTITY IS RETIRED (2026-08-10); THE SIGNAL IS NOT.
-            This read "Close call: within N percentage points" — the
-            percentage-point difference between two Monte-Carlo win
-            frequencies, which is the banned statistic: less reliable than
-            either estimate it is built from, yet printed as a bare integer
-            with no interval. The tie-ness signal it carried is genuinely
-            useful and stays, as a QUALITATIVE marker with no number.
-
-            Naming the leading option is entitled here and nowhere borrowed:
-            `closeCallGapPp` returns null unless `verdict.hasLeadingOption`,
-            so this line cannot render on a turn where the producer withheld
-            the designation. And the reader is not left without a number — the
-            node states this option's OWN win probability directly above
-            (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
-            rule licenses. */}
-        {isDetailed && closeCallGapPp != null && (
-          <p className={`${typography.nodeLabel} text-text-body mt-0.5 m-0`}>
-            {/* Model-relative, never a leader title (Codex #63 5801910965; ED 5799353114 decision 1). */}
-            Close to the option most runs supported in this model
-          </p>
-        )}
-
-        {/* "Held back by:" reason (not the most-supported option, post-analysis
-            -- includes status quo) */}
-        {isDetailed && isPostAnalysis && !isRecommended && behindReason && (
-          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Held back by: {behindReason}
-          </p>
-        )}
+        {/* Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by: <reason>" line is removed. It placed this option
+            behind the most-supported one (its reason is the leader's difference from it), so it was run-share comparison
+            with no other fact; nothing replaces it. `behindReason` still keeps the standard view's differentiator from
+            doubling up (unchanged). */}
 
         {/* Status-quo bias coaching lives on the header ScienceIcon now — one
             bias-coaching surface per node (bias-coaching slice, proposal

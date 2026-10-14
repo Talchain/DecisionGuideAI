@@ -40,14 +40,15 @@ vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
-import { openAskOlumi } from '../../coaching/askOlumiStore'
+vi.mock('../../../../canvas/conversation/askAi', () => ({ askAi: vi.fn(() => 'sent') }))
+import { askAi } from '../../../../canvas/conversation/askAi'
 
 const TID = 'target'
 
 beforeEach(() => {
   setGoalThresholdAndUpdateNode.mockReset()
   proposeGoalTarget.mockReset().mockReturnValue('dispatched')
-  vi.mocked(openAskOlumi).mockReset()
+  vi.mocked(askAi).mockReset().mockReturnValue('sent')
   state = {
     nodes: [{ id: 'goal-words', type: 'goal', data: { label: 'Reduce onboarding time' } }],
     goalThreshold: null,
@@ -98,12 +99,12 @@ describe('sending words routes to Olumi, and commits nothing', () => {
     )
     await user.click(screen.getByTestId(`${TID}-words-send`))
 
-    expect(openAskOlumi).toHaveBeenCalledTimes(1)
-    const payload = vi.mocked(openAskOlumi).mock.calls[0][0]
-    expect(payload.draft).toBe(
-      'This is what success would look like:\nFaster delivery without more overtime',
+    expect(askAi).toHaveBeenCalledTimes(1)
+    const payload = vi.mocked(askAi).mock.calls[0][0]
+    expect(payload.userWords).toBe(
+      'Success in words (this is not stored):\nFaster delivery without more overtime',
     )
-    expect(payload.targetId).toBe('goal-words')
+    expect(payload.nodeIds).toEqual(['goal-words'])
   })
 
   /**
@@ -115,9 +116,9 @@ describe('sending words routes to Olumi, and commits nothing', () => {
     const { user } = await openWordsEditor()
     await user.type(screen.getByTestId(`${TID}-words-input`), 'Zero customer-visible outages')
     await user.click(screen.getByTestId(`${TID}-words-send`))
-    const payload = vi.mocked(openAskOlumi).mock.calls[0][0]
-    expect(payload.draft).toContain('Zero customer-visible outages')
-    expect(payload.draft).not.toContain('overtime')
+    const payload = vi.mocked(askAi).mock.calls[0][0]
+    expect(payload.userWords).toContain('Zero customer-visible outages')
+    expect(payload.userWords).not.toContain('overtime')
   })
 
   it('⛔ never writes the local carrier', async () => {
@@ -159,7 +160,17 @@ describe('sending words routes to Olumi, and commits nothing', () => {
     // The button is disabled; a stray Enter/click must not slip a blank
     // message past it either.
     await user.click(screen.getByTestId(`${TID}-words-send`))
-    expect(openAskOlumi).not.toHaveBeenCalled()
+    expect(askAi).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${TID}-words-input`)).toBeInTheDocument()
   })
+})
+
+it('a refused success-in-words send keeps the exact text and does not toast success', async () => {
+  const { user } = await openWordsEditor()
+  const input = screen.getByTestId(`${TID}-words-input`)
+  await user.type(input, 'Keep these words')
+  vi.mocked(askAi).mockReturnValueOnce('busy')
+  await user.click(screen.getByTestId(`${TID}-words-send`))
+  expect(input).toHaveValue('Keep these words')
+  expect(askAi).toHaveBeenCalledWith(expect.objectContaining({ userWords: 'Success in words (this is not stored):\nKeep these words' }))
 })

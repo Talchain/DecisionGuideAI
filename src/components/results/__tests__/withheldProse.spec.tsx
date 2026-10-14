@@ -42,7 +42,6 @@
  * leave the suite with the component. Every other surface below is untouched.
  */
 import { describe, expect, it } from 'vitest'
-import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useAskOlumiStore } from '../coaching/askOlumiStore'
 import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
@@ -54,15 +53,12 @@ import {
   fragileEdgeConsequence,
   fragileEdgeGroupHeader,
 } from '../utils/fragileEdgeCopy'
-import { buildCertaintyCopy } from '../utils/certaintyCopy'
 import { NO_CLAIM_VERDICT } from '../../../lib/decisionVerdict'
 import type { DriverItem } from '../types'
 import {
   HIGH_ID,
   HIGH_LABEL,
   MID_LABEL,
-  PERMITTED_VERDICT,
-  WITHHELD_VERDICT,
 } from '../__fixtures__/withheldDesignations.fixtures'
 
 /**
@@ -438,26 +434,27 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
     )
   }
 
-  it('ANTI-VACUITY: the PERMITTED note says "change which option is most likely to hit your goal"', () => {
+  it('ANTI-VACUITY: the PERMITTED note carries the ruled explanation', () => {
     const { container } = renderCard(false)
-    expect(container.textContent ?? '').toContain('2.0x wrong to change which option is most likely to hit your goal.')
-    expect(container.textContent ?? '').toMatch(FRAGILE_CLAIM_RE)
+    expect(container.textContent ?? '').toContain("How far this link's strength could be off before the comparison between options changes: about ×2.0.")
+    // The PERMITTED card's other lines may carry the flip claim; the note itself no longer does.
+    expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false })).not.toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD: the note says what would change without naming a recommendation', () => {
     const { container } = renderCard(true)
-    expect(container.textContent ?? '').toContain('2.0x wrong to change the comparison.')
+    expect(container.textContent ?? '').toContain("How far this link's strength could be off before the comparison between options changes: about ×2.0.")
     expect(container.textContent ?? '').not.toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD DATA PRESERVED: the E-value number itself still renders', () => {
     const { container } = renderCard(true)
-    expect(container.textContent ?? '').toContain('E-value 2.0')
+    expect(container.textContent ?? '').toContain('Link margin')
   })
 
   it('PERMITTED: the note is byte-identical to today', () => {
     expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }))
-      .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
+      .toBe("Link margin. How far this link's strength could be off before the comparison between options changes: about ×2.0.")
   })
 })
 
@@ -573,44 +570,13 @@ describe('StressTestSection fragile factors — OVER-SUPPRESSION CONTROLS', () =
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SURFACE 5 — certaintyCopy's verdict parameter, now REQUIRED
-//
-// The compile-time half of this fix cannot be asserted at runtime (a missing
-// required property is a type error, not a thrown exception), so the runtime
-// half pins the BEHAVIOUR the required parameter guarantees: the fall-through
-// that `undefined` used to reach is now unreachable without an explicit
-// no-claim verdict, and that verdict lands on the withheld headline.
+// SURFACE 5 — certaintyCopy's leader headlines: DELETED (run-4 judge, DL 12 Oct,
+// the class). `buildCertaintyCopy` had no production caller and every headline it
+// could assert was a leader claim, so its rows here went with it. The verdict
+// shape they relied on is still pinned below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('buildCertaintyCopy — no caller can reach the leader rules without a verdict', () => {
-  const base = {
-    winnerLabel: HIGH_LABEL,
-    confidenceTier: 'strong' as const,
-    coachingReadiness: 'ready' as const,
-    recommendationStability: 0.9,
-    analysisStatus: 'computed' as const,
-    optionCount: 3,
-  }
-
-  it('ANTI-VACUITY: a PERMITTED verdict still reaches the leader-asserting rule', () => {
-    expect(buildCertaintyCopy({ ...base, verdict: PERMITTED_VERDICT }).headline)
-      .toBe(`${HIGH_LABEL} ${COMPARATIVE_COPY.phraseNoMagnitude}`)
-  })
-
-  it('the explicit no-claim verdict lands on the withheld headline, not a leader claim', () => {
-    const copy = buildCertaintyCopy({ ...base, verdict: NO_CLAIM_VERDICT })
-    expect(copy.headline).toBe('this run names no option in this model')
-    expect(copy.headline).not.toMatch(LEADER_PRESUPPOSITION_RE)
-    // conservative: true is what blocks the producer's coaching headline from
-    // overriding this line in DecisionConfidencePanel.
-    expect(copy.conservative).toBe(true)
-  })
-
-  it('the shared WITHHELD fixture verdict behaves identically to NO_CLAIM_VERDICT', () => {
-    expect(buildCertaintyCopy({ ...base, verdict: WITHHELD_VERDICT }))
-      .toEqual(buildCertaintyCopy({ ...base, verdict: NO_CLAIM_VERDICT }))
-  })
-
+describe('NO_CLAIM_VERDICT — the no-claim shape', () => {
   it('NO_CLAIM_VERDICT is the no-claim shape, not a denial', () => {
     // 'unknown', never 'tied': a denial ("no clear leading option") is a
     // second claim this verdict equally has no authority for.

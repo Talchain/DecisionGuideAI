@@ -43,6 +43,10 @@
  * Both value paths: the served factor is controllable (the on-graph editor
  * holds the value); the contrast is the same reading on a non-editable factor.
  *
+ * ⚠ RE-PINNED 7 Oct 2026 (#2633, Paul: "all icons in the bottom row"): the `est.` mark is the card's bottom-band icon,
+ * no longer in this row. The value line keeps its inline flow, its one join and its empty mark slot; the mark keeps its
+ * name (`est.` for a screen reader) in the band.
+ *
  * CLAIM SCOPE: jsdom — tokens, text and DOM order. Not pixels.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -121,8 +125,11 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
     expect(served, 'build-vs-buy carries fac_eng_capacity').toBeDefined()
     renderFactor(served.data)
     const row = within(card()).getByTestId('factor-recorded-value')
-    // Collapsed whitespace: the value, then its mark.
-    expect(visibleText(row).replace(/\s+/g, '')).toBe('Moderateengineeringallocation(2of4engineers)est.')
+    // Collapsed whitespace: the value alone; its mark is the band's icon, still named est.
+    expect(visibleText(row).replace(/\s+/g, '')).toBe('Moderateengineeringallocation(2of4engineers)')
+    const mark = within(card()).getByTestId('estimate-marker')
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
   })
 
   for (const c of CASES) {
@@ -147,13 +154,15 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
       expect(tokens(value).has('whitespace-normal'), 'the value re-opens its own spaces').toBe(true)
       const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
       expect(kids).toHaveLength(c.editor ? 1 : 3)
-      expect(within(slot).getByTestId('estimate-marker').textContent).toBe('est.')
+      const mark = within(card()).getByTestId('estimate-marker')
+      expect(row.contains(mark), 'the mark is the band\'s icon, not in the value row').toBe(false)
+      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
       expect(tokens(slot).has('whitespace-nowrap'), 'the mark never splits').toBe(true)
       for (const push of ['ml-auto', 'absolute', 'float-right']) expect(tokens(slot).has(push), push).toBe(false)
       // The value is never cut.
       for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-1']) expect(tokens(value).has(cut), cut).toBe(false)
       expect(visibleText(value)).toBe('Moderate engineering allocation (2 of 4 engineers)')
-      expect(visibleText(row)).toBe('Moderate engineering allocation (2 of 4 engineers) est.')
+      expect(visibleText(row)).toBe('Moderate engineering allocation (2 of 4 engineers)')
       // The editable value IS the inline editor (inline text, not an atomic box).
       expect(value.getAttribute('data-testid') === `node-value-editor-${ID}`).toBe(c.editor)
       if (c.editor) expect(value.tagName).not.toBe('BUTTON')

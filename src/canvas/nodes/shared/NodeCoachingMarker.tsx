@@ -1,3 +1,4 @@
+import { cardMark, coachingCardMarkId } from './cardMarks'
 /**
  * NodeCoachingMarker — on-canvas coaching marker bound to a graph node.
  *
@@ -101,7 +102,6 @@ import { useCallback, useMemo } from 'react'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
-  guidanceCategoryIcon,
   type GuidanceItem,
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
@@ -194,7 +194,8 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // uses), so the marker's glyph matches the card it opens. Its tint is NOT
   // taken on the canvas: the marker is muted at rest and Info on hover/focus
   // (see the header — contract v3.1, Paul 23 Sep pts 6 and 9).
-  const { Icon } = guidanceCategoryIcon(top.category)
+  const markId = coachingCardMarkId(top.category)
+  const Icon = cardMark(markId).Icon
   const count = items.length
 
   const label =
@@ -211,6 +212,7 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
       <button
         type="button"
         data-testid={`node-coaching-marker-${nodeId}`}
+        data-card-mark={markId}
         data-guidance-category={top.category ?? 'uncategorised'}
         data-guidance-count={count}
         data-node-tooltip="true"
@@ -218,13 +220,14 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
         onPointerDown={(e) => e.stopPropagation()}
         aria-label={label}
         // ⚠ LITERAL arbitrary values (no spaces), so Tailwind's scanner emits
-        // them. The contract's 25px mark box (gap 34). NO horizontal padding
+        // them. The rail's 24px mark box (`CANVAS_QUICK_ACTION_BOX_PX`; 25 from
+        // gap 34 until Paul 14 Oct 2026). NO horizontal padding
         // (it was 3px × scale): the title's corner clearance reserves ONE box
         // per mark (`cornerMarksRunPx`), and a "+N" count — 15px glyph + 2px +
         // one tabular digit ≈ 22px × scale — fits inside that box without it,
         // so the marker stays exactly one box wide. `min-w`, not `w`, so an
         // improbable two-digit count grows the box rather than clipping.
-        className={`nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(25px*var(--canvas-glyph-scale,1))] min-w-[calc(25px*var(--canvas-glyph-scale,1))] rounded ${NODE_RAIL_REST_TONE_CLASS} cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(24px*var(--canvas-glyph-scale,1))] min-w-[calc(24px*var(--canvas-glyph-scale,1))] rounded ${NODE_RAIL_REST_TONE_CLASS} cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       >
         <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
         {count > 1 && (

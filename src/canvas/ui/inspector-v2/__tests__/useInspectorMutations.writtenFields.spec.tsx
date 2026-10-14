@@ -20,6 +20,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+
+// The live range editor has a sender; absence is tested by the refusal regression.
+vi.mock('../../../conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => ({ sendSystemEvent: vi.fn().mockResolvedValue(undefined) }),
+}))
 import {
   useNodeMutations,
   useEdgeMutations,

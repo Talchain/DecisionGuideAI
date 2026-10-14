@@ -1,7 +1,7 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
-import { belongsToThisIdentity, readIdentityEpoch } from './store/scenarios'
+import { belongsToThisIdentity, epochThisTabMayWriteUnder } from './store/scenarios'
 import { isThinClientSession } from './thinClient/thinClient'
 
 const STORAGE_KEY = 'canvas-storage'
@@ -181,12 +181,13 @@ export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
   if (isThinClientSession()) return false
   // A snapshot is a whole graph, so it carries the same owner fence as every autosave slot (CAN-F2w): stamped with the
   // identity epoch it was written under, and listed or loaded only under that epoch. An unreadable epoch cannot say whose
-  // this write is, so nothing is written.
-  const epoch = readIdentityEpoch()
-  if (epoch === undefined) {
-    console.warn('[CANVAS] Snapshot skipped: the identity epoch could not be read')
+  // this write is, so nothing is written. CAN-F2g: nor can a tab another tab's boundary left behind (`scenarios.ts`).
+  const may = epochThisTabMayWriteUnder()
+  if (may === null) {
+    console.warn('[CANVAS] Snapshot skipped: the identity epoch is unreadable or was changed by another tab')
     return false
   }
+  const epoch = may.epoch
   try {
     const persisted: PersistedState = {
       version: 1,

@@ -406,17 +406,23 @@ describe("What's changed", () => {
 import { humaniseCritique } from '../../utils/humaniseCritique'
 
 describe('compute-degradation notices never speak of "the recommendation"', () => {
+  // Run-4 judge (DL 12 Oct, the class): the clause "before a different option is the most supported in this model" is
+  // removed; nothing replaces it. Each title keeps its other facts.
   it.each([
-    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run.'],
-    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed.'],
-  ])('%s is stated against the model', (code, lead) => {
+    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be didn\'t run.'],
+    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move wasn\'t computed.'],
+  ])('%s names no recommendation and no most-supported option', (code, lead) => {
     const { title, description } = humaniseCritique({ code, message: '' } as never)
     expect(title.startsWith(lead), title).toBe(true)
     expect(`${title} ${description}`).not.toMatch(/recommendation/i)
+    expect(`${title} ${description}`).not.toMatch(/most[- ]supported|more runs|most runs/i)
   })
-  it('E_VALUES_UNAVAILABLE description says what it does not affect, in model-relative terms', () => {
+  it('E_VALUES_UNAVAILABLE description says what it does not affect', () => {
     const { description } = humaniseCritique({ code: 'E_VALUES_UNAVAILABLE', message: '' } as never)
-    expect(description).toContain('It does not affect which option is the most supported in this model, the probabilities')
+    // Run-4 judge (DL 12 Oct, the class): "which option is the most supported in this model" is removed; nothing
+    // replaces it.
+    expect(description).toContain('It does not affect the probabilities, or anything else already shown.')
+    expect(description).not.toMatch(/most[- ]supported/i)
     expect(description).not.toMatch(/\bleads\b/i)
   })
 })

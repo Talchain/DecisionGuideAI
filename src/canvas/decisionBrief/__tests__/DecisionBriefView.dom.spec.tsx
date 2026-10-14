@@ -1,3 +1,4 @@
+import { canonicalBriefFixture } from './helpers/canonicalBriefFixture'
 /**
  * The brief view shows a graph element when its item is pressed — bound by node id, never by label — and renders no
  * Run figure when the Run is not current. Driven by the builder's output on served reads.
@@ -57,23 +58,31 @@ describe('DecisionBriefView', () => {
     expect(screen.getByTestId('decision-brief').getAttribute('data-run-status')).toBe('not_current')
     expect(screen.queryByTestId('brief-chances')).toBeNull()
     expect(screen.queryByTestId('brief-drivers')).toBeNull()
-    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/of model runs/)
-    expect(decisionBriefToHtml(brief)).not.toMatch(/of model runs/)
+    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/chance of meeting your goal/)
+    expect(decisionBriefToHtml(brief)).not.toMatch(/chance of meeting your goal/)
   })
 
-  it('a current Run where no option has a figure says so ONCE (panel and print), not a "no figure" row per option', async () => {
+  // #2747 re-scope 2 round 2 (Codex r1 blocking 3; U0): the brief shows no chance on any Run, licensed or not; a current Run
+  // says once where its chances are shown, in the panel and on the printable page. (Replaces "a current Run where no option has
+  // a figure says so ONCE …", whose licensed CONTRAST arm — the chance rows — is removed in C.)
+  it('a current Run says once where its chances are shown (panel and print), and draws no chance row, licensed or not', async () => {
     const brief = await briefOf(identityWithheldRead)
     render(<DecisionBriefView brief={brief} onShowNode={vi.fn()} />)
     expect(screen.getByTestId('decision-brief').getAttribute('data-run-status')).toBe('current')
     expect(screen.queryByTestId('brief-chances')).toBeNull()
-    expect(screen.getByTestId('brief-chances-note').textContent).toBe(DECISION_BRIEF_COPY.noChances)
-    expect(screen.getByTestId('decision-brief').textContent).not.toContain(DECISION_BRIEF_COPY.noFigure)
-    expect(decisionBriefToHtml(brief)).toContain('The reasons are below.')
-    // CONTRAST: a Run with figures shows its rows and no note.
+    expect(screen.getByTestId('brief-chances-note').textContent).toBe(DECISION_BRIEF_COPY.chancesWhere)
+    expect(decisionBriefToHtml(brief)).toContain(DECISION_BRIEF_COPY.chancesWhere)
     cleanup()
-    render(<DecisionBriefView brief={await briefOf(currentRead)} onShowNode={vi.fn()} />)
-    expect(screen.getByTestId('brief-chances')).toBeTruthy()
-    expect(screen.queryByTestId('brief-chances-note')).toBeNull()
+    const licensed = structuredClone(currentRead)
+    licensed.analysis_result.enrichment.inference_warnings.push({
+      code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info', message: 'licensed',
+      target: { comparator: 'at_least', value: 100, unit: 'GBP' },
+      option_ids: ['raise_to_59', 'keep_49_price', 'raise_to_54'],
+      pct_by_option: { raise_to_59: 17, keep_49_price: 18, raise_to_54: 19 },
+    } as never)
+    render(<DecisionBriefView brief={await briefOf({ ...licensed, canonical_analysis_view: canonicalBriefFixture(licensed) })} onShowNode={vi.fn()} />)
+    expect(screen.queryByTestId('brief-chances')).toBeNull()
+    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/\b1[789]%/)
   })
 
   it('a decision on record renders as its own section with the storage sentence; none → no section', async () => {

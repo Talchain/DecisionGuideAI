@@ -37,7 +37,7 @@
  * renders — the input never silently reverts or silently does nothing.
  */
 
-import { classifyUnit, denormaliseInterventionValue, isSuppressedUnit, toFiniteNumber } from '../../../utils/labelUtils'
+import { classifyUnit, denormaliseInterventionValue, isSuppressedUnit, toFiniteNumber, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { normaliseRawFactorValue } from '../../../utils/observedStateHelpers'
 import { formatNumber, formatValueWithUnit } from '../../../utils/formatValueWithUnit'
 import { parseSuccessTarget } from '../../../components/pre-analysis-v3/hero/parseSuccessTarget'
@@ -81,6 +81,41 @@ export function optionEntryScaleOf(cap: unknown, scaleFrame: unknown): number | 
   if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return cap
   if (typeof scaleFrame === 'number' && Number.isFinite(scaleFrame) && scaleFrame > 0) return scaleFrame
   return undefined
+}
+
+/**
+ * One display/entry frame for an option target. A user-owned raw cell defines
+ * its own unit and raw/model scale; otherwise the cap, then CEE's scale_frame — the same
+ * order CEE's writer derives raw_value from (option-intervention-edit.ts, DL 87114), so the
+ * figure shown equals the raw_value CEE stores.
+ * Keep the factor's model baseline for comparisons, but only carry its raw
+ * anchor when it agrees with that frame. A conflicting anchor must not silently
+ * override the selected scale in the denormaliser or hide the entry box.
+ */
+export function resolveOptionTargetDisplayFrame(
+  factorData: Record<string, unknown> | null | undefined,
+  intervention?: unknown,
+): { unit?: string; cap?: number } & OptionTargetAnchor {
+  const obs = factorData?.observedState as Record<string, unknown> | undefined
+  const factorUnit = (factorData?.unit as string | undefined) ?? (obs?.unit as string | undefined)
+  const cell = intervention !== null && typeof intervention === 'object' && !Array.isArray(intervention)
+    ? intervention as Record<string, unknown> : undefined
+  const { value, source } = unwrapInterventionValue(intervention)
+  const raw = toFiniteNumber(cell?.raw_value)
+  const cellUnit = typeof cell?.unit === 'string' ? cell.unit : undefined
+  const unitKind = classifyUnit(cellUnit).kind
+  const userCell = source === 'user_specified' && raw !== null &&
+    cellUnit !== undefined && !isSuppressedUnit(cellUnit) && unitKind !== 'none' && unitKind !== 'placeholder'
+  const rawScale = userCell && value !== null && value !== 0 ? raw / value : undefined
+  const cap = optionEntryScaleOf(rawScale, optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, factorData?.scale_frame))
+  const unit = userCell ? cellUnit : factorUnit
+  const observedValue = unwrapInterventionValue(obs?.value).value ?? undefined
+  let observedRawValue = toFiniteNumber(obs?.raw_value) ?? unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  if (cap !== undefined && observedValue !== undefined && observedValue > 0 && observedRawValue !== undefined &&
+    (unit !== factorUnit || Math.abs(observedRawValue / observedValue - cap) > cap * ANCHOR_AGREES_WITH_CAP)) {
+    observedRawValue = undefined
+  }
+  return { unit, cap, observedValue, observedRawValue }
 }
 
 export function resolveOptionTargetEntryFrame({
@@ -159,6 +194,8 @@ function userUnitMagnitude(
 export const OPTION_TARGET_ENTRY_REFUSAL = {
   unreadable: (example: string) =>
     `Not saved · not a number this row can read. Enter an amount such as ${example}.`,
+  unreadableWithoutValue: (unit: string) =>
+    `Not saved · not a number this row can read. Enter an amount in ${unit}.`,
   unreadableModelScale: 'Not saved · not a number this row can read. Enter a value between 0 and 1.',
   outOfRange: (lowest: string, highest: string) =>
     `Not saved · must be between ${lowest} and ${highest} for this factor.`,
@@ -203,13 +240,14 @@ export function typedMarkerDenotesRowUnit(
  *
  * @param example — the value the row is showing, used only to phrase the
  *   "such as …" example in the unreadable sentence. It is the reader's own
- *   record, so the example invents nothing.
+ *   record, so the example invents nothing. Absent for an empty linked target;
+ *   the refusal then names the unit without inventing a recorded amount.
  */
 export function admitOptionTargetEntry(
   text: string,
   frame: OptionTargetEntryFrame,
   anchor: OptionTargetAnchor,
-  example: number,
+  example?: number,
 ): OptionTargetEntryAdmission {
   let typed = text.trim()
   // A reader may type the unit the field already names ("5 months"). The
@@ -226,7 +264,9 @@ export function admitOptionTargetEntry(
       ok: false,
       reason:
         frame.kind === 'user_units'
-          ? OPTION_TARGET_ENTRY_REFUSAL.unreadable(describeOptionTargetValue(example, frame, anchor))
+          ? example === undefined
+            ? OPTION_TARGET_ENTRY_REFUSAL.unreadableWithoutValue(frame.unit)
+            : OPTION_TARGET_ENTRY_REFUSAL.unreadable(describeOptionTargetValue(example, frame, anchor))
           : OPTION_TARGET_ENTRY_REFUSAL.unreadableModelScale,
     }
   }

@@ -3,8 +3,8 @@
  * `brief-form`, P:559; submit P:666).
  *
  * Prefilled with THIS decision's brief, byte-verbatim. Submit hands Olumi a
- * reframing proposal through the caller's ask route (`openAskOlumi` on the
- * tab), where the person reads the message before sending it.
+ * wording directly through the shared builder as the person’s own composer
+ * turn. The form closes only when the words are sent.
  *
  * ⚠⚠ IT WRITES NOTHING, AND ITS COPY SAYS SO. There is no canonical writer for
  * the brief: `brief_text` is set when the scenario is registered, and no agent
@@ -21,6 +21,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useContextIntegrityStore } from '../../../../canvas/stores/contextIntegrityStore'
 import { typography } from '../../../../styles/typography'
+import { askAi } from '../../../../canvas/conversation/askAi'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { OlumiAiIcon } from '../OlumiAiIcon'
 import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
@@ -33,7 +34,7 @@ export const BRIEF_EDIT_COPY = {
   placeholder: 'Write the question you want to work on',
   cancel: 'Cancel',
   submit: 'Continue with Olumi',
-  note: 'This goes to Olumi as a proposal in the chat, where you check it before sending. It does not change your question by itself.',
+  note: 'This sends your wording to Olumi for discussion. It does not change your question by itself.',
   askLabel: 'Reframe the question',
   askContext: 'A proposed new wording for the question. Olumi discusses it with you.',
   draft: (text: string) => `I propose reframing the question as:\n${text}`,
@@ -57,9 +58,9 @@ export function briefEditPayload(text: string): AskOlumiPayload | null {
   if (!trimmed) return null
   return {
     context: BRIEF_EDIT_COPY.askContext,
-    draft: BRIEF_EDIT_COPY.draft(trimmed),
+    draft: BRIEF_EDIT_COPY.draft(text),
     label: BRIEF_EDIT_COPY.askLabel,
-    source: 'chip',
+    source: 'composer',
   }
 }
 
@@ -84,7 +85,7 @@ export function BriefEditForm(props: BriefEditFormProps) {
   return <BriefEditFormForScenario key={scenarioId ?? 'no-scenario'} {...props} />
 }
 
-function BriefEditFormForScenario({ onAsk, onClose, focusRequest = 0, testIdPrefix }: BriefEditFormProps) {
+function BriefEditFormForScenario({ onAsk: _onAsk, onClose, focusRequest = 0, testIdPrefix }: BriefEditFormProps) {
   const brief = useCurrentBriefText()
   const inputId = useId()
   const noteId = useId()
@@ -109,8 +110,7 @@ function BriefEditFormForScenario({ onAsk, onClose, focusRequest = 0, testIdPref
       inputRef.current?.focus()
       return
     }
-    onAsk(payload)
-    onClose()
+    if (askAi({ userWords: payload.draft }) === 'sent') onClose()
   }
 
   return (

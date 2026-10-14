@@ -118,6 +118,7 @@ export type ScenarioGraphResult =
       graph: unknown
       /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
       scenarioId?: string | null
+      switchAnalysisReady?: unknown
       briefText: string | null
       /**
        * ROADMAP 2.973 — what of the brief did NOT reach the model.
@@ -181,6 +182,7 @@ export type ScenarioGraphResult =
        * declaration here would be a mirror of the block contract.
        */
       analysisResult: unknown
+      canonicalAnalysisView: unknown
       /**
        * CEE's per-limit and joint verdicts for the analysis in `analysisResult` (`analysis_limit_verdicts`), raw —
        * parsed downstream by the SAME reader the turn leg uses (`readLimitVerdicts`). CEE ships it exactly when it
@@ -200,6 +202,14 @@ export type ScenarioGraphResult =
        * `run_delta` is not the contract and is ignored.
        */
       runDelta?: unknown
+      /**
+       * SD-1 Slice R (CEE #2654, schemas 0.79 `run_delivery`): what the displayed Run's turn DELIVERED — its Phase 3
+       * blocks and `analysis_ready` options — raw, with the Run identity CEE served beside it. CARRIER:
+       * `current_read.delivered_record` + `current_read.run_id` ONLY, and only when `current_read.run_state.kind` is
+       * `complete_current` (CEE gates the same; this is defence in depth). Parsed downstream by the contract
+       * (`RunDeliveredRecordSchema`, `applyScenarioAnalysisRead`); null = no record for this Run.
+       */
+      delivered?: { readonly runId: string; readonly record: unknown } | null
       /**
        * RT-10 B′: CEE's own words for WHY the saved Run is out of date when the MODEL DID NOT CHANGE — a
        * `complete_stale` read whose `computed_against_hash` equals `current_analysis_hash` (the Run's own goal snapshot
@@ -231,6 +241,12 @@ export type ScenarioGraphResult =
       conversationTurns?: unknown
       /** Opt-in, currently executable original approve/amend offers; absent means no authority. */
       heldProposalOffers?: unknown
+      /** The read's `action_bar` (S-B), raw: CEE re-derives it for this read's state; undefined when absent. */
+      actionBar?: unknown
+      /** §15 projection, present only on the conversation opt-in. */
+      proposalFields?: unknown
+      /** P48: CEE `changed_since_run`, raw (conversation opt-in only); the ONE reader is `canvas/changes/changedSinceRun.ts`. */
+      changedSinceRun?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -263,8 +279,17 @@ export interface FetchScenarioGraphOptions {
   signal?: AbortSignal
   /** Backoff between 503 retries. Tests pass 0. */
   retryDelayMs?: number
+  /** A settlement read gets one attempt; hydration retains its default 503 retries. */
+  retry503?: boolean
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
+  /**
+   * Attempts when the read gets NO answer (its deadline passed, or the connection failed), and the pause between them.
+   * OPT-IN: only the stream-loss recovery read passes it (`STREAM_LOSS_READ`, capacity 001307: the one 8 s read gave up
+   * 2 s before CEE answered it with the saved model). Every other caller keeps one bounded wait (the rollback window in
+   * `DEFAULT_TIMEOUT_MS`). A caller abort and every answered status (404, 401/403/429, other HTTP) are never retried.
+   */
+  unansweredRetry?: { readonly attempts: number; readonly backoffMs: number }
   /**
    * Ask for the stored chat (`conversation_turns`) — MG 5907618888: OPT-IN, so every other caller's body stays
    * byte-identical. Only the cold open sends it. A CEE without the read ignores the key (measured 30 Sep 09:0xZ on
@@ -314,6 +339,20 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
 function readCurrentReadRunDelta(raw: unknown): unknown {
   if (raw === null || typeof raw !== 'object') return null
   return (raw as { run_delta?: unknown }).run_delta ?? null
+}
+
+/**
+ * SD-1 Slice R — the displayed Run's delivered record lives ONLY inside `current_read` (CEE #2654). Null unless the read
+ * is `complete_current` AND it names the Run (`run_id`, a non-empty string) AND carries a record. Carried raw;
+ * `RunDeliveredRecordSchema` parses it downstream (`applyScenarioAnalysisRead`), which also binds it to `runId`.
+ */
+export function readCurrentReadDelivered(raw: unknown): { readonly runId: string; readonly record: unknown } | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const read = raw as { run_state?: { kind?: unknown } | null; run_id?: unknown; delivered_record?: unknown }
+  if (read.run_state?.kind !== 'complete_current') return null
+  if (typeof read.run_id !== 'string' || read.run_id.length === 0) return null
+  if (read.delivered_record === undefined || read.delivered_record === null) return null
+  return { runId: read.run_id, record: read.delivered_record }
 }
 
 /**
@@ -442,10 +481,13 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    canonicalAnalysisView: b.canonical_analysis_view,
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
+    delivered: readCurrentReadDelivered(b.current_read),
     staleReasonWords: readHashEqualStaleReasonWords(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     permittedAnalysisMode: readPermittedAnalysisMode(b.analysis_admission, b.graph_hash),
@@ -453,6 +495,10 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
     heldProposalOffers: b.held_proposal_offers,
+    // Carried raw; the ONE reader is `parseActionBar` (canvas/conversation/actionBar/actionBarContract.ts).
+    actionBar: b.action_bar,
+    proposalFields: b.proposal_fields,
+    changedSinceRun: b.changed_since_run,
     requestId,
   }
 }
@@ -498,6 +544,7 @@ export async function fetchScenarioGraph(
   opts: FetchScenarioGraphOptions = {},
 ): Promise<ScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  const maxAttempts = opts.retry503 === false ? 1 : MAX_ATTEMPTS
 
   // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
   //
@@ -535,8 +582,10 @@ export async function fetchScenarioGraph(
   })
 
   const url = scenarioGraphUrl(scenarioId)
+  const unansweredAttempts = Math.max(1, opts.unansweredRetry?.attempts ?? 1)
+  let unanswered = 0
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // One deadline per attempt, chained to any caller signal so an unmount
     // still cancels immediately.
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -550,7 +599,7 @@ export async function fetchScenarioGraph(
       timeoutMs > 0 ? setTimeout(() => attemptController.abort(), timeoutMs) : null
 
     const startedAt = Date.now()
-    let response: Response
+    let response: Response | null = null
     try {
       response = await fetch(url, {
         method: 'POST',
@@ -566,20 +615,28 @@ export async function fetchScenarioGraph(
           attempt,
           timedOut: !opts.signal?.aborted,
         })
-        return { status: 'unusable' }
+      } else {
+        logger.warn('scenario_graph.transport_failure', {
+          attempt,
+          error: (err as Error)?.message ?? 'unknown',
+        })
       }
-      logger.warn('scenario_graph.transport_failure', {
-        attempt,
-        error: (err as Error)?.message ?? 'unknown',
-      })
-      return { status: 'unusable' }
     } finally {
       if (timer !== null) clearTimeout(timer)
       opts.signal?.removeEventListener('abort', onCallerAbort)
     }
+    if (response === null) {
+      // No answer at all. Read again only when the caller opted in and has not hung up; the 503 budget is untouched.
+      unanswered += 1
+      if (opts.signal?.aborted || unanswered >= unansweredAttempts) return { status: 'unusable' }
+      await sleep(opts.unansweredRetry?.backoffMs ?? 0)
+      if (opts.signal?.aborted) return { status: 'unusable' }
+      attempt -= 1
+      continue
+    }
 
     if (response.status === 503) {
-      if (attempt < MAX_ATTEMPTS) {
+      if (attempt < maxAttempts) {
         await sleep(retryDelayMs)
         continue
       }

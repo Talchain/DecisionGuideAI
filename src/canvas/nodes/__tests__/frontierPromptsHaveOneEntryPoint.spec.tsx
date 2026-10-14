@@ -130,9 +130,11 @@ beforeEach(() => {
   cleanup()
   prefills = []
   sends = []
+  const dispatch = vi.fn()
   // A composer is registered, so every ask-gated affordance CAN render — an
   // absence below is then the gate under test, not a missing surface.
   useGuidanceStore.setState({
+    _dispatchAction: dispatch, _isConversationBusy: () => false,
     _prefillChat: (t: string) => { prefills.push(t) },
     _sendMessage: (t: string) => { sends.push(t) },
   } as never)
@@ -216,8 +218,9 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
     // #1931 (merged 24 Sep, 5c4aa6f4): prefill-and-confirm, never send — the
     // person reads the question in the composer and chooses to send it
     // (Experience Design #63 5807363175).
-    expect(prefills.length, 'one click puts the question in the composer exactly once').toBe(1)
-    expect(prefills[0]).toContain('Trial conversion')
+    expect(prefills).toEqual([])
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledTimes(1)
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:missing-factor', source: 'chip' }))
     expect(sends, 'a canvas prompt never sends in the person\'s name').toEqual([])
   })
 

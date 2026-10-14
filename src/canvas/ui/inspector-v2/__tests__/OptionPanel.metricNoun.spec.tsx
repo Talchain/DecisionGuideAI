@@ -58,9 +58,7 @@ import { render, within } from '@testing-library/react'
 import { InspectorModal } from '../../../components/InspectorModal'
 import { useCanvasStore } from '../../../store'
 import {
-  CURRENT_MODEL_NOUN,
   METRIC_NOUN,
-  OPTION_RESULT_COPY,
   RETIRED_METRIC_NOUNS,
 } from '../../../nodes/shared/metricVocabulary'
 
@@ -82,12 +80,6 @@ const RIVAL_LABEL = 'Full switch'
 
 /** The retired inspector caption, read from the register rather than re-typed. */
 const RETIRED_INSPECTOR_CAPTION = 'Chance of leading'
-
-/**
- * The hero's caption under ED #63 5799353114 decision 2 — derived from the
- * register, so the caption and this guard cannot drift into two wordings.
- */
-const HERO_CAPTION = `${OPTION_RESULT_COPY.current} · of runs`
 
 function optionNode(id: string, label: string) {
   return {
@@ -155,104 +147,31 @@ beforeEach(() => {
 })
 
 describe("the option inspector captions the win probability with the canvas's noun", () => {
-  it('⭐ the caption beside the figure is "Current model · of runs" (ED #63 5799353114 decision 2), on the deployed mount path', () => {
+  // #2747 re-scope 2 (pre-accepted): rows deleted — "the caption beside the figure is 'Current model · of runs'", and the
+  // two F5 rows ("Last run · of runs", "Model result"). Their only subject, the option inspector's win-share hero and its
+  // caption, is removed in C (no win share on any surface, DL ruling (A)). Census row: option inspector.
+
+  it('⭐ the retired "Chance of leading" is nowhere on the option inspector', () => {
     const { dialog } = openInspector(OPTION_ID)
 
-    // PRECONDITION 1 — the OPTION panel is what opened, identified by
-    // `OptionPanel`'s OWN markup rather than by anything this test rendered
-    // (trap 3b). `getByText(OPTION_LABEL)` was the first spelling and threw:
-    // the label is rendered twice, in the header and in the comparison row.
-    expect(
-      dialog.querySelector('[data-panel-group="impact"]'),
-      "PRECONDITION: OptionPanel's own impact group must be on screen",
-    ).not.toBeNull()
+    // The precondition, restated in THIS test (trap 13). #2747 re-scope 2: the win-share hero that served as it is gone in
+    // C, so the precondition is the option inspector itself, opened on the option this test seeded.
     expect(
       within(dialog).getAllByText(OPTION_LABEL).length,
       'PRECONDITION: the inspector opened on the option this test seeded',
     ).toBeGreaterThan(0)
 
-    // ⭐ THE CAPTION, AND THE FIGURE IT CAPTIONS, BOUND BY ADJACENCY.
-    //
-    // ⚠ `getByText('62%')` was the first spelling and it is WRONG here: the
-    // pane renders that figure TWICE — once in the hero and once in the
-    // comparison row beneath it — so the query resolved to whichever came
-    // first and the assertion would have been about a different element than
-    // the one it names (trap 19). Going the other way is unambiguous: the
-    // caption is unique, and the hero's own markup puts the figure
-    // IMMEDIATELY BEFORE it. That ordering is the claim — a caption that stops
-    // sitting beside its number is exactly as broken as a caption with the
-    // wrong word in it.
-    const caption = within(dialog).getByText(HERO_CAPTION)
-    expect(
-      caption.previousElementSibling?.textContent?.trim(),
-      `"${HERO_CAPTION}" is on screen but is not captioning the win-probability figure`,
-    ).toBe('62%')
-    // The literal, beside the derived form (trap 12d): the register's words.
-    expect(caption.textContent).toBe('Current model · of runs')
-    expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
-    // ED decision 2's second half: the explanation says the figure is
-    // conditional on the model — the register's own sentence, for THIS figure.
-    expect(caption.getAttribute('title')).toBe(OPTION_RESULT_COPY.sentence('62%'))
-    expect(caption.getAttribute('title')).toBe('In this model, 62% of runs supported this option.')
-    // The recommend stem is banned even negated (J1 ruling).
-    expect(caption.getAttribute('title')).not.toMatch(/recommend/i)
-    // The retired caption is not what captions the figure any more — read from
-    // the SAME element whose presence and adjacency were just proven.
-    expect(caption.textContent).not.toMatch(new RegExp(`${METRIC_NOUN.support}(?![a-z])`))
-  })
-
-  it('⭐ the retired "Chance of leading" is nowhere on the option inspector', () => {
-    const { dialog } = openInspector(OPTION_ID)
-
-    // The same precondition, restated in THIS test: an absence assertion in a
-    // test whose surface never mounted is the vacuity trap 13 exists for, and
-    // it is not inherited from the test above.
-    expect(
-      within(dialog).getByText(HERO_CAPTION).previousElementSibling?.textContent?.trim(),
-      'PRECONDITION: the win-probability hero must be on screen for this absence to mean anything',
-    ).toBe('62%')
-
     const copy = dialog.textContent ?? ''
-    // CONTRAST CONTROL: the instrument can see this surface's text at all —
-    // and specifically the live caption, so a blank read cannot pass as a clean one.
-    expect(copy, 'the inspector read as empty — this absence assertion is vacuous').toContain(
-      HERO_CAPTION,
-    )
-    expect(copy).toContain('62%')
+    // CONTRAST CONTROL: the instrument can see this surface's text at all.
+    expect(copy, 'the inspector read as empty — this absence assertion is vacuous').toContain(OPTION_LABEL)
+    // …and no win share is said (C).
+    expect(copy).not.toContain('62%')
 
     expect(copy, 'the retired inspector caption is back on screen').not.toContain(
       RETIRED_INSPECTOR_CAPTION,
     )
   })
 
-  /**
-   * ⭐ F5 (canvas audit 27 Sep, edit-values, served `23ff3ca8`): after an edit
-   * the card read `Last run 62% of runs` and this hero read `62% Current model ·
-   * of runs`, titled "the model as it stands". Same figure, same moment.
-   */
-  it('F5 — after the model changes, the hero caption reads "Last run · of runs" and its title says so', () => {
-    // CEE's own verdict after the served edit: `complete_stale`, cause `graph_changed`.
-    useCanvasStore.setState({ analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' }, analysisFreshnessDirty: true } as never)
-    const { dialog } = openInspector(OPTION_ID)
-    const caption = within(dialog).getByTestId('option-panel-result-caption')
-    // Positive control: the caption is the one beside THIS figure.
-    expect(caption.previousElementSibling?.textContent?.trim()).toBe('62%')
-    expect(caption.textContent).toBe(`${OPTION_RESULT_COPY.lastRun} · of runs`)
-    expect(caption.textContent).not.toContain(OPTION_RESULT_COPY.current)
-    expect(caption.getAttribute('title')).toContain(OPTION_RESULT_COPY.changedNote)
-    // The comparison bars beneath it are the same last run's shares, and say so.
-    expect(within(dialog).getByTestId('option-panel-compare-last-run').textContent).toBe(OPTION_RESULT_COPY.lastRunNoNewComparison)
-  })
-
-  it('F5 — with no freshness verdict the hero claims no currency ("Model result"), as the card does', () => {
-    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false } as never)
-    const { dialog } = openInspector(OPTION_ID)
-    const caption = within(dialog).getByTestId('option-panel-result-caption')
-    expect(caption.previousElementSibling?.textContent?.trim()).toBe('62%')
-    expect(caption.textContent).toBe(`${OPTION_RESULT_COPY.unconfirmed} · of runs`)
-    // `Last run` is licensed only by a KNOWN change (ED 02:31Z) — not here.
-    expect(within(dialog).queryByTestId('option-panel-compare-last-run')).toBeNull()
-  })
 
   it('the retired phrase this pins is the one the register retired', () => {
     // Binds the literal above to the register, so a rename in one place cannot

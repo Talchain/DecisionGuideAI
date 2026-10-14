@@ -30,7 +30,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
 import { useCanvasStore } from '../../store'
-import { resolveGroundedLabels } from '../GroundedOnNotice'
 import type { ConversationMessage } from '../types'
 import type { GroundedSelection } from '../groundedSelection'
 
@@ -106,64 +105,24 @@ describe('GroundedOnNotice — ⭐ fabrication guard (no sidecar ⇒ no claim)',
   })
 })
 
-describe('GroundedOnNotice — ⭐ identity binding (the DISCRIMINATING PAIR, trap 19)', () => {
-  it('names the element the answer WAS grounded on, by canonical id', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({ groundedSelection: groundedOnSalary })}
-        onChipClick={noop}
-      />,
+describe('GroundedOnNotice — the elements line is REMOVED (AI-first subtract, DL 12 Oct; friction N4)', () => {
+  // "You had {x} selected when you asked." showed on every reply (the selection is sticky). It is removed and no words
+  // replace it. The four identity-binding rows that pinned it, the partial-join row and the `resolveGroundedLabels`
+  // rows went with it (the resolver had no other caller).
+  it.each([
+    ['one element', [SALARY_ID]],
+    ['two elements', [CONTRACTOR_ID, SALARY_ID]],
+  ] as const)('a reply grounded on %s names no element and renders no notice', (_n, ids) => {
+    const { container } = render(
+      <MessageBubble message={makeMsg({ groundedSelection: { element_ids: [...ids], unresolved: 'none' } })} onChipClick={noop} />,
     )
-    const named = screen.getAllByTestId('grounded-on-element')
-    expect(named).toHaveLength(1)
-    expect(named[0].getAttribute('data-element-id')).toBe(SALARY_ID)
-    expect(named[0].textContent).toContain(SALARY_LABEL)
-  })
-
-  it('does NOT name a DIFFERENT element that exists on the same canvas', () => {
-    // The other half of the pair. A fixed-id implementation, or one that named
-    // every node, passes the test above and FAILS here.
-    render(
-      <MessageBubble
-        message={makeMsg({ groundedSelection: groundedOnSalary })}
-        onChipClick={noop}
-      />,
-    )
-    const ids = screen
-      .getAllByTestId('grounded-on-element')
-      .map((el) => el.getAttribute('data-element-id'))
-    expect(ids).not.toContain(CONTRACTOR_ID)
+    // Positive control: the reply itself rendered.
+    expect((container.textContent ?? '').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('grounded-on-notice')).toBeNull()
+    expect(screen.queryByTestId('grounded-on-elements')).toBeNull()
+    expect((container.textContent ?? '').toLowerCase()).not.toContain('you had')
+    expect(screen.queryByText(SALARY_LABEL)).toBeNull()
     expect(screen.queryByText(CONTRACTOR_LABEL)).toBeNull()
-  })
-
-  it('a DIFFERENT grounded id names the OTHER element — the notice tracks the payload', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          groundedSelection: { element_ids: [CONTRACTOR_ID], unresolved: 'none' },
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const named = screen.getAllByTestId('grounded-on-element')
-    expect(named).toHaveLength(1)
-    expect(named[0].getAttribute('data-element-id')).toBe(CONTRACTOR_ID)
-    // ⭐ The discrimination: the two payloads must not render the same thing.
-    expect(named[0].getAttribute('data-element-id')).not.toBe(SALARY_ID)
-  })
-
-  it('names MULTIPLE grounded elements in the order received (persisted-graph order)', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          groundedSelection: { element_ids: [CONTRACTOR_ID, SALARY_ID], unresolved: 'none' },
-        })}
-        onChipClick={noop}
-      />,
-    )
-    expect(
-      screen.getAllByTestId('grounded-on-element').map((el) => el.getAttribute('data-element-id')),
-    ).toEqual([CONTRACTOR_ID, SALARY_ID])
   })
 })
 
@@ -206,8 +165,8 @@ describe('GroundedOnNotice — ⭐⭐ not_in_model and could_not_check MUST NOT 
     }
   })
 
-  it('surfaces the state machine-readably, undegraded, for each member', () => {
-    for (const member of ['none', 'not_in_model', 'could_not_check'] as const) {
+  it('surfaces the state machine-readably, undegraded, for each disclosing member (`none` renders no notice)', () => {
+    for (const member of ['not_in_model', 'could_not_check'] as const) {
       const { unmount } = render(
         <MessageBubble
           message={makeMsg({ groundedSelection: { element_ids: [SALARY_ID], unresolved: member } })}
@@ -261,69 +220,5 @@ describe('GroundedOnNotice — the empty-and-honest producer states', () => {
     )
     expect(screen.queryByTestId('grounded-on-notice')).toBeNull()
     expect(screen.queryByText(ABSENT_ID)).toBeNull()
-  })
-
-  it('a partial join names what it can and states NO count', () => {
-    render(
-      <MessageBubble
-        message={makeMsg({
-          groundedSelection: { element_ids: [SALARY_ID, ABSENT_ID], unresolved: 'none' },
-        })}
-        onChipClick={noop}
-      />,
-    )
-    const named = screen.getAllByTestId('grounded-on-element')
-    expect(named).toHaveLength(1)
-    expect(named[0].getAttribute('data-element-id')).toBe(SALARY_ID)
-    // No quantity claim anywhere in the notice — a count would be false here.
-    expect(screen.getByTestId('grounded-on-notice').textContent).not.toMatch(/\b2\b|\btwo\b/i)
-  })
-})
-
-describe('resolveGroundedLabels — the id-first, fail-closed join', () => {
-  // Naming is DELEGATED to `resolveElementLabel`, the repo's existing authority
-  // (see the component docstring). These cases pin the id-binding and the
-  // fail-closed dropping, which is the part this module owns.
-  const nodes = [
-    { id: SALARY_ID, data: { label: SALARY_LABEL } },
-    { id: MARGIN_ID, data: { label: MARGIN_LABEL } },
-  ] as never
-  const edges = [{ id: EDGE_ID, source: SALARY_ID, target: MARGIN_ID }] as never
-
-  it('joins a node id to its label, keyed on id', () => {
-    expect(resolveGroundedLabels([SALARY_ID], nodes, edges)).toEqual([
-      { id: SALARY_ID, label: SALARY_LABEL },
-    ])
-  })
-
-  it('names an edge from its endpoints, via the delegated label authority', () => {
-    // The composed form is `resolveElementLabel`'s, NOT a second convention
-    // invented here. ⚠ Note it uses an ASCII arrow while `useSelectionContext`
-    // (the SelectionPill the user clicked) uses `→` — a PRE-EXISTING divergence
-    // in the estate, reported rather than silently taken a side on. Pinned here
-    // so the notice cannot drift from whichever authority owns the name.
-    const named = resolveGroundedLabels([EDGE_ID], nodes, edges)
-    expect(named).toHaveLength(1)
-    expect(named[0].id).toBe(EDGE_ID)
-    expect(named[0].label).toContain(SALARY_LABEL)
-    expect(named[0].label).toContain(MARGIN_LABEL)
-  })
-
-  it('drops an unknown id rather than fabricating a label', () => {
-    expect(resolveGroundedLabels([ABSENT_ID], nodes, edges)).toEqual([])
-  })
-
-  it('drops a node with no usable label rather than echoing its id at the user', () => {
-    expect(
-      resolveGroundedLabels(['n-blank'], [{ id: 'n-blank', data: { label: '  ' } }] as never, []),
-    ).toEqual([])
-    expect(resolveGroundedLabels(['n-none'], [{ id: 'n-none' }] as never, [])).toEqual([])
-  })
-
-  it('preserves input order and does not sort', () => {
-    expect(resolveGroundedLabels([MARGIN_ID, SALARY_ID], nodes, edges).map((e) => e.id)).toEqual([
-      MARGIN_ID,
-      SALARY_ID,
-    ])
   })
 })

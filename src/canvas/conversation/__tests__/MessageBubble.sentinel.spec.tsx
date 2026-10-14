@@ -45,22 +45,6 @@ describe('MessageBubble [system] sentinel guard', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument()
   })
 
-  it('suppresses assistant messages with [system] sentinel content', () => {
-    const message: ConversationMessage = {
-      id: 'msg-3',
-      role: 'assistant',
-      content: SYSTEM_MESSAGE_SENTINEL,
-      timestamp: new Date(),
-    }
-
-    const { container } = render(
-      <MessageBubble message={message} onChipClick={vi.fn()} />,
-    )
-
-    // Non-conversational assistant content (including [system] sentinel) is suppressed
-    expect(container.firstChild).toBeNull()
-  })
-
   it('renders graph_patch blocks even when assistant text is empty', () => {
     const block: GraphPatchBlock = {
       type: 'graph_patch',

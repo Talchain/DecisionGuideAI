@@ -95,8 +95,7 @@ export function buildExamineLinkView(input: {
     prepare: {
       label: `Examine ${input.sourceLabel} → ${input.targetLabel}`,
       text:
-        `Help me examine the link from "${input.sourceLabel}" to "${input.targetLabel}" (currently ${band.toLowerCase()}). ` +
-        'What is it based on, and how strong is it really?',
+        `Why would ‘${input.sourceLabel}’ change ‘${input.targetLabel}’, and how sure are we?`,
     },
   }
 }

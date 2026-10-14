@@ -15,9 +15,9 @@
 import { describe, it, expect } from 'vitest'
 import { messageForElapsed, PROGRESSIVE_STAGES } from '../DraftLoadingAnimation'
 
-const STAGE_1 = 'Drafting your decision model…'
-const STAGE_2 = 'Still drafting your decision model…'
-const STAGE_3 = 'Still drafting. Complex decisions can take a while…'
+const STAGE_1 = 'Drafting your model…'
+const STAGE_2 = 'Still drafting your model…'
+const STAGE_3 = 'Still drafting. Complex models can take a while…'
 
 describe('messageForElapsed', () => {
   it('returns stage 1 message at 0 seconds', () => {

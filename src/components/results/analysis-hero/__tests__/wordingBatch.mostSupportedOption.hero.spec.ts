@@ -10,11 +10,12 @@ import { HERO_COPY } from '../heroCopy'
 const CONTEST = /\b(lead|leads|leading|led|leader|ahead|winner|wins?|best|beats?|overtake)\b/i
 
 describe('hero evidence: a run share is a share of runs, never a chance (Science d5)', () => {
-  it('flip-risk caption, permitted and target-only withheld — exact', () => {
-    expect(HERO_COPY.evidence.flipRisksNote(false)).toBe(
-      'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.')
-    expect(HERO_COPY.evidence.flipRisksNote(true)).toBe(
+  it('flip-risk caption, one wording for every run — exact', () => {
+    // Run-4 judge (DL 12 Oct, the class): the permitted caption "… changes the most-supported option, in this model." is
+    // removed; nothing replaces it. `flipRisksNote` is now one string, the wording the target-only withheld run had.
+    expect(HERO_COPY.evidence.flipRisksNote).toBe(
       'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.')
+    expect(HERO_COPY.evidence.flipRisksNote).not.toMatch(/most[- ]supported/i)
   })
 
   it('attribution-suppressed note — exact opening, rest unchanged', () => {
@@ -25,8 +26,7 @@ describe('hero evidence: a run share is a share of runs, never a chance (Science
 
   it('SCAN: none of the three says "chance" or names a contest', () => {
     for (const line of [
-      HERO_COPY.evidence.flipRisksNote(false),
-      HERO_COPY.evidence.flipRisksNote(true),
+      HERO_COPY.evidence.flipRisksNote,
       HERO_COPY.evidence.attributionSuppressed,
     ]) {
       expect(line, line).not.toMatch(/\bchance\b/i)

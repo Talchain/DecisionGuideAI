@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { AnalysisResultBlockSchema, AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
@@ -62,7 +62,7 @@ afterEach(() => {
 })
 
 describe('the artefact mounted in the existing Compare body', () => {
-  it('shows business edits and the pair limit, with science figures disclosed in result details', () => {
+  it('shows business edits and the pair limit, and no science share figures', () => {
     const hash = seed()
     expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
     expect(selectWinSharesWithheld(useCanvasStore.getState())).toBe(false)
@@ -71,16 +71,14 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(artefact).toHaveAttribute('data-testid', RUN_CHANGE_ARTEFACT_TESTID)
     expect(artefact).toHaveAttribute('data-prior-run-id', 'run-a')
     expect(artefact).toHaveAttribute('data-current-run-id', 'run-b')
-    const row = within(screen.getByRole('region', { name: 'What you changed' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    const row = within(screen.getByRole('region', { name: 'What changed in the model' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
     expect(row).toHaveTextContent('Pro price, Raise to £60')
     expect(row).toHaveTextContent('£59 → £60')
     // Reasoning's shared row; the wire fields it renders are named once, on its section.
     expect(row.closest('[data-wire-fields]')).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
-    expect(screen.queryByText('Raise to £60: 41% → 44% chance of leading.')).toBeNull()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(
-      'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
-    )
+    expect(screen.queryByText('Raise to £60: supported by 41% → 44% of runs.')).toBeNull()
+    // #2747 re-scope 2 (DL ruling (A)): the Result details disclosure and its "supported by 41% → 44% of runs" presence
+    // (with its wire-field binding) are deleted — Compare has no Result details section and no share figures in C.
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(artefact).not.toHaveTextContent('Price is an influential input on this run.')
     expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()

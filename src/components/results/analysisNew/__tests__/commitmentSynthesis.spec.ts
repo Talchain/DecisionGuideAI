@@ -241,8 +241,10 @@ describe('bullet 2 — what remains uncertain, by fixed priority', () => {
     const vm = vmOf(decisionWithLeaderWithheld())
     expect(vm.checks.leaderWithheld).toBe(true)
     expect(vm.checks.leaderWithholdCause).toBeNull()
+    // 8 Oct 2026: short at rest, the standing sentence one click away under the bullet's disclosure.
     expect(buildCommitmentSynthesis(vm).open).toEqual({
-      text: COPY.checks.leader_not_assessed.meaning,
+      text: COMMITMENT_COPY.short.leaderNotConfirmed,
+      detail: COPY.checks.leader_not_assessed.meaning,
       source: 'leader_withheld',
     })
   })

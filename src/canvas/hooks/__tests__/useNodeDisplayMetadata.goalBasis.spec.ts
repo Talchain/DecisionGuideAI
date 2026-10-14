@@ -1,3 +1,4 @@
+import { licensedTestReportHeld } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — THE BASIS IS CARRIED, NOT DISCARDED (ROADMAP 2.283).
  *
@@ -111,7 +112,7 @@ function reportFor(option: Record<string, unknown>, withPointer = true) {
 }
 
 function setReport(report: unknown, status = 'complete') {
-  store = create<MockCanvasState>(() => ({ results: { status, report } }))
+  store = create<MockCanvasState>(() => ({ results: { status, report: licensedTestReportHeld(report) } }))
 }
 
 function renderForGoal() {
@@ -157,7 +158,8 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     expect(md.achievementProbabilityBasis).toBe('joint_goal_withheld')
     // The joint quantity itself still crosses the hop for the panel's own
     // honestly-labelled row.
-    expect(md.jointGoalProbability).toBe(0.0054)
+    expect(md.jointGoalPresent).toBe(true) // #2747: presence only; the joint number is not carried
+    expect("jointGoalProbability" in md).toBe(false)
   })
 
   it('forwards goal_probability when the run carries the real goal quantity', () => {
@@ -175,13 +177,15 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     expect(md.achievementProbability).not.toBe(0.42) // the discriminating contrast: never the joint figure
     expect(md.achievementProbabilityBasis).toBe('goal_probability')
     // The joint figure still crosses the hop for its own labelled row.
-    expect(md.jointGoalProbability).toBe(0.42)
+    expect(md.jointGoalPresent).toBe(true) // #2747: presence only
+    expect("jointGoalProbability" in md).toBe(false)
 
     setReport(reportFor(CONSTRAINED_NO_GOAL_OPTION))
     const withheld = renderForGoal()
     expect(withheld.achievementProbability).toBeNull()
     expect(withheld.achievementProbabilityBasis).toBe('joint_goal_withheld')
-    expect(withheld.jointGoalProbability).toBe(0.42)
+    expect(withheld.jointGoalPresent).toBe(true) // #2747: presence only
+    expect("jointGoalProbability" in withheld).toBe(false)
   })
 
   it('INVARIANT: a non-null achievementProbability is NEVER published without a basis', () => {

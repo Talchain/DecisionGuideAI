@@ -96,7 +96,7 @@
  * scope the queries to the rendered region instead of to `document`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON } from '../useInspectorMutations'
@@ -189,6 +189,30 @@ const EDGE_FIXTURE_EDGES = [
   { id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
 ]
 
+const OPTION_SAVING_FIXTURE = [
+  {
+    id: 'saving-option',
+    type: 'option',
+    position: { x: 0, y: 0 },
+    data: {
+      kind: 'option', label: 'Expand the team', description: 'Expansion within our budget.',
+      interventions: { 'set-factor': { value: 0.4, source: 'user_specified' } },
+    },
+  },
+  ...['set-factor', 'unset-factor', 'spare-factor'].map(id => ({
+    id, type: 'factor', position: { x: 0, y: 0 },
+    data: {
+      kind: 'factor', category: 'controllable',
+      label: id === 'set-factor' ? 'Existing budget' : id === 'unset-factor' ? 'New budget' : 'Spare budget',
+      observedState: { value: 0.2, raw_value: 20, unit: '£', cap: 100 },
+    },
+  })),
+]
+const OPTION_SAVING_FIXTURE_EDGES = [
+  { id: 'option-set-factor', source: 'saving-option', target: 'set-factor', data: {} },
+  { id: 'option-unset-factor', source: 'saving-option', target: 'unset-factor', data: {} },
+]
+
 /**
  * Resolve the boundary and its explanation together.
  *
@@ -198,15 +222,23 @@ const EDGE_FIXTURE_EDGES = [
  * focusable control — the thing the policy is actually about.
  */
 function readBoundary() {
-  const fieldset = document.querySelector<HTMLFieldSetElement>(
+  const fieldsets = Array.from(document.querySelectorAll<HTMLFieldSetElement>(
     'fieldset[data-authority="disabled"]',
-  )
-  if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
+  ))
+  if (fieldsets.length === 0) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
 
-  const controls = Array.from(
+  // Anatomy portals moved the description out of the Router's fieldset.
+  // Its replicated boundary must count too; dropping that fence must still
+  // produce an escape, and removing disabled must still fail the inertness pin.
+  const controls = [...new Set(fieldsets.flatMap(fieldset => Array.from(
     fieldset.querySelectorAll<HTMLElement>('input, select, textarea, button'),
-  )
-  return { fieldset, controls }
+  )))]
+  return { fieldset: fieldsets[0], fieldsets, controls }
+}
+
+function openMore() {
+  const toggle = screen.getByTestId('inspector-more-toggle')
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
 }
 
 describe('Inspector read-only policy — enforced form, node region', () => {
@@ -218,13 +250,16 @@ describe('Inspector read-only policy — enforced form, node region', () => {
 
   it('renders the boundary around at least one real control (precondition, not a claim)', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
-    const { controls } = readBoundary()
+    openMore()
+    const { fieldset, controls } = readBoundary()
+    expect(screen.getByTestId('inspector-summary-sentence').closest('fieldset[data-authority="disabled"]')).toBe(fieldset)
     // If this ever reads zero, every disabled-ness assertion below is vacuous.
     expect(controls.length).toBeGreaterThan(0)
   })
 
   it('explains the boundary with INSPECTOR_READ_ONLY_REASON — the constant, not a copy', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
       INSPECTOR_READ_ONLY_REASON,
     )
@@ -232,21 +267,25 @@ describe('Inspector read-only policy — enforced form, node region', () => {
 
   it('BINDS the boundary to that explanation via aria-describedby, by identity', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
-    const { fieldset } = readBoundary()
-    const describedBy = fieldset.getAttribute('aria-describedby')
-    expect(describedBy).toBeTruthy()
+    openMore()
+    const { fieldsets } = readBoundary()
+    for (const fieldset of fieldsets) {
+      const describedBy = fieldset.getAttribute('aria-describedby')
+      expect(describedBy).toBeTruthy()
 
-    // Resolve the id to the element it names, and require THAT element to be
-    // the one carrying the reason. An `aria-describedby` pointing at nothing,
-    // or at some other node, is a boundary the user is never told about.
-    const explanation = document.getElementById(describedBy as string)
-    expect(explanation).not.toBeNull()
-    expect(explanation).toHaveTextContent(INSPECTOR_READ_ONLY_REASON)
-    expect(explanation).toBe(screen.getByTestId('inspector-authority-notice'))
+      // Resolve the id to the element it names, and require THAT element to be
+      // the one carrying the reason. An `aria-describedby` pointing at nothing,
+      // or at some other node, is a boundary the user is never told about.
+      const explanation = document.getElementById(describedBy as string)
+      expect(explanation).not.toBeNull()
+      expect(explanation).toHaveTextContent(INSPECTOR_READ_ONLY_REASON)
+      expect(explanation).toBe(screen.getByTestId('inspector-authority-notice'))
+    }
   })
 
   it('makes every control inside the boundary genuinely inert', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     const { controls } = readBoundary()
     for (const control of controls) {
       expect(control).toBeDisabled()
@@ -255,6 +294,7 @@ describe('Inspector read-only policy — enforced form, node region', () => {
 
   it('POSITIVE CONTROL: the close affordance sits OUTSIDE the boundary and stays usable', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     const { fieldset } = readBoundary()
     const close = screen.getByRole('button', { name: /close/i })
     // Proves the boundary is scoped, not a blanket "everything is disabled"
@@ -273,12 +313,14 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('renders the boundary around at least one real control (precondition, not a claim)', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { controls } = readBoundary()
     expect(controls.length).toBeGreaterThan(0)
   })
 
   it('explains the boundary with the EDGE constant, not a copy and not the node one', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
       INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON,
     )
@@ -286,6 +328,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('BINDS the boundary to that explanation via aria-describedby, by identity', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { fieldset } = readBoundary()
     const describedBy = fieldset.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
@@ -298,6 +341,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('makes every control inside the boundary genuinely inert', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { controls } = readBoundary()
     for (const control of controls) {
       expect(control).toBeDisabled()
@@ -426,6 +470,18 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
   // boundary.
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
   {
+    selector: '[data-testid="inspector-more-toggle"]',
+    why: 'anatomy presentation disclosure — opens the outer route to technical detail and the authority notice; writes no model value',
+    // Keep a separate identity so losing either disclosure still fails the
+    // entry-must-match guard. Every live panel now uses the same anatomy route.
+  },
+  {
+    selector: '[data-testid="inspector-header-menu"]',
+    why: 'header actions menu toggle (EDIT-UX slice 3a) — opening it writes nothing. Its "Remove" item calls the SAME `deleteAction` as the canvas context menu (confirm dialog + durable structural delete), so, like the rename, it is outside because it CAN be saved through an existing carrier, not because it is exempt. "Back to the conversation" in the same menu is navigation.',
+    // ALL panels: Remove exists for every node kind and for links, so the entry
+    // must match everywhere — losing the menu on any panel still REDs.
+  },
+  {
     selector: '[data-testid="edge-label-mode-toggle"]',
     why: 'presentation toggle — sets whether the BOARD draws connection labels as phrases or numbers; writes no model value, so it is the same class as "Show technical detail" above',
     // EDGE ONLY, and deliberately: the control is mounted in the Router's edge
@@ -481,8 +537,7 @@ function describeControl(el: Element): string {
 function escapedControls(panel: PanelKind = 'node'): string[] {
   const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)
   if (!region) throw new Error('PRECONDITION FAILED: no Inspector region rendered')
-  const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
-  if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
+  const { fieldsets } = readBoundary()
 
   const allowed = new Set<Element>()
   for (const { selector } of DELIBERATELY_OUTSIDE.filter(
@@ -494,7 +549,7 @@ function escapedControls(panel: PanelKind = 'node'): string[] {
       .toBeGreaterThan(0)
     for (const match of matches) {
       expect(
-        fieldset.contains(match),
+        fieldsets.some(fieldset => fieldset.contains(match)),
         `deliberately-outside entry resolved INSIDE the boundary: ${selector}`,
       ).toBe(false)
       allowed.add(match)
@@ -502,7 +557,7 @@ function escapedControls(panel: PanelKind = 'node'): string[] {
   }
 
   return Array.from(region.querySelectorAll<HTMLElement>(EDITING_SELECTOR))
-    .filter(el => !fieldset.contains(el) && !allowed.has(el))
+    .filter(el => !fieldsets.some(fieldset => fieldset.contains(el)) && !allowed.has(el))
     .map(describeControl)
 }
 
@@ -537,9 +592,8 @@ function isEffectivelyDisabled(el: HTMLElement): boolean {
 
 /** Controls inside the boundary that `<fieldset disabled>` does NOT inert. */
 function notInertedInsideBoundary(): string[] {
-  const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
-  if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
-  return Array.from(fieldset.querySelectorAll<HTMLElement>(EDITING_SELECTOR))
+  const { fieldsets } = readBoundary()
+  return [...new Set(fieldsets.flatMap(fieldset => Array.from(fieldset.querySelectorAll<HTMLElement>(EDITING_SELECTOR))))]
     .filter(el => !el.matches(NATIVELY_DISABLEABLE))
     .map(describeControl)
 }
@@ -559,6 +613,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // more.
     setStoreState(NODE_FIXTURE)
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     expect(escapedControls()).toEqual([])
   })
 
@@ -569,6 +624,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // and every OTHER control on the pane must still be inside it.
     setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
     render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     expect(escapedControls('decision')).toEqual([])
   })
 
@@ -579,6 +635,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // reported as escaped. Asserted by injecting exactly that element.
     setStoreState(NODE_FIXTURE)
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
     const stray = document.createElement('button')
     stray.setAttribute('data-testid', 'decision-add-option')
@@ -590,16 +647,15 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no editing control outside the boundary in the edge panel', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(escapedControls('edge')).toEqual([])
   })
 
   it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {
     setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
     render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
-    const { fieldset } = readBoundary()
-    const formControls = Array.from(
-      fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
-    )
+    openMore()
+    const { controls: formControls } = readBoundary()
     // Precondition: a completeness claim over an empty set is vacuous.
     expect(formControls.length).toBeGreaterThan(0)
     expect(formControls.filter(el => !isEffectivelyDisabled(el)).map(describeControl)).toEqual([])
@@ -608,6 +664,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no effectively-enabled FORM CONTROL inside the edge boundary', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { fieldset } = readBoundary()
     const formControls = Array.from(
       fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
@@ -654,12 +711,14 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('pins EXACTLY which controls the fieldset does not inert (node panel)', () => {
     setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
     render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     expect(notInertedInsideBoundary()).toEqual(NOT_INERTED_BY_THE_FIELDSET_NODE)
   })
 
   it('pins EXACTLY which controls the fieldset does not inert (edge panel)', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(notInertedInsideBoundary()).toEqual([])
   })
 
@@ -671,6 +730,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // region and outside the boundary.
     setStoreState(NODE_FIXTURE)
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    openMore()
     expect(escapedControls()).toEqual([])
 
     const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
@@ -697,5 +757,63 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
 
     loose.remove()
     guarded.remove()
+  })
+})
+
+/**
+ * Option target boxes have the existing `option_intervention_edit` carrier,
+ * including a linked factor whose target is not set yet. They belong outside
+ * disabled fieldsets. The factor picker uses the canvas structural-add carrier
+ * and also belongs outside; description and advanced-editor fences remain.
+ * Keep this separate from the generic escape helpers, whose precondition is a
+ * Router blanket boundary that an authority-owning option panel does not have.
+ */
+describe('Inspector authority binding — option saving controls', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    cleanup()
+    setStoreState(OPTION_SAVING_FIXTURE, OPTION_SAVING_FIXTURE_EDGES)
+    useCanvasStore.setState({ ceeAnalysisReady: null } as never)
+  })
+
+  it('leaves both the existing target and the linked empty target outside disabled fieldsets', () => {
+    render(<InspectorRouter nodeId="saving-option" edgeId={null} onClose={vi.fn()} />)
+    const existing = within(screen.getByTestId('inspector-intervention-set-factor'))
+      .getByRole('textbox', { name: 'Target for Existing budget under Expand the team' })
+    const empty = within(screen.getByTestId('inspector-intervention-unset-factor'))
+      .getByRole('textbox', { name: 'Target for New budget under Expand the team' })
+
+    expect(existing).toHaveValue('40')
+    expect(empty).toHaveValue('')
+    for (const input of [existing, empty]) {
+      expect(input).not.toBeDisabled()
+      expect(input.closest('fieldset[disabled]')).toBeNull()
+    }
+  })
+
+  it('keeps description and advanced editor disabled while the structural picker is enabled', () => {
+    const { container } = render(
+      <InspectorRouter nodeId="saving-option" edgeId={null} onClose={vi.fn()} />,
+    )
+    openMore()
+    fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show model detail' }))
+
+    const picker = screen.getByRole('combobox', { name: 'Choose a factor it changes' })
+    expect(picker).not.toBeDisabled()
+    expect(picker.closest('fieldset[disabled]')).toBeNull()
+    const offered = within(picker).getAllByRole('option')
+      .map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    expect(offered).toEqual(['spare-factor'])
+    expect(offered).not.toContain('set-factor')
+    expect(offered).not.toContain('unset-factor')
+
+    const fences = [...container.querySelectorAll<HTMLFieldSetElement>('fieldset[data-writer-fence]')]
+    expect(fences.map(fence => fence.getAttribute('data-writer-fence')).sort())
+      .toEqual(['advanced-editor', 'description'])
+    for (const fence of fences) expect(fence).toBeDisabled()
+
+    const advanced = container.querySelector<HTMLFieldSetElement>('fieldset[data-writer-fence="advanced-editor"]')!
+    expect(within(advanced).getByDisplayValue('Expansion within our budget.')).toBeDisabled()
   })
 })

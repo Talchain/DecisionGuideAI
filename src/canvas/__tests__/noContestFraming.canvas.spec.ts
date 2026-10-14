@@ -65,7 +65,7 @@
  * proof.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const ROOT = path.resolve(__dirname, '../../..')
@@ -109,6 +109,8 @@ const SCOPE_DIRS = [
   'src/v5/blocks',
 ]
 const SCOPE_FILES = [
+  'src/components/results/analysisNew/sections/PreMortemWorksheet.tsx',
+  'src/components/results/analysis-hero/goalOptionCoverage.tsx',
   // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
   // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
   // ahead` is entry 6 below, and three live strings sat in these two files
@@ -117,10 +119,12 @@ const SCOPE_FILES = [
   // files other lanes are actively holding, and this guard's job is not to
   // arbitrate their copy mid-flight.
   'src/components/results/modals/HowComputedModal.tsx',
-  'src/components/results/WinGauge.tsx',
+  // `src/components/results/WinGauge.tsx` left this list in #2747 re-scope 2: the gauge is deleted (no win share in C).
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
-  'src/components/results/utils/winnerChipCopy.ts',
+  // `src/components/results/utils/winnerChipCopy.ts` left this list in the Run-4 judge class (DL 12 Oct): the file is
+  // DELETED (the card's chat chip is removed on every card). The scope test below pins that it stays deleted, so a
+  // re-created register REDs there and must be re-added here rather than sitting unswept.
   // ⭐ ADDED 6 Oct 2026 (WORDING BATCH cut 6, DL lease): the leader-framing class. "Which option leads changed…",
   // "before a different option leads…", "Chance another option leads" and "chance of coming out ahead" were live here
   // because nothing opened these files. The hits were enumerated before adding (see the PR).
@@ -128,7 +132,13 @@ const SCOPE_FILES = [
   'src/components/results/utils/humaniseCritique.ts',
   'src/components/results/ConditionalWinnerCards.tsx',
   'src/components/results/analysis-hero/heroCopy.ts',
+  // ⭐ ADDED 6 Oct 2026 (G4/G5 phase 2, P3; design-g4g6 Q5): the goal-chance sentences and the driver sentence under
+  // them live here and nothing opened this file. Hits were enumerated before adding (see the PR).
+  'src/components/results/analysis-hero/goalChanceCopy.ts',
+  'src/components/results/utils/goalChanceRange.ts',
+  'src/components/results/analysis-hero/GoalChanceRangeLines.tsx',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
+  // (#2747 re-scope 2: the decision matrix, listed here until then, is removed in C.)
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
    * will otherwise read as closing the CLASS, and it closes the INSTANCES.
@@ -556,6 +566,9 @@ describe('the canvas never frames a decision as a contest', () => {
 
   it('the sweep can see the scope it claims to sweep', () => {
     const files = scopeFiles()
+    expect(files.some(f => f.endsWith('src/components/results/analysisNew/sections/PreMortemWorksheet.tsx'))).toBe(true)
+    expect(files.some((f) => f.endsWith('src/components/results/utils/goalChanceRange.ts'))).toBe(true)
+    expect(files.some((f) => f.endsWith('src/components/results/analysis-hero/GoalChanceRangeLines.tsx'))).toBe(true)
     // Contrast control on the INSTRUMENT, not the claim: a sweep that walked
     // an empty tree would report zero offences and look identical to a clean
     // one (CLAUDE.md trap 13e).
@@ -569,11 +582,10 @@ describe('the canvas never frames a decision as a contest', () => {
     )
     // ⭐ Each SCOPE_FILES entry is asserted BY NAME, not by counting the list.
     // A count would stay green if an entry were swapped for another; this is
-    // the file whose omission let two live offences sit under a green sweep,
-    // so its membership is pinned rather than inferred.
-    expect(files.some((f) => f.endsWith('src/components/results/utils/winnerChipCopy.ts'))).toBe(
-      true,
-    )
+    // the file whose omission let two live offences sit under a green sweep.
+    // Run-4 judge (DL 12 Oct, the class): `winnerChipCopy.ts` is deleted; nothing replaces it. Its absence from disk is
+    // pinned, so a re-created chip register REDs here instead of living outside the sweep.
+    expect(existsSync(path.join(ROOT, 'src/components/results/utils/winnerChipCopy.ts'))).toBe(false)
   })
 
   it('no user-visible canvas copy asserts that one option defeated the others', () => {
@@ -581,4 +593,8 @@ describe('the canvas never frames a decision as a contest', () => {
     const report = offences.map((o) => `${o.file}:${o.line} [${o.frames.join(',')}] ${o.text}`)
     expect(report).toEqual([])
   })
+})
+
+it('S4-UI: the contest sweep includes per-option withholding copy', () => {
+  expect(scopeFiles()).toContain(path.join(ROOT, 'src/components/results/analysis-hero/goalOptionCoverage.tsx'))
 })

@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ A RUN NEVER GROWS AN OPTION CARD — the share line has ONE reserved slot.
  *
@@ -37,6 +38,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../../state/winShareGate'
 
@@ -47,12 +49,15 @@ vi.mock('@xyflow/react', async () => {
 
 // Served pricing starter (design audit capture `run-1280x800-pricing-model.json`).
 const SERVED_OPTIONS = [
-  { id: 'opt_full_switch', label: 'Full Switch to Usage-Based at Renewal', win: 0.34, share: '34% of runs' },
-  { id: 'opt_hybrid', label: 'Hybrid Platform Fee Plus Usage', win: 0.004, share: '< 1% of runs' },
-  { id: 'opt_new_logos', label: 'Usage-Based for New Logos Only', win: 0.53, share: '53% of runs' },
-  { id: 'opt_status_quo', label: 'Keep Per-Seat Pricing (Status Quo)', win: 0.13, share: '13% of runs' },
+  { id: 'opt_full_switch', label: 'Full Switch to Usage-Based at Renewal', win: 0.34, chancePct: 41 },
+  { id: 'opt_hybrid', label: 'Hybrid Platform Fee Plus Usage', win: 0.004, chancePct: 18 },
+  { id: 'opt_new_logos', label: 'Usage-Based for New Logos Only', win: 0.53, chancePct: 62 },
+  { id: 'opt_status_quo', label: 'Keep Per-Seat Pricing (Status Quo)', win: 0.13, chancePct: 12 },
 ] as const
-const nodes = SERVED_OPTIONS.map(o => ({ id: o.id, type: 'option', position: { x: 0, y: 0 }, data: { label: o.label, type: 'option' } }))
+const nodes = [
+  ...SERVED_OPTIONS.map(o => ({ id: o.id, type: 'option', position: { x: 0, y: 0 }, data: { label: o.label, type: 'option', kind: 'option' } })),
+  { id: 'goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } },
+]
 const GOAL_ONLY_STAMP = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' }
 
 const seedPreRun = () => {
@@ -67,7 +72,7 @@ const seedPreRun = () => {
 
 const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
   useCanvasStore.setState({
-    nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard',
+    nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard', goalThreshold: 100,
     analysisStateV1: null,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-26T18:05:00.000Z' },
     analysisFreshnessDirty: false, importPendingServerRegistration: false, currentScenarioId: 'pricing-scenario',
@@ -76,18 +81,25 @@ const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
     results: { status: 'complete', hash: 'run-1', report: {
       option_probabilities: Object.fromEntries(SERVED_OPTIONS.filter(o => !unscored.includes(o.id)).map(o => [o.id, { status: 'computed', win_probability: o.win }])),
       robustness: { near_tie: { is_tie: false, top_option_id: 'opt_new_logos' } },
+      inference_warnings: goalOnly ? [] : [{
+        code: 'GOAL_CHANCE_LICENSED', form: 'each',
+        option_ids: SERVED_OPTIONS.filter(option => !unscored.includes(option.id)).map(option => option.id),
+        pct_by_option: Object.fromEntries(SERVED_OPTIONS.filter(option => !unscored.includes(option.id)).map(option => [option.id, option.chancePct])),
+        target: { comparator: 'at_least', value: 100, unit: 'customers' },
+      }],
       ...(goalOnly ? { producer_leader_permission: GOAL_ONLY_STAMP } : {}),
     } },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderCard = (id: string) => {
   const n = nodes.find(x => x.id === id)!
-  return render(<ReactFlowProvider><OptionNode
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
     id={n.id} type="option" data={n.data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
     dragging={false} zIndex={0} deletable selectable draggable
-  /></ReactFlowProvider>)
+  /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 
 const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
@@ -104,9 +116,10 @@ afterEach(() => {
 describe('served pricing options — the share line is ONE line in a slot reserved before the run', () => {
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the share fills it" on the served (withheld) stamp. The served
   // run now fills the SAME slot with `Not ranked`; the share filling it is pinned on a PERMITTED run.
-  it.each(SERVED_OPTIONS.map(o => [o.id, o.share] as const))(
-    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run, the share on a permitted run',
-    (id, share) => {
+  it.each(SERVED_OPTIONS.map(o => [o.id] as const))(
+    // #2747 re-scope 2 (U0): "the licensed chance on a permitted run" dropped from the title — the card shows no chance in C.
+    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run; a permitted run keeps the same slot',
+    (id) => {
       seedPreRun()
       renderCard(id)
       const pre = slot(id)
@@ -129,22 +142,20 @@ describe('served pricing options — the share line is ONE line in a slot reserv
       expect(withheld!.textContent).not.toMatch(/\d\s*%/)
       expect(screen.queryByTestId(`option-analysis-currency-${id}`)).toBeNull()
       const marker = screen.getByTestId(`option-not-ranked-${id}`)
-      expect(marker.parentElement).toBe(withheld)
-      expect(marker.textContent).toBe(NOT_RANKED_MARKER)
-      expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(screen.getByTestId(`option-bottom-marks-${id}`).contains(marker)).toBe(true)
+      expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+      expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
       expect(tokens(marker)).toContain('whitespace-nowrap')
       cleanup()
 
-      // A permitted run: the share fills the same slot.
+      // A permitted run: the same slot.
       seedPostRun(false)
       renderCard(id)
       const post = slot(id)
       expect(post, 'post-run: the same slot').not.toBeNull()
       expect(post!.getAttribute('class')).toBe(preClass)
-      expect(post!.getAttribute('aria-hidden')).toBeNull()
-      const row = screen.getByTestId(`option-analysis-currency-${id}`)
-      expect(row.parentElement).toBe(post)
-      expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(share)
+      // #2747 re-scope 2 (U0): the slot exposed (not aria-hidden) BECAUSE the chance row filled it, that chance row, its
+      // readout and its accessible name are deleted — the canvas card shows no chance in C.
     },
   )
 
@@ -152,29 +163,18 @@ describe('served pricing options — the share line is ONE line in a slot reserv
   // served (withheld) stamp. The one-row geometry is kept on the same option with no stamp. The `· Goal only`
   // unit (whole, `shrink-0`, after the readout, never `truncate`) only rendered on a withheld run's share,
   // which no longer exists, so its absence is pinned here and the served run is pinned in the row above.
-  it('opt_full_switch post-run (PERMITTED run): "34% of runs" is ONE non-wrapping row — no wrap class, no qualifier', () => {
+  // #2747 re-scope 2 (U0): the chance row's geometry (wrap tokens, readout, caption order, accessible name) is deleted —
+  // the canvas card shows no chance in C. The share-part negatives stay; the bar negative is re-anchored on the slot.
+  it('opt_full_switch post-run (PERMITTED run): no qualifier, figure, unit or bar in the slot', () => {
     seedPostRun(false)
     renderCard('opt_full_switch')
-    const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
-    const rowTokens = tokens(row)
-    expect(rowTokens).not.toContain('flex-wrap')
-    expect(rowTokens).toContain('flex-nowrap')
-    expect(rowTokens).toContain('whitespace-nowrap')
-    const readout = screen.getByTestId('option-win-readout-opt_full_switch')
-    expect(readout.parentElement).toBe(row)
+    const post = slot('opt_full_switch')
+    expect(post, 'post-run: the slot renders').not.toBeNull()
     expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
     expect(screen.queryByTestId('option-share-provisional-opt_full_switch')).toBeNull()
-    // The share itself never gives way.
-    // ⚠ RE-PINNED 27 Sep: the readout is now a box-less wrapper (`contents`)
-    // around the figure and its unit, so the figure is the element that must
-    // not shrink. The unit `of runs` is the one part allowed to give way.
-    expect(tokens(readout)).toContain('contents')
-    expect(tokens(screen.getByTestId('option-win-figure-opt_full_switch'))).toContain('shrink-0')
-    expect(screen.getByTestId('option-win-figure-opt_full_switch').textContent).toBe('34%')
-    // Whatever gives way on a narrow card stays whole in the row's name (the
-    // existing tooltip reads the same string).
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(row.getAttribute('aria-label')!.startsWith('Current model · supported by 34% of runs.')).toBe(true)
+    expect(screen.queryByTestId('option-win-figure-opt_full_switch')).toBeNull()
+    expect(screen.queryByTestId('option-win-unit-opt_full_switch')).toBeNull()
+    expect(post!.querySelector('.h-full.rounded-full')).toBeNull()
   })
 
   it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {
@@ -196,15 +196,15 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     const line = screen.getByTestId('option-not-analysed-opt_hybrid')
     expect(post!.contains(line)).toBe(true)
     expect(post!.getAttribute('aria-hidden')).toBeNull()
-    expect(line.textContent!.startsWith('Not analysed')).toBe(true)
+    expect(screen.getByTestId('option-not-analysed-chip-opt_hybrid')).toHaveAttribute('aria-label', 'Not analysed')
   })
 
-  it('CONTRAST — no Goal-only stamp: the same slot and the same one-line row, without the qualifier', () => {
+  // #2747 re-scope 2 (U0): the one-line chance row (its wrap token and its parent slot) is deleted — the canvas card shows
+  // no chance in C; the qualifier negative stays, with the slot as its same-render control.
+  it('CONTRAST — no Goal-only stamp: the same slot, without the qualifier', () => {
     seedPostRun(false)
     renderCard('opt_full_switch')
-    const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
-    expect(tokens(row)).not.toContain('flex-wrap')
+    expect(slot('opt_full_switch')).not.toBeNull()
     expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
-    expect(row.parentElement).toBe(slot('opt_full_switch'))
   })
 })

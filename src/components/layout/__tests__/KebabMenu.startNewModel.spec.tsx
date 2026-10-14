@@ -25,7 +25,7 @@
  * that claim and continues to own it; nothing here weakens it.
  *
  * BINDING: menu items by role=menuitem + EXACT accessible name, never by
- * substring — "Start new model" and a hypothetical "Start new model from
+ * substring — "Start new scenario" and a hypothetical "Start new scenario from
  * template" are different controls, and `getByText` would not separate them.
  * The action is bound to the STORE CALL, not to the dialog closing, so a
  * control that merely dismisses itself cannot pass.
@@ -82,7 +82,7 @@ function renderMenu() {
 }
 
 function startNewModelItem(): HTMLElement {
-  return screen.getByRole('menuitem', { name: 'Start new model' })
+  return screen.getByRole('menuitem', { name: 'Start new scenario' })
 }
 
 describe('the kebab names the route to a fresh model by its intent', () => {
@@ -90,7 +90,7 @@ describe('the kebab names the route to a fresh model by its intent', () => {
     resetCanvas.mockClear()
   })
 
-  it('offers a "Start new model" menu item', () => {
+  it('offers a "Start new scenario" menu item', () => {
     renderMenu()
 
     expect(startNewModelItem()).toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('the kebab names the route to a fresh model by its intent', () => {
     renderMenu()
     fireEvent.click(startNewModelItem())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start new model' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start new scenario' }))
 
     expect(resetCanvas).toHaveBeenCalledTimes(1)
   })

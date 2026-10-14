@@ -240,7 +240,7 @@ describe('EdgePanel — how much of this answer is still open', () => {
   it('shows the magnitude WITH its spread, not a bare point estimate', () => {
     seedEdge(SPANNING_EDGE)
     render(<EdgePanel {...expertProps} />)
-    const readout = screen.getByTestId('edge-strength-spread').textContent ?? ''
+    const readout = screen.getByLabelText('Stated strength, give or take the stated uncertainty').textContent ?? ''
     expect(readout).toContain('0.45')
     expect(readout).toContain('±')
     expect(readout).toContain('0.10')
@@ -264,7 +264,7 @@ describe('EdgePanel — how much of this answer is still open', () => {
     render(<EdgePanel {...expertProps} />)
     expect(screen.queryByTestId('edge-strength-spans-bands')).toBeNull()
     // …but the value ± spread readout is still there, because both are stated.
-    expect(screen.getByTestId('edge-strength-spread').textContent ?? '').toContain('±')
+    expect(screen.getByLabelText('Stated strength, give or take the stated uncertainty').textContent ?? '').toContain('±')
   })
 
   /**
@@ -293,8 +293,12 @@ describe('EdgePanel — how much of this answer is still open', () => {
 
   it('refuses when the STRENGTH is stated but the SPREAD is not', () => {
     seedEdge({ weight: 0.45, direction: 'positive', weightSource: 'cee' })
-    render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByTestId('edge-strength-spread')).toBeNull()
+    render(<EdgePanel {...expertProps} />)
+    // The primary word is now the surviving magnitude readout. The spread's
+    // own moved numeric readout must still refuse an unstated uncertainty.
+    expect(screen.getByTestId('edge-strength-spread')).toBeTruthy()
+    expect(screen.queryByLabelText('Stated strength, give or take the stated uncertainty')).toBeNull()
+    expect(screen.queryByTestId('edge-strength-spans-bands')).toBeNull()
   })
 
   /**

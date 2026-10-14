@@ -201,7 +201,7 @@ describe('StyledEdge — belief is a single channel: dash, not opacity (item 2)'
     // CHANNEL (dash, never opacity), so its fixture has to carry a real stated
     // belief for the channel to have anything to say.
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.3, beliefExistsSource: 'cee', confidence: 0.5 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, weightSource: 'user', direction: 'positive', beliefExists: 0.3, beliefExistsSource: 'cee', confidence: 0.5 }} />
     )
     const style = styleOf(container)
     // Belief still encoded via the dash channel.

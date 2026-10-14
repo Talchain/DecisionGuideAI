@@ -22,6 +22,8 @@ import { useConnectGesture, CONNECTION_REFUSAL_COPY } from '../useConnectGesture
 import { useCanvasStore } from '../../store'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { SHARED_MODEL_AUTHORITY_COPY } from '../../mutations/mutationAuthority'
+import { proposeForDrawnLink } from '../../conversation/drawnLinkProposal'
+vi.mock('../../conversation/drawnLinkProposal', () => ({ proposeForDrawnLink: vi.fn(() => 'sent') }))
 
 const FALSE_REASON = 'This connection is not allowed.'
 
@@ -79,6 +81,7 @@ beforeEach(() => {
   toasts = []
   inspectorOpens = 0
   showToast.mockClear()
+  vi.mocked(proposeForDrawnLink).mockClear()
   seed()
   window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, onInspector)
 })
@@ -273,5 +276,28 @@ describe('F7 — the Question is one end of a drawn link only as Question → op
     g2.onConnectEnd(release(cardBody('opt_hybrid')))
     expect(edgePairs()).toEqual(['dec_pricing>opt_hybrid'])
     expect(toasts.map(([m]) => m)).not.toContain(CONNECTION_REFUSAL_COPY.question)
+  })
+})
+
+describe('Item 3 (Paul 7 Oct): a drawn link asks Olumi to propose its direction, band and reason', () => {
+  const drawnId = () => useCanvasStore.getState().edges.find(e => e.source === 'fac_adoption_friction' && e.target === 'out_nrr')?.id
+
+  it('a handle drop: ONE proposal press, for the link just drawn', () => {
+    gesture().onConnect({ source: 'fac_adoption_friction', target: 'out_nrr', sourceHandle: null, targetHandle: null })
+    expect(drawnId()).toBeDefined()
+    expect(vi.mocked(proposeForDrawnLink).mock.calls).toEqual([[drawnId()]])
+  })
+
+  it('a card-body drop: the same one press', () => {
+    const g = gesture()
+    g.onConnectStart(null, { nodeId: 'fac_adoption_friction', handleType: 'source' })
+    g.onConnectEnd(release(cardBody('out_nrr')))
+    expect(vi.mocked(proposeForDrawnLink).mock.calls).toEqual([[drawnId()]])
+  })
+
+  it('CONTROL: a refused draw (duplicate) presses nothing', () => {
+    seed([{ id: 'e1', source: 'fac_adoption_friction', target: 'out_nrr' }])
+    gesture().onConnect({ source: 'fac_adoption_friction', target: 'out_nrr', sourceHandle: null, targetHandle: null })
+    expect(proposeForDrawnLink).not.toHaveBeenCalled()
   })
 })

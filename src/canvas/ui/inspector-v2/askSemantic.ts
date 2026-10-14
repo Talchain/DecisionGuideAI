@@ -1,128 +1,56 @@
-/**
- * askSemantic — ONE semantic for every "ask Olumi about this" affordance.
- *
- * The defect this closes (ledger L-18, a trap-21 pair): the inspector carried
- * TWO ask affordances with OPPOSITE semantics. `InspectorCoaching` AUTO-SENT
- * via `_sendMessage`; `DiscussWithAiButton` PREFILLED an editable draft and
- * waited. Same user intent, opposite behaviour, one panel — and the auto-send
- * is the one that lies, because the message lands in a surface the user may not
- * be looking at, so the control reads as dead.
- *
- * ─── THE TWO QUESTIONS, NAMED APART ──────────────────────────────────
- *
- * Q1 · "How does an ask get CONFIRMED?"
- *      ONE answer, everywhere: it does not dispatch. It becomes an editable
- *      draft in a visible surface with a single obvious Send, which the user
- *      presses. That is `ASK_SEMANTIC`.
- *
- * Q2 · "Which CARRIER does the confirmed ask travel on?"
- *      Per call site, and deliberately NOT unified. An ask carrying dispatch
- *      `parameters` rides the conversation-typed turn, because chip_metadata —
- *      the contextual-session carrier — survives ONLY on that turn type.
- *      Flattening those into a bare composer prefill would silently drop it.
- *
- * Conflating Q1 and Q2 is what produced the pair in the first place. They are
- * answered separately here, on purpose.
- *
- * ─── ROUTING ─────────────────────────────────────────────────────────
- *
- *   plain ask + composer registered  → prefill the composer, reveal it.
- *                                      No third floating surface: a simple
- *                                      prefill suffices.
- *   ask with dispatch parameters     → the Ask-Olumi drawer (typed dispatch).
- *   no composer registered           → the Ask-Olumi drawer (the fallback
- *                                      confirm surface — the ask is never lost
- *                                      and never auto-sent).
- *   no surface at all                → nothing. The affordance should not have
- *                                      rendered; it must not pretend.
- *
- * NOT an ask, and therefore not routed here: a slash command such as
- * `/exercise premortem`. Its button IS the confirmation, and a prefilled slash
- * command would sit in the composer as literal text instead of executing.
- */
-
+/** Explicit batch doors send chip turns; other callers retain their original draft route. */
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { openAskOlumi } from '../../../components/results/coaching/askOlumiStore'
 import { useCanvasStore } from '../../store'
 import { bindAskTarget } from './askTargetBinding'
+import { askAi, type AskAiResult } from '../../conversation/askAi'
+import { COACHING_ASK_INTENTS, type AskIntent } from '../../conversation/askAiQuestions'
 
-/**
- * The one semantic. Exported so a guard can pin it: if this string ever
- * changes, every surface that claims to implement it must be re-read.
- */
-export const ASK_SEMANTIC = 'prefill-and-confirm' as const
-
+export const ASK_SEMANTIC = 'send-chip-immediately' as const
 export interface AskRequest {
-  /** The question, as the user will see it in the editable draft. */
   text: string
-  /** Short label describing the ask (drawer heading / dispatch label). */
   label: string
-  /** Optional context line for the drawer. */
   context?: string
-  /** Optional model target enabling the drawer's "Focus on canvas". */
   targetId?: string
-  /**
-   * Dispatch parameters. PRESENCE OF THIS FIELD IS THE CARRIER DECISION (Q2):
-   * an ask that carries parameters must ride the typed dispatch, so it routes
-   * to the drawer even when a composer is available.
-   */
+  nodeIds?: Iterable<string>
+  edgeIds?: Iterable<string>
+  node?: { type?: string; data?: unknown }
+  includeOptions?: boolean
+  intent?: AskIntent
+  pressId?: string
+  editable?: boolean
   parameters?: Record<string, unknown>
-  /** Dispatch source tag (defaults to 'chip'). */
   source?: string
 }
-
-/**
- * Route an ask under the one semantic. NEVER dispatches; returns the surface
- * that received the draft so callers can assert on it.
- */
-export function requestAsk(req: AskRequest): 'composer' | 'drawer' | 'none' {
-  const text = req.text.trim()
-  if (!text) return 'none'
-
-  const state = useGuidanceStore.getState()
-  const needsTypedDispatch = req.parameters !== undefined
-
-  // The ask's target rides to Send with it (Codex 5810867282): its explicit
-  // `targetId`, else the selection the door just set (edge and multi asks).
-  if (state._prefillChat || state._sendMessage || state._dispatchAction) {
-    // Defensive read, as `buildPayload`'s: a store stubbed without `getState`
-    // (a test, an early boot) binds only the explicit target.
-    const selection = useCanvasStore.getState?.()?.selection
-    bindAskTarget(
-      text,
-      req.targetId ? [req.targetId] : (selection?.nodeIds ?? []),
-      req.targetId ? [] : (selection?.edgeIds ?? []),
-    )
+export function requestAsk(req: AskRequest): AskAiResult | 'drawer' | 'composer' {
+  if (!req.text.trim()) return 'none'
+  const canvas = useCanvasStore.getState?.()
+  const targetIsEdge = canvas?.edges?.some(e => e.id === req.targetId)
+  const nodeIds = req.nodeIds ?? (req.targetId ? targetIsEdge ? [] : [req.targetId] : canvas?.selection?.nodeIds ?? [])
+  const edgeIds = req.edgeIds ?? (req.targetId ? targetIsEdge ? [req.targetId] : [] : canvas?.selection?.edgeIds ?? [])
+  const chipId = typeof req.parameters?.chip_id === 'string' ? req.parameters.chip_id : undefined
+  const intent = req.intent ?? (chipId ? COACHING_ASK_INTENTS[chipId] : undefined)
+  // Only registered batch doors use the new contract. Other callers retain
+  // their own text and carrier, including incomplete templates.
+  if (!req.editable && (intent || req.pressId)) {
+    return askAi({ context: req.context, includeOptions: req.includeOptions, intent, nodeIds, edgeIds, node: req.node, pressId: req.pressId })
   }
-
-  if (!needsTypedDispatch && state._prefillChat) {
+  const state = useGuidanceStore.getState()
+  if (!state._prefillChat && !state._sendMessage && !state._dispatchAction) return 'none'
+  const text = req.editable ? req.text : req.text.trim()
+  bindAskTarget(text, nodeIds, edgeIds)
+  if (!req.editable && req.parameters === undefined && state._prefillChat) {
     state._prefillChat(text)
     revealOlumiSurface()
     return 'composer'
   }
-
-  // Any registered conversation wire means the drawer's Send can land.
-  if (state._prefillChat || state._sendMessage || state._dispatchAction) {
-    openAskOlumi({
-      context: req.context ?? '',
-      draft: text,
-      label: req.label,
-      targetId: req.targetId,
-      parameters: req.parameters,
-      source: req.source ?? 'chip',
-    })
-    return 'drawer'
-  }
-
-  return 'none'
+  openAskOlumi({ context: req.context ?? '', draft: text, label: req.label,
+    targetId: req.targetId, parameters: req.parameters, source: req.source ?? 'chip' })
+  if (req.editable) revealOlumiSurface()
+  return 'drawer'
 }
-
-/** True when any surface can receive an ask. Use to gate the affordance. */
-export function canReceiveAsk(state: {
-  _prefillChat: unknown
-  _sendMessage: unknown
-  _dispatchAction: unknown
-}): boolean {
-  return state._prefillChat !== null || state._sendMessage !== null || state._dispatchAction !== null
+/** Legacy callers can still use any registered draft surface. */
+export function canReceiveAsk(state: { _prefillChat: unknown; _sendMessage: unknown; _dispatchAction: unknown }): boolean {
+  return !!(state._prefillChat || state._sendMessage || state._dispatchAction)
 }

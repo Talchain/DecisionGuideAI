@@ -222,7 +222,7 @@ describe('StyledEdge — contested visual styling', () => {
   // with no `validation`: the disagreement lives in the inspector.
   it('pending contest over an AGREED sign renders exactly as if there were no validation', () => {
     const { withValidation } = expectStyledAsIfNoValidation({
-      weight: 0.5,
+      weight: 0.5, weightSource: 'user',
       direction: 'positive',
       validation: makeValidation({ max_divergence: 0.6 }),
     })
@@ -232,7 +232,7 @@ describe('StyledEdge — contested visual styling', () => {
 
   it('OPPOSITE-DIRECTION TWIN: a sign_flip contest DOES take the warning stroke — and still no contest dash', () => {
     const style = renderEdge({
-      weight: 0.5,
+      weight: 0.5, weightSource: 'user',
       direction: 'positive',
       validation: makeValidation({ max_divergence: 0.6, contested_reasons: ['sign_flip'] }),
     })
@@ -247,7 +247,7 @@ describe('StyledEdge — contested visual styling', () => {
     // Used to paint full-strength orange with a tight `2.7 3` dash, whatever
     // the reason. The flag is now read by the inspector's heading.
     expectStyledAsIfNoValidation({
-      weight: 0.5,
+      weight: 0.5, weightSource: 'user',
       direction: 'positive',
       validation: makeValidation({
         max_divergence: 0.8,
@@ -264,7 +264,7 @@ describe('StyledEdge — contested visual styling', () => {
     // identically-broken renders. The discriminating channel is now the STROKE,
     // on the one reason that still reaches the line.
     const disputedSign = {
-      weight: 0.5,
+      weight: 0.5, weightSource: 'user',
       direction: 'positive',
       validation: makeValidation({ max_divergence: 0.6, contested_reasons: ['sign_flip'] }),
     }
@@ -279,7 +279,7 @@ describe('StyledEdge — contested visual styling', () => {
 
   it('resolved contested edge reverts to standard non-contested style', () => {
     const { withValidation } = expectStyledAsIfNoValidation({
-      weight: 0.5,
+      weight: 0.5, weightSource: 'user',
       direction: 'positive',
       beliefExists: 0.8,
       validation: makeValidation({ user_action: 'accepted_pass2' }),

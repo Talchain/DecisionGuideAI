@@ -123,9 +123,9 @@ describe('decision 5 — the #1 treatment on the graph carries "no value yet" fo
     renderDecision()
     const ep = screen.getByTestId(EVIDENCE)
     expect(ep.getAttribute('data-factor-id')).toBe('pro_paying_subscribers')
-    expect(ep.textContent).toBe('Evidence priority: Pro paying subscribers · no value yet')
-    // The row's hover/clause text is the same composed string.
-    expect(screen.getByTestId('decision-row-meta-clause').textContent).toContain('Pro paying subscribers · no value yet')
+    expect(ep.getAttribute('aria-label')).toBe('Evidence priority: Pro paying subscribers · no value yet')
+    // The mark's exact words remain accessible, with no native tooltip.
+    expect(ep.getAttribute('title') ?? '').toBe('')
   })
 
   it('CONTROL — C01 (#1 valued): the same factor is named, with no qualifier', () => {
@@ -133,13 +133,13 @@ describe('decision 5 — the #1 treatment on the graph carries "no value yet" fo
     renderDecision()
     const ep = screen.getByTestId(EVIDENCE)
     expect(ep.getAttribute('data-factor-id')).toBe('pro_paying_subscribers')
-    expect(ep.textContent).toBe('Evidence priority: Pro paying subscribers')
+    expect(ep.getAttribute('aria-label')).toBe('Evidence priority: Pro paying subscribers')
   })
 
   it('CONTROL — no row carries value_source (older payloads): no qualifier, the rule needs a contrast', () => {
     completedRun(noneCarry())
     renderDecision()
-    expect(screen.getByTestId(EVIDENCE).textContent).toBe('Evidence priority: Pro paying subscribers')
+    expect(screen.getByTestId(EVIDENCE).getAttribute('aria-label')).toBe('Evidence priority: Pro paying subscribers')
   })
 
   it('the clause composer: the qualifier exactly when the fact holds', () => {

@@ -43,7 +43,7 @@ function StoreWrapper({
 
   return (
     <ToastProvider>
-      <div style={{ width: 320, background: 'var(--bg-panel, #FEF9F3)', borderRadius: 8 }}>
+      <div style={{ width: 320, background: 'var(--bg-panel, #FEFEFE)', borderRadius: 8 }}>
         <EdgeInspector edgeId={edgeId} onClose={noop} />
       </div>
     </ToastProvider>

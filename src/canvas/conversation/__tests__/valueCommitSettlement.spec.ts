@@ -14,8 +14,8 @@
  * not assumed. This file exercises the predicate unconstrained by either
  * caller's upstream guard, so that exact case is pinned directly.
  */
-import { describe, it, expect } from 'vitest'
-import { didValueCommitRevert, VALUE_COMMIT_SETTLEMENT_COPY } from '../valueCommitSettlement'
+import { describe, it, expect, vi } from 'vitest'
+import { awaitSavedModelRead, didValueCommitRevert, valueCommitSettlementWord, VALUE_COMMIT_SETTLEMENT_COPY, type SavedModelReadWord } from '../valueCommitSettlement'
 
 describe('didValueCommitRevert', () => {
   it('TRUE — the optimistic write landed, then moved back to the pre-commit value', () => {
@@ -67,20 +67,71 @@ describe('didValueCommitRevert', () => {
 })
 
 describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
-  it('the four words are four different sentences', () => {
+  it('the settlement words are different sentences', () => {
     const said = new Set(Object.values(VALUE_COMMIT_SETTLEMENT_COPY).map((c) => c.message))
-    expect(said.size).toBe(4)
+    // Seven words since recovery Batch B added the moved-base read ('checking' and 'saved'); eight since Batch R3 split
+    // the no-reply refusal ('refused') from the 200 that wrote nothing ('not_applied').
+    expect(said.size).toBe(8)
   })
 
-  it('role=alert ONLY on not_applied — the one confirmed fact, never the two uncertain ones', () => {
+  it('role=alert on a confirmed refusal, never the uncertain states', () => {
     expect(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.role).toBe('alert')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.role).toBe('alert')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.saving.role).toBe('status')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.role).toBe('status')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.checking.role).toBe('status')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.saved.role).toBe('status')
   })
 
   it('not_applied is byte-identical to FactorControllablePanel’s own sentence (straight apostrophe)', () => {
     expect(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message).toBe(
       'Not saved. The model kept its previous value; Olumi\'s reply says why.',
     )
+  })
+})
+
+/**
+ * Batch R3 (served `live/runs/2026-10-12T144844Z/capacity`, row 6): a refused send gets no reply, and a moved-base
+ * refusal says what the saved model holds once it has been read.
+ */
+describe('a refusal claims no reply, and a moved-base read says what the model holds', () => {
+  it('a refused send (declined, or a fence verdict) says "Not saved" with no reply clause; a 200 that wrote nothing keeps it', () => {
+    for (const detail of [{ refusal: 'declined' as const, reason: 'system_event_refused_no_write' },
+      { refusal: 'conflict' as const, conflictCategory: 'turn_fence_stopped' }]) {
+      const w = valueCommitSettlementWord('refused', 1, 2, () => 1, detail)
+      expect(w).toBe('refused')
+      expect(VALUE_COMMIT_SETTLEMENT_COPY[w!].message).toBe('Not saved. The model kept its previous value.')
+      expect(VALUE_COMMIT_SETTLEMENT_COPY[w!].role).toBe('alert')
+    }
+    // CONTRAST: a 200 whose value visibly reverted — the reply came, so it may say where the reason is.
+    expect(valueCommitSettlementWord('sent', 1, 2, () => 1)).toBe('not_applied')
+  })
+
+  /** Moves the base once, then reports the word the read settles on. */
+  function readSettlesOn(held: number, opts: { beforeCommit: number; committedTo: number }): SavedModelReadWord | null {
+    vi.useFakeTimers()
+    try {
+      let base = 'revision-3'
+      let listener: (() => void) | null = null
+      let said: SavedModelReadWord | null = null
+      awaitSavedModelRead({
+        baseBeforeRead: base, readBase: () => base, subscribe: l => { listener = l; return () => { listener = null } },
+        readNow: () => held, onWord: w => { said = w }, ...opts,
+      })
+      base = 'revision-4'
+      listener!()
+      vi.advanceTimersByTime(1)
+      return said
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  it('the read decides: the typed value → saved; the old value → refused; a third value → the revision notice', () => {
+    expect(readSettlesOn(0.25, { beforeCommit: 0.1, committedTo: 0.25 })).toBe('saved')
+    expect(readSettlesOn(0.1, { beforeCommit: 0.1, committedTo: 0.25 })).toBe('refused')
+    // Run 2: tab B typed 5 (0.25) over 2 (0.1); tab A's 4 (0.2) got in first.
+    expect(readSettlesOn(0.2, { beforeCommit: 0.1, committedTo: 0.25 })).toBe('revision_conflict')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.message).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
   })
 })

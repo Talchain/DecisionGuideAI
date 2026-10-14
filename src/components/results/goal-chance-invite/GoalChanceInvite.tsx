@@ -13,11 +13,12 @@
 import { useCanvasStore } from '../../../canvas/store'
 import { useModelEditAuthority } from '../../../canvas/hooks/useModelEditAuthority'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
-import { goalTargetSettlementNotice } from '../../../canvas/conversation/goalTargetEdit'
+import { useGoalTargetFeedback } from './goalTargetFeedback'
 import { SuccessTargetLine } from '../analysisNew/sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNew/analysisNewCopy'
 import { typography } from '@/styles/typography'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
+import { goalTargetChangeFrameOf, type GoalTargetSource } from '../../../canvas/domain/goalTarget'
 import { GOAL_CHANCE_INVITE, type GoalChanceInvite as Invite } from './readGoalChanceInvite'
 
 export interface GoalChanceInviteProps {
@@ -33,15 +34,18 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const authority = useModelEditAuthority(invite?.goalNodeId ?? null)
   const showToast = useShowToastSafe()
+  const { onCommitOutcome, onSendSettled } = useGoalTargetFeedback()
+  const goal = useCanvasStore((s) => (invite === null ? undefined : s.nodes.find((n) => n.id === invite.goalNodeId))?.data as GoalTargetSource | undefined)
   if (invite === null) return null
 
-  const onSendSettled = (...[settlement, detail]: Parameters<typeof goalTargetSettlementNotice>) => {
-    const notice = goalTargetSettlementNotice(settlement, detail)
-    if (notice !== null) showToast(notice, settlement === 'refused' ? 'error' : 'warning')
-  }
-
   if (invite.kind === 'state_goal_direction') {
-    const target = formatGoalTarget(invite.value, invite.unit, 'level')
+    // #2747 re-scope 2 (U2, finding 3): the figure is said in the goal's OWN frame, read off the goal CEE named, never
+    // assumed a level. A change target cannot be offered as "at least / at most {figure}" (that reads, and would write, a
+    // level), and a goal this canvas does not hold has no frame to read: neither gets the invitation (the withheld reason
+    // still stands). An unread frame says no number (`formatGoalTarget`).
+    const frame = goal?.goal_threshold_frame
+    const target = goal === undefined || goalTargetChangeFrameOf(frame) !== null ? null
+      : formatGoalTarget(invite.value, invite.unit, frame, goal.quantity_frame)
     if (target === null) return null
     const choose = (direction: 'at_least' | 'at_most') => {
       const outcome = authority.proposeGoalTarget(String(invite.value), invite.unit, scenarioId, direction, { onSendSettled })
@@ -69,19 +73,7 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
         goalNodeId={invite.goalNodeId}
         divider={false}
         variant="reasoning"
-        onCommitOutcome={(outcome) =>
-          showToast(
-            outcome === 'dispatched'
-              ? COPY.successTarget.dispatched
-              : outcome === 'local_only'
-                ? COPY.successTarget.changedLocally
-                : outcome === 'no_unit'
-                  ? COPY.successTarget.noUnit
-                  : outcome === 'not_a_number'
-                    ? COPY.successTarget.notANumber
-                    : COPY.successTarget.notEncodable,
-          )
-        }
+        onCommitOutcome={onCommitOutcome}
         onSendSettled={onSendSettled}
         testId="goal-chance-invite-target"
       />

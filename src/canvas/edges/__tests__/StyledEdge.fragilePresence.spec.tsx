@@ -17,6 +17,9 @@
  * connector grammar): the figure is stated on its accessible name and title,
  * "NN% chance the result flips…", and the hover keeps "NN% flip risk".
  *
+ * ⚠ #2747 r2 (12 Oct 2026): the Run's switch figure is not shown in C, measured or not; the cue's name, title and
+ * hover say the fragility sentence alone. The two CONTROL rows below keep their presence half.
+ *
  * ReactFlow/store mock structure follows StyledEdge.hover.spec.tsx.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -185,23 +188,24 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
   // The cue now paints no figure; the MEASURED figure is still the only one
   // stated, on the cue's name and title, WITH its noun. What this case pins
   // is unchanged: measured wins, the marginal quantity is never displayed.
-  it('CONTROL (cue): a measured switch_probability is stated on the cue\'s name WITH its noun, and never painted', () => {
+  it('CONTROL (cue): a measured switch_probability keeps the cue, named by the sentence, with no figure (#2747 r2)', () => {
     setFragileEdges([{ edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.9 }])
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
     const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.textContent ?? '').not.toMatch(/\d/)
-    expect(badge.getAttribute('aria-label')).toContain('42% flip risk')
-    expect(badge.getAttribute('aria-label')).not.toContain('90%')
+    expect(badge.getAttribute('aria-label')).toBe("If this connection's strength changes, the current model comparison could change")
+    expect(badge.getAttribute('aria-label')).not.toMatch(/\d+%/)
     const titled = badge.closest('[title]')
-    expect(titled?.getAttribute('title')).toContain('42% flip risk')
+    expect(titled?.getAttribute('title')).toBe(badge.getAttribute('aria-label'))
   })
 
-  it('CONTROL (popover): a measured switch_probability still renders "NN% flip risk"', () => {
+  it('CONTROL (popover): a measured switch_probability hovers to the fragility sentence, with no figure (#2747 r2)', () => {
     setFragileEdges([{ edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.9 }])
     const { container } = render(<StyledEdge {...(defaultEdgeProps as any)} />)
     openHoverPopover(container)
     const popover = screen.getByTestId('edge-hover-popover')
-    expect(popover.textContent).toContain('42% flip risk')
+    expect(screen.getByTestId('edge-hover-fragility').textContent).toBe("If this connection's strength changes, the current model comparison could change")
+    expect(popover.textContent).not.toContain('42%')
     expect(popover.textContent).not.toContain('90%')
   })
 

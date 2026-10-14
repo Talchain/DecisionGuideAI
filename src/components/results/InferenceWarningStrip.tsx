@@ -1,3 +1,4 @@
+import type { CritiqueRunContext } from './utils/humaniseCritique'
 /**
  * InferenceWarningStrip — compact honest-caveat strip for warning-severity
  * producer `inference_warnings` on the Analysis tab (roadmap 1.12; tagged
@@ -33,6 +34,7 @@ import {
 import type { InferenceWarning } from './types'
 
 export interface InferenceWarningStripProps {
+  context?: CritiqueRunContext
   /** Producer inference warnings (all severities); the strip filters. */
   warnings?: InferenceWarning[]
   className?: string
@@ -104,12 +106,12 @@ export interface InferenceWarningStripProps {
  * anything behind it, and it expands in place rather than sending the reader
  * elsewhere.
  */
-function StripEntry({ warning }: { warning: InferenceWarning }): JSX.Element {
+function StripEntry({ warning, context }: { warning: InferenceWarning; context?: CritiqueRunContext }): JSX.Element {
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
   const textRef = useRef<HTMLSpanElement>(null)
 
-  const title = humaniseInferenceWarningTitle(warning)
+  const title = humaniseInferenceWarningTitle(warning, undefined, context)
 
   /**
    * ⛔⛔ THE DEPS WERE `[title]` ALONE AND THAT WAS A HIDING DEFECT, not a
@@ -239,6 +241,7 @@ export function InferenceWarningStrip({
   warnings,
   className = '',
   heldBackListedUnder,
+  context,
 }: InferenceWarningStripProps) {
   const visible = selectRestingEntries(warnings)
   const heldBack = heldBackStripCount(warnings)
@@ -251,7 +254,7 @@ export function InferenceWarningStrip({
       aria-label="Analysis caveats"
     >
       {visible.map((w, i) => (
-        <StripEntry key={`${w.code}-${i}`} warning={w} />
+        <StripEntry key={`${w.code}-${i}`} warning={w} context={context} />
       ))}
       {/* ⚠ THE CAP IS A DISCLOSURE, NEVER A SILENT TRUNCATION. The held-back
           entries render in "How this was worked out", in producer order, and

@@ -992,7 +992,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           ? 'What options are you considering? Add at least two alternatives to compare.'
           : 'Have you considered all your options? A single option limits comparison.',
         detail: optionNodes.length === 0
-          ? 'A decision model needs at least two options to evaluate trade-offs.'
+          ? 'A model needs at least two options to evaluate trade-offs.'
           : 'Having only one choice means there\u2019s nothing to compare against. What else could you do?',
         action: { label: 'Add Option', kind: 'add_option' },
       })
@@ -1749,7 +1749,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         id: `bias_${finding.id}`,
         message: finding.description || BIAS_TYPE_TITLES[finding.type] || `Potential ${finding.type ?? 'cognitive'} bias detected`,
         detail: finding.mechanism ?? undefined,
-        cta: 'Ask AI about this',
+        cta: 'Ask Olumi about this',
         ctaAction: `ask_ai_bias_${finding.id}`,
         pill: 'bias',
         category: 'bias',

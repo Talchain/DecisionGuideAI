@@ -632,6 +632,7 @@ describe('FactorExternalPanel — the coaching action is labelled for what it do
         target_object: { type: 'node', id: NODE_ID },
       }],
       _prefillChat: () => {},
+      _dispatchAction: () => {}, _isConversationBusy: () => false,
       _sendMessage: null,
     } as never)
   })

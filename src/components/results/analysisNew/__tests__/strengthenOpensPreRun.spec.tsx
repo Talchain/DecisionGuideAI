@@ -216,10 +216,14 @@ describe('THE INSTRUMENT — the precondition, pinned in test', () => {
   /** The opposite precondition, for the empty twin: this model grounds NONE. */
   it('with a target already stated, the engine grounds none', () => {
     draw(targetAlreadySet(), true)
-    // Contrast: the review tool IS mounted (its whole-framing ask is always
-    // there), so the absent entry below is the queue being empty, not a
+    // Contrast: the review tool IS mounted (it says there is nothing to
+    // review), so the absent entry below is the queue being empty, not a
     // failed render.
-    expect(screen.getByTestId(`${REVIEW}-ask-framing`)).toBeInTheDocument()
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The whole-framing ask moved from the review
+    // row to the Decision row, so the contrast is the tool's own empty line plus the ask where it now lives.
+    expect(screen.getByTestId(`${REVIEW}-empty`)).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-model-strip-decision-ask')).toBeInTheDocument()
+    expect(screen.queryByTestId(`${REVIEW}-ask-framing`)).toBeNull()
     expect(screen.queryByTestId(`${REVIEW}-toggle`)).toBeNull()
     expect(groundedFindingIds()).toEqual([])
   })

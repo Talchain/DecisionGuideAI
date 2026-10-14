@@ -292,9 +292,8 @@ export function evidenceTierLabel(score: number): string {
 
 /**
  * Factor types that use qualitative tier labels (no numeric meaning to users).
- * 'binary' is included: a binary factor encodes a yes/no state, and its 0/1
- * values map to 'Not used'/'Very high' via the FactorNode special case and
- * to 'Very low'/'Very high' in intervention chips via qualitativeTierLabel.
+ * Legacy binary descriptors remain in this fallback set. Served switches are
+ * read through switchFactors before any magnitude fallback is reached.
  */
 export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other', 'binary'])
 
@@ -326,9 +325,8 @@ const INTERNAL_FACTOR_TYPE_DESCRIPTORS = new Set([
  * | 0.61–0.80 | "High"     |
  * | 0.81–1.0  | "Very high"|
  *
- * Note: FactorNode renders 'Not used' for binary value=0 via its own special
- * case before reaching this function. Intervention chips (OptionNode) show
- * 'Very low' for value=0 on qualitative factors.
+ * Served switches use switchFactors' state reading before reaching this
+ * magnitude fallback. This table never determines whether a factor is a switch.
  */
 export function qualitativeTierLabel(value: number): string {
   if (value <= 0.2) return 'Very low'
@@ -870,6 +868,20 @@ export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
   }
 
   return { value, displayValue, source }
+}
+
+/**
+ * Did the producer stamp this intervention `user_material_unverified: true`?
+ *
+ * The AI claimed the user as the source of the setting and the host could not
+ * verify that claim. The same field name `FactorNode` reads on a factor's
+ * `observed_state`. Only a literal `true` counts; absent, `false` or any other
+ * shape is "no stamp", never a guess. Kept beside `unwrapInterventionValue`
+ * (not folded into its result) so the thirty readers of that shape are untouched.
+ */
+export function interventionIsUserMaterialUnverified(raw: unknown): boolean {
+  return raw != null && typeof raw === 'object' && !Array.isArray(raw)
+    && (raw as { user_material_unverified?: unknown }).user_material_unverified === true
 }
 
 /**

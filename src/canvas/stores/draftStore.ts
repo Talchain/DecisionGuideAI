@@ -18,6 +18,8 @@
  * import useCanvasStore (circular-dep hard fail rule).
  */
 import { create } from 'zustand'
+import type { Edge, Node } from '@xyflow/react'
+import { canonicalJson } from '../../lib/canonical-hash'
 
 export interface DraftErrorState {
   message: string
@@ -105,6 +107,8 @@ export interface DraftState {
    * `idle`) or a new turn starts (phase `drafting`).
    */
   draftStreamCoachingLanded: boolean
+  /** ⭐ P44 S2: the owning stream's real analysis/reply phase; reset with ownership. */
+  draftStreamServerPhase: 'first_analysis' | 'writing' | null
   /**
    * ⭐ C6-2: the user's own goal and options, read out of the first brief by CEE's `BRIEF_READ` frame a few seconds
    * into the wait. Held ONLY while the owning turn is still `drafting`: every phase change clears it, so the model
@@ -195,6 +199,8 @@ export interface DraftActions {
    * preempted turn) must not move a newer turn's narration.
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
+  /** ⛔ P44 S2: stale turns cannot move narration; writing cannot regress. */
+  markDraftStreamServerPhase: (turnId: string, phase: 'first_analysis' | 'writing') => void
   /** Record the owning turn's brief reading. Ignored unless `turnId` owns the phase AND the phase is `drafting`. */
   markDraftStreamBriefRead: (turnId: string, reading: { goal: string | null; options: string[]; limits: string[] }) => void
   /** Record that this client's fence dropped a response carrying a graph, for the decision on screen. */
@@ -236,6 +242,7 @@ const initialDraftState: DraftState = {
   draftStreamTurnId: null,
   draftStreamScenarioId: null,
   draftStreamCoachingLanded: false,
+  draftStreamServerPhase: null,
   draftStreamBriefReading: null,
   draftStreamGraphDeliveredScenarioId: null,
   draftStreamGraphDiscardedByFenceScenarioId: null,
@@ -309,6 +316,9 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
       // a stale flag onto the next draft's narration (trap 12).
       draftStreamCoachingLanded:
         phase === 'idle' || phase === 'drafting' ? false : state.draftStreamCoachingLanded,
+      // ⭐ P44 S2: the server phase has the same lifetime as the coaching flag.
+      draftStreamServerPhase:
+        phase === 'idle' || phase === 'drafting' ? null : state.draftStreamServerPhase,
       // C6-2: the reading lives only inside ONE turn's drafting phase; any move supersedes it.
       draftStreamBriefReading: null,
     }))
@@ -325,6 +335,15 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
   markDraftStreamCoachingLanded: (turnId) => {
     set((state) =>
       state.draftStreamTurnId === turnId ? { draftStreamCoachingLanded: true } : {},
+    )
+  },
+
+  markDraftStreamServerPhase: (turnId, phase) => {
+    set((state) =>
+      state.draftStreamTurnId === turnId &&
+      !(state.draftStreamServerPhase === 'writing' && phase === 'first_analysis')
+        ? { draftStreamServerPhase: phase }
+        : {},
     )
   },
 
@@ -465,6 +484,31 @@ export function streamedPreviewStandingFor(
 ): boolean {
   if (state.draftStreamTurnId !== turnClientId) return false
   return draftStreamPhaseFor(state, currentScenarioId) === 'settling'
+}
+
+/**
+ * Identify the canvas content a GRAPH_READY preview actually rendered. Turn and
+ * scenario ownership alone cannot distinguish that preview from a later edit or
+ * a replacement model that reuses its ids. Recursively sorted JSON includes ALL
+ * node/edge data, including figures, evidence and future model fields. Graph row
+ * order is immaterial; order inside a data array still carries meaning.
+ *
+ * Excluded by the { id, type, data } / { source, target, type, data } projections:
+ * position, positionAbsolute, width, height, measured (render/layout geometry),
+ * selected, dragging, zIndex (React Flow interaction/stacking state), and the
+ * edge render id (connections are identified by endpoints, type and data).
+ * No string-keyed data fields are excluded: the canvas node types keep expand,
+ * rename and hover in local React state, and highlights/dimming in store sets.
+ * Even categoryInferredByUi, interventionKeys and display/provenance fields
+ * retain model meaning. A conservative mismatch safely uses today's fallback.
+ */
+export function canvasDraftPreviewFingerprint(
+  nodes: ReadonlyArray<Node>,
+  edges: ReadonlyArray<Edge>,
+): string {
+  const nodeRows = nodes.map(({ id, type, data }) => canonicalJson({ id, type, data })).sort()
+  const edgeRows = edges.map(({ source, target, type, data }) => canonicalJson({ source, target, type, data })).sort()
+  return JSON.stringify([nodeRows, edgeRows])
 }
 
 /**

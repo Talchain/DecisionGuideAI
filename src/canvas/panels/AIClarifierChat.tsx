@@ -288,7 +288,7 @@ export const AIClarifierChat = memo(function AIClarifierChat() {
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Describe your decision, factors, or ask for changes..."
+          placeholder="Write your brief, add factors, or ask for changes..."
           className={styles.input}
           rows={2}
           disabled={loading}

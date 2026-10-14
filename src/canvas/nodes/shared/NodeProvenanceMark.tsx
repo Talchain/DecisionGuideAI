@@ -1,3 +1,4 @@
+import { cardMark, sourceCardMarkId } from './cardMarks'
 import { Fragment } from 'react'
 import { classifyNodeProvenance, classifyObservedValueProvenance, isUserOwnedKind } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
@@ -6,7 +7,6 @@ import type { NodeProvenanceClaim } from '../../domain/nodeProvenanceClaim'
 import { olumiAuthorshipIsAmbiguous } from '../../domain/olumiAuthorshipClaim'
 import type { NodeType } from '../../domain/nodes'
 import {
-  VALUE_PROVENANCE_ICON,
   PROVENANCE_ICON_SIZE_CLASSES,
 } from '../../domain/valueProvenanceIcon'
 import Tooltip from '../../../components/Tooltip'
@@ -199,6 +199,10 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
   // makes the contract legible at the call site (`data.provenance` is unknown).
   const raw = typeof provenance === 'string' ? provenance : null
   const nodeAuthorship = classifyNodeProvenance(raw)
+  if (raw && !nodeAuthorship) return []
+  if (nodeAuthorship?.kind === 'unverified_brief') {
+    return [{ claim: 'structural', kind: nodeAuthorship.kind }]
+  }
 
   /**
    * ⭐⭐⭐ WHEN THE CLAIM IS ABOUT A NUMBER, THE NUMBER'S OWN PROVENANCE ANSWERS IT.
@@ -506,12 +510,14 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
  */
 function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProvenanceKind) {
   const label = provenanceClaimLabel(claim, kind)
-  const Icon = VALUE_PROVENANCE_ICON[kind]
+  const markId = sourceCardMarkId(kind)
+  const Icon = cardMark(markId).Icon
   return (
     <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
       <span
         data-testid="node-provenance-mark"
         data-node-tooltip="true"
+        data-card-mark={markId}
         data-provenance-kind={kind}
         data-provenance-claim={claim}
         // The claim itself, available with no hover and no focus. The tooltip

@@ -1,12 +1,13 @@
 /**
  * RiskAdvancedEditor — structured technical detail for risk nodes.
- * Groups: Post-analysis (per option exposure), Metadata.
+ * Groups: Metadata.
+ *
+ * #2747 r2 (BLOCKING 7): the "Post-analysis (per option)" group is removed. It printed each option's WIN SHARE as that
+ * option's "exposure" to this risk, a different quantity under the wrong name (its own comment called it a placeholder
+ * proxy). No producer sends a per-option risk exposure, so nothing replaces it.
  */
 
-import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
-import { selectWinSharesWithheld } from '../../../state/winShareGate'
-import { useOptionComparison } from '../useAnalysisResults'
 import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
@@ -19,42 +20,14 @@ export function RiskAdvancedEditor({ nodeId }: RiskAdvancedEditorProps) {
   const node = useCanvasStore(s => s.nodes.find(n => n.id === nodeId))
   const mutations = useNodeMutations(nodeId)
   const edges = useCanvasStore(s => s.edges)
-  const resultsStatus = useCanvasStore(s => s.results?.status)
-  const optionComparison = useOptionComparison()
-  // CURRENT-READ row 9 (AIQ 5912710392): the rows below print each option's WIN SHARE, so a withheld leader
-  // withholds them too (`winShareGate.ts`).
-  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
 
   const data = node?.data as Record<string, unknown> | undefined
   const inboundCount = edges.filter(e => e.target === nodeId).length
-  const isResultsMode = resultsStatus === 'complete'
-
-  // Per-option exposure from results (placeholder — uses win_probability as proxy until risk exposure data exists)
-  const optionStats = useMemo(() => {
-    if (!isResultsMode || !optionComparison || winSharesWithheld) return []
-    return optionComparison.map(o => ({
-      label: o.option_label ?? o.option_id,
-      exposure: o.win_probability != null ? `${Math.round(o.win_probability * 100)}%` : '—',
-    }))
-  }, [isResultsMode, optionComparison, winSharesWithheld])
 
   if (!node) return null
 
   return (
     <div className="space-y-1">
-      {optionStats.length > 0 && (
-        <AdvancedFieldGroup title="Post-analysis (per option)">
-          {optionStats.map((o, i) => (
-            <AdvancedField
-              key={i}
-              label={`${o.label}: exposure`}
-              value={o.exposure}
-              type="readonly"
-            />
-          ))}
-        </AdvancedFieldGroup>
-      )}
-
       <AdvancedFieldGroup title="Metadata">
         <AdvancedField label="Node ID" value={nodeId} type="readonly" />
         <AdvancedField label="Kind" value="risk" type="readonly" />

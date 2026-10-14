@@ -15,13 +15,14 @@
  * - negative: Red stroke (increase → decrease)
  */
 
+import { useRouteOnceHeld } from '../hooks/useRouteOnceHeld'
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   edgeClickAffordance,
   EDGE_AFFORDANCE_EDITABLE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
-import { Lightbulb, Activity, Flag } from 'lucide-react'
+import { Lightbulb, Activity, Flag, Crosshair } from 'lucide-react'
 import { LinkHoverCard } from '../components/hoverCard/LinkHoverCard'
 import { edgeSizePhrase } from './edgeSizePhrase'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
@@ -45,12 +46,9 @@ import {
   readContestedState,
   resolveEdgeStroke,
   resolveEdgeDash,
-  resolveEdgeDirectionMarker,
+  isEdgeStrengthNotSet,
+  linkIsStructural,
   edgeArrowheadMarkerId,
-  edgeArrowheadSize,
-  edgeArrowheadViewBox,
-  edgeArrowheadPolygonPoints,
-  EDGE_ARROWHEAD_COUNTER_SCALE_STYLE,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -85,30 +83,34 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden, glyphCounterScale, labelCounterScale } from '../utils/zoomLegibility'
 import {
-  fragileEdgeSentence,
+  FRAGILE_CUE_SENTENCE,
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
   edgeArrowSentence,
   EDGE_EXISTENCE_DOUBT_SENTENCE,
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
-import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
-import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { openEdgeStrengthEditor, OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
+import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
+  resolveSourceGlyphOnPath,
   glyphMetricsAt,
   arrivalHeadKeepOut,
   polarityGlyphTransform,
@@ -275,19 +277,6 @@ function parallelEdgeIdsOf(
 }
 
 /**
- * Is a link STRUCTURAL (no arrowhead, no sign)? The same resolution order as
- * this component's own `isStructuralEdge` memo: an explicit `edge_type` wins
- * ('structural' → yes; any other value → no), else decision → option and
- * option → factor are. Read by the fragile-cue pass for every OTHER link.
- */
-function linkIsStructural(srcKind: unknown, tgtKind: unknown, data: unknown): boolean {
-  const explicit = (data as Record<string, unknown> | undefined)?.edge_type
-  if (explicit === 'structural') return true
-  if (explicit != null && explicit !== '') return false
-  return (srcKind === 'decision' && tgtKind === 'option') || (srcKind === 'option' && tgtKind === 'factor')
-}
-
-/**
  * The `carriesSign` test `resolveArrivalSlotOnBoard` takes, over these nodes: a
  * link carries a sign unless it is structural (`linkIsStructural`).
  */
@@ -417,13 +406,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
 
+  // #2747 r2: the "chance rests most on this" tag reads the scenario's held canonical view through the gate.
+  const heldCanonical = useCanonicalAnalysisViewStore(s => s.view)
+  const heldCanonicalScenarioId = useCanonicalAnalysisViewStore(s => s.scenarioId)
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, currentScenarioId, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
-      resultsStatus: s.results.status,
-      report: s.results.report,
+      currentScenarioId: s.currentScenarioId,
+      resultsStatus: s.results?.status,
+      report: s.results?.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
       // Analysis-graph projection: this edge is a flip risk being viewed in the
       // V7 evidence disclosure. Optional-chained so store doubles without the
@@ -454,6 +447,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // A primitive boolean; a store double without the field reads as "no
       // pair held", i.e. the receipt alone.
       canvasOnlyLink: isCanvasOnlyLink({ source, target, data }, s.lastAuthoritativeGraph),
+      isGoalChanceDriverEdge: s.results?.status === 'complete' && goalChanceDriverLinks(s.results?.report,
+        heldCanonicalScenarioId === s.currentScenarioId ? heldCanonical : null).has(goalChanceDriverLinkKey(String(source), String(target))),
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -552,12 +547,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return isEdgeFragileFn(id, source, target, fragileEdges, fragileMatchCtx)
   }, [isResultsMode, comparisonShown, report, id, source, target, fragileMatchCtx])
 
-  // T7: Switch probability for fragile edge badge tooltip + hover popover
-  const fragileEdgeSwitchProb = useMemo(() => {
-    if (!isFragileEdge || !report?.robustness) return null
-    const fragileEdges = report.robustness.fragile_edges || []
-    return getFragileEdgeSwitchProbability(id, source, target, fragileEdges, fragileMatchCtx)
-  }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   // E4 (graph-visuals): the SINGLE most fragile relationship earns a fragility
   // badge in the default (standard) view too, so the top flip risk is visible
@@ -593,7 +582,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const modelChangedSinceRun = useModelChangedSinceRunLight()
 
   /**
-   * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
+   * The fragility sentence — ONE owner (`connectorCopy.FRAGILE_CUE_SENTENCE`; `fragileEdgeSentence` went in #2747 r2,
    * moved there verbatim), three readers here: the cue's accessible name, the
    * cue's `title`, and the chip container's composed title and name — PLUS
    * the popover's fragility line below, which reads this SAME variable rather
@@ -607,7 +596,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * never a fallback (pinned by StyledEdge.fragilePresence.spec).
    */
   const fragileSentence =
-    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + fragileEdgeSentence(fragileEdgeSwitchProb)
+    // #2747 re-scope 2 round 2: the cue sentence alone, no switch-probability figure (connectorCopy).
+    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + FRAGILE_CUE_SENTENCE
 
   /**
    * Every edge whose chip will carry a fragility ROW, graph-wide.
@@ -865,9 +855,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * cannot disagree again. Do not reintroduce a second likelihood channel here
    * (CLAUDE.md trap 21).
    */
+  const routeOnceHeld = useRouteOnceHeld(String(id))
   const edgeLikelihood = useMemo(
-    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists'),
-    [edgeData]
+    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld }),
+    [edgeData, routeOnceHeld]
   )
   /**
    * ⭐ POM-8 (27 Sep 2026): CEE's PLACEHOLDER strength is not an estimate, so it
@@ -1211,8 +1202,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const edgeDescription = useMemo(
-    () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    () => getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
+    [edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -1366,7 +1357,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (explicit === 'structural') {
       // Use sub-type for tooltip text where possible
       if (srcKind === 'decision' && tgtKind === 'option') {
-        return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
+        return { isStructuralEdge: true, structuralTooltip: 'Option for this question', isOptionFactorLink: false }
       }
       if (srcKind === 'option' && tgtKind === 'factor') {
         return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }
@@ -1381,7 +1372,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
     // No explicit value — infer from node kinds.
     if (srcKind === 'decision' && tgtKind === 'option') {
-      return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
+      return { isStructuralEdge: true, structuralTooltip: 'Option for this question', isOptionFactorLink: false }
     }
     if (srcKind === 'option' && tgtKind === 'factor') {
       return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }
@@ -1390,20 +1381,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [data, sourceNode, targetNode])
 
   /**
-   * ⭐⭐ AN OPTION → FACTOR LINK RESTS AT LOW EMPHASIS (Canvas lead's ruling,
-   * Paul's staging test 28 Sep 2026). On `pa_vs_ai` four options × three
-   * factors drew twelve thin grey links that crossed into a web between the
-   * ALTERNATIVES and FACTORS rows — and each option card already lists the
-   * changes it makes. At rest the link draws at the canvas's existing DIM
-   * (`EDGE_SELECTION_DIM_OPACITY`, the contract's `.edge-group.dimmed`), on the
-   * wrapping group, so its hit area is untouched and it stays hoverable and
-   * clickable. It returns to full emphasis while its option or its factor is
-   * hovered (`canvasNodeHoverStore`) or selected, or while the link itself is.
-   *
-   * ⚠ THIS DEPARTS FROM CONTRACT v3.1, which draws option links always on.
-   * Why: a 4 × 3 web of always-on links hides the causal links below it, and
-   * the option cards' rows already carry the changes those links stand for.
-   * Question → option links are unchanged.
+   * Paul, 7 Oct 2026: option→factor rests at the same structural ink as
+   * decision→option. Keep the rest identity for interaction diagnostics;
+   * only selection or run-change dimming reduces group opacity.
    */
   const optionLinkEndpointHovered = useCanvasNodeHoverStore((s) =>
     isOptionFactorLink && s.hoveredNodeId !== null && (s.hoveredNodeId === source || s.hoveredNodeId === target),
@@ -2228,11 +2208,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    // `visualPropsDash` is no longer passed: dash is existence certainty ONLY
+    strengthNotSet: isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
+    // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceDash,
+    isHighlightedEdge, directionStroke, existenceDash, edgeData,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -2254,22 +2235,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [edgeData])
   const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
 
-  // ⭐ DIRECTION OF CAUSATION. Measured on deployed staging 7 Sep 2026: 39 edges,
-  // zero arrowheads — the most basic thing a causal graph must state had no
-  // channel. The rule (structural / non-directional type / causal) and the
-  // arrowhead geometry live in `edgePresentation`, beside the stroke and dash
-  // precedences, so all three of an edge's presentation decisions are reviewable
-  // in one place and none of them is an early-return chain pasted in here.
-  const directionMarker = useMemo(
-    () => resolveEdgeDirectionMarker({
-      isStructural: isStructuralEdge,
-      edgeType: (data as Record<string, unknown> | undefined)?.edge_type,
-    }),
-    [isStructuralEdge, data],
-  )
-  const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
-  const arrowheadSize = edgeArrowheadSize(edgeStrokeWidth)
-
   // THE LINE'S DRAWN WIDTH, in every lens and interaction state — ONE value,
   // read by `BaseEdge` below and by the keyboard focus ring (SI-4), which must
   // stand clear of it. Hoisted out of `BaseEdge`'s style unchanged, so the ring
@@ -2279,6 +2244,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const base = (() => {
     // Structural edges: fixed 1px regardless of lens / hover / highlight
     if (isStructuralEdge) return 1
+    // A placeholder/unset strength never earns a measured or lens width.
+    if (presentationState.strengthNotSet) return UNSET_EDGE_STROKE_WIDTH
     // Causal lens: thickness encodes the PROVENANCE-SET strength
     // magnitude (ROADMAP 2.954). An unset strength draws at the floor
     // width — the same refusal the non-lens stroke (:286) makes — so
@@ -2335,8 +2302,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     lineStrokeWidth,
     showUncertaintyRibbon && uncertaintyBand !== null ? uncertaintyBand * 2 : 0,
   )
-  // Built on the arrowhead's id, which is already escaped for `url(#…)`.
-  const focusRingMaskId = `${arrowheadId}-focus-ring-cut`
+  // Retain the existing escaped mask identity after removing arrowhead paint.
+  const focusRingMaskId = `${edgeArrowheadMarkerId(edgeIdKey)}-focus-ring-cut`
+
+  // Return the store's stable nodes reference; no label arrays are made in a selector.
+  const goalChanceDriverNodes = useCanvasStore(s => isGoalChanceDriverEdge ? s.nodes : undefined)
+  const goalChanceDriverAria = useMemo(() => {
+    if (!isGoalChanceDriverEdge) return ''
+    const ids = goalChanceDriverLinks(report, heldCanonicalScenarioId === currentScenarioId ? heldCanonical : null)
+      .get(goalChanceDriverLinkKey(String(source), String(target))) ?? []
+    const labels = ids.flatMap(optionId => {
+      const label = goalChanceDriverNodes?.find(node => node.id === optionId)?.data?.label
+      return typeof label === 'string' && label.trim() ? [label] : []
+    })
+    return goalChanceDriverTagAria(labels)
+  }, [isGoalChanceDriverEdge, report, heldCanonical, heldCanonicalScenarioId, currentScenarioId, goalChanceDriverNodes, source, target])
+  const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
+  const strengthSourceMark = useMemo(
+    () => edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
+    [edgeData],
+  )
+  const sourceGlyphPlacement = useMemo(() => {
+    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
+    const poly = flattenSvgPath(edgePath)
+    return poly ? resolveSourceGlyphOnPath(poly) : null
+  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -2447,6 +2437,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
+        data-goal-chance-driver={isGoalChanceDriverEdge && !isStructuralEdge ? 'true' : undefined}
+        // P53x (8 Oct): the placeholder mark BY IDENTITY (same predicate as the not-set width), so a witness reads the
+        // mark itself rather than inferring it from a dash or a width.
+        data-strength-placeholder={strengthIsPlaceholder && !isStructuralEdge ? 'true' : undefined}
+        // Its own name: a `[data-edge-id]` query means the polarity glyph (tests + the e2e overlap measure).
+        data-edge-group-id={edgeIdKey}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
         data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
         data-run-change={isRunChangedEdge ? 'changed' : undefined}
@@ -2454,9 +2450,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         data-option-link-rest={isOptionLinkAtRest ? 'true' : undefined}
         data-same-row-route={sameRowRoute?.kind}
         style={{
-          // An option → factor link at rest takes the same dim (see
-          // `isOptionLinkAtRest`); one value, never compounded.
-          opacity: isSelectionDimmed || isOptionLinkAtRest || isRunChangeSubduedEdge ? EDGE_SELECTION_DIM_OPACITY : undefined,
+          // Structural links share their resting colour; dim only for selection or run changes.
+          opacity: isSelectionDimmed || isRunChangeSubduedEdge ? EDGE_SELECTION_DIM_OPACITY : isOptionLinkAtRest ? 1 : undefined,
           transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
         }}
       >
@@ -2561,65 +2556,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
         />
       )}
-      {/* ⭐ THE DIRECTION MARK. One `<marker>` per marked edge, and the reason is
-          COLOUR: stroke colour is decided by an ordered rule precedence
-          (`EDGE_STROKE_RULES`) whose outputs include a `color-mix(…)`, two
-          `var(…)` tokens and the polarity stroke. A single shared `<defs>` entry
-          cannot know which rule won, so it would be a second copy of a decision
-          that already has an authority — the hand-maintained mirror this estate
-          keeps paying for. This reads `edgeStroke.value`: the SAME resolved
-          decision that sets `stroke` two elements below. One quantity, two
-          readers, so a new or reordered rule carries the arrow with it and no
-          edit is needed here at all.
-
-          SVG 2's `fill="context-stroke"` would do this in one shared marker.
-          Deliberately not used: this lane has no browser witness, and a feature
-          whose failure mode is a black arrowhead on every edge cannot be
-          verified with the instruments in hand. An explicit fill can be.
-
-          `markerUnits="userSpaceOnUse"` decouples the mark from stroke width.
-          Under the default (`strokeWidth`) a selected edge — width 4 rather
-          than 2 — would get a double-sized arrowhead, leaking the interaction
-          channel into the direction channel.
-
-          ⭐ contract v3.1 (DIFF item 13, 27 Sep 2026): the head is 4× the
-          line's STRENGTH width (`edgeArrowheadSize`) — the contract's
-          `markerWidth="4"` in stroke-width units — read from `edgeStrokeWidth`,
-          the resting width, so hover and selection (which widen the line) never
-          grow the head. The tip is the viewBox origin and `refX/refY` point at
-          it, so the point lands ON the path's end; the polygon is counter-scaled
-          about that tip by `--canvas-glyph-scale`, because the line is
-          `non-scaling-stroke` and the head must keep its 4:1 against it at every
-          zoom. `overflow="visible"` lets the scaled head paint past the marker
-          box. Derivation and witness: `edgeArrowheadSize` in
-          `edges/edgePresentation.ts`. */}
-      {directionMarker.show && (
-        <marker
-          id={arrowheadId}
-          viewBox={edgeArrowheadViewBox(arrowheadSize)}
-          markerWidth={arrowheadSize}
-          markerHeight={arrowheadSize}
-          refX={0}
-          refY={0}
-          orient="auto"
-          markerUnits="userSpaceOnUse"
-          overflow="visible"
-        >
-          <polygon
-            points={edgeArrowheadPolygonPoints(arrowheadSize)}
-            fill={edgeStroke.value}
-            style={EDGE_ARROWHEAD_COUNTER_SCALE_STYLE}
-          />
-        </marker>
-      )}
+      {/* Paul, 7 Oct 2026: no arrowheads on any link; polarity glyph clearance stays frozen. */}
       <BaseEdge
         id={id}
         path={edgePath}
         interactionWidth={EDGE_HIT_AREA_WIDTH}
-        // Target end only. The mark states ONE direction of causation; a
-        // marker-start as well would read as bidirectional, which is the claim
-        // the `non_directional_type` rule exists to refuse.
-        markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
           // `lineStrokeWidth` (above the `return`): the ladder, hoisted so the
           // keyboard focus ring reads the same width.
@@ -2669,8 +2610,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // on a SOLID line. A round cap adds half the stroke width to each end
           // of every dash, so on a 3-4px line the contract's own `6 4` pattern
           // closes its gap and the existence-doubt dash stops reading as a dash.
-          // Dashed lines keep butt caps so the one channel dash carries survives.
-          strokeLinecap: edgeDash.value ? 'butt' : 'round',
+          // Existence dashes keep butt caps; strength dots need round caps.
+          // The presentation decision owns both the pattern and its caps.
+          strokeLinecap: edgeDash.linecap,
           stroke: edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceDash above), which stays
@@ -2737,7 +2679,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // selected glow rather than composing two identical shadows.
             // The Changes view: a changed link takes the SAME emphasis glow as a selected one — the canvas's one
             // "look here" recipe, never a new colour on a stroke that already carries direction.
-            if (isRunChangedEdge && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
+            if ((isRunChangedEdge || (isGoalChanceDriverEdge && !isStructuralEdge)) && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
               else if (isHighlightedEdge) shadows.push(isRunChangedEdge ? EDGE_GLOW.lit : EDGE_GLOW.selected)
@@ -2902,6 +2844,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
+      {strengthSourceMark && sourceGlyphPlacement && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            data-edge-source-icon={strengthSourceMark.source}
+            data-edge-id={edgeIdKey}
+            aria-label={strengthSourceMark.label}
+            title={strengthSourceMark.label}
+            className="nodrag nopan inline-flex items-center justify-center rounded-full border border-panel-border bg-panel text-text-light hover:text-text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
+            style={{
+              position: 'absolute',
+              width: FRAGILE_CUE_DISC_SIZE,
+              height: FRAGILE_CUE_DISC_SIZE,
+              padding: 0,
+              transform: `translate(-50%, -50%) translate(${sourceGlyphPlacement.x}px,${sourceGlyphPlacement.y}px)`,
+              pointerEvents: 'all',
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+            }}
+            onPointerDown={event => event.stopPropagation()}
+            onClick={event => {
+              event.stopPropagation()
+              // The mark sits ON its line, so a click on it is a click on the line: select + the line's inspector, as
+              // `handleEdgeClick` does. Never the strength editor's results-panel stand-down (J1 J5a, #2624).
+              useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)
+              window.dispatchEvent(new Event(OPEN_FULL_INSPECTOR_EVENT))
+            }}
+          >
+            <strengthSourceMark.Icon size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
+          </button>
+        </EdgeLabelRenderer>
+      )}
+
       {/* Graph Lens: Alternative winner label on fragile edges (hover/selection only) */}
       {/* Correction #2: component-local state, no store update, no rerender of other edges */}
       {/* Structural edges are not part of the fragility lens. */}
@@ -2965,9 +2939,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       )}
 
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
-      {showChip && (
+      {(showChip || showGoalChanceDriverTag) && (
         <EdgeLabelRenderer>
-          <div
+          {showChip && <div
             style={{
               position: 'absolute',
               // A cue-only disc sits ON its connection at the midpoint
@@ -3280,12 +3254,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 figure (`getFragileEdgeSwitchProbability`), not a strength.
 
                 So the cue is the icon alone, at the design reference's
-                "consequential relationship" position in the chip, and the
-                figure rides its NAME and TITLE inside the sentence that says
-                what it is (`fragileEdgeSentence`: "NN% chance the result flips
-                if this relationship changes"). The hover popover states it too,
-                as "NN% flip risk". Nothing about WHICH figure is shown changed:
-                measured only, never the marginal quantity.
+                "consequential relationship" position in the chip, and its NAME
+                and TITLE carry the cue sentence (`FRAGILE_CUE_SENTENCE`). Since
+                #2747 re-scope 2 round 2 no figure rides it: the "NN% flip risk"
+                clause from `switch_probability` is gone (no CEE wording or Run
+                authority for it in C).
 
                 `role="img"` + `aria-label` because an icon-only mark must be
                 named for assistive tech; `title` because a pointer user needs
@@ -3338,7 +3311,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 />
               </div>
             )}
-          </div>
+          </div>}
+          {showGoalChanceDriverTag && (
+            <button
+              type="button"
+              data-testid="goal-chance-driver-tag"
+              data-driver-tag-edge-id={edgeIdKey}
+              aria-label={goalChanceDriverAria}
+              title={GOAL_CHANCE_DRIVER_TAG}
+              className="nodrag nopan inline-flex items-center justify-center border border-panel-border bg-panel text-text-body hover:text-info-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
+              style={{
+                position: 'absolute',
+                // Centre the disc on the existing displaced anchor.
+                width: FRAGILE_CUE_DISC_SIZE,
+                height: FRAGILE_CUE_DISC_SIZE,
+                padding: 0,
+                borderRadius: 9999,
+                transform: `translate(-50%, -50%) translate(${fragileCueOnly && fragileCuePoint ? fragileCuePoint.x : labelX + labelOffsetX}px,${fragileCueOnly && fragileCuePoint ? fragileCuePoint.y : labelY + labelOffsetY}px)`,
+                pointerEvents: 'all',
+                opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+                // Above a resting card (node wrappers carry inline zIndex 0, and neither `.react-flow__edgelabel-renderer`
+                // nor `.react-flow__nodes` is a stacking context), below a selected one (1000). D1 served witness, 7 Oct:
+                // on a link routed beside a card the tag was cut to "Chance rests mo" under it.
+                zIndex: GOAL_CHANCE_DRIVER_TAG_Z,
+              }}
+              onPointerDown={event => event.stopPropagation()}
+              onClick={event => {
+                event.stopPropagation()
+                openEdgeStrengthEditor(edgeIdKey, { centre: false })
+              }}
+            >
+              <Crosshair size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
+            </button>
+          )}
         </EdgeLabelRenderer>
       )}
 

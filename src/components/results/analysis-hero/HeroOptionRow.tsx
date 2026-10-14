@@ -40,6 +40,11 @@ export interface HeroOptionRowProps {
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
   /**
+   * Run-3 judge C5: whether this row says its own withheld reason (`row.goal.why`). False when every row shares one
+   * reason, which the panel then says once beneath the rows.
+   */
+  showWhy?: boolean
+  /**
    * ROADMAP 1.267: whether to draw the RANK token.
    *
    * ⚠⚠ THIS DOC CARRIED A FALSE PREMISE AND THE BADGE WAS BUILT ON IT.
@@ -87,7 +92,7 @@ export interface HeroOptionRowProps {
  * columns align.
  */
 export const HERO_ROW_GRID =
-  'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
+  'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
 
 /** The track's placement on the grid's second row (under label + readout). */
 export const HERO_ROW_TRACK_SPAN = 'col-start-2 col-span-3'
@@ -150,6 +155,7 @@ export function HeroOptionRow({
   onToggle,
   outcomeDomain,
   showOrdinal,
+  showWhy = true,
 }: HeroOptionRowProps) {
   const regionId = useId()
   const labelId = useId()
@@ -224,18 +230,10 @@ export function HeroOptionRow({
           ? (row.changeReadout ?? row.outcome.readout)
           : row.outcome.readout
 
-  // Expanded-row affordance policy: a chevron promises more than one line.
-  // Rows whose ONLY detail is the win probability are not expandable —
-  // the win line renders as persistent meta under the row instead, so the
-  // information survives without a hollow disclosure. `beyondWin` derives
-  // from the detail object itself (not a hand-kept field list), so a new
-  // detail line can never silently strand a row as non-expandable.
-  // It renders on either lens (matching the opened detail, which is
-  // lens-independent).
-  const { winChance, ...beyondWin } = row.detail
-  const hasDetailBeyondWin = Object.values(beyondWin).some(Boolean)
-  const expandable = hasDetailBeyondWin
-  const winOnlyMeta = !hasDetailBeyondWin && winChance
+  // Expanded-row affordance policy: a chevron promises more than one line. `expandable` derives from the detail object
+  // itself (not a hand-kept field list), so a new detail line can never silently strand a row as non-expandable. No win
+  // share is said in C (#2747 re-scope 2, DL ruling (A)), so there is no win-only row and no persistent win meta.
+  const expandable = Object.values(row.detail).some(Boolean)
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   // The goal lens draws no track row at all (prototype v6 goal table).
@@ -335,7 +333,7 @@ export function HeroOptionRow({
       </span>
 
       <span
-        className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
+        className={`${typography.panelMeta} min-w-0 break-words whitespace-normal text-right text-text-light`}
       >
         <span className={isLeader ? 'text-text-header' : 'text-text-body'}>{readout}</span>
       </span>
@@ -441,6 +439,13 @@ export function HeroOptionRow({
         </div>
       )}
 
+      {/* C5 (run-3 judge): CEE's specific reason is said in the row, verbatim, not folded under "Why?" (label, don't hide). */}
+      {lens === 'goal' && row.goal.why && showWhy && (
+        <p data-testid={`hero-option-why-${row.index}`} className={`${typography.panelMeta} text-text-light pb-1.5 pl-10 pr-2`}>
+          {row.goal.why}
+        </p>
+      )}
+
       {expandable && isOpen && (
         <div
           id={regionId}
@@ -532,28 +537,9 @@ export function HeroOptionRow({
               {row.detail.couldChangeIf}
             </p>
           )}
-          {row.detail.winChance && (
-            <p
-              className={`${typography.panelBody} text-text-light`}
-              data-testid="hero-detail-win"
-            >
-              {row.detail.winChance}
-            </p>
-          )}
         </div>
       )}
 
-      {/* Win-only rows: the chevron is withheld (one line is not a
-          disclosure), and the win probability renders as persistent meta
-          so the information is not lost. */}
-      {winOnlyMeta && (
-        <p
-          className={`${typography.panelMeta} pb-1.5 pl-10 pr-2 text-text-light`}
-          data-testid="hero-win-meta"
-        >
-          {row.detail.winChance}
-        </p>
-      )}
     </div>
   )
 }

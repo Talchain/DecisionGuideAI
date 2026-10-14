@@ -56,7 +56,7 @@ describe('the Reasoning tab renders no "Focus now" zone (V2 prototype, 25 Sep)',
     // a failed render.
     const challenge = screen.getByTestId('analysis-new-zone-also')
     expect(challenge.tagName).toBe('H3')
-    expect(screen.getByRole('heading', { name: 'Challenge the thinking' })).toBe(challenge)
+    expect(screen.getByRole('heading', { name: 'Challenge Your Thinking' })).toBe(challenge)
     expect(screen.getByTestId('analysis-new-model-strip')).toBeInTheDocument()
   })
 })

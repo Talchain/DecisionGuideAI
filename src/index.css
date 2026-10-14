@@ -39,7 +39,7 @@
     outline: none;
   }
   /* Paul, 1 Oct 2026: no blue highlight when anything is clicked. Browsers treat a click into a text field as
-     :focus-visible, so text fields never ring or outline at all — the caret is their focus mark. Every
+     :focus-visible, so suppress field rings by default; keyboard modality restores the outline below. Every
      `focus:ring-*` in src is `focus-visible:ring-*` (keyboard only); `focusRingsAreKeyboardOnly.spec.ts` keeps it so. */
   input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
   textarea:focus,
@@ -56,6 +56,28 @@
     outline: 2px solid var(--focus-color, var(--info));
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* Text-field :focus-visible can also follow a click. The root flag is set before focus by InputModality. */
+  html[data-input-modality="keyboard"] :is(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea,
+    select,
+    [contenteditable='true']
+  ):focus-visible {
+    outline: 2px solid var(--focus-color, var(--info)) !important;
+    outline-offset: 2px;
+  }
+
+  /* Row-end '+' controls: a transparent hit slop that grows with the live zoom (RowEndPromptIcon sets the variable). */
+  .row-end-hit {
+    --row-end-hit-grow: 0px; /* default: no slop; the component's inline style sets the live-zoom growth */
+  }
+  .row-end-hit::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--row-end-hit-grow, 0px) * -1);
+    border-radius: 9999px;
   }
 
   ::selection {

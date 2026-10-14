@@ -33,6 +33,15 @@ beforeEach(() => {
 afterEach(() => { uninstall(); setGuidancePersistenceContext(null) })
 
 describe('leaving a decision clears its coaching', () => {
+  it('a different scenario resets live precedence even when the live turn delivered zero cards', () => {
+    useGuidanceStore.getState().setGuidanceItems([])
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(true)
+    setScenario('scn-new')
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(false)
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: 'scn-new', runId: 'run-new', items: [ITEM] })).toBe(1)
+    expect(useGuidanceStore.getState().guidanceItems).toEqual([ITEM])
+  })
+
   it('a DIFFERENT scenario: the live items AND the persisted blob are gone', () => {
     expect(sessionStorage.getItem('guidance.items.v1')).not.toBeNull()
     setScenario('scn-new')

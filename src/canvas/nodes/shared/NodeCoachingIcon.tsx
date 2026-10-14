@@ -21,16 +21,12 @@
  * the popover already show it, so secondary questions (e.g. the Risk card's
  * "How likely is this?", ED 02:31Z) remain reachable.
  *
- * ── HOW IT ASKS — AND THE TYPED ACTION IS NEVER DEMOTED ─────────────────────
+ * ── HOW IT ASKS ──────────────────────────────────────────────────────────
  *
- * ED 02:31Z: "do not silently demote any existing typed action (e.g.
- * `what_would_flip`) into generic discuss." So:
- *   · a chip with a typed `actionType` dispatches EXACTLY as `NodeChip` does —
- *     `_dispatchAction({ action_type, parameters: { chip_id }, … })` — so the
- *     answer comes from the model's typed analysis path;
- *   · an untyped chip goes through `requestAsk` (prefill-and-confirm): it lands
- *     as an editable draft the user sends, never dispatched on their behalf.
- * Both select the node first, so the turn carries THIS element as context.
+ * The 7 Oct ruling sends every rail question through `requestAsk` → `askAi`.
+ * Chip identity selects a question intent; stage and labels are read at click
+ * time. No action_type is added. The node travels as typed context and the
+ * conversation comes to the front.
  *
  * ── PRODUCER FIRST ───────────────────────────────────────────────────────────
  *
@@ -46,7 +42,7 @@
  *   · the icon YIELDED (rendered nothing) on a card the producer names, and on
  *     any card whose resolver had no question — so the affordance was
  *     hover-only on those cards. It now stays, as the generic
- *     `ASK_OLUMI_CHIP` ("Ask Olumi"), which PRE-FILLS the question the
+ *     `ASK_OLUMI_CHIP` ("Ask Olumi"), which sends the question the
  *     hover-only "Ask Olumi" button already asked (`buildAskAIPrompt`
  *     `explain_element`) — the producer-first rule still holds for the
  *     QUESTION, only the door is constant;
@@ -55,12 +51,8 @@
  * Still ONE gate (`useCoachingIconChip`) read by the icon AND the quick
  * actions, so the hover "Ask Olumi" is withheld exactly where this icon shows.
  *
- * ⭐ NEVER SILENT (contract v3: "Coaching opens the existing AI surface with
- * element context and a pre-filled question; it does not send or mutate
- * silently"). An untyped question is prefill-and-confirm (`requestAsk`). A
- * TYPED question keeps its typed dispatch (ED 02:31Z, never demoted to a
- * generic discuss — the drawer can only send `discuss`), and the Olumi surface
- * is revealed first so the turn never lands where the user is not looking.
+ * Busy and refire gates live in the builder. Unavailable dispatchers are
+ * hidden by the common gate; incomplete templates keep their editable drawer.
  */
 import { memo, useCallback } from 'react'
 import Tooltip from '../../../components/Tooltip'
@@ -68,13 +60,12 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import { useShowToastSafe } from '../../ToastContext'
-import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { buildAskAIPrompt } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import type { LucideProps } from 'lucide-react'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { NODE_RAIL_AI_GLYPH_CLASSES, NODE_RAIL_AI_GLYPH_PX, NODE_RAIL_BUTTON_CLASSES } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
@@ -185,48 +176,20 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
     store.selectNodeWithoutHistory?.(nodeId)
 
     if (chip.id === ASK_OLUMI_CHIP_ID) {
-      // The generic door: pre-fill the element question, never send it.
+      // The generic batch door sends a bound chip question.
       const node = store.nodes?.find((n) => n.id === nodeId)
       if (!node) return
       const text = buildAskAIPrompt(
         { kind: 'node', nodeId, nodeType: (node.type ?? 'factor') as NodeType, node: node as never, screenPos: { x: 0, y: 0 } },
         'explain_element',
       )
-      const landedGeneric = requestAsk({ text, label: `Ask Olumi about ${nodeLabel}`, targetId: nodeId, source: 'node-coaching-icon' })
+      const landedGeneric = requestAsk({ text, label: `Ask Olumi about ${nodeLabel}`, targetId: nodeId, source: 'node-coaching-icon', intent: 'explain' })
       if (landedGeneric === 'none') {
-        showToast('Could not open a draft — try typing your question directly.', 'warning')
+        showToast('Your question was not sent. Try again in the conversation.', 'warning')
       }
       return
     }
 
-    if (coachingChipIsTyped(chip)) {
-      // Never silent: front the Olumi surface before the typed turn lands.
-      revealOlumiSurface()
-      const callbacks = useGuidanceStore.getState()
-      if (callbacks._dispatchAction) {
-        callbacks._dispatchAction({
-          action_type: chip.actionType as string,
-          parameters: { chip_id: chip.id },
-          label: chip.label,
-          message: chip.message,
-          source: 'chip',
-        })
-        return
-      }
-      // UI N2: this text is Olumi's. A bare `_sendMessage` reaches CEE as a
-      // `composer` turn — words the USER typed — so a figure in it could ground a
-      // level. The degraded send keeps the chip identity instead.
-      if (callbacks._sendChip) {
-        callbacks._sendChip(chip.label, chip.message, {
-          id: chip.id,
-          action_type: chip.actionType as string,
-          parameters: { chip_id: chip.id },
-        })
-        return
-      }
-      showToast('Olumi is unavailable here. Your question has not been sent.', 'warning')
-      return
-    }
 
     const landed = requestAsk({
       text: chip.message,
@@ -236,7 +199,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
       source: 'chip',
     })
     if (landed === 'none') {
-      showToast('Could not open a draft — try typing your question directly.', 'warning')
+      showToast('Your question was not sent. Try again in the conversation.', 'warning')
     }
   }, [chip, nodeId, nodeLabel, showToast])
 
@@ -269,7 +232,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         {/* ⭐ v3.1 `coaching`: the bubble with "?" (`COACHING_ICON_GLYPH`, #42).
             Was `MessageCircle` under Panel's R3 (#63 5796486697 / 5796609717,
             "one glyph for an ask") — the conflict is named at the constant. */}
-        <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
+        <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_AI_GLYPH_PX} className={NODE_RAIL_AI_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )

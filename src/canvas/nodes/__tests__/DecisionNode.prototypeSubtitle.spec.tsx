@@ -135,19 +135,12 @@ const renderDecision = (label = 'How should Pro pricing evolve?') =>
   )
 
 const ROW = 'decision-node-resting-state'
-const SEP = 'decision-row-meta-separator'
 const EVIDENCE = 'decision-evidence-priority'
 const row = () => screen.getByTestId(ROW)
-const CLAUSE = 'decision-row-meta-clause'
 /** The row's children in order; the separator + clause unit (#11, one non-breaking
  *  unit since the no-growth fix) is listed, then its own children. */
 const rowSequence = () =>
-  Array.from(row().children).flatMap(c => {
-    const id = c.getAttribute('data-testid') ?? (c.textContent ?? '').trim()
-    return id === CLAUSE
-      ? [id, ...Array.from(c.children).map(k => k.getAttribute('data-testid') ?? (k.textContent ?? '').trim())]
-      : [id]
-  })
+  Array.from(row().children).map(c => c.getAttribute('data-testid') ?? (c.textContent ?? '').trim())
 /** Everything a sighted reader sees on the card at rest: the page minus the popover and sr-only copies. */
 const restingCardText = (): string => {
   const c = document.body.cloneNode(true) as HTMLElement
@@ -184,10 +177,12 @@ describe('(b) "Evidence priority: <factor>" only when the current run ranks a ca
   it('names the factor the run ranks first, bound by its node id, after the count', () => {
     completedRun(rankedReport('f-conv', 'f-price', 'f-adopt'))
     renderDecision()
-    expect(rowSequence()).toEqual(['decision-node-option-count', CLAUSE, SEP, EVIDENCE])
+    expect(rowSequence()).toEqual(['decision-node-option-count'])
     const ep = screen.getByTestId(EVIDENCE)
     expect(ep.getAttribute('data-factor-id')).toBe('f-conv')
-    expect(ep.textContent).toBe('Evidence priority: Trial conversion')
+    expect(ep.getAttribute('aria-label')).toBe('Evidence priority: Trial conversion')
+    expect(ep.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(ep.textContent).not.toContain('Evidence priority')
     // The canvas label, never the report's own label for the row.
     expect(restingCardText()).not.toContain('report label for')
     // The card-copy honesty guard the resting row answers to covers the new segment too.
@@ -199,7 +194,7 @@ describe('(b) "Evidence priority: <factor>" only when the current run ranks a ca
     renderDecision()
     const ep = screen.getByTestId(EVIDENCE)
     expect(ep.getAttribute('data-factor-id')).toBe('f-price')
-    expect(ep.textContent).toBe('Evidence priority: Monthly price')
+    expect(ep.getAttribute('aria-label')).toBe('Evidence priority: Monthly price')
   })
 
   it('CONTRAST — before any run there is no second segment at all', () => {
@@ -294,7 +289,7 @@ describe('(c) the long sentence is off the resting card, whole where it moved', 
   it('CONTRAST — the evidence priority and the withheld disclosure coexist: one on the row, one in the popover', () => {
     completedRun(rankedReport('f-conv', 'f-price', 'f-adopt', { inference_warnings: [WITHHELD_WARNING] }))
     renderDecision()
-    expect(rowSequence()).toEqual(['decision-node-option-count', CLAUSE, SEP, EVIDENCE])
+    expect(rowSequence()).toEqual(['decision-node-option-count'])
     expect(within(popover()).getByTestId('decision-leader-withheld').textContent).toContain(WITHHELD_TITLE)
   })
 })

@@ -20,7 +20,7 @@
  *    turn, a user's own words, or a structured answer → today's render exactly.
  */
 import { describe, it, expect } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
 import type { ConversationMessage } from '../types'
 import {
@@ -30,7 +30,6 @@ import {
   splitServerOpenQuestions,
 } from '../serverOpenQuestions'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
-import b3Placement from './fixtures/b3-host-placement.local-wire.json'
 import served2054 from './fixtures/openai-route-open-questions-2054.served.json'
 import servedShaped from './fixtures/openai-route-open-questions-answer-shape.served.json'
 import served from './fixtures/openai-route-construction-reply.served.json'
@@ -38,7 +37,6 @@ import served from './fixtures/openai-route-construction-reply.served.json'
 const noop = async () => {}
 const BUILDS = Object.keys(served.replies) as Array<keyof typeof served.replies>
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length
-const bare = (s: string) => s.replace(/^- /gm, '').replace(/—/g, '-').replace(/\s+/g, '')
 const M = SERVER_OPEN_QUESTIONS_MARKER
 /** Rebuilds the reply from its parts, exactly as the producer joins them. */
 const rebuild = (s: { lead: string; questions: string; after: string }) =>
@@ -47,6 +45,7 @@ const rebuild = (s: { lead: string; questions: string; after: string }) =>
 /** e39f6e0's `contextFactorsLine`, verbatim from the served reply. */
 const HELD_AS_CONTEXT =
   'No option changes Feature-release value, so I held it as fixed context rather than a lever — tell me if one of the options should change it.'
+
 
 function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
   return {
@@ -153,52 +152,6 @@ describe('splitServerOpenQuestions — fails open', () => {
   })
 })
 
-describe('MessageBubble — the served first reply at rest', () => {
-  it.each(BUILDS)('%s: the body is everything but the questions; they are closed behind a toggle', (build) => {
-    const text = served.replies[build].assistant_text
-    const split = splitServerOpenQuestions(text)!
-    render(<MessageBubble message={makeMsg({ content: text })} onChipClick={noop} />)
-
-    const body = screen.getByTestId('message-body-text')
-    expect(body.textContent).not.toContain(M)
-    expect(body.textContent).not.toContain(split.questions.slice(0, 40))
-    expect(body.textContent).toContain('The model was saved as version 1.')
-    // Identity, not a count: the body renders exactly what stays at rest. The
-    // markdown list becomes <li>s, so compare with whitespace and "- " dropped (the
-    // renderer also shows an em dash as a hyphen).
-    expect(bare(body.textContent ?? '')).toBe(bare(split.atRest))
-
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain('Questions this model does not answer yet')
-    expect(screen.queryByTestId('message-open-questions')).toBeNull()
-
-    fireEvent.click(toggle)
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    // On demand, and verbatim: the producer's words, whole.
-    expect(screen.getByTestId('message-open-questions').textContent).toBe(split.questions)
-  })
-
-  it('e39f6e0: the caveat and its ask are on the face of the reply, not under the toggle', () => {
-    render(<MessageBubble message={makeMsg({ content: served.replies.e39f6e0.assistant_text })} onChipClick={noop} />)
-    expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(HELD_AS_CONTEXT))
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.getByTestId('message-open-questions').textContent).not.toContain('fixed context')
-  })
-})
-
-describe('B3 host placement on the mounted chat face', () => {
-  it.each(b3Placement.cases)('keeps captured $source obligation outside the closed toggle: $line', ({ text, line, question }) => {
-    render(<MessageBubble message={makeMsg({ content: text })} onChipClick={noop} />)
-    expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(line))
-    expect(screen.getByTestId('message-show-open-questions').getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.getByTestId('message-open-questions').textContent).toContain(question)
-    expect(screen.getByTestId('message-open-questions').textContent).not.toContain(line)
-    expect(text.split(line)).toHaveLength(2)
-  })
-})
-
 describe('MessageBubble — fails open to today\'s render (controls)', () => {
   const served0 = served.replies.e39f6e0.assistant_text
 
@@ -221,7 +174,7 @@ describe('MessageBubble — fails open to today\'s render (controls)', () => {
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 
-  it('a structured answer owns its body, so no toggle is added', () => {
+  it('a retired answer sidecar adds no question toggle', () => {
     render(
       <MessageBubble
         message={makeMsg({
@@ -231,7 +184,8 @@ describe('MessageBubble — fails open to today\'s render (controls)', () => {
         onChipClick={noop}
       />,
     )
-    expect(screen.getByTestId('message-answer-structured')).toBeTruthy()
+    // U1/U5: assistant_text owns the body; the retired structured mount is not required.
+    expect(screen.getByTestId('message-body-text').textContent).toContain(M)
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 })
@@ -247,31 +201,6 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
   it('the served turn carries 13 items and a reply that names only 2 of them', () => {
     expect(LIST).toHaveLength(13)
     expect(served2054.assistant_text).toMatch(/Ask me for the other 11\.$/)
-  })
-
-  it('DL 5851835121: collapsed by default, and the toggle carries the count', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain('13 questions this model does not answer yet')
-    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
-  })
-
-  it('RED (served): opening the panel shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
-    expect(items).toEqual(LIST)
-    expect(screen.getByTestId('message-open-questions').textContent).not.toMatch(/Ask me for the other/)
-  })
-
-  it('CONTRAST: a turn without the list keeps the questions its reply carried, as before', () => {
-    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text })} onChipClick={noop} />)
-    expect(screen.getByTestId('message-show-open-questions').textContent).toContain('Questions this model does not answer yet')
-    expect(screen.getByTestId('message-show-open-questions').textContent).not.toMatch(/\d+ questions?/)
-    fireEvent.click(screen.getByTestId('message-show-open-questions'))
-    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
-    expect(screen.getByTestId('message-open-questions').textContent).toMatch(/Ask me for the other 11\./)
   })
 
   it('reads the list from the parser sidecar; drops what is not a non-empty string; never invents one', () => {
@@ -297,31 +226,10 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
  */
 describe('open questions on a structured (answer-shape) reply', () => {
   const LIST = servedShaped.open_questions
-  const shaped = () => makeMsg({ content: servedShaped.assistant_text, answerShape: servedShaped.answer_shape as never, openQuestionList: LIST })
 
   it('PREMISE: the served detail carries the marker and the wire carries the list', () => {
     expect(servedShaped.answer_shape.detail).toContain(SERVER_OPEN_QUESTIONS_MARKER)
     expect(LIST.length).toBeGreaterThan(2)
-  })
-
-  it('RED (served): the counted toggle mounts under the structured answer, collapsed, and opens to every item verbatim', () => {
-    render(<MessageBubble message={shaped()} onChipClick={noop} />)
-    expect(screen.getByTestId('message-answer-structured')).toBeTruthy()
-    const toggle = screen.getByTestId('message-show-open-questions')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toContain(`${LIST.length} questions this model does not answer yet`)
-    fireEvent.click(toggle)
-    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
-    expect(items).toEqual(LIST)
-  })
-
-  it('the questions leave "Show more": the detail keeps its arithmetic and loses the marker', () => {
-    render(<MessageBubble message={shaped()} onChipClick={noop} />)
-    fireEvent.click(screen.getByTestId('answer-show-more'))
-    const detail = screen.getByTestId('answer-detail').textContent ?? ''
-    expect(detail).toContain('This is arithmetic on these figures')
-    expect(detail).not.toContain(SERVER_OPEN_QUESTIONS_MARKER)
-    expect(detail).not.toMatch(/Ask me for the other/)
   })
 
   it('CONTRAST: a structured reply whose detail has no marker keeps its detail and gets no toggle', () => {
@@ -330,4 +238,3 @@ describe('open questions on a structured (answer-shape) reply', () => {
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 })
-

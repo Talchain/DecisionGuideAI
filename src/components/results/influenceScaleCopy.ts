@@ -564,11 +564,12 @@ export function influenceBarAriaLabel(
  *
  * ── AND WHY THE ANSWER IS PER-RUN, WHICH IS THE HALF THAT BITES ────────────
  *
- * `selectDriverDisplayModel` (`driverDisplayModel.ts`) decides the basis ONCE
+ * Before D7, `selectDriverDisplayModel` decided the basis ONCE
  * FOR THE WHOLE SET: `factors.every((f) => typeof f.influenceScore === 'number'
  * && Number.isFinite(f.influenceScore))`. It is all-or-nothing. One factor
  * missing a finite producer score drops EVERY factor in the run onto the
- * fallback basis.
+ * fallback basis. D7 now selects normalised |elasticity| for every ranked row;
+ * the disclosure still names the quantity attested by each display provenance.
  *
  * ⚠⚠ THE CONSEQUENCE IS THE WHOLE REASON THIS BLOCK EXISTS, AND IT MUST NOT BE
  * COMPRESSED INTO "the basis varies". The number 100% is printed by the top row
@@ -665,19 +666,15 @@ export const INFLUENCE_QUANTITY_BY_BASIS: Record<DriverDisplayProvenance, Influe
    * off the same quantity, so "how much the outcome shifts" is the semantics
    * already on screen rather than a new claim about the producer.
    *
-   * ⚠ THE SECOND SENTENCE OF `runDisclosure` STATES THE ACTUAL PRODUCER
-   * CONDITION, and it is the per-run half. The fallback is taken when NOT every
-   * factor carried a finite `influence_score` — not because sensitivity was
-   * preferred, and not because of anything about the factors on screen. Saying
-   * "for every factor shown" would be FALSE: the coverage verdict is computed
-   * over the whole feed, and the factor that failed it may be one the >= 0.01
-   * visibility filter removed from the list the reader is looking at.
+   * The display model chooses this basis for the result-sensitivity ranking.
+   * Its disclosure names the displayed quantity without inferring anything
+   * about the producer's structural influence coverage.
    */
   normalised_elasticity: {
     noun: 'Outcome sensitivity',
     gloss: 'How much the outcome shifts when this factor changes.',
     runDisclosure:
-      'Olumi did not have a structural influence figure for every factor, so these show outcome sensitivity: how much the outcome shifts when each factor changes.',
+      'These show outcome sensitivity: how much the outcome shifts when each factor changes.',
   },
 }
 

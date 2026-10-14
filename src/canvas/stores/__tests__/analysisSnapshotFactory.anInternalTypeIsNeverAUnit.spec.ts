@@ -24,11 +24,17 @@
  * ⭐ THE CONTRAST: a fix that dropped every `split_unit` would pass the binary
  * half, so a real unit ('£') must still reach both the factory's sentence and
  * the transition line the Compare tab renders.
+ *
+ * ⚠ NARROWED 2026-10-07 — THE COMPARE CONSUMER WAS DELETED, NOT EXCUSED. The `deriveTransitions` /
+ * `TransitionCard` line cases are gone with the components; the factory's own
+ * `condition` sentence (binary suppressed, a real unit kept) is still pinned.
+ * The pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers; the live tab (`CompareRunPairBody`)
+ * reads CEE's `run_delta`, not these snapshots. The factory assertions stand.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { buildAnalysisSnapshot } from '../analysisSnapshotFactory'
-import { deriveTransitions } from '../../compare-tab/deriveTransitions'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
@@ -89,20 +95,6 @@ function conditionOf(splitUnit: string | undefined): string {
   return found!.condition
 }
 
-/** The line the Compare tab's TransitionCard renders verbatim. */
-function transitionLineOf(splitUnit: string | undefined): string {
-  // n1's elasticity moves >20% so it is an AFFECTED factor and
-  // findConditionalWinner can match the row (same setup as rootSiblings.spec).
-  const factors = (elasticity: number) => [
-    { node_id: 'n1', factor_label: 'Enterprise tier availability', elasticity, rank_flip_rate: 0.1 },
-  ]
-  const from = build({ factor_sensitivity: factors(0.4) }, 1)
-  const to = build({ factor_sensitivity: factors(0.6), conditional_winners: cwRow(splitUnit) }, 2)
-  const [t] = deriveTransitions([from, to])
-  expect(t.conditionalWinner, 'precondition: the transition carries the conditional line').not.toBeNull()
-  return t.conditionalWinner!
-}
-
 describe('analysisSnapshotFactory — a factor-type descriptor is never a unit in `condition`', () => {
   it('⛔ a binary-typed split states the value, never "binary" (by identity: the unit-less sentence)', () => {
     const condition = conditionOf('binary')
@@ -115,16 +107,7 @@ describe('analysisSnapshotFactory — a factor-type descriptor is never a unit i
     expect(conditionOf('Binary')).not.toMatch(BINARY)
   })
 
-  it('⛔ the Compare transition line carries no "binary"', () => {
-    const line = transitionLineOf('binary')
-    expect(line).not.toMatch(BINARY)
-    expect(line).toBe('When Enterprise tier availability exceeds 0.5, support moves to Raise price')
-  })
-
-  it('⭐ CONTRAST: a real unit still prints, in the snapshot and on the transition line', () => {
+  it('⭐ CONTRAST: a real unit still prints in the snapshot sentence', () => {
     expect(conditionOf('£')).toBe('When Enterprise tier availability exceeds 0.5 £')
-    expect(transitionLineOf('£')).toBe(
-      'When Enterprise tier availability exceeds 0.5 £, support moves to Raise price',
-    )
   })
 })

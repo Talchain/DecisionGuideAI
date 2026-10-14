@@ -70,7 +70,8 @@ import { useDraftStore } from '../../stores/draftStore'
 // spy observes both.
 // ---------------------------------------------------------------------------
 
-const mockSaveAutosave = vi.fn()
+// saveAutosave reports whether it WROTE (#2516); a successful write is `true`.
+const mockSaveAutosave = vi.fn((..._args: unknown[]) => true)
 const mockLoadAutosave = vi.fn()
 
 vi.mock('../../store/scenarios', async (importOriginal) => {
@@ -154,6 +155,7 @@ function persistedNodeIds(): string[] {
 beforeEach(() => {
   vi.useFakeTimers()
   mockSaveAutosave.mockReset()
+  mockSaveAutosave.mockReturnValue(true)
   mockLoadAutosave.mockReset()
   // No competing tab — the multi-tab staleness guard must not be what decides
   // any of these outcomes.

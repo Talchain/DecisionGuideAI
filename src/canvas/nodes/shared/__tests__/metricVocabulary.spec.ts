@@ -147,8 +147,12 @@ describe('METRIC_LEGEND_ROWS', () => {
     // carry. `METRIC_NOUN.support` stays in the register for the panel-owned
     // surfaces, and is exactly what the canvas legend must NOT say.
     const explained = METRIC_LEGEND_ROWS.map((r) => r.noun)
-    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
-    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    // #2747 re-scope 2 (U0): no canvas card captions the run share ("Current model") or a goal chance ("Chance") in C, so
+    // those two nouns have no card caption for the legend to explain; their rows left the register with their markings.
+    const removedInC = new Set<string>([CURRENT_MODEL_NOUN, METRIC_NOUN.chance])
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN }).filter((noun) => !removedInC.has(noun))
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length - removedInC.size)
+    for (const noun of removedInC) expect(explained, `"${noun}" has no card marking in C, so no legend row`).not.toContain(noun)
     for (const noun of canvasCaptions) {
       expect(explained, `"${noun}" is captioned on a card but absent from the legend`).toContain(noun)
     }
@@ -159,15 +163,8 @@ describe('METRIC_LEGEND_ROWS', () => {
     // CONTRAST: the retired canvas caption is not a legend noun, while the
     // present row above IS — so this absence is read from a populated list.
     expect(explained).not.toContain(METRIC_NOUN.support)
-    // ED decision 2's second half, on the row itself: conditional on the model
-    // and its assumptions, and in the run-share verb (DL #87 6004906342).
-    // ⛔ ED's "not a recommendation" half is retired: the recommend stem is
-    // banned even negated (J1 ruling), so it is asserted GONE.
-    const row = METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!
-    expect(row.gloss).toMatch(/\bmodel\b/)
-    expect(row.gloss).toMatch(/\bassumptions?\b/)
-    expect(row.gloss).toMatch(/the share of runs that supported this option/)
-    expect(row.gloss).not.toMatch(/recommend/i)
+    // #2747 re-scope 2: the Current model row's gloss assertions are deleted with the row (no card shows the run share in
+    // C). No remaining gloss carries the recommend stem (the SCAN row below).
   })
 
   it('the influence gloss is DERIVED from the producer, not re-worded', () => {
@@ -447,15 +444,8 @@ describe('METRIC_LEGEND_ROWS', () => {
     }
   })
 
-  it('⭐ the goal gloss is basis-NEUTRAL — a legend cannot earn the possessive', () => {
-    // `basisWithholdsPossessive` gates "your goal" on the run's basis. Static
-    // legend copy is shown for every run at once and can read no basis, so the
-    // possessive is never earned here. This is the assertion that stops a
-    // later "friendlier" rewrite reintroducing it.
-    const row = METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.chance)!
-    expect(row.gloss).not.toMatch(/\byour\b/i)
-    expect(row.gloss).toMatch(/the goal target/)
-  })
+  // #2747 re-scope 2 (U0, pre-accepted): row deleted — "the goal gloss is basis-NEUTRAL". Its only subject, the legend's
+  // Chance gloss, left the register (no canvas card shows a goal chance in C).
 
   // ⭐ ONE VERB FOR THE RUN SHARE (DL ruling #87 6004906342, 5 Oct 22:57Z): "supported", matching the results
   // cards and CEE ("In this model, N% of runs supported ‘X’"). "favoured" (cut 3) is retired; the recommend
@@ -464,12 +454,7 @@ describe('METRIC_LEGEND_ROWS', () => {
     expect(OPTION_RESULT_COPY.sharePrefix).toBe('supported by')
     expect(OPTION_RESULT_COPY.share('72%')).toBe('supported by 72% of runs')
     expect(OPTION_RESULT_COPY.sentence('72%')).toBe('In this model, 72% of runs supported this option.')
-    expect(METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!.gloss).toBe(
-      'on option cards “N% of runs”: the share of runs that supported this option under this model’s assumptions',
-    )
-    expect(METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.chance)!.gloss).toBe(
-      'how often the option supported by the most runs reached the goal target across the runs',
-    )
+    // #2747 re-scope 2: the two legend glosses this row also pinned (Current model, Chance) left the register in C.
   })
 
   it('⭐ SCAN: no option-result string or legend gloss says "favour…" or carries the recommend stem', () => {
@@ -482,8 +467,9 @@ describe('METRIC_LEGEND_ROWS', () => {
     // CONTRAST (populated scan): the register is read, and the run-share verb is present in it.
     expect(optionStrings.length).toBeGreaterThanOrEqual(15)
     expect(glosses.length).toBeGreaterThanOrEqual(3)
+    // #2747 re-scope 2: the Current model gloss left the register, so the verb's presence is read from the copy register.
     expect(scanned.filter((s) => /\bsupported\b/.test(s.text)).map((s) => s.key)).toEqual(
-      expect.arrayContaining(['sharePrefix', 'share', 'sentence', `legend:${CURRENT_MODEL_NOUN}`]),
+      expect.arrayContaining(['sharePrefix', 'share', 'sentence']),
     )
     for (const { key, text } of scanned) {
       expect(text, `${key}: "favour…" is retired for the run share`).not.toMatch(/\bfavou?r/i)

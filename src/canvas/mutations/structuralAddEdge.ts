@@ -452,7 +452,7 @@ export const STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE =
   "Connection drawn. It isn't saved to the model yet — I'll save it with your next message. If you reload before then, it won't be there."
 
 export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
-  "That connection went out just as you sent something else, so I can't tell you whether it saved. It's on the canvas — reload this decision to see what the model actually holds."
+  "That connection went out just as you sent something else, so I can't tell you whether it saved. It's on the canvas — reload this scenario to see what the model actually holds."
 
 /**
  * ⭐ WHAT A USER IS TOLD WHEN THE LINK CANNOT BE SAVED AT ALL YET.

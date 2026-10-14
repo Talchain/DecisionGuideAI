@@ -41,6 +41,8 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
   // CEE #2371 (MG SUCCESSOR #75 5915202903): an `exploratory` run withholds every option's goal figures because the
   // target can't be tested yet; "Not shown. " + the decision-representation sentence, which may end in its one question.
   'GOAL_FIGURES_TARGET_NOT_TESTABLE',
+  // Share-by-date approximation withholds the point figure; a licensed range may sit beside it.
+  'GOAL_FIGURES_SHARE_APPROXIMATION',
   // CEE #2574 (gate 1 v2, Science 0df0e1): two or more options came out identical in the Run, so their wins split and
   // the comparison is withheld; "Not shown. " + which options came out identical and what the user can do.
   'GOAL_FIGURES_OPTIONS_IDENTICAL',
@@ -54,6 +56,21 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
  */
 export const GOAL_IDENTITY_WITHHELD_FALLBACK =
   "Not shown. Olumi can't give each option's figures for this goal from this run."
+
+/**
+ * Run-3 judge C5: CEE's one served reason, verbatim, when every option it serves a cell for (a current canonical view)
+ * is withheld with the same `why`. null when any option has a figure or range, when a withheld cell carries no why, or
+ * when the reasons differ (each option's row then says its own).
+ */
+export function sharedServedWithheldWhy(
+  cells: ReadonlyArray<{ readonly kind: string; readonly why?: string } | null>,
+): string | null {
+  const served = cells.filter((c): c is { readonly kind: string; readonly why?: string } => c !== null && c.kind !== 'none')
+  if (served.length === 0 || served.some(c => c.kind !== 'withheld')) return null
+  const first = served[0].why
+  if (typeof first !== 'string' || first.trim() === '') return null
+  return served.every(c => c.why === first) ? first : null
+}
 
 export interface GoalIdentityWithheld {
   nodeIds: string[]
@@ -74,11 +91,44 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   const nodeIds = [...new Set(matched.flatMap((w) => (Array.isArray(w.node_ids)
     ? w.node_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
     : [])))]
-  const words = matched.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
-  // Every reason that applies is said, in its own words. If ANY of them is missing or unsafe, the cause-neutral
+  // Item-3: the target warning states the complete sizing requirement; the placeholder names only a subset.
+  // Select words independently of the node/claim scopes, which still retain every matched warning.
+  const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
+  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
+  // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
-  const allSafe = words.every((raw) => raw.startsWith('Not shown.') && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
+  // ⭐ Recovery Batch E (DL 12 Oct): a reason CEE licenses is said verbatim WHATEVER ITS OPENING. Ruling 12's period-end
+  // sentence ("The chance of reaching … isn’t shown: …") says "isn’t shown" itself and is never prefixed "Not shown.",
+  // and an opening rule here sent it to the generic box. Display safety still decides; the per-option reader is unchanged.
+  const allSafe = words.every((raw) => raw.length > 0 && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
+}
+
+/** Producer reasons for ONE option, using B3's fail-closed option scope. null means no safe reason. */
+export function readGoalWithheldReasonFor(holder: unknown, optionId: string): string | null {
+  if (!isPlainObject(holder)) return null
+  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
+  const matched = warnings.filter((w): w is Record<string, unknown> => {
+    if (!isPlainObject(w) || typeof w.code !== 'string' || !GOAL_FIGURES_WITHHELD_CODES.includes(w.code)) return false
+    const optionIds = nonEmptyStrings(w.option_ids)
+    return optionIds === null || optionIds.includes(optionId)
+  })
+  const ownMessage = matched.flatMap((w) => {
+    if (w.code !== 'GOAL_FIGURES_TARGET_NOT_TESTABLE' || !isPlainObject(w.per_option)
+      || !Object.prototype.hasOwnProperty.call(w.per_option, optionId)) return []
+    const entry = w.per_option[optionId]
+    return isPlainObject(entry) && typeof entry.message === 'string' && entry.message.startsWith('Not shown.')
+      ? [entry.message] : []
+  })[0]
+  // Item-3 applies only among warnings covering this option; another option's target cannot replace its placeholder.
+  const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
+  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const words = ownMessage !== undefined ? [ownMessage.trim()]
+    : reasons.map((w) => typeof w.message === 'string' ? w.message.trim() : '')
+  if (words.length === 0 || words.some((raw) => !raw || raw.length > 400 || NOT_DISPLAY_SAFE.test(raw))) return null
+  const stripped = words.map((raw) => raw.startsWith('Not shown.') ? raw.slice('Not shown.'.length).trim() : raw)
+  return stripped.every(Boolean) ? [...new Set(stripped)].join(' ') : null
 }
 
 /**

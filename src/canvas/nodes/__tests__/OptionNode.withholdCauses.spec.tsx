@@ -95,7 +95,8 @@ describe.each([
   it('no share, and the marker carries this cause\'s words', () => {
     seedCause(cause, [...warnings])
     renderCard(CONVERTIBLE)
-    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${words}`)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-description')).toBe(words)
     expect(slotText(CONVERTIBLE)).not.toMatch(/\d\s*%/)
   })
 })

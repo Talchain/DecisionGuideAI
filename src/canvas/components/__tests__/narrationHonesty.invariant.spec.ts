@@ -190,7 +190,7 @@ describe('positive control — the guard can SEE a violation', () => {
   })
 
   it('an honest line trips no rule', () => {
-    expect(violations('Still drafting your decision model…')).toEqual([])
+    expect(violations('Still drafting your model…')).toEqual([])
   })
 
   it('the retired draft table FAILS this suite (the defect this lane fixes)', () => {

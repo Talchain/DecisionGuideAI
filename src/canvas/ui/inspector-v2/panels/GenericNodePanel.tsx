@@ -22,7 +22,8 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { GROUP_LABELS, EMPTY_STATES, DESCRIPTION_PLACEHOLDERS, GENERIC_STRINGS } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { InspectorSummary } from '../shared/InspectorSummary'
+import { InspectorMoreItems } from '../shared/InspectorMore'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
@@ -35,6 +36,8 @@ export const GenericNodePanel = memo(function GenericNodePanel({
   nodeId,
   techMode,
   onNavigate,
+  readOnly = false,
+  summaryContext,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -43,7 +46,6 @@ export const GenericNodePanel = memo(function GenericNodePanel({
 
   // InspectorRouter keys the panel by nodeId, so each node gets its own draft.
   const [description, setDescription] = useState(textContent(node?.data?.description))
-  const [isEditingDescription, setIsEditingDescription] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const body = textContent(node?.data?.body)
 
@@ -56,7 +58,7 @@ export const GenericNodePanel = memo(function GenericNodePanel({
     if (field.scrollHeight > 0) {
       field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`
     }
-  }, [description, isEditingDescription])
+  }, [description])
 
   const connections = useMemo(() => {
     return edges
@@ -88,43 +90,25 @@ export const GenericNodePanel = memo(function GenericNodePanel({
 
   return (
     <div data-testid="inspector-generic-panel">
-      <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {description || isEditingDescription ? (
-          <textarea
-            ref={descriptionRef}
-            aria-label="Description"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onBlur={() => {
-              mutations.setDescription(description)
-              if (!description.trim()) setIsEditingDescription(false)
-            }}
-            autoFocus={isEditingDescription && !description}
-            placeholder={DESCRIPTION_PLACEHOLDERS.decision}
-            rows={2}
-            maxLength={500}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
-          />
-        ) : (
-          <EmptyDescriptionPrompt
-            placeholder={DESCRIPTION_PLACEHOLDERS.decision}
-            onStartEditing={() => setIsEditingDescription(true)}
-          />
-        )}
-
-        {body.trim() && body.trim() !== description.trim() && (
-          <div className="mt-3" data-testid="inspector-generic-body">
-            <p className={`${typography.panelMeta} text-text-light m-0 mb-1`}>Further detail</p>
-            <p className={`${typography.panelBody} text-text-body m-0 whitespace-pre-wrap break-words`}>
-              {body}
-            </p>
-          </div>
-        )}
-
-        <p className={`${typography.panelMeta} text-text-light mt-2`} data-testid="inspector-generic-note">
-          {GENERIC_STRINGS.noSpecialisedEditor}
+      <InspectorSummary sentence="This element has no detailed editor yet." />
+      {summaryContext}
+      {readOnly && (
+        <p data-testid="generic-authority-route" className={`${typography.panelBody} text-text-body mt-2`}>
+          To change its structure, ask Olumi.
         </p>
-      </PanelGroup>
+      )}
+      {description.trim() && (
+        <p className={`${typography.panelBody} text-text-body mt-2 whitespace-pre-wrap break-words`}>{description}</p>
+      )}
+
+      {body.trim() && body.trim() !== description.trim() && (
+        <div className="mt-3" data-testid="inspector-generic-body">
+          <p className={`${typography.panelMeta} text-text-light m-0 mb-1`}>Further detail</p>
+          <p className={`${typography.panelBody} text-text-body m-0 whitespace-pre-wrap break-words`}>
+            {body}
+          </p>
+        </div>
+      )}
 
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         {connections.map(conn => (
@@ -143,9 +127,36 @@ export const GenericNodePanel = memo(function GenericNodePanel({
         )}
       </PanelGroup>
 
-      <TechnicalDisclosure visible={techMode}>
-        <div>System: node type: {rawKind}</div>
-      </TechnicalDisclosure>
+      <InspectorMoreItems>
+        {description.trim() && (
+          <fieldset
+            disabled={readOnly}
+            aria-describedby={readOnly ? 'inspector-authority-notice' : undefined}
+            data-authority={readOnly ? 'disabled' : undefined}
+            className="contents"
+          >
+            <PanelGroup kind="context" label="Description">
+              <textarea
+                ref={descriptionRef}
+                aria-label="Description"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                onBlur={() => mutations.setDescription(description)}
+                placeholder={DESCRIPTION_PLACEHOLDERS.decision}
+                rows={2}
+                maxLength={500}
+                className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+              />
+            </PanelGroup>
+          </fieldset>
+        )}
+        <p className={`${typography.panelMeta} text-text-light mt-2`} data-testid="inspector-generic-note">
+          {GENERIC_STRINGS.noSpecialisedEditor}
+        </p>
+        <TechnicalDisclosure visible={techMode}>
+          <div>System: node type: {rawKind}</div>
+        </TechnicalDisclosure>
+      </InspectorMoreItems>
     </div>
   )
 })

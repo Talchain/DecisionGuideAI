@@ -1,0 +1,774 @@
+{
+  "provenance": {
+    "source": "turn-003-S1-run1-1791329270768.json",
+    "capture": "S1 draw 1, 2026-10-06",
+    "ui_build": "ed8889ae",
+    "cee_build": "bdf5716",
+    "sanitised": "Analysis block only; decision_brief brief_id and created_at removed. No values or prose changed."
+  },
+  "block": {
+    "type": "analysis_result",
+    "summary": "Launch starter tier gave the highest monthly recurring revenue in 60% of runs of this model, but treat this as provisional: it rests heavily on how much Starter-tier subscribers changes monthly recurring revenue. The result is not yet robust — small changes could flip it. 'Keep pricing as it is' was analysed as no change — the factors it compares against were held at the values your model records today. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.",
+    "leading_option_id": "launch_starter_tier",
+    "win_probabilities": {
+      "Launch starter tier": 0.5951666666666655,
+      "Raise prices by 10%": 0.34721666666666745,
+      "Keep pricing as it is": 0.05761666666666666
+    },
+    "enrichment": {
+      "option_comparison": [
+        {
+          "id": "raise_prices_by_10",
+          "label": "Raise prices by 10%",
+          "status": "computed",
+          "outcome": {
+            "p10": 111457.70720291782,
+            "p50": 120006.96589369113,
+            "p90": 136966.64948760328,
+            "std": 10365.066702548782,
+            "mean": 122896.93601343392,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": 0.6914266966898277,
+            "cvar_10": 0.6851747332557662,
+            "expected_regret": 0.03914747320110423
+          },
+          "option_id": "raise_prices_by_10",
+          "option_label": "Raise prices by 10%",
+          "win_probability": 0.34721666666666745,
+          "probability_of_goal": 0.331,
+          "probability_of_goal_drivers": {
+            "method": "tercile_conditional_v1",
+            "drivers": [
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "price_rise_mrr_uplift",
+                "kind": "link_strength",
+                "n_low": 2663,
+                "n_high": 2663,
+                "spread": 0.4615095756665415,
+                "status": "resolved",
+                "quantity_id": "price_rise_mrr_uplift->monthly_recurring_revenue",
+                "p_goal_if_low": 0.15471273000375516,
+                "p_goal_if_high": 0.6162223056702967,
+                "low_upper_value": 0.595796374616886,
+                "high_lower_value": 0.9182551199809935,
+                "spread_noise_floor": 0.03799591976160911
+              },
+              {
+                "to": "price_rise_mrr_uplift",
+                "from": "price_rise",
+                "kind": "link_strength",
+                "n_low": 2678,
+                "n_high": 2678,
+                "spread": 0.4436146377893951,
+                "status": "resolved",
+                "quantity_id": "price_rise->price_rise_mrr_uplift",
+                "p_goal_if_low": 0.1713965646004481,
+                "p_goal_if_high": 0.6150112023898432,
+                "low_upper_value": 0.7909723567797333,
+                "high_lower_value": 1.2247111526640324,
+                "spread_noise_floor": 0.03788935905885218
+              },
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "price_rise_mrr_uplift",
+                "kind": "link_existence",
+                "spread": 0.4143196895731631,
+                "status": "resolved",
+                "n_absent": 2011,
+                "n_present": 7989,
+                "quantity_id": "price_rise_mrr_uplift->monthly_recurring_revenue",
+                "p_goal_if_absent": 0,
+                "p_goal_if_present": 0.4143196895731631,
+                "spread_noise_floor": 0.034590377476001
+              },
+              {
+                "to": "price_rise_mrr_uplift",
+                "from": "price_rise",
+                "kind": "link_existence",
+                "spread": 0.4113143673274209,
+                "status": "resolved",
+                "n_absent": 1965,
+                "n_present": 8035,
+                "quantity_id": "price_rise->price_rise_mrr_uplift",
+                "p_goal_if_absent": 0.0005089058524173028,
+                "p_goal_if_present": 0.4118232731798382,
+                "spread_noise_floor": 0.034892599801197736
+              },
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "customer_losses_from_price_rise",
+                "kind": "link_strength",
+                "n_low": 2672,
+                "n_high": 2672,
+                "spread": 0.1717814371257485,
+                "status": "resolved",
+                "quantity_id": "customer_losses_from_price_rise->monthly_recurring_revenue",
+                "p_goal_if_low": 0.21369760479041916,
+                "p_goal_if_high": 0.38547904191616766,
+                "low_upper_value": -0.9296961354574677,
+                "high_lower_value": -0.593146859354009,
+                "spread_noise_floor": 0.037931875652432945
+              }
+            ],
+            "n_dropped": 2,
+            "n_compared": 9,
+            "min_group_n": 30,
+            "n_candidates": 11,
+            "dropped_by_reason": {
+              "no_variance": 1,
+              "zero_spread": 0,
+              "set_by_option": 1,
+              "outcome_constant": 0,
+              "group_below_min_n": 0,
+              "non_finite_values": 0,
+              "set_by_option_upstream": 0,
+              "tied_at_tercile_boundary": 0
+            }
+          },
+          "probability_of_goal_precision": {
+            "basis": "simulation_precision",
+            "n_met": 3310,
+            "method": "wilson_score",
+            "n_informative": 10000,
+            "interval_lower": 0.32184337596598567,
+            "interval_upper": 0.34028641548330296,
+            "confidence_level": 0.95
+          }
+        },
+        {
+          "id": "launch_starter_tier",
+          "label": "Launch starter tier",
+          "status": "computed",
+          "outcome": {
+            "p10": 120000,
+            "p50": 126077.21568909536,
+            "p90": 131435.79048583438,
+            "std": 4402.080167353559,
+            "mean": 125774.12930338159,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": 0.7619047619047619,
+            "cvar_10": 0.7601620314147044,
+            "expected_regret": 0.020879579296674534
+          },
+          "option_id": "launch_starter_tier",
+          "option_label": "Launch starter tier",
+          "win_probability": 0.5951666666666655,
+          "probability_of_goal": 0.5055,
+          "probability_of_goal_drivers": {
+            "method": "tercile_conditional_v1",
+            "drivers": [
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "starter_tier_subscribers",
+                "kind": "link_strength",
+                "n_low": 2644,
+                "n_high": 2644,
+                "spread": 1,
+                "status": "resolved",
+                "quantity_id": "starter_tier_subscribers->monthly_recurring_revenue",
+                "p_goal_if_low": 0,
+                "p_goal_if_high": 1,
+                "low_upper_value": 0.24146196353280636,
+                "high_lower_value": 0.3726973476101231,
+                "spread_noise_floor": 0.03813219626806964
+              },
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "starter_tier_subscribers",
+                "kind": "link_existence",
+                "spread": 0.6372116475482164,
+                "status": "resolved",
+                "n_absent": 2067,
+                "n_present": 7933,
+                "quantity_id": "starter_tier_subscribers->monthly_recurring_revenue",
+                "p_goal_if_absent": 0,
+                "p_goal_if_present": 0.6372116475482164,
+                "spread_noise_floor": 0.034238803679287756
+              },
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "price_rise_mrr_uplift",
+                "kind": "link_existence",
+                "spread": 0.008365244130121963,
+                "status": "below_resolution",
+                "n_absent": 2011,
+                "n_present": 7989,
+                "quantity_id": "price_rise_mrr_uplift->monthly_recurring_revenue",
+                "p_goal_if_absent": 0.5121829935355544,
+                "p_goal_if_present": 0.5038177494054324,
+                "spread_noise_floor": 0.034590377476001
+              },
+              {
+                "to": "price_rise_mrr_uplift",
+                "from": "price_rise",
+                "kind": "link_strength",
+                "n_low": 2678,
+                "n_high": 2678,
+                "spread": 0.008215085884988815,
+                "status": "below_resolution",
+                "quantity_id": "price_rise->price_rise_mrr_uplift",
+                "p_goal_if_low": 0.5052277819268111,
+                "p_goal_if_high": 0.49701269604182224,
+                "low_upper_value": 0.7909723567797333,
+                "high_lower_value": 1.2247111526640324,
+                "spread_noise_floor": 0.03788935905885218
+              },
+              {
+                "to": "monthly_recurring_revenue",
+                "from": "customer_losses_from_price_rise",
+                "kind": "link_existence",
+                "spread": 0.00792158066025983,
+                "status": "below_resolution",
+                "n_absent": 1983,
+                "n_present": 8017,
+                "quantity_id": "customer_losses_from_price_rise->monthly_recurring_revenue",
+                "p_goal_if_absent": 0.5118507312153303,
+                "p_goal_if_present": 0.5039291505550705,
+                "spread_noise_floor": 0.03477284689571544
+              }
+            ],
+            "n_dropped": 2,
+            "n_compared": 9,
+            "min_group_n": 30,
+            "n_candidates": 11,
+            "dropped_by_reason": {
+              "no_variance": 1,
+              "zero_spread": 0,
+              "set_by_option": 1,
+              "outcome_constant": 0,
+              "group_below_min_n": 0,
+              "non_finite_values": 0,
+              "set_by_option_upstream": 0,
+              "tied_at_tercile_boundary": 0
+            }
+          },
+          "probability_of_goal_precision": {
+            "basis": "simulation_precision",
+            "n_met": 5055,
+            "method": "wilson_score",
+            "n_informative": 10000,
+            "interval_lower": 0.49570054238992023,
+            "interval_upper": 0.5152952336280022,
+            "confidence_level": 0.95
+          }
+        },
+        {
+          "id": "keep_pricing_as_it_is",
+          "label": "Keep pricing as it is",
+          "status": "computed",
+          "outcome": {
+            "p10": 120000,
+            "p50": 120000,
+            "p90": 120000,
+            "std": 1.7486012637846216e-11,
+            "mean": 120000.00000000001,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": 0.7619047619047619,
+            "cvar_10": 0.7619047619047622,
+            "expected_regret": 0.05754071773084337
+          },
+          "option_id": "keep_pricing_as_it_is",
+          "option_label": "Keep pricing as it is",
+          "win_probability": 0.05761666666666666,
+          "probability_of_goal": 0,
+          "probability_of_goal_drivers": {
+            "method": "tercile_conditional_v1",
+            "drivers": [],
+            "n_dropped": 11,
+            "n_compared": 0,
+            "min_group_n": 30,
+            "n_candidates": 11,
+            "dropped_by_reason": {
+              "no_variance": 0,
+              "zero_spread": 0,
+              "set_by_option": 0,
+              "outcome_constant": 11,
+              "group_below_min_n": 0,
+              "non_finite_values": 0,
+              "set_by_option_upstream": 0,
+              "tied_at_tercile_boundary": 0
+            }
+          },
+          "probability_of_goal_precision": {
+            "basis": "simulation_precision",
+            "n_met": 0,
+            "method": "wilson_score",
+            "n_informative": 10000,
+            "interval_lower": 0,
+            "interval_upper": 0.00038399837067659557,
+            "confidence_level": 0.95
+          }
+        }
+      ],
+      "factor_sensitivity": [
+        {
+          "source": "graph",
+          "direction": "positive",
+          "factor_id": "starter_tier_subscribers",
+          "confidence": 0.3,
+          "elasticity": 0,
+          "zero_reason": "intervention_override",
+          "driver_label": "biggest",
+          "factor_label": "Starter-tier subscribers",
+          "value_source": "cee_inference",
+          "influence_rank": 1,
+          "rank_flip_rate": 0,
+          "importance_rank": 1,
+          "influence_basis": "isl_structural",
+          "influence_score": 1,
+          "importance_basis": "isl_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": 0,
+          "flip_risk_category": "isolated",
+          "value_of_information": 0,
+          "attribution_stability": "negligible",
+          "confidence_components": {
+            "sampling_stability": 0,
+            "structural_certainty": 0.5
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "range_derivation_source": "explicit_cap"
+        },
+        {
+          "source": "graph",
+          "direction": "positive",
+          "factor_id": "price_rise",
+          "confidence": 0.3,
+          "elasticity": 0,
+          "zero_reason": "intervention_override",
+          "driver_label": "strong",
+          "factor_label": "Price rise",
+          "value_source": "cee_inference",
+          "influence_rank": 2,
+          "rank_flip_rate": 0,
+          "importance_rank": 2,
+          "influence_basis": "isl_structural",
+          "influence_score": 0.7346938775510204,
+          "importance_basis": "isl_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": 0,
+          "flip_risk_category": "isolated",
+          "value_of_information": 0,
+          "attribution_stability": "negligible",
+          "confidence_components": {
+            "sampling_stability": 0,
+            "structural_certainty": 0.5
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "range_derivation_source": "explicit_cap"
+        }
+      ],
+      "robustness": {
+        "level": "low",
+        "near_tie": {
+          "gap": 0.24794999999999806,
+          "is_tie": false,
+          "threshold": 0.1,
+          "top_option_id": "launch_starter_tier",
+          "tied_option_ids": [
+            "launch_starter_tier"
+          ],
+          "second_option_id": "raise_prices_by_10"
+        },
+        "is_robust": false,
+        "confidence": 0.5951666666666655,
+        "robust_edges": [],
+        "fragile_edges": [
+          {
+            "to_id": "monthly_recurring_revenue",
+            "edge_id": "starter_tier_subscribers->monthly_recurring_revenue",
+            "from_id": "starter_tier_subscribers",
+            "visible": true,
+            "severity": "error",
+            "to_label": "monthly recurring revenue",
+            "from_label": "Starter-tier subscribers",
+            "switch_probability": 0.5236,
+            "alternative_winner_id": "raise_prices_by_10",
+            "alternative_winner_label": "Raise prices by 10%",
+            "marginal_switch_probability": 0.27
+          },
+          {
+            "to_id": "customer_losses_from_price_rise",
+            "edge_id": "price_rise->customer_losses_from_price_rise",
+            "from_id": "price_rise",
+            "visible": true,
+            "severity": "warning",
+            "to_label": "Customer losses from price rise",
+            "from_label": "Price rise",
+            "switch_probability": 0.434,
+            "alternative_winner_id": "raise_prices_by_10",
+            "alternative_winner_label": "Raise prices by 10%",
+            "marginal_switch_probability": 0.1
+          },
+          {
+            "to_id": "monthly_recurring_revenue",
+            "edge_id": "customer_losses_from_price_rise->monthly_recurring_revenue",
+            "from_id": "customer_losses_from_price_rise",
+            "visible": true,
+            "severity": "warning",
+            "to_label": "monthly recurring revenue",
+            "from_label": "Customer losses from price rise",
+            "switch_probability": 0.2296,
+            "alternative_winner_id": "raise_prices_by_10",
+            "alternative_winner_label": "Raise prices by 10%",
+            "marginal_switch_probability": 0.29
+          },
+          {
+            "to_id": "monthly_recurring_revenue",
+            "edge_id": "price_rise_mrr_uplift->monthly_recurring_revenue",
+            "from_id": "price_rise_mrr_uplift",
+            "visible": false,
+            "severity": "warning",
+            "to_label": "monthly recurring revenue",
+            "from_label": "Price-rise MRR uplift",
+            "switch_probability": 0.1072,
+            "alternative_winner_id": "keep_pricing_as_it_is",
+            "alternative_winner_label": "Keep pricing as it is",
+            "marginal_switch_probability": 0.27
+          },
+          {
+            "to_id": "price_rise_mrr_uplift",
+            "edge_id": "price_rise->price_rise_mrr_uplift",
+            "from_id": "price_rise",
+            "visible": false,
+            "severity": "warning",
+            "to_label": "Price-rise MRR uplift",
+            "from_label": "Price rise",
+            "switch_probability": 0.098,
+            "alternative_winner_id": "keep_pricing_as_it_is",
+            "alternative_winner_label": "Keep pricing as it is",
+            "marginal_switch_probability": 0.28
+          }
+        ],
+        "display_verdict": "fragile",
+        "confidence_basis": "recommendation_stability_uncalibrated",
+        "recommended_option_id": "launch_starter_tier",
+        "display_verdict_reason": "small changes to your assumptions could change the most-supported option",
+        "recommended_option_label": "Launch starter tier",
+        "recommended_option_compliance": "not_applicable",
+        "recommended_option_compliance_reason": "no limits were set for this decision"
+      },
+      "option_comparison_status": "computed",
+      "edge_e_values": [
+        {
+          "to_id": "customer_losses_from_price_rise",
+          "e_value": 1,
+          "edge_id": "price_rise::customer_losses_from_price_rise",
+          "from_id": "price_rise",
+          "to_label": "Customer losses from price rise",
+          "flip_mean": 29531.0925,
+          "stability": {
+            "n_seeds": 10,
+            "band_max": 13439.16,
+            "band_min": -143518.725,
+            "band_width": 156957.885,
+            "band_median": -39786.862499999996,
+            "n_seeds_flipped": 5,
+            "seed_flip_means": [
+              13439.16,
+              null,
+              null,
+              -39786.862499999996,
+              -74169.9,
+              null,
+              -39577.3875,
+              null,
+              -143518.725,
+              null
+            ]
+          },
+          "from_label": "Price rise",
+          "current_mean": 78750,
+          "flip_direction": "decrease"
+        },
+        {
+          "to_id": "monthly_recurring_revenue",
+          "e_value": 1,
+          "edge_id": "customer_losses_from_price_rise::monthly_recurring_revenue",
+          "from_id": "customer_losses_from_price_rise",
+          "to_label": "monthly recurring revenue",
+          "flip_mean": -44999.955,
+          "stability": {
+            "n_seeds": 10,
+            "band_max": 133437.9375,
+            "band_min": -18684.225,
+            "band_width": 152122.1625,
+            "band_median": 58919.805,
+            "n_seeds_flipped": 5,
+            "seed_flip_means": [
+              -18684.225,
+              null,
+              0.1575,
+              133437.9375,
+              null,
+              null,
+              78757.4025,
+              58919.805,
+              null,
+              null
+            ]
+          },
+          "from_label": "Customer losses from price rise",
+          "current_mean": -120000,
+          "flip_direction": "increase"
+        },
+        {
+          "to_id": "monthly_recurring_revenue",
+          "e_value": 1,
+          "edge_id": "starter_tier_subscribers::monthly_recurring_revenue",
+          "from_id": "starter_tier_subscribers",
+          "to_label": "monthly recurring revenue",
+          "flip_mean": 23999.85,
+          "stability": {
+            "n_seeds": 10,
+            "band_max": 65895.48,
+            "band_min": 0,
+            "band_width": 65895.48,
+            "band_median": 0,
+            "n_seeds_flipped": 8,
+            "seed_flip_means": [
+              25368.367499999997,
+              null,
+              0,
+              0,
+              0,
+              null,
+              0,
+              65895.48,
+              0,
+              0
+            ]
+          },
+          "from_label": "Starter-tier subscribers",
+          "current_mean": 49000,
+          "flip_direction": "decrease"
+        }
+      ],
+      "inference_warnings": [
+        {
+          "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+          "message": "2 edge E-value entries were omitted from edge_e_values: 2 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+          "severity": "info"
+        },
+        {
+          "code": "FACTOR_EVPPI_NOT_COMPUTED",
+          "field": "factor_evppi",
+          "message": "Value-of-information ran but produced no rows. The reason is not known at this layer and has deliberately not been inferred.",
+          "severity": "info"
+        },
+        {
+          "code": "GOAL_HORIZON_NOT_TESTED",
+          "message": "This model doesn't yet say whether any option gets there within 9 months.",
+          "node_ids": [
+            "monthly_recurring_revenue"
+          ],
+          "severity": "info"
+        },
+        {
+          "code": "GOAL_CHANCE_LICENSED",
+          "form": "each",
+          "target": {
+            "unit": "GBP/month",
+            "value": 126000,
+            "comparator": "at_least"
+          },
+          "message": "Each option’s chance of meeting your goal is licensed on this Run.",
+          "severity": "info",
+          "option_ids": [
+            "raise_prices_by_10",
+            "launch_starter_tier",
+            "keep_pricing_as_it_is"
+          ],
+          "pct_by_option": {
+            "raise_prices_by_10": 33,
+            "launch_starter_tier": 51,
+            "keep_pricing_as_it_is": 0
+          },
+          "driver_by_option": {
+            "raise_prices_by_10": {
+              "to": "monthly_recurring_revenue",
+              "from": "price_rise_mrr_uplift",
+              "kind": "link_strength",
+              "side": "low",
+              "strength": "weaker",
+              "authored_by": "olumi",
+              "quantity_id": "price_rise_mrr_uplift->monthly_recurring_revenue",
+              "user_stated_link": false
+            },
+            "launch_starter_tier": {
+              "to": "monthly_recurring_revenue",
+              "from": "starter_tier_subscribers",
+              "kind": "link_strength",
+              "side": "low",
+              "strength": "weaker",
+              "authored_by": "user",
+              "quantity_id": "starter_tier_subscribers->monthly_recurring_revenue",
+              "user_stated_link": true
+            }
+          },
+          "summary_withheld": {
+            "form": "highest",
+            "cause": "olumi_existence_assumption"
+          },
+          "no_driver_by_option": {
+            "keep_pricing_as_it_is": "none"
+          },
+          "user_link_existence": {
+            "links": 3,
+            "one_in": 5
+          },
+          "display_rounding_by_option": {
+            "raise_prices_by_10": "whole",
+            "launch_starter_tier": "whole",
+            "keep_pricing_as_it_is": "whole"
+          }
+        }
+      ],
+      "confidence_tier": "fair",
+      "flip_thresholds": [],
+      "decision_brief": {
+        "options": [
+          {
+            "rank": 1,
+            "label": "Launch starter tier",
+            "option_id": "launch_starter_tier",
+            "win_probability": 0.5951666666666655
+          },
+          {
+            "rank": 2,
+            "label": "Raise prices by 10%",
+            "option_id": "raise_prices_by_10",
+            "win_probability": 0.34721666666666745
+          },
+          {
+            "rank": 3,
+            "label": "Keep pricing as it is",
+            "option_id": "keep_pricing_as_it_is",
+            "win_probability": 0.05761666666666666
+          }
+        ],
+        "version": "1",
+        "headline": "Launch starter tier currently leads by 25 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+        "warnings": [
+          {
+            "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+            "message": "Option 'Keep pricing as it is' has zero variance — intervention may have no causal path to goal",
+            "severity": "warning"
+          },
+          {
+            "code": "M2_UNAVAILABLE",
+            "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+            "severity": "warning"
+          }
+        ],
+        "robustness": "fragile",
+        "top_drivers": [],
+        "warning_codes": [],
+        "headline_banded": {
+          "band": "slightly_ahead",
+          "text": "Launch starter tier is slightly ahead.",
+          "doctrine": "provisional_doctrine_v0",
+          "leader_label": "Launch starter tier",
+          "runner_up_label": "Raise prices by 10%",
+          "leader_option_id": "launch_starter_tier",
+          "robustness_gated": false,
+          "runner_up_option_id": "raise_prices_by_10",
+          "win_probability_gap": 0.24794999999999806
+        },
+        "key_assumptions": [],
+        "analysis_summary": {
+          "goal_fit": 0.5055,
+          "leading_option": "Launch starter tier",
+          "robustness_band": "fragile",
+          "win_probability": 0.5951666666666655
+        },
+        "robustness_caveat": {
+          "text": "This run rests heavily on how much Customer losses from price rise changes monthly recurring revenue. Small changes to your assumptions could change the most-supported option.",
+          "basis": "is_robust",
+          "doctrine": "provisional_doctrine_v0"
+        },
+        "what_would_change": [
+          "Customer losses from price rise → monthly recurring revenue",
+          "Price-rise MRR uplift → monthly recurring revenue"
+        ],
+        "defaulted_assumptions": []
+      },
+      "decision_evpi": 0.020879579296674534,
+      "p_win_sensitivity": [
+        {
+          "method": "p_win_delta_at_mean_v1",
+          "status": "below_resolution",
+          "clamped": false,
+          "factor_id": "price_rise",
+          "n_samples": 2000,
+          "metric_type": "p_win_recommended",
+          "noise_floor": 0.03099,
+          "p_win_delta": 0.012333,
+          "current_metric": 0.601083,
+          "perfect_metric": 0.613417,
+          "labelling_doctrine": "provisional_doctrine_v0",
+          "noise_floor_method": "z95_worst_case_bernoulli_diff",
+          "p_win_delta_percentage_points": 1.23
+        },
+        {
+          "method": "p_win_delta_at_mean_v1",
+          "status": "below_resolution",
+          "clamped": true,
+          "factor_id": "starter_tier_subscribers",
+          "n_samples": 2000,
+          "metric_type": "p_win_recommended",
+          "noise_floor": 0.03099,
+          "p_win_delta": 0,
+          "current_metric": 0.601083,
+          "perfect_metric": 0.598,
+          "labelling_doctrine": "provisional_doctrine_v0",
+          "noise_floor_method": "z95_worst_case_bernoulli_diff",
+          "p_win_delta_percentage_points": 0
+        }
+      ],
+      "critiques": [
+        {
+          "id": "critique_590d2a1600b7",
+          "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+          "severity": "warning",
+          "source": "isl",
+          "blocks_analysis": false,
+          "affected_option_ids": [
+            "keep_pricing_as_it_is"
+          ],
+          "user_message": "Option 'Keep pricing as it is' produces the same result in every simulation, so nothing in your model makes its outcome uncertain. If you expected it to move, review the factors it changes and the ranges set on them."
+        }
+      ],
+      "conditional_winners": []
+    },
+    "computed_against_hash": "79322e507d830742"
+  }
+}

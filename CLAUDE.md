@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # DecisionGuideAI - Project Instructions
 
 Project context and conventions for Claude Code.

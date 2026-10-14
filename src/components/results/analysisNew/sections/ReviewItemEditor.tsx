@@ -6,7 +6,7 @@
  * ⚠⚠ IT PROPOSES, NEVER APPLIES, AND ITS NOTE SAYS SO. There is no writer for a
  * finding's wording and no model-level evidence store (editability map E8 and
  * E15b), so submit hands one composed message to the caller's ask route
- * (`reviewItemEditPayload`), where the person reads it before sending. Nothing
+ * (`reviewItemEditPayload`), handed to the existing editable drawer. Nothing
  * here writes a store.
  *
  * ⚠ NO VALUE FIELD. A factor's number keeps its own editor, `FactorValueControl`
@@ -21,6 +21,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { typography } from '../../../../styles/typography'
+import type { AskAiResult } from '../../../../canvas/conversation/askAi'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { REVIEW_TOOL_COPY as COPY, reviewItemEditPayload, type ReviewQueueItem } from '../buildReviewQueue'
 import { OlumiAiIcon } from '../OlumiAiIcon'
@@ -32,7 +33,7 @@ export interface ReviewItemEditorProps {
   item: ReviewQueueItem
   /** Which field takes focus on open. `belief` falls back to evidence when absent. */
   focusField: ReviewEditorField
-  onAsk: (payload: AskOlumiPayload) => void
+  onAsk: (payload: AskOlumiPayload) => void | AskAiResult
   /** `true` when focus should return to the opener (Cancel, Escape); `false` after a send. */
   onClose: (restoreFocus: boolean) => void
   testIdPrefix: string
@@ -78,9 +79,10 @@ export function ReviewItemEditor({ item, focusField, onAsk, onClose, testIdPrefi
       focusFirst()
       return
     }
-    onAsk(payload)
-    // Focus stays with the ask surface that just opened.
-    onClose(false)
+    // The Analysis tab owns this FB3 route. Its drawer receives the completed
+    // review, including the finding's target/block_id, for confirmation.
+    const landed = onAsk(payload)
+    if (landed === undefined || landed === 'sent') onClose(false)
   }
 
   return (

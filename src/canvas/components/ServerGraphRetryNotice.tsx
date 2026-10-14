@@ -147,15 +147,15 @@ export const SERVER_GRAPH_RETRY_ACTION_COPY = 'Reload the page'
  * list for a decision this account cannot open (a reload will not change a 404), a reload for everything transient.
  */
 export const SERVER_GRAPH_TERMINAL_COPY: Record<ServerGraphTerminalReason, string> = {
-  notReadable: 'Olumi could not open this decision for this account.',
-  unavailable: 'Olumi could not load this decision just now.',
-  unusable: 'Olumi could not load this decision just now.',
-  refused: 'Olumi did not load this decision for this account just now.',
-  signInRequired: 'Your sign-in has ended. Sign in again to open this decision.',
+  notReadable: 'Olumi could not open this scenario for this account.',
+  unavailable: 'Olumi could not load this scenario just now.',
+  unusable: 'Olumi could not load this scenario just now.',
+  refused: 'Olumi did not load this scenario for this account just now.',
+  signInRequired: 'Your sign-in has ended. Sign in again to open this scenario.',
   mergeRefused: SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY,
 }
 export const SERVER_GRAPH_SIGN_IN_ACTION_COPY = 'Sign in'
-export const SERVER_GRAPH_LIST_ACTION_COPY = 'Your decisions'
+export const SERVER_GRAPH_LIST_ACTION_COPY = 'Your scenarios'
 
 export function ServerGraphRetryNotice(): JSX.Element | null {
   const stage = useServerGraphRetryStore((s) => s.stage)

@@ -89,9 +89,8 @@ describe('reachability positive control — a user-drawn edge really is unset', 
     expect(typeof data.weight).toBe('number')
     expect(typeof data.beliefExists).toBe('number')
     expect(typeof data.strengthStd).toBe('number')
-    // …and a direction is present too, which is why gating on `weight`
-    // alone would still let "Raises"/green through.
-    expect(data.direction).toBe('positive')
+    // Drawing does not invent a direction, either.
+    expect(data.direction).toBeUndefined()
     // …but nothing proves any of them was set by anyone.
     for (const key of EDGE_VALUE_SOURCE_KEYS) expect(data[key]).toBeUndefined()
 

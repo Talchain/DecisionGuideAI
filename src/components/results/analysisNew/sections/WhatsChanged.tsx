@@ -71,15 +71,6 @@ export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailabl
 }
 
 /**
- * A score, as a percentage.
- *
- * ⚠ ROUNDING FOR DISPLAY IS NOT COMPUTATION — it changes no claim, and the
- * producer's own value is carried unaltered in `data-prior` / `data-current` so
- * a reviewer can check the render against the wire.
- */
-const pct = (v: number): string => `${Math.round(v * 100)}%`
-
-/**
  * ⭐⭐ THE NOISE TAG, TURNED INTO WORDS — ONE FUNCTION, BECAUSE THERE ARE TWO
  * SENTENCE SITES AND THE SECOND ONE SHIPPED WITHOUT IT.
  *
@@ -98,7 +89,7 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
  * site being added later without it.
  */
 export function noiseQualifier(v: NoiseVerdict): string | null {
-  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run movement.'
+  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run variation.'
   if (v === 'not_noise_qualified') return 'This pair gives no basis for saying whether that is a real difference.'
   return null
 }
@@ -117,30 +108,17 @@ export function directionWords(m: Pick<RunDeltaMovement, 'direction'>, frame: Ru
 }
 
 /**
- * ONE option's movement in plain words, no figures (Compare's default read; the figures sit behind Result details).
- * The direction, then the producer's noise verdict verbatim: `signal` is the only verdict that may say the movement
- * is beyond ordinary run-to-run variation; the other two say exactly what `noiseQualifier` says.
- */
-export function movementVerdictText(m: Pick<RunDeltaMovement, 'direction' | 'noiseVerdict'>): string {
-  const direction = directionWords(m)
-  const sentence = `${direction.charAt(0).toUpperCase()}${direction.slice(1)}`
-  if (m.noiseVerdict === 'signal') return `${sentence}, beyond ordinary run-to-run variation.`
-  return `${sentence}. ${noiseQualifier(m.noiseVerdict)}`
-}
-
-/**
- * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
+ * ONE option's movement in words ("Option B: scored higher than last time"). Exported so the canvas's compact summary
  * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
+ *
+ * #2747 re-scope 2 (DL ruling (A)): every movement is one option's WIN SHARE, and in C no surface shows a win share, so the
+ * line says the direction only, for every noise verdict and in both frames (a signal still says it is beyond run-to-run
+ * variation, through `noiseQualifier`'s caller). Restore trigger: a CEE-served share string with its own Run licence
+ * (post-C), never worded as a chance.
  */
 export function movementText(m: RunDeltaMovement, frame: RunDeltaFrame = 'rerun'): string {
   const name = m.label ?? (frame === 'versions' ? 'An option this result does not name' : 'An option this run does not name')
-  // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
-  // direction only, never dressed as signal" — so the two numbers are withheld
-  // rather than printed with a caveat, because a caveat under a precise figure
-  // is read as precision.
-  return m.mayShowMagnitude
-    ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
-    : `${name}: ${directionWords(m, frame)}`
+  return `${name}: ${directionWords(m, frame)}`
 }
 
 /** What a person is told about ONE option's movement. */
@@ -182,6 +160,11 @@ function inputRowTextForFrame(row: RunDeltaInputRow, frame: RunDeltaFrame): stri
   if (row.kind === 'link') return row.change === 'added' ? `${row.subject} added to the model` : `${row.subject} removed from the model`
   if (row.change === 'added') return `${row.subject}: now ${row.after}`
   return `${row.subject}: ${row.before}, now not set`
+}
+
+/** The row's sentence in a given frame: the words the Compare tab's row layout (`InputChangeRows`) reads out. */
+export function inputRowSentence(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun'): string {
+  return inputRowTextForFrame(row, frame)
 }
 
 /**
@@ -248,7 +231,7 @@ export function InputChanges({ inputs, rowFocus, rowLight, frame, flush = false 
           const focus = rowFocus?.(row)
           const light = focus ? rowLight?.(row) ?? null : null
           return (
-            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
+            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-entity-id={row.entityId} data-option-id={row.optionId ?? undefined} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
               {focus ? (
                 <button
                   type="button"

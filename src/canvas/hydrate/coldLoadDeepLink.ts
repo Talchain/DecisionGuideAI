@@ -88,8 +88,16 @@ function read(key: string): string | null | undefined {
     return undefined
   }
 }
-/** A write that cannot throw: whether it was accepted. */
+/** The same tab fence and notice as Save; the first Canvas mount may be much later than this page's boot. */
+function localWriteAllowed(): boolean {
+  const reason = scenarios.getIdentityWriteBlockReason()
+  if (reason === null) return true
+  scenarios.showIdentityWriteBlockedToast(reason)
+  return false
+}
+/** A write that cannot throw: whether it was accepted, rechecking the fence even during recovery. */
 function write(key: string, value: string | null): boolean {
+  if (!localWriteAllowed()) return false
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
@@ -281,6 +289,12 @@ export function claimColdLoadDeepLink(
   apply = true,
 ): 'applied' | 'declined' | 'not_first' {
   if (settled) return 'not_first'
+  // An unreadable epoch can stop the read-only planner before it reaches a write. Report that refusal at commit too.
+  // Thin route adoption only moves memory; its server read remains available and has no browser slot to claim.
+  if (!isThinClientSession() && !localWriteAllowed()) {
+    settled = true
+    return 'declined'
+  }
   const plan = apply ? planColdLoadDeepLink(route) : null
   settled = true
   watchCopyFreshness()
@@ -316,6 +330,7 @@ export function coldLoadClaimedRoute(): string | null {
  */
 export function settleKeyedAutosaveCopy(boundId: string | null): boolean {
   if (!boundId || isThinClientSession()) return false
+  if (!localWriteAllowed()) return false
   const key = keyedAutosaveSlot(boundId)
   const keyed = read(key)
   const main = read(MAIN_AUTOSAVE_SLOT)
@@ -351,6 +366,7 @@ function watchCopyFreshness(): void {
 }
 export function refreshExistingCopy(id: string): boolean {
   if (isThinClientSession()) return false
+  if (!localWriteAllowed()) return false
   const key = keyedAutosaveSlot(id)
   const copy = read(key)
   const main = read(MAIN_AUTOSAVE_SLOT)

@@ -1,3 +1,6 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * ⭐ THE LOCKED NODE-CARD DESIGN — one spec per rule, RED at base `e10c4de3`.
  *
@@ -41,10 +44,17 @@ vi.mock('../../store', () => {
 })
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
 vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: vi.fn() }))
-vi.mock('../../hooks/useAnalysisResultsAreCurrent', () => ({ useAnalysisResultsAreCurrent: vi.fn() }))
+vi.mock('../../hooks/useAnalysisResultsAreCurrent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useAnalysisResultsAreCurrent')>()),
+  useAnalysisResultsAreCurrent: vi.fn(),
+}))
 vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
 }))
+
+vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
+import { revealOlumiSurface } from '../../conversation/revealOlumi'
+import { takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
@@ -183,8 +193,9 @@ const props = (id: string): Record<string, unknown> => {
 const GoalCard = GoalNode as unknown as CardComponent
 const FactorCard = FactorNode as unknown as CardComponent
 
+const chanceCells = optionChanceFixture({ 'opt-raise': 41, 'opt-bundle': 29, 'opt-base': 12 })
 const renderCard = (Comp: CardComponent, id: string) =>
-  render(<ReactFlowProvider><Comp {...props(id)} /></ReactFlowProvider>)
+  render(<ReactFlowProvider><CanvasOptionChanceContext.Provider value={chanceCells}><Comp {...props(id)} /></CanvasOptionChanceContext.Provider></ReactFlowProvider>)
 
 /**
  * The card's own face: BaseNode's root, which excludes the sibling popover.
@@ -258,7 +269,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(line).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -309,7 +320,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
@@ -322,7 +333,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked" — in the
     // name; the one-line slot prints the longest form that fits at the landing
     // bound, "Last run · Driver N of M" at 1.64 (Canvas owner, 27 Sep 2026).
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(within(line).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3')).toBe(true)
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked. ')).toBe(true)
@@ -345,7 +356,9 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
       expect(screen.queryByTestId('factor-driver-cue-fac-conv')).toBeNull()
       // Paul 23 Sep point 3(d): the fallback may not invent a past run either.
       expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+      expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
       expect(document.body.textContent).not.toContain('Last run')
+      expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
       cleanup()
     }
   })
@@ -523,14 +536,14 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
   it('an Olumi-chosen target stays marked est.; a user-set one is not — each row on the face keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(cardRows('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
     // Truth stays on the card: the price row carries its own `brief` mark.
-    expect(cardRows('opt-raise').getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
+    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
     // Positive control: the user-set row IS on the face, marked as the user's.
-    expect(cardRows('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
-    expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
+    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {
@@ -557,40 +570,72 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     setState({ phase: 'post' })
     setMeta({ 'opt-raise': { winRate: 0.55, isResultsMode: true } })
   }
-  it('current → "Current model" · "55% of runs"', () => {
+  it('current → "Current model" · the Results chance cell, never the runs share', () => {
     post()
     setCurrency('current')
     renderCard(OptionNode as never, 'opt-raise')
     const card = face('Raise the plan price')
     expect(within(card).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Current model')
-    expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe('55% of runs')
+    expect(within(card).getByTestId('option-win-readout-opt-raise').textContent).toBe(chanceCells('opt-raise').text)
+    const chanceFace = within(card).getByTestId('option-win-readout-opt-raise')
+    expect(chanceFace.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+    expect(chanceFace.textContent).not.toMatch(/\d+%/)
+    expect(chanceFace.textContent).not.toContain('Why?')
+    expect(card.textContent).not.toContain('of runs')
     expect(card.textContent).not.toMatch(/\bSupport\b/)
   })
   it('changed → "Last run"; cannot-confirm → "Model result", never "Last run"', () => {
     post()
     setCurrency('changed')
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Last run')
+    expect(within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise').getAttribute('aria-label')).toBe('Last run')
     cleanup()
     setCurrency('cannot_confirm')
     renderCard(OptionNode as never, 'opt-raise')
     const anchor = within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise')
     expect(anchor.textContent).toBe('Model result')
+    expect(face('Raise the plan price').querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
     expect(face('Raise the plan price').textContent).not.toContain('Last run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
   })
 })
 
 describe('Option — the coaching icon keeps a TYPED action typed (ED 02:31Z)', () => {
-  it('after a run, the icon dispatches what_would_flip with its chip id — never a generic discuss', () => {
+  it('after a run, the non-leader icon carries no option-support intent: it is the untyped generic door', () => {
+    // Run-4 judge (DL 12 Oct, the class): "What would make this better supported?" (option_what_would_make_lead →
+    // 'support-option') is removed; nothing replaces it. With no close-call gap this card has no question of its own.
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'opt-bundle': { winRate: 0.25, isResultsMode: true } })
     renderCard(OptionNode as never, 'opt-bundle')
     const icon = within(face('Bundle seats')).getByTestId('node-coaching-icon-opt-bundle')
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe('__ask_olumi__')
+    expect(icon.getAttribute('data-coaching-typed')).toBeNull()
+    fireEvent.click(icon)
+    const dispatch = useGuidanceStore.getState()._dispatchAction as unknown as ReturnType<typeof vi.fn>
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:support-option' }))
+    for (const [sent] of dispatch.mock.calls) expect(String(sent.message)).not.toMatch(/better supported/i)
+  })
+  it('after a run, the baseline icon sends its typed option intent as one bound chip', () => {
+    // Run-4 judge (DL 12 Oct, the class): the typed-chip contract is rebound to a post-run option chip that still
+    // exists (the baseline's option_why_win_lose → 'option').
+    setState({ phase: 'post' })
+    setCurrency('current')
+    setMeta({ 'opt-base': { winRate: 0.2, isResultsMode: true } })
+    renderCard(OptionNode as never, 'opt-base')
+    const icon = within(face('Keep current pricing')).getByTestId('node-coaching-icon-opt-base')
+    expect(icon.getAttribute('data-coaching-chip-id')).toBe('option_why_win_lose')
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
     fireEvent.click(icon)
     const dispatch = useGuidanceStore.getState()._dispatchAction as unknown as ReturnType<typeof vi.fn>
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'what_would_flip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    // The words come from askAi's own stage resolver; this harness's store carries no `hasCompletedFirstRun`, so the
+    // 'option' intent reads its pre-run arm. The pin is the typed route (id, source, binding), not the stage.
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:option', source: 'chip',
+      message: 'What would have to be true for ‘Keep current pricing’ to meet the goal?' }))
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['opt-base']))
+    expect(revealOlumiSurface).toHaveBeenCalled()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })
@@ -651,8 +696,8 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     // Contract v3.1 (OR-02): the risk state line carries no full stop, and
     // (DESIGN-GAP-v31 #34) shows AND announces the whole sentence.
     const unset = within(card).getByTestId('risk-exposure-unset')
-    expect(unset.querySelector('.sr-only')?.textContent).toBe('Likelihood and impact not set yet')
-    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
+    expect(unset.getAttribute('aria-label')).toBe('Likelihood and impact not set yet')
+    expect(unset.getAttribute('title') ?? '').toBe('')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })
@@ -749,19 +794,21 @@ describe('Goal — wide and shallow: target state + one Chance row; provenance c
     expect(within(card).getByTestId('node-coaching-icon-goal-1')).toHaveAccessibleName('Is this the real goal?')
   })
 
-  it('ONE Chance row after a run; "Last run ·" only when the model CHANGED (ED 02:31Z) — cannot-confirm is unprefixed', () => {
+  it('raw metadata without a licensed goal chance renders no Chance row in either currency state', () => {
     setState({ phase: 'post', over: { nodes: NODES.map(n => n.id === 'goal-1' ? { ...n, data: { ...n.data, goal_threshold_raw: 100 } } : n) } })
     setMeta({ 'goal-1': { achievementProbability: 0.34, isResultsMode: true } })
     setCurrency('changed')
     const goalProps = { ...props('goal-1'), data: { type: 'goal', label: 'Grow net revenue', goal_threshold_raw: 100 } }
     render(<ReactFlowProvider><GoalCard {...goalProps} /></ReactFlowProvider>)
-    const row = within(face('Grow net revenue')).getByTestId('goal-achievement-metric-row')
-    expect(row.textContent).toContain('Last run · Chance')
+    // REPORT contains only win shares; this raw hook mock supplies no licensed chance cell.
+    expect(within(face('Grow net revenue')).queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(within(face('Grow net revenue')).queryByText(/34%/)).toBeNull()
     expect(within(face('Grow net revenue')).queryByText(/chance of reaching target/)).toBeNull()
     cleanup()
     setCurrency('cannot_confirm')
     render(<ReactFlowProvider><GoalCard {...goalProps} /></ReactFlowProvider>)
-    expect(within(face('Grow net revenue')).getByTestId('goal-achievement-metric-row').textContent).not.toContain('Last run')
+    expect(within(face('Grow net revenue')).queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(within(face('Grow net revenue')).queryByText(/34%/)).toBeNull()
   })
 })
 

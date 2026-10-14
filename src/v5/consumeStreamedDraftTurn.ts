@@ -59,6 +59,8 @@ export interface StreamedDraftHandlers {
   onGraphReady: (graph: StageGraph) => void
   /** Fired when the coaching pass lands (live: 59.2 s). Enum status, not prose. */
   onCoachingReady?: (coachingStatus: string | undefined) => void
+  /** ⭐ P44 S2: real server dispatch phases, for waiting displays only. */
+  onServerPhase?: (phase: 'first_analysis' | 'writing') => void
   /**
    * ⭐ C6-2: fired at most once, when CEE has read the user's own goal and options out of a first brief (a few seconds
    * in). Never after GRAPH_READY: once the model is on screen it supersedes the reading. A throw here never costs the
@@ -424,9 +426,14 @@ export async function consumeStreamedDraftTurn(
         }
 
         case 'PROGRESS':
-          // Modelled, never observed on the wire (see streamedDraftFrames'
-          // header). Intentionally inert: no product behaviour may depend on a
-          // frame class nothing feeds.
+          // ⭐ P44 S2: real dispatch phases only; label progress stays inert.
+          if (frame.phase === 'first_analysis' || frame.phase === 'writing') {
+            try {
+              handlers.onServerPhase?.(frame.phase)
+            } catch {
+              // ⛔ P44 S2: a display failure must not cost the turn.
+            }
+          }
           break
       }
     }

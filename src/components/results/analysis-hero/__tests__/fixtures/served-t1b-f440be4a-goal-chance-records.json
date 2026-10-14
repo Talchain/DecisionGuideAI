@@ -1,0 +1,89 @@
+{
+  "source": "CEE served capture served-w3-f440be4a-t1b-7ab6c1af (staging, 6 Oct; CEE fixture @73d91a43) — analysis_result.enrichment, records VERBATIM",
+  "inference_warnings": [
+    {
+      "code": "GOAL_HORIZON_NOT_TESTED",
+      "message": "This model doesn't yet say whether any option gets there within 9 months.",
+      "node_ids": [
+        "monthly_recurring_revenue"
+      ],
+      "severity": "info"
+    },
+    {
+      "code": "GOAL_CHANCE_LICENSED",
+      "form": "each",
+      "target": {
+        "unit": "£/month",
+        "value": 126000,
+        "comparator": "at_least"
+      },
+      "message": "Each option’s chance of meeting your goal is licensed on this Run.",
+      "severity": "info",
+      "option_ids": [
+        "raise_prices_by_10",
+        "launch_starter_tier",
+        "keep_pricing_as_it_is"
+      ],
+      "pct_by_option": {
+        "raise_prices_by_10": 46,
+        "launch_starter_tier": 52,
+        "keep_pricing_as_it_is": 0
+      },
+      "driver_by_option": {
+        "raise_prices_by_10": {
+          "to": "monthly_recurring_revenue",
+          "from": "price_increase_from_current",
+          "kind": "link_strength",
+          "side": "low",
+          "strength": "weaker",
+          "authored_by": "user",
+          "quantity_id": "price_increase_from_current->monthly_recurring_revenue",
+          "user_stated_link": true
+        },
+        "launch_starter_tier": {
+          "to": "monthly_recurring_revenue",
+          "from": "starter_tier_subscribers",
+          "kind": "link_strength",
+          "side": "low",
+          "strength": "weaker",
+          "authored_by": "user",
+          "quantity_id": "starter_tier_subscribers->monthly_recurring_revenue",
+          "user_stated_link": true
+        }
+      },
+      "summary_withheld": {
+        "form": "similar",
+        "cause": "olumi_existence_assumption"
+      },
+      "no_driver_by_option": {
+        "keep_pricing_as_it_is": "none"
+      },
+      "user_link_existence": {
+        "links": 3,
+        "one_in": 5
+      },
+      "display_rounding_by_option": {
+        "raise_prices_by_10": "whole",
+        "launch_starter_tier": "whole",
+        "keep_pricing_as_it_is": "whole"
+      }
+    }
+  ],
+  "option_comparison": [
+    {
+      "option_id": "raise_prices_by_10",
+      "option_label": "Raise prices by 10%",
+      "probability_of_goal": 0.4643
+    },
+    {
+      "option_id": "launch_starter_tier",
+      "option_label": "Launch starter tier",
+      "probability_of_goal": 0.5192
+    },
+    {
+      "option_id": "keep_pricing_as_it_is",
+      "option_label": "Keep pricing as it is",
+      "probability_of_goal": 0
+    }
+  ]
+}

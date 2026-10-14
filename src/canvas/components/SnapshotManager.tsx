@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../persist'
-import { readIdentityEpoch } from '../store/scenarios'
+import { getIdentityWriteBlockReason, identityWriteBlockedMessage, readIdentityEpoch } from '../store/scenarios'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
@@ -74,7 +74,10 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     if (success) {
       refreshSnapshots()
     } else {
-      showToast('Failed to save snapshot. Storage quota may be exceeded.', 'error')
+      const blockReason = getIdentityWriteBlockReason()
+      showToast(blockReason
+        ? identityWriteBlockedMessage(blockReason)
+        : 'Failed to save snapshot. Storage quota may be exceeded.', 'error')
     }
   }
 

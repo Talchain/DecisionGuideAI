@@ -26,7 +26,7 @@
  * first test; removing the scrolled-up guard must RED the second. Neither
  * alone shows binding — the pair does.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
 import { ChatThread } from '../zones/ChatThread'
@@ -99,14 +99,23 @@ function observerForThread(threadEl: Element): CapturingResizeObserver {
   return bound[0]
 }
 
+// The pin is the thread's OWN `scrollTo` (`threadScroll.ts`), never `scrollIntoView` (which also scrolled the dock's
+// overflow-hidden aside, 7 Oct). Each call is recorded with its target, so a pin is bound to the thread by identity.
+let pinCalls: Array<{ target: unknown; opts: ScrollToOptions | undefined }> = []
+const pinsOf = (el: Element) => pinCalls.filter((c) => c.target === el)
+
 beforeEach(() => {
   CapturingResizeObserver.instances = []
   global.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver
-  Element.prototype.scrollIntoView = vi.fn()
+  pinCalls = []
+  ;(Element.prototype as unknown as { scrollTo: unknown }).scrollTo = function (this: unknown, opts?: ScrollToOptions) {
+    pinCalls.push({ target: this, opts })
+  }
 })
 
 afterEach(() => {
   global.ResizeObserver = savedResizeObserver
+  delete (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo
 })
 
 describe('the reveal re-pin (L-83 mechanism)', () => {
@@ -117,7 +126,7 @@ describe('the reveal re-pin (L-83 mechanism)', () => {
 
     // Mount scrolling has happened (smooth, from the message effect); the
     // reveal pin must be a NEW, instant call. Reset to isolate it.
-    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+    pinCalls = []
 
     // jsdom boxes are zero-height, which is exactly the hidden state:
     // lastHeight initialised to 0. Drive the reveal.
@@ -125,18 +134,19 @@ describe('the reveal re-pin (L-83 mechanism)', () => {
       observer.callback([{ contentRect: { height: 420 } }])
     })
 
-    const calls = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls
+    const calls = pinsOf(threadEl)
     expect(calls).toHaveLength(1)
+    expect(pinCalls, 'only the thread may be scrolled').toHaveLength(1)
     // Instant, never smooth: an animated flight on reveal is surprise motion.
-    expect(calls[0][0]).toEqual({ behavior: 'auto' })
+    expect(calls[0].opts).toEqual({ top: threadEl.scrollHeight, behavior: 'auto' })
 
     // A later ordinary resize (visible → visible) must NOT re-pin — the pin
     // is licensed by the reveal transition only.
-    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+    pinCalls = []
     act(() => {
       observer.callback([{ contentRect: { height: 500 } }])
     })
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    expect(pinCalls).toHaveLength(0)
   })
 
   it('never steals the position of a user who deliberately scrolled up (the opposite-direction twin)', () => {
@@ -150,12 +160,12 @@ describe('the reveal re-pin (L-83 mechanism)', () => {
     Object.defineProperty(threadEl, 'clientHeight', { value: 100, configurable: true })
     fireEvent.scroll(threadEl)
 
-    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+    pinCalls = []
     act(() => {
       observer.callback([{ contentRect: { height: 420 } }])
     })
 
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    expect(pinCalls).toHaveLength(0)
   })
 
   it('positive control: without the scrolled-up state the same drive DOES pin — the twin above is not vacuous', () => {
@@ -170,11 +180,11 @@ describe('the reveal re-pin (L-83 mechanism)', () => {
     Object.defineProperty(threadEl, 'clientHeight', { value: 100, configurable: true })
     fireEvent.scroll(threadEl)
 
-    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+    pinCalls = []
     act(() => {
       observer.callback([{ contentRect: { height: 420 } }])
     })
 
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(pinsOf(threadEl)).toHaveLength(1)
   })
 })

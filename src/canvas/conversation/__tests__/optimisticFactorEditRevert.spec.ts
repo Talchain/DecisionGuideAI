@@ -35,6 +35,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
+import type { CEEAnalysisReady } from '../../../adapters/cee/types'
 import { useCanvasStore } from '../../store'
 import type { WireSystemEvent } from '../types'
 import { captureOptimisticFactorEdit } from '../optimisticFactorEdit'
@@ -159,6 +160,20 @@ const flush = async () => {
   }
 }
 
+function seedCompletedRun(): CEEAnalysisReady {
+  const ready: CEEAnalysisReady = { goal_node_id: FACTOR_ID, options: [] }
+  useCanvasStore.setState({
+    ceeAnalysisReady: ready,
+    ceeAnalysisReadyNodeIds: [FACTOR_ID],
+    results: { status: 'complete', report: { probability_of_goal: 0.62 } } as never,
+    hasCompletedFirstRun: true,
+    analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-10-07T00:00:00Z' },
+    analysisFreshnessDirty: false,
+    analysisStateV1: null,
+  })
+  return ready
+}
+
 beforeEach(() => {
   vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
   dispatched.length = 0
@@ -179,6 +194,24 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs() })
 
 describe('a REFUSED value edit reverts the optimistic write', () => {
+  it('B: a refused factor edit after a completed run restores currency and the same readiness', async () => {
+    const ready = seedCompletedRun()
+    const { result } = renderHook(() => useConversation())
+    const undo = captureOptimisticFactorEdit(FACTOR_ID, SENT_MODEL, useCanvasStore.getState().nodes[0].data)!
+    writeOptimistically(SENT_MODEL, SENT_RAW)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    replies.push(REFUSAL)
+    await act(async () => {
+      await result.current.sendSystemEvent(edit(SENT_MODEL, SENT_RAW), { optimisticFactorEdit: undo })
+    })
+    await flush()
+    expect(observedNow().value).toBe(0.5)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(ready)
+    expect(useCanvasStore.getState().ceeAnalysisReadyNodeIds).toBe(undo.currency!.fields.ceeAnalysisReadyNodeIds)
+  })
+
   it('restores the value, the raw magnitude AND the provenance stamp', async () => {
     const { result } = renderHook(() => useConversation())
     const pre = useCanvasStore.getState().nodes[0].data
@@ -274,6 +307,22 @@ describe('the deferral queue collapses two edits to one factor — the snapshot 
 })
 
 describe('controls — the revert must not fire when the server DID apply', () => {
+  it('B CONTRAST: an applied factor edit after a completed run remains dirty', async () => {
+    const ready = seedCompletedRun()
+    const { result } = renderHook(() => useConversation())
+    const model = 2 / CAP
+    const undo = captureOptimisticFactorEdit(FACTOR_ID, model, useCanvasStore.getState().nodes[0].data)!
+    writeOptimistically(model, 2)
+    replies.push(acceptance(model, 2))
+    await act(async () => {
+      await result.current.sendSystemEvent(edit(model, 2), { optimisticFactorEdit: undo })
+    })
+    await flush()
+    expect(observedNow().value).toBe(model)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(useCanvasStore.getState().ceeAnalysisReady).not.toBe(ready)
+  })
+
   it('an APPLIED patch receipt for the target leaves the new value standing', async () => {
     const { result } = renderHook(() => useConversation())
     const pre = useCanvasStore.getState().nodes[0].data

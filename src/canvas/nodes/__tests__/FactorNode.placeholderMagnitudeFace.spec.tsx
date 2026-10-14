@@ -48,7 +48,7 @@
  * figure-less `est.` still marks WHICH card carries the assumption (F1).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { screen, render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 
@@ -121,7 +121,11 @@ const baseProps = {
 const renderFactor = (data: Record<string, unknown>) =>
   render(<ReactFlowProvider><FactorNode {...baseProps} data={data} /></ReactFlowProvider>)
 
-const faceText = (c: HTMLElement) => (c.textContent ?? '').replace(/\s+/g, ' ').trim()
+const faceText = (c: HTMLElement) => {
+  const copy = c.cloneNode(true) as HTMLElement
+  copy.querySelectorAll('.sr-only').forEach(el => el.remove())
+  return (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
 
 /** The founder's shape: an inferred factor on a placeholder scale. */
 const founderFactor = (value: number, displayValue: string | null) => ({
@@ -149,7 +153,10 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
     // Design bundle 1: the producer arm states the figure in tier words (0.3 → Low) beside its mark.
     // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space now separates the figure from its mark.
-    expect(withDv).toBe(`${withoutDv}Low est.`)
+    expect(withDv).toBe(withoutDv)
+    const tier = screen.getAllByTestId('factor-value-tier-factor-1').slice(-1)[0]
+    expect(tier).toHaveAttribute('aria-label', 'Low')
+    expect(tier?.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(withDv).not.toContain('0.3')
     expect(withDv).not.toContain('scale')
 

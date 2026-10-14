@@ -1,6 +1,6 @@
 /**
  * Served D1 (fe5666b8): four rows each repeated "Too small to tell apart from
- * ordinary run-to-run movement." When every row carries the same producer
+ * ordinary run-to-run variation." When every row carries the same producer
  * verdict, the qualifier is said once above the list; each row keeps its
  * verdict in the DOM. A single row keeps its own qualifier.
  */

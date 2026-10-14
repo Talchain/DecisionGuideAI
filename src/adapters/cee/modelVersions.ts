@@ -101,6 +101,12 @@ export interface ServerModelVersion {
   versionNumber: number
   label: string | null
   /**
+   * P48: v2 `lineage.parent_version_id` when the lineage is `known` — the version this one was written over, i.e. what
+   * an Undo of this version restores. `null` = known with no parent (the first version) or lineage `unknown`: either
+   * way there is nothing to step back to, and a caller must refuse rather than guess.
+   */
+  parentVersionId?: string | null
+  /**
    * v2 `creation.kind`: 'initial' | 'committed_mutation' | 'restore' |
    * 'variant_creation' | 'variant_promotion' | 'unknown' — rendered, not
    * branched on.
@@ -456,7 +462,17 @@ function parseSummaryV2(raw: unknown): ServerModelVersion | null {
     restoredFromVersionId: sourceVersionId,
     createdAt,
     graphIdentityHash: hash,
+    parentVersionId: parentOfLineage(row.lineage),
   }
+}
+
+/** `lineage.parent_version_id` on the `known` arm; anything else is `null` (never a guessed parent). */
+function parentOfLineage(raw: unknown): string | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const lineage = raw as Record<string, unknown>
+  return lineage.kind === 'known' && typeof lineage.parent_version_id === 'string' && lineage.parent_version_id.length > 0
+    ? lineage.parent_version_id
+    : null
 }
 
 /**

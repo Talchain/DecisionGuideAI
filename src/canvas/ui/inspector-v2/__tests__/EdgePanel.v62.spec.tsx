@@ -94,8 +94,8 @@ describe('EdgePanel v6.2 — context group', () => {
     // Paul 23 Sep contract feedback point 4: the canvas cue's sentence, no "Sensitive".
     expect(screen.getByText("If this connection's strength changes, the current model comparison could change")).toBeTruthy()
     expect(screen.queryByText(/Sensitive/)).toBeNull()
-    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
-    expect(screen.getByText('65% flip risk')).toBeTruthy()
+    // #2747 re-scope 2 round 2: the Run's switch figure is not shown in C ("65% flip risk" and its toggle went).
+    expect(container.textContent ?? '').not.toMatch(/65\s?%|flip risk/)
   })
 })
 

@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * "Most supported" pill — RETIRED from the card; the corner stack keeps ONE
  * positioning authority for what remains.
@@ -93,6 +94,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
@@ -109,6 +111,7 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -126,14 +129,14 @@ const producerLeaderClaim = (winArgmaxOptionId: string) => ({
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: {
     status: 'complete',
-    report: {
+    report: withLicensedOptionChances({
       option_probabilities: {
         [NODE_ID]: { win_probability: 0.72 },
         [SIBLING_ID]: { win_probability: 0.28 },
@@ -152,8 +155,9 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
         { node_id: 'fac-b', elasticity: 0.4 },
         { node_id: 'fac-c', elasticity: 0.1 },
       ],
-    },
+    }, { [NODE_ID]: 41, [SIBLING_ID]: 29 }),
   },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   // The ordinal under test: `Option 3` on this card.
@@ -162,7 +166,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -202,13 +206,14 @@ function makeGuidanceItem(): GuidanceItem {
 }
 
 function renderOption(overrides: Record<string, unknown> = {}) {
+  const state = installCanonicalFixtureState(makeStoreState(overrides))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(overrides)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -220,11 +225,11 @@ beforeEach(() => {
 /**
  * ED #63 5799353114 decision 1 — the card names no leader. Asserted by
  * identity (pill and grade test ids) AND by the text a user would read, after
- * a same-render contrast control: the card's label and its result row.
+ * a same-render contrast control: the card's label.
  */
 function expectNoLeaderPill(container: HTMLElement) {
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  // #2747 re-scope 2 (U0): the result row's chance readout ("41%") is deleted as a control — the canvas card shows no chance in C.
   expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
@@ -232,7 +237,8 @@ function expectNoLeaderPill(container: HTMLElement) {
 }
 
 describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no "Most supported" pill)', () => {
-  it('the permitted LEADER card renders its ordinal and result row, and NO pill', () => {
+  // #2747 re-scope 2 (U0): "and result row" dropped from the title — the card's chance readout is removed in C.
+  it('the permitted LEADER card renders its ordinal, and NO pill', () => {
     // WAS "PRECONDITION: the pill and the ordinal both render". The fixture is
     // unchanged — the producer's claim names THIS card and nothing withholds
     // it — which is the strongest case for the retired pill to reappear in.
@@ -278,7 +284,9 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     // Order, bound by IDENTITY (trap 19). The length assertion is what makes
     // this a statement about the WHOLE container: a pill re-inserted anywhere
     // in the stack makes it two.
-    const kids = Array.from(stack.children)
+    const band = screen.getByTestId(`option-bottom-marks-${NODE_ID}`)
+    const kids = Array.from(band.querySelectorAll(`[data-testid="node-coaching-marker-${NODE_ID}"]`))
+    expect(stack.children).toHaveLength(0)
     expect(kids).toHaveLength(1)
     expect(kids[0]).toBe(coaching)
     expectNoLeaderPill(container)
@@ -446,7 +454,7 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
 
   it('NOTHING ELSE IN THE CORNER: with no dot or coaching the leader\'s stack is EMPTY — the pill does not fill it', () => {
     // WAS "PILL ALONE". The stack is still mounted (the contrast control for
-    // its emptiness), and the card's own result row proves the render is live.
+    // its emptiness), and the card's own label proves the render is live.
     const { container } = renderOption({ editedSinceRunNodeIds: new Set<string>() })
 
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)

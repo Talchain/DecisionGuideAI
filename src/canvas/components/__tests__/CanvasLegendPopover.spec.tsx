@@ -8,6 +8,7 @@
  * typecheck and no install were executed — the cost constraints for that lane
  * forbade all three. CI at this head is the authority for whether it is green.
  */
+import { RENDERED_CARD_MARKS } from '../../nodes/shared/cardMarks'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -17,7 +18,9 @@ import {
   CanvasLegendPopover,
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
+  POST_RUN_CARD_MARKS,
 } from '../CanvasLegendPopover'
+import { STRENGTH_NOT_SET_DASH } from '../../edges/edgePresentation'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
@@ -141,6 +144,9 @@ const APPROVED = [
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
+  // Pre-run (this spec's phase): the run-only marks are not listed (Defect B); their post-run rows are bound in
+  // `cardMarks.registryB.spec.tsx`. Derived from the legend's own set, never a second list.
+  ...RENDERED_CARD_MARKS.filter(m => !POST_RUN_CARD_MARKS.has(m.id)).map(m => m.keyText),
 ]
 
 /**
@@ -163,7 +169,7 @@ describe('CanvasLegendPopover', () => {
     render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByRole('button', { name: 'How to read this' }))
     for (const s of APPROVED) {
-      expect(screen.getByText(s)).toBeDefined()
+      expect(screen.getAllByText(s).length).toBeGreaterThan(0)
     }
     expect(screen.queryByText('Choice')).toBeNull()
   })
@@ -262,7 +268,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
   it('explains grey as "not stated yet", the signal with no other channel', () => {
     open()
     expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
-    expect(screen.getByText('No strength suggested: thin and grey')).toBeInTheDocument()
+    expect(screen.getByText('No strength estimate: dotted')).toBeInTheDocument()
   })
 
   /**
@@ -288,7 +294,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     const swatch = screen.getByTestId('legend-thickness-unset')
     const rowText = swatch.closest('div')?.textContent ?? ''
     // Discrimination first: we are reading the right row, and it is not empty.
-    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('thin and grey')
+    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('No strength estimate: dotted')
     expect(rowText, `the thickness row opens with "${METRIC_UNSET.standalone}", the cards' settlement wording — two conditions, one label`)
       .not.toMatch(new RegExp(`^\\s*${METRIC_UNSET.standalone}`))
     // …and the card's own row IS still present under that wording, so the
@@ -329,6 +335,8 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
 
     // GREY — the row says "thin and grey"; this is the "grey".
     expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
+    expect(unset.getAttribute('stroke-dasharray')).toBe(STRENGTH_NOT_SET_DASH)
+    expect(unset.getAttribute('stroke-linecap')).toBe('round')
     expect(unset.getAttribute('stroke')).not.toBe(thinnest.getAttribute('stroke'))
 
     // THIN — bound to the constants, and asserted as an ORDERING so it cannot
@@ -405,7 +413,9 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     }
   })
 
-  it('POST-RUN: explains the four captions a reader meets on a card', () => {
+  // #2747 re-scope 2 (U0): in C no canvas card captions the run share ("Current model") or a goal chance ("Chance"), so
+  // the key explains neither (their rows left the register); the other captions are still named explicitly.
+  it('POST-RUN: explains the captions a reader meets on a card, and not the two C removed', () => {
     // Named explicitly as well as derived — so deleting a noun from the
     // register cannot make the derived test above pass by iterating less.
     //
@@ -417,26 +427,18 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     setBoard('complete', { numberedNodes: true })
     open()
     const text = screen.getByRole('dialog').textContent ?? ''
-    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN })
-    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length)
+    const removedInC = new Set<string>([CURRENT_MODEL_NOUN, METRIC_NOUN.chance])
+    const canvasCaptions = Object.values({ ...METRIC_NOUN, support: CURRENT_MODEL_NOUN }).filter(noun => !removedInC.has(noun))
+    expect(canvasCaptions).toHaveLength(Object.keys(METRIC_NOUN).length - removedInC.size)
     for (const noun of canvasCaptions) {
       expect(text, `"${noun}" is captioned on a card but absent from the key`).toContain(noun)
     }
-    // The noun the key explains IS the caption the option card prints (one
-    // noun per idea, across the key and the card)…
+    // The removed markings are not promised (each row's noun is its own element).
+    expect(screen.queryByText(CURRENT_MODEL_NOUN)).toBeNull()
+    expect(screen.queryByText(METRIC_NOUN.chance)).toBeNull()
+    expect(text).not.toMatch(/of runs/)
+    // The copy register's own word is unchanged (trap 12d), for the panel-owned surfaces that still read it.
     expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
-    // …and the literal, so the register changing its own word is noticed (trap 12d).
-    expect(text).toContain('Current model')
-    // ED decision 2's second half: the explanation ON SCREEN says it is
-    // conditional on the model and its assumptions, in the run-share verb (DL
-    // #87 6004906342) — the property, read from the row the key renders.
-    // ⛔ No recommend stem, not even negated (J1 ruling).
-    const currentModelRow = METRIC_LEGEND_ROWS.find(r => r.noun === CURRENT_MODEL_NOUN)!
-    expect(text).toContain(currentModelRow.gloss)
-    expect(currentModelRow.gloss).toMatch(/\bmodel\b/)
-    expect(currentModelRow.gloss).toMatch(/\bassumptions?\b/)
-    expect(currentModelRow.gloss).toMatch(/the share of runs that supported this option/)
-    expect(currentModelRow.gloss).not.toMatch(/recommend/i)
   })
 
   it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
@@ -470,8 +472,10 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     // Discrimination: the popover HAS text and the live noun IS there, so the
     // absences above are not passing on an empty container.
     expect(text.length).toBeGreaterThan(200)
-    expect(text).toContain(CURRENT_MODEL_NOUN)
-    expect(screen.getByText(CURRENT_MODEL_NOUN)).toBeInTheDocument()
+    // #2747 re-scope 2: the live noun used here was "Current model", whose row left the register in C; Influence is a
+    // post-run noun the key still explains.
+    expect(text).toContain(METRIC_NOUN.influence)
+    expect(screen.getByText(METRIC_NOUN.influence)).toBeInTheDocument()
     // …and the retired-word probe can fire on GLUED text, the shape it meets.
     expect(RETIRED_SUPPORT.test(`Olumi suggested this${METRIC_NOUN.support}: on option cards`)).toBe(true)
   })
@@ -532,7 +536,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   it('POSITIVE CONTROL: there are phase-gated rows, and an ordinal row, to assert', () => {
     // Every loop below iterates one of these. An empty list satisfies them all
     // in silence (trap 13).
-    expect(PHASE_GATED.length).toBe(4)
+    // #2747 re-scope 2: 2, not 4 — the Current model and Chance rows left the register in C.
+    expect(PHASE_GATED.length).toBe(2)
     expect(METRIC_LEGEND_ROWS.some(r => r.noun === ORDINAL_NOUN)).toBe(true)
   })
 
@@ -541,7 +546,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
    * reports too, so each phase-gated noun is asserted ABSENT pre-run and PRESENT
    * post-run, from the same reader.
    */
-  it('⭐ the four phase-gated nouns are absent pre-run and present post-run', () => {
+  it('⭐ the phase-gated nouns are absent pre-run and present post-run', () => {
     const pre = openBoard('idle')
     for (const noun of PHASE_GATED) {
       expect(pre, `pre-run, the key still promises "${noun}" — the shipped defect`).not.toContain(noun)
@@ -678,14 +683,16 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   it('⭐ N2: "est." is shown only where its marker can actually render', () => {
     // (a) Inferred factor, standard view — the marker's own gate is satisfied.
     const shown = openBoard('idle', { inferredFactor: true })
-    expect(shown, '"est." withheld while its marker can render').toContain('est.')
+    expect(shown).toContain('est.')
+    expect(screen.getByTestId('legend-metric-est.')).toHaveTextContent('est.')
     cleanup()
 
     // (b) EXPERT VIEW. `FactorNode:911` is `isInferred && !isDetailed`, and
     // `isDetailed` is `viewMode === 'expert'` — BOARD-level, so the marker
     // renders on NO card. This is the definitive half of the finding.
     const expert = openBoard('idle', { inferredFactor: true, expertView: true })
-    expect(expert, 'expert view: the key explains a marking no card can render').not.toContain('est.')
+    expect(screen.queryByTestId('legend-metric-est.')).toBeNull()
+    expect(screen.getByTestId('legend-card-mark-source-olumi')).toHaveTextContent('est.')
     // Discrimination — the popover is populated and the inferred factor IS
     // still mounted, so this absence is the gate's doing, not an empty board.
     expect(expert).toContain(THICKNESS_SENTINEL)
@@ -695,7 +702,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // (c) Standard view, NO inferred factor — nothing on the board carries the
     // marking. Fails for a different reason than (b), which is the point.
     const noFactor = openBoard('idle')
-    expect(noFactor, 'no inferred factor is mounted, but the key promises one').not.toContain('est.')
+    expect(screen.queryByTestId('legend-metric-est.')).toBeNull()
+    expect(screen.getByTestId('legend-card-mark-source-olumi')).toHaveTextContent('est.')
     expect(noFactor).toContain(THICKNESS_SENTINEL)
     cleanup()
   })
@@ -781,16 +789,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    // ⚠ PRODUCER RE-DERIVED (locked node-card design, 23 Sep 2026; ED 11:52Z
-    // point 4: "Do not use `Support` as the result label"). The option card
-    // still renders this quantity — the share of simulated runs — as its
-    // model-relative readout "N% of runs" (`OPTION_RESULT_COPY.share`), and the
-    // register row's gloss now names that caption.
-    // ⚠ NOUN RE-DERIVED (ED #63 5799353114 decision 2): the row's HEADING is
-    // now `CURRENT_MODEL_NOUN` ("Current model"), the caption the card prints;
-    // `METRIC_NOUN.support` stays the panel-owned surfaces' anchor.
-    { noun: CURRENT_MODEL_NOUN, files: ['OptionNode.tsx'], pattern: /OPTION_RESULT_COPY\.share\(/ },
-    { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
+    // #2747 re-scope 2: the Current model (option card run share) and Chance (goal card) entries left with their legend
+    // rows — no card renders either marking in C.
     // ⚠ PATTERN RE-DERIVED, CLAIM UNCHANGED. FactorNode no longer reaches the
     // influence caption through `METRIC_NOUN.influence`: it calls
     // `influenceBasisNoun(provenance)`, which returns 'Relative influence' for

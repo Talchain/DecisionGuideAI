@@ -62,13 +62,15 @@ export default function GuestCopyOnSignIn(): null {
             return routed === null || routed[1] === source
           },
         })
-        void run?.then((result) => {
+        void run?.then((results) => {
           // Only a copy this tab actually ADOPTED may move the view: if the user
           // opened something else meanwhile, adoption declined and so does this.
-          if (result.kind !== 'copied' || !result.adopted || generation !== started) return
+          // At most one adopts (only the decision on screen can).
+          const adopted = results.find((result) => result.kind === 'copied' && result.adopted)
+          if (adopted?.kind !== 'copied' || generation !== started) return
           const path = pathRef.current
-          if (path === '/canvas' || path === `/scenario/${result.sourceScenarioId}`) {
-            navigateRef.current(`/scenario/${result.scenarioId}`, { replace: true })
+          if (path === '/canvas' || path === `/scenario/${adopted.sourceScenarioId}`) {
+            navigateRef.current(`/scenario/${adopted.scenarioId}`, { replace: true })
           }
         })
       })

@@ -24,7 +24,8 @@ import { IDENTITY_EPOCH_KEY, keyedAutosaveKey, saveAutosave, saveScenarios, type
 import { loadState, saveSnapshot, saveState } from '../../persist'
 import { appendVersion, VERSIONS_STORAGE_KEY } from '../../versions/versionStorage'
 import { STORAGE_KEY as RUN_HISTORY_KEY } from '../../store/runHistory'
-import { PENDING_GUEST_COPY_KEY, readCurrentScenarioPointer, readPendingGuestCopy } from '../../../lib/pendingGuestCopy'
+import { PENDING_GUEST_COPIES_PREFIX, PENDING_GUEST_COPY_KEY, readCurrentScenarioPointer, readPendingGuestCopies } from '../../../lib/pendingGuestCopy'
+import { GUEST_WORK_PREFIX, readGuestWork } from '../../../lib/guestWork'
 import { clearUserScopedState } from '../../../lib/auth/userScopedState'
 
 const A = '11111111-2222-4333-8444-555555555555'
@@ -63,6 +64,9 @@ function seedKeptKeys(): Record<string, string> {
     [RUN_HISTORY_KEY]: JSON.stringify([{ id: 'run-1', ts: 1, hash: 'h', report: {}, graph: { nodes: nodes('Run'), edges: [] } }]),
     'olumi-canvas-current-scenario-id': GUEST,
     [PENDING_GUEST_COPY_KEY]: GUEST,
+    // S-G: the pending set and the guest-work ledger (offers) are ids the sign-in still reads.
+    [PENDING_GUEST_COPIES_PREFIX + GUEST]: '1',
+    [GUEST_WORK_PREFIX + GUEST]: JSON.stringify({ lastActiveAt: null, label: null }),
   }
   for (const [k, v] of Object.entries(kept)) localStorage.setItem(k, v)
   return kept
@@ -140,7 +144,7 @@ describe('GAP-3 — a signed-in page purges; a guest page does not', () => {
     expect(PRE_THIN_MODEL_KEYS).not.toContain('canvas-storage')
   })
 
-  it('what a signed-in user still needs survives: run history (Compare), the pointer, the guest-copy key, the layout', () => {
+  it('what a signed-in user still needs survives: run history (Compare), the pointer, the guest-copy keys and offers, the layout', () => {
     seedModelCopies(A, 'Alpha')
     const kept = seedKeptKeys()
     saveThinLayout(A, nodes('Alpha'))
@@ -150,7 +154,8 @@ describe('GAP-3 — a signed-in page purges; a guest page does not', () => {
     for (const [k, v] of Object.entries(kept)) expect(localStorage.getItem(k)).toBe(v)
     expect(localStorage.getItem(LAYOUT_KEY_PREFIX + A)).toBe(layout)
     expect(readCurrentScenarioPointer()).toBe(GUEST)
-    expect(readPendingGuestCopy()).toBe(GUEST)
+    expect(readPendingGuestCopies()).toEqual([GUEST])
+    expect(readGuestWork().map((e) => e.id)).toEqual([GUEST])
   })
 })
 

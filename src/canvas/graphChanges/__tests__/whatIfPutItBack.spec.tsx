@@ -165,3 +165,13 @@ describe('WI5 · a request opens the editor once', () => {
     expect(useValuePrefillStore.getState().request).toBeNull()
   })
 })
+
+describe('Q10 · the pill never runs two controls into one word', () => {
+  it('"Put it back" and "Why?" stay separate words in the status line', () => {
+    seed(factor({ value: 80000, raw_value: 80000, unit: '£' }), delta({ raw: 60000, unit: '£' }, { raw: 80000, unit: '£' }))
+    mountBoth()
+    const status = screen.getByTestId(`${P}-put-back`).closest('[role="status"]')!
+    expect(status.textContent).toContain('Put it back Why?')
+    expect(status.textContent).not.toContain('Put it backWhy?')
+  })
+})

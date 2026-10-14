@@ -143,7 +143,7 @@ export function ThinkingModeDropdown({
               border: mode.enabled && isSelected
                 ? '1px solid color-mix(in srgb, var(--info) 40%, transparent)'
                 : '1px solid var(--border-default, #EEE6D8)',
-              background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FCF7F1)' : 'transparent',
+              background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FEF9F3)' : 'transparent',
               marginBottom: 4,
               opacity: !mode.enabled ? 0.4 : 1,
               cursor: !mode.enabled ? 'default' : 'pointer',
@@ -157,7 +157,7 @@ export function ThinkingModeDropdown({
                 width: 28,
                 height: 28,
                 borderRadius: 999,
-                background: 'var(--bg-panel, #FEF9F3)',
+                background: 'var(--bg-panel, #FEFEFE)',
                 border: '1px solid var(--border-default, #EEE6D8)',
               }}
             >

@@ -1,12 +1,15 @@
 /**
- * Compare v2 visual pass (Compare tab design review, 5 Oct 2026): the glance is a picture, the words stay plain, and
- * the picture never says more than the producer licensed.
+ * Compare v2 visual pass (Compare tab design review, 5 Oct 2026): the words stay plain and the panel never says more than
+ * the producer licensed. ⭐ #2747 re-scope 2 (DL ruling (A)): in C, Compare draws NO per-option share figure or row (the
+ * glance's two-marker figures, their order and their canvas links went with it): CEE serves no share string or Run
+ * licence. Interim limit; restore trigger: a CEE-served share string with its own Run licence (post-C), never worded as a
+ * chance. The leader headline (in words), endpoints, reading note, input rows and Ask Olumi stay.
  *
  * Every row binds by IDENTITY (option id, row id), and every "shows nothing" assertion is paired with a control that
  * shows the same thing present in the neighbouring state, so an empty render cannot pass it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
@@ -14,11 +17,10 @@ import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
 import { CompareRunPairBody } from '../CompareRunPairBody'
-import { COMPARE_SUPPORT_TESTID, orderMovements } from '../CompareSupportFigures'
 import { compareAskDraft } from '../ComparePairSections'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
-import type { RunDeltaInputRow, RunDeltaMovement } from '../../../components/results/analysisNew/runDeltaView'
-import { movementVerdictText } from '../../../components/results/analysisNew/sections/WhatsChanged'
+import { buildRunDeltaView, type RunDeltaInputRow } from '../../../components/results/analysisNew/runDeltaView'
+import { directionWords } from '../../../components/results/analysisNew/sections/WhatsChanged'
 
 vi.mock('../../graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
 const original = useCanvasStore.getState()
@@ -52,7 +54,8 @@ function seed(delta: RunDelta, { nodeIds = [...LABELS.keys()], current = true, s
 }
 const mount = (delta: RunDelta, opts?: Parameters<typeof seed>[1]) => render(<CompareRunPairBody responseHash={seed(delta, opts)} />)
 const headline = () => screen.getByRole('region', { name: 'What changed between runs' })
-const optionRow = (id: string) => screen.getAllByTestId(`${COMPARE_SUPPORT_TESTID}-option`).find((el) => el.getAttribute('data-option-id') === id)!
+/** The removed figure block's own test id (`CompareSupportFigures`, deleted in #2747 re-scope 2). */
+const COMPARE_SUPPORT_TESTID = 'compare-support'
 
 beforeEach(() => {
   useCanvasStore.setState(original, true)
@@ -63,100 +66,32 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useAskOlumiStore.setState(originalAsk, true) })
 
-describe('the glance: a two-marker figure per option, plain words, no figures by default', () => {
-  it('draws previous and latest markers for licensed movements and prints no share anywhere in the headline section', () => {
-    mount(runChangeDelta())
-    const raise = optionRow('opt_60')
-    expect(within(raise).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`).querySelector('[data-marker="previous"]')!.getAttribute('style')).toContain('41%')
-    expect(within(raise).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`).querySelector('[data-marker="latest"]')!.getAttribute('style')).toContain('44%')
-    // Positions live in style only: no visible text in the section carries a percentage.
-    expect(headline().textContent).not.toMatch(/\d+%/)
-    expect(raise).toHaveTextContent('Scored higher than last time, beyond ordinary run-to-run variation.')
-  })
-
-  it('separates signal from within-noise on the connector itself: solid vs dashed, never a band', () => {
-    mount(runChangeDelta())
-    expect(within(optionRow('opt_60')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'solid')
-    expect(within(optionRow('opt_49')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'dashed')
-    expect(optionRow('opt_49')).toHaveTextContent('Scored lower than last time. Too small to tell apart from ordinary run-to-run movement.')
-  })
-
-  it('⛔ draws NO figure when the size is not qualified — the picture may not show what the words withhold (control: a qualified row in the same render keeps its figure)', () => {
-    mount(runChangeDelta({ win_probabilities: [
-      { option_id: 'opt_60', prior: 0.1, current: 0.9, noise_verdict: 'not_noise_qualified' },
-      { option_id: 'opt_49', prior: 0.9, current: 0.1, noise_verdict: 'signal' },
-    ] }))
-    expect(within(optionRow('opt_60')).queryByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toBeNull()
-    expect(optionRow('opt_60')).toHaveTextContent('Scored higher than last time. This pair gives no basis for saying whether that is a real difference.')
-    expect(within(optionRow('opt_49')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toBeInTheDocument()
-  })
-
-  it('withheld result permission draws no option figures at all (control: the same pair, permitted, draws them)', () => {
-    const hash = seed(runChangeDelta())
-    const results = useCanvasStore.getState().results
-    useCanvasStore.setState({ results: { ...results, report: { ...results.report!, producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } } })
-    render(<CompareRunPairBody responseHash={hash} />)
+describe('C (DL ruling (A)): Compare draws no per-option share figure or row', () => {
+  it.each([[undefined], ['clearly_ahead' as const]])('no figure block, marker, share or option row (band %s)', (band) => {
+    const delta = runChangeDelta()
+    // CONTROL: the pair carries both options' shares, so the absence is the surface's, not the fixture's.
+    expect(buildRunDeltaView(delta, (id) => LABELS.get(id) ?? null).movements.map((m) => m.optionId)).toEqual(['opt_60', 'opt_49'])
+    mount(delta, { band })
     expect(screen.queryByTestId(COMPARE_SUPPORT_TESTID)).toBeNull()
-    cleanup()
-    mount(runChangeDelta())
-    expect(screen.getByTestId(COMPARE_SUPPORT_TESTID)).toBeInTheDocument()
+    expect(screen.queryAllByTestId(`${COMPARE_SUPPORT_TESTID}-option`)).toEqual([])
+    expect(document.querySelector('[data-marker]')).toBeNull()
+    expect(screen.getByTestId('compare-run-pair').textContent).not.toMatch(/\b(?:41|44|59|56)%/)
+    expect(headline().textContent).not.toMatch(/\d+%/)
   })
 })
 
 describe('Acceptance #87 5996584359: grammatical', () => {
+  // #2747 re-scope 2 (DL ruling (A)): movementVerdictText went with its last caller (CompareSupportFigures); the grammar is
+  // pinned on `directionWords`, the words `movementText` still says.
   it('a level movement reads "the same AS last time", never "the same than" (control: up/down keep "than")', () => {
-    expect(movementVerdictText({ direction: 'level', noiseVerdict: 'within_noise' })).toMatch(/^Scored the same as last time\. /)
-    expect(movementVerdictText({ direction: 'level', noiseVerdict: 'within_noise' })).not.toContain('same than')
-    expect(movementVerdictText({ direction: 'up', noiseVerdict: 'signal' })).toBe('Scored higher than last time, beyond ordinary run-to-run variation.')
+    expect(directionWords({ direction: 'level' })).toBe('scored the same as last time')
+    expect(directionWords({ direction: 'level' })).not.toContain('same than')
+    expect(directionWords({ direction: 'up' })).toBe('scored higher than last time')
+    expect(directionWords({ direction: 'down' })).toBe('scored lower than last time')
   })
 })
 
-describe('options: the shared display order, three first, nothing silently dropped', () => {
-  const four = runChangeDelta({ win_probabilities: [
-    { option_id: 'opt_a', prior: 0.2, current: 0.1, noise_verdict: 'within_noise' },
-    { option_id: 'opt_b', prior: 0.3, current: 0.4, noise_verdict: 'signal' },
-    { option_id: 'opt_c', prior: 0.3, current: 0.3, noise_verdict: 'within_noise' },
-    { option_id: 'opt_d', prior: 0.2, current: 0.05, noise_verdict: 'signal' },
-  ] })
-
-  it('orders by the latest share through sortOptionsForDisplay, and keeps the producer order when designations are withheld', () => {
-    const m = (id: string, current: number) => ({ optionId: id, current }) as RunDeltaMovement
-    const rows = [m('a', 0.1), m('b', 0.4), m('c', 0.3)]
-    expect(orderMovements(rows, false).map((r) => r.optionId)).toEqual(['b', 'c', 'a'])
-    expect(orderMovements(rows, true).map((r) => r.optionId)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('shows three, and the disclosure counts the hidden options that moved beyond ordinary variation', () => {
-    mount(four, { band: 'clearly_ahead' })
-    expect(screen.getAllByTestId(`${COMPARE_SUPPORT_TESTID}-option`).map((el) => el.getAttribute('data-option-id'))).toEqual(['opt_b', 'opt_c', 'opt_a'])
-    const more = screen.getByTestId(`${COMPARE_SUPPORT_TESTID}-more`)
-    expect(more).toHaveTextContent('Show 1 more option (1 moved beyond ordinary run-to-run variation)')
-    fireEvent.click(more)
-    expect(screen.getAllByTestId(`${COMPARE_SUPPORT_TESTID}-option`)).toHaveLength(4)
-  })
-
-  it('a run that withholds designations keeps the producer order on screen (control for the ordered case above)', () => {
-    mount(four)
-    expect(screen.getAllByTestId(`${COMPARE_SUPPORT_TESTID}-option`).map((el) => el.getAttribute('data-option-id'))).toEqual(['opt_a', 'opt_b', 'opt_c'])
-    expect(screen.getByTestId(`${COMPARE_SUPPORT_TESTID}-more`)).toHaveTextContent('Show 1 more option (1 moved beyond ordinary run-to-run variation)')
-  })
-})
-
-describe('Canvas: option rows and change rows both reach the graph through the shared link, by id', () => {
-  it('an option row lights and focuses its own node; an option with no node now offers no link', () => {
-    mount(runChangeDelta(), { nodeIds: ['opt_60', 'fac_price'] })
-    const raise = within(optionRow('opt_60')).getByRole('button', { name: 'Show on the canvas: Raise to £60' })
-    expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' })
-    fireEvent.mouseEnter(raise)
-    expect(lightOn).toHaveBeenLastCalledWith(expect.objectContaining({ target: { kind: 'node', id: 'opt_60' } }))
-    fireEvent.mouseLeave(raise)
-    expect(lightOff).toHaveBeenCalledTimes(1)
-    fireEvent.click(raise)
-    expect(focus).toHaveBeenCalledTimes(1)
-    expect(within(optionRow('opt_49')).queryByRole('button')).toBeNull()
-    expect(vi.mocked(canvasLinkOfTarget).mock.calls.some(([target]) => target?.id === 'opt_49')).toBe(false)
-  })
-
+describe('Canvas: change rows reach the graph through the shared link, by id', () => {
   it('a change row is one keyboard-reachable control naming the whole change', () => {
     mount(runChangeDelta())
     const row = screen.getByTestId('analysis-new-whats-changed-input-row-focus')
@@ -178,6 +113,35 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
   it('says to wait while a run is in flight, never "after the next run"', () => {
     mount(runChangeDelta(), { status: 'streaming' })
     expect(screen.getByTestId('compare-ask-unavailable')).toHaveTextContent('You can ask Olumi about this comparison when the run finishes.')
+  })
+
+  it('says a Run is in progress above the pair it keeps showing, and only while the run is in flight', () => {
+    mount(runChangeDelta(), { status: 'streaming' })
+    const notice = screen.getByRole('status')
+    expect(notice).toHaveAttribute('data-testid', 'compare-run-in-progress')
+    expect(notice).toHaveTextContent('A Run is in progress. The comparison below is between the two runs before it.')
+    // The notice leads: it sits above the headline section, and the previous pair stays on screen.
+    const headline = document.querySelector('[data-compare-section="headline"]')!
+    expect(notice.compareDocumentPosition(headline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByTestId('analysis-new-whats-changed-input-row').length).toBeGreaterThan(0)
+    cleanup()
+    mount(runChangeDelta())
+    expect(screen.queryByTestId('compare-run-in-progress')).toBeNull()
+  })
+
+  it('leads with the two endpoints, then the headline, then the reading note (v3 artefact; no figures below it in C)', () => {
+    mount(runChangeDelta())
+    const times = screen.getByTestId('compare-run-times')
+    // The RESULT heading (the inputs section has its own heading, Compare v3 rows).
+    const heading = within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading')
+    const note = screen.getByTestId('compare-comparability')
+    const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    expect(follows(times, heading)).toBe(true)
+    expect(follows(heading, note)).toBe(true)
+    // The panel's one note style: the reading note carries its ⓘ, like the inputs section's coverage note.
+    expect(note.querySelector('svg[class*="lucide-info"]')).not.toBeNull()
+    expect(times.querySelectorAll('[data-run-id]')[0]).toHaveTextContent(/^Earlier/)
+    expect(times.querySelectorAll('[data-run-id]')[1]).toHaveTextContent(/^Latest/)
   })
 
   it('quotes only the rows the panel shows, then counts the rest', () => {

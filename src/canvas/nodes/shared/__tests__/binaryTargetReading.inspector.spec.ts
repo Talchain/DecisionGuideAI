@@ -9,7 +9,7 @@ import { optionTargetReading } from '../optionTargetDisplay'
 // Served shape: "AI assistant use", observed_state unit "binary adoption", value 0.
 const aiUse = { kind: 'factor', label: 'AI assistant use', category: 'controllable', observedState: { unit: 'binary adoption', value: 0, source: 'cee_inference' } }
 const price = { kind: 'factor', label: 'Price', observedState: { unit: 'GBP', value: 0.5, raw_value: 49 } }
-const row = (target: string, kind = 'olumi') => ({ target, change: `→ ${target}`, targetSource: { kind } }) as never
+const row = (target: string, kind = 'olumi') => ({ factorId: 'ai_assistant_use', target, change: `→ ${target}`, targetSource: { kind } }) as never
 
 describe('a yes/no factor target in the card\'s words', () => {
   it('served shape: CEE\'s bare "on" / "off" read "In use" / "Not in use"', () => {
@@ -21,9 +21,13 @@ describe('a yes/no factor target in the card\'s words', () => {
     const labelled = { ...aiUse, encoding_map: { 0: 'Not adopted', 1: 'Adopted' } }
     expect(binaryTargetReading(labelled, 'on')).toBe('Adopted')
   })
-  it('CONTROLS: a phrase of CEE\'s own stays; a non-binary factor is untouched; a person\'s own word is theirs', () => {
+  it('CONTROLS: producer phrases and non-binary values stay; a user-set state keeps its source', () => {
     expect(binaryTargetReading(aiUse, 'Adopted across the team')).toBeNull()
     expect(binaryTargetReading(price, 'on')).toBeNull()
-    expect(optionTargetReading(row('on', 'you'), aiUse)).toBe('on')
+    const userTarget = row('on', 'you')
+    expect(optionTargetReading(userTarget, aiUse)).toBe('In use')
+    expect((userTarget as { factorId: string; targetSource: { kind: string } }).factorId).toBe('ai_assistant_use')
+    expect((userTarget as { targetSource: { kind: string } }).targetSource.kind).toBe('you')
+    expect(optionTargetReading(row('Adopted across the team', 'you'), aiUse)).toBe('Adopted across the team')
   })
 })

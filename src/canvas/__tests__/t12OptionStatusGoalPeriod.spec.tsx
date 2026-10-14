@@ -145,6 +145,28 @@ describe('T12 row 1 — the option card', () => {
 })
 
 describe('T12 row 2 — the goal\'s period and horizon', () => {
+  it('renders CEE\'s flat goal_horizon_months when the nested horizon is absent', () => {
+    expect(goalHorizonText({ goal_horizon_months: 9 })).toBe('within 9 months')
+  })
+
+  it('keeps the nested deadline authoritative over flat months', () => {
+    expect(goalHorizonText({
+      goal_horizon: { deadline: '2027-03-31' },
+      goal_horizon_months: 9,
+    })).toBe('by 31 Mar 2027')
+  })
+
+  it.each([0, -1, 1.5, '9', 121, Number.POSITIVE_INFINITY])(
+    'rejects malformed flat goal_horizon_months %p',
+    (goal_horizon_months) => {
+      expect(goalHorizonText({ goal_horizon_months })).toBeNull()
+    },
+  )
+
+  it('uses singular month for a flat one-month horizon', () => {
+    expect(goalHorizonText({ goal_horizon_months: 1 })).toBe('within 1 month')
+  })
+
   it('⭐ "per quarter · within 6 months" and "by 31 Mar 2027"; none and absent say nothing', () => {
     expect(goalPeriodHorizonLine({ goal_period: 'quarter', goal_horizon: { months: 6 } })).toBe('per quarter · within 6 months')
     expect(goalPeriodHorizonLine({ goal_horizon: { deadline: '2027-03-31' } })).toBe('by 31 Mar 2027')

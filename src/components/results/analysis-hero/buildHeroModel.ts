@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../canvas/runView/runView'
 /**
  * buildHeroModel — PURE mapper from the adapted Results Panel object
  * (`ResultsSectionDataReturn`) to the hero's display model.
@@ -42,6 +43,7 @@
  * track honesty carry the shortfall truth.
  */
 
+import { optionChanceCellFromResults } from '../optionChanceCellFromResults'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -51,14 +53,9 @@ import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
 import { hasClearInfluenceLeader } from '../driverDisplayModel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
-// `SUB_ONE_PERCENT_FLOOR` is still imported, and deliberately: it no longer
-// formats anything here, but it still GATES the no-option-on-track headline
-// (`allGoalBelowFloor`). That gate is a semantic threshold about the raw
-// values — "is any option meaningfully on track" — not a display rule, so it
-// keeps reading the constant even though the readouts now resolve finer.
-import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
-import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceDisclosureLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { selectGoalLeader } from '../utils/selectGoalLeader'
+import { goalChanceDetailLines, goalChanceHeadline } from './goalChanceCopy'
+import { goalChanceDriverRunMessageIdentity, goalChanceRunMessages } from './goalChanceRunMessages'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -70,7 +67,7 @@ import {
   getPessimistic,
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryCheck'
-import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { formatPercent } from '@/utils/formatPercent'
 import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
@@ -188,30 +185,6 @@ const OUTCOME_CLOSE_RATIO = 0.15
  * when EVERY goal readout would render "< 1%", claiming any option "best
  * fits your goal" would be false.
  */
-/**
- * ⭐ ROADMAP 2.333/2.334 — this was a THIRD hand-copy of the goal register's
- * floor (`value < SUB_ONE_PERCENT_FLOOR ? subOnePercent : formatPercent`),
- * sitting beside the option card's and the V7 lens's copies of the same rule.
- * It now calls the register's own formatter.
- *
- * The delegation is byte-identical to the previous behaviour whenever no
- * sample count is supplied: `SUB_ONE_PERCENT_READOUT` and
- * `HERO_COPY.readout.subOnePercent` are the same string ("< 1%"), and above
- * the floor both paths are `formatPercent(v, { fromDecimal: true })`. The
- * `missing` arm is the hero's own and stays here — it is a copy decision
- * about an ABSENT value, not a formatting rule about a present one.
- *
- * With a count, the readout resolves exactly as the card and the goal lens
- * now do. That matters most on this surface: the hero states its figure ABOVE
- * the rows, so a hero saying "< 1%" over rows saying "0.1%" would be the same
- * one-number-two-answers contradiction this slice exists to remove, moved one
- * element up.
- */
-function goalReadout(value: number | null, nSamples?: number | null): string {
-  if (value == null) return HERO_COPY.readout.missing
-  return formatGoalProbability(value, nSamples)
-}
-
 // formatFlipValue moved VERBATIM to `../utils/flipThresholdDisplay` (ROADMAP
 // 2.291) so the V7 signal chip renders the same producer rows through the
 // same formatter — "one threshold must never render two ways in one panel"
@@ -419,6 +392,7 @@ export function buildHeroModel(
   // understate a constrained bar but never overstates an unconstrained one.
   const optionHasConstraints = (o: OptionResult) =>
     (o.constraintAnalysis?.constraints?.length ?? 0) > 0
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
   const goalBearing = options.filter((o) => o.goalProbability != null)
   const hasConstraints =
     goalBearing.length > 0 && goalBearing.every(optionHasConstraints)
@@ -436,19 +410,17 @@ export function buildHeroModel(
     // goal claim (allGoalBelowFloor, goalLeaderRow, goal lens availability)
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
-    const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
+    // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
+    const cell = optionChanceCellFromResults(data, o.id)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
+    const goalValue = hasUserTarget && !data.goalChanceRange?.optionIds.includes(o.id) && cell.kind === 'figure' ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
-    // ⭐⭐ CURRENT-READ-v1 row 9 (AIQ #75 5912710392): a withheld leader withholds every per-row win share — the
-    // detail line AND the magnitude the leader headline would quote. From the hook's `winShareGate` read.
-    const winReadout =
-      !winSharesAreWithheld && typeof o.winProbability === 'number'
-        ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
-        : undefined
-    const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
+    // #2747 re-scope 2 (DL ruling (A)): no win share is said in C, neither the row's line nor the leader headline's
+    // magnitude. CEE serves no wording or Run authority for it; its restore trigger is a served share string (post-C).
     // Grounded detail lines from the row's OWN existing fields (same
     // formatters as the readouts) — never authored prose, omitted when the
     // sourcing fields are absent.
@@ -459,49 +431,20 @@ export function buildHeroModel(
             formatThreshold(p90, outcomeUnit, outcomeUnitSymbol, isNormalised),
           )
         : undefined
-    // Per-ROW constraint wording (unlike the shared axis/caption, which use
-    // the every-quantifier `hasConstraints`): the selector collapses THIS
-    // option's goalProbability to the joint figure exactly when the option
-    // carries its own constraint analysis, so the row's detail line can name
-    // the quantity precisely — a constrained option's joint figure is never
-    // mislabelled goal-alone in a mixed set.
-    // Goal-probability IDENTITY: when the row's number is the joint figure
-    // STANDING IN for an absent goal probability (`goalFitIsSubstitutedJoint`,
-    // set by the shared selector — never re-derived here), the possessive
-    // "your goal" wording names a question the number does not answer, so the
-    // line states the quantity it actually is. The number itself is unchanged
-    // and still shown: this is a copy switch, never a value transform.
-    // ⚠ CORRECTED BY L65 (2026-08-04) — the claim that used to sit here was
-    // true when written and is now false. It read: "On the live V5 wire this
-    // is the ONLY branch that runs: the selector's basis is
-    // `joint_goal_substituted` on every run". That basis no longer exists:
-    // L62 renamed it `'joint_goal_withheld'` and it returns NO number, so
-    // `goalFitIsSubstitutedJoint` is always false today and the
-    // `goalFitJointBasis` arm below is DEAD pending its rowed retirement
-    // (ROADMAP 2.399(b) — do not delete it here). A live row that has a
-    // number takes the plain `goalFit` arm (or `goalFitWithLimits` when the
-    // option carries its own constraint analysis). The one-voice rule the
-    // old paragraph stated still binds whenever the substituted arm renders:
-    // this line, the headline and the caption must state ONE claim in one
-    // voice — they are read together, in a single render, about a single
-    // number.
-    const goalFit =
-      goalValue != null
-        ? optionHasConstraints(o)
-          ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue, o.nValidSamples))
-          : o.goalFitIsSubstitutedJoint === true
-            ? HERO_COPY.detail.goalFitJointBasis(goalReadout(goalValue, o.nValidSamples))
-            : HERO_COPY.detail.goalFit(goalReadout(goalValue, o.nValidSamples))
-        : undefined
-    // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the caveat
-    // renders ONLY when the goalFit number just above it is actually shown
-    // (goalValue != null) AND the row's own goalFitIsModelledBasis flag is
+    // Per-option goal text comes verbatim from the same RunView cell as the card and matrix.
+    // C-LOST: an empty cell supplies no detail. Preserve win-only rows' existing
+    // persistent comparative text instead of opening a disclosure for a gap glyph.
+    // #2747 re-scope 2 (U2): CEE's cell words verbatim, never re-worded around a figure taken out of them.
+    const goalFit = hasUserTarget && cell.kind !== 'none' ? cell.text ?? HERO_COPY.readout.missing : undefined
+    // Retain the row's own modelled-basis caveat beside its cell or honest gap.
+    // The canonical figure also licenses that caveat when no separate numeric point is present.
+    // The row's own goalFitIsModelledBasis flag is
     // set — computed by useResultsSectionData.ts using the exact same
     // hasConstraints/jointGoalProb branches OptionCards' caveat gates on
     // (o.goalFitIsModelledBasis), never re-derived here. Shared wording
     // (GOAL_FIT_BASIS_CAVEAT_COPY) — never invented, never a separate claim.
     const goalFitCaveat =
-      goalValue != null && o.goalFitIsModelledBasis === true
+      hasUserTarget && (goalValue != null || cell.kind === 'figure') && o.goalFitIsModelledBasis === true
         ? GOAL_FIT_BASIS_CAVEAT_COPY
         : undefined
     return {
@@ -518,7 +461,8 @@ export function buildHeroModel(
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
-        readout: goalReadout(goalValue, o.nValidSamples),
+        readout: hasUserTarget ? cell.text ?? HERO_COPY.readout.missing : HERO_COPY.readout.missing,
+        why: hasUserTarget && cell.kind !== 'none' ? cell.why : undefined,
       },
       outcome: {
         p10,
@@ -529,30 +473,14 @@ export function buildHeroModel(
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
-      comparativeReadout: winReadout ?? null,
-      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
+      comparativeReadout: null,
+      detail: { why, couldChangeIf, range, goalFit, goalFitCaveat },
     }
   })
 
-  // Lens availability — hidden entirely when the sourcing fields are absent.
-  // The goal lens is additionally gated on the USER target (UI-SEM-071):
-  // the row-level suppression above already nulls every goal value when no
-  // target exists, but the explicit `hasUserTarget` term keeps the gate
-  // visible and future-proof (value presence alone must never re-enable
-  // the lens for synthesized values).
-  //
-  // ⭐ ROADMAP 2.233 — AVAILABILITY, kept as `.some`, now NAMED.
-  //
-  // This is `hasUserTarget && rows.some(...)` exactly as before; only the
-  // predicate's home and name changed. A revision of 2.233 briefly tightened it
-  // to `.every` to "match" the V7 lens, and that was a mistake worth recording:
-  // it conflated what we may DISPLAY with what we may CLAIM. The crown was
-  // ALREADY withheld on partial coverage by `selectGoalLeader`'s complete-field
-  // gate, so tightening this bought no claim-safety — it only hid goal values
-  // the producer HAD measured, on a surface that renders the missing ones as
-  // `'—'` (`goalReadout`). Data is not a claim; an honest gap marker is not a
-  // reason to blank the row beside it.
-  const goalAvailable = hasAnyGoalValue(rows, (r) => r.goal.value, { hasUserTarget })
+  // A target keeps the existing no-target hint. Every licensed cell, including a withheld cell,
+  // has something honest to show; numeric point presence does not govern this lens.
+  const goalAvailable = hasUserTarget && options.some(o => optionChanceCellFromResults(data, o.id).kind !== 'none')
   const outcomeAvailable = rows.some(
     (r) => r.outcome.p10 != null && r.outcome.p90 != null,
   )
@@ -718,34 +646,6 @@ export function buildHeroModel(
           : 'none'
   }
 
-  // Signal (3): the top-two rendered outcome rows' p10-p90 ranges intersect
-  // (inclusive — touching ranges count). Drives ONLY the state-A overlap
-  // advisory sentence; false whenever either range is missing.
-  const topTwoRangesOverlap =
-    outcomeLeaderRow != null &&
-    outcomeRunnerUpRow != null &&
-    outcomeLeaderRow.outcome.p10 != null &&
-    outcomeLeaderRow.outcome.p90 != null &&
-    outcomeRunnerUpRow.outcome.p10 != null &&
-    outcomeRunnerUpRow.outcome.p90 != null &&
-    Math.max(outcomeLeaderRow.outcome.p10, outcomeRunnerUpRow.outcome.p10) <=
-      Math.min(outcomeLeaderRow.outcome.p90, outcomeRunnerUpRow.outcome.p90)
-
-  // Signal (2): the top-two expected outcomes are genuinely close — the
-  // centres differ by no more than 15% of the larger magnitude. Range-
-  // independent by design (closeness of expectations is a different fact
-  // from overlapping uncertainty), and the ONLY gate on naming a runner-up
-  // as "close on expected outcome".
-  const outcomeGapSmall =
-    outcomeLeaderRow?.outcome.centre != null &&
-    outcomeRunnerUpRow?.outcome.centre != null &&
-    outcomeLeaderRow.outcome.centre - outcomeRunnerUpRow.outcome.centre <=
-      OUTCOME_CLOSE_RATIO *
-        Math.max(
-          Math.abs(outcomeLeaderRow.outcome.centre),
-          Math.abs(outcomeRunnerUpRow.outcome.centre),
-        )
-
   // UI-SEM-070: readout-tie coherence gate. When the top-two outcome rows
   // render the SAME readout string, the chart literally shows no strongest
   // option (the reported staging run displayed "100" on all four), so the
@@ -759,16 +659,10 @@ export function buildHeroModel(
     outcomeLeaderRow.outcome.readout !== HERO_COPY.readout.missing &&
     outcomeLeaderRow.outcome.readout === outcomeRunnerUpRow.outcome.readout
 
-  // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
-  // "< 1%" readouts, no new threshold): when EVERY row carries a goal
-  // probability below the floor, no option is meaningfully on track, so the
-  // hero declines to crown a goal-fit leader at all — headline and goal-lens
-  // highlight both switch to the no-option-on-track state. Mixed coverage
-  // (any row without a goal value) falls through to the normal branches.
-  // (rows is never empty here — the empty-options case returned above.)
-  const allGoalBelowFloor = rows.every(
-    (r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR,
-  )
+  // #2747 re-scope 2 round 2 (DL rule C): the hero makes no goal claim of its own. The no-option-on-track headline
+  // (every gated figure under the 1% floor → "No option is currently on track to meet every target this run scored.") and
+  // the goal-fit crown headline ("… meets every target this run scored in the most model runs (64%)", the served figure
+  // with its "about" cut) were UI chance sentences; each option's cell says its chance in CEE's words.
 
   // UI-SEM-072: goal-fit crown = the goalProbability ARGMAX, honestly gated.
   // The goal-attainment headline and the goal-lens "(Leads on this
@@ -829,30 +723,31 @@ export function buildHeroModel(
   // `designationsWithheld`. Only where the user stated a target (UI-SEM-071) and the goal figure is the goal's own chance
   // (with limits the hero's goal value can be the joint, which these words do not describe). Every licensed option must
   // be a row here, by id, or the arm stands aside and the chain below speaks as before.
-  // One gate, shared with the WinGauge's existence line (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row,
-  // the target sayable), so the line under these chance lines is never also, or never instead, under the WinGauge's.
-  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null) ? (data.goalChanceLicence ?? null) : null
-  const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
-  const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
-  const goalChanceHeadlineText =
-    goalChanceLicence === null || rows.length < 2 ? null : goalChanceHeadline(goalChanceLicence, goalChanceLabelOf)
+  // One gate (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row). Round 2: the target need not be
+  // sayable in the UI's words any more (it words none); only the headline needs CEE's chance words.
+  // Recovery Batch C: the matching current Run's goal-chance detail (RunView owns the match and the freshness rule).
+  const goalChanceDetail = data.runView?.goalChanceDetail() ?? null
+  const goalChanceWords = goalChanceDetail?.chance_words ?? null
+  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null)
+    && options.some(option => {
+      const cell = optionChanceCellFromResults(data, option.id)
+      // DL 87114's absence face earns no licence headline or driver/reason disclosure.
+      return cell.kind !== 'none' && cell.text !== CHANCE_NOT_SHOWN_YET
+    })
+    ? (data.goalChanceLicence ?? null) : null
+  // A driver line quotes chances, so only the gated driver (RunView.mainDriverOf) is said; never the licence's own (#2747).
+  const gatedDriverOf = (id: string) => data.runView?.mainDriverOf(id) ?? null
+  // #2747 re-scope 2 round 2 (DL: LABEL, DON'T WITHHOLD): the goal-chance arm speaks whenever CEE licensed the chances —
+  // each option's cell and CEE's driver sentence lead, verbatim. Only the headline needs CEE's chance words; without them
+  // the arm takes the neutral headline rather than composing one, and never falls back to a leader claim.
+  const goalChanceArmSpeaks = goalChanceLicence !== null && rows.length >= 2
+  const goalChanceHeadlineText = goalChanceArmSpeaks ? goalChanceHeadline(goalChanceLicence, goalChanceWords) : null
 
   let headline: string
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
-  } else if (goalChanceHeadlineText !== null) {
-    headline = goalChanceHeadlineText
-  } else if (allGoalBelowFloor) {
-    // Constraint-aware like every goal claim: under constraints the floored
-    // figure is the JOINT probability and the axis/caption say "goal and
-    // limits" — the headline must describe the same quantity.
-    headline = hasConstraints
-      ? HERO_COPY.headline.noneOnTrackWithLimits
-      : HERO_COPY.headline.noneOnTrack
-  } else if (goalLeaderRow) {
-    headline = hasConstraints
-      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
-      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
+  } else if (goalChanceArmSpeaks) {
+    headline = goalChanceHeadlineText ?? HERO_COPY.headline.noLeader
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
@@ -889,25 +784,12 @@ export function buildHeroModel(
     // Withheld now falls to `noLeader`: SILENCE, not a denial. `noClearLeader`
     // stays reserved for the producer's TIE call, because asserting "No option is
     // clearly ahead" on a withheld turn would swap one unearned claim for another.
-    headline =
-      leaderBand === 'strong' && !designationsWithheld
-        ? HERO_COPY.headline.mostLikelyStrongest(
-            safeLabel(headlineRow),
-            // null, NOT the missing glyph: the sentence drops its magnitude
-            // clause rather than printing '—' where a quantity should be.
-            //
-            // Read straight off the ROW. This used to come from a
-            // `winReadoutById` side-table populated by a mutation inside the
-            // row `.map()` — a second store of a value the row already
-            // carries, written in one place and read in another, which is the
-            // shape every drift defect in this file has taken.
-            headlineRow.comparativeReadout ?? null,
-          )
-        : leaderBand === 'ahead' && !designationsWithheld
-          ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
-          : leaderBand === 'none'
-            ? HERO_COPY.headline.noClearLeader
-            : HERO_COPY.headline.noLeader
+    //
+    // ⭐ RUN-4 JUDGE, DL RULING (12 Oct, the class): the 'strong' and 'ahead' arms named the leader from a win share ("In
+    // this model, X was supported by more runs than any other option." / "… slightly more runs supported X."). Ruling A
+    // and the guiding principle allow no leader claim, and CEE sends none. Both arms now take the neutral headline, the
+    // same SILENCE a withheld turn takes; no words replace them. 'none' keeps the producer's tie denial.
+    headline = leaderBand === 'none' ? HERO_COPY.headline.noClearLeader : HERO_COPY.headline.noLeader
   } else if (sharedVerdict?.separation === 'tied') {
     // ⭐ R7 (DL #70 5859773247): the producer's TIE call names no option, so it
     // needs no headline row. Since a UI sort no longer names a leader, a tie
@@ -1059,10 +941,11 @@ export function buildHeroModel(
   // admission's own sentence keeps the slot when it has one (a reason line already on the panel); otherwise the
   // producer's withheld-leader reason line from `winShareGate` (e.g. Paul's 4276f3f9: "An exploratory
   // comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option."). Permitted ⇒ unchanged.
-  const designationWithheldReason =
+  let designationWithheldReason =
     admissionWithheldReason ??
     (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
-  const goalHorizonUntested = readGoalHorizonUntested(data.confidence?.inferenceWarnings)
+  let goalHorizonUntested = data.goalChanceRange?.horizonLine != null
+    ? null : readGoalHorizonUntested(data.confidence?.inferenceWarnings)
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
@@ -1071,9 +954,13 @@ export function buildHeroModel(
   // visible (centres without ranges leave it hidden, so the hero must not
   // assert an expected-outcome comparison it cannot show).
   let subline: string | null = null
+  // No goal claim is headlined in C (round 2, above), so every claimed row is the analysis leader's.
   const bandedNoGoalClaim =
-    rows.length > 1 && !allGoalBelowFloor && !goalLeaderRow && headlineRow != null
-  if (bandedNoGoalClaim && (leaderBand === 'none' || leaderBand === null)) {
+    rows.length > 1 && headlineRow != null
+  if (bandedNoGoalClaim) {
+    // ⭐ Run-4 judge (DL 12 Oct, the class): EVERY band takes this line now. The 'strong' / 'ahead' sublines described
+    // the named leader ("<leader> has the highest expected outcome", "<runner-up> is close on expected outcome", "…'s
+    // expected outcome points the same way") and the headline no longer names one, so they went with it.
     // State C: no leader was claimed, so no divergence exists to state —
     // the companion line points at the comparison without risking a name.
     // `null` (no owned claim, ROADMAP 1.223) joins this branch: the tension
@@ -1082,12 +969,6 @@ export function buildHeroModel(
     // withheld turn it simply relocates the leader claim one line down.
     subline = HERO_COPY.subline.compareTop
   } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
-    // The row the headline actually names: the goal-fit crown when one
-    // exists (UI-SEM-072 — may differ from the recommendation), else the
-    // analysis leader. The tension/aligned subline must describe the
-    // headlined row, or it would state a divergence about an option the
-    // headline never mentioned.
-    const claimedRow = goalLeaderRow ?? headlineRow
     if (topOutcomesReadoutTied) {
       // UI-SEM-070: the top-two options render the SAME readout, so no outcome
       // winner is claimable in ANY branch — no-option-on-track, aligned or
@@ -1116,62 +997,59 @@ export function buildHeroModel(
       // SUBSTITUTES rather than deletes: the sweep proved the surface
       // renders, so an empty subline would be its own regression.
       subline = HERO_COPY.subline.compareTop
-    } else if (allGoalBelowFloor) {
-      // No leader was claimed; the outcome fact is the one honest pointer.
-      subline = HERO_COPY.subline.highestOutcome(
-        safeLabel(outcomeLeaderRow),
-        outcomeLeaderRow.outcome.readout,
-      )
-    } else if (claimedRow) {
-      // Aligned case per band (producer band or UI-SEM-060 fallback —
-      // whichever sourced leaderBand above): state B names the runner-up as
-      // close ONLY when the expected-outcome gap is genuinely small (never
-      // from range overlap); state A states the outcome fact plainly.
-      // goalLeaderRow-headlined runs keep the plain aligned/divergence pair
-      // — the goal claim is not an outcome claim. Diverged leaders keep the
-      // persistent divergence line in every band. (The banded branches only
-      // fire on bandedNoGoalClaim, which implies claimedRow === headlineRow.)
-      const alignedLeaders = claimedRow.id === outcomeLeaderRow.id
-      if (!alignedLeaders) {
-        subline = HERO_COPY.subline.highestOutcome(
-          safeLabel(outcomeLeaderRow),
-          outcomeLeaderRow.outcome.readout,
-        )
-      } else if (
-        bandedNoGoalClaim &&
-        leaderBand === 'ahead' &&
-        outcomeGapSmall &&
-        outcomeRunnerUpRow
-      ) {
-        subline = HERO_COPY.subline.closeOnOutcome(safeLabel(outcomeRunnerUpRow))
-      } else if (bandedNoGoalClaim && leaderBand === 'strong') {
-        subline = HERO_COPY.subline.highestOutcome(safeLabel(claimedRow), claimedRow.outcome.readout)
-      } else {
-        subline = HERO_COPY.subline.aligned(safeLabel(claimedRow))
-      }
-      // State-A overlap advisory: overlap is disclosed as uncertainty about
-      // the RANGES — appended, never a downgrade of the leader claim.
-      if (bandedNoGoalClaim && leaderBand === 'strong' && topTwoRangesOverlap) {
-        subline = `${subline} ${HERO_COPY.subline.overlapAdvisory}`
-      }
     }
   }
-  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option. Below the
-  // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
-  // otherwise the neutral pointer.
-  if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
-    // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
-    const lines = goalChanceLicence.form === 'each'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
-      : goalChanceLicence.form === 'similar'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
-        : null
-    subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
-    // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
-    // the part of these figures that is Olumi's assumption about the user's own links.
-    const disclosure = goalChanceDisclosureLines(goalChanceLicence)
-    if (disclosure !== null) subline = `${subline} ${disclosure}`
+  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option.
+  // Each option keeps its own labelled cell followed by its own driver, then separate Run-wide lines.
+  let goalChanceHorizonLine: string | null = null
+  let goalChanceLeadLines: HeroChartModel['goalChanceLeadLines']
+  if (goalChanceArmSpeaks && goalChanceLicence !== null) {
+    // #2747 re-scope 2 (U2): what each chance rests on most is CEE's own sentence (`main_driver.detail`), verbatim; a
+    // driver CEE gave no sentence for says nothing (its figure is never worded here).
+    const driverRunIdentities = new Set<string>()
+    const lines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = options.flatMap(option => {
+      const label = stripEncodingNotation(option.label).trim()
+      if (!label) return []
+      const cell = optionChanceCellFromResults(data, option.id)
+      const text = cell.text
+      if (text === null) return []
+      const prefix = `‘${label}’: `
+      const ownLines: NonNullable<HeroChartModel['goalChanceLeadLines']>[number][] = [{
+        id: option.id, kind: 'cell', text: text.startsWith(prefix) ? text : prefix + text,
+        ...('why' in cell && cell.why ? { why: cell.why } : {}),
+      }]
+      const driverText = data.runView?.mainDriverDetailOf(option.id) ?? null
+      if (driverText !== null) {
+        ownLines.push({ id: option.id, kind: 'driver', text: driverText })
+        const identity = goalChanceDriverRunMessageIdentity(gatedDriverOf(option.id) ?? undefined,
+          goalChanceLicence.target, driverText, data.confidence?.inferenceWarnings)
+        if (identity !== null) driverRunIdentities.add(identity)
+      }
+      return ownLines
+    })
+    const runMessages = goalChanceRunMessages(data.confidence?.inferenceWarnings,
+      admissionWithheldReason === null ? { cause: data.winShareWithheldCause, text: designationWithheldReason } : undefined)
+    lines.push(...runMessages.lines.filter(line => !driverRunIdentities.has(line.identity)))
+    if (runMessages.ownsDesignation) designationWithheldReason = null
+    // #2747 re-scope 2 (U2): the licence-composed disclosure lines (why no summary is stated; the 1-in-N existence prior)
+    // are not said here: CEE's served notes carry what the Run's chances rest on, verbatim (`goalChanceDetailLines`).
+    goalChanceHorizonLine = goalChanceLicence.horizonLine ?? null
+    if (goalChanceHorizonLine !== null) {
+      lines.push({ text: goalChanceHorizonLine })
+      goalHorizonUntested = null
+    }
+    goalChanceLeadLines = lines
+    subline = lines.length ? lines.map(line => line.text).join(' ') : HERO_COPY.subline.compareTop
   }
+  // Recovery Batch C: said once beside the chances, whether or not the headline arm speaks (a withheld joint leaves every
+  // cell withheld, and the reason and each target's own chance must still be said).
+  const statusQuo = goalChanceDetail?.status_quo
+  const statusQuoCell = statusQuo !== undefined && options.some(o => o.id === statusQuo.option_id)
+    ? optionChanceCellFromResults(data, statusQuo.option_id) : null
+  const goalChanceDetailLinesOut = goalChanceDetail === null ? undefined : goalChanceDetailLines(goalChanceDetail, (id) => {
+    const option = options.find(o => o.id === id)
+    return option === undefined ? null : stripEncodingNotation(option.label).trim() || null
+  }, statusQuoCell !== null && 'why' in statusQuoCell && statusQuoCell.why === statusQuo?.line)
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
   // existing p10/p90/centre values ONLY, padded 5% each side (matching
@@ -1435,19 +1313,8 @@ export function buildHeroModel(
       // only the leader framing around them changes.
       const text =
         alt && !containsBannedTerm(alt)
-          ? HERO_COPY.evidence.flipRiskWithAlternative(
-              label,
-              direction,
-              value,
-              alt,
-              designationsWithheld,
-            )
-          : HERO_COPY.evidence.flipRiskNoAlternative(
-              label,
-              direction,
-              value,
-              designationsWithheld,
-            )
+          ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
+          : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
       // Fail-closed focus pre-gate: with canvas knowledge supplied, a
       // node_id absent from the canvas yields a text row, not a dead button.
       const rawTarget = ft.node_id || null
@@ -1488,6 +1355,9 @@ export function buildHeroModel(
     provenance: 'live',
     headline,
     subline,
+    goalChanceHorizonLine,
+    goalChanceLeadLines,
+    ...(goalChanceDetailLinesOut !== undefined && goalChanceDetailLinesOut.length > 0 ? { goalChanceDetailLines: goalChanceDetailLinesOut } : {}),
     designationWithheldReason,
     goalHorizonUntested,
     lenses,
@@ -1542,6 +1412,7 @@ export function buildHeroModel(
     },
     outcomeDomain,
     outcomeWithheldNoTodayLevel: outcomeIsUnitless,
+    servedWithheldWhy: recommendation.servedWithheldWhy ?? null,
     // ⛔ R3 #75 5905239972 (served MRR + cut-costs): "doesn't hold today's level" was said for goals holding the user's
     // £75k / £45k, because outcomes the PRODUCER withheld (no figure at all) read as unitless. The sentence is the
     // reason only when there were figures to withhold AND the goal holds no level; otherwise the neutral line.
@@ -1621,5 +1492,7 @@ export function buildHeroModel(
     targetUnit:
       outcomeUnit === 'percent' ? '%' : (outcomeUnitSymbol ?? null),
   }
-  return model
+  return withGoalOptionCoverage(model, data)
 }
+
+import { withGoalOptionCoverage } from './goalOptionCoverage'

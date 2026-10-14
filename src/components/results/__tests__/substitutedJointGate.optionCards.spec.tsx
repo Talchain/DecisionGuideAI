@@ -35,12 +35,11 @@
  * `probability_of_goal` absent, no `constraint_analysis`,
  * `goal_fit_basis.scored_from === 'modelled_outcome_distribution'`.
  *
- * ⚠ AND THE FLAG IS NOT HAND-SET. `goalFitIsSubstitutedJoint` here is
- * derived by calling the REAL `selectGoalProbability` on those raw bytes and
- * reading its `basis`, with the SAME expression `useResultsSectionData` uses
- * (`basis === 'joint_goal_substituted'`). A hand-set `true` would pin a
- * boolean this spec invented; this pins the live producer shape through the
- * real chooser into the real component. Test 1 is the anti-vacuity control
+ * ⚠ AND THE FIGURE IS NOT HAND-SET. The option's goal figure is derived by
+ * calling the REAL `selectGoalProbability` on those raw bytes (#2747 re-scope 2
+ * deleted the `goalFitIsSubstitutedJoint` flag this paragraph used to cover). A
+ * hand-set value would pin a number this spec invented; this pins the live
+ * producer shape through the real chooser into the real component. Test 1 is the anti-vacuity control
  * (CLAUDE.md trap 13): it proves the fixture is genuinely IN the state under
  * test before any copy is asserted about it — if a future selector change
  * stopped substituting, that control REDs rather than the copy tests passing
@@ -97,7 +96,7 @@ import {
 
 /** The two possessive forms this card shipped, quoted for the assertions. */
 const POSSESSIVE_BAR_LABEL = 'Hits target'
-const POSSESSIVE_BADGE_TAIL = 'of model runs'
+const POSSESSIVE_BADGE_TAIL = 'chance of meeting your goal'
 
 /**
  * The five options exactly as the producer sent them on the witnessed run.
@@ -157,11 +156,9 @@ const WITNESSED_OUTCOMES = [
 /**
  * The hook's mapping, and ONLY the hook's mapping.
  *
- * `goalProbability`, `goalFitIsModelledBasis` and `goalFitIsSubstitutedJoint`
- * all come out of the real selector's return value — the last one via the
- * exact expression at `useResultsSectionData.ts` ("Which quantity
- * `goalProbability` actually IS, carried to the render layer"). Nothing about
- * the substitution decision is re-derived here.
+ * `goalProbability` and `goalFitIsModelledBasis` come out of the real selector's return value. Nothing about the
+ * substitution decision is re-derived here. (#2747 re-scope 2: `goalFitIsSubstitutedJoint` is deleted; its writer was
+ * `false` in C.)
  */
 function toOptionResults(
   producerOptions: ReadonlyArray<
@@ -180,10 +177,6 @@ function toOptionResults(
       nValidSamples: 10000,
       goalProbability: goalDecision.goalProbability,
       goalFitIsModelledBasis: goalDecision.goalFitIsModelledBasis,
-      // L62: the hook's expression, verbatim — the owner's PERMISSION on a
-      // present number, not a basis literal.
-      goalFitIsSubstitutedJoint:
-        goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
     } as OptionResult
   })
 }
@@ -193,9 +186,11 @@ function withRealGoalProbability(value: number) {
   return WITNESSED_PRODUCER_OPTIONS.map((o) => ({ ...o, probability_of_goal: value }))
 }
 
-function renderCards(options: OptionResult[]) {
+/** #2747 re-scope 2 round 2 (rule C): the card's goal row says CEE's served cell; `display` is its readout, verbatim. */
+function renderCards(options: OptionResult[], servedDisplay: string | null = null) {
   return render(
-    <OptionCards options={options} winnerId="opt_hybrid" hasGoalThreshold />,
+    <OptionCards options={options} winnerId="opt_hybrid" hasGoalThreshold
+      goalCellOf={() => (servedDisplay === null ? null : { display: servedDisplay, face: null })} />,
   )
 }
 
@@ -218,7 +213,6 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
 
     // And the withhold survives the hook's mapping into the prop the card reads.
     const mapped = toOptionResults(WITNESSED_PRODUCER_OPTIONS)
-    expect(mapped.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
     expect(mapped[0].goalProbability).toBeNull()
   })
 
@@ -227,7 +221,7 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     const text = container.textContent ?? ''
 
     // The 2.282 assertions, unchanged: the possessive must not appear.
-    expect(text).not.toContain('Reaches the target in < 1% of model runs')
+    expect(text).not.toContain('Less than 1% chance of meeting your goal')
     expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
 
     // ⭐ INVERTED. 2.282 required the badge to SURVIVE, carrying the register's
@@ -255,56 +249,61 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     expect(container.querySelectorAll('[data-testid^="option-card-"]').length).toBeGreaterThan(0)
   })
 
-  it('positive control: a REAL probability_of_goal KEEPS the possessive "Hits target" label and renders no withheld caption', () => {
+  // #2747 re-scope 2 (U0 rewrite, DL 12 Oct): the card's own "Hits target" label is gone (only CEE's served words may label
+  // a chance); the honest arm now pins the goal readout, still with no withheld caption.
+  it('positive control: a REAL probability_of_goal draws its goal readout with no UI label and no withheld caption', () => {
     // 0.55 is the honest answer the witness derived for the leading option
     // once the frame is stamped ("is the uplift >= £2M?").
     const options = toOptionResults(withRealGoalProbability(0.55))
-    expect(options.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
 
-    const { container } = renderCards(options)
+    // Round 2 (rule C): the readout is CEE's served display string itself, never a figure the card rounds.
+    const { container } = renderCards(options, 'about 55%')
     const text = container.textContent ?? ''
 
-    expect(text).toContain(POSSESSIVE_BAR_LABEL)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toBe('about 55%')
+    expect(text).not.toContain(POSSESSIVE_BAR_LABEL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.label(true))
     expect(container.querySelectorAll('[data-testid^="goal-fit-substituted-label-"]'))
       .toHaveLength(0)
   })
 
-  it('positive control: a REAL probability_of_goal below the low-goal threshold KEEPS the possessive badge wording', () => {
-    // Below 0.10 so the badge branch is exercised in this arm too — without
-    // this the badge's possessive wording would be pinned in one direction
-    // only, and deleting it outright would still pass.
+  // #2747 re-scope 2 (U0 rewrite): the low-goal badge is gone in C (it worded its own chance sentence); the arm below 0.10
+  // now pins the card's readout and the badge's absence, still never the substituted joint wording.
+  it('positive control: a REAL probability_of_goal below the low-goal threshold keeps its readout, with no low-goal badge', () => {
     const options = toOptionResults(withRealGoalProbability(0.055))
-    expect(options.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
 
-    const { container } = renderCards(options)
+    const { container } = renderCards(options, 'about 6%')
     const text = container.textContent ?? ''
 
-    expect(text).toContain(`6% ${POSSESSIVE_BADGE_TAIL}`)
+    expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]')?.textContent).toBe('about 6%')
+    expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('6%', true))
-    expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]'))
-      .toHaveLength(1)
+    expect(container.querySelectorAll('[data-testid="low-goal-warning-opt_hybrid"]')).toHaveLength(0)
   })
 
-  it('L62: the withheld run shows NEITHER voice, and the honest run shows exactly the possessive one', () => {
+  // #2747 re-scope 2 (U0 rewrite): no run shows the card's possessive voice in C (its label and badge are gone); the honest
+  // run is told apart by its goal readout instead.
+  it('L62: the withheld run shows NEITHER voice, and the honest run draws its readout with no voice', () => {
     // 2.282 pinned `possessive === !withheld` — exactly one voice per render.
     // Under L62 the withheld run has zero of both, so the XOR no longer holds
     // and asserting it would be false. Each arm is pinned explicitly instead,
     // which is strictly stronger: the XOR was satisfiable by a card rendering
     // the WRONG single voice.
     const cases = [
-      { options: toOptionResults(WITNESSED_PRODUCER_OPTIONS), expectPossessive: false },
-      { options: toOptionResults(withRealGoalProbability(0.055)), expectPossessive: true },
+      { options: toOptionResults(WITNESSED_PRODUCER_OPTIONS), expectReadout: false },
+      { options: toOptionResults(withRealGoalProbability(0.055)), expectReadout: true },
     ]
-    for (const { options, expectPossessive } of cases) {
-      const { container, unmount } = renderCards(options)
+    for (const { options, expectReadout } of cases) {
+      // CEE serves a cell in both arms; the withheld arm still draws no row, because the gate passed no figure.
+      const { container, unmount } = renderCards(options, 'about 6%')
       const text = container.textContent ?? ''
       const possessive = text.includes(POSSESSIVE_BADGE_TAIL) || text.includes(POSSESSIVE_BAR_LABEL)
       const withheldVoice =
         text.includes(GOAL_ANCHOR_COPY.label(true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('< 1%', true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('6%', true))
-      expect(possessive).toBe(expectPossessive)
+      expect(possessive).toBe(false)
+      expect(container.querySelector('[data-testid="goal-readout-opt_hybrid"]') !== null).toBe(expectReadout)
       // The withheld VOICE is retired outright: it existed only to caption a
       // substituted number, and there is no longer such a number.
       expect(withheldVoice).toBe(false)

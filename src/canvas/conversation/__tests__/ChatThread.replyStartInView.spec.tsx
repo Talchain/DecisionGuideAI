@@ -10,9 +10,11 @@
  * ⚠ WHAT THIS SPEC CAN AND CANNOT PROVE. jsdom has no layout (CLAUDE.md trap
  * 3). This file supplies a small, explicit layout model — the thread's
  * `clientHeight` / `scrollHeight` / box, each message's content offset, and a
- * `scrollIntoView` that pins the thread to its bottom the way a browser does —
- * and proves the DECISION made against that geometry: which `scrollTop` the
- * thread is given, and whether the end sentinel is scrolled to. That the first
+ * `scrollTo` that pins the thread to its bottom the way a browser does (it
+ * clamps an over-large `top` to the end) — and proves the DECISION made against
+ * that geometry: which `scrollTop` the thread is given, and whether the thread
+ * is pinned to its end. (It used to pin by `scrollIntoView` on an end sentinel,
+ * which also scrolled the dock's overflow-hidden aside: `threadScroll.ts`.) That the first
  * sentence is really on screen in a real browser is claimed only by the served
  * witness (`e2e/ai-conversation/prbRunReply.witness.measure.ts`, "reply start
  * in view").
@@ -24,7 +26,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
 import { createRoot } from 'react-dom/client'
-import { ChatThread, THREAD_SCROLL_SENTINEL_TESTID, THREAD_TESTID_DOCKED } from '../zones/ChatThread'
+import { ChatThread, THREAD_TESTID_DOCKED } from '../zones/ChatThread'
 import { MESSAGE_ID_ATTRIBUTE } from '../hooks/useSmartScroll'
 import type { ConversationMessage } from '../types'
 
@@ -59,10 +61,11 @@ const box = (top: number, height: number) =>
   ({ top, bottom: top + height, height, left: 0, right: 300, width: 300, x: 0, y: top, toJSON() {} }) as DOMRect
 
 /** Every scroll aimed at an element, with its options — bound by identity, never counted globally (trap 19). */
-let scrollCalls: Array<{ target: Element; opts: unknown }> = []
+let scrollCalls: Array<{ target: Element; opts: unknown; endAtCall?: number }> = []
 
 const saved = {
   scrollIntoView: Element.prototype.scrollIntoView,
+  scrollTo: (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo,
   getBoundingClientRect: Element.prototype.getBoundingClientRect,
   ResizeObserver: global.ResizeObserver,
 }
@@ -90,19 +93,24 @@ function installLayout() {
       return isThread(this) && layout.clientHeight > 0 ? layout.contentHeight : 0
     },
   })
-  // The browser's pin: the zero-height end sentinel, scrolled into view, takes
-  // the thread to its bottom. A hidden thread has no box and does not move.
+  // The browser's pin: the thread's own `scrollTo`, clamped to its end. A hidden
+  // thread has no box and does not move.
+  ;(Element.prototype as unknown as { scrollTo: unknown }).scrollTo = function (this: Element, opts?: ScrollToOptions) {
+    scrollCalls.push({ target: this, opts, endAtCall: (this as HTMLElement).scrollHeight })
+    if (isThread(this) && layout.clientHeight > 0 && typeof opts?.top === 'number') {
+      ;(this as HTMLElement).scrollTop = Math.max(0, Math.min(opts.top, bottomTop()))
+    }
+  }
+  // Recorded, never honoured: nothing on the thread may call it (it scrolls every ancestor).
   Element.prototype.scrollIntoView = function (this: Element, opts?: unknown) {
     scrollCalls.push({ target: this, opts })
-    const thread = threadOf(this)
-    if (this.getAttribute('data-testid') === THREAD_SCROLL_SENTINEL_TESTID && thread && layout.clientHeight > 0) {
-      thread.scrollTop = bottomTop()
-    }
   }
 }
 
 function uninstallLayout() {
   Element.prototype.scrollIntoView = saved.scrollIntoView
+  if (saved.scrollTo === undefined) delete (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo
+  else (Element.prototype as unknown as { scrollTo: unknown }).scrollTo = saved.scrollTo
   Element.prototype.getBoundingClientRect = saved.getBoundingClientRect
   delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight
   delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight
@@ -145,8 +153,10 @@ async function flush() {
 function mountThread(messages: ConversationMessage[], isThinking = false) {
   const utils = render(<ChatThread {...props(messages, isThinking)} />)
   const thread = utils.getByTestId(THREAD_TESTID_DOCKED)
-  const sentinel = utils.getByTestId(THREAD_SCROLL_SENTINEL_TESTID)
-  const sentinelScrolls = () => scrollCalls.filter((c) => c.target === sentinel).length
+  // Pins to the thread's END, by identity: the thread itself, asked for its full height (the hold writes
+  // `scrollTop` directly and is not a pin).
+  const sentinelScrolls = () =>
+    scrollCalls.filter((c) => c.target === thread && (c.opts as ScrollToOptions | undefined)?.top === c.endAtCall).length
   const pill = () => utils.queryByTestId('new-messages-pill')
   const update = async (next: ConversationMessage[], thinking = false) => {
     utils.rerender(<ChatThread {...props(next, thinking)} />)
@@ -162,7 +172,7 @@ function mountThread(messages: ConversationMessage[], isThinking = false) {
     thread.scrollTop = top
     await browserScrollEvent()
   }
-  return { ...utils, thread, sentinel, sentinelScrolls, pill, update, browserScrollEvent, userScrollsTo }
+  return { ...utils, thread, sentinelScrolls, pill, update, browserScrollEvent, userScrollsTo }
 }
 
 /**
@@ -258,8 +268,13 @@ describe('ChatThread — a reply taller than the thread lands at its start', () 
     const host = document.createElement('div')
     document.body.appendChild(host)
     const root = createRoot(host)
+    // The clock below makes the scheduler yield after every unit of work, so a commit takes one task per unit. Five
+    // 10 ms turns was a budget, not a wait: under a loaded runner the mount's passive effects had not all run when
+    // the precondition was read (measured 2/3 red at load ~24 once each reply gained its stable wrapper, 7 Oct). The
+    // claim below is about ORDER (the hold is recorded before the content sensor pins), which a longer wait for the
+    // queue to drain cannot change; so drain it.
     const settle = async () => {
-      for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 10))
+      for (let i = 0; i < 40; i++) await new Promise((r) => setTimeout(r, 10))
     }
     try {
       layout = { clientHeight: 600, contentHeight: 1000, offsets: { u1: 0, a1: 150, u2: 900 } }
@@ -381,8 +396,8 @@ describe('ChatThread — a reply taller than the thread lands at its start', () 
     await act(async () => {
       fireEvent.click(t.pill() as HTMLElement)
     })
-    const pillScrolls = scrollCalls.slice(callsBeforePill).filter((c) => c.target === t.sentinel)
-    expect(pillScrolls[0]?.opts, 'the pill scrolls the end sentinel, smoothly, as before').toEqual({ behavior: 'smooth' })
+    const pillScrolls = scrollCalls.slice(callsBeforePill).filter((c) => c.target === t.thread)
+    expect(pillScrolls[0]?.opts, 'the pill pins the thread to its end, smoothly, as before').toEqual({ top: pillScrolls[0]?.endAtCall, behavior: 'smooth' })
     expect(t.thread.scrollTop).toBe(bottomTop())
     expect(t.pill()).toBeNull()
 

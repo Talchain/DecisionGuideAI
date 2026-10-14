@@ -39,11 +39,13 @@
  * PINS ITS OWN PRECONDITION: it asserts the arms disagree on this exact input
  * before any parity claim is made, so a later change that flattens the ladder
  * cannot silently hollow the rest of this file out.
+ *
+ * #2747 re-scope 2 (U0, DL ruling (A)): WinGauge is deleted and the option card shows no win share in C. The formatter's
+ * own arm pins stay; the gauge-only rows are deleted; the card rows now pin, by identity, that no share is printed.
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import { WinGauge } from '../WinGauge'
+import { render, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import type { OptionResult } from '../types'
@@ -76,24 +78,6 @@ const CHALLENGER: OptionResult = {
   rank: 2,
 }
 
-const SHARES = [LEADER, CHALLENGER].map((o) => ({
-  id: o.id,
-  label: o.label,
-  winProbability: o.winProbability as number,
-  isWinner: o.isRecommended === true,
-  nValidSamples: o.nValidSamples,
-}))
-
-/**
- * The stacked segment's accessible name, bound to its option by that option's
- * own label — never by the value under test, which another segment could match.
- */
-function segmentAriaFor(container: HTMLElement, label: string): string {
-  const seg = container.querySelector(`[role="img"][aria-label^="${label}: "]`)
-  expect(seg, `no stacked segment for "${label}"`).not.toBeNull()
-  return seg!.getAttribute('aria-label')!.slice(`${label}: `.length)
-}
-
 describe('ROADMAP 2.928 (c) — the fixture actually discriminates the two arms', () => {
   it('0.9995 renders DIFFERENTLY on the two arms, so parity below is not vacuous', () => {
     const roundingArm = formatProbabilityWithResolution(LEADER_WIN, null)
@@ -114,96 +98,35 @@ describe('ROADMAP 2.928 (c) — the fixture actually discriminates the two arms'
   })
 })
 
-describe('ROADMAP 2.928 (c) — WinGauge and OptionCards state the SAME string', () => {
-  it('the legend readout equals the option card readout for the same option', () => {
-    const gauge = render(<WinGauge shares={SHARES} decisionState="robust" />)
+describe('ROADMAP 2.928 (c) — the option card states NO win share at either arm (#2747 re-scope 2)', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'the legend readout equals the option card readout for the same option';
+  // the legend went with WinGauge and the card prints no share in C, so neither arm's string reaches the card.
+  it('the option card prints no win readout for the near-certain leader (no 99.95%, no > 99%, no 100%)', () => {
     const cards = render(<OptionCards options={[LEADER, CHALLENGER]} winnerId={LEADER.id} />)
 
-    const legend = within(gauge.container).getByTestId(`legend-pct-${LEADER.id}`).textContent
-    const card = within(cards.container).getByTestId(`win-pct-${LEADER.id}`).textContent
-
-    expect(legend).toBe(card)
-    expect(legend).toBe('99.95%')
+    expect(within(cards.container).queryByTestId(`win-pct-${LEADER.id}`)).toBeNull()
+    const card = within(cards.container).getByTestId(`option-card-${LEADER.id}`).textContent ?? ''
+    expect(card).not.toContain('99.95%')
+    expect(card).not.toContain('> 99%')
+    expect(card).not.toContain('100%')
   })
 
-  it('the legend does not claim 100% for the near-certain leader', () => {
-    const { container } = render(<WinGauge shares={SHARES} decisionState="robust" />)
-    const legend = within(container).getByTestId(`legend-pct-${LEADER.id}`).textContent
-    expect(legend).not.toBe('100%')
-  })
-
-  it('the challenger row takes the same arm too (below-resolution, not floored)', () => {
-    const gauge = render(<WinGauge shares={SHARES} decisionState="robust" />)
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'the challenger row takes the same arm too (below-resolution, not floored)'.
+  it('the option card prints no win readout for the challenger either (no 0.1%, no < 1%)', () => {
     const cards = render(<OptionCards options={[LEADER, CHALLENGER]} winnerId={LEADER.id} />)
 
-    const legend = within(gauge.container).getByTestId(`legend-pct-${CHALLENGER.id}`).textContent
-    const card = within(cards.container).getByTestId(`win-pct-${CHALLENGER.id}`).textContent
-
-    expect(legend).toBe(card)
-    // The resolution ladder's smallest non-collapsing precision for 0.0005.
-    // At pristine the legend said "< 1%" here while the card said "0.1%" —
-    // the same split as the leader row, at the other end of the scale.
-    expect(legend).toBe('0.1%')
-  })
-})
-
-describe('ROADMAP 2.928 (c) — the screen-reader channel takes the same arm', () => {
-  it('the stacked segment aria-label states the legend string, not a second evaluation', () => {
-    const { container } = render(<WinGauge shares={SHARES} decisionState="robust" />)
-
-    const aria = segmentAriaFor(container, 'Leader')
-    const legend = within(container).getByTestId(`legend-pct-${LEADER.id}`).textContent
-
-    // The sighted and the screen-reader channel must not disagree about a
-    // probability. Before this row they did: "100%" spoken, "99.95%" printed.
-    expect(aria).toBe(legend)
-    expect(aria).toBe('99.95%')
+    expect(within(cards.container).queryByTestId(`win-pct-${CHALLENGER.id}`)).toBeNull()
+    const card = within(cards.container).getByTestId(`option-card-${CHALLENGER.id}`).textContent ?? ''
+    expect(card).not.toContain('0.1%')
+    expect(card).not.toContain('< 1%')
   })
 
-  it('the segment aria-label equals the option card readout', () => {
-    const gauge = render(<WinGauge shares={SHARES} decisionState="robust" />)
-    const cards = render(<OptionCards options={[LEADER, CHALLENGER]} winnerId={LEADER.id} />)
-
-    expect(segmentAriaFor(gauge.container, 'Leader')).toBe(
-      within(cards.container).getByTestId(`win-pct-${LEADER.id}`).textContent,
-    )
-  })
-})
-
-describe('ROADMAP 2.928 (c) — the fallback arm is preserved where the count is genuinely absent', () => {
-  it('a run with no nValidSamples still renders the legacy rounding on both surfaces', () => {
-    const noCount = SHARES.map((s) => ({ ...s, nValidSamples: null, winProbability: 0.65 }))
-    const { container } = render(<WinGauge shares={noCount} decisionState="robust" />)
-
-    // 0.65 is unambiguous on either arm; the point of this case is that a
-    // missing count does not throw and does not invent a resolution.
-    expect(within(container).getByTestId(`legend-pct-${LEADER.id}`).textContent).toBe('65%')
-  })
-
-  it('the rounding note still renders when every readout is a whole percent', () => {
-    const wholes = [
-      { ...SHARES[0], winProbability: 0.333, nValidSamples: N_VALID_SAMPLES },
-      { ...SHARES[1], winProbability: 0.333, nValidSamples: N_VALID_SAMPLES },
-    ]
-    const { container } = render(<WinGauge shares={wholes} decisionState="robust" />)
-    // 33% + 33% = 66% ≠ 100 ⇒ the note is derivable and must still appear.
-    expect(within(container).getByTestId('option-odds-rounding-note')).toBeInTheDocument()
-  })
-
-  it('the rounding note stands down when the resolution ladder emits decimals', () => {
-    const { container } = render(<WinGauge shares={SHARES} decisionState="robust" />)
-    // "99.95%" carries decimals ⇒ `deriveOddsRoundingNote` returns null by
-    // design (no whole-percent total is derivable). Fail-closed, unchanged.
-    expect(within(container).queryByTestId('option-odds-rounding-note')).toBeNull()
-  })
-})
-
-describe('ROADMAP 2.928 (c) — mount-path pin', () => {
-  it('the legend readout comes from the comparative block, not some other surface', () => {
-    const { container } = render(<WinGauge shares={SHARES} decisionState="robust" />)
-    const block = screen.getByTestId('win-gauge-comparative-block')
-    // Binds the guard to the MOUNT PATH: if the legend moves out of the
-    // comparative block, this fails loud rather than passing on a stray node.
-    expect(block.contains(within(container).getByTestId(`legend-pct-${LEADER.id}`))).toBe(true)
-  })
+  // #2747 re-scope 2 (DL ruling (A)): rows deleted — their only subject, WinGauge, was removed in C:
+  //   'the legend does not claim 100% for the near-certain leader';
+  //   'the stacked segment aria-label states the legend string, not a second evaluation';
+  //   'the segment aria-label equals the option card readout' (its card half is pinned absent above);
+  //   'a run with no nValidSamples still renders the legacy rounding on both surfaces';
+  //   'the rounding note still renders when every readout is a whole percent';
+  //   'the rounding note stands down when the resolution ladder emits decimals';
+  //   'the legend readout comes from the comparative block, not some other surface'.
 })

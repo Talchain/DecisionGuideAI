@@ -123,6 +123,7 @@
 
 import type { Edge } from '@xyflow/react'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from './applyDraftResult'
+import { linkEndsOf } from '../domain/heldUserLink'
 import { DEFAULT_EDGE_DATA, type EdgeData } from '../domain/edges'
 
 /**
@@ -297,8 +298,9 @@ export function normalisePersistedGraph(graph: unknown): NormalisedGraph {
     return mapped
   })
 
+  const endsOf = linkEndsOf(rawNodes)
   const edges = rawEdges.map((e, i) => {
-    const canvasEdge: any = isCanvasShapedEdge(e) ? e : mapDraftEdgeToCanvas(e, i)
+    const canvasEdge: any = isCanvasShapedEdge(e) ? e : mapDraftEdgeToCanvas(e, i, endsOf(e))
     return {
       ...canvasEdge,
       data: {

@@ -158,6 +158,69 @@ describe('consumeStreamedDraftTurn — the render-on-arrival contract', () => {
   })
 })
 
+// ⭐ P44 S2: waiting phases follow real server dispatches after the model arrives.
+describe('consumeStreamedDraftTurn — P44 S2 server phases', () => {
+  it('forwards first_analysis and writing in wire order after GRAPH_READY', async () => {
+    const onServerPhase = vi.fn()
+    const outcome = await consumeStreamedDraftTurn(
+      iterate(
+        frames(
+          { stage: 'DRAFTING' },
+          { stage: 'GRAPH_READY', graph: READY_GRAPH },
+          { stage: 'PROGRESS', labels: [], phase: 'first_analysis' },
+          { stage: 'PROGRESS', labels: [], phase: 'writing' },
+          { stage: 'COMPLETE', status_code: 200, payload: terminalPayload() },
+        ),
+      ),
+      { onGraphReady: () => {}, onServerPhase },
+    )
+
+    expect(onServerPhase.mock.calls.map(([phase]) => phase)).toEqual(['first_analysis', 'writing'])
+    expect(outcome.kind).toBe('complete')
+  })
+
+  it('keeps label progress and unknown phases inert', async () => {
+    const onServerPhase = vi.fn()
+    const outcome = await consumeStreamedDraftTurn(
+      iterate(
+        frames(
+          { stage: 'DRAFTING' },
+          { stage: 'GRAPH_READY', graph: READY_GRAPH },
+          { stage: 'PROGRESS', labels: ['Cost'], phase: 'nodes' },
+          { stage: 'PROGRESS', labels: ['Cost influences revenue'], phase: 'edges' },
+          { stage: 'PROGRESS', labels: [], phase: 'unknown' },
+          { stage: 'COMPLETE', status_code: 200, payload: terminalPayload() },
+        ),
+      ),
+      { onGraphReady: () => {}, onServerPhase },
+    )
+
+    expect(onServerPhase).not.toHaveBeenCalled()
+    expect(outcome.kind).toBe('complete')
+  })
+
+  it('completes the turn when the server phase display callback throws', async () => {
+    const onServerPhase = vi.fn(() => {
+      throw new Error('display failed')
+    })
+    const outcome = await consumeStreamedDraftTurn(
+      iterate(
+        frames(
+          { stage: 'DRAFTING' },
+          { stage: 'GRAPH_READY', graph: READY_GRAPH },
+          { stage: 'PROGRESS', labels: [], phase: 'first_analysis' },
+          { stage: 'PROGRESS', labels: [], phase: 'writing' },
+          { stage: 'COMPLETE', status_code: 200, payload: terminalPayload() },
+        ),
+      ),
+      { onGraphReady: () => {}, onServerPhase },
+    )
+
+    expect(onServerPhase).toHaveBeenCalledTimes(2)
+    expect(outcome.kind).toBe('complete')
+  })
+})
+
 describe('CROSS-FRAME IDENTITY — the graph rendered at 36 s IS the graph committed at 61 s', () => {
   it('GRAPH_READY and the COMPLETE payload agree on node and edge identity', async () => {
     const outcome = await consumeStreamedDraftTurn(iterate(HAPPY()), { onGraphReady: () => {} })

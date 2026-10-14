@@ -1,3 +1,4 @@
+import { switchFactorIdsOf } from '../domain/switchFactors'
 /**
  * serverGraphHydration — the boot orchestration for ROADMAP 2.312 piece 3.
  *
@@ -21,16 +22,21 @@ import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWord
 import { recordCanonicalOpen } from './canonicalOpenOutcome'
 import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
 import { readServerConversationTurns } from '../conversation/serverConversationTurns'
+import { parseActionBar } from '../conversation/actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from '../conversation/actionBar/actionBarStore'
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
-import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
+import { fetchScenarioGraph, type FetchScenarioGraphOptions } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
+import { adoptDeliveredRecord } from './deliveredGuidanceSink'
 import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadLimitVerdicts, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
@@ -46,6 +52,7 @@ import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { adoptChangedSinceRun } from '../changes/changedSinceRun'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -91,8 +98,18 @@ export interface HydrateFromServerOptions {
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
   timeoutMs?: number
+  /** Opt-in re-read when the read gets no answer (stream-loss recovery only; `fetchScenarioGraph`). Boot passes none. */
+  unansweredRetry?: FetchScenarioGraphOptions['unansweredRetry']
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
+  /**
+   * ⛔ P44 draft-stall (DL/Codex r3 P1): a RECOVERY read applies only an answer whose own `scenario_id` is the one asked
+   * for. Without it, a response for scenario B sharing node ids merged over A's untouched preview and reported recovery.
+   * Opt-in (recovery reads only): boot hydration keeps its existing foreign-answer handling unchanged.
+   */
+  requireServedScenario?: boolean
+  /** Refused-write recovery must reapply values even when the server identity is cached. */
+  reapplyServerGraph?: boolean
   /**
    * The token the CALLER got from `beginBootGraphRead` for this read. The boot
    * hook marks the read synchronously, before its identity await, so the
@@ -236,12 +253,17 @@ async function readAndMergeServerGraph(
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,
+    ...(opts.unansweredRetry !== undefined ? { unansweredRetry: opts.unansweredRetry } : {}),
     ...(opts.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
   })
 
   // A response body can finish after fetch was aborted. Check at the write
   // boundary too, including caller-specific turn/canvas ownership.
   if (opts.signal?.aborted || opts.canApply?.() === false) return 'skipped'
+  if (opts.requireServedScenario === true && result.status === 'graph' && result.scenarioId !== scenarioId) {
+    logger.warn('server_graph_hydration.foreign_scenario_refused', { requestedScenarioId: scenarioId, servedScenarioId: result.scenarioId ?? null })
+    return 'skipped'
+  }
 
   // ── A SUPERSEDED READ CHANGES NOTHING ────────────────────────────────────
   // The token this read began under must still be the scenario's CURRENT one
@@ -329,20 +351,36 @@ async function readAndMergeServerGraph(
 
   // ⭐ THE CHAT SURVIVES A RELOAD — offer the stored chat to the panel (it takes it only when empty with no local
   // transcript). The stale line keys on the SAME read verdict the held-Run drop uses, before any merge moves it.
+  // ⭐ S-B slice 1: the action bar CEE re-derived for THIS read's state, so a reload shows the bar the last answer
+  // showed when nothing changed, and a fresh one after an edit. A read that carries none leaves a live turn's bar alone;
+  // a bar is taken only from the scenario the read answered for.
+  if (result.scenarioId === scenarioId && result.actionBar !== undefined) {
+    useActionBarStore.getState().setBar(scenarioId, parseActionBar(result.actionBar, reportActionBarIssue))
+  }
+  if (result.scenarioId === scenarioId) {
+    useCanonicalAnalysisViewStore.getState().adopt(scenarioId, parseCanonicalAnalysisView(result.canonicalAnalysisView))
+  }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
     const runState = result.analysisState?.run_state
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
-      turns: serverTurns ?? [],
+      turns: result.scenarioId === scenarioId ? serverTurns ?? [] : (serverTurns ?? []).map(({ suggestedActions: _foreign, ...turn }) => turn),
       // Held actions belong to the response envelope, never merely to the request.
       heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
+      proposalFields: result.scenarioId === scenarioId ? result.proposalFields : undefined,
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
       },
     })
+  }
+
+  // ⭐ P48 (audit #27): what changed since the last Run, as CEE says it, held for the "Since the last run" cue.
+  // Only on the conversation read (the key's opt-in), and only for the scenario the payload came back for.
+  if (opts.includeConversationTurns === true && result.scenarioId === scenarioId) {
+    adoptChangedSinceRun(scenarioId, result.changedSinceRun, result.analysisState)
   }
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────
@@ -508,6 +546,7 @@ async function readAndMergeServerGraph(
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
         runDelta: result.runDelta,
+        delivered: result.delivered,
         // ⭐ The Run's record of which options it left out (CEE #2432). Without it a fresh browser said "This run has no
         // result for this option" over an option the Run left out on purpose (Panel P2x, #75 5925282823).
         optionParticipation: result.optionParticipation,
@@ -519,6 +558,9 @@ async function readAndMergeServerGraph(
         // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
         store: {
           ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {},
+          // SD-1 Slice R (CEE #2654): ONLY this leg adopts what the Run's turn delivered — the canvas is proven equal to the
+          // Run's graph both ways here, so the adopted items are minted over the right graph. The polling leg does not.
+          adoptDeliveredRecord,
           setCurrentReadInputBasis: (basis, hash) => useCanvasStore.setState((state) => {
             if (state.currentScenarioId !== scenarioId || state.results.hash !== hash || !state.results.report) return state
             return { results: { ...state.results, report: { ...state.results.report, current_read_input_basis: basis } } }
@@ -610,11 +652,12 @@ async function readAndMergeServerGraph(
   dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
 
   const stored = useCanvasStore.getState().serverGraphIdentity
-  if (isSameServerGraph(stored, result.identity)) {
+  if (opts.reapplyServerGraph !== true && isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
+    if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady) })
     restoreVerdict()
     // ⭐ THE UNCHANGED CASE ADOPTS TOO, and it is the one a reload actually
     // takes. "The server has not moved" means the canvas already holds exactly
@@ -629,7 +672,7 @@ async function readAndMergeServerGraph(
 
   // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
   const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
-  const merge = mergeServerGraphOnHydrate(result.graph)
+  const merge = mergeServerGraphOnHydrate(result.graph, { dropOmittedDisplay: opts.reapplyServerGraph === true })
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
   //
@@ -674,6 +717,8 @@ async function readAndMergeServerGraph(
     answerOpen(false)
     return 'mergeRefused'
   }
+
+  if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady) })
 
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the accepted merge took elements off the
   // canvas because the saved model lacks them (`mergeServerGraph.ts` header).

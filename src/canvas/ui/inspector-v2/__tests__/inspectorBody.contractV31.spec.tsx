@@ -24,9 +24,7 @@ import { RiskPanel, INSPECTOR_RISK_ABSENCE } from '../panels/RiskPanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
 import { COACHING } from '../coachingConfig'
-import { DESCRIPTION_PLACEHOLDERS, INSPECTOR_DESCRIPTION_EMPTY, EMPTY_STATES, GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
-
-const INSPECTOR_NO_ANALYSIS_RESULTS = EMPTY_STATES.noAnalysis
+import { DESCRIPTION_PLACEHOLDERS, INSPECTOR_DESCRIPTION_EMPTY, GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
 
 const NODES = [
   { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
@@ -148,16 +146,16 @@ describe('v3.1 — the Question inspector does not list its options under "Your 
 })
 
 describe('v3.1 — goal and risk copy', () => {
-  it('goal with a stated target, pre-run: no "Run the simulation…"; the absence is stated plainly', () => {
+  // #2747 re-scope 2 (U0): the goal inspector says no chance in C, so its "no analysis results" probability line (the
+  // absence statement this row pinned) is gone; the target block and the no-"simulation" negative stay.
+  it('goal with a stated target, pre-run: no "Run the simulation…" and the target block is on screen', () => {
     seed(NODES.map(n => n.id === 'g1'
       ? { ...n, data: { ...n.data, goal_threshold_raw: 0.8 } }
       : n))
     useCanvasStore.setState({ goalThreshold: 0.8 } as never)
     const { container } = render(<InspectorRouter nodeId="g1" edgeId={null} onClose={vi.fn()} />)
-    // PRECONDITION: the mounted target block is on screen, with a probability
-    // line under it (else this is vacuous).
+    // PRECONDITION: the mounted target block is on screen (else this is vacuous).
     expect(screen.getByTestId('goal-panel-target-block')).toBeTruthy()
-    expect(screen.getByTestId('goal-probability-absent')).toHaveTextContent(INSPECTOR_NO_ANALYSIS_RESULTS)
     expect(container.textContent).not.toMatch(/simulation/i)
   })
 

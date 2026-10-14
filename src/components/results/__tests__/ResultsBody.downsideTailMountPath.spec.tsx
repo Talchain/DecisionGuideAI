@@ -77,7 +77,10 @@
  * surface, so the harness is demonstrably able to see what it claims is
  * missing (trap 13).
  */
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+// B19-0: these rows pin the IN-UNITS rendering, which ships once the goal band is anchored to the user's units.
+// The live switch is false today; `OptionCards.downsideNotInUserUnits.spec.tsx` pins what ships now.
+vi.mock('../analysisNew/goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'

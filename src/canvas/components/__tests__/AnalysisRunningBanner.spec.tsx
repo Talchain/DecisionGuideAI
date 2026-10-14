@@ -30,9 +30,9 @@ import {
   narrationForElapsed,
 } from '../AnalysisRunningBanner'
 
-const STAGE_1 = 'Analysing your decision…'
-const STAGE_2 = 'Still analysing your decision…'
-const STAGE_3 = 'Still analysing — complex decisions can take a while…'
+const STAGE_1 = 'Analysing your model…'
+const STAGE_2 = 'Still analysing your model…'
+const STAGE_3 = 'Still analysing — complex models can take a while…'
 
 /** An arbitrary fixed wall clock so `Date.now()` arithmetic is deterministic. */
 const NOW = new Date('2026-07-15T12:00:00Z').getTime()

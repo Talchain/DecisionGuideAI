@@ -130,8 +130,14 @@ const renderOutcome = (id: string, label: string, extra: Record<string, unknown>
   )
 
 /** A Standard primary line's two carriers: what a sighted reader sees, and the sentence announced. */
-const shown = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? null
-const announced = (el: Element) => el.querySelector('.sr-only')?.textContent ?? null
+// Slice B: the original words name the visual; they are absent from visible text.
+const shown = (el: Element) => {
+  const words = el.getAttribute('aria-label')
+  expect(el.textContent).not.toContain(words)
+  expect(el.getAttribute('title') ?? '').toBe('')
+  return words
+}
+const announced = (el: Element) => el.getAttribute('aria-description') ?? el.getAttribute('aria-label')
 
 const renderRisk = (data: Record<string, unknown> = {}) =>
   render(

@@ -27,6 +27,7 @@ import { render, fireEvent, act } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 import { LINK_STRENGTH_COPY } from '../../nodes/shared/metricVocabulary'
+import { FRAGILE_CUE_SENTENCE } from '../connectorCopy'
 
 let capturedStyle: Record<string, unknown> | undefined
 let mockReport: Record<string, unknown> | null = null
@@ -254,7 +255,7 @@ describe('R2 — orange on the line is a SIGN disagreement and nothing else', ()
 // ── R4 + R5 + R6: the fragility cue ─────────────────────────────────────────
 
 describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () => {
-  it('the cue paints no figure and no word — the measured flip risk lives in its name, WITH its noun', () => {
+  it('the cue paints no figure and no word — its name is the fragility sentence alone (#2747 r2)', () => {
     setFragile([{ edge_id: 'e1', switch_probability: 0.42 }])
     const { container } = renderEdge({ ...CEE_EDGE })
     const cue = byTestId(container, 'edge-fragile-tag')
@@ -262,9 +263,9 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
     // Nothing painted beside a strength label that could be read as a strength.
     expect(cue!.textContent ?? '').not.toMatch(/\d/)
     expect((cue!.textContent ?? '').trim()).toBe('')
-    // The figure is still reachable, named for what it is.
+    // #2747 r2: the Run's switch figure is not shown in C: the name is the sentence alone.
     const name = cue!.getAttribute('aria-label') ?? ''
-    expect(name).toContain('42% flip risk')
+    expect(name).toBe(FRAGILE_CUE_SENTENCE)
     expect(cue!.getAttribute('role')).toBe('img')
     expect(cue!.getAttribute('title')).toBe(name)
   })
@@ -290,7 +291,8 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
     const chip = byTestId(container, 'edge-influence-label')
     expect(chip).not.toBeNull()
     expect(byTestId(container, 'edge-influence-label-text'), 'the strength row is missing — this is not the two-row chip').not.toBeNull()
-    expect(chip!.getAttribute('aria-label') ?? '').toContain('42% flip risk')
+    expect(chip!.getAttribute('aria-label') ?? '').toContain(FRAGILE_CUE_SENTENCE)
+    expect(chip!.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/) // #2747 r2: the Run's switch figure is not shown in C
   })
 })
 
@@ -335,7 +337,8 @@ describe('R5 — the cue appears at readable zoom only', () => {
     expect(byTestId(container, 'edge-fragile-tag')).toBeNull()
     // …and the hover still names it, so the fact is not lost with the cue.
     const popover = openPopover(container)
-    expect(popover.textContent).toContain('42% flip risk')
+    expect(popover.textContent).toContain(FRAGILE_CUE_SENTENCE)
+    expect(popover.textContent).not.toContain('42%') // #2747 r2: the Run's switch figure is not shown in C
   })
 })
 

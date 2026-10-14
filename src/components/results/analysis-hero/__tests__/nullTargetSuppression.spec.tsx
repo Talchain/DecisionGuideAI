@@ -17,7 +17,11 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel } from '../heroTypes'
-import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 
 function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   expect(model.kind).toBe('chart')
@@ -44,6 +48,8 @@ function renderPanel(model: HeroChartModel) {
     />,
   )
 }
+
+const HERO_COPY_NEUTRAL = 'Here is how your options compare.'
 
 describe('buildHeroModel — null-target suppression (model truth)', () => {
   it('suppresses every row goal slot when no user target exists (synthesized values cannot bypass)', () => {
@@ -101,31 +107,33 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
     expect(m.showGoalHint).toBe(true)
   })
 
-  it('outcome/win display is unchanged by the gate (Likely outcome untouched)', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the hero row carries no win-share detail in C, so only the outcome is compared.
+  it('outcome display is unchanged by the gate (Likely outcome untouched)', () => {
     const gated = chart(buildHeroModel(nullTargetSynthesizedData(null)))
     const baseline = chart(buildHeroModel(makeHeroData()))
     expect(gated.rows.map((r) => r.outcome)).toEqual(baseline.rows.map((r) => r.outcome))
-    expect(gated.rows.map((r) => r.detail.winChance)).toEqual(
-      baseline.rows.map((r) => r.detail.winChance),
-    )
     expect(gated.outcomeDomain).toEqual(baseline.outcomeDomain)
     expect(gated.leaders.outcome).toBe(baseline.leaders.outcome)
   })
 
   it('with a REAL threshold the existing goal-fit behaviour is fully preserved', () => {
     // Default fixture: goalThreshold 62 with real goal values.
-    const m = chart(buildHeroModel(makeHeroData()))
+    const data = makeHeroData()
+    const m = chart(buildHeroModel(data))
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
-    expect(m.headline).toBe('In this model, Upskill the team meets every target this run scored in the most model runs (49%).')
+    // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption.
+    expect(m.headline).toBe(HERO_COPY_NEUTRAL)
     expect(m.leaders.goal).toBe('opt_b')
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
-    expect(m.rows[0].goal.readout).toBe('34%')
-    expect(m.rows[0].detail.goalFit).toBe('Reaches the target in 34% of model runs.')
+    expect(m.rows[0].goal.readout).toBe(chanceCellOf(data, OPTION_A.id).text)
+    expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, OPTION_A.id).text)
     expect(m.showGoalHint).toBe(false)
   })
 
-  it('with a REAL threshold the below-floor no-option-on-track claim still fires (honesty preserved)', () => {
+  // #2747 re-scope 2 round 2 (rule C): was "…the below-floor no-option-on-track claim still fires"; headline.noneOnTrack is
+  // deleted, so the hero says the neutral headline and the goal lens stays the default.
+  it('with a REAL threshold and every figure below the floor, the goal lens stays the default with the neutral headline', () => {
     const m = chart(
       buildHeroModel(
         makeHeroData({
@@ -136,7 +144,7 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
         }),
       ),
     )
-    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY_NEUTRAL)
     expect(m.defaultLens).toBe('goal')
   })
 })
@@ -175,14 +183,12 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     // Prototype v6: the goal lens is a readout-only table (no tracks, no
     // axis) — the preserved behaviour is the honest fit percentages plus
     // the value-based caption.
-    renderPanel(chart(buildHeroModel(makeHeroData())))
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
-    )
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
-      'Each value is the chance that option meets every target this run scored.',
-    )
+    const data = makeHeroData()
+    renderPanel(chart(buildHeroModel(data)))
+    // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption.
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent(HERO_COPY_NEUTRAL)
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-caption')).toBeNull()
     // No goal tracks and no goal axis exist any more (v6 readout-only table).
     expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)
     expect(screen.queryByText(/chance of hitting goal$/)).toBeNull()

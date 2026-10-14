@@ -154,7 +154,7 @@ export function turningPointSentence(
   // the reason can never state a number in a unit the card withholds.
   const unitsOk = factorUnit === undefined || turningPointUnitsCompatible(tp.unit, factorUnit)
   const value = tp.displayScale && unitsOk ? formatFlipValue(tp.flipValue, tp.unit) : 'a turning point Olumi found'
-  return `${FLIP_THRESHOLD_COPY.flipRiskNoAlternative(subject, direction, value, true)} ${TURNING_POINT_COPY.question}`
+  return `${FLIP_THRESHOLD_COPY.flipRiskNoAlternative(subject, direction, value)} ${TURNING_POINT_COPY.question}`
 }
 
 export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = ATTENTION_BUDGET): AttentionPlan {

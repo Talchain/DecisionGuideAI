@@ -4,6 +4,7 @@
  * All edits flow through useEdgeMutations.
  */
 
+import { useRouteOnceHeld } from '../../../hooks/useRouteOnceHeld'
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { resolveEdgeValueDisplay } from '../../../domain/edgeValueProvenance'
@@ -125,9 +126,10 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
    * Both halves are needed: without the first the default still commits;
    * without the second every unset field would accuse the reader of a typo.
    */
+  const routeOnceHeld = useRouteOnceHeld(edgeId)
   const existenceDisplay = useMemo(
-    () => resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
-    [edge?.data],
+    () => resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld }),
+    [edge?.data, routeOnceHeld],
   )
   const stdDisplay = useMemo(
     () => resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'strengthStd'),

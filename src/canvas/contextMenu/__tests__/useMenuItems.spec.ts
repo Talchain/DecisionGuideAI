@@ -220,7 +220,7 @@ describe('factor node menu (full)', () => {
     }
   })
 
-  it('Ask AI has Explain and Challenge submenu items', () => {
+  it('Ask Olumi has Explain and Challenge submenu items', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
@@ -269,7 +269,7 @@ describe('decision node menu (reduced)', () => {
    * A team must be able to argue with the QUESTION it is answering. Staging
    * `80ccf768` withheld it: decision carried ask · inspect · menu only.
    */
-  it('Ask AI has both Explain and Challenge', () => {
+  it('Ask Olumi has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
@@ -293,7 +293,7 @@ describe('decision node menu (reduced)', () => {
     const challenge = askAI?.submenuItems?.find(
       (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
     )
-    expect(challenge?.tooltip).toBe('Ask AI to argue this is the wrong question to be asking')
+    expect(challenge?.tooltip).toBe('Ask Olumi to argue this is the wrong question to be asking')
     expect(challenge?.tooltip).not.toContain('current setup')
   })
 
@@ -330,7 +330,7 @@ describe('decision node menu (reduced)', () => {
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getAllItemIds(result.current)
-    // Non-vacuous: the menu did build (its Ask AI entry is there).
+    // Non-vacuous: the menu did build (its Ask Olumi entry is there).
     expect(ids).toContain('ask-ai')
     expect(ids).not.toContain('add-connected-factor')
     expect(ids).not.toContain('add-connected-outcome')
@@ -434,7 +434,7 @@ describe('option node menu', () => {
 
   /** The choices on the table are the other thing a team most wants to
    *  contest, and staging withheld it. */
-  it('Ask AI has both Explain and Challenge', () => {
+  it('Ask Olumi has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
@@ -452,7 +452,7 @@ describe('option node menu', () => {
     const challenge = askAI?.submenuItems?.find(
       (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
     )
-    expect(challenge?.tooltip).toBe('Ask AI to argue against this option')
+    expect(challenge?.tooltip).toBe('Ask Olumi to argue against this option')
   })
 
   /** Same non-widening guard as the decision block: challenge arrives without
@@ -486,7 +486,7 @@ describe('constraint node menu', () => {
    * `unit` and `hardConstraint`, so it has more genuinely challengeable setup
    * than a goal — which already ships the control.
    */
-  it('Ask AI has both Explain and Challenge', () => {
+  it('Ask Olumi has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
@@ -537,7 +537,7 @@ describe('goal node menu', () => {
     expect(ids).not.toContain('set-value')
   })
 
-  it('Ask AI has both Explain and Challenge', () => {
+  it('Ask Olumi has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )

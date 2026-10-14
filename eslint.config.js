@@ -13,6 +13,7 @@ import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
 import noOldImports from './eslint-rules/no-old-imports.js'
 import noUnsafeInnerhtml from './eslint-rules/no-unsafe-innerhtml.js'
+import noRawChanceRead from './eslint-rules/no-raw-chance-read.js'
 import { createRequire } from 'node:module'
 
 // ROADMAP 2.263 — the rules-of-hooks exception list is LOADED, never retyped.
@@ -301,6 +302,23 @@ export default [
       'no-restricted-syntax': 'off',
       // Specs/fixtures legitimately build divergent raw/display fixtures.
       'driver-policy/no-raw-influence-fallback': 'off',
+    },
+  },
+  // ⭐⭐ #2747 r2 — THE CHANCE AUTHORITY GATE, ENFORCED BY LINT (DL, after the fresh check found surfaces a name census
+  // with file-wide exemptions could not see). Display code reads a chance or probability field only through
+  // `src/canvas/runView/runView.ts`; any other read says why ON ITS OWN LINE:
+  //   // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: <category>: <reason>
+  // Never file-wide. ERROR, because the lint job does not fail on warnings. The census backstop
+  // (`src/canvas/runView/__tests__/chanceAuthorityGate.census.spec.ts`) asserts this block exists, at error, and that
+  // every disable is line-level with a known category and a reason.
+  {
+    files: ['src/components/**/*.{ts,tsx}', 'src/canvas/**/*.{ts,tsx}', 'src/v5/blocks/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx', '**/*.stories.tsx', '**/*.stories.ts'],
+    plugins: {
+      'chance-gate': { rules: { 'no-raw-chance-read': noRawChanceRead } },
+    },
+    rules: {
+      'chance-gate/no-raw-chance-read': 'error',
     },
   },
   // Gallery/mock fixture hooks: emulate the PRE-R3 hook (raw fallback chains

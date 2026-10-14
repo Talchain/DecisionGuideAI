@@ -258,11 +258,11 @@ describe('node design system — rule 5, measured', () => {
     // records warning at 1.92:1 and success at 2.02:1 against --bg-panel. If this
     // calculator disagrees with a figure the codebase already committed to, the
     // calculator is wrong and every number below is unreadable.
-    expect(contrast(tokens.warning, grounds['--bg-panel'])).toBeCloseTo(1.85, 2) // re-measured on the 1 Oct 2026 cream panel (#FEF9F3, Paul)
-    expect(contrast(tokens.success, grounds['--bg-panel'])).toBeCloseTo(1.94, 2)
+    expect(contrast(tokens.warning, grounds['--bg-panel'])).toBeCloseTo(1.92, 2)
+    expect(contrast(tokens.success, grounds['--bg-panel'])).toBeCloseTo(2.02, 2)
     // And brand.css:151-158 records --info at 4.78 / 4.60 on the two panel grounds.
-    expect(contrast(tokens.info, grounds['--bg-panel'])).toBeCloseTo(4.60, 2)
-    expect(contrast(tokens.info, grounds['--bg-panel-hover'])).toBeCloseTo(4.52, 2)
+    expect(contrast(tokens.info, grounds['--bg-panel'])).toBeCloseTo(4.78, 2)
+    expect(contrast(tokens.info, grounds['--bg-panel-hover'])).toBeCloseTo(4.60, 2)
     // And the ground that is deliberately NOT gated on, measured so the choice is
     // visible rather than implicit: --info reads 4.25:1 on --bg-canvas, which is
     // why including it would have banned the surface's own link colour.

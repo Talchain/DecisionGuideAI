@@ -28,6 +28,7 @@
 
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import type { ConversationMessage } from '../types'
+import { scrollThreadToEnd } from './threadScroll'
 
 const SCROLL_THRESHOLD_PX = 60
 
@@ -43,6 +44,43 @@ const REPLY_START_GAP_PX = 12
  * the arriving reply by its id. Both sides use this one constant.
  */
 export const MESSAGE_ID_ATTRIBUTE = 'data-message-id'
+
+/**
+ * The attribute the waiting indicator (`ThinkingDots`) puts on its root.
+ *
+ * ⭐ THE WAITING LINE IS NOT NEW CONTENT (Paul, 7 Oct: "the text doesn't move.
+ * You can still look at your dialogue while it's loading"). While a turn is in
+ * flight the indicator is the ONE thing on the thread allowed to change: its
+ * coaching line rotates every 5 s and the elapsed hint is rewritten every 5 s
+ * after 15 s. The content sensor below used to treat each of those rewrites as
+ * a reply arriving — it snapped a near-bottom reader back down, and raised the
+ * "New messages" pill over the text of a reader scrolled up into history, every
+ * 5 s, with nothing new to read. A change confined to the indicator now moves
+ * no one and raises nothing; only a turn STARTING reveals the indicator, once,
+ * to a reader who was following.
+ */
+export const WAITING_INDICATOR_ATTRIBUTE = 'data-waiting-indicator'
+
+/** True when this DOM node is, or sits inside, the waiting indicator. */
+function inWaitingIndicator(node: Node | null): boolean {
+  const el = node instanceof Element ? node : node?.parentElement ?? null
+  return el?.closest(`[${WAITING_INDICATOR_ATTRIBUTE}]`) != null
+}
+
+/**
+ * True when every change in this batch is the waiting indicator's own: text or
+ * children inside it, or the indicator itself being added or removed. Any other
+ * change (a reply's text, blocks or chips) is content.
+ */
+export function onlyWaitingIndicatorChanged(records: ReadonlyArray<MutationRecord>): boolean {
+  if (records.length === 0) return false
+  return records.every((r) => {
+    if (inWaitingIndicator(r.target)) return true
+    if (r.type !== 'childList') return false
+    const touched = [...Array.from(r.addedNodes), ...Array.from(r.removedNodes)]
+    return touched.length > 0 && touched.every((n) => n instanceof Element && n.hasAttribute(WAITING_INDICATOR_ATTRIBUTE))
+  })
+}
 
 /** What the hold reads from each message: its identity and its role. */
 type TranscriptEntry = Pick<ConversationMessage, 'id' | 'role'>
@@ -88,7 +126,6 @@ interface UseSmartScrollDeps {
 
 interface UseSmartScrollReturn {
   listRef: React.RefObject<HTMLDivElement>
-  listEndRef: React.RefObject<HTMLDivElement>
   showNewMessageIndicator: boolean
   handleScroll: () => void
   scrollToBottom: () => void
@@ -96,7 +133,6 @@ interface UseSmartScrollReturn {
 
 export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartScrollDeps): UseSmartScrollReturn {
   const listRef = useRef<HTMLDivElement>(null)
-  const listEndRef = useRef<HTMLDivElement>(null)
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false)
   const userScrolledUpRef = useRef(false)
 
@@ -194,9 +230,21 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     // The pin, capped at the newest reply's start (header note). The hold sets
     // `scrollTop` directly, so it is instant whatever `behavior` the sensor
     // asked for — no animation, with or without prefers-reduced-motion.
-    if (!holdAtReplyStart()) listEndRef.current?.scrollIntoView({ behavior })
+    // ⚠ THE THREAD'S OWN SCROLL POSITION, NEVER `scrollIntoView` (`threadScroll.ts`): that call also scrolled the
+    // dock's overflow-hidden `aside` 906 px and blanked the whole tab for every pending turn (witnessed 15/15).
+    if (!holdAtReplyStart() && listRef.current) scrollThreadToEnd(listRef.current, behavior)
     setShowNewMessageIndicator(false)
   }, [holdAtReplyStart])
+
+  /**
+   * Keep a FOLLOWING reader following; leave everyone else exactly where they
+   * are, with no pill. Used once per turn, when it starts, to reveal the
+   * waiting indicator (see `WAITING_INDICATOR_ATTRIBUTE`).
+   */
+  const pinIfFollowing = useCallback((behavior: ScrollBehavior) => {
+    if (userScrolledUpRef.current) return
+    pinOrNotify(behavior)
+  }, [pinOrNotify])
 
   /**
    * The pill's own action: the user ASKED to go to the bottom, so it always
@@ -205,21 +253,33 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false
     replyStartIdRef.current = null
-    listEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (listRef.current) scrollThreadToEnd(listRef.current, 'smooth')
     setShowNewMessageIndicator(false)
   }, [])
 
-  // Sensor 1 — a message arrived (or the thinking state settled).
+  // Sensor 1 — a message arrived, or a turn STARTED. Only a change in the
+  // rendered COUNT is new content (pin, or the pill). A turn going pending with
+  // nothing appended reveals the waiting indicator ONCE, to a following reader
+  // only — that is the thinking animation appearing. A turn settling with
+  // nothing appended moves nobody: nothing new arrived (buddy r1 P1, 7 Oct).
+  // `null` on mount, so the mount itself counts as content arriving and pins (as it always has).
+  const prevMessageCountRef = useRef<number | null>(null)
+  const prevThinkingRef = useRef(isThinking)
   useEffect(() => {
+    const countChanged = prevMessageCountRef.current !== messageCount
+    const turnStarted = !prevThinkingRef.current && isThinking
+    prevMessageCountRef.current = messageCount
+    prevThinkingRef.current = isThinking
     if (messageCount === 0) return
-    pinOrNotify('smooth')
-  }, [messageCount, isThinking, pinOrNotify])
+    if (countChanged) pinOrNotify('smooth')
+    else if (turnStarted) pinIfFollowing('smooth')
+  }, [messageCount, isThinking, pinOrNotify, pinIfFollowing])
 
   // ── L-83: re-pin to bottom when the thread is REVEALED ────────────────────
   //
   // A message that arrives while the thread is HIDDEN — the floating panel
   // minimised (`display:none`), or the collapsed dock's Olumi tab — cannot be
-  // scrolled to: `scrollIntoView` on a container with no boxes is a silent
+  // scrolled to: scrolling a container with no boxes is a silent
   // no-op, and nothing here re-ran when the surface came back. So the newest
   // message (on the witnessed journey, a failure notice whose Retry affordance
   // is the recovery path) laid out BELOW the visible band, and every
@@ -275,7 +335,7 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   //
   // So this sensor observes the content ITSELF rather than a proxy for it. A
   // MutationObserver fires on exactly the commits above (text, blocks, chips)
-  // and on nothing the user did — `scrollIntoView` mutates no DOM, so there is
+  // and on nothing the user did — a scroll write mutates no DOM, so there is
   // no feedback loop, and `setShowNewMessageIndicator` bails out on an
   // unchanged value rather than re-rendering. Records are already batched at
   // the microtask checkpoint, and the producer itself commits on rAF, so this
@@ -289,7 +349,13 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   useEffect(() => {
     const el = listRef.current
     if (!el || typeof MutationObserver === 'undefined') return
-    const observer = new MutationObserver(() => pinOrNotify('auto'))
+    const observer = new MutationObserver((records) => {
+      // The waiting indicator's own rewrites (the rotating line, "…20s", a
+      // height change as it wraps) move NOBODY — not even a following reader
+      // (buddy r1 P1, 7 Oct: a following reader was nudged by each rewrite).
+      if (onlyWaitingIndicatorChanged(records)) return
+      pinOrNotify('auto')
+    })
     observer.observe(el, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
   }, [pinOrNotify])
@@ -319,5 +385,5 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     }
   }, [replyStartScrollTop])
 
-  return { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom }
+  return { listRef, showNewMessageIndicator, handleScroll, scrollToBottom }
 }

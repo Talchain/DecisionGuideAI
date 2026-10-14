@@ -7,6 +7,8 @@
  * scored highest", Run 2's is "which came out lowest": the producer still pairs them by option id, but a higher/lower
  * or beyond-variation verdict across the two is a direction artefact. So no option has a comparable pair, the
  * per-option movements are withheld, ONE line says why, and the goal's own input row still says what changed.
+ * #2747 re-scope 2 (DL ruling (A)): in C Compare draws no share at all, so neither the per-option verdicts nor the line
+ * about their comparability is drawn; the goal's input row and the negatives stay.
  *
  * Bound by identity: `entity_kind: 'goal'` with `field` `direction` or `operator` (schemas 0.77 `RunInputField`).
  * Controls: a goal TARGET change and a LIMIT's comparison change keep every verdict.
@@ -61,7 +63,6 @@ const GOAL_OPERATOR_ROW = {
 const flipped = (rows: RunDelta['input_changes']) => runChangeDelta({ input_changes: rows })
 
 // The fixture's default pair: opt_60 0.41 → 0.44 `signal`, opt_49 0.59 → 0.56 `within_noise`.
-const SIGNAL_VERDICT = 'Scored higher than last time, beyond ordinary run-to-run variation.'
 
 beforeEach(() => {
   useCanvasStore.setState(original, true)
@@ -82,24 +83,24 @@ describe('Compare across a goal that changed direction or comparison', () => {
     ['direction + comparison (the served "at most" pair)', [GOAL_OPERATOR_ROW, GOAL_DIRECTION_ROW]],
     ['direction only', [GOAL_DIRECTION_ROW]],
     ['comparison only', [GOAL_OPERATOR_ROW]],
-  ] as const)('%s: no per-option verdict, marker or figure; ONE line; the goal row still says what changed', (_case, rows) => {
+  ] as const)('%s: no per-option verdict, marker or figure; the goal row still says what changed', (_case, rows) => {
     mount(flipped([...rows]))
     expect(hero()).not.toHaveTextContent('beyond ordinary run-to-run variation')
     expect(hero()).not.toHaveTextContent(/Scored (higher|lower|the same)/)
     expect(screen.queryByTestId('compare-support')).toBeNull()
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
-    expect(hero()).toHaveTextContent(WHATS_CHANGED_GOAL_FRAMING_CHANGED)
-    expect(screen.getAllByText(WHATS_CHANGED_GOAL_FRAMING_CHANGED)).toHaveLength(1)
-    expect(screen.getByRole('region', { name: 'What you changed' })).toHaveTextContent(rows.some(r => r.field === 'direction') ? 'Goal direction' : 'Goal comparison')
+    // #2747 re-scope 2 (DL ruling (A)): the "ONE line" presence (WHATS_CHANGED_GOAL_FRAMING_CHANGED in the headline, once)
+    // is deleted — the line says why "each option's share isn't comparable", and Compare draws no share in C.
+    expect(screen.getByRole('region', { name: 'What changed in the model' })).toHaveTextContent(rows.some(r => r.field === 'direction') ? 'Goal direction' : 'Goal comparison')
   })
 
   it.each([
     ['same direction, goal TARGET changed', { ...GOAL_DIRECTION_ROW, field: 'target', before: { raw: 400 }, after: { raw: 350 } }],
     ['same direction, a LIMIT\'s comparison changed', { ...GOAL_OPERATOR_ROW, entity_kind: 'constraint', entity_id: 'lim_1' }],
-  ] as const)('CONTROL %s: the per-option verdicts stand and the line is absent', (_case, row) => {
+  ] as const)('CONTROL %s: the line is absent', (_case, row) => {
     mount(flipped([row]))
-    expect(screen.getByTestId('compare-support')).toBeInTheDocument()
-    expect(hero()).toHaveTextContent(SIGNAL_VERDICT)
+    // #2747 re-scope 2 (DL ruling (A)): the compare-support figure block and per-option share verdict (SIGNAL_VERDICT)
+    // presence assertions are deleted — CompareSupportFigures is removed and Compare draws no share in C.
     expect(hero()).not.toHaveTextContent(WHATS_CHANGED_GOAL_FRAMING_CHANGED)
   })
 

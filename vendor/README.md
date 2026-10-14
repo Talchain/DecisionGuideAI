@@ -7,7 +7,67 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.78.0.tgz` ← **THE CURRENT PIN** (6 Oct 2026, SD-1 cut 6: READER first; DL 0df0e1)
+### `talchain-schemas-0.83.0.tgz` ← **THE CURRENT PIN** (12 Oct 2026, recovery Batch C: strict goal comparators, joint goal chance and precision; DL)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.83.0/f3930713b0cac6d86264d895020a112643ac0293`; registry gitHead
+`1e451c55536776cdd1d1ae1fd1f9a3c3a3fadf03` = tag `v0.83.0` (olumi-schemas `main`, schemas #96, DL publish 12 Oct 01:58Z). **874,038 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  f3930713b0cac6d86264d895020a112643ac0293   (the registry download id)
+integrity (sha512) sha512-2yK1A9GDHfeLV1mm9bjF3omNCzsnKBLBWZ7Pb/HfpVhnH7G7xOlJ2L42leYd2eQaKTsJs0829mLrd9ifZnLMZg==
+sha256             69e11b74af105b5f89a40a3d992cd889945c3458cd4cedb32529e323534f11ce   (the .sha256 sidecar)
+```
+
+0.83.0 adds the strict goal comparators (`>`/`<` beside `>=`/`<=`), `probability_of_joint_goal` with `probability_of_joint_goal_precision`,
+`constraint_probabilities_precision[constraint_id]` and `constraint_results[].probability_precision` (PLoT's wire names), all optional. ORDER:
+readers (UI/PLoT 0.82.0, C step 1) were promoted before this writer contract.
+
+**This copy:** byte-identical to the DL's verified registry download (`cmp`; sha256, sha1 and sha512 re-computed here); copied, never
+re-packed. `pnpm-lock.yaml` integrity = the sha512 above. Replaces 0.82.0 (tarball and sidecar removed in the same commit). **Additive
+for this reader:** the runtime `dist/*.js` diff vs 0.82.0 (checked 12 Oct) widens the goal-constraint `operator` enums in
+`boundary/blocks.js` and `orchestrator/run-input-snapshot.js` to `>=`/`<=`/`>`/`<`, adds those four to `boundary/run.js`'s `bound`
+enum, adds the optional precision fields and `EnrichmentProbabilityPrecisionSchema` in `boundary/enrichment.js`/`boundary/index.js`,
+and touches `boundary/decision-record.js`, `fixtures/index.js` and `contracts/generated-constants.js`. Batch C's UI reads the goal chance
+only from CEE's `canonical_analysis_view.goal_chance`; it reads no precision field.
+
+### `talchain-schemas-0.82.0.tgz` (historical — no longer vendored as of 0.83.0) (12 Oct 2026, recovery Batch C step 1: READER re-vendor, readers before writers; unblocks schemas #96 `pin-drift`)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.82.0/3c18c6453ba15df76cd309058aff06fef885d12d`; registry gitHead
+`c7461d7ed76133cf0e8310c22026e93935833da2` = tag `v0.82.0` (olumi-schemas `main`, DL publish). **869,122 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  3c18c6453ba15df76cd309058aff06fef885d12d   (the registry download id)
+integrity (sha512) sha512-vqEsT6Vi9HfxETGOXT+9zIfCIoRQHUMRATa78ImVuP4W460VFzopwb4U02GbcSwibjwgEVyBt592XU+rdUjbTA==
+sha256             976e9fdf9712a14b9633a28c56e03287c919abc46a590dd7dd15ba1af67ee651   (the .sha256 sidecar)
+```
+
+0.82.0 adds the optional strict `NodeV3.event_risk` (`EventRiskV1Schema`: `{version: 1, occurrence {p_low, p_high, basis},
+horizon, meaning, mitigations?}`) and moves the graph-hash projection to **v6** (`event_risk` appended to the node fields). A graph
+with no `event_risk` hashes byte-identically (`graph-hash-proposed-by` CONTROL row); a node carrying it moves the hash
+(`graph-hash-whose-value` `node.event_risk`). ORDER: 0.81.0's `NodeV3Schema` is `.passthrough()`, so a DGAI still on 0.81.0
+neither refuses nor strips a node carrying `event_risk`; CEE only writes it through the add-risk door (event_risk.v1 slice 2a).
+
+**This copy:** byte-identical to CEE's vendored `vendor/talchain-schemas-0.82.0.tgz` (git blob `a947913dd6681a949cfa8c73fd9c763b596e583c`, on CEE `staging` `c87608e40f0a9ee97be016f8fa85e3b01b9e793a`); copied, never re-packed. `pnpm-lock.yaml` integrity = the sha512 above. Replaces 0.81.0 (tarball and sidecar removed in the same commit). **Reader-only here:** the runtime `dist/*.js` diff vs 0.81.0 (checked 12 Oct) is `graph.js` (the three `EventRisk*V1Schema`s + optional `NodeV3.event_risk`), `index.js` (their exports), `boundary/graph-hash-contract.js` (projection 5 → 6, `event_risk` appended), `fixtures/index.js` and `contracts/generated-constants.js`. This change emits nothing new.
+
+### `talchain-schemas-0.81.0.tgz` (historical — no longer vendored as of 0.82.0) (7 Oct 2026, Compare-chance chain: READER first; DL #87 6035414740)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.81.0/6ca5c614caa32c47f249717f373e5ca75e5616ff`; registry gitHead
+`581a825b9fa8b01a5c77558823e8a041c9ca7683` = tag `v0.81.0` (olumi-schemas `main` after #92, DL merge). **847,240 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  6ca5c614caa32c47f249717f373e5ca75e5616ff   (the registry download id)
+integrity (sha512) sha512-uPDNZyTsfhjhpTo+ertGa7Hg693e2unCY7NNpNV+Hno8QR+61oyZwpmE2ZuGkdyHRWGcljv65kJSAu5mHpVU6w==
+sha256             4e80994aa1b4356b24cba6d17ea11fb7637ac7a7516e051f44c4e197dd074945   (the .sha256 sidecar)
+```
+
+Carries 0.79.0 (`run_delivery` handler fact), 0.80.0 (`dominant_factor` + `flip_thresholds_status(_reason)` keep-list, an
+enrichment `.passthrough()` carry) and 0.81.0 (optional strict `run_delta.goal_chances[]`). ⛔ ORDER: this READER pin is
+SERVED before CEE emits `goal_chances` (CEE #2741): DGAI parses `run_delta` strictly, so an old pin drops the whole block.
+
+### `talchain-schemas-0.78.0.tgz` (historical — no longer vendored on this branch) (6 Oct 2026, SD-1 cut 6: READER first; DL 0df0e1)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.78.0/29c008b0e8ee596fa5ce6a02c79271a86d3dae7c`

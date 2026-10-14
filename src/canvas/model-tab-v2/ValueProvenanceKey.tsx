@@ -4,13 +4,13 @@
  * `CanvasLegendPopover` states the rule this follows: *"Replacing words with
  * pictures is only an improvement if the pictures are legible to someone who
  * has never seen them."* That legend keys the canvas's STRUCTURAL provenance
- * (who authored the NODE, three literals). The Model row's marks answer a
- * different question — who authored the VALUE, twelve literals over seven kinds
- * — so they need their own key rather than a row bolted onto that one.
+ * (who authored the NODE). The Model row's marks answer a different question —
+ * who authored the VALUE — so they need their own key rather than a row bolted
+ * onto that one.
  *
- * ⚠ GROUPED INTO THE THREE ANSWERS A READER ACTUALLY WANTS, which is Paul's
+ * ⚠ GROUPED INTO THE ANSWERS A READER ACTUALLY WANTS, which is Paul's
  * framing: did this come from my brief, did Olumi estimate it, or do I own it.
- * The seven kinds are NOT flattened to three marks — each keeps its own glyph,
+ * The kinds are NOT flattened to three marks — each keeps its own glyph,
  * because `panel` is deliberately excluded from user-owned and collapsing it
  * would assert something false. The grouping is in the KEY, where it aids
  * reading; the register stays total, where it must.
@@ -27,17 +27,18 @@ import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valu
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 
 /**
- * The questions a reader asks, and which kinds answer each. TOTAL over the
- * seven kinds — `provenanceKeyIsTotal.spec` asserts that against the register,
+ * The questions a reader asks, and which kinds answer each. TOTAL over
+ * `ValueProvenanceKind` — `provenanceKeyIsTotal.spec` asserts that against the register,
  * so a new kind cannot ship unkeyed.
  *
- * ⚠ FOUR groups, not three. An earlier version of this comment said "three
- * questions" over a four-entry array: `panel` is deliberately NOT folded into
- * "you own this", because `isUserOwnedKind` excludes it and collapsing it would
+ * ⚠ Separate groups for unconfirmed brief material and panel values:
+ * `panel` is deliberately NOT folded into "you own this", because
+ * `isUserOwnedKind` excludes it and collapsing it would
  * assert something false about who authored the value.
  */
 const GROUPS: ReadonlyArray<{ heading: string; kinds: readonly ValueProvenanceKind[] }> = [
   { heading: 'From what you gave us', kinds: ['brief'] },
+  { heading: 'Brief source not confirmed', kinds: ['unverified_brief'] },
   { heading: "Olumi's own estimate", kinds: ['ai', 'accepted'] }, // `accepted`: Olumi's figure the user accepted — origin Olumi (52f8cd)
   { heading: 'You own this value', kinds: ['confirmed', 'edited', 'assumption', 'human'] },
   { heading: 'From your panel', kinds: ['panel'] },

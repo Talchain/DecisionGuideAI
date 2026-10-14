@@ -437,9 +437,9 @@ export interface ModelEditAuthorityLive {
     /**
      * Reports how the dispatched send settled (`settleSystemEventSend`), so a
      * surface can say "Not saved" on a refusal instead of guessing. Called
-     * only on the `'dispatched'` path, exactly once.
+     * only on the `'dispatched'` path; a queued send also reports its final settlement.
      */
-    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
   ) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -607,7 +607,7 @@ export function useModelEditAuthority(
   const proposeFactorValue = useCallback(
     (
       typedValue: number,
-      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
     ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       // ACCOUNTS viewer mode: a viewer's value edit happens NOWHERE (no local write, no send).
@@ -707,19 +707,20 @@ export function useModelEditAuthority(
       // decide whether to close their editor; making it async to await the
       // settlement would change all three for a correction that is better
       // applied as a store write the cards already re-render on.
-      settleSystemEventSend(
-        dispatch(event, undo ? { optimisticFactorEdit: undo } : undefined),
-        (settlement) => {
-          if (settlement === 'blocked') {
-            // Never admitted, so the receipt that would have earned the stamp is
-            // never coming. Apply the local stamp this write withheld, so the
-            // number is at least truthfully the user's own — the same branch the
-            // no-dispatcher case above takes, for the same reason.
-            mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
-          }
-          opts?.onSendSettled?.(settlement)
-        },
-      )
+      const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => {
+        if (settlement === 'blocked') {
+          // Never admitted, so the receipt that would have earned the stamp is
+          // never coming. Apply the local stamp this write withheld, so the
+          // number is at least truthfully the user's own — the same branch the
+          // no-dispatcher case above takes, for the same reason.
+          mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+        }
+        opts?.onSendSettled?.(settlement, detail)
+      }
+      settleSystemEventSend(dispatch(event, {
+        ...(undo ? { optimisticFactorEdit: undo } : {}),
+        onDeferredSettled: send => settleSystemEventSend(send, settle),
+      }), settle)
       return 'dispatched'
     },
     [activeNodeId, mutations, sendSystemEvent],

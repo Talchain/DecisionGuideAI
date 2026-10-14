@@ -1,81 +1,8 @@
 /**
- * ⭐⭐⭐ THE ADMISSION THAT OWNS THE CHIP ALSO OWNS THE EDITOR'S PRESENCE.
- *
- * ⚠⚠ THIS FILE WAS TITLED "THE CHIP PROMISES A ROUTE. THIS FILE IS WHERE THE
- * ROUTE ANSWERS" UNTIL #1172 ROUND 3, AND BOTH HALVES WERE WRONG BY THEN.
- * The chip no longer promises a repair — the destination could not perform one
- * — and this file could never have shown that it did: it imports and mounts
- * `GoalPanel` DIRECTLY, so `InspectorRouter`'s `<fieldset disabled>` never
- * exists here, and its completion case drives the field with `fireEvent`, which
- * bypasses actionability. Every assertion below is TRUE; none of them is about
- * answerability. That is the whole lesson — a green file can be bound to a
- * mount the product does not produce (CLAUDE.md trap 3b), and the title is
- * where the overclaim lived, not the tests.
- *
- * What this file DOES establish, and it is worth keeping: the implication
- * `canCaptureGoalTarget(node.data) ⟹ the panel renders GoalThresholdEditor`,
- * on every payload the chip fires on. Presence, by one shared admission rather
- * than two defaults that happen to coincide. ANSWERABILITY is derived through
- * the real router in `goalChipPromiseVsDestination.spec.tsx`.
- *
- * ⚠⚠ THE DEFECT THIS CLOSES WAS INTRODUCED BY ITS OWN FIX. #1172 changed the
- * goal card's chip from `No target set` — a passive falsehood — to
- * `Target not captured — add one`. "add one" is a PROMISE, and in a reachable
- * state it led nowhere (round 3 has since withdrawn that clause; the state
- * described below is what round 2 found and closed):
- *
- *   chip   Target not captured — add one          (fires on the NODE)
- *   panel  Threshold set · Success means reaching ≥ 0.8      (reads the STORE)
- *          …and no editor.
- *
- * The user is told to add a target, then told one already exists, and given
- * nothing to press. `store.ts` records this exact state having shipped
- * ("Inspector v2 rendered ≥ 0.8 £"). A passive falsehood became an ACTIVE FALSE
- * PROMISE — a regression in kind, even though the new sentence is more honest
- * about the data.
- *
- * ── WHY THE TWO SURFACES DIVERGE, AND WHY ALIGNING THEM IS THE WRONG FIX ───
- * `setCeeAnalysisReady` writes the store scalar and NEVER touches the node. The
- * node's target fields are written by other paths entirely —
- * `backfillGoalThresholdOntoGoalNode` (CEE's raw, and only when the payload
- * carries that key), `useInspectorMutations.setThreshold`, and
- * `setGoalThresholdAndUpdateNode`. So a payload with `goal_threshold` and no raw
- * moves one authority and not the other — by design, because they answer
- * different questions (CLAUDE.md trap 21):
- *
- *   node   "has a target been CAPTURED onto this goal?"
- *   store  "does the run pipeline hold a NUMBER for this goal?"
- *
- * Both answers are correct. The remedy is therefore NOT to make them agree, but
- * to name the question the USER is asking — *may I add one?* — give it ONE
- * owner (`canCaptureGoalTarget`, `domain/goalTarget.ts`) and have both
- * consumers read it. The load-bearing property is an IMPLICATION, not an
- * equality:
- *
- *     canCaptureGoalTarget(node.data)  ⟹  the panel renders GoalThresholdEditor
- *
- * and the chip renders exactly when the antecedent holds.
- *
- * ⚠⚠ THIS ONCE CONCLUDED "So the promise is sound BY CONSTRUCTION rather than by
- * two defaults happening to coincide". MEASUREMENT REFUTED THAT IN ROUND 3, and
- * `goalTarget.ts` records the identical withdrawal for its own twin of this
- * sentence — fixed one file over, missed here until round 7. The implication is
- * true and re-derived through the real `InspectorRouter`; it does NOT carry the
- * conclusion, because **PRESENCE IS NOT ANSWERABILITY**: the router wraps the
- * panel body in an unconditional `<fieldset disabled>`, so the editor this
- * implication guarantees is rendered INERT. The promise was "add one", not
- * "see one", and it has been withdrawn.
- *
- * ── RED-FIRST at pristine `1f7238ab` (signatures in the PR body) ───────────
- * Both divergent arms rendered the readout and NO editor; the corpus
- * implication failed on every divergent shape.
- *
- * ── WHAT THIS FILE IS NOT ─────────────────────────────────────────────────
- * jsdom pins presence and strings; it proves nothing about layout or
- * visibility (CLAUDE.md trap 3). And the residual card↔panel READOUT
- * disagreement — the card saying "Target not captured" while the panel holds a
- * number — is the extraction defect #1172 explicitly disclaims. This file
- * closes the DEAD END, not that.
+ * GoalPanel's legacy direct-mount branch shares SuccessTargetLine with the
+ * active inspector. Keep the target-presence corpus and readout contrasts,
+ * and pin the no-dispatch refusal instead of the deleted local-only writer.
+ * Live routing is exercised by GoalPanel.targetReachesTheModel.spec.tsx.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
@@ -133,14 +60,18 @@ function renderPanel() {
   )
 }
 
-/**
- * THE EDITOR, BOUND BY IDENTITY. `GoalThresholdEditor` owns `#goal-threshold`
- * and nothing else in the panel does — a text predicate like "Success means
- * reaching" is satisfied by the READOUT too, which is precisely the element
- * whose presence must not be mistaken for the editor's (CLAUDE.md trap 19).
- */
-function editorIn(container: HTMLElement): HTMLInputElement | null {
-  return container.querySelector<HTMLInputElement>('#goal-threshold')
+/** Bind the shared target control by testid, independently of its readout. */
+function targetControlIn(container: HTMLElement): HTMLElement | null {
+  return container.querySelector('[data-testid="goal-panel-target"]')
+}
+
+function openEditorIn(container: HTMLElement): HTMLInputElement {
+  const edit = container.querySelector<HTMLButtonElement>('[data-testid="goal-panel-target-edit"]')
+  expect(edit).not.toBeNull()
+  fireEvent.click(edit!)
+  const input = container.querySelector<HTMLInputElement>('[data-testid="goal-panel-target-input"]')
+  expect(input).not.toBeNull()
+  return input!
 }
 
 /** The readout sentence, which is the editor's alternative on this branch. */
@@ -176,7 +107,7 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
     expect(canCaptureGoalTarget(goalData())).toBe(false)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).toBeNull()
+    expect(targetControlIn(container)).toBeNull()
     expect(hasReadout(container)).toBe(true)
   })
 
@@ -196,7 +127,7 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
     expect(canCaptureGoalTarget(goalData())).toBe(true)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
   })
 
   it('⭐ DIVERGENCE B (raw scalar, node untouched) — the editor answers', () => {
@@ -213,7 +144,7 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
     expect(canCaptureGoalTarget(goalData())).toBe(true)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
   })
 
   it('the pre-existing "no number at all" branch still gets the editor', () => {
@@ -222,13 +153,13 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
     expect(canCaptureGoalTarget(goalData())).toBe(true)
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
   })
 
-  it('the "From your brief" pre-population branch survives — node target, no store number', () => {
+  it('the node-target branch retains the shared control when the store has no number', () => {
     // ⚠ THE QUADRANT THE OBVIOUS FIX DELETES. Gating the editor on the node
     // ALONE would remove it here, where the node carries a brief-extracted raw
-    // and the store holds no number — the exact state `GoalThresholdEditor`'s
+    // and the store holds no number — the exact state `SuccessTargetLine`'s
     // `thresholdRaw` pre-population and its "From your brief" badge exist for.
     // The admission is a SUFFICIENT condition, never the whole gate.
     seedCanvas({ goal_threshold_raw: 30000, goal_threshold_unit: '£' })
@@ -236,46 +167,25 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
     expect(canCaptureGoalTarget(goalData())).toBe(false)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
   })
 })
 
-describe('the withdrawn promise was “add one”, so the test is that a target can actually BE added', () => {
-  /**
-   * ⭐⭐ AN INPUT APPEARING IS NOT THE PROMISE BEING KEPT. Everything above pins
-   * that `GoalThresholdEditor` is ON SCREEN when the chip fires. That closes the
-   * dead end the review found, and it still stops one step short of what the
-   * chip SAID UNTIL #1172 round 3: *add one*. (It now reads
-   * `GOAL_NO_TARGET_STATE` = 'Target not captured' and promises no repair; this
-   * file's own header was corrected in round 3 and this line, 220 lines below it,
-   * was not — one commit, two instances, one corrected.) If the editor rendered
-   * but its commit path
-   * did not reach the NODE, the admission would stay `true` for ever — the chip
-   * would keep saying "Target not captured" after the user had captured one, and
-   * every guard in this file would still be green.
-   *
-   * So this drives it to completion: type, blur, and assert the ADMISSION FLIPS.
-   * `setGoalThresholdAndUpdateNode` writes `success_threshold` +
-   * `threshold_source: 'user'` onto the node, which is what
-   * `statedGoalTargetRaw` reads — so the loop closes on the same predicate both
-   * surfaces consume, rather than on a second one that happens to agree.
-   */
-  it('⭐ typing a target on the DIVERGENT arm flips the admission and retires the chip', async () => {
+describe('the shared target control cannot save without a dispatcher', () => {
+  it('refuses a target on the divergent arm without changing the node or scalar', () => {
     useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
     expect(canCaptureGoalTarget(goalData())).toBe(true)
-
     const { container } = renderPanel()
-    const field = editorIn(container)
-    expect(field).not.toBeNull()
+    const field = openEditorIn(container)
+    fireEvent.change(field, { target: { value: '30000' } })
+    fireEvent.click(container.querySelector('[data-testid="goal-panel-target-save"]')!)
 
-    fireEvent.change(field!, { target: { value: '30000' } })
-    fireEvent.blur(field!)
-
-    // The NODE now carries the user's target, attested as theirs...
-    expect(goalData().success_threshold).toBe(30000)
-    expect(goalData().threshold_source).toBe('user')
-    // ...so the admission both surfaces read has flipped, and the chip retires.
-    expect(canCaptureGoalTarget(goalData())).toBe(false)
+    expect(goalData().success_threshold).toBeUndefined()
+    expect(goalData().threshold_source).toBeUndefined()
+    expect(useCanvasStore.getState().goalThreshold).toBe(0.8)
+    expect(canCaptureGoalTarget(goalData())).toBe(true)
+    expect(container.querySelector('[data-testid="goal-panel-target-outcome"]')?.textContent)
+      .toBe("Not saved: this target can't be sent to Olumi right now.")
   })
 })
 
@@ -283,7 +193,7 @@ describe('the editor the WITHDRAWN promise led to may not claim there are no pro
   /**
    * ⚠ THE FALSE CLAIM THE FIX ITSELF COULD HAVE BOUGHT. "Adding a specific
    * target unlocks probability calculations." is true only while there are
-   * none. It sits under `GoalThresholdEditor`, and before this change it was
+   * none. It sits under `SuccessTargetLine`, and before this change it was
    * UNREACHABLE whenever the pipeline held a number, because that state
    * rendered the readout instead. Routing the divergent arm to the editor made
    * it newly reachable beside a run that HAS produced probabilities.
@@ -301,7 +211,7 @@ describe('the editor the WITHDRAWN promise led to may not claim there are no pro
 
     const { container } = renderPanel()
     const text = container.textContent ?? ''
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.targetUnlocks)
   })
 
@@ -312,7 +222,7 @@ describe('the editor the WITHDRAWN promise led to may not claim there are no pro
     expect(canCaptureGoalTarget(goalData())).toBe(true)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
+    expect(targetControlIn(container)).not.toBeNull()
     expect(container.textContent ?? '').toContain(GOAL_CONSTRAINT_COPY.targetUnlocks)
   })
 })
@@ -360,7 +270,7 @@ describe('the implication the chip’s WITHDRAWN promise rested on, over a corpu
         const { container } = renderPanel()
         if (admission) {
           admitted += 1
-          expect(editorIn(container), `${shape.name} / scalar ${scalar}`).not.toBeNull()
+          expect(targetControlIn(container), `${shape.name} / scalar ${scalar}`).not.toBeNull()
         } else {
           refused += 1
         }
@@ -381,42 +291,30 @@ describe('the implication the chip’s WITHDRAWN promise rested on, over a corpu
     expect(canCaptureGoalTarget(goalData())).toBe(false)
 
     const { container } = renderPanel()
-    expect(editorIn(container)).toBeNull()
+    expect(targetControlIn(container)).toBeNull()
     expect(hasReadout(container)).toBe(true)
   })
 })
 
-describe('the editor the WITHDRAWN promise led to may not wear a unit the number is not on', () => {
-  it('⛔ a normalised magnitude reaches the editor WITHOUT the raw scale’s unit', () => {
-    // ROADMAP 2.315's defect, one element to the left: "≥ 0.8 £" is a magnitude
-    // on one scale wearing the other scale's unit. Routing this arm to the
-    // editor would have re-created it inside the input if the unit were passed
-    // through unguarded — the panel already computes the scale-safe unit for
-    // its readout, and the editor now reads the same one.
+describe('the shared editor distinguishes a normalised scalar from a raw target', () => {
+  it('does not seed a normalised magnitude into the raw-target input', () => {
     useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
     applyAnalysisReadyPatch(
       { ceeAnalysisReady: analysisReady({ goal_threshold: 0.8, goal_threshold_unit: '£' }) },
       { patchId: 'p1', scenarioId: null },
     )
     expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('normalised')
-
     const { container } = renderPanel()
-    const editor = editorIn(container)
-    expect(editor).not.toBeNull()
-    // The number is NOT lost — it is in the field, editable, where the readout
-    // used to state it.
-    expect(editor!.value).toBe('0.8')
-    expect(container.textContent ?? '').not.toContain('£')
+    expect(openEditorIn(container).value).toBe('')
+    expect(container.textContent ?? '').not.toContain('£0.8')
+    expect(container.textContent ?? '').not.toContain('0.8 £')
   })
 
-  it('CONTRAST — a RAW magnitude keeps its unit in the editor', () => {
-    // Same mount, same element: the suppression above is about the scale tag,
-    // not about the editor never showing a unit.
-    seedCanvas({ goal_threshold_unit: '£' })
-    useCanvasStore.getState().setGoalThreshold(30000, { representation: 'raw' })
-
+  it('CONTRAST — a captured raw target keeps its unit and seeds the input', () => {
+    seedCanvas({ goal_threshold_raw: 30000, goal_threshold_unit: '£' })
     const { container } = renderPanel()
-    expect(editorIn(container)).not.toBeNull()
-    expect(container.textContent ?? '').toContain('£')
+    expect(container.textContent ?? '').toContain('£30,000')
+    expect(openEditorIn(container).value).toBe('30000')
+    expect(container.querySelector('[data-testid="goal-panel-target-unit"]')).toBeNull()
   })
 })

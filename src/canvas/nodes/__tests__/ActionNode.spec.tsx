@@ -136,15 +136,16 @@ describe('ActionNode', () => {
       action,
     ] })
     const sendMessage = vi.fn()
-    const prefill = vi.fn(() => {
+    const dispatch = vi.fn(() => {
       expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([defaultProps.id])
       expect(useCanvasStore.getState().nodes.find(node => node.id === defaultProps.id)?.data).toEqual(action.data)
     })
-    useGuidanceStore.setState({ _sendMessage: sendMessage, _prefillChat: prefill } as never)
+    useCanvasStore.setState({ hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
+    useGuidanceStore.setState({ _sendMessage: sendMessage, _prefillChat: vi.fn(), _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
     renderWithProvider({ data: action.data })
     fireEvent.click(screen.getByRole('button', { name: 'Ask Olumi about Send notification' }))
-    await waitFor(() => expect(prefill).toHaveBeenCalledWith('Explain the role of "Send notification" in this decision model.'))
-    // Nothing is sent without the user confirming it.
+    await waitFor(() => expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:explain', source: 'chip', message: 'What does ‘Send notification’ do in this decision, and what is it assumed to depend on?' })))
+    expect(dispatch).toHaveBeenCalledTimes(1)
     expect(sendMessage).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'More actions for Send notification' })).toBeInTheDocument()
   })

@@ -53,7 +53,7 @@ describe('RT-19: the served first_ask reaches the panel\'s reader', () => {
     expect(analysisResultsAreCurrentIn(useCanvasStore.getState() as never)).toBe(true) // PRECONDITION: the served envelope's own run_state
     const data = renderHook(() => useResultsSectionData()).result.current
     render(<StrengthenContainer data={data} />)
-    expect(screen.getByText('Set the strength of the link from ‘Starter tier monthly price’ to ‘Starter-tier monthly recurring revenue’')).toBeTruthy()
+    expect(screen.getByText('How strongly does ‘Starter tier monthly price’ affect ‘Starter-tier monthly recurring revenue’?')).toBeTruthy()
     expect(screen.queryByText('No findings need attention right now.')).toBeNull()
   })
 })

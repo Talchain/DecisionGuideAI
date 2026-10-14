@@ -28,6 +28,36 @@ const AUTHORIZED_IMPORTERS = new Set([
   join(SRC, 'routes', 'HeroGallery.tsx'),
 ])
 
+// D7 integration witness exercises the authorised ResultsBody mount and its hero projection.
+const TEST_IMPORTERS = new Set([
+  join(SRC, 'components', 'results', '__tests__', 'driverOneList.paulGraph.spec.tsx'),
+  // WS5 card DL gate row (#2713): builds the constrained fixture from hero.fixtures (test data only); mounts no hero.
+  join(SRC, 'canvas', 'nodes', '__tests__', 'OptionNode.constrainedChanceCell.ws5.spec.tsx'),
+  // Run-4 class census (#2748, DL 12 Oct): applies run-4 capacity's served read through the hero's real-read test
+  // helper (test data only); the hero mounts only through ResultsBody, the authorised mount.
+  join(SRC, 'components', 'results', '__tests__', 'noLeaderWordsCensus.run4.spec.tsx'),
+])
+
+// Pure-copy readers (7 Oct, A1 decision matrix): they say the hero's goal-chance WORDS so the Run tells one
+// story (R4), and they mount nothing. Each may import ONLY goalChanceCopy; any other hero import still fails.
+const COPY_MODULE = join(MODULE_DIR, 'goalChanceCopy')
+const COPY_ONLY_IMPORTERS = new Set([
+  // RunView: the one client chance authority; reads hero copy words, mounts nothing (#2704)
+  join(SRC, 'canvas', 'runView', 'runView.ts'),
+  // #2747 re-scope 2 (U0): the decision matrix (removed) and Compare (no goal chance in C) no longer read hero copy.
+  // B15 (#87, DL 7 Oct): the chat Analysis-result card leads with each option's goal chance in the hero's own words,
+  // read from its own block's licence; it mounts nothing.
+  join(SRC, 'v5', 'blocks', 'V5AnalysisResultBlock.tsx'),
+  // #2747 re-scope 2 (Finding 3): the frame-aware licence target spec reads `goalChanceTargetWords` (copy only); it mounts nothing.
+  join(SRC, 'components', 'results', 'utils', '__tests__', 'goalChanceTarget.frame.spec.ts'),
+])
+
+function heroImportOffenders(content: string, file: string): string[] {
+  return findAnalysisHeroImports(content, file).filter(
+    (spec) => !(COPY_ONLY_IMPORTERS.has(file) && resolveSpec(spec, file) === COPY_MODULE),
+  )
+}
+
 // Capture the specifier of any import / re-export / dynamic import() /
 // require() — including glued zero-whitespace forms (`import{X}from'x'`)
 // and template-literal specifiers (`import(\`./x\`)` with no interpolation).
@@ -61,6 +91,8 @@ export function findAnalysisHeroImports(content: string, importerFile: string): 
   for (const m of stripComments(content, importerFile).matchAll(SPEC_RE)) {
     const spec = m[1]
     const resolved = resolveSpec(spec, importerFile)
+    // S1: only tests may import this explicit canonical fixture builder; it mounts no hero.
+    if (importerFile.includes(sep + '__tests__' + sep) && resolved === join(MODULE_DIR, '__tests__', 'helpers', 'canonicalTestCells')) continue
     if ((resolved && isUnderModule(resolved)) || PATH_RE.test(spec)) offenders.push(spec)
   }
   return offenders
@@ -82,13 +114,27 @@ describe('Analysis hero inertness', () => {
     for (const file of walk(SRC)) {
       if (file === MODULE_DIR || file.startsWith(MODULE_DIR + sep)) continue
       if (AUTHORIZED_IMPORTERS.has(file)) continue
-      const hits = findAnalysisHeroImports(readFileSync(file, 'utf8'), file)
+      if (TEST_IMPORTERS.has(file)) continue
+      const hits = heroImportOffenders(readFileSync(file, 'utf8'), file)
       if (hits.length) offenders.push(`${file.slice(SRC.length - 3)} -> ${hits.join(', ')}`)
     }
     expect(
       offenders,
       `Only ResultsBody may import the analysis hero; remove these other imports:\n${offenders.join('\n')}`,
     ).toEqual([])
+  })
+
+  // The copy-only reader the exactness rows use (the decision matrix was, until #2747 re-scope 2 removed it).
+  const COPY_READER = join(SRC, 'canvas', 'runView', 'runView.ts')
+  it.each([
+    ['test helper importer', join(SRC, 'canvas', 'nodes', '__tests__', 'control.ts'), "import { canonicalTestCellsOf } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'", 0],
+    ['production helper importer', join(SRC, 'canvas', 'nodes', 'control.ts'), "import { canonicalTestCellsOf } from '../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'", 1],
+    ['copy-only reader importing goalChanceCopy', COPY_READER, "import { about } from '../../components/results/analysis-hero/goalChanceCopy'", 0],
+    ['copy-only reader importing the hero container', COPY_READER, "import { AnalysisHeroContainer } from '../../components/results/analysis-hero'", 1],
+    ['copy-only reader importing a hero component', COPY_READER, "import { HeroOptionRow } from '../../components/results/analysis-hero/HeroOptionRow'", 1],
+    ['an unlisted file importing goalChanceCopy', join(SRC, 'components', 'results', 'index.ts'), "import { about } from './analysis-hero/goalChanceCopy'", 1],
+  ])('copy-only exemption is exact: %s', (_label, importer, code, expected) => {
+    expect(heroImportOffenders(code, importer).length).toBe(expected)
   })
 
   it('the authorised mount (ResultsBody) actually imports the module', () => {

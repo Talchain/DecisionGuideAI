@@ -83,7 +83,7 @@ describe('2b — the card reads its width from the layout (the shipped pricing s
   const OPTION = 'opt_hybrid'
   beforeEach(() => {
     useCanvasStore.setState({
-      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map(mapDraftEdgeToCanvas),
+      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
       ceeAnalysisReady: draft.analysis_ready, results: { status: 'idle', report: null }, viewMode: 'standard',
     } as never)
   })
@@ -120,15 +120,17 @@ describe('3 — `Not analysed` is the contract\'s state chip, not muted text', (
     } as never)
     render(<ReactFlowProvider><OptionNode {...baseProps} id="addon" data={option('addon').data as never} /></ReactFlowProvider>)
     const chip = screen.getByTestId('option-not-analysed-chip-addon')
-    expect(chip.textContent).toBe('Not analysed')
+    expect(chip.getAttribute('aria-label')).toBe('Not analysed')
     const cls = new Set((chip.getAttribute('class') ?? '').split(/\s+/))
-    for (const t of ['border', 'rounded-full', 'text-text-body', 'bg-panel']) expect(cls.has(t), t).toBe(true)
+    expect(chip.querySelector('.lucide-circle-slash')).not.toBeNull()
+    expect(screen.getByTestId('option-bottom-marks-addon').contains(chip)).toBe(true)
     expect(cls.has('text-text-light')).toBe(false)
   })
 })
 
 describe('4 — structural links carry the contract\'s contrast', () => {
-  it('the muted-ink token at 0.75, not 0.5', () => {
-    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.75)')
+  it('the shared muted-ink token at 0.55 (Paul 7 Oct)', () => {
+    // Paul 7 Oct: both structural tiers share the lighter 0.55 resting ink.
+    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.55)')
   })
 })

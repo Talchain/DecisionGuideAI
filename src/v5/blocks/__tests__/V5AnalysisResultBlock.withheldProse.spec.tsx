@@ -2,6 +2,10 @@
  * V5AnalysisResultBlock — the leader DESIGNATION is entitled by the shared
  * verdict, not by `leading_option_id` (ROADMAP 1.267, follow-up to PR #501).
  *
+ * #2747 re-scope 2 (DL ruling (A)): the pill row whose leader treatment this file pinned is gone from the card in
+ * C. The rows that pinned it are deleted in place (each leaves a comment); the not-a-tie leader row is rewritten as
+ * the absence check. The verdict pins, the summary rows and the withheld no-row negative stay.
+ *
  * ## The refutation this file records
  *
  * The sweep that scoped this lane offered two acceptable outcomes for this
@@ -38,7 +42,7 @@
  * paints.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { buildV5VerdictReportLike } from '../../mapV5AnalysisToReport'
 import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
@@ -103,11 +107,6 @@ function withheldBlock(): V5AnalysisResultBlockType {
   return { ...block(false), leading_option_id: null }
 }
 
-const pills = (): HTMLElement[] =>
-  within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem')
-const leaderPills = (): HTMLElement[] =>
-  pills().filter((p) => p.getAttribute('data-leader') === 'true')
-
 // ─────────────────────────────────────────────────────────────────────────────
 // ANTI-VACUITY — the pair must differ in the verdict and NOT in the old gate,
 // or the two divergence cases below prove nothing.
@@ -142,32 +141,20 @@ describe('the near-tie pair isolates the verdict from the old implicit gate', ()
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('a producer NEAR-TIE gets no leader treatment (the non-equivalence)', () => {
-  it('marks no leader pill', () => {
-    render(<V5AnalysisResultBlock block={block(true)} />)
-    expect(leaderPills()).toHaveLength(0)
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "marks no leader pill".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('gives no pill the heavier leader border', () => {
-    render(<V5AnalysisResultBlock block={block(true)} />)
-    for (const pill of pills()) {
-      expect(pill.className).toContain('border-option/30')
-      expect(pill.className).not.toContain('border-option/50')
-    }
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "gives no pill the heavier leader border".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
-  it('DATA PRESERVED: every option and every probability still renders', () => {
-    render(<V5AnalysisResultBlock block={block(true)} />)
-    const rendered = pills()
-    expect(rendered).toHaveLength(3)
-    expect(rendered.map((p) => p.textContent)).toEqual([
-      expect.stringContaining('43%'),
-      expect.stringContaining('32%'),
-      expect.stringContaining('25%'),
-    ])
-    for (const label of [MAC, DELL, STATUS_QUO]) {
-      expect(screen.getByTestId('v5-analysis-result-probabilities').textContent ?? '').toContain(label)
-    }
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "DATA PRESERVED: every option and every probability still renders".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 
   it('DATA PRESERVED: the summary line is untouched', () => {
     render(<V5AnalysisResultBlock block={block(true)} />)
@@ -181,36 +168,29 @@ describe('a producer NEAR-TIE gets no leader treatment (the non-equivalence)', (
 // THE OVER-SUPPRESSION CONTROL — the permitted twin must be unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('a producer NOT-A-TIE keeps today behaviour exactly', () => {
-  it('marks exactly one leader pill, and it is the producer leader', () => {
+describe('a producer NOT-A-TIE (the leader-named control)', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "marks exactly one leader pill, and it is the producer leader" (describe: "a
+  // producer NOT-A-TIE keeps today behaviour exactly"). The same leader-named, not-a-tie mount, which used to SHOW the
+  // pill row with its leader marked, now pins that C shows no win share (DL ruling (A)).
+  it('a not-a-tie run with its leader named: still no win-share row in C (ruling (A))', () => {
     render(<V5AnalysisResultBlock block={block(false)} />)
-    const leaders = leaderPills()
-    expect(leaders).toHaveLength(1)
-    expect(leaders[0]).toHaveTextContent(MAC)
-  })
-
-  it('hoists the leader to first position even when another key sorts higher', () => {
-    // The leader is given the LOWEST rendered probability, so descending order
-    // alone cannot produce a passing result — only the leader clause can.
-    render(
-      <V5AnalysisResultBlock
-        block={{ ...block(false), win_probabilities: { [DELL]: 0.61, [MAC]: 0.22, [STATUS_QUO]: 0.17 } }}
-      />,
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+      'The three options are close on total cost of ownership.',
     )
-    const rendered = pills()
-    expect(rendered[0]).toHaveTextContent(MAC)
-    expect(rendered[0].getAttribute('data-leader')).toBe('true')
-    expect(rendered[1]).toHaveTextContent(DELL)
-    expect(rendered[2]).toHaveTextContent(STATUS_QUO)
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
-  it('gives the leader the heavier border and the others the lighter one', () => {
-    render(<V5AnalysisResultBlock block={block(false)} />)
-    expect(leaderPills()[0].className).toContain('border-option/50')
-    for (const pill of pills().filter((p) => p.getAttribute('data-leader') === 'false')) {
-      expect(pill.className).toContain('border-option/30')
-    }
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "hoists the leader to first position even when another key sorts higher".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
+
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): row deleted —
+  // "gives the leader the heavier border and the others the lighter one".
+  // Its only subject was the chat card's win-share pill row, which C does not show on any Run. Census rows:
+  // chat analysis card, with and without a named leader.
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,6 +202,8 @@ describe('a WITHHELD turn (leading_option_id null) ranks nothing by win share (U
   // This used to pin "all three pills still render, in probability order".
   // That ordered list WAS the leak: a withheld leader restated as a ranking by
   // win share (#69 5827478637, served on UI b017e3c2 · CEE 9417228).
+  // #2747 re-scope 2: both rows kept as written. The no-row negative still holds, now because C shows no win-share
+  // row on any Run (DL ruling (A)).
   it('renders no win-share row, even though the verdict permits a leader', () => {
     render(<V5AnalysisResultBlock block={withheldBlock()} />)
     expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()

@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM: CURRENT-READ-v1 row 9 @ ebaed3b4 (AIQ #75 5912710392,
  * #77 5912643736 (b); P0 PARTNER 5912723630), replayed on the Run Paul actually saw.
@@ -10,7 +11,7 @@
  *
  * AIQ's three rows:
  *   1. 4276f3f9 → 0 option percentages on every card, with the reason line shown;
- *   2. CONTROL: a permitted Run still shows its shares;
+ *   2. WS5-1 CONTROL: a permitted Run with a chance licence shows its chance;
  *   3. CONTROL: a Run withheld for another reason also hides them, and shows that reason's words.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -19,7 +20,9 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { formatWinProbability } from '../../utils/labelUtils'
 import { leaderWithholdCause } from '../../../components/results/analysisNew/analysisNewCopy'
@@ -44,7 +47,7 @@ const fx = JSON.parse(
 const report = mapV5AnalysisToReport(fx.analysis_block as never) as unknown as {
   option_probabilities: Record<string, { win_probability?: number }>
 }
-const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind } }))
+const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind, kind: n.kind } }))
 const edges = fx.draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from, target: e.to }))
 const OPTIONS = fx.draft.nodes.filter(n => n.kind === 'option')
 const SCORED = OPTIONS.filter(o => typeof report.option_probabilities[o.id]?.win_probability === 'number')
@@ -59,25 +62,27 @@ const SERVED_STAMP = {
   producer_cause: fx.analysis_state.leader_claim.withheld_reason,
 }
 
-const seed = (stamp: Record<string, unknown> | null) => {
+const seed = (stamp: Record<string, unknown> | null, licensedChance = false) => {
+  const chanceReport = licensedChance ? withLicensedOptionChances(report, Object.fromEntries(SCORED.map(o => [o.id, 41]))) : report
   useCanvasStore.setState({
-    nodes, edges, ceeAnalysisReady, viewMode: 'standard', analysisStateV1: null,
+    nodes, edges, ceeAnalysisReady, viewMode: 'standard', analysisStateV1: null, goalThreshold: 100,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-30T13:29:05.105Z' },
     analysisFreshnessDirty: false,
     importPendingServerRegistration: false, currentScenarioId: 'securing-funding-4276f3f9',
     v5AnalysisFact: { scenarioId: 'securing-funding-4276f3f9', analysisHash: 'run-4276', hasRunAnalysisFact: true },
     hasCompletedFirstRun: true,
-    results: { status: 'complete', hash: 'run-4276', report: { ...report, ...(stamp ? { producer_leader_permission: stamp } : {}) } },
+    results: { status: 'complete', hash: 'run-4276', report: { ...chanceReport, ...(stamp ? { producer_leader_permission: stamp } : {}) } },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderCard = (id: string) => {
   const n = nodes.find(x => x.id === id)!
-  return render(<ReactFlowProvider><OptionNode
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
     id={n.id} type="option" data={n.data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
     dragging={false} zIndex={0} deletable selectable draggable
-  /></ReactFlowProvider>)
+  /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 const slotText = (id: string) => screen.getByTestId(`option-share-slot-${id}`).textContent ?? ''
 
@@ -105,15 +110,17 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
       renderCard(id)
       expect(slotText(id)).not.toMatch(/\d\s*%/)
       const marker = screen.getByTestId(`option-not-ranked-${id}`)
-      expect(marker.textContent).toBe(NOT_RANKED_MARKER)
-      expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+      expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
     },
   )
 
-  it('⭐ ROW 2 — CONTROL: a PERMITTED Run still shows its shares (the gate is the permission, not the data)', () => {
-    seed({ permitted: true })
+  // #2747 re-scope 2 (U0): "shows its chance" (the slot's chance readout "41%") is deleted — the canvas card shows no
+  // chance in C; the no-runs-share and no-marker negatives stay.
+  it('⭐ ROW 2 — CONTROL: a PERMITTED Run with a licensed chance: no runs share and no `Not ranked`', () => {
+    seed({ permitted: true }, true)
     renderCard(CONVERTIBLE)
-    expect(slotText(CONVERTIBLE)).toContain('80%')
+    expect(slotText(CONVERTIBLE)).not.toContain('of runs')
     expect(screen.queryByTestId(`option-not-ranked-${CONVERTIBLE}`)).toBeNull()
   })
 
@@ -124,7 +131,8 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
     expect(slotText(CONVERTIBLE)).not.toMatch(/\d\s*%/)
     const words = leaderWithholdCause('separation_unavailable')
     expect(words).not.toBeNull()
-    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${words}`)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-description')).toBe(words)
   })
 
   it('an option the Run left out (Targeted angel pilot) keeps `Not analysed`, never `Not ranked`', () => {

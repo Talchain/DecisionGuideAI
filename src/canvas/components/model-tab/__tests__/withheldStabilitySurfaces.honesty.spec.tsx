@@ -27,6 +27,13 @@
  * dishonest, is retained in this header on purpose (trap 14b) — the two
  * `ModelHealthSection` cases and the `TrajectorySection` case below are
  * unchanged and still carry the rule for the surfaces that survive.
+ *
+ * ⚠ NARROWED 2026-10-07 — ONE MORE SUBJECT DELETED, NOT EXCUSED. The
+ * `TrajectorySection` expert-table case (its `Stability %` column, pinned absent
+ * with a 6-column arity check) is gone because the component is gone: the whole
+ * pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers, re-derived at the deletion head. The
+ * live Compare tab (`CompareRunPairBody`) renders no stability figure at all.
  * (plus a dead read in `OutputsDock` → `derivePostFooterMeta`, whose own F7
  * pins live in `canvas/components/utils/__tests__/postAnalysisFooter.spec.ts`,
  * and a fully dead `components/results/TrustOneLiner.tsx`, deleted.)
@@ -63,8 +70,6 @@ import { render, screen } from '@testing-library/react'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
 import { DetailToggleContext } from '../DetailToggleContext'
-import { TrajectorySection } from '../../../compare-tab/TrajectorySection'
-import type { AnalysisSnapshot } from '../../../compare-tab/types'
 
 vi.mock('../../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -119,46 +124,6 @@ const BASE_AUDIT: AuditTrailData = {
   autoNoiseApplied: null,
   autoNoiseProvenance: null,
   stabilityPenaltyFactor: null,
-}
-
-function snapshot(overrides: Partial<AnalysisSnapshot> = {}): AnalysisSnapshot {
-  return {
-    runId: 'run-1',
-    runNumber: 1,
-    timestamp: '2026-02-20T10:00:00Z',
-    source: 'session',
-    graphHash: 'hash-1',
-    nodeCount: 2,
-    edgeCount: 1,
-    // ROADMAP 2.835 — see sibling spec. Single scored option, so `runnerUpId`
-    // stays null as before; the leader is named by the verdict, not an argmax.
-    winnerId: 'opt-1',
-    options: [{ id: 'opt-1', label: 'Option A', winProbability: 60 }],
-    leaderVerdict: {
-      leaderId: 'opt-1', separation: 'clear', hasLeadingOption: true,
-      gapPp: null, source: 'producer_near_tie',
-    },
-    runnerUpId: null,
-    runnerUpLabel: null,
-    runnerUpProbability: null,
-    recommendationStability: LEGACY_STABILITY,
-    stabilityLabel: 'stable',
-    fragileEdgeCount: 2,
-    evidenceCoverage: '3/5',
-    topFactors: [],
-    influenceConcentration: 40,
-    topCalibrationFactor: '',
-    topCalibrationFactorId: '',
-    topElasticity: 0,
-    rankFlipRate: 0,
-    goalProbability: null,
-    jointGoalProbability: null,
-    edgeEValues: [],
-    seedUsed: 42,
-    responseHash: 'resp-1',
-    editSummary: '',
-    ...overrides,
-  } as AnalysisSnapshot
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -224,33 +189,5 @@ describe('ModelHealthSection — neither header nor audit row can render a stabi
     )
     expect(screen.getByText('Stability penalty')).toBeInTheDocument()
     expect(screen.getByText('0.90x')).toBeInTheDocument()
-  })
-})
-
-// ───────────────────────────────────────────────────────────────────────────
-describe('TrajectorySection expert table — the "Stability %" column cannot render', () => {
-  it('POSITIVE CONTROL: the surviving columns and their values render', () => {
-    render(<TrajectorySection snapshots={[snapshot()]} showExpert />)
-    for (const header of ['Run', 'Evidence', 'Conc. %', 'Flip rate', 'Fragile', 'Seed']) {
-      expect(screen.getByText(header), `header "${header}" must survive`).toBeInTheDocument()
-    }
-    expect(screen.getByText('3/5')).toBeInTheDocument()
-  })
-
-  it('renders no Stability column header and no percentage cell for a LEGACY snapshot value', () => {
-    // The fixture's `recommendationStability` is 0.71 — exactly the
-    // pre-withdrawal case a persisted `v5_handler_facts` row reproduces.
-    const { container } = render(<TrajectorySection snapshots={[snapshot()]} showExpert />)
-
-    expect(screen.queryByText('Stability %')).not.toBeInTheDocument()
-    expect(container.textContent ?? '').not.toContain(`${LEGACY_PCT}%`)
-  })
-
-  it('column COUNT is pinned, so a reinstated column cannot hide behind a renamed header', () => {
-    // A header-text assertion alone is defeated by reinstating the column under
-    // a different label. The arity is the identity-bound check.
-    const { container } = render(<TrajectorySection snapshots={[snapshot()]} showExpert />)
-    expect(container.querySelectorAll('thead th')).toHaveLength(6)
-    expect(container.querySelectorAll('tbody tr td')).toHaveLength(6)
   })
 })

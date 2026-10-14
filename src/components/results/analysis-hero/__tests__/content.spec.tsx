@@ -8,7 +8,11 @@ import { render, screen, fireEvent, within, createEvent } from '@testing-library
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
-import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData as numericHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
@@ -29,18 +33,17 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, props: Partial<Par
 }
 
 describe('AnalysisHeroPanel — content', () => {
-  it('renders the headline, tension subline, and goal readouts from response values', () => {
-    renderPanel(chartModel())
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
-    )
-    expect(screen.getByTestId('hero-subline')).toHaveTextContent(
-      'Two developers has the highest expected outcome: 68.',
-    )
+  // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption; with no producer band the
+  // headline and subline name no option. Was "renders the headline, tension subline, and goal readouts …".
+  it('renders the neutral headline and subline, and the goal readouts from response values', () => {
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+    expect(screen.getByTestId('hero-subline')).toHaveTextContent('Compare the top options before deciding.')
     // Goal-fit is the default lens: rendered joint probabilities equal the
     // response values (0.34 → 34%, 0.49 → 49%).
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-2')).getByText(chanceCellOf(data, OPTION_B.id).text!)).toBeInTheDocument()
   })
 
   it('switching to Likely outcome shows outcome centres in the readouts', () => {
@@ -50,13 +53,16 @@ describe('AnalysisHeroPanel — content', () => {
     expect(within(screen.getByTestId('hero-option-row-2')).getByText('62')).toBeInTheDocument()
   })
 
-  it('shows the comparative readout ONLY inside an opened option detail', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C — not on the closed row, not inside an opened detail
+  // (was: 'Supported in 30% of simulated scenarios.' inside the opened detail).
+  it('shows no comparative readout, closed or inside an opened option detail', () => {
     renderPanel(chartModel())
     expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
-    expect(screen.getByTestId('hero-detail-win')).toHaveTextContent(
-      'Supported in 30% of simulated scenarios.',
-    )
+    // CONTROL: the detail did open (its grounded range line is there).
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-detail-win')).toBeNull()
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toMatch(/Supported in .+ of simulated scenarios/)
   })
 
   it('Likely outcome lens renders no target marker and never mentions the target', () => {
@@ -114,16 +120,18 @@ describe('AnalysisHeroPanel — content', () => {
   })
 
   it('opened detail recovers the full label and shows the grounded range and goal-fit lines', () => {
-    renderPanel(chartModel())
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
     expect(screen.getByTestId('hero-detail-range')).toHaveTextContent('Realistic range: 54 to 82.')
     expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(
-      'Reaches the target in 34% of model runs.',
+      chanceCellOf(data, OPTION_A.id).text!,
     )
   })
 
-  it('comparative-only rows are not expandable and keep the comparative line as persistent meta', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share in C, so a comparative-only row has no persistent win meta either.
+  it('comparative-only rows are not expandable and carry no comparative line (no win share in C)', () => {
     // Strip everything except winProbability from B; A keeps its range so
     // the outcome lens stays available.
     const winOnly = makeOption({
@@ -142,16 +150,15 @@ describe('AnalysisHeroPanel — content', () => {
         }),
       ),
     )
-    // B has no disclosure button; its win probability is persistent meta.
+    // B has no disclosure button; its win probability is not said (was: persistent meta 'Supported in 29% …').
     expect(screen.queryByRole('button', { name: /Upskill the team/ })).toBeNull()
-    expect(screen.getByTestId('hero-win-meta')).toHaveTextContent(
-      'Supported in 29% of simulated scenarios.',
-    )
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toMatch(/Supported in .+ of simulated scenarios/)
     // A (range detail exists) is still expandable.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
   })
 
-  it('content is fully readable with no hero-side stale surface (v6/C1): win meta persists and rows stay expandable', () => {
+  it('content is fully readable with no hero-side stale surface (v6/C1): rows stay expandable (no win meta in C)', () => {
     // Prototype v6 stale doctrine: the freshness strip (outside this panel)
     // carries the warning AND the one Rerun; the hero is staleness-agnostic
     // — never dimmed, locked, or stripped of detail.
@@ -171,7 +178,8 @@ describe('AnalysisHeroPanel — content', () => {
         }),
       ),
     )
-    expect(screen.getByTestId('hero-win-meta')).toBeInTheDocument()
+    // #2747 re-scope 2 (DL ruling (A)): no win share in C (was: the win meta persists).
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
     // Rows with detail keep their disclosure.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
     // No dim/inert lockout on the chart area, and no hero rerun control.
@@ -420,9 +428,10 @@ describe('AnalysisHeroPanel — content', () => {
   it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {
     // Goal fit owns target attainment: each bar is the chance of hitting the
     // goal, so the readouts ARE the target-shortfall communication.
-    renderPanel(chartModel())
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-2')).getByText(chanceCellOf(data, OPTION_B.id).text!)).toBeInTheDocument()
     // No target marker on Goal fit either — the bars themselves carry it.
     expect(screen.queryByTestId('hero-target-marker')).toBeNull()
   })
@@ -545,17 +554,19 @@ describe('AnalysisHeroPanel — content', () => {
       recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
     })
     renderPanel(chartModel(data))
-    // Row 1 still has a win line, so it stays expandable — open it.
+    // Row 1 still has its grounded range line, so it stays expandable — open it.
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.queryByTestId('hero-detail-why')).toBeNull()
     expect(screen.queryByTestId('hero-detail-could-change')).toBeNull()
-    expect(screen.getByTestId('hero-detail-win')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+    // #2747 re-scope 2 (DL ruling (A)): no win line in C (was: present).
+    expect(screen.queryByTestId('hero-detail-win')).toBeNull()
   })
 
   it('renders the footer main reason from the top driver and neutral focus-next text', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-main-reason')).toHaveTextContent(
-      'Main driver: Developer capacity.',
+      'Moves the result most: Developer capacity.',
     )
     const focusNext = screen.getByTestId('hero-focus-next')
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
@@ -682,8 +693,8 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
     renderPanel(modelWithLinks(), { onFocusTarget })
     const driver = screen.getByTestId('hero-quicklink-driver')
     const flip = screen.getByTestId('hero-quicklink-flip')
-    expect(driver).toHaveTextContent('Main driver: Developer capacity')
-    expect(flip).toHaveTextContent('Top flip risk: Salary cost')
+    expect(driver).toHaveTextContent('Moves the result most: Developer capacity')
+    expect(flip).toHaveTextContent('Tipping point: Salary cost')
     // Outlined pill shape (DS rule: outlined, never filled).
     for (const pill of [driver, flip]) {
       expect(pill.className).toMatch(/rounded-full/)
@@ -721,7 +732,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
       { onFocusTarget },
     )
     const combined = screen.getByTestId('hero-quicklink-combined')
-    expect(combined).toHaveTextContent('Main driver and top flip risk: Developer capacity')
+    expect(combined).toHaveTextContent('Moves the result most and top flip risk: Developer capacity')
     expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
     expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
     fireEvent.click(combined)
@@ -911,11 +922,12 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
 })
 describe('Prototype v6 parity: goal lens, define success, auto-switch, next step', () => {
   it('the goal lens draws NO tracks — badges, labels and probability readouts only', () => {
-    renderPanel(chartModel())
+    const data = makeHeroData()
+    renderPanel(chartModel(data))
     // Default lens is goal (target + fits exist): no range bar, no dot track.
     expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)
     // Values still read out.
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText(chanceCellOf(data, OPTION_A.id).text!)).toBeInTheDocument()
     // Switching to Likely outcome brings the tracks back.
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     expect(screen.getAllByTestId('hero-range-bar').length).toBeGreaterThan(0)

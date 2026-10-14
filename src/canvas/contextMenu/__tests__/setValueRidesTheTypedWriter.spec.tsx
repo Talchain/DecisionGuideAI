@@ -42,18 +42,19 @@ import { useCanvasStore } from '../../store'
 import { CanvasContextMenu } from '../CanvasContextMenu'
 import { FactorNode } from '../../nodes/FactorNode'
 import type { NodeTarget } from '../types'
+import { SEND_DEFERRED, SystemEventSendError } from '../../conversation/useConversation'
+import { ToastProvider } from '../../ToastContext'
 import { VALUE_COMMIT_SETTLEMENT_COPY } from '../../conversation/valueCommitSettlement'
 import * as settlementModule from '../../conversation/valueCommitSettlement'
 import * as scaleModule from '../../conversation/factorValueEdit'
 import * as actionsModule from '../actions'
 
 // ── the host's toast ────────────────────────────────────────────────────────
-const toast = vi.hoisted(() => ({ spy: vi.fn() }))
-vi.mock('../../ToastContext', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../ToastContext')>()),
-  useShowToast: () => toast.spy,
-  useShowToastSafe: () => toast.spy,
-}))
+const toast = vi.hoisted(() => ({ spy: vi.fn(), live: false }))
+vi.mock('../../ToastContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../ToastContext')>()
+  return { ...actual, useShowToast: () => { const live = actual.useShowToastSafe(); return toast.live ? live : toast.spy }, useShowToastSafe: () => { const live = actual.useShowToastSafe(); return toast.live ? live : toast.spy } }
+})
 
 // ── open the ONE key that withholds the row on served menus (see header) ───
 vi.mock('../../mutations/mutationAuthority', async (importOriginal) => {
@@ -225,6 +226,7 @@ beforeEach(() => {
   conversation.mounted = false
   conversation.send.mockReset()
   toast.spy.mockReset()
+  toast.live = false
   onClose.mockReset()
   seedStore()
 })
@@ -267,6 +269,22 @@ describe('Set value ▸ Best / Worst case ride the card writer, keyed to this no
 })
 
 describe('with the REAL writer — the wire event is the card\'s wire event', () => {
+  it.each([false, true])('revision refusal reaches the menu toast through the real authority with only the exact notice (deferred=%s)', async deferred => {
+    toast.live = true
+    const refusal = new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
+    if (deferred) conversation.send.mockResolvedValue(SEND_DEFERRED)
+    else conversation.send.mockRejectedValue(refusal)
+    render(<ToastProvider><CanvasContextMenu target={targetFor(ADOPTION_ID, 'factor')} onClose={onClose} screenToFlowPosition={p => p} /></ToastProvider>)
+    await clickSetValue(/^Best case/)
+    if (deferred) {
+      expect(screen.queryByRole('alert')).toBeNull()
+      const options = conversation.send.mock.calls[0][1]
+      expect(options.onDeferredSettled).toEqual(expect.any(Function))
+      await act(async () => { options.onDeferredSettled(Promise.reject(refusal)) })
+    }
+    expect(screen.getByRole('alert').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(/The model kept its previous value/)).toBeNull()
+  })
   beforeEach(() => {
     writer.mode = 'real'
     conversation.mounted = true
@@ -328,11 +346,13 @@ describe('a refusal is shown where the user acted, in the card\'s words', () => 
     expect(refusal?.textContent, 'the card says the same sentence').toBe(settlementModule.VALUE_NOT_ENCODABLE_COPY)
   })
 
-  it('a server refusal after dispatch → "Not saved", the card\'s settlement word', async () => {
+  it('a server refusal after dispatch → "Not saved", the card\'s settlement word, with no reply claimed', async () => {
+    // Batch R3: a refused send gets no reply, so the word is `refused`, never "Olumi's reply says why".
     writer.settle = 'refused'
     openMenu(ADOPTION_ID)
     await clickSetValue(/^Best case/)
-    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message, 'warning')
+    expect(toast.spy).toHaveBeenCalledWith(VALUE_COMMIT_SETTLEMENT_COPY.refused.message, 'warning')
+    expect(toast.spy).not.toHaveBeenCalledWith(expect.stringMatching(/reply/), expect.anything())
   })
 
   it('sent, but the value reads unchanged → "Not saved" — the card\'s own revert rule', async () => {

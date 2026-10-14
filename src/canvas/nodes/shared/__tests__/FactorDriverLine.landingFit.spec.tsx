@@ -100,12 +100,12 @@ const ownerForms = ({ rank: { rank: n, setSize: m }, stale }: Case): string[] =>
 const fitsAtLanding = (text: string) => captionWidthPx(text, MAX_LABEL_COUNTER_SCALE) <= FACTOR_SLOT_MEASURE_PX
 
 /** What the card's slot actually prints — read from the rendered line, by identity. */
-function renderedSlotCaption({ rank, stale }: Case): { caption: string; name: string } {
+function renderedSlotCaption({ rank, stale }: Case): { caption: string; name: string; numeral: string } {
   cleanup()
   render(<FactorDriverLine nodeId="fac_x" rank={rank} value={0.38} fromLastRun={stale} inSlot />)
-  const caption = screen.getByTestId('factor-driver-line-caption').textContent ?? ''
+  const caption = screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label') ?? ''
   const name = screen.getByTestId('factor-driver-line').getAttribute('aria-label') ?? ''
-  return { caption, name }
+  return { caption, name, numeral: screen.getByTestId('factor-driver-line-caption').textContent ?? '' }
 }
 
 const tokens = (el: Element) => new Set((el.getAttribute('class') ?? '').split(/\s+/))
@@ -143,8 +143,8 @@ describe('the width budget is calibrated against the browser', () => {
 
 describe('item 11 — every caption the slot prints fits it on its own at the landing bound, so none is ellipsised', () => {
   it.each(ALL_CASES.map((c) => [label(c), c] as const))('%s: fits, and is the LONGEST owner form that does', (_, c) => {
-    const { caption, name } = renderedSlotCaption(c)
-    const w = captionWidthPx(caption, MAX_LABEL_COUNTER_SCALE)
+    const { caption, name, numeral } = renderedSlotCaption(c)
+    const w = captionWidthPx(numeral, MAX_LABEL_COUNTER_SCALE)
     expect(w, `${caption}: ${w.toFixed(1)}px at ×${MAX_LABEL_COUNTER_SCALE}`).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
     // The owner's order: the first (longest) form that fits, never a shorter one.
     const forms = ownerForms(c)
@@ -184,33 +184,14 @@ describe('the bar is drawn whole beside its words, or wrapped out of the one-lin
     expect(captionWidthPx(caption, 1) + DRIVER_GAP_PX + DRIVER_TRACK_W_PX).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
   })
 
-  it('at the landing bound the longest caption leaves no room for the bar, so the row must WRAP it, not shrink anything', () => {
-    const longest = Math.max(
-      ...ALL_CASES.map((c) => captionWidthPx(renderedSlotCaption(c).caption, MAX_LABEL_COUNTER_SCALE)),
-    )
-    // The case the first fix resolved by squashing: caption + gap + bar > measure.
-    expect(longest + DRIVER_GAP_PX + DRIVER_TRACK_W_PX * MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(FACTOR_SLOT_MEASURE_PX)
-
-    cleanup()
-    render(<FactorDriverLine nodeId="fac_x" rank={{ rank: 1, setSize: 3 }} value={0.38} fromLastRun inSlot />)
-    const row = tokens(screen.getByTestId('factor-driver-line'))
-    const caption = tokens(screen.getByTestId('factor-driver-line-caption'))
-    const bar = tokens(screen.getByTestId('factor-driver-line-bar'))
-    // The contract's `.driver` row: it wraps, with the 6px gap between items on a line.
-    expect(row.has('flex-wrap')).toBe(true)
-    expect(row.has('flex-nowrap')).toBe(false)
-    expect(row.has('gap-x-1.5')).toBe(true)
-    // The caption never gives way (its ellipsis is a last resort for unmeasured copy)…
-    expect(caption.has('shrink-0')).toBe(true)
-    expect(caption.has('max-w-full')).toBe(true)
-    expect(caption.has('min-w-0')).toBe(false)
-    // …and the bar is never squashed, so its fill always reads against the whole track.
-    expect(bar.has('shrink-0')).toBe(true)
-    expect(bar.has('min-w-0')).toBe(false)
-    expect([...bar].some((t) => t.includes('flex-shrink'))).toBe(false)
-    expect(screen.getByTestId('factor-driver-line-bar-fill').style.width).toBe('max(4px, 38%)')
-    // No separate spacer: the gap exists only while the bar shares the caption's line.
-    expect(screen.queryByTestId('factor-driver-line-gap')).toBeNull()
+  it('at the landing bound the numeral and bar share one line, without shrinking', () => {
+    for (const c of ALL_CASES) {
+      const { numeral } = renderedSlotCaption(c)
+      expect(numeral).toBe(String(c.rank.rank))
+      expect(captionWidthPx(numeral, MAX_LABEL_COUNTER_SCALE) + DRIVER_GAP_PX + DRIVER_TRACK_W_PX * MAX_LABEL_COUNTER_SCALE).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
+      expect(tokens(screen.getByTestId('factor-driver-line'))).toContain('inline-flex')
+      expect(tokens(screen.getByTestId('factor-driver-line-caption'))).toContain('shrink-0')
+      expect(tokens(screen.getByTestId('factor-driver-line-bar'))).toContain('shrink-0')
+    }
   })
 })
-

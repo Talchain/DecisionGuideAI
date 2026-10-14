@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * THE CANVAS STOPS NAMING A LEADER THE PRODUCER REFUSED TO NAME — W1-e (a).
  *
@@ -31,7 +32,7 @@
  * run is now asserted ABSENT there too — the strongest case, since `permitted`
  * is exactly the state that used to license it. The withheld arms keep their
  * absence assertions unchanged. Every absence is paired with a same-render
- * contrast control (the card's own result row), so a blank render cannot pass.
+ * contrast control (the card's own label; #2747 re-scope 2: no result row in C), so a blank render cannot pass.
  *
  * ⭐⭐ CURRENT-READ row 9 (AIQ 5912710392; Paul's test 4276f3f9, finding 9): a
  * per-option share names the leader in numbers, so a WITHHELD leader now
@@ -46,6 +47,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
@@ -61,6 +63,7 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -85,12 +88,13 @@ function permittedReport() {
 const makeStoreState = (report: unknown) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: { status: 'complete', report },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   optionNumbering: { [NODE_ID]: 1, [SIBLING_ID]: 2 },
@@ -98,7 +102,7 @@ const makeStoreState = (report: unknown) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -121,14 +125,16 @@ const baseProps = {
   draggable: true,
 }
 
-function renderOption(report: unknown) {
+function renderOption(report: unknown, licensedChance = false) {
+  const chanceReport = licensedChance ? withLicensedOptionChances(report as object, { [NODE_ID]: 41, [SIBLING_ID]: 29 }) : report
+  const state = installCanonicalFixtureState(makeStoreState(chanceReport))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire 3 engineers', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -140,14 +146,13 @@ beforeEach(() => {
  * ED #63 5799353114 decision 1 — the card makes NO leader claim: no pill by
  * identity, no robustness grade beside it, and no "Most supported" in the
  * card's text. Each absence is read from the SAME render as its contrast
- * control: the card's own label and its model-relative result row.
+ * control: the card's own label (#2747 re-scope 2 (U0): the chance result row is removed in C).
  */
 function expectNoLeaderClaimOnCard(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
-  // CONTRAST CONTROL FIRST — the card rendered, with its result row.
+  // CONTRAST CONTROL FIRST — the card rendered (its label).
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  if (contrast === 'share') {
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
-  } else {
+  // #2747 re-scope 2 (U0): the 'share' arm's chance readout ("41%") is deleted — the canvas card shows no chance in C.
+  if (contrast !== 'share') {
     // CURRENT-READ row 9 (AIQ 5912710392): on a withheld run the result slot holds `Not ranked` + the reason.
     expectNotRankedInSlot(contrast.notRankedReason)
   }
@@ -165,9 +170,10 @@ function expectNotRankedInSlot(reason: string) {
   expect(slot.getAttribute('class')?.split(/\s+/)).toContain('h-[1lh]')
   expect(screen.queryByTestId(`option-win-readout-${NODE_ID}`)).toBeNull()
   const marker = screen.getByTestId(`option-not-ranked-${NODE_ID}`)
-  expect(slot.contains(marker)).toBe(true)
-  expect(marker).toHaveTextContent(NOT_RANKED_MARKER)
-  expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${reason}`)
+  expect(marker.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
+  expect(marker).toHaveAttribute('aria-label', NOT_RANKED_MARKER)
+  expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+  expect(marker.getAttribute('aria-description')).toBe(reason)
 }
 
 describe('OptionNode — a withheld leader claim removes the designation', () => {
@@ -175,7 +181,7 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     // WAS "PRECONDITION: this card wears the pill". The pill is retired, so the
     // producer-silent arm is now an absence — with the contrast control inside
     // the helper, so it cannot pass on a dead render (CLAUDE.md trap 13).
-    const { container } = renderOption(permittedReport())
+    const { container } = renderOption(permittedReport(), true)
     expectNoLeaderClaimOnCard(container)
   })
 
@@ -198,24 +204,21 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     // was". Permission used to license the pill; after decision 1 it licenses
     // nothing on the card. The contrast control is now the card's own result
     // row, read in the same render.
-    const { container } = renderOption(withPermission(permittedReport(), { permitted: true }))
+    const { container } = renderOption(withPermission(permittedReport(), { permitted: true }), true)
     expectNoLeaderClaimOnCard(container)
   })
 
-  it('THE SHARE GOES WITH THE CLAIM (CURRENT-READ row 9): a withheld run shows no win figure, `Not ranked` instead; the same data, permitted, still shows it', () => {
-    // ⭐ SCOPE, STATED RATHER THAN ASSUMED — AND REVERSED. This row WAS "THE DATA
-    // IS NOT DELETED: the option keeps its own win figure", on the reading that
-    // CEE withholds the CLAIM and ships the DATA. CURRENT-READ row 9 (AIQ
-    // 5912710392; Paul's 4276f3f9: "Model 80% · Goal only" on a run that would
-    // not name a leader) rules that a per-option share singling one option out
-    // names the leader in numbers, so on a withheld run the card shows
-    // `Not ranked` + the reason instead.
+  // #2747 re-scope 2 (U0): "shows its chance" (the permitted control's chance readout) is deleted — the canvas card shows
+  // no chance in C; the permitted control's no-marker negative stays.
+  it('a Run without a chance keeps its compared marker; the permitted control with a licence has no marker', () => {
+    // WS5-1: the old share headline is removed. Keep the independent marker assertions on the
+    // no-chance fixture, and test the replacement headline with an explicit chance licence.
     renderOption(withPermission(permittedReport(), { permitted: false }))
     expectNotRankedInSlot(WITHHELD_REASON_FALLBACK)
     cleanup()
-    // The result itself is not deleted: the SAME report, permitted, renders its figure.
-    renderOption(withPermission(permittedReport(), { permitted: true }))
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72%')
+    // The licensed chance has a different figure from the runs share, so the control identifies the new quantity.
+    renderOption(withPermission(permittedReport(), { permitted: true }), true)
+    expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-ranked-${NODE_ID}`)).toBeNull()
   })
 

@@ -205,7 +205,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     expect(hitPath).not.toBeNull()
     const titleEl = hitPath!.querySelector('title')
     expect(titleEl).not.toBeNull()
-    expect(titleEl!.textContent).toBe('Option of this decision')
+    expect(titleEl!.textContent).toBe('Option for this question')
 
     // Hover does not produce a custom popover overlay even after the timer
     act(() => {

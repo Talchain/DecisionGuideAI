@@ -27,6 +27,7 @@
  * No row states a figure: the figures, their provenance and their controls are
  * the panel's own sections below.
  */
+import { useRouteOnceHeld } from '../../../hooks/useRouteOnceHeld'
 import { useMemo } from 'react'
 import { readContestedState } from '../../../edges/edgePresentation'
 import {
@@ -44,23 +45,24 @@ export const EDGE_RELATIONSHIP_COPY = {
   heading: 'Modelled relationship',
   body: 'The direction and magnitude describe a causal belief recorded in this model, not established real-world causality.',
   directionLabel: 'Direction',
-  strokeWidthLabel: 'Stroke width',
+  strokeWidthLabel: 'Line thickness',
   existenceLabel: 'Existence',
   positive: 'Positive (+)',
   negative: 'Negative (−)',
   disputed: 'AI review disagrees',
   directionUnset: METRIC_UNSET.standalone,
-  strokeWidthMeaning: 'Modelled strength magnitude',
+  strokeWidthMeaning: 'shows the strength',
   strokeWidthUnset: `Strength ${METRIC_UNSET.standalone.toLowerCase()}`,
   existenceDoubt: 'A stated doubt',
 } as const
 
-export function EdgeRelationshipSummary({ data }: { data: Record<string, unknown> | undefined }) {
+export function EdgeRelationshipSummary({ data, edgeId = '' }: { data: Record<string, unknown> | undefined; edgeId?: string }) {
+  const routeOnceHeld = useRouteOnceHeld(edgeId)
   const values = useMemo(() => {
     const disputed = readContestedState(data?.validation).directionDisputed
     const direction = resolveEdgeDirectionDisplay(data)
     const strength = resolveEdgeSignedStrengthDisplay(data)
-    const dash = resolveExistenceDash(resolveEdgeValueDisplay(data, 'beliefExists'))
+    const dash = resolveExistenceDash(resolveEdgeValueDisplay(data, 'beliefExists', { routeOnceHeld }))
     return {
       direction: disputed
         ? EDGE_RELATIONSHIP_COPY.disputed
@@ -72,7 +74,7 @@ export function EdgeRelationshipSummary({ data }: { data: Record<string, unknown
         : EDGE_RELATIONSHIP_COPY.strokeWidthUnset,
       existence: dash.kind === 'stated' && dash.dash !== undefined ? EDGE_RELATIONSHIP_COPY.existenceDoubt : null,
     }
-  }, [data])
+  }, [data, routeOnceHeld])
 
   const rows: Array<[string, string, string]> = [
     ['direction', EDGE_RELATIONSHIP_COPY.directionLabel, values.direction],

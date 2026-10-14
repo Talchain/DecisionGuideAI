@@ -38,12 +38,17 @@ export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
 /** What-if "Put it back" (DL #85 5942153284, option B): the words of the one control. */
 export const PUT_IT_BACK_COPY = 'Put it back'
 
-function DetailLine({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
+function DetailLine({ label, id, children }: { label: string | null; id: string; children: React.ReactNode }) {
+  if (label === null) return (
+    <div className={`${typography.panelBody} text-text-body m-0 min-w-0 break-words`} data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-${id}`}>
+      {children}
+    </div>
+  )
   return (
-    <div className="grid grid-cols-[96px_1fr] gap-x-3" data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-${id}`}>
+    <dl className="m-0 grid grid-cols-[96px_1fr] gap-x-3" data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-${id}`}>
       <dt className={`${typography.panelMeta} text-text-light m-0 pt-px`}>{label}</dt>
       <dd className={`${typography.panelBody} text-text-body m-0 min-w-0 break-words`}>{children}</dd>
-    </div>
+    </dl>
   )
 }
 
@@ -81,6 +86,12 @@ export function RunChangesSummary(): JSX.Element | null {
   const changedExtra = lines.changed.length - 1 + lines.changedMore
   const movedHead = lines.moved[0] ?? lines.movedNote
   const movedExtra = lines.moved.length - 1 + lines.movedMore
+  const changedLabel = lines.changed[0] ? `${COPY.changed}: ` : null
+  const movedLabel = lines.moved[0] ? `${COPY.moved}: ` : null
+  const summaryTitle = [
+    changedHead === null ? null : `${changedLabel ?? ''}${changedHead}${changedExtra > 0 ? ` · +${changedExtra} more` : ''}`,
+    movedHead === null ? null : `${movedLabel ?? ''}${movedHead}${movedExtra > 0 ? ` · +${movedExtra} more` : ''}`,
+  ].filter(Boolean).join(' · ')
   const detailId = `${RUN_CHANGES_SUMMARY_TESTID}-detail`
   // The detail says only what the pill cannot: more rows than its one line holds, or the line itself when it is cut.
   const detailRepeatsChanged = changedExtra > 0 || lineTruncated
@@ -126,9 +137,9 @@ export function RunChangesSummary(): JSX.Element | null {
           // the user has it open, as wide as the pill, capped in height.
           className="absolute inset-x-0 bottom-full mb-2 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
         >
-          <dl className="m-0 flex flex-col gap-2">
-            {detailRepeatsChanged && (
-            <DetailLine label={lines.changed.length === 0 ? COPY.inputs : COPY.changed} id="changed">
+          <div className="m-0 flex flex-col gap-2">
+            {detailRepeatsChanged && changedHead !== null && (
+            <DetailLine label={changedLabel} id="changed">
               {lines.changed.length === 0 ? (
                 <span className="text-text-light">{lines.changedNote}</span>
               ) : (
@@ -164,7 +175,7 @@ export function RunChangesSummary(): JSX.Element | null {
             </DetailLine>
             )}
             {detailRepeatsMoved && (lines.moved.length > 0 || lines.movedNote !== null) && (
-              <DetailLine label={COPY.moved} id="moved">
+              <DetailLine label={movedLabel} id="moved">
                 {lines.movedNote !== null ? (
                   <span className="text-text-light">{lines.movedNote}</span>
                 ) : (
@@ -179,7 +190,7 @@ export function RunChangesSummary(): JSX.Element | null {
                 <span className="text-text-light">{lines.uncertain}</span>
               </DetailLine>
             )}
-          </dl>
+          </div>
           <div className="mt-2 flex justify-end">
             <button
               type="button"
@@ -196,14 +207,14 @@ export function RunChangesSummary(): JSX.Element | null {
         role="status"
         className="flex max-w-full items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2"
       >
-        <span className={`${typography.panelMeta} flex-none font-medium text-text-header`}>{COPY.title}</span>
+        <span className={`${typography.panelMeta} flex-none font-medium text-text-header`}>{COPY.title}{' · '}</span>
         <span
           ref={lineRef}
           data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-line`}
           className={`${typography.panelMeta} min-w-0 truncate text-text-body`}
-          title={[changedHead, movedHead].filter(Boolean).join(' · ')}
+          title={summaryTitle}
         >
-          {changedHead !== null && <span className="text-text-light">{lines.changed.length === 0 ? COPY.inputs : COPY.changed} </span>}
+          {changedLabel !== null && <span className="text-text-light">{changedLabel}</span>}
           {changedHead === null ? null : headLink ? (
             <button
               type="button"
@@ -225,13 +236,14 @@ export function RunChangesSummary(): JSX.Element | null {
           {changedExtra > 0 && <span className="text-text-light"> · +{changedExtra} more</span>}
           {movedHead !== null && (
             <>
-              <span className="text-text-light">{changedHead !== null ? ' · ' : ''}{COPY.moved} </span>
+              <span className="text-text-light">{changedHead !== null ? ' · ' : ''}{movedLabel}</span>
               {movedHead}
               {movedExtra > 0 && <span className="text-text-light"> · +{movedExtra} more</span>}
             </>
           )}
         </span>
-        {headPrefill && lines.changed[0] ? putBack(lines.changed[0].row, headPrefill, 'pill') : null}
+        {' '}
+        {headPrefill && lines.changed[0] ? <>{putBack(lines.changed[0].row, headPrefill, 'pill')}{' '}</> : null}
         <button
           type="button"
           aria-expanded={open}

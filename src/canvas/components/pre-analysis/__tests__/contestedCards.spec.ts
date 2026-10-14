@@ -269,7 +269,7 @@ describe('Bias findings in quality checks', () => {
     const biasCheck = result.current.qualityChecks.find(c => c.id === 'bias_bias1')
     expect(biasCheck).toBeDefined()
     expect(biasCheck!.pill).toBe('bias')
-    expect(biasCheck!.cta).toBe('Ask AI about this')
+    expect(biasCheck!.cta).toBe('Ask Olumi about this')
   })
 
   it('deduplicates confirmation bias when all_positive_edges check fires', () => {

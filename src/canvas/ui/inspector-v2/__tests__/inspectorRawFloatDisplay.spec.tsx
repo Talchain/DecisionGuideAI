@@ -64,8 +64,8 @@ const NODES = [
 ]
 
 /**
- * Seeds the edge state that makes `currentEstimatedWeight` non-null — the ONLY
- * state in which the estimate sentence renders at all.
+ * Seeds the edge state that makes `currentEstimatedWeight` non-null — the
+ * estimate confirmation still uses this gate, beside the surviving readout.
  *
  * Both conjuncts are required and they are different questions (the panel
  * carries its own trap-21 note about exactly this): `weightSource: 'cee'` says
@@ -88,9 +88,9 @@ function seedCeeEstimate(weight: number) {
   } as never)
 }
 
-/** The estimate sentence, bound by the one testid inside its container. */
+/** The surviving strength readout, after the duplicate estimate was merged. */
 function estimateSentence(): string {
-  const box = screen.getByTestId('edge-confirm-current-strength').closest('div')
+  const box = screen.getByTestId('edge-strength-spread')
   expect(box).not.toBeNull()
   const details = box!.querySelector('button')
   if (details && details.textContent?.includes('Show details')) fireEvent.click(details)
@@ -103,15 +103,16 @@ beforeEach(() => {
 })
 
 describe("EdgePanel — Olumi's current estimate is bounded, not a raw double", () => {
-  it('PRECONDITION: the seeded edge actually renders the estimate sentence', () => {
+  it('PRECONDITION: the seeded edge actually renders the surviving strength readout', () => {
     // Pins this spec's own precondition in-test. Without it, every assertion
-    // below could pass by the sentence being absent — a guard agreeing with
+    // below could pass by the readout being absent — a guard agreeing with
     // itself (trap 13b). If the render gate ever changes, this REDs first and
     // names the reason, rather than the format tests silently going vacuous.
     seedCeeEstimate(FOUNDER_RAW)
     render(<EdgePanel {...panelProps} />)
     expect(screen.getByTestId('edge-confirm-current-strength')).toBeTruthy()
-    expect(estimateSentence()).toContain('current estimate is')
+    expect(screen.getByTestId('edge-strength-spread')).toBeTruthy()
+    expect(estimateSentence()).toContain('0.5429')
   })
 
   it("does NOT print the founder's raw 17-significant-figure double", () => {
@@ -161,8 +162,9 @@ describe("EdgePanel — Olumi's current estimate is bounded, not a raw double", 
     // "estimate is 0.0005." literally contains "estimate is 0." — the regex
     // matched the leading zero of the very value it was meant to accept. It
     // must reject a BARE zero only, so the digit must not be followed by more
-    // number.
-    expect(text).not.toMatch(/estimate is\s*0(?![.\d])/)
+    // number. The surviving readout starts at its glyph, so the same numeric
+    // guard is now anchored there instead of the removed sentence prefix.
+    expect(text).not.toMatch(/^[●\s]*0(?![.\d])/)
   })
 })
 
@@ -370,16 +372,16 @@ const TINY_NEG = -0.00001
  * for "what number is displayed" — extract the number and compare it.
  */
 function estimateValue(): string {
-  const box = screen.getByTestId('edge-confirm-current-strength').closest('div')
+  const box = screen.getByTestId('edge-strength-spread')
   expect(box).not.toBeNull()
   const details = box!.querySelector('button')
   if (details && details.textContent?.includes('Show details')) fireEvent.click(details)
-  const m = (box!.textContent ?? '').match(/estimate is\s*[^\d-]*(-?[\d,]*\.?\d+)/)
+  const m = (box!.textContent ?? '').match(/^[●\s]*(-?[\d,]*\.?\d+)/)
   expect(m).not.toBeNull()
   return m![1]
 }
 
-describe('COLLAPSE CLASS — EdgePanel estimate sentence', () => {
+describe('COLLAPSE CLASS — EdgePanel strength readout', () => {
   it('SELF-CHECK: the value extractor reads the value position, not the prose', () => {
     // The extractor is now load-bearing for the two assertions below, so it is
     // pinned against a value whose rendering is already settled by the tests
@@ -401,9 +403,9 @@ describe('COLLAPSE CLASS — EdgePanel estimate sentence', () => {
     expect(estimateValue()).toBe('0')
   })
 
-  it('SCOPE CONTROL: a negative weight cannot reach this sentence at all', () => {
+  it('SCOPE CONTROL: a negative weight cannot reach the estimate confirmation at all', () => {
     // Pinned rather than assumed, and it is why there is no negative case for
-    // THIS surface: `currentEstimatedWeight` gates on `value >= 0`, so a
+    // THIS confirmation: `currentEstimatedWeight` gates on `value >= 0`, so a
     // negative-sign test here would pass vacuously on an absent element.
     seedCeeEstimate(TINY_NEG)
     render(<EdgePanel {...panelProps} />)

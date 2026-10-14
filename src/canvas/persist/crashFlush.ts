@@ -217,8 +217,9 @@ export function flushWorkToAutosave(): boolean {
       // Boundary cast — see CrashSnapshot doc: restore validates before use.
       ceeAnalysisReady: (snapshot.ceeAnalysisReady ?? undefined) as AutosaveData['ceeAnalysisReady'],
     }
-    saveAutosave(projectAutosaveData(source))
-    return true
+    // Report what was WRITTEN: a skipped write (stale tab, CAN-F2g; unreadable epoch) must not tell the user that
+    // reloading will restore their work (ErrorBoundary). Codex #2516 r1 P2.
+    return saveAutosave(projectAutosaveData(source))
   } catch {
     return false
   }

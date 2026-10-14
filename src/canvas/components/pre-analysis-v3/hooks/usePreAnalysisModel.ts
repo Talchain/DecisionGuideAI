@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * usePreAnalysisModel — the single derivation for every v3 panel section.
  *
@@ -163,7 +164,7 @@ export interface PreAnalysisModel {
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const draftCoaching = useCanvasStore(s => s.draftCoaching)
   // Retained across readiness invalidation — see `retainedDraftCoaching` in the
@@ -496,7 +497,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       if (analysisReadiness) {
         return {
           dot: 'muted' as const,
-          headline: FOOTER_COPY.notReady,
+          headline: analysisReadiness?.blockers[0]?.message ?? '',
           // ...and from the same LIST that authority decided on. `canRun` is
           // the run gate's verdict, and that gate counts only ACTIONABLE
           // blockers; composing from the raw list here would name an advisory
@@ -511,7 +512,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       const explanation = readiness?.confidence_explanation?.trim()
       return {
         dot: 'muted' as const,
-        headline: FOOTER_COPY.notReady,
+        headline: '',
         subline: explanation
           ? guardCeeText(explanation, FOOTER_COPY.notReadySubFallback).text
           : FOOTER_COPY.notReadySubFallback,

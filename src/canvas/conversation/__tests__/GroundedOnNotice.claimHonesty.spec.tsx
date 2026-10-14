@@ -102,9 +102,8 @@ function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMess
   }
 }
 
-function renderGrounded(groundedSelection: GroundedSelection) {
-  render(<MessageBubble message={makeMsg({ groundedSelection })} onChipClick={noop} />)
-  return screen.getByTestId('grounded-on-notice')
+function renderBubble(groundedSelection: GroundedSelection) {
+  return render(<MessageBubble message={makeMsg({ groundedSelection })} onChipClick={noop} />)
 }
 
 beforeEach(() => {
@@ -112,98 +111,34 @@ beforeEach(() => {
 })
 
 describe('grounding notice — ⭐⭐ the witnessed false provenance claim', () => {
-  it('THE WITNESS: an equity answer carrying a Warm-connection-density selection makes NO usage claim', () => {
-    const notice = renderGrounded({ element_ids: [WARM_ID], unresolved: 'none' })
-
-    // POSITIVE HALF — the element is still named, bound by canonical id. Without
-    // this, deleting the notice would satisfy the ban below by rendering nothing.
-    const named = screen.getAllByTestId('grounded-on-element')
-    expect(named).toHaveLength(1)
-    expect(named[0].getAttribute('data-element-id')).toBe(WARM_ID)
-
-    // ABSENCE HALF — and `answered using` is the exact string that shipped.
-    const text = (notice.textContent ?? '').toLowerCase()
-    expect(text.length).toBeGreaterThan(0)
+  // AI-first subtract (DL, 12 Oct; friction N4): the elements line ("You had {x} selected when you asked.") is REMOVED.
+  // The rows that pinned it ("states … SELECTED", the named discriminating pair, "multiple … all named") went with it.
+  // What stays is the ban: no usage claim, on any state, and now no naming of the selection at all.
+  it('THE WITNESS: an equity answer carrying a Warm-connection-density selection makes NO usage claim and names no element', () => {
+    const { container } = renderBubble({ element_ids: [WARM_ID], unresolved: 'none' })
+    // Positive control: the answer itself rendered, so the absence below is not an empty bubble.
+    expect(container.textContent).toContain('co-founder equity')
+    expect(screen.queryByTestId('grounded-on-notice')).toBeNull()
+    const text = (container.textContent ?? '').toLowerCase()
+    expect(text).not.toContain('you had')
+    expect(text).not.toContain(WARM_LABEL.toLowerCase())
     for (const claim of USAGE_CLAIMS) {
-      expect(
-        text,
-        `the notice must not claim the answer USED the selection (found "${claim}")`,
-      ).not.toContain(claim)
-    }
-  })
-
-  it('states the fact it can actually license: that the user had the element SELECTED', () => {
-    const notice = renderGrounded({ element_ids: [WARM_ID], unresolved: 'none' })
-    const text = (notice.textContent ?? '').toLowerCase()
-
-    expect(text).toContain('selected')
-    // Bound to THIS element by id, and the label is what the sentence names.
-    const named = screen.getAllByTestId('grounded-on-element')
-    expect(named[0].getAttribute('data-element-id')).toBe(WARM_ID)
-    expect(named[0].textContent).toContain(WARM_LABEL)
-  })
-
-  it('DISCRIMINATING PAIR: a DIFFERENT selected element is the one named, and the other is not', () => {
-    // Same answer text, same canvas — only the payload differs. An implementation
-    // that named "some node", or a fixed one, passes the case above and FAILS here.
-    const notice = renderGrounded({ element_ids: [EQUITY_ID], unresolved: 'none' })
-
-    const ids = screen
-      .getAllByTestId('grounded-on-element')
-      .map((el) => el.getAttribute('data-element-id'))
-    expect(ids).toEqual([EQUITY_ID])
-    expect(ids).not.toContain(WARM_ID)
-    expect(screen.queryByText(WARM_LABEL)).toBeNull()
-
-    // The claim ban holds for this element too — it is a property of the
-    // sentence, not of one fixture.
-    const text = (notice.textContent ?? '').toLowerCase()
-    for (const claim of USAGE_CLAIMS) {
-      expect(text, `usage claim "${claim}" leaked on the second payload`).not.toContain(claim)
+      expect(text, `the bubble must not claim the answer USED the selection (found "${claim}")`).not.toContain(claim)
     }
   })
 
   it('the ban holds across EVERY unresolved state — the whole domain, not the witnessed path', () => {
-    // A provenance line's truth condition is a claim about the whole domain, so
-    // the ban is asserted on all three members rather than on the one witnessed.
     for (const unresolved of ['none', 'not_in_model', 'could_not_check'] as const) {
-      const { unmount } = render(
-        <MessageBubble
-          message={makeMsg({ groundedSelection: { element_ids: [WARM_ID], unresolved } })}
-          onChipClick={noop}
-        />,
-      )
-      const notice = screen.getByTestId('grounded-on-notice')
-      const text = (notice.textContent ?? '').toLowerCase()
-
-      // Positive control per member: the element is named here too, so a state
-      // that rendered nothing could not pass the ban by silence.
-      expect(
-        screen.getAllByTestId('grounded-on-element')[0].getAttribute('data-element-id'),
-        `element not named for unresolved="${unresolved}"`,
-      ).toBe(WARM_ID)
+      const { container, unmount } = renderBubble({ element_ids: [WARM_ID], unresolved })
+      const text = (container.textContent ?? '').toLowerCase()
+      // Positive control per member: the two unresolved states still disclose, so silence cannot pass the ban.
+      if (unresolved === 'none') expect(screen.queryByTestId('grounded-on-notice')).toBeNull()
+      else expect(screen.getByTestId('grounded-on-unresolved').textContent).toMatch(/selected/)
+      expect(text, `selection named on unresolved="${unresolved}"`).not.toContain(WARM_LABEL.toLowerCase())
       for (const claim of USAGE_CLAIMS) {
-        expect(text, `usage claim "${claim}" leaked on unresolved="${unresolved}"`).not.toContain(
-          claim,
-        )
+        expect(text, `usage claim "${claim}" leaked on unresolved="${unresolved}"`).not.toContain(claim)
       }
       unmount()
-    }
-  })
-
-  it('multiple selected elements are all named, and still without a usage claim', () => {
-    const notice = renderGrounded({
-      element_ids: [WARM_ID, EQUITY_ID],
-      unresolved: 'none',
-    })
-
-    expect(
-      screen.getAllByTestId('grounded-on-element').map((el) => el.getAttribute('data-element-id')),
-    ).toEqual([WARM_ID, EQUITY_ID])
-
-    const text = (notice.textContent ?? '').toLowerCase()
-    for (const claim of USAGE_CLAIMS) {
-      expect(text, `usage claim "${claim}" leaked on a multi-element notice`).not.toContain(claim)
     }
   })
 })

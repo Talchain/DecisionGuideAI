@@ -96,10 +96,10 @@ describe('ShareDrawer decision summary', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders a Copy decision summary button', () => {
+  it('renders a Copy scenario summary button', () => {
     render(<ShareDrawer isOpen={true} onClose={() => {}} />)
 
-    expect(screen.getByRole('button', { name: 'Copy decision summary' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy scenario summary' })).toBeInTheDocument()
   })
 
   it('copies a formatted decision summary to the clipboard when clicked', async () => {
@@ -137,7 +137,7 @@ describe('ShareDrawer decision summary', () => {
 
     render(<ShareDrawer isOpen={true} onClose={() => {}} />)
 
-    const button = screen.getByRole('button', { name: 'Copy decision summary' })
+    const button = screen.getByRole('button', { name: 'Copy scenario summary' })
     fireEvent.click(button)
 
     await waitFor(() => {
@@ -146,7 +146,7 @@ describe('ShareDrawer decision summary', () => {
 
     const summaryArg = writeText.mock.calls[0][0] as string
 
-    expect(summaryArg).toContain('Decision: Choose pricing strategy')
+    expect(summaryArg).toContain('Scenario: Choose pricing strategy')
     expect(summaryArg).toContain('Goal: Maximise revenue while maintaining market share')
     expect(summaryArg).toContain('Time horizon: Next 2 quarters')
     expect(summaryArg).toContain('Most likely outcome:')
@@ -171,7 +171,7 @@ describe('ShareDrawer decision summary', () => {
 
     render(<ShareDrawer isOpen={true} onClose={() => {}} />)
 
-    const button = screen.getByRole('button', { name: 'Copy decision summary' })
+    const button = screen.getByRole('button', { name: 'Copy scenario summary' })
     fireEvent.click(button)
 
     await waitFor(() => {
@@ -179,6 +179,6 @@ describe('ShareDrawer decision summary', () => {
     })
 
     const summaryArg = writeText.mock.calls[0][0] as string
-    expect(summaryArg).toContain('This decision has not yet been framed or analysed.')
+    expect(summaryArg).toContain('This scenario has not yet been framed or analysed.')
   })
 })

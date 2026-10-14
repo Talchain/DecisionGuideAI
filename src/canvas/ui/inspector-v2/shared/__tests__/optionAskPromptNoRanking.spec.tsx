@@ -19,7 +19,7 @@
  *
  * ⚠ BOUND BY IDENTITY, NOT BY A VALUE PREDICATE (trap 19). The render test
  * clicks `inspector-quick-ask` — the exact testid of the option panel's own ask
- * button — and reads the text that reached `_prefillChat`. It does not search
+ * button — and reads the text that reached `_dispatchAction`. It does not search
  * the DOM for "a button containing a question", which a neighbouring control
  * could satisfy.
  */
@@ -30,6 +30,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorQuickActions } from '../InspectorQuickActions'
 import { ASK_TEMPLATES, resolveAskTemplate } from '../../inspectorStrings'
 import { useGuidanceStore } from '../../../../stores/guidanceStore'
+import { useCanvasStore } from '../../../../store'
 
 vi.mock('../../../../conversation/revealOlumi', () => ({
   revealOlumiSurface: vi.fn(),
@@ -43,13 +44,13 @@ vi.mock('../../../../conversation/revealOlumi', () => ({
 const RANKING_LEXICON =
   /\b(compares?|compared|comparing|comparison|versus|vs\.?|winner|wins?|winning|beats?|outperforms?|ranks?|ranked|ranking|best|better|superior|which one)\b/i
 
-/** The user is the author and the decision-maker — the ask must address them. */
-const FIRST_PERSON = /\b(I|me|my|mine|we|us|our)\b/
+const ASSUMPTIONS = /assumed to depend on/
 
 const OPTION_LABEL = 'Pilot in Germany'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  useCanvasStore.setState({ nodes: [{ id: 'opt-de-1', type: 'option', position: { x: 0, y: 0 }, data: { label: OPTION_LABEL } }], edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   useGuidanceStore.setState({
     _sendMessage: null,
     _prefillChat: null,
@@ -62,8 +63,8 @@ describe('the instrument itself', () => {
     expect(RANKING_LEXICON.test('How does Pilot in Germany compare to the other options?')).toBe(true)
   })
 
-  it('POSITIVE CONTROL — the first-person pattern can fail', () => {
-    expect(FIRST_PERSON.test('What drives this the most?')).toBe(false)
+  it('POSITIVE CONTROL — the assumptions pattern can fail', () => {
+    expect(ASSUMPTIONS.test('What drives this the most?')).toBe(false)
   })
 })
 
@@ -82,8 +83,8 @@ describe('ASK_TEMPLATES.option — the sentence the option panel asks on the use
     expect(template).not.toMatch(RANKING_LEXICON)
   })
 
-  it('invites the user’s own judgement rather than substituting for it', () => {
-    expect(template).toMatch(FIRST_PERSON)
+  it('asks what the element is assumed to depend on', () => {
+    expect(template).toMatch(ASSUMPTIONS)
   })
 
   it('resolves with the element label substituted in', () => {
@@ -94,9 +95,9 @@ describe('ASK_TEMPLATES.option — the sentence the option panel asks on the use
 })
 
 describe('the option panel’s Ask Olumi button — the live path', () => {
-  it('prefills a question that names the option and asks for no ranking', () => {
+  it('sends a chip question that names the option and asks for no ranking', () => {
     const prefill = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill } as never)
+    useGuidanceStore.setState({ _dispatchAction: prefill, _isConversationBusy: () => false } as never)
 
     render(
       <InspectorQuickActions
@@ -109,10 +110,10 @@ describe('the option panel’s Ask Olumi button — the live path', () => {
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
 
     expect(prefill).toHaveBeenCalledTimes(1)
-    const sent = prefill.mock.calls[0][0] as string
+    const sent = prefill.mock.calls[0][0].message as string
     expect(sent).toContain(OPTION_LABEL)
     expect(sent).toContain('?')
     expect(sent).not.toMatch(RANKING_LEXICON)
-    expect(sent).toMatch(FIRST_PERSON)
+    expect(prefill.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip' })
   })
 })

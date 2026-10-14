@@ -119,22 +119,22 @@ describe('served pricing run — ONE main driver across the card and the Analysi
     })
   })
 
-  it('the rendered pill reads exactly "Main driver: Top Account Revenue Concentration"', () => {
+  it('the rendered pill reads exactly "Moves the result most: Top Account Revenue Concentration"', () => {
     seedServedRun()
     const model = heroModel()
     render(<AnalysisHeroPanel model={model} rerunDisabled={false} onFocusTarget={() => {}} />)
     expect(screen.getByTestId('hero-quicklink-driver').textContent).toBe(
       // Re-pinned 28 Sep 2026 (DL 5869404773): this run carries no value_source for Top Account, so the
       // hero adds the card's "no value yet" (theMainDriverWithNoValueSaysSo.spec.tsx). The identity is unchanged.
-      'Main driver: Top Account Revenue Concentration · no value yet',
+      'Moves the result most: Top Account Revenue Concentration · no value yet',
     )
-    expect(screen.queryByText(/Main driver: Enterprise Revenue Cannibali[sz]ation Risk/)).toBeNull()
+    expect(screen.queryByText(/Moves the result most: Enterprise Revenue Cannibali[sz]ation Risk/)).toBeNull()
   })
 
   it('the pill-less footer line names the same factor', () => {
     seedServedRun()
     // Re-pinned 28 Sep 2026 (DL 5869404773): the run held no value for Top Account.
-    expect(heroModel().mainReason).toBe('Main driver: Top Account Revenue Concentration · no value yet.')
+    expect(heroModel().mainReason).toBe('Moves the result most: Top Account Revenue Concentration · no value yet.')
   })
 
   describe('the leader follows the card in both directions (served rows, one field changed)', () => {

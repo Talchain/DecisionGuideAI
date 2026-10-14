@@ -64,7 +64,7 @@ function entries(): MenuEntry[] {
   return [
     { id: 'add-node', label: 'Add node', enabled: true, action: () => {} },
     { id: 'cut', label: 'Cut', enabled: true, action: () => {} },
-    { id: 'ask-ai', label: 'Ask AI', enabled: true, action: () => {} },
+    { id: 'ask-ai', label: 'Ask Olumi', enabled: true, action: () => {} },
   ] as unknown as MenuEntry[]
 }
 const idsOf = (list: MenuEntry[]) =>

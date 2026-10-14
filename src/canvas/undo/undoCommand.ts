@@ -1,3 +1,4 @@
+import { clearPendingEditNotes } from '../editNotes/reportManualEditReceipt'
 /**
  * THE CANVAS UNDO / REDO COMMAND — ⌘Z, ⌘⇧Z / ⌘Y, the rail's Undo and the
  * context menu all end here.
@@ -27,6 +28,7 @@ import { editDeliveryHold } from '../registration/editDeliveryHold'
 import { applyRestoredGraph, settleRestoredModel } from '../versions/applyRestoredModel'
 import { newRestoreMutationId } from '../versions/restoreMutationId'
 import { useUndoJournalStore } from './captureUndoReceipt'
+import { AI_CHANGE_UNDO_LABEL } from './captureAgentTurnForUndo'
 import {
   nextRedo,
   nextUndo,
@@ -36,6 +38,7 @@ import {
   type NextRestore,
 } from './undoJournal'
 import { logger } from '../../lib/logger'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 
 export type UndoDirection = 'undo' | 'redo'
 
@@ -46,6 +49,7 @@ export type UndoCommandOutcome =
   | 'busy'
   | 'sign_in_required'
   | 'refused_stale'
+  | 'refused_changed'
   | 'failed'
 
 export const UNDO_NOTICE = {
@@ -57,6 +61,9 @@ export const UNDO_NOTICE = {
   notSaved: "Undo works on a saved model, and this one isn't saved yet.",
   stale:
     "The model changed since your last edit, so Undo can't step back safely. Version history can restore an earlier version.",
+  staleAi:
+    "The model changed since Olumi's change, so Undo can't step back safely. Version history can restore an earlier version.",
+  changed: "Olumi's change is no longer the next change to undo. Nothing was changed.",
   failed: "That couldn't be undone right now. Nothing was changed.",
 } as const
 
@@ -85,7 +92,8 @@ export function peekCanvasUndo(direction: UndoDirection): NextRestore {
 type RestoreResult = Awaited<ReturnType<typeof restoreModelVersion>>
 const RETRYABLE: ReadonlySet<RestoreResult['status']> = new Set(['unavailable', 'unusable'])
 
-export async function runCanvasUndo(direction: UndoDirection): Promise<UndoCommandOutcome> {
+export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: string): Promise<UndoCommandOutcome> {
+  clearPendingEditNotes()
   const scenarioId = useCanvasStore.getState().currentScenarioId
   // ⭐ THE READER CLASS FIRST, before the journal (Undo S5). A guest's journal is always empty — versions are
   // owned-only (MV001), so no receipt is ever captured — and "Nothing to undo." after a guest's own edit would be
@@ -103,6 +111,10 @@ export async function runCanvasUndo(direction: UndoDirection): Promise<UndoComma
   }
 
   const next = peekCanvasUndo(direction)
+  if (expectedTurnId !== undefined && (direction !== 'undo' || next.kind !== 'restore' || next.step.gestureId !== expectedTurnId)) {
+    notify(UNDO_NOTICE.changed, 'warning')
+    return 'refused_changed'
+  }
   if (next.kind === 'nothing' || next.kind === 'unknown_head') {
     notify(direction === 'undo' ? UNDO_NOTICE.nothingToUndo : UNDO_NOTICE.nothingToRedo)
     return 'nothing'
@@ -113,9 +125,22 @@ export async function runCanvasUndo(direction: UndoDirection): Promise<UndoComma
   }
 
   const identity = await getSessionIdentity()
+  // An edit or another restore may have started during the session read.
+  if (isCanvasUndoBusy()) {
+    notify(UNDO_NOTICE.busy)
+    return 'busy'
+  }
   if (!identity.userId) {
     notify(UNDO_NOTICE.signInRequired)
     return 'sign_in_required'
+  }
+
+  // The reply's step must still be next after the session read, before any restore leaves.
+  const current = peekCanvasUndo(direction)
+  if (expectedTurnId !== undefined && (useCanvasStore.getState().currentScenarioId !== scenarioId
+    || current.kind !== 'restore' || current.step !== next.step)) {
+    notify(UNDO_NOTICE.changed, 'warning')
+    return 'refused_changed'
   }
 
   restoreInFlight = true
@@ -152,6 +177,8 @@ export async function runCanvasUndo(direction: UndoDirection): Promise<UndoComma
             ? undoSucceeded(journal, next.step, head)
             : redoSucceeded(journal, next.step, head)
       useUndoJournalStore.setState({ journal: moved })
+      // The restored model is a canvas-local commit: it gets its own fresh analysis.
+      noteCanvasLocalCommit(result.version.versionId)
       void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
         logger.warn('canvas_undo.settle_failed', {
           scenarioId,
@@ -164,7 +191,7 @@ export async function runCanvasUndo(direction: UndoDirection): Promise<UndoComma
 
     if (result.status === 'conflict') {
       useUndoJournalStore.setState({ journal: restoreRefused(useUndoJournalStore.getState().journal) })
-      notify(UNDO_NOTICE.stale, 'warning')
+      notify(next.step.label === AI_CHANGE_UNDO_LABEL ? UNDO_NOTICE.staleAi : UNDO_NOTICE.stale, 'warning')
       return 'refused_stale'
     }
     if (result.status === 'signInRequired') {

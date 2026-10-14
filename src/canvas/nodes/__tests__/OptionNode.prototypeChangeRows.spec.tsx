@@ -52,6 +52,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { canonicalFixtureRunView } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 vi.mock('@xyflow/react', async () => {
@@ -148,6 +149,22 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
+// Layout tests consume a real licensed cell independently of the mocked runs share.
+vi.mock('../shared/useOptionChanceCell', () => ({
+  useOptionChanceCell: (id: string) => {
+    const results = useCanvasStore(state => state.results)
+    const nodes = useCanvasStore(state => state.nodes)
+    const context = {
+      goalChanceHeroSays: true,
+      labelOf: (nodeId: string) => {
+        const label = nodes.find(node => node.id === nodeId)?.data.label
+        return typeof label === 'string' ? label : null
+      },
+    }
+    return canonicalFixtureRunView(results.report, context).chanceCellOf(id, context)
+  },
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -180,7 +197,11 @@ const baseProps = {
   draggable: true,
 }
 
-const COMPLETE = { status: 'complete', report: {} }
+const COMPLETE = { status: 'complete', report: { inference_warnings: [{
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['option-1', 'option-2', 'option-b'],
+  pct_by_option: { 'option-1': 41, 'option-2': 32, 'option-b': 12 },
+  target: { comparator: 'at_least', value: 100, unit: 'customers' },
+}] } }
 
 type StoreNode = { id: string; type: string; data: Record<string, unknown> }
 
@@ -262,11 +283,13 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(t.has('line-clamp-1')).toBe(false)
     })
 
-    it('`from → to` is never inside a truncating element, and the source mark TRAILS the value', () => {
+    it('`from → to` is never inside a truncating element, and the source mark is in the bottom band', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-conv')!
       const mark = onCard('option-change-row-estimate-option-1-f-conv')!
-      expect(dd.contains(mark)).toBe(true)
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
       expect(dd.textContent!.startsWith('→ 7%')).toBe(true)
       let el: HTMLElement | null = dd
       while (el && el !== document.body) {
@@ -413,12 +436,12 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
   })
 
   describe('post-run: the rows STAY and the run adds below them', () => {
-    it('the card carries the rows AND the share line, rows first', () => {
+    it('the card carries the rows AND the chance line, rows first', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const rows = onCard('option-change-rows-option-1')
       const share = onCard('option-analysis-currency-option-1')
-      expect(share, 'precondition: the share line renders').not.toBeNull()
+      expect(share, 'precondition: the chance line renders').not.toBeNull()
       expect(rows, 'the rows survive the run').not.toBeNull()
       expect(follows(rows!, share!)).toBe(true)
       expect(countAll('option-change-rows-option-1')).toBe(1)
@@ -454,18 +477,18 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
     // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): "Reference for the other alternatives." is dropped.
     it('a DECLARED baseline with no changes reads "Baseline · no changes", and no reference sentence', () => {
       renderCard({ id: 'option-b' })
-      expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-b')?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
       expect(document.body.textContent ?? '').not.toContain('Reference for the other alternatives.')
     })
 
-    it('post-run the baseline keeps both lines on the card, above the share line', () => {
+    it('post-run the baseline keeps both lines on the card, above the chance line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', store: { results: COMPLETE } })
       const meta = onCard('option-baseline-meta-option-b')
       const share = onCard('option-analysis-currency-option-b')
       expect(share).not.toBeNull()
-      expect(meta?.textContent).toBe('Baseline · no changes')
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(follows(meta!, share!)).toBe(true)
     })
 
@@ -484,7 +507,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
 
     it('contrast: a declared baseline with no OTHER option has nothing to be the reference for', () => {
       renderCard({ id: 'option-b', store: { nodes: [FACTOR_PRICE, BASELINE] } })
-      expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-b')?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
     })
   })

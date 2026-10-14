@@ -1,68 +1,4 @@
-/**
- * ONE ROW, ONE CHANNEL PER MEANING — the compact line stops saying the same
- * thing three times, and stops stamping a card's badge on something that is
- * not a card.
- *
- * ## The defect, photographed on deployed staging (b7c8c74e)
- *
- * A live coaching row rendered as: a blue DOT, a lightbulb ICON drawn on top
- * of it, a "Could fix" PILL, then the producer's title. Three ornaments before
- * a single word of content, in a 416px dock.
- *
- * ⛔ THE DOT WAS NOT MERELY REDUNDANT, IT WAS COLLIDING. `.blockBadgeDot` is
- * `position:absolute; top:8px; left:8px`, and its clearance is reserved by
- * `.blockWithBadge > div { padding-left: 24px }` — a CHILD selector that only
- * matches a `div`. When the card became a compact line the child became
- * `<details>`, the selector silently stopped matching, no clearance was
- * reserved, and the dot landed on the summary's first item — the glyph, which
- * sits at the row's own `padding: 4px 8px`. No error, no failing test: a CSS
- * selector that stops matching is silent by construction.
- *
- * ⭐ AND THE DOT IS A CARD'S BADGE. DS v5 §21.2 defines it as part of a BLOCK:
- * "Base block: `bg-panel`, `rounded-[20px]`, 24px padding, `shadow-1`.
- * Type-specific top borders (3px). Block type badges are small coloured dots
- * (8px diameter, main colour fill) top-left." The line correctly dropped the
- * panel, the radius, the padding and the top border — every other limb of that
- * treatment. The dot survived only because it is painted by the PARENT
- * (`InlineBlocks`), where `suppressHeader` could not reach it. So this is not
- * "hide the dot to fix an overlap"; it is the line finishing the job of not
- * being a card.
- *
- * ## Why the pill goes, and why that needed the glyphs first
- *
- * `guidanceCategoryIcon` was BINARY — `guidanceCategoryTone` collapses four
- * producer categories onto two tones, and the glyph was chosen from the tone.
- * So `could_fix` and `technique` both drew `Lightbulb`/`text-info`: on the
- * photographed row the glyph distinguished NOTHING, and the pill was the only
- * element resolving which of the four a row actually was.
- *
- * ⛔ THAT IS WHY THE PILL COULD NOT SIMPLY BE DELETED, and an earlier pass in
- * this lane said so and stopped there: dropping it while the glyph stayed
- * binary would have left a four-value distinction carried by TINT ALONE, which
- * is WCAG 1.4.1 (Use of Colour) failing at Level A. The fix is not to keep the
- * pill — it is to make the glyph carry the category in SHAPE, which is a
- * non-colour channel, and then the pill is genuinely redundant.
- *
- * ⚠ SHAPE CARRIES THE CATEGORY; TONE STILL CARRIES URGENCY. The two danger-
- * tinted categories take two different alert shapes, the two info-tinted ones
- * take two different non-alert shapes. Tint is NOT re-derived here — it stays
- * `guidanceCategoryTone`'s answer, so colour keeps meaning "how urgent" and
- * shape now means "which kind". That is the estate's own three-channel rule
- * (shape = what it is, colour = how it's doing) applied rather than restated.
- *
- * ⚠⚠ AND THE PILL WAS THE ROW'S ONLY ACCESSIBLE NAME FOR THE CATEGORY. The
- * glyph shipped `aria-hidden="true"`, so deleting the pill without naming the
- * glyph would remove the category from assistive technology ENTIRELY — trading
- * a visual defect for an accessibility one. The last arm pins that.
- *
- * ## Instrument notes
- *
- * Every absence assertion is paired with a positive control that fires on the
- * SAME matcher, because an absence assertion whose matcher is inert passes by
- * testing nothing. The dot arms carry two such controls (a pinned block, which
- * never collapses, and the flag-off card) so "no dot on a line" cannot pass
- * merely because the dot stopped rendering everywhere.
- */
+/** U7: ordinary coaching renders as full cards. Category semantics remain covered. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
@@ -110,7 +46,7 @@ const renderBlocks = (blocks: ConversationBlock[]) =>
 
 const glyphClassesIn = (blockId: string): string =>
   Array.from(
-    screen.getByTestId(`coaching-line-summary-${blockId}`).querySelectorAll('svg'),
+    document.querySelector(`[data-block-id="${blockId}"]`)!.querySelectorAll('svg'),
   )
     .map((svg) => svg.getAttribute('class') ?? '')
     .join(' ')
@@ -138,7 +74,7 @@ describe('the category glyph separates all four producer categories by SHAPE', (
   })
 
   it.each(Object.entries(EXPECTED_GLYPH))(
-    'renders %s as %s on the compact line',
+    'renders %s as %s on the full card',
     (category, expectedGlyph) => {
       renderBlocks([coaching(1, { category } as Partial<V5CoachingBlock>)])
       expect(glyphClassesIn('co_1')).toContain(expectedGlyph)
@@ -195,17 +131,17 @@ describe('the category glyph separates all four producer categories by SHAPE', (
 })
 
 // ---------------------------------------------------------------------------
-// 2. A line is not a card, so it carries no card badge
+// 2. Expanded cards retain the card badge
 // ---------------------------------------------------------------------------
 
-describe('the block badge dot belongs to the CARD and never to the line', () => {
-  it('renders NO badge dot when a coaching block renders as a compact line', () => {
+describe('the full card retains its badge', () => {
+  it('renders its card badge with general compaction switched off', () => {
     renderBlocks([coaching(1, { category: 'could_fix' } as Partial<V5CoachingBlock>)])
-    expect(screen.queryByTestId('coaching-line-co_1'), 'precondition: it IS a line').not.toBeNull()
+    expect(screen.queryByTestId('coaching-line-co_1'), 'U7: no general compact line').toBeNull()
     expect(
       screen.queryByTestId('block-badge-dot'),
-      'an 8px absolutely-positioned dot lands on the glyph at the same 8px',
-    ).toBeNull()
+      'the full card keeps its badge',
+    ).not.toBeNull()
   })
 
   it('CONTROL — the same block renders a badge dot as a CARD when the flag is off', () => {
@@ -228,14 +164,14 @@ describe('the block badge dot belongs to the CARD and never to the line', () => 
 })
 
 // ---------------------------------------------------------------------------
-// 3. The pill goes, and the glyph keeps the category reachable
+// 3. Visible category text remains accessible on the full card
 // ---------------------------------------------------------------------------
 
-describe('the category pill is retired now the glyph carries the category', () => {
-  it('renders NO category pill on the compact line', () => {
+describe('the full card keeps its visible category', () => {
+  it('renders the category on the full card', () => {
     renderBlocks([coaching(1, { category: 'could_fix' } as Partial<V5CoachingBlock>)])
-    expect(screen.queryByTestId('coaching-line-co_1'), 'precondition: it IS a line').not.toBeNull()
-    expect(screen.queryByTestId('coaching-line-category-co_1')).toBeNull()
+    expect(screen.queryByTestId('coaching-line-co_1'), 'U7: no general compact line').toBeNull()
+    expect(screen.getByText('Could fix')).toBeVisible()
   })
 
   it('CONTROL — the pill is still rendered on the full CARD with the flag off', () => {
@@ -252,15 +188,10 @@ describe('the category pill is retired now the glyph carries the category', () =
     ['should_fix', 'Should fix'],
     ['could_fix', 'Could fix'],
     ['technique', 'Technique'],
-  ])('names the %s glyph "%s" for assistive technology', (category, label) => {
-    // ⚠⚠ THE ROW'S ONLY ACCESSIBLE NAME. The pill carried this text; with the
-    // pill gone the glyph must carry it, or the category is visible to sighted
-    // users and absent for everyone else.
+  ])('keeps the %s category "%s" accessible as card text', (category, label) => {
+    // The decorative glyph is hidden from assistive technology; visible text names the category.
     renderBlocks([coaching(1, { category } as Partial<V5CoachingBlock>)])
-    const named = within(
-      screen.getByTestId('coaching-line-summary-co_1'),
-    ).getByLabelText(label)
-    expect(named).toBeInTheDocument()
-    expect(named.tagName.toLowerCase(), 'the NAME belongs to the glyph').toBe('svg')
+    const card = document.querySelector('[data-block-id="co_1"]') as HTMLElement
+    expect(within(card).getByText(label)).toBeVisible()
   })
 })

@@ -42,6 +42,8 @@ interface SourceProvenancePillProps {
    * AIQ 5921018606). The stamp alone (`user_assumption`) cannot say so, so the caller passes the derived fact.
    */
   accepted?: boolean
+  /** Data layer Phase 1: the edge provenance classifier's mark kind, when the row has one; it wins. */
+  kind?: ValueProvenanceKind
 }
 
 /**
@@ -60,6 +62,7 @@ interface SourceProvenancePillProps {
  */
 const BORDER: Record<ValueProvenanceKind, string> = {
   brief:      'border-info/30',
+  unverified_brief: 'border-panel-border',
   ai:         'border-warning/30',
   accepted:   'border-warning/30', // Olumi's figure, accepted: Olumi's paint (only `classifyObservedValueProvenance` returns it)
   confirmed:  'border-success/30',
@@ -71,8 +74,8 @@ const BORDER: Record<ValueProvenanceKind, string> = {
 
 const FALLBACK = { label: 'Not set', border: 'border-panel-border' }
 
-export function SourceProvenancePill({ source, showWhenAbsent = true, accepted = false }: SourceProvenancePillProps) {
-  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
+export function SourceProvenancePill({ source, showWhenAbsent = true, accepted = false, kind }: SourceProvenancePillProps) {
+  const cls = kind ? { kind } : accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   const config = cls
     ? { label: VALUE_PROVENANCE_LABEL[cls.kind], border: BORDER[cls.kind] }
     : FALLBACK

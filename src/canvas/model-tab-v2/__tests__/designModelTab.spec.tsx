@@ -170,12 +170,13 @@ describe('MODEL-3 — group toggles are panelBody with a kind mark, not a second
 })
 
 describe('MODEL-9 — a selected row is an outline, never a 1.03:1 fill', () => {
-  it('selected renders ring-1 ring-inset ring-info and carries no bg-panel-hover fill', () => {
+  it('selected renders a NEUTRAL ring-1 ring-inset ring-gray-400, never blue, and carries no bg-panel-hover fill (P50, Paul audit #2)', () => {
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" selected />)
     const li = screen.getByTestId('model-row-v2-f1')
     expect(li.className).toMatch(/ring-1/)
     expect(li.className).toMatch(/ring-inset/)
-    expect(li.className).toMatch(/ring-info/)
+    expect(li.className).toMatch(/ring-gray-400/)
+    expect(li.className).not.toMatch(/ring-(info|primary|sky|blue|indigo)/)
     expect(li.className).not.toMatch(/bg-panel-hover/)
   })
 

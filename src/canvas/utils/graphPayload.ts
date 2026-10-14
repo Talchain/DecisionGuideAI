@@ -182,7 +182,9 @@ export function getRecommendedOptionInterventions(
     let maxWinProb = -1
     let winnerId: string | null = null
     for (const [optId, prob] of Object.entries(report.option_probabilities)) {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: picks the leading option id for the request payload; no chance is said
       if (prob.win_probability !== undefined && prob.win_probability > maxWinProb) {
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: picks the leading option id for the request payload; no chance is said
         maxWinProb = prob.win_probability
         winnerId = optId
       }

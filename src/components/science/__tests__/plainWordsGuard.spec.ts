@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest'
 
 // Small explicit ratchet, not a complete analyser. It catches known raw-number
 // formatter patterns and prevents new Compare renderers from being introduced.
+// 2026-10-07: compare-tab/TrajectorySection.tsx and TransitionCard.tsx left this ratchet when the
+// pre-v3 Compare body was deleted (zero production importers); a deleted renderer cannot regress.
 const baseline = new Set([
   'src/canvas/components/CompareView.tsx',
-  'src/canvas/compare-tab/TrajectorySection.tsx',
 ])
 const root = resolve(__dirname, '../../../..')
-const candidates = [...baseline, 'src/canvas/compare/EdgeDiffTable.tsx', 'src/canvas/compare-tab/TransitionCard.tsx']
+const candidates = [...baseline, 'src/canvas/compare/EdgeDiffTable.tsx']
 
 describe('plain words first raw-science ratchet', () => {
   it('does not add or regress raw science renderers', () => {

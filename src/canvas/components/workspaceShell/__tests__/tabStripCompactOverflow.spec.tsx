@@ -61,11 +61,35 @@ describe('at 280px the four tabs keep their full labels with the stale mark (ser
     }
   })
 
-  it('CONTRAST: the wide strip keeps the contract\'s 8px padding and 4px gap', () => {
+  it('CONTRAST: the wide strip keeps the contract\'s 8px tab padding', () => {
     draw(SHELL_TABSTRIP_COMPACT_BELOW_PX + 80)
-    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-1\b/)
-    for (const t of screen.getAllByRole('tab')) expect(t.className).toMatch(/\bpx-2\b/)
+    // Paul 14 Oct 2026 (tabs evenly spaced with dividers): the tablist gap is 0 in BOTH modes now — the spacing
+    // lives inside each `flex-auto` tab, so the divider at a tab's edge sits midway between two labels.
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-0\b/)
+    expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bgap-1\b/)
+    for (const t of screen.getAllByRole('tab')) {
+      expect(t.className).toMatch(/\bpx-2\b/)
+      expect(t.className).not.toMatch(/\bpx-1\b/)
+    }
   })
+})
+
+describe('Paul 14 Oct 2026: tabs spread evenly across the row, with a divider between neighbours', () => {
+  for (const [name, width] of [['compact', 280], ['wide', SHELL_TABSTRIP_COMPACT_BELOW_PX + 80]] as const) {
+    it(`${name}: every tab is \`flex-auto\` (not \`flex-initial\`) and carries the divider, hidden on the first`, () => {
+      draw(width)
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs.length).toBe(surfaces.length)
+      for (const t of tabs) {
+        expect(t.className).toMatch(/(^|\s)flex-auto(\s|$)/)
+        expect(t.className).not.toMatch(/(^|\s)flex-initial(\s|$)/)
+        expect(t.className).toMatch(/(^|\s)relative(\s|$)/)
+        expect(t.className).toMatch(/(^|\s)before:w-px(\s|$)/)
+        expect(t.className).toMatch(/(^|\s)before:bg-panel-border(\s|$)/)
+        expect(t.className).toMatch(/(^|\s)first:before:hidden(\s|$)/)
+      }
+    })
+  }
 })
 
 describe('gap NARROW-1: at 280px the strip stays one row, and both folded controls stay reachable', () => {

@@ -70,10 +70,10 @@
  * application owns the write. An optimistic `threshold_source: 'user'` stamp
  * alongside the dispatch is exactly the fabricated provenance that produced the
  * reversion above - the label would claim authorship the shared model had not
- * accepted. The local write SURVIVES on the `local_only` path only, where there
- * is no dispatcher to own it and the copy says so plainly.
+ * accepted. Without a dispatcher the draft is refused and stays open; the
+ * shared refusal disclosure tells the reader that nothing was saved.
  */
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowUp, Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -81,7 +81,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 import {
   declaredGoalUnit,
-  goalTargetFrameIsUnread,
+  goalTargetMeaningUnread,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
@@ -89,7 +89,7 @@ import {
   goalTargetBound, goalTargetComparator, goalTargetEditDirection, resolveGoalTargetWithOwnRow,
 } from '../../../../canvas/domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
-import { formatGoalTarget } from '../../utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import type {
   SystemEventSendSettlement,
@@ -101,7 +101,9 @@ import {
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
 import { action, icon } from '../panelSurfaces'
+import { NodeMark } from '../nodeMarks'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { askAi } from '../../../../canvas/conversation/askAi'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
@@ -167,7 +169,7 @@ const SEND_WORDS_LABEL = 'Discuss with Olumi'
  * header records.
  */
 const SUCCESS_WORDS_SENT_NOTICE =
-  'Sent to Olumi as a message. There is no words field on the model yet, so this is not stored. See it in the conversation.'
+  'Sent to Olumi. See it in the conversation.'
 
 export interface SuccessTargetLineProps {
   /** The goal node to write to. Null = no goal, so nothing to target. */
@@ -178,9 +180,9 @@ export interface SuccessTargetLineProps {
    * ⚠⚠ THREE TOKENS, NOT TWO, AND THE THIRD IS THE FIX. `proposeGoalTarget`
    * answers `dispatched | not_encodable`; a blank or unparseable draft is
    * `not_encodable` before it is asked; and with no dispatcher mounted the
-   * local write is all there is, which is `local_only`. Collapsing any two of
-   * these is how a control reports an acceptance it never observed - the exact
-   * defect this file's header records.
+   * draft is refused as `local_only`, preserving the caller contract without
+   * writing the store. The draft stays open. A save needs the durable carrier
+   * described above.
    */
   /**
    * ⭐ `no_unit` IS A FOURTH OUTCOME BECAUSE IT IS A DIFFERENT SENTENCE. The
@@ -233,7 +235,13 @@ export interface SuccessTargetLineProps {
    * ⛔ ONLY THE PRESENTATION DIFFERS. Both variants call the same `commit`,
    * `sendWordsToOlumi` and `deferTarget`, so the write path cannot fork.
    */
-  variant?: 'inspector' | 'reasoning'
+  variant?: 'inspector' | 'reasoning' | 'checklist'
+  /** `checklist` only: the goal's own label, shown before its state. */
+  goalLabel?: string | null
+  /** `checklist` only: Olumi inferred this goal (`strip.provisionalGoalLabel`). */
+  provisional?: boolean
+  /** A resolving canvas control opens the numeric form immediately, through the same seeding path as a press. */
+  openOnMount?: boolean
 }
 
 /** V2 prototype's success row, verbatim, for a goal with no target. */
@@ -246,6 +254,9 @@ export function SuccessTargetLine({
   testId,
   divider = true,
   variant = 'inspector',
+  openOnMount = false,
+  goalLabel = null,
+  provisional = false,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -261,7 +272,6 @@ export function SuccessTargetLine({
   const goalData = useCanvasStore((s) =>
     goalNodeId === null ? null : (s.nodes.find((n) => n.id === goalNodeId)?.data ?? null),
   )
-  const setGoalThresholdAndUpdateNode = useCanvasStore((s) => s.setGoalThresholdAndUpdateNode)
   /**
    * ⚠ THE STORE SURVIVES AS A FALLBACK ONLY, and keeps its guard. A `raw` store
    * value is still a real target when the node carries none; a `normalised` one
@@ -344,6 +354,14 @@ export function SuccessTargetLine({
    * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
    */
   const attemptSeqRef = useRef(0)
+  const openedOnMountRef = useRef(false)
+
+  // Keep hooks above the null-goal return. The one-shot route uses the normal open's scenario/direction guards.
+  useEffect(() => {
+    if (!openOnMount || goalNodeId === null || openedOnMountRef.current) return
+    openedOnMountRef.current = true
+    if (!changeGoal) openEditor('number')
+  })
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -365,22 +383,28 @@ export function SuccessTargetLine({
    * (`useModelEditAuthority.proposeGoalTarget`) refuses it too, whichever editor asks.
    */
   // ⛔ AIQ 5880974047: a frame this UI cannot read resolves to no target (`resolveGoalTarget`) and is not edited either.
-  const unreadFrame = goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame)
+  const unreadFrame = goalTargetMeaningUnread(goalData as GoalTargetSource | null)
   const changeGoal = fromNode?.frame != null || unreadFrame
-  const fromStore = threshold != null && representation === 'raw' && !goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame) ? threshold : null
+  const fromStore = threshold != null && representation === 'raw' && !goalTargetMeaningUnread(goalData as GoalTargetSource | null) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
+  // #2747 r2 (Codex, BLOCKING): the goal's quantity frame is passed, so a % change is said in its own frame; a target
+  // the formatter cannot say is "Target not captured", never the bare stored number ("Success: 10").
   const nodeFigure = fromNode !== null
     ? (formatGoalTarget(
         typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
         fromNode.unit,
         fromNode.frame,
-      ) ?? String(fromNode.raw))
+        fromNode.quantityFrame,
+      ) ?? TARGET_NOT_CAPTURED)
     : null
+  // #2747 r2 (BLOCKING 6): the store's scalar alone is never said as the target ("Success: 10"): it carries no frame,
+  // no unit and no bound, and the node is the only source guaranteed to be in the user's units. With no node target it
+  // is "Target not captured" (the editor stays offered).
   const shownText =
     nodeFigure !== null
-      ? (bound !== null ? `${bound} ${nodeFigure}` : nodeFigure)
+      ? (bound !== null && nodeFigure !== TARGET_NOT_CAPTURED ? `${bound} ${nodeFigure}` : nodeFigure)
       : fromStore != null
-        ? String(fromStore)
+        ? TARGET_NOT_CAPTURED
         : null
   /**
    * ⚠ ONLY WHEN NOTHING EXPRESSIBLE EXISTS ANYWHERE. A normalised store value
@@ -534,25 +558,8 @@ export function SuccessTargetLine({
       return
     }
 
-    /**
-     * ⚠ NO DISPATCHER MOUNTED. The local write is genuinely all there is, and
-     * it is still worth making - the canvas goal card and `computeSuccessState`
-     * read it within the session. What must not happen is the old sentence: the
-     * copy on this path states plainly that Olumi has not been told.
-     */
-    /**
-     * ⚠ AND IT CARRIES THE UNIT. The store action has always accepted
-     * `{ unit }` (`store.ts`: it stamps `goal_threshold_unit` when one is
-     * given and leaves any existing one untouched when none is), and this call
-     * was omitting it — so on the one path where nothing downstream could
-     * recover the reader's unit, it was discarded.
-     */
-    if (unit !== '') setGoalThresholdAndUpdateNode(goalNodeId, parsed, { unit })
-    else setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+    // No durable carrier: keep the draft open and use the existing refusal disclosure.
     onCommitOutcome('local_only')
-    setEditing(false)
-    setDraft('')
-    setUnitDraft('')
   }
 
   /**
@@ -610,13 +617,8 @@ export function SuccessTargetLine({
   const sendWordsToOlumi = () => {
     const typed = wordsDraft.trim()
     if (typed === '') return
-    openAskOlumi({
-      context: COPY.successTarget.label,
-      draft: `This is what success would look like:\n${typed}`,
-      label: ASK_DEFINE_SUCCESS_LABEL,
-      targetId: goalNodeId,
-      source: 'chip',
-    })
+    if (askAi({ userWords: `Success in words (this is not stored):\n${wordsDraft}`, nodeIds: goalNodeId ? [goalNodeId] : [] }) !== 'sent') return
+
     closeEditor()
     showToast(SUCCESS_WORDS_SENT_NOTICE)
   }
@@ -642,6 +644,7 @@ export function SuccessTargetLine({
   const openEditor = (startMode: 'number' | 'words') => {
     setEditing(true)
     setMode(startMode)
+    // target-text: the editor's draft value (an input the user edits), not a displayed target
     setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
     /**
      * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
@@ -661,17 +664,22 @@ export function SuccessTargetLine({
     setEditScenarioId(authority.captureScenarioId())
   }
 
-  if (variant === 'reasoning') {
+  const onToggleEditor = changeGoal
+    ? openHelpDefineSuccess
+    : () => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))
+
+  if (variant === 'reasoning' || variant === 'checklist') {
+    const Row = variant === 'checklist' ? ChecklistGoalRow : ReasoningSuccessRow
     return (
-      <ReasoningSuccessRow
+      <Row
         testId={testId}
         shownText={shownText}
         unexpressible={unexpressible}
         editing={editing}
-        onToggleEditor={changeGoal
-          ? openHelpDefineSuccess
-          : () => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))}
+        onToggleEditor={onToggleEditor}
         onAsk={openHelpDefineSuccess}
+        goalLabel={goalLabel}
+        provisional={provisional}
         form={
           editing ? (
             <ReasoningSuccessForm
@@ -810,7 +818,9 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                // min-w: beside the shrink-0 direction select and the w-24 unit box, `min-w-0 flex-1` collapsed the number box to
+                // nothing in the canvas target popover (#2659 served witness, 8 Oct). The figure field must always be visible.
+                className={`${typography.panelMeta} min-w-[4.5rem] flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
@@ -1069,6 +1079,8 @@ function ReasoningSuccessRow({
   onToggleEditor: () => void
   onAsk: () => void
   form: ReactNode
+  goalLabel?: string | null
+  provisional?: boolean
 }) {
   return (
     <div data-testid={testId} data-variant="reasoning" className="mt-1">
@@ -1107,8 +1119,104 @@ function ReasoningSuccessRow({
   )
 }
 
+/** The Goal row's state when no target is stated. */
+const NEEDS_TARGET = 'needs a target'
+/** The Goal row's state when Olumi inferred the goal (`strip.provisionalGoalLabel`). */
+const PROVISIONAL_STATE = 'provisional'
+
+/**
+ * Paul 14 Oct 2026: one checklist — Decision, Goal, then the census; every row marker · name · state · ✎ ✦.
+ * The Goal row of `ModelStrip`'s census grid: three grid cells (label, value · state, ✎ ✦) and the same editor
+ * form `ReasoningSuccessRow` opens, spanning the grid. The ✎ and ✦ are that row's own handlers.
+ */
+function ChecklistGoalRow({
+  testId,
+  shownText,
+  unexpressible,
+  editing,
+  onToggleEditor,
+  onAsk,
+  form,
+  goalLabel = null,
+  provisional = false,
+}: {
+  testId: string
+  shownText: string | null
+  unexpressible: boolean
+  editing: boolean
+  onToggleEditor: () => void
+  onAsk: () => void
+  form: ReactNode
+  goalLabel?: string | null
+  provisional?: boolean
+}) {
+  const state = provisional
+    ? PROVISIONAL_STATE
+    : shownText ?? (unexpressible ? COPY.successTarget.unexpressible : NEEDS_TARGET)
+  const [wrapped, setWrapped] = useState(false)
+  return (
+    <>
+      <li role="listitem" className="contents" data-testid={testId} data-variant="checklist" data-kind="goal">
+        <span className="flex min-h-7 items-center gap-1 py-0.5 min-w-0">
+          {/* The canvas's own goal diamond, in the goal token — the same mark family as every census row. */}
+          <NodeMark kind="goal" />
+          <span className={`${typography.panelMeta} text-text-light truncate`}>Goal</span>
+        </span>
+        {/* One clipped line like the Decision row; a click shows it whole. */}
+        <button
+          type="button"
+          onClick={() => setWrapped((v) => !v)}
+          aria-expanded={wrapped}
+          title={goalLabel ? `${goalLabel} · ${state}` : state}
+          className={`${typography.panelBody} text-text-body block w-full min-w-0 py-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            wrapped ? 'whitespace-normal break-words' : 'truncate'
+          }`}
+          data-testid={`${testId}-text`}
+        >
+          {/* Paul 14 Oct 2026: "the goal should be in italics if it's provisional" — the goal's words only. */}
+          {goalLabel ? (
+            <span className={provisional ? 'italic' : undefined} data-testid={`${testId}-goal`}>
+              {goalLabel}
+            </span>
+          ) : null}
+          {goalLabel ? ' ' : null}
+          <span
+            className="text-text-light"
+            data-testid={shownText !== null && !provisional ? `${testId}-value` : `${testId}-none`}
+          >
+            {goalLabel ? `· ${state}` : state}
+          </span>
+        </button>
+        <span className="flex items-center shrink-0 justify-self-end">
+          <PanelIconButton
+            Icon={Pencil}
+            label={COPY.successTarget.describeSuccess}
+            expanded={editing}
+            onClick={onToggleEditor}
+            testId={`${testId}-edit`}
+          />
+          <PanelIconButton ai label={ASK_DEFINE_SUCCESS_LABEL} onClick={onAsk} testId={`${testId}-ask`} />
+        </span>
+      </li>
+      {form ? (
+        <li role="listitem" className="col-span-3 min-w-0">
+          {form}
+        </li>
+      ) : null}
+    </>
+  )
+}
+
 /** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
-const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_BOX = `${typography.panelBody} rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_CLASS = `${FIELD_BOX} w-full min-w-0`
+/**
+ * The direction select sizes to its words and the figure box takes the rest, never below 4.5rem. `w-full` and
+ * `w-auto` on one element let `w-full` win in the generated CSS, so the select filled the row and the number box
+ * drew 18px wide in the canvas target popover (#2659 served witness, 8 Oct).
+ */
+const DIRECTION_SELECT_CLASS = `${FIELD_BOX} w-auto shrink-0`
+const NUMBER_INPUT_CLASS = `${FIELD_BOX} min-w-[4.5rem] flex-1`
 
 /**
  * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
@@ -1265,7 +1373,7 @@ function ReasoningSuccessForm({
                   onChange={(e) => onDirection(e.target.value as ConstraintType)}
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.directionLabel}
-                  className={`${FIELD_CLASS} w-auto shrink-0`}
+                  className={DIRECTION_SELECT_CLASS}
                   data-testid={`${testId}-direction`}
                 >
                   <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
@@ -1279,7 +1387,7 @@ function ReasoningSuccessForm({
                   value={draft}
                   onChange={(e) => onDraft(e.target.value)}
                   onKeyDown={onEditorKeyDown}
-                  className={FIELD_CLASS}
+                  className={NUMBER_INPUT_CLASS}
                   data-testid={`${testId}-input`}
                 />
               </span>

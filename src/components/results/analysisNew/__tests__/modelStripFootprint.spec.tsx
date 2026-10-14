@@ -244,6 +244,16 @@ describe('⭐ the shared vocabulary, and the subject line', () => {
     for (const cls of MARK_COLOUR.risk.split(' ')) expect(riskMark).toHaveClass(cls)
   })
 
+  /** Paul 14 Oct 2026: the Brief row draws the canvas's decision hexagon (shared mark, decision token), not FileText. */
+  it('the Brief row draws the SHARED decision mark, in the canvas decision colour', () => {
+    render(<ModelStrip isPreRun={false} openAtRest />)
+    const marks = screen.getByTestId(`${TID}-decision`).querySelectorAll('svg[data-mark-kind]')
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toHaveAttribute('data-mark-kind', 'decision')
+    for (const cls of MARK_COLOUR.decision.split(' ')) expect(marks[0]).toHaveClass(cls)
+    expect(screen.getByTestId(`${TID}-decision`).querySelector('svg.lucide-file-text')).toBeNull()
+  })
+
   it('the marks DISCRIMINATE — one shape for everything would satisfy the case above', () => {
     render(<ModelStrip isPreRun={false} />)
     const shape = (kind: string) =>

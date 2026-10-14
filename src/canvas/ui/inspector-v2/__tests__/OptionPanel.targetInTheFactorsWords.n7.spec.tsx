@@ -61,7 +61,7 @@ function seedStarter(draft: Draft) {
   const nodes = draft.nodes.map(mapDraftNodeToCanvas) as Array<{ id: string; data: Record<string, unknown> }>
   useCanvasStore.setState({
     nodes: nodes as never[],
-    edges: draft.edges.map(mapDraftEdgeToCanvas) as never[],
+    edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)) as never[],
     results: { status: 'idle' },
     ceeAnalysisReady: draft.analysis_ready,
     lastServerGraphHash: 'gh-starter',

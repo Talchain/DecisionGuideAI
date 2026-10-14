@@ -37,7 +37,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
-import { WIN_GAUGE_COLORS } from '../WinGauge'
+// #2747 re-scope 2 (DL ruling (A)): WinGauge is deleted; the cards' rank palette moved, unchanged, to optionRankColors.
+import { OPTION_RANK_COLORS } from '../optionRankColors'
 import type { OptionResult } from '../types'
 
 function opt(id: string, label: string, winProbability: number, p10: number): OptionResult {
@@ -175,9 +176,10 @@ describe('P1-1 (ROADMAP 2.237) — the lens control names HIGHLIGHTING, not rank
     // 4th by winProbability but renders 3rd.
     //
     // The rank is not printed as a numeral — it selects the card's colour
-    // marker from `WIN_GAUGE_COLORS`, which is how the card, the WinGauge
-    // legend and the scenario bar agree on which option is which. A fabricated
-    // rank therefore paints an option in another option's colour.
+    // marker from `OPTION_RANK_COLORS` (formerly `WIN_GAUGE_COLORS`; the gauge
+    // went in #2747 re-scope 2), which is how the cards agree on which option
+    // is which. A fabricated rank therefore paints an option in another
+    // option's colour.
     const four = [
       opt('option-1', 'Option A', 0.5, 10),
       opt('option-2', 'Option B', 0.3, 20),
@@ -188,12 +190,12 @@ describe('P1-1 (ROADMAP 2.237) — the lens control names HIGHLIGHTING, not rank
       <OptionCards options={four} winnerId="option-1" lensActive lensHighlightedId="option-4" />,
     )
     const marker = screen.getByTestId('rank-marker-option-4')
-    // rank 4 → WIN_GAUGE_COLORS[3]; the render position (3) would give [2].
-    expect(marker).toHaveStyle({ backgroundColor: WIN_GAUGE_COLORS[3] })
-    expect(marker).not.toHaveStyle({ backgroundColor: WIN_GAUGE_COLORS[2] })
+    // rank 4 → OPTION_RANK_COLORS[3]; the render position (3) would give [2].
+    expect(marker).toHaveStyle({ backgroundColor: OPTION_RANK_COLORS[3] })
+    expect(marker).not.toHaveStyle({ backgroundColor: OPTION_RANK_COLORS[2] })
     // CONTROL — the untouched cards keep their own colours.
     expect(screen.getByTestId('rank-marker-option-1')).toHaveStyle({
-      backgroundColor: WIN_GAUGE_COLORS[0],
+      backgroundColor: OPTION_RANK_COLORS[0],
     })
   })
 

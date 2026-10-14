@@ -43,12 +43,18 @@
  * takes the cannot-confirm line, and stays off the side channel.
  */
 import { useCanvasStore } from '../store'
+import {
+  analysisReplacedSince,
+  restoreAnalysisCurrencyAfterRevert,
+  type AnalysisCurrencySnapshot,
+} from '../store/analysisCurrencySnapshot'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
 import type { SystemEventSendSettlement } from './settleSystemEventSend'
 
 export interface PendingEdgeEdit {
+  readonly currency?: AnalysisCurrencySnapshot
   readonly edgeId: string
   /** The magnitude sent (`|mean|`) — what the canvas shows while it is pending. */
   readonly sentMagnitude: number
@@ -204,6 +210,7 @@ export function markEdgeEditInFlight(
   before: Readonly<Record<string, unknown>> | undefined,
   sentDirection?: 'positive' | 'negative',
   identity?: PendingEdgeEditIdentity,
+  currency?: AnalysisCurrencySnapshot,
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const key = entryKey(edgeId, kindOf(sentDirection))
@@ -221,11 +228,119 @@ export function markEdgeEditInFlight(
     edgeId,
     sentMagnitude,
     before: prior?.before ?? { ...(before ?? {}) },
+    currency: prior ? prior.currency : currency,
     ...(sentDirection !== undefined ? { sentDirection } : {}),
     // The identity travels with the `before` it describes: a newer edit keeps the original's.
     ...((prior ? prior.identity : identity) !== undefined ? { identity: prior ? prior.identity : identity } : {}),
   })
   emit()
+}
+
+/** Captures held for local preview, before any strength send is dispatched. */
+const strengthPreviewCaptures = new WeakSet<PendingEdgeEdit['before']>()
+/** An answer releases the controls without confirming the optimistic canvas write. */
+const strengthAnsweredCaptures = new WeakSet<PendingEdgeEdit['before']>()
+
+/** The captured strength write, including the original data retained across preview ticks. */
+export function pendingStrengthEditOf(edgeId: string): PendingEdgeEdit | undefined {
+  return inFlight.get(entryKey(edgeId, 'strength'))
+}
+
+/** Record the answer against the send's own capture, even after a newer gesture replaced it. */
+export function markStrengthEditAnswered(capture: PendingEdgeEdit['before'] | undefined): void {
+  if (!capture || strengthAnsweredCaptures.has(capture)) return
+  strengthAnsweredCaptures.add(capture)
+  emit()
+}
+
+/** Complete editors also start from the current canvas after an unconfirmed answer. */
+export function isStrengthEditAnswered(edgeId: string): boolean {
+  const entry = pendingStrengthEditOf(edgeId)
+  return entry !== undefined && strengthAnsweredCaptures.has(entry.before)
+}
+
+/** An unanswered send disables another gesture; an unsent preview does not. */
+export function isStrengthEditSending(edgeId: string): boolean {
+  const entry = pendingStrengthEditOf(edgeId)
+  return entry !== undefined && !strengthPreviewCaptures.has(entry.before) && !strengthAnsweredCaptures.has(entry.before)
+}
+
+/** A local gesture has not yet handed its capture to the strength sender. */
+export function isStrengthEditPreview(edgeId: string): boolean {
+  const entry = pendingStrengthEditOf(edgeId)
+  return entry !== undefined && strengthPreviewCaptures.has(entry.before)
+}
+
+/** A snapshot belongs to one scenario and one pair of endpoints. */
+export function edgeEditCaptureMatchesCurrent(entry: PendingEdgeEdit): boolean {
+  const store = useCanvasStore.getState()
+  const edge = store.edges.find(e => e.id === entry.edgeId)
+  if (!edge) return false
+  const identity = entry.identity
+  return !identity || (identity.scenarioId === (store.currentScenarioId ?? null)
+    && identity.from === edge.source && identity.to === edge.target)
+}
+
+/** Discard a departed gesture without putting any of its data into another graph. */
+export function dropStrengthPreview(edgeId: string, capture?: PendingEdgeEdit['before']): void {
+  const entry = pendingStrengthEditOf(edgeId)
+  if (!entry || (capture && entry.before !== capture)) return
+  strengthPreviewCaptures.delete(entry.before)
+  settleEdgeEdit(edgeId, entry.sentMagnitude)
+}
+
+/** Identity fence around staging's unchanged settlement/rollback implementation. */
+export function resolveBoundEdgeEditSettlement(
+  edgeId: string,
+  sentMagnitude: number,
+  settlement: SystemEventSendSettlement,
+  sentDirection?: 'positive' | 'negative',
+): SystemEventSendSettlement {
+  const entry = inFlight.get(entryKey(edgeId, kindOf(sentDirection)))
+  if (entry && entry.sentMagnitude === sentMagnitude && entry.sentDirection === sentDirection
+    && !edgeEditCaptureMatchesCurrent(entry)) {
+    strengthPreviewCaptures.delete(entry.before)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
+    return 'blocked'
+  }
+  return resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, sentDirection)
+}
+
+/** Capture a serialised gesture's original data once, before its local writes. */
+export function beginStrengthPreview(
+  edgeId: string,
+  sentMagnitude: number,
+  before: Readonly<Record<string, unknown>> | undefined,
+  identity: PendingEdgeEditIdentity,
+  currency: AnalysisCurrencySnapshot,
+): PendingEdgeEdit | undefined {
+  if (!edgeId || !Number.isFinite(sentMagnitude) || isStrengthEditSending(edgeId)) return undefined
+  const key = entryKey(edgeId, 'strength')
+  const captured = { ...(before ?? {}) }
+  strengthPreviewCaptures.add(captured)
+  producerRefusals.delete(key)
+  inFlight.set(key, { edgeId, sentMagnitude, before: captured, identity, currency })
+  emit()
+  return inFlight.get(key)
+}
+
+/** Hand the existing preview capture to the strength send without replacing it. */
+export function finishStrengthPreview(edgeId: string): void {
+  const entry = pendingStrengthEditOf(edgeId)
+  if (entry && strengthPreviewCaptures.delete(entry.before)) emit()
+}
+
+/** Restore an unsent or blocked strength preview through the existing refusal rollback. */
+export function revertStrengthPreview(edgeId: string, sentMagnitude: number): void {
+  const entry = pendingStrengthEditOf(edgeId)
+  if (!entry || entry.sentMagnitude !== sentMagnitude) return
+  strengthPreviewCaptures.delete(entry.before)
+  if (!edgeEditCaptureMatchesCurrent(entry)) {
+    settleEdgeEdit(edgeId, sentMagnitude)
+    return
+  }
+  revertEdgeEdit(entry)
+  settleEdgeEdit(edgeId, sentMagnitude)
 }
 
 /**
@@ -391,6 +506,8 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   // Only while the canvas still shows the sent write — a person who has
   // moved on keeps what they see.
   if (!edge || !edgeShowsPendingWrite(edge, entry)) return
+  // updateEdge itself clears readiness, so remember a newer arrival BEFORE it.
+  const analysisReplaced = entry.currency ? analysisReplacedSince(entry.currency) : true
   // ⚠ A ROLLBACK, NOT A USER EDIT — the same framing the factor revert uses.
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
@@ -404,6 +521,7 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   } finally {
     store.endExternalGraphMutation?.()
   }
+  if (entry.currency && !analysisReplaced) restoreAnalysisCurrencyAfterRevert(entry.currency)
   // The optimistic write is already in the autosave slot; an in-memory-only
   // revert would come back on the next reload (the factor revert's reasoning).
   try {

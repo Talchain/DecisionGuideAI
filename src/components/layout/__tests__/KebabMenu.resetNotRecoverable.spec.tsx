@@ -20,7 +20,7 @@
  * for the half a user is most likely to act on.
  *
  * BINDING: the message is read from the dialog THIS menu item opens, reached by
- * clicking "Start new model" (named "Reset canvas" until 30 Aug 2026 — see
+ * clicking "Start new scenario" ("Start new model" until 14 Oct; "Reset canvas" until 30 Aug 2026 — see
  * `KebabMenu.startNewModel.spec.tsx`). A near-identical string lives at
  * `ReactFlowGraph.tsx`
  * behind a `showResetConfirm` that is never set true — so the string is not an
@@ -82,7 +82,7 @@ function openResetDialog() {
       />
     </ToastProvider>,
   )
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Start new model' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Start new scenario' }))
   return screen.getByRole('dialog').textContent ?? ''
 }
 
@@ -106,7 +106,7 @@ describe('start-new-model confirmation promises no recovery', () => {
   it('PRECONDITION: the dialog opened and states the destruction', () => {
     const text = openResetDialog()
 
-    expect(text).toMatch(/start a new model\?/i)
+    expect(text).toMatch(/start a new scenario\?/i)
     expect(text).toMatch(/nodes? and connections?/i)
   })
 })

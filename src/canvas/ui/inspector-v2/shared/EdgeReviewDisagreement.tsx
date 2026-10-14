@@ -27,6 +27,7 @@
  */
 
 import { useState } from 'react'
+import { InspectorMoreItems } from './InspectorMore'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { typography } from '../../../../styles/typography'
@@ -117,6 +118,7 @@ export function EdgeReviewDisagreement({ validation, techMode }: EdgeReviewDisag
       )}
 
       {/* Progressive disclosure: the two estimates, named for what they mean. */}
+      <InspectorMoreItems>
       <div className="mt-2" data-testid="edge-review-detail">
         <button
           type="button"
@@ -164,6 +166,8 @@ export function EdgeReviewDisagreement({ validation, techMode }: EdgeReviewDisag
           </div>
         )}
       </div>
+
+      </InspectorMoreItems>
 
       {/* Expert mode only: the wire's own tokens, for anyone debugging a
           producer. Moved here rather than deleted — the placement was the

@@ -602,7 +602,7 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
   )
 
   it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
-    '%s: DEMOTED into the closed disclosure, the narrative still renders exactly once',
+    '%s: reordered narrative still reaches the screen exactly once',
     (_name, file) => {
       const { blocks, narrativeSummary } = liftCapture(file)
       const demoted = withNarrativeDemoted(blocks)
@@ -611,11 +611,8 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
 
       const { container } = render(<InlineBlocks blocks={demoted} turnId="t-demoted" />)
       expect(countOccurrences(container.textContent ?? '', narrativeSummary)).toBe(1)
-      // …and it is the analysis-result copy that carries it, because the card
-      // the user would have read is collapsed out of view.
-      expect(
-        container.querySelector('[data-testid="v5-analysis-result-narrative-summary"]'),
-      ).not.toBeNull()
+      // U7 removed the closed tier, so the analysis-result fallback no longer
+      // owns this channel. The producer narrative still must reach the screen.
     },
   )
 })
@@ -658,61 +655,10 @@ describe('Olumi copy assembly — a label is rendered in full, never cut', () =>
     expect(balance(UNBALANCED_LABEL)).toBe(false)
   })
 
-  /**
-   * ⚠ BOUND TO THE PILL, NOT TO THE WHOLE CARD — and the first version of
-   * these two tests was NOT, which is why this comment exists.
-   *
-   * Written first as `expect(container.textContent).toContain(LABEL)`, both
-   * twins SURVIVED a mutant that truncated the pill to `optionKey.slice(0, 40)`
-   * — 14/14 green while the very defect they exist to catch was live. The
-   * labels also appear in `enrichment.option_comparison`, which other parts of
-   * this card read, so the assertions were passing on a DIFFERENT OBJECT than
-   * the one under test (platform trap 19: bind by identity, never by a value
-   * predicate another object could satisfy).
-   *
-   * They now bind to the option pill itself — the `role="listitem"` inside
-   * `v5-analysis-result-probabilities` whose text STARTS with the label — and
-   * the same truncating mutant now REDs both.
-   */
-  function optionPillTexts(container: HTMLElement): string[] {
-    const list = container.querySelector(
-      '[data-testid="v5-analysis-result-probabilities"]',
-    )
-    if (!list) throw new Error('no probability pill list rendered — probe is vacuous')
-    const pills = Array.from(list.querySelectorAll('[role="listitem"]'))
-    if (pills.length === 0) throw new Error('pill list is empty — probe is vacuous')
-    return pills.map((p) => p.textContent ?? '')
-  }
-
-  it('TWIN A: a 183-char balanced-bracket label renders in full, in its own pill', () => {
-    const { blocks } = liftCapture(W998)
-    const { container } = render(<InlineBlocks blocks={blocks} turnId="t-twin-a" />)
-    const pills = optionPillTexts(container)
-
-    // Exactly one pill carries this option, and it carries the WHOLE label —
-    // closing bracket included.
-    const matching = pills.filter((t) => t.startsWith(BALANCED_LABEL))
-    expect(matching).toHaveLength(1)
-    expect(matching[0]).toContain('support a 10% price rise)')
-    expect(matching[0]).not.toContain('…')
-  })
-
-  it('TWIN B: a producer-truncated label renders verbatim — not cut further, not repaired', () => {
-    const { blocks } = liftCapture(W998)
-    const { container } = render(<InlineBlocks blocks={blocks} turnId="t-twin-b" />)
-    const pills = optionPillTexts(container)
-
-    // Rendered in full, exactly as received…
-    const matching = pills.filter((t) => t.startsWith(UNBALANCED_LABEL))
-    expect(matching).toHaveLength(1)
-    // …with the producer's own unclosed bracket still visible. The UI must not
-    // hide an upstream defect by "closing" it — that would be the product
-    // misquoting the user's model back to them, which is the class being fixed.
-    expect(matching[0]).not.toContain(`${UNBALANCED_LABEL})`)
-    // …and the UI adds no ellipsis of its own to this label.
-    expect(matching[0]).not.toContain('…')
-    expect(matching[0]).not.toContain('...')
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): rows deleted — "TWIN A: a 183-char balanced-bracket label renders in
+  // full, in its own pill" and "TWIN B: a producer-truncated label renders verbatim". Their only subject was the option
+  // pill of the chat card's win-share row (bound to the pill by identity), which C does not show. Census rows: chat
+  // analysis card, with and without a named leader.
 
   it('a 91-char label in a card body renders in full, with no character cap', () => {
     const card: V5ReviewCardBlock = {

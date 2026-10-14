@@ -23,7 +23,7 @@
  * the SURVIVING leader headline — `buildHeroModel`, under both verdicts, with
  * the same withheld/permitted pairing — is pinned in
  * `analysis-hero/__tests__/ownedLeaderClaim.hero.spec.ts`, so the claim did not
- * leave the suite with the builder. Surface 5 below is untouched.
+ * leave the suite with the builder. Surface 5 (the certainty headline) is deleted with its builder.
  *
  * ## The over-suppression control is not optional
  *
@@ -32,88 +32,15 @@
  * fix — it would cost the user the product's single most useful sentence.
  */
 import { describe, expect, it } from 'vitest'
-import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
-import {
-  LEADER_ID,
-  LEADER_LABEL,
-  PERMITTED_REPORT,
-  WITHHELD_REPORT,
-} from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
-import { buildCertaintyCopy } from '../utils/certaintyCopy'
+import { PERMITTED_REPORT, WITHHELD_REPORT } from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
 
 const WITHHELD_VERDICT = deriveDecisionVerdict(WITHHELD_REPORT)
 const PERMITTED_VERDICT = deriveDecisionVerdict(PERMITTED_REPORT)
 
-/**
- * Comparative leader LANGUAGE. Deliberately not a catch-all "any mention of
- * the leader's label" — the label may legitimately appear as a row label, and
- * the win probabilities themselves stay on screen. Data is not a claim;
- * comparative language is.
- */
-const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
-  ['is slightly ahead', /is slightly ahead/i],
-  ['is clearly/most likely strongest', /most likely to be strongest|clearly ahead of/i],
-  ['currently leads', /currently leads/i],
-  // SUPERSEDED 2026-07-31: 'performs best' is retired; the leader surface
-  // now emits the comparative claim with its magnitude.
-  ['the re-anchored leader headline', /supported in .+ of simulated scenarios/i],
-  ['leading option', /leading option/i],
-  ['leads by N points', /leads by \d+ point/i],
-  ['leads in N% of scenarios', /leads in \d+% of scenarios/i],
-  ['leads slightly more often', /leads slightly more often/i],
-  ['highest expected outcome', /highest expected outcome/i],
-  // The principle-audit leader sentence (5 Oct, Science's ruling): kept beside every retired form, never instead.
-  ['came out best', /came out best/i],
-  // Union, never replace: the direction-neutral leader wording (Paul, 5 Oct).
-  ['runs supported', /runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/i],
-  ['was supported by N of runs', /was supported by .{0,12} of runs|more runs than any other option/i],
-]
-
-function expectNoLeaderLanguage(where: string, ...strings: Array<string | null | undefined>) {
-  const joined = strings.filter(Boolean).join(' • ')
-  for (const [name, re] of LEADER_LANGUAGE) {
-    expect(re.test(joined), `${where} must not render "${name}" — got: ${joined}`).toBe(false)
-  }
-}
-
-// ── Surface 5: the results-panel certainty headline ────────────────────────
-
-function certainty(verdict: ReturnType<typeof deriveDecisionVerdict>) {
-  return buildCertaintyCopy({
-    winnerLabel: LEADER_LABEL,
-    confidenceTier: 'strong',
-    coachingReadiness: 'ready',
-    recommendationStability: 0.9,
-    analysisStatus: 'computed',
-    optionCount: 3,
-    verdict,
-  })
-}
-
-describe('results-panel certainty headline', () => {
-  it('WITHHELD: makes no leader claim on ANY of its assertion branches', () => {
-    const c = certainty(WITHHELD_VERDICT)
-    expectNoLeaderLanguage('certaintyCopy', c.headline, c.sub, c.caveat)
-    expect(c.headline).toBe('this run names no option in this model')
-    expect(c.conservative).toBe(true)
-  })
-
-  it('PERMITTED: the definitive leader headline still fires', () => {
-    const c = certainty(PERMITTED_VERDICT)
-    expect(c.headline).toBe(`${LEADER_LABEL} ${COMPARATIVE_COPY.phraseNoMagnitude}`)
-  })
-
-  it('PERMITTED: a producer TIE still gets its denial — withholding is not tying', () => {
-    // The two no-leader states must stay distinguishable at the copy layer.
-    const tied = deriveDecisionVerdict({
-      ...WITHHELD_REPORT,
-      robustness: { recommended_option_id: LEADER_ID, near_tie: { is_tie: true, top_option_id: LEADER_ID } },
-    })
-    const c = certainty(tied)
-    expect(c.headline).toContain('no clear leading option')
-  })
-})
+// ── Surface 5: the results-panel certainty headline — DELETED ──────────────
+// Run-4 judge (DL 12 Oct, the class): `buildCertaintyCopy` is deleted (no production caller; its permitted headlines were
+// leader claims from a win share), so its rows went with it. The verdict it quoted is still pinned below.
 
 // ── The verdict every surface quotes ──────────────────────────────────────
 

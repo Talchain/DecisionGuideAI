@@ -27,11 +27,19 @@
  *
  * Controls prove a measured switch_probability — including 0 — still renders,
  * so the absence assertions are not vacuous (trap 13).
+ *
+ * Run-4 judge (DL 12 Oct, the class): the callout's percentage arm ("… N% of
+ * them support {alt}") is removed on EVERY run and nothing replaces it, so
+ * chain A's presence branching is now pinned at the hook (`topFragileEdge
+ * .switchProbability`: measured passes through, marginal-only is absent), and
+ * the render control asserts the measured number reaches NO callout text.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, renderHook, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
+import { leaderClaimWithheld } from '../analysisClaimPolicy'
+import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { StrengthenContainer } from '../strengthen/StrengthenContainer'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
@@ -144,29 +152,43 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
   it('PIN (render): a marginal-only edge renders the flip-risk callout WITHOUT a percentage', () => {
     seedReportWithFragileEdges([{ ...EDGE_BASE, marginal_switch_probability: 0.35 }])
     const { result } = renderHook(() => useResultsSectionData())
-    render(<TriageActionCardsBody data={permitLeaderClaim(result.current)} />)
+    const data = permitLeaderClaim(result.current)
+    // PRECONDITION: the leader gate is open and no flip is attested — the two inputs the callout's percentage arm reads
+    // besides `switchProbability` — so an absent percentage is the switch_probability branch and not the claim-policy
+    // branch. Bound to the gates themselves: the words that used to prove it are gone (below).
+    expect(leaderClaimWithheld(data.recommendation), 'leader gate closed — this pin would be vacuous').toBe(false)
+    expect(attestsNoFactorFlip(data.recommendation.flipThresholds), 'flip attested — this pin would be vacuous').toBe(false)
+    render(<TriageActionCardsBody data={data} />)
     const callout = screen.getByTestId('t1-flip-risk-callout')
-    // PRECONDITION: the leader gate is open, so an absent percentage is the
-    // switch_probability branch and not the claim-policy branch.
-    expect(callout.textContent, 'leader gate closed — this pin would be vacuous')
-      .toContain('could be supported by the most runs instead')
-    // Honest absent state: "In this model, if Price shifts, Plan B could come out best instead." — no number.
+    // Run-4 judge (DL 12 Oct, the class): "{alt} could be supported by the most runs instead" is removed; nothing
+    // replaces it. The arm takes the existing neutral sentence.
+    expect(callout.textContent).toContain('If Price shifts, the result could change')
+    expect(callout.textContent).not.toMatch(/the most runs/)
+    // Honest absent state — no number.
     expect(callout.textContent).not.toMatch(/%\s*probability/)
     expect(callout.textContent).not.toMatch(/\d+\s*%/)
   })
 
-  it('CONTROL (render): a measured switch_probability still renders its percentage', () => {
+  it('CONTROL (render): a measured switch_probability reaches the data, and no percentage reaches the callout', () => {
     seedReportWithFragileEdges([
       { ...EDGE_BASE, switch_probability: 0.42, marginal_switch_probability: 0.99 },
     ])
     const { result } = renderHook(() => useResultsSectionData())
-    render(<TriageActionCardsBody data={permitLeaderClaim(result.current)} />)
+    const data = permitLeaderClaim(result.current)
+    // PRECONDITION: the leader gate is open and the measured value is in the very object rendered, so the absence
+    // below is the callout's, not a closed gate or a missing number.
+    expect(leaderClaimWithheld(data.recommendation), 'leader gate closed — this control would be vacuous').toBe(false)
+    expect(data.confidence.topFragileEdge!.switchProbability).toBe(0.42)
+    render(<TriageActionCardsBody data={data} />)
     const callout = screen.getByTestId('t1-flip-risk-callout')
-    expect(callout.textContent, 'leader gate closed — this control would be vacuous')
-      .toContain('In this model, in the quarter of simulated futures where')
-    expect(callout.textContent).toMatch(/42% of them support/)
+    // Run-4 judge (DL 12 Oct, the class): the callout's "In this model, in the quarter of simulated futures where …
+    // N% of them support {alt}" is removed; nothing replaces it.
+    expect(callout.textContent).not.toContain('In this model, in the quarter of simulated futures where')
+    expect(callout.textContent).not.toMatch(/42%|of them support/)
     // The marginal (0.99) is never the number printed.
     expect(callout.textContent).not.toMatch(/99%/)
+    // Presence control on the same element: the finding still renders.
+    expect(callout.textContent).toContain('If Price shifts, the result could change')
   })
 
   /**

@@ -318,6 +318,8 @@ describe('through the mounted inspector, on the live capture', () => {
     }
 
     expect(readTarget()).toContain('£59')
+    // EDIT-UX slice 2: technical detail lives under the inspector's one "More".
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     expect(readBuffer()).toBe('0.59')
 

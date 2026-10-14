@@ -15,6 +15,7 @@
  * Every assertion binds by identity (test id, exact label, exact constant),
  * never by a value predicate another element could satisfy.
  */
+import { takeAskTargetBinding } from '../askTargetBinding'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 
@@ -23,6 +24,7 @@ const reveal = vi.fn(() => true)
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: () => reveal() }))
 
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -79,6 +81,7 @@ describe('v3.1 inspector shell — every pane', () => {
       const onClose = vi.fn()
       const { container } = render(
         <InspectorRouter nodeId={pane.nodeId} edgeId={pane.edgeId} onClose={onClose} />,
+        { wrapper: ToastProvider },
       )
       const shell = screen.getByRole('region', { name: 'Inspector panel' })
       expect(shell.getAttribute('data-inspector-width')).toBe('330')
@@ -98,13 +101,16 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(screen.queryByTestId('inspector-back-to-results')).toBeNull()
       expect(within(header).getByRole('button', { name: 'Close inspector' })).toBeTruthy()
 
-      // Technical detail stays reachable, at the foot of the body.
+      // Every live pane uses the anatomy's More destination.
+      fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+      // Technical detail stays reachable, at the foot of its content.
       const tech = screen.getByTestId('inspector-tech-toggle')
       expect(tech.getAttribute('aria-label')).toBe('Show technical detail')
       expect(header.contains(tech)).toBe(false)
 
       // The two contract buttons, and not the old chips.
-      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
+      fireEvent.click(screen.getByTestId('inspector-header-menu'))
       expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
       expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
       expect(screen.queryByTestId('inspector-quick-analysis')).toBeNull()
@@ -119,7 +125,7 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(notes).toHaveLength(1)
       const note = notes[0]
       expect(note.className).toContain('text-[10px]')
-      const body = screen.getByTestId('inspector-body')
+      const body = screen.getByTestId('inspector-more')
       const lastBlock = body.lastElementChild
       expect(lastBlock === note || lastBlock?.contains(note)).toBe(true)
     })
@@ -140,21 +146,26 @@ describe('v3.1 inspector shell — every pane', () => {
   it('"Back to the conversation" fronts the conversation, then closes — the element stays selected', () => {
     const onClose = vi.fn()
     useCanvasStore.setState({ selection: { nodeIds: new Set(['fc']), edgeIds: new Set(), anchorPosition: null } } as never)
-    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />)
+    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />, { wrapper: ToastProvider })
+    fireEvent.click(screen.getByTestId('inspector-header-menu'))
     fireEvent.click(screen.getByTestId('inspector-back-to-conversation'))
     expect(reveal).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalledTimes(1)
     expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['fc'])
   })
 
-  it('"Explore with Olumi" lands an editable draft about this element and sends nothing', () => {
+  it('"Explore with Olumi" sends one bound chip and fronts Olumi', () => {
     const send = vi.fn()
-    useGuidanceStore.setState({ _sendMessage: send } as never)
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={vi.fn()} />)
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
-    const drawer = useAskOlumiStore.getState()
-    expect(drawer.isOpen).toBe(true)
-    expect(drawer.targetId).toBe('fc')
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip',
+      message: 'What does ‘Bottom-Up Adoption Friction For Self-Serve Trials’ do in this decision, and what is it assumed to depend on?' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['fc']))
+    expect(reveal).toHaveBeenCalledTimes(1)
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
     expect(send).not.toHaveBeenCalled()
   })
 

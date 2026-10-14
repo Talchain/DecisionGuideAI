@@ -163,7 +163,7 @@ describe('returning user — the chat pane after a reload', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/The earliest 10 messages from this decision could not be restored/i),
+        screen.getByText(/The earliest 10 messages from this scenario could not be restored/i),
       ).toBeInTheDocument()
     })
     // And the placeholder is still not shown — a partial history is history.

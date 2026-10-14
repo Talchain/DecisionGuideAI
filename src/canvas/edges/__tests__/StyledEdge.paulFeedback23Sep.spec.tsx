@@ -200,8 +200,7 @@ describe('Paul 23 Sep point 4 — ONE discreet fragility cue, no pile-up', () =>
     expect(cue!.className).not.toMatch(/text-(warning|danger|info)/)
     // Named, and the same sentence on hover.
     const name = cue!.getAttribute('aria-label') ?? ''
-    expect(name).toContain(FRAGILE_CUE_SENTENCE)
-    expect(name).toContain('42% flip risk')
+    expect(name).toBe(FRAGILE_CUE_SENTENCE) // #2747 r2: the Run's switch figure is not shown in C
     expect(cue!.getAttribute('title')).toBe(name)
   })
 
@@ -236,7 +235,7 @@ describe('Paul 23 Sep point 4 — ONE discreet fragility cue, no pile-up', () =>
     expect(strings.filter((s) => /sensitive/i.test(s))).toEqual([])
     // The hover states the fragility in the SAME words, with no warning mark.
     expect(popover.textContent).toContain(FRAGILE_CUE_SENTENCE)
-    expect(popover.textContent).toContain('42% flip risk')
+    expect(popover.textContent).not.toContain('42%') // #2747 r2: the Run's switch figure is not shown in C
     expect(popover.querySelector('.lucide-alert-triangle, .lucide-triangle-alert')).toBeNull()
   })
 })

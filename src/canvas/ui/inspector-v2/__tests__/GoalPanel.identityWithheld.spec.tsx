@@ -1,3 +1,5 @@
+const TEST_RUN_AGAIN_COPY = 'Run the analysis again to see the chance.'
+
 /**
  * P(goal) WITHHELD for an unevaluated identity on the goal's path — the Canvas consumer of PLoT #416
  * (AIQ #72 5885033487 (2), ACK 5886183999; DL 5885276225: read the typed reason, never the reply text).
@@ -110,19 +112,19 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
   it.each([
     ['PLoT #416 shape (no figures)', PRODUCER_SHAPE],
     ['figures beside the code (fail-closed)', FIGURES_BESIDE_CODE],
-  ])('%s → AIQ’s words in both arms, 0 goal percentages', (_case, r) => {
-    const { getByTestId, container } = renderWith(r)
+  ])('%s → AIQ’s words once beside the target, 0 goal percentages', (_case, r) => {
+    const { getByTestId, queryByTestId, container } = renderWith(r)
     expect(getByTestId('goal-probability-withheld-identity').textContent).toBe(AIQ_WORDS)
-    expect(getByTestId('goal-impact-withheld-identity').textContent).toBe(AIQ_WORDS)
+    expect(queryByTestId('goal-impact-withheld-identity')).toBeNull()
     const text = container.textContent ?? ''
-    expect(text).not.toMatch(/Reaches the target in/)
+    expect(text).not.toMatch(/chance of meeting your goal/)
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
   })
 
-  it('CONTROL: Paul’s evaluated identity shows the figure, and no withheld words', () => {
+  it('CONTROL: evaluated identity alone cannot license an older Run’s figure', () => {
     const { queryByTestId, container } = renderWith(EVALUATED)
     expect(queryByTestId('goal-probability-withheld-identity')).toBeNull()
-    expect(container.textContent ?? '').toContain('Reaches the target in 99% of model runs')
+    expect(container.textContent ?? '').not.toContain(TEST_RUN_AGAIN_COPY)
   })
 })

@@ -1,96 +1,80 @@
 /**
- * ⭐ D3 MILESTONE 1, STEP 2 — THE GOAL-CHANCE HEADLINE'S WORDS (Wording c6 #87 6005196947, amendment 6005256134, and the
- * 6 Oct rulings for the no-superlative headline; DL 0df0e1 6005048156). Each sentence is SELECTED by the `form` CEE
- * decided (`readGoalChanceLicence`, by identity) and FILLED with the option labels, the percentage CEE stored for each
- * option and the target as the user stated it. Nothing here compares a number.
- *
- * Every line is model-relative ("In this model, on current information") and says "chance of MEETING your goal" —
- * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
+ * ⭐ D3 MILESTONE 1, STEP 2 — THE GOAL-CHANCE HEADLINE'S WORDS. Since #2747 re-scope 2 round 2 the headline is CEE's own
+ * words for what the chance is OF (`chance_words`), said as each option's chance and model-relative ("In this model, on
+ * current information"); the UI composes no chance sentence of its own (DL rules C and D, 12 Oct). The Run's detail lines
+ * are CEE's per-target words and served displays, in CEE's order (`goalChanceDetailLines`).
  */
-import type { GoalChanceComparator, GoalChanceLicence } from '../utils/goalChanceLicence'
-import { formatGoalTarget } from '../utils/formatGoalTarget'
+import type { GoalChanceLicence } from '../utils/goalChanceLicence'
+import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
+import type { CanonicalGoalChanceDetail } from '../../../canvas/runView/canonicalAnalysisView'
 
-const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
-  at_least: 'at least',
-  above: 'above',
-  at_most: 'at most',
-  below: 'below',
+/**
+ * The shared renderer reads the Run's RC4 counts, never a count of current canvas links. Recovery Batch C (C CEE
+ * amendment 7): Olumi's estimated starting values, and an option's own Olumi settings on that option's line, make the
+ * chance provisional too, said in CEE's words (`olumiEstimateWords`): "1 starting value, 2 option settings and 3
+ * relationships".
+ */
+function estimateLinkAttribution(licence: GoalChanceLicence, optionId?: string): string {
+  const part = (n: number | undefined, one: string, many: string): string[] => (n !== undefined && n > 0 ? [`${n} ${n === 1 ? one : many}`] : [])
+  const parts = [...part(licence.olumiEstimateValueCount, 'starting value', 'starting values'),
+    ...part(optionId === undefined ? undefined : licence.olumiEstimateSettingsByOption?.[optionId], 'option setting', 'option settings'),
+    ...part(licence.olumiEstimateLinkCount, 'relationship', 'relationships')]
+  if (parts.length === 0) return ''
+  const words = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return `, using Olumi's estimates for ${words} (see Check estimates)`
 }
 
-/** The target as the user stated it, in their unit: "at most 400 cancellations/month". */
-export function goalChanceTargetWords(licence: GoalChanceLicence): string | null {
-  const figure = formatGoalTarget(licence.target.value, licence.target.unit, 'level')
-  return figure === null ? null : `${COMPARATOR_WORDS[licence.target.comparator]} ${figure}`
+export function goalChanceHeadline(licence: GoalChanceLicence, chanceWords?: string | null): string | null {
+  // Recovery Batch C (rulings 18 to 22): the Run's licence carries its own words for what the chance is a chance OF (a level,
+  // a change from today, several targets); every form is then said as each option's chance, and no summary is composed here.
+  // #2747 re-scope 2 round 2 (DL rules C and D): with no served chance words the hero says no goal-chance headline. The c6
+  // sentences it composed instead ("has the highest chance of meeting your goal (target): …") put the UI's own target words
+  // (a frame read by the UI) around the cells' figures; each option's cell already says its chance in CEE's words.
+  if (!chanceWords) return null
+  const text = `In this model, on current information, each option’s ${chanceWords}:`
+  const attribution = estimateLinkAttribution(licence)
+  return attribution === '' ? text : `${text.slice(0, -1)}${attribution}:`
 }
 
 /**
- * The displayed figure in words (c6 6 Oct): a chance that DISPLAYS as 0 (under 0.5%) is "less than 1%" and one that
- * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
+ * Recovery Batch C: the Run's goal-chance detail as the screen says it, in CEE's order and words
+ * (`goalChanceNotesForAgent`): with several targets, the joint's withheld line and its bound, then each target on its own;
+ * the status quo by assumption; then the licence's disclosures. A licensed joint adds no line here (each option's cell
+ * already says it). An option with no sayable label is left out of a target's line, as CEE does.
  */
-const about = (pct: number | undefined): string =>
-  pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
-/** "a and b" / "a, b and c" — British, no serial comma. */
-const listOf = (items: readonly string[]): string =>
-  items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+export type GoalChanceDetailLine = { readonly kind: 'joint_withheld' | 'joint_bound' | 'target' | 'status_quo' | 'note'; readonly text: string }
 
-/**
- * The headline for a licensed Run, or `null` when a label or the target cannot be said (the surface then keeps the
- * headline it had). `labelOf` returns the option's display label, or null.
- */
-export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
-  const target = goalChanceTargetWords(licence)
-  if (target === null) return null
-  const lead = 'In this model, on current information,'
-  switch (licence.form) {
-    case 'highest': {
-      const leader = labelOf(licence.leaderOptionId as string)
-      const next = labelOf(licence.nextOptionId as string)
-      if (leader === null || next === null) return null
-      return `${lead} ‘${leader}’ has the highest chance of meeting your goal (${target}): `
-        + `${about(licence.pctByOption[licence.leaderOptionId as string])}, against ${about(licence.pctByOption[licence.nextOptionId as string])} for ‘${next}’.`
+export function goalChanceDetailLines(
+  detail: CanonicalGoalChanceDetail, labelOf: (optionId: string) => string | null,
+  /** True when the status-quo option's own cell already says CEE's status-quo line (its "Why?"): it is not said twice. */
+  statusQuoSaidByItsCell = false,
+): GoalChanceDetailLine[] {
+  const lines: GoalChanceDetailLine[] = []
+  const targets = detail.targets
+  if (targets !== undefined) {
+    if (targets.joint.status === 'withheld') {
+      lines.push({ kind: 'joint_withheld', text: targets.joint.line })
+      if (targets.joint.frechet_line !== undefined) lines.push({ kind: 'joint_bound', text: targets.joint.frechet_line })
     }
-    case 'highest_all_likely_to_miss': {
-      const leader = labelOf(licence.leaderOptionId as string)
-      if (leader === null) return null
-      return `${lead} every option is more likely to miss your goal (${target}) than meet it: `
-        + `the highest chance is ${about(licence.pctByOption[licence.leaderOptionId as string])}, for ‘${leader}’.`
+    for (const t of targets.per_target) {
+      const each = t.options.flatMap((o) => {
+        const label = labelOf(o.option_id)
+        return label === null || label.trim() === '' ? [] : [`‘${label}’ ${o.display}`]
+      })
+      if (each.length > 0) lines.push({ kind: 'target', text: `On its own, the chance of ${t.words}, in this model: ${each.join('; ')}.` })
     }
-    case 'all_likely_to_miss':
-      return `${lead} every option is more likely to miss your goal (${target}) than meet it.`
-    case 'similar': {
-      // H2 (DL 0df0e1 6 Oct, below 10 points; c6 6 Oct: "similar", never "about the same" — 43 vs 48 is not the same): the
-      // options in CEE's order, the figures in the same order, never one singled out.
-      const labels = licence.similarOptionIds.map((id) => labelOf(id))
-      if (labels.some((l) => l === null)) return null
-      const named = listOf(labels.map((l) => `‘${l}’`))
-      const figures = listOf(licence.similarOptionIds.map((id) => about(licence.pctByOption[id])))
-      return `${lead} ${named} have similar chances of meeting your goal (${target}): ${figures}.`
-    }
-    case 'each':
-      return `${lead} each option’s chance of meeting your goal (${target}):`
   }
-}
-
-/**
- * c6's per-option line (or, for an option CEE withheld for its own path, c6's withheld line), in the MODEL'S option order (`licence.optionIds`) — never sorted by chance: below the 10-point
- * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
- */
-export function goalChanceOptionLines(
-  licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
-): string[] | null {
-  const lines: string[] = []
-  for (const id of licence.optionIds) {
-    if (except.includes(id)) continue
-    const label = labelOf(id)
-    if (label === null) return null
-    // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
-    lines.push(licence.withheldOptionIds.includes(id)
-      ? `‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`
-      : `‘${label}’: ${about(licence.pctByOption[id])} chance of meeting your goal, in this model.`)
-  }
+  if (detail.status_quo !== undefined && !statusQuoSaidByItsCell) lines.push({ kind: 'status_quo', text: detail.status_quo.line })
+  for (const note of detail.notes ?? []) lines.push({ kind: 'note', text: note })
   return lines
 }
 
-
-/** The existence line lives with the licence reader (`utils/goalChanceLicence`), so the hero and the WinGauge share it. */
-export { goalChanceExistenceLine, goalChanceDisclosureLines, goalChanceSummaryWithheldLine } from '../utils/goalChanceLicence'
+/*
+ * #2747 re-scope 2 round 2: `goalChanceOptionLines` (c6's per-option lines, its spread note and the share-by-date launch
+ * grammar) lost its last production caller when the chat card moved to CEE's served cells (this PR, round 1); it composed
+ * "chance of meeting your goal" lines of its own and is deleted with `runView.licensedOptionChanceLines`.
+ */
+export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<Exclude<GoalChanceRangeEntry['kind'], 'stated_time'>, string>> = {
+  link_strength: 'Size it to see where it lands',
+  link_existence: 'Confirm or remove it to see where it lands',
+}

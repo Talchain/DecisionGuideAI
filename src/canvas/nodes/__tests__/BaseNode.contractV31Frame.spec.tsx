@@ -28,6 +28,7 @@ import { useCanvasStore } from '../../store'
 import {
   ANCHOR_RAIL_RESERVE_CLASSES,
   CANVAS_GLYPH_SIZE_CLASSES,
+  NODE_QUICK_ACTION_BAND_CSS,
   anchorRailReservePx,
 } from '../shared/canvasGlyphScale'
 
@@ -136,12 +137,12 @@ describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FR
     const option = renderCard('option', { label: 'O' }).root
     expect(option.style.paddingLeft).toBe('12px')
     cleanup()
-    // CONTRAST — the anchors: 11 / 13 / 9 / 13.
+    // #2649 r3 band overlap: anchors keep 11px top / 13px sides and reserve the marks band.
     const goal = renderCard('goal', { label: 'G' }).root
     expect(goal.style.paddingLeft).toBe('13px')
     expect(goal.style.paddingRight).toBe('13px')
     expect(goal.style.paddingTop).toBe('11px')
-    expect(goal.style.paddingBottom).toBe('9px')
+    expect(goal.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 })
 
@@ -287,10 +288,11 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
 })
 
 describe('contract v3.1 — the anchors are wide and shallow, rail beside the last row (ANC-02, RHY-02)', () => {
-  it.each(['decision', 'goal'] as const)('%s: 11px top / 9px bottom, no 50px band below the row', (kind) => {
+  it.each(['decision', 'goal'] as const)('%s: 11px top and the bottom marks band reserved below the row', (kind) => {
     const { root } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
     expect(root.style.paddingTop).toBe('11px')
-    expect(root.style.paddingBottom).toBe('9px')
+    // #2649 r3 band overlap: the marks band must never cover the anchor body.
+    expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 
   it('the anchor BODY reserves the rail\'s run and height, sized to the rail it mounts; the title keeps the full measure (WS1 #16)', () => {
@@ -310,7 +312,8 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
     // 29 Sep: measured from the anchor's 13px side padding, and 0.5px under the rail so the card is the contract's 65.
     expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -7px)`)
-    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3.5px)')
+    // Paul 14 Oct 2026: the rail box is 24 (was 25) to match the reasoning panel's icon buttons.
+    expect(body.style.minHeight).toBe('calc(24px * var(--canvas-glyph-scale, 1) + -3.5px)')
     // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
     expect(root.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
@@ -323,27 +326,29 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
   })
 })
 
-describe('S5: the anchors keep 11 / 9 at every rung; WS1 #16: the rail is inside them wherever it is mounted', () => {
+describe('S5: the anchors keep one padding box at every rung; WS1 #16: the rail is inside them wherever it is mounted', () => {
   // Canvas Browser Gate on #1932 (24 Sep): `heightVsZoom` — below the floor the
   // anchors fell back to 12 / 12 and drew taller than anywhere above it;
   // `nodeControlOcclusion` — at the landing rung the counter-scaled beside-rail
   // covered the Question's own title.
   afterEach(() => { useCanvasStore.setState({ lodRung: 'full' } as never) })
 
-  it.each(['decision', 'goal'] as const)('%s at the quiet rung: 11/9, the rail INSIDE beside the body (never hanging below the card)', (kind) => {
+  it.each(['decision', 'goal'] as const)('%s at the quiet rung: 11px top and the marks band, the rail INSIDE beside the body (never hanging below the card)', (kind) => {
     useCanvasStore.setState({ lodRung: 'quiet' } as never)
     const { root, container } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
     expect(root.style.paddingTop).toBe('11px')
-    expect(root.style.paddingBottom).toBe('9px')
+    // #2649 r3 band overlap: preserve the band reservation at every rung.
+    expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
     expect(screen.getByTestId('anchor-body-rail-beside')).toBeTruthy()
     expect(container.querySelector('[data-rail-placement]')?.getAttribute('data-rail-placement')).toBe('inset')
   })
 
-  it.each(['decision', 'goal'] as const)('%s below the floor (line): still 11/9 — never taller than at landing', (kind) => {
+  it.each(['decision', 'goal'] as const)('%s below the floor (line): still 11px top and the marks band — never taller than at landing', (kind) => {
     useCanvasStore.setState({ lodRung: 'line' } as never)
     const { root } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
     expect(root.style.paddingTop).toBe('11px')
-    expect(root.style.paddingBottom).toBe('9px')
+    // #2649 r3 band overlap: below-floor anchors keep the same reservation.
+    expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 
   it('CONTRAST — at Normal (full) the rail is beside the last row, as ANC-02 draws it', () => {
@@ -385,10 +390,11 @@ describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01
   // box to the contract's 25px (`.icon-btn{width:25px;height:25px}`); the band is
   // derived from it, 6 + (25 + 2) × scale. The claim — a calc over the live
   // scale, not a fixed band — is unchanged.
+  // ⛔ UPDATED 14 Oct 2026 (Paul: node Olumi icon to match the panel's 24px button): 27 → 26, box 25 → 24.
   it('an ordinary card renders the band as a calc over --canvas-glyph-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    // 29 Sep: 5 + 27 = 32 at 100%, the contract's `padding-bottom:32px` (rail at `bottom:5px`).
-    expect(root.style.paddingBottom).toBe('calc(5px + 27px * var(--canvas-glyph-scale, 1))')
+    // 29 Sep: 5 + 27 = 32 at 100% (contract `padding-bottom:32px`); 14 Oct: 5 + 26 = 31 with the 24px box.
+    expect(root.style.paddingBottom).toBe('calc(5px + 26px * var(--canvas-glyph-scale, 1))')
   })
 })
 

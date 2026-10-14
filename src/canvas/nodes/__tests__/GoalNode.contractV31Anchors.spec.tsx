@@ -16,8 +16,8 @@
  *   T07       (text-body); the dotted route rule stays, in the secondary colour.
  *   ANC-13 /  the target row: 7px title gap (`.node.wide`), baseline-aligned,
  *   FRAME-10  a counter-scaled gap capped at the 8px it replaced.
- *   PILL-12   Layer 2's "Marginal" uses the same state word; constraint badges
- *             use the neutral mini-pill line, not an Info ring.
+ *   PILL-12   constraint badges use the neutral mini-pill line, not an Info ring
+ *             (Layer 2's "Marginal" went with the Decision stability block, #2747 r2).
  *
  * Bound by IDENTITY: test ids and exact class TOKENS (split on whitespace, so
  * `decoration-text-light` can never satisfy an assertion about `text-text-light`).
@@ -153,12 +153,7 @@ describe('ANC-01 — the goal frame is solid in its kind hue whatever the robust
     expect(t).not.toContain('border-dashed')
   })
 
-  it('CONTRAST: the verdict is still stated in WORDS in Layer 2 (Decision stability + Marginal)', () => {
-    mockStore({ ...runWith('low', 0.45), viewMode: 'expert' })
-    renderGoal(WITH_TARGET)
-    expect(screen.getByText('Decision stability')).toBeDefined()
-    expect(screen.getByText('Marginal', { selector: 'span' })).toBeDefined()
-  })
+  // #2747 re-scope 2 round 2: row deleted — "CONTRAST: the verdict is still stated in WORDS in Layer 2". Its only subject was the goal card's Decision stability block (the Run's recommendation_stability, a win-share figure, and its Marginal word), which C does not show (DL ruling (A)).
 })
 
 describe('ANC-06 / PILL-04 — "Target not captured" is a neutral state word', () => {
@@ -233,20 +228,7 @@ describe('ANC-13 / FRAME-10 — the target row geometry', () => {
 })
 
 describe('PILL-12 — Layer 2 pills', () => {
-  it('"Marginal" uses the goal state word, with no vertical padding so the row does not grow', () => {
-    mockStore({ ...runWith('low', 0.45), viewMode: 'expert' })
-    renderGoal(WITH_TARGET)
-    // Bound by exact text within the stability row, so the served build (which
-    // had no test id here) reds on its classes rather than on a lookup.
-    const marginal = screen.getByText('Marginal', { selector: 'span' })
-    const t = tokens(marginal)
-    expect(t).not.toContain('border-warning/30')
-    expect(t).toContain('border-warning-ink/40')
-    expect((marginal as HTMLElement).style.paddingTop).toBe('0px')
-    expect((marginal as HTMLElement).style.paddingLeft).toBe('0.6em')
-    for (const cls of GOAL_STATE_WORD_CLASSES.split(/\s+/)) expect(t).toContain(cls)
-    expect(marginal.getAttribute('data-testid')).toBe('goal-stability-marginal')
-  })
+  // #2747 re-scope 2 round 2: row deleted — ""Marginal" uses the goal state word". Its only subject was the goal card's Decision stability block (the Run's recommendation_stability, a win-share figure, and its Marginal word), which C does not show (DL ruling (A)).
 
   it('a constraint badge uses the neutral mini-pill line (border-field/40, 1px x 7px), not an Info ring', () => {
     mockStore({

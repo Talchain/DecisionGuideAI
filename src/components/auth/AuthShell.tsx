@@ -24,7 +24,7 @@ export default function AuthShell({ children, footer, testId }: AuthShellProps) 
       className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-12"
       data-testid={testId}
     >
-      <a href="/" aria-label="Olumi home" className="mb-8 rounded-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info">
+      <a href="/" aria-label="Olumi home" className="mb-8 rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info">
         <img src="/olumi-logo.png" alt="Olumi" className="h-9 w-auto" />
       </a>
 

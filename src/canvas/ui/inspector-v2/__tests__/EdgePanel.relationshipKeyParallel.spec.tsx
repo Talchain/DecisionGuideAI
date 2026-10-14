@@ -12,7 +12,7 @@
  * live path).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { useCanvasStore } from '../../../store'
@@ -35,11 +35,12 @@ function seed(edgeIds: string[]) {
 
 function inspectorShowsFinding(edgeId: string): boolean {
   render(<EdgePanel edgeId={edgeId} techMode={false} onClose={vi.fn()} onNavigate={vi.fn()} />)
+  // #2747 re-scope 2 round 2: the Run's switch figure is not shown in C, so the finding IS its sentence (in the
+  // fragility context group); the served 0.5504 appears nowhere, on either edge.
   const context = screen.queryByTestId('edge-fragility-context')
-  if (context) fireEvent.click(context.querySelector('button')!)
-  const shows = screen.queryByText('55% flip risk') !== null
-  // The heading and the number travel together; a half-rendered finding is a defect too.
-  expect(screen.queryByText(FRAGILE_CUE_SENTENCE) !== null).toBe(shows)
+  const shows = screen.queryByText(FRAGILE_CUE_SENTENCE) !== null
+  expect(context !== null).toBe(shows)
+  expect(document.body.textContent ?? '').not.toMatch(/55\s?%|0\.55/)
   cleanup()
   return shows
 }
@@ -50,7 +51,7 @@ beforeEach(() => {
 })
 
 describe('EdgePanel and the producer relationship key', () => {
-  it('KEEP — one drafted edge (local id) shows the served 55% finding', () => {
+  it('KEEP — one drafted edge (local id) shows the served finding', () => {
     seed(['e-6'])
     expect(inspectorShowsFinding('e-6')).toBe(true)
   })

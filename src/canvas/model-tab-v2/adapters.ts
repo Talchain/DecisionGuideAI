@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../domain/switchFactors'
 /**
  * Model tab v2 — THE READ-ONLY STORE → PROJECTION ADAPTER.
  *
@@ -122,13 +123,14 @@
  *      its unit. The legacy scalar is only a fallback when the node has none.
  */
 
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
-import { goalTargetFrameIsUnread } from '../domain/goalTarget'
+import { goalTargetMeaningUnread, type GoalTargetSource } from '../domain/goalTarget'
 import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { statedFactorCategoryLabel } from '../domain/vocabulary'
@@ -142,8 +144,7 @@ import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
-import { isStrengthAccepted } from '../domain/strengthAccepted'
-import { isStrengthStated } from '../domain/strengthStated'
+import { EDGE_PROVENANCE, edgeProvenance } from '../domain/edgeProvenance'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { DEFINITIONAL_SUFFIX } from '../domain/naturalEffect'
@@ -180,7 +181,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
 import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
-import { unwrapInterventionValue } from '../utils/labelUtils'
+import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 // ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
 // the reduced low-zoom line already share. See `recordedRangeText` below.
@@ -468,6 +469,8 @@ function narrowObservedState(obs: ObservedState): ModelTabObservedState {
  * nothing is stated — a fact to render, never a zero to invent.
  */
 function factorValue(data: unknown): string | null {
+  const switchText = servedSwitchReading(data)
+  if (switchText !== null) return switchText
   const obs = observedStateOf(data)
   if (!obs) return null
   const primary = getPrimaryValue(narrowObservedState(obs))
@@ -760,15 +763,20 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       const figureText = target
         // R1 S4-core (MG 5879952291): a change target is said as the change ("down 15% from today"), never the
         // fraction beside the metric's unit ("-0.15 GBP/month").
-        ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame) !== null
-          ? formatGoalTarget(target.raw, target.unit, target.frame)
+        // #2747 r2: a change the formatter cannot say (a % change with no quantity frame) is "Target not captured",
+        // never the level-shaped "10%" below (a guess at the frame).
+        ? target.frame != null && typeof target.raw === 'number'
+          ? formatGoalTarget(target.raw, target.unit, target.frame, target.quantityFrame) ?? TARGET_NOT_CAPTURED
           : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
+          // target-text: a LEVEL target (no change frame) said in its own currency unit
           ? formatValueWithUnit(target.raw, target.unit)
           // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.
+          // target-text: a LEVEL target (no change frame) said in its own declared unit, or the user's own words
           : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? (target.unit!.trim() === '%' ? '%' : ` ${target.unit}`) : ''}`
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
-        : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
-          ? null : formatSmartNumber(input.goalThreshold)
+        // #2747 r2: nor does any goal with no node target: the store's scalar alone has no frame, unit or bound.
+        : input.goalThreshold === null || goalTargetMeaningUnread(data as GoalTargetSource)
+          ? null : TARGET_NOT_CAPTURED
       const targetText = figureText !== null && bound !== null ? `${bound} ${figureText}` : figureText
       rows.push({
         id: node.id,
@@ -781,7 +789,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         attention: targetText === null ? ['no-value'] : [],
         // ⛔ R1 S4-core: a change target is not edited as a level — the editor writes a level figure, and CEE refuses
         // that write over a change goal by name (`goal_is_a_change`, all four goal writers). It is changed in the chat.
-        editable: target?.frame == null && !goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame),
+        editable: target?.frame == null && !goalTargetMeaningUnread(data as GoalTargetSource),
       })
       continue
     }
@@ -828,8 +836,6 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     input.edges as Edge<EdgeData>[],
   )) {
     const data = edge.data as Record<string, unknown> | undefined
-    // RT-12: only the live admitted example strength carries this attribution.
-    const exampleFigure = edgeSizePhrase(data)?.exampleFigure === true
     const attention: AttentionReason[] = []
     if (edgeIsContested(data)) attention.push('contested')
     if (input.fragileEdgeIds?.has(getDisplayEdgeId(edge))) attention.push('fragile')
@@ -858,11 +864,11 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     // Gate 5 (Codex r1 P1-1): an ACCEPTED Olumi strength keeps `provenanceDisplay: 'ai_inferred'` byte-identical (CEE
     // records the approval as review), and a strength sized from the user's own figure is not Olumi's estimate: neither
     // is an unconfirmed estimate to offer for confirmation (domain/strengthAccepted, domain/strengthStated).
+    // Data layer Phase 1 (PR2a): "Olumi's estimate, not yet confirmed" is offered only for a relationship the ONE
+    // classifier calls Olumi's estimate (`edgeProvenance.ts`): never a definition, an acceptance, the user's brief, an
+    // example figure, a person's own setting or a PLACEHOLDER (nobody estimated it, so there is nothing to confirm).
     if (
-      !isStrengthDefinitional(data) &&
-      !isStrengthAccepted(data) &&
-      !isStrengthStated(data) &&
-      !exampleFigure &&
+      edgeProvenance(data)?.kind === 'olumi_estimate' &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {
@@ -878,15 +884,18 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         const value = edgeValueParts(data)
         return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
       })(),
-      // Gate 5: the mark says whose the SIZE is — the user's stated figure reads as their brief (the wire's own
-      // `provenance.source`), an accepted Olumi strength as accepted (the factor rows' `provenanceAccepted`, :659).
-      // Example attribution is carried by the size sentence and detail basis, not the factor-source taxonomy.
-      provenanceSource: exampleFigure
-        ? undefined
-        : isStrengthStated(data)
-          ? 'brief_extraction'
-          : typeof data?.weightSource === 'string' ? data.weightSource : undefined,
-      ...(!exampleFigure && isStrengthAccepted(data) ? { provenanceAccepted: true as const } : {}),
+      // Data layer Phase 1: whose the SIZE is comes from the ONE edge provenance classifier (`edgeProvenance.ts`), the
+      // same answer the canvas icon and the inspector chip give. It used to pass the raw `weightSource` ('cee'), which
+      // no observed-state class names, so an Olumi estimate carried NO mark here (DATA-LAYER-CENSUS defect 3).
+      ...(() => {
+        const provenance = edgeProvenance(data)
+        const entry = provenance === null ? null : EDGE_PROVENANCE[provenance.kind]
+        return {
+          provenanceSource: entry?.modelTabSource,
+          ...(entry?.mark ? { provenanceKind: entry.mark } : {}),
+          ...(provenance?.kind === 'accepted' ? { provenanceAccepted: true as const } : {}),
+        }
+      })(),
       attention,
       editable: true,
     })
@@ -1205,7 +1214,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       affects: input.edges
         .filter(e => e.source === rowId)
         .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
-      interventions: buildOptionInterventions(node, nodeLabels),
+      interventions: buildOptionInterventions(node, nodeLabels, input.nodes),
       interventionCandidates: buildOptionInterventionCandidates(
         node,
         input.edges,
@@ -1236,7 +1245,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     interventions: [],
     // A relationship is not an option, so there is nothing it could change.
     interventionCandidates: [],
-    advancedParameters: buildAdvancedForEdge(edge.id, data),
+    advancedParameters: buildAdvancedForEdge(edge.id, data, routeOnceHeldIds(input.nodes, input.edges).has(edge.id)),
   }
 }
 
@@ -1374,6 +1383,7 @@ export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlyS
 function buildOptionInterventions(
   node: Node,
   labels: ReadonlyMap<string, string>,
+  nodes: readonly Node[],
 ): OptionInterventionField[] {
   if (nodeKind(node) !== 'option') return []
   const raw = (node.data as Record<string, unknown> | undefined)?.interventions as
@@ -1387,7 +1397,7 @@ function buildOptionInterventions(
     const { displayValue, source } = unwrapInterventionValue(rawValue)
     // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
     // v1 rows already honoured); the numeric half is independent of it.
-    const value = displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
+    const value = servedSwitchReading(nodes.find(n => n.id === factorId)?.data, numeric ?? null) ?? displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
     return [
       {
         factorId,
@@ -1403,6 +1413,7 @@ function buildOptionInterventions(
          * that forgets to is the one that renders a guess. Absent is the fact.
          */
         ...(source === null ? {} : { provenanceSource: source }),
+        ...(interventionIsUserMaterialUnverified(rawValue) ? { userMaterialUnverified: true as const } : {}),
       },
     ]
   })
@@ -1436,9 +1447,9 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
  *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
  *     spelling — including the legacy `belief` leg — in one place.
  */
-function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined) {
+function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined, routeOnceHeld: boolean) {
   const std = resolveEdgeValueDisplay(data, 'strengthStd')
-  const ep = resolveEdgeValueDisplay(data, 'beliefExists')
+  const ep = resolveEdgeValueDisplay(data, 'beliefExists', { routeOnceHeld })
   return [
     { label: 'Edge ID', value: id },
     { label: 'Std', value: std.show ? String(std.value) : null },

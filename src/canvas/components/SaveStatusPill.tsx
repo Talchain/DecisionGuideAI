@@ -1,10 +1,10 @@
 /**
  * P0-2: Save Status Pill
  *
- * Shows reactive save state: "Saving...", "Saved just now ✓", "Saved by [user] • [time]"
+ * Shows reactive save state: "Saving…", "Unsaved changes", "Saved just now", "Saved by [user] • [time]"
  * Replaces ambiguous "Unsaved scenario" text
  *
- * ⭐ DS v5 §8.5 PILL (contract v3.1 state words, delta PILL-14). Both states are
+ * ⭐ DS v5 §8.5 PILL (contract v3.1 state words, delta PILL-14). All three states are
  * outlined pills on `bg-panel` with `text-text-body` ("Text on pills is always
  * text-text-body"; colour is carried by the border only). "Saving…" was a
  * FILLED pill in raw legacy greys (`text-gray-600 bg-gray-100`, DS v5 L235:
@@ -19,11 +19,12 @@ import { typography } from '../../styles/typography'
 
 export interface SaveStatusPillProps {
   isSaving: boolean
+  isDirty: boolean
   lastSavedAt: number | null
   savedBy?: string | null
 }
 
-export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPillProps) {
+export function SaveStatusPill({ isSaving, isDirty, lastSavedAt, savedBy }: SaveStatusPillProps) {
   const [timeLabel, setTimeLabel] = useState<string>('')
 
   useEffect(() => {
@@ -65,6 +66,19 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
       >
         <Clock className="w-3 h-3 animate-pulse" aria-hidden="true" />
         <span>Saving…</span>
+      </div>
+    )
+  }
+
+  if (isDirty) {
+    return (
+      <div
+        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-panel-border rounded-full`}
+        data-testid="save-status-unsaved"
+        role="status"
+        aria-live="polite"
+      >
+        <span>Unsaved changes</span>
       </div>
     )
   }

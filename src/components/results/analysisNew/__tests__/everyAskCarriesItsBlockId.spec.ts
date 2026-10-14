@@ -10,7 +10,7 @@
  * says WHICH finding the user is working through. The finding's own paragraph
  * is `context`, which the drawer renders read-only and never sends.
  *
- * Derived across the tree, not hand-listed — five `openAskOlumi` call sites
+ * Derived across the tree, not hand-listed — drawer and immediate ask call sites
  * hold a recommendation, and `AnalysisNewTabBody.tsx:1165` was the one that
  * dropped `parameters`. It is wired to FIVE mount points on the Reasoning tab,
  * so the tab's primary "Work through with Olumi" route dispatched a coaching
@@ -27,7 +27,7 @@
  * A hand-maintained enumeration of the sites a rule applies to is the same
  * mirror defect as a hand-maintained list of values (trap 12), one level up.
  *
- * This guard derives the population from the source at run time. A new
+ * This guard derives drawer and immediate ask routes from the source at run time. A new
  * rec-holding ask route fails it the day it is written, wherever it lives.
  *
  * ⚠ WHAT IT CANNOT DO, STATED SO NOBODY READS MORE INTO IT. It watches the
@@ -62,15 +62,15 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** Every `openAskOlumi({ … })` call, as `{file, line, body}`. */
+/** Every drawer or immediate ask call, as `{file, line, body}`. */
 function askCallSites(): Array<{ file: string; line: number; body: string }> {
   const sites: Array<{ file: string; line: number; body: string }> = []
   for (const file of sourceFiles(SRC)) {
     const text = readFileSync(file, 'utf8')
-    if (!text.includes('openAskOlumi({')) continue
+    if (!/\b(?:openAskOlumi|askAi)\(\{/.test(text)) continue
     const lines = text.split('\n')
     for (let i = 0; i < lines.length; i++) {
-      if (!lines[i]!.includes('openAskOlumi({')) continue
+      if (!/\b(?:openAskOlumi|askAi)\(\{/.test(lines[i]!)) continue
       // Brace-balance from the opening `{` to its match — the call's own body,
       // never a fixed window that could clip a long site or swallow the next.
       let depth = 0
@@ -123,6 +123,10 @@ describe('every ask that holds a recommendation carries its block_id', () => {
     // while looking thorough. There must be at least one ask that carries no
     // recommendation — the completed-limit ask is one, by design.
     expect(sites.some((s) => !holdsRecommendation(s.body))).toBe(true)
+  })
+
+  it('includes the immediate intervention response in its derived population', () => {
+    expect(sites.filter(s => holdsRecommendation(s.body)).map(s => s.file)).toContain('components/results/analysisNew/challengeResponse.ts')
   })
 
   it('forwards parameters from every rec-holding ask route', () => {

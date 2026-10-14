@@ -13,7 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
-import { existenceHeldPatch } from '../domain/heldUserLink'
+import { existenceHeldPatch, linkEndsOf } from '../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
@@ -304,7 +304,7 @@ export function DraftChat() {
 
     if (hasExistingGraph) {
       const confirmed = window.confirm(
-        'Drafting a new decision will clear your current decision model from the canvas. Start a new draft?'
+        'Drafting a new model will clear your current model from the canvas. Start a new draft?'
       )
 
       if (!confirmed) {
@@ -540,6 +540,8 @@ export function DraftChat() {
 
     // Check both locations: draftData.edges (v2/v3 root) or draftData.graph.edges (nested)
     const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
+    // S-DEF: the draft's own ends, so the hold reads exactly what CEE validates (`linkEndsOf`).
+    const endsOf = linkEndsOf(rawNodes)
     const edges = rawEdges.map((e: any, i: number) => {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
@@ -741,7 +743,7 @@ export function DraftChat() {
           // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
           ...(naturalEffect !== undefined ? { naturalEffect } : {}),
           // D3 cut 6: CEE holds this user link at existence 1.0 — HOP 3 OF 3, the same one reader (domain/heldUserLink).
-          ...existenceHeldPatch(e),
+          ...existenceHeldPatch(e, endsOf(e)),
           ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, weightSource !== 'default'),
           // POM-8: a placeholder strength — HOP 3 OF 3, the same one reader
           // (domain/strengthPlaceholder). The key is destructured OUT of
@@ -1163,7 +1165,7 @@ export function DraftChat() {
                   overflow: 'hidden'
                 }}
                 rows={1}
-                aria-label={hasGraph ? 'Describe changes to your model' : 'Describe your decision'}
+                aria-label={hasGraph ? 'Describe changes to your model' : 'Write your brief'}
               />
               {/* Submit button inside textarea area - anchored to bottom right */}
               <button
@@ -1543,7 +1545,7 @@ export function DraftChat() {
                   }}
                   placeholder={hasGraph
                     ? 'Describe the changes you want... e.g., Rebuild this model with fewer factors, clearer options, and stronger evidence for market size.'
-                    : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
+                    : "Write your brief... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-md border border-sand-200
                     focus:border-sand-200 focus:outline-none focus-visible:ring-0 focus:shadow-none

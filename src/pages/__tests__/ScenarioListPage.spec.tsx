@@ -156,7 +156,7 @@ describe('ScenarioListPage', () => {
     // assertion at line 97 (`'Welcome to Olumi'`) is the single intentional
     // copy-coupling in this spec.
     fireEvent.click(
-      screen.getByRole('button', { name: /start a new decision/i }),
+      screen.getByRole('button', { name: /start a new scenario/i }),
     )
 
     await waitFor(() => {
@@ -175,7 +175,7 @@ describe('ScenarioListPage', () => {
     expect(screen.getByText('Retry')).toBeTruthy()
   })
 
-  it('shows "Untitled decision" for null titles', async () => {
+  it('shows "Untitled scenario" for null titles', async () => {
     mockListScenarios.mockResolvedValue([
       {
         id: 's1',
@@ -190,7 +190,7 @@ describe('ScenarioListPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Untitled decision')).toBeTruthy()
+      expect(screen.getByText('Untitled scenario')).toBeTruthy()
     })
   })
 
@@ -205,7 +205,7 @@ describe('ScenarioListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('monthly recurring revenue')).toBeTruthy()
     })
-    expect(screen.queryByText('Untitled decision')).toBeNull()
+    expect(screen.queryByText('Untitled scenario')).toBeNull()
   })
 
   it('tells same-named cards apart by their options and exact creation time; a uniquely named card is unchanged', async () => {

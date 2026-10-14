@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * OptionNode — the option the analysis RAN ON and could not compute.
  *
@@ -27,6 +28,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { NOT_COMPUTED_BADGE, NOT_COMPUTED_REASON_COPY } from '../../../components/results/utils/notAnalysedCopy'
 
@@ -110,20 +112,35 @@ const twoOptionReport = (opts: { failedReason?: string } = {}) => ({
  * absent in Standard, the view the product opens in.
  */
 const renderBoth = (results: ReturnType<typeof twoOptionReport>, viewMode: 'standard' | 'expert' = 'standard') => {
+  // Headline controls carry an explicit chance licence, independently of their runs-share value.
+  const chanceIds = Object.entries(results.report.option_probabilities)
+    .filter(([, row]) => row.status !== 'failed').map(([id]) => id)
+  // The licence names at least two options; the extra comparison control grants the genuine zero its own licence.
+  chanceIds.push('opt-licence-context')
+  const licensedResults = { ...results, report: { ...results.report, option_probabilities: { ...results.report.option_probabilities, 'opt-licence-context': { status: 'computed' } }, inference_warnings: [{
+    code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: chanceIds,
+    pct_by_option: Object.fromEntries(chanceIds.map(id => [id, id === COMPUTED_TRUE_ZERO ? 0 : 23])),
+    target: { comparator: 'at_least', value: 100, unit: 'customers' },
+  }] } }
   useCanvasStore.setState({
     nodes: [
-      { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-      { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+      { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+      { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
+      { id: 'opt-licence-context', type: 'option', position: { x: 400, y: 0 }, data: { label: 'Comparison control', type: 'option', kind: 'option' } },
+      { id: 'goal', type: 'goal', position: { x: 0, y: 100 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } },
     ],
     edges: [],
-    results,
+    results: licensedResults,
+    hasCompletedFirstRun: true,
+    goalThreshold: 100,
     viewMode,
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
   return render(
-    <ReactFlowProvider>
-      <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      <OptionNode {...baseProps} id={COMPUTED_TRUE_ZERO} data={{ label: 'Double the spend', type: 'option' }} />
-    </ReactFlowProvider>,
+    <ReactFlowProvider><OptionChanceCellProvider>
+      <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      <OptionNode {...baseProps} id={COMPUTED_TRUE_ZERO} data={{ label: 'Double the spend', type: 'option', kind: 'option' }} />
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -168,40 +185,44 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
   // Without these, a change that suppressed EVERY option's readout would pass
   // every assertion above.
 
-  it('a GENUINE measured zero keeps its readout and gets no disclosure', () => {
+  // #2747 re-scope 2 (U0): "keeps its readout" is deleted (the chance readout "less than 1% …") — the canvas card shows no
+  // chance in C. The no-disclosure negative stays; the failed sibling's disclosure in the same render is its contrast.
+  it('a GENUINE measured zero gets no disclosure', () => {
     renderBoth(twoOptionReport())
-    expect(screen.getByTestId(`option-win-readout-${COMPUTED_TRUE_ZERO}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`option-not-computed-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${COMPUTED_TRUE_ZERO}`)).toBeNull()
   })
 
-  it("a 'partial' option is a DISCLOSURE with a distribution behind it and keeps its readout", () => {
+  // #2747 re-scope 2 (U0): "and keeps its readout" is deleted — the canvas card shows no chance in C; the no-disclosure negative stays.
+  it("a 'partial' option has a distribution behind it and gets no not-computed disclosure", () => {
     // ISL emits a full outcome block for `partial` (0 < n_valid/n_total < 0.8)
     // and raises LOW_EFFECTIVE_SAMPLES. A `status !== 'computed'` gate would
     // discard a result the producer honestly computed.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'partial'
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
+  // #2747 re-scope 2 (U0): the ordinary-path chance readout is deleted — the canvas card shows no chance in C; the
+  // no-disclosure negative stays.
   it('an ABSENT status is the legacy V1 shape and stays on the ordinary path', () => {
     // ISL's V1 `OptionResult` has no `status` field at all. Reading silence as
     // failure would suppress a result that WAS computed.
     const r = twoOptionReport()
     delete (r.report.option_probabilities[FAILED] as { status?: string }).status
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
+  // #2747 re-scope 2 (U0): the ordinary-path chance readout is deleted — the canvas card shows no chance in C; the
+  // no-disclosure negative stays.
   it('an UNRECOGNISED token is not read as failure', () => {
     // The shared contract types `status` as a bare `z.ZodOptional<z.ZodString>`,
     // so a token this UI has never heard of is a legal payload.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'some_future_token'
     renderBoth(r)
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
   })
 
@@ -218,8 +239,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // two, because it carries no number and so reads as a judgement.
     useCanvasStore.setState({
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
       ],
       edges: [],
       results: {
@@ -246,22 +267,23 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       viewMode: 'expert',
     } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
+    // Run-4 judge (DL 12 Oct, the class): the close-call line is removed for every option, so this is now a regression
+    // guard only (see the flipped control below).
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the same 3pp gap DOES render the close-call line for a COMPUTED option', () => {
-    // Without this, the assertion above would pass if the close-call line were
-    // simply unreachable in this harness — an absence proven by an instrument
-    // that can never show a presence (CLAUDE.md trap 13). Same fixture, same
-    // gap, same leader; only `status` differs.
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. This was the positive control
+  // for the row above ("DOES render the close-call line for a COMPUTED option"); it now pins the line's absence on the
+  // COMPUTED option too, with the card itself on screen.
+  it('the same 3pp gap renders NO close-call line for a COMPUTED option either (the line is removed)', () => {
     useCanvasStore.setState({
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option' } },
-        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option' } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option' } },
+        { id: COMPUTED_TRUE_ZERO, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option' } },
       ],
       edges: [],
       results: {
@@ -277,21 +299,26 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       viewMode: 'expert',
     } as never)
     const { unmount } = render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
-    expect(screen.getByText(/Close to the option most runs supported/i)).toBeInTheDocument()
-    // Locked Canvas design (23 Sep 2026): the close-call line is Detailed-only
-    // now — the identical computed fixture in Standard carries no such line.
+    // The computed card renders and is not read as not-computed, so the absence is the line's, not the card's.
+    expect(screen.getByText('Hold the current plan')).toBeInTheDocument()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
+    expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    // Standard: the identical computed fixture carries no such line either.
     unmount()
     useCanvasStore.setState({ viewMode: 'standard' } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // This control carries only a runs share, so it grants no chance headline.
+    expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByText(/Close to the option most runs supported/i)).toBeNull()
   })
 
@@ -322,8 +349,8 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     useCanvasStore.setState({
       viewMode,
       nodes: [
-        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', is_baseline: false } },
-        { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', is_baseline: false } },
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', kind: 'option', is_baseline: false } },
+        { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', kind: 'option', is_baseline: false } },
       ],
       edges: [],
       results: {
@@ -348,9 +375,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       },
     } as never)
     return render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', is_baseline: false }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', kind: 'option', is_baseline: false }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
   }
 
@@ -363,18 +390,21 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the identical fixture DOES render "Held back by:" for a COMPUTED non-leader', () => {
+  it('CONTROL: the identical fixture renders NO "Held back by:" for a COMPUTED non-leader either', () => {
     // Same report, same nodes, same `win_probability: 0`, same leader, same
-    // gap. Only `status` differs — so this fails the moment the gate is
-    // widened past the producer's failing token, and the assertion above
-    // fails the moment it is removed.
+    // gap. Only `status` differs.
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
+    // The card itself renders (its label), so the absence is not an empty render.
     const { unmount } = renderBehindFixture('computed')
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
-    expect(screen.getByText(/Held back by:/)).toBeInTheDocument()
+    expect(screen.getAllByText('Hold the current plan').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBehindFixture('computed', 'standard')
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // This control carries only a runs share, so it grants no chance headline.
+    expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
@@ -426,10 +456,9 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     expect(card).toBeInTheDocument()
   })
 
-  it('POSITIVE CONTROL: a COMPUTED non-leader DOES carry its "Held back by:" reason', () => {
-    // Without this the assertion above passes if "Held back by:" is simply
-    // unreachable in this harness (trap 13). Same fixture, same non-leader
-    // position; only `status` differs.
+  it('CONTROL: a COMPUTED non-leader carries no "Held back by:" reason either', () => {
+    // Same fixture, same non-leader position; only `status` differs.
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
     const r = twoOptionReport()
     ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'computed'
     ;(r.report as { robustness?: unknown }).robustness = {
@@ -437,24 +466,26 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     }
     ;(r.report.option_probabilities[COMPUTED_TRUE_ZERO] as { win_probability: number }).win_probability = 0.6
     const { unmount } = renderBoth(r, 'expert')
-    expect(screen.queryAllByText(/^Held back by:/).length).toBeGreaterThan(0)
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getAllByText('Hold the current plan').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
     // Locked Canvas design (23 Sep 2026): Detailed-only — absent in Standard.
     unmount()
     renderBoth(r, 'standard')
-    expect(screen.getByTestId(`option-win-readout-${FAILED}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0): the Standard view's chance readout is deleted — the canvas card shows no chance in C.
     expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
   })
 
   it('renders nothing at all outside results mode', () => {
     useCanvasStore.setState({
-      nodes: [{ id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold', type: 'option' } }],
+      nodes: [{ id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold', type: 'option', kind: 'option' } }],
       edges: [],
       results: { status: 'idle', report: null },
     } as never)
     render(
-      <ReactFlowProvider>
-        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold', type: 'option' }} />
-      </ReactFlowProvider>,
+      <ReactFlowProvider><OptionChanceCellProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold', type: 'option', kind: 'option' }} />
+      </OptionChanceCellProvider></ReactFlowProvider>,
     )
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.queryByTestId(`option-win-readout-${FAILED}`)).toBeNull()

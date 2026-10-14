@@ -157,7 +157,7 @@ describe('GAP-16 — the header never repeats the value line\'s own source mark'
       observedState: { value: 0.08, unit: '%', display_value: '8%' },
     })
     expect(headerValueMarks()).toHaveLength(1)
-    expect(screen.getByTestId('factor-value-source-fac_ai_nosource').textContent).toContain('no source')
+    expect(screen.getByTestId('factor-value-source-fac_ai_nosource').getAttribute('aria-label')).toContain('Source not recorded')
   })
 
   it('CONTRAST — an OPTION card (no value field at all) still gets its structural header mark', () => {

@@ -193,8 +193,8 @@ describe('G1 · the pair on screen marks the canvas; a row focuses its element',
     seed({ nodes: [{ id: 'fac_price', data: { label: 'Pro price' } }] } as never)
     render(<CompareRunPairBody responseHash="hash-A" />)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-input-row-focus`)).toBeNull()
-    // Compare mounts Reasoning's own input row (`InputChanges`), so the note is the shared wording.
-    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('· not on the canvas now')
+    // Compare's row layout (`InputChangeRows`, v3) gives the note its own line under the row.
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('Not on the canvas now.')
     expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
   })
 

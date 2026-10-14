@@ -126,18 +126,24 @@ interface StrengthBandButtonsProps {
    * DISPLAY-LEVEL ONLY — there is deliberately no second store field.
    */
   unset?: boolean
+  /** The numeric value is only a magnitude; do not imply a positive direction. */
+  directionUnset?: boolean
   /** Preserve legacy callers; Inspector uses words until technical detail is requested. */
   technicalDetails?: boolean
+  /** Chat uses the existing 12px label token. */
+  size?: 'panel' | 'chat'
 }
 
 export const StrengthBandButtons = memo(function StrengthBandButtons({
   value,
   onChange,
   unset = false,
+  directionUnset = false,
   technicalDetails = true,
+  size = 'panel',
 }: StrengthBandButtonsProps) {
   const absMagnitude = Math.abs(value)
-  const isNegative = value < 0
+  const isNegative = !directionUnset && value < 0
 
   /**
    * ⭐ ONE VALUE PER BAND, AND EVERY CHANNEL READS IT.
@@ -147,7 +153,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
    * number that commit will write. A future edit cannot make one signed and the
    * other not; there is a single expression.
    *
-   * Note `isNegative` is `value < 0`, which is FALSE for `-0` — so a `-0` input
+   * A known direction is negative only for `value < 0`, which is FALSE for `-0` — so a `-0` input
    * takes the un-negated branch and the write stays byte-identical to the
    * canonical midpoint. The write tests assert that with `Object.is`.
    */
@@ -158,12 +164,14 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         return {
           band,
           signedMidpoint,
-          disclosure: technicalDetails
+          disclosure: directionUnset
+            ? `${band.label}: set magnitude${technicalDetails ? ` to ${band.midpoint.toFixed(2)}` : ''}; direction still needed`
+            : technicalDetails
             ? `${band.label}: set strength to ${signedMidpoint.toFixed(2)}`
             : `${band.label}: use this strength band (${isNegative ? 'decreases' : 'increases'})`,
         }
       }),
-    [isNegative, technicalDetails],
+    [isNegative, technicalDetails, directionUnset],
   )
 
   // ⚠ THE `-1` ARM IS LOAD-BEARING AND IS NOT WHAT `getCanvasStrengthBand` RETURNS.
@@ -251,7 +259,11 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
       ? presets[engagedIndex].disclosure
       : hasHoverChannel
         ? null
-        : technicalDetails
+        : directionUnset
+          ? technicalDetails
+            ? `Each preset sets magnitude, in order: ${presets.map(p => p.band.midpoint.toFixed(2)).join(', ')}; direction still needed.`
+            : 'Choose a strength band; direction still needed.'
+          : technicalDetails
           ? `Each preset writes, in order: ${presets.map(p => p.signedMidpoint.toFixed(2)).join(', ')}`
           : 'Choose a strength band; the current direction is preserved.'
 
@@ -277,7 +289,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
               onMouseLeave={() => setHoveredIndex(prev => (prev === i ? null : prev))}
               aria-label={disclosure}
               title={disclosure}
-              className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
+              className={`${size === 'chat' ? typography.chatMeta : typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
                 ${isActive
                   ? 'border-text-body text-text-body bg-panel-hover'
                   : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
@@ -291,11 +303,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         })}
       </div>
       {/*
-        The slot is ALWAYS in the DOM and reserves its own height, so revealing a
-        consequence cannot shove the rest of the panel down the moment a pill
-        takes focus — a row that jumps as you Tab along it is its own usability
-        defect, and the one thing worse than an undisclosed number is a
-        disclosure that moves the control away from the pointer.
+        The slot stays in the DOM on both surfaces. Chat keeps its reserved
+        height so disclosure does not shift the proposal controls. The Inspector
+        leaves no empty consequence line; spacing appears with its disclosure.
 
         NOT an `aria-live` region and NOT `aria-hidden`. Every button already
         carries the same sentence as its accessible name, so announcing it again
@@ -304,7 +314,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         for anyone browsing the panel by structure.
       */}
       <div
-        className={`${typography.panelMeta} text-text-light min-h-[1rem] mt-1`}
+        className={size === 'chat'
+          ? `${typography.chatMeta} text-text-light min-h-[1rem] mt-1`
+          : `${typography.panelMeta} text-text-light${revealed ? ' mt-1' : ''}`}
         data-testid="strength-preset-consequence"
       >
         {revealed}

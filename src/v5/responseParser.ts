@@ -45,6 +45,7 @@
  *   relies on it being shown to the user.
  */
 import type { z } from 'zod';
+import { ownershipRefusalReason, type OwnershipRefusalReason } from './ownershipRefusalCopy';
 
 import {
   OlumiResponseSchema,
@@ -720,12 +721,15 @@ export const V5_PARSE_ERROR_KIND = 'parse_error' as const
 export type V5ParseErrorKind = typeof V5_PARSE_ERROR_KIND
 
 export type V5ParseResult =
+  | { kind: 'ownership_refused'; reason: OwnershipRefusalReason; http_status: 403 }
   | { kind: 'response'; response: OlumiResponse }
-  | { kind: 'boundary_error'; error: BoundaryError }
+  | { kind: 'boundary_error'; error: BoundaryError; http_status?: number }
   | {
       kind: 'parse_error'
       reason: string
       http_status?: number
+      /** Client proof that dispatch never started; never inferred from a fetch rejection. */
+      requestNotStarted?: true
       raw?: unknown
       source?: ErrorSource
       diagnosticHeaders?: DiagnosticHeaders
@@ -784,6 +788,15 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   // splitter, and kept on the same sidecar (N1 — see isProducerSidecarKey).
   // `raw` below stays the ORIGINAL body.
   if (!res.ok) {
+    // Admit only this exact 403 envelope, before any additive-sidecar splitting.
+    if (res.status === 403 && raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+      const body = raw as Record<string, unknown>;
+      if (body.error === 'model_write_ownership_refused' &&
+          Object.keys(body).every(key => key === 'error' || key === 'message') &&
+          (!Object.prototype.hasOwnProperty.call(body, 'message') || typeof body.message === 'string')) {
+        return { kind: 'ownership_refused', reason: ownershipRefusalReason(body.message), http_status: 403 };
+      }
+    }
     const { known: knownError, extensions: errorSidecars } = splitAdditiveExtensions(
       raw,
       KNOWN_BOUNDARY_ERROR_TOP_LEVEL_KEYS,
@@ -793,6 +806,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     if (asError.success) {
       return {
         kind: 'boundary_error',
+        http_status: res.status,
         error:
           Object.keys(errorSidecars).length > 0
             ? attachAdditiveSidecar(asError.data, { ...errorSidecars })

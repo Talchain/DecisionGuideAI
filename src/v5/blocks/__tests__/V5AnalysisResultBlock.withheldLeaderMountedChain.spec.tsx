@@ -2,6 +2,9 @@
  * ⭐⭐ UI-SEM-097 THROUGH THE SHIPPED CHAIN — what a guest sees and hears in
  * the chat's Analysis result card when the producer withholds the leader.
  *
+ * #2747 re-scope 2 (DL ruling (A)): C shows no win-share row on any Run. The withheld negatives below are kept as
+ * written; the permitted control is rewritten as an absence check on the same chain.
+ *
  * Pre-review 5829070993 (#69) asked for the fix to be proved on the REAL V5
  * response composition/store path, not on a hand-mounted block: the served
  * body, with `analysis_state.leader_claim.permitted: false` and
@@ -272,8 +275,12 @@ describe('WITHHELD by the typed claim alone: the percentages have their own perm
 
 // ── The permitted control ───────────────────────────────────────────────────
 
-describe('PERMITTED (derived control): the row renders, seen and heard', () => {
-  it('the same 57f903c bytes with the claim permitted: every share, largest first, under its accessible name', async () => {
+describe('PERMITTED (derived control): still no win-share row in C (ruling (A))', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "the same 57f903c bytes with the claim permitted: every share, largest first,
+  // under its accessible name" (describe: "PERMITTED (derived control): the row renders, seen and heard"). The same
+  // permitted body through the shipped chain, which used to SHOW the crowned, largest-first pill row, now pins that
+  // C shows no win share, seen or heard (DL ruling (A)). The "no refusal is held" chain assertion is kept as written.
+  it('the 57f903c bytes with the claim permitted: still no win-share row in C (ruling (A)), seen or heard', async () => {
     await mount()
     const twin = permittedTwinOf57f()
     await say(twin, 'Run the analysis.')
@@ -283,17 +290,10 @@ describe('PERMITTED (derived control): the row renders, seen and heard', () => {
     ).not.toBe(false)
 
     const card = latestCard()
-    const row = within(card).getByRole('list', { name: 'Share of simulated scenarios supporting each option' })
-    expect(row).toHaveAttribute('data-testid', 'v5-analysis-result-probabilities')
-    const ranked = Object.entries(resultBlockOf(twin).win_probabilities).sort(([, a], [, b]) => b - a)
-    const items = within(row).getAllByRole('listitem')
-    expect(items).toHaveLength(ranked.length)
-    ranked.forEach(([label, share], i) => {
-      expect(items[i]).toHaveTextContent(label)
-      expect(items[i]).toHaveTextContent(formatProbability(share))
-    })
-    // A LICENSED leader: the verdict names it, so it is crowned and first.
-    expect(items[0]).toHaveAttribute('data-leader', 'true')
+    expectNoWinShares(card, resultBlockOf(twin).win_probabilities, 'permitted twin')
+    expect(card.textContent ?? '').not.toMatch(/of runs/)
+    // Non-vacuity: the card rendered its summary.
+    expect(within(card).getByTestId('v5-analysis-result-summary')).toHaveTextContent(resultBlockOf(twin).summary)
   })
 
   it('a withheld Run, then a permitted one: the EARLIER card stays withheld (per card, not the latest verdict)', async () => {
@@ -304,6 +304,7 @@ describe('PERMITTED (derived control): the row renders, seen and heard', () => {
     const cards = [...document.querySelectorAll('[data-testid="v5-analysis-result"]')] as HTMLElement[]
     expect(cards, 'one card per Run').toHaveLength(2)
     expectNoWinShares(cards[0], resultBlockOf(RUN_57F).win_probabilities, 'the earlier, withheld card')
-    expect(within(cards[1]).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
+    // #2747 re-scope 2 (mixed row, DL ruling (A)): the later, permitted card's pill-row PRESENCE assertion is deleted;
+    // C shows no win-share row on any Run. The two-card count and the earlier card's negatives are kept as written.
   })
 })

@@ -94,7 +94,7 @@ interface ChatComposerProps {
  * missing something.
  */
 export const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
-  frame:    'Describe the decision or challenge you\'re working through, any options you\'re weighing, and what a good outcome looks like.',
+  frame:    'Describe the question or situation you\'re working through, any options you\'re weighing, and what a good outcome looks like.',
   ideate:   'Explore options, add factors, or challenge assumptions...',
   evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
   decide:   'Challenge the result, or generate your brief...',
@@ -388,7 +388,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: 'var(--bg-panel, #FEF9F3)',
+                background: 'var(--bg-panel, #FEFEFE)',
                 border: '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: 'none',
                 cursor: 'pointer',
@@ -416,7 +416,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FCF7F1)',
+                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FEF9F3)',
                 border: composer.canSend ? 'none' : '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
                 cursor: composer.canSend ? 'pointer' : 'default',
@@ -448,11 +448,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             transform: scale(0.92);
           }
           .composer-icon-btn:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FCF7F1);
+            background: var(--bg-panel-hover, #FEF9F3);
             color: var(--text-body, #3F3F3E);
           }
           .composer-run-chip:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FCF7F1);
+            background: var(--bg-panel-hover, #FEF9F3);
           }
         `}</style>
       </div>

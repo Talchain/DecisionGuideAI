@@ -40,7 +40,8 @@ const ROOT = path.resolve(__dirname, '../../..')
 /** The five repaired sites, each with the cause it is evidence for. */
 const SITES = [
   { file: 'src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx', cause: 'fragment + ban list' },
-  { file: 'src/canvas/compare-tab/RunPairCompare.tsx', cause: 'ban list' },
+  // `compare-tab/RunPairCompare.tsx` (cause: ban list) left this list on 2026-10-07: the pre-v3 Compare
+  // body was deleted with zero production importers, so there is no live copy left to regress.
   { file: 'src/v5/blocks/V5AnalysisResultBlock.tsx', cause: 'out of scope' },
   { file: 'src/v5/blocks/V5ComparisonBlock.tsx', cause: 'out of scope' },
 ] as const
@@ -71,37 +72,11 @@ describe('the repaired sites carry no contest framing in live copy', () => {
     expect(live, 'a bare "% win" tail is back').not.toMatch(/%\s+win\b/i)
   })
 
-  it('⭐ each site actually READS THE REGISTER — deletion is not a pass', () => {
-    // Without this, removing the caption entirely would satisfy every absence
-    // assertion above while losing the label a reader needs.
-    for (const { file } of SITES) {
-      const src = read(file)
-      expect(src, `${file} no longer takes its word from a register`).toMatch(
-        /METRIC_NOUN\.support|COMPARATIVE_COPY\.(label|byOptionAria|phrase)/,
-      )
-    }
-  })
-
-  it('⛔ CONTRAST — the WIRE FIELD is untouched wherever it is read', () => {
-    // ⭐ THE DISCRIMINATING TWIN. `win_probability` is a contract across four
-    // services (UI · CEE · PLoT · ISL); renaming it from a copy lane would
-    // break the wire, and the guard's own doctrine excludes identifiers for
-    // exactly this reason. This arm fails if a future tidy-up "finishes the
-    // job" by renaming the field — the plausible wrong next step, and the one
-    // no absence assertion above could see.
-    //
-    // ⚠ NOT EVERY SITE READS IT, and asserting it on all four would have been
-    // a guard that fails on correct code: `RunPairCompare` renders a heading
-    // over rows built elsewhere and never touches the field. So the SET is
-    // pinned instead — a site dropping the field moves the count and reds,
-    // and the count cannot pass vacuously at zero.
-    const reading = SITES.filter((s) => /win_probabilit/.test(read(s.file))).map((s) => s.file)
-    expect(reading).toEqual([
-      'src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx',
-      'src/v5/blocks/V5AnalysisResultBlock.tsx',
-      'src/v5/blocks/V5ComparisonBlock.tsx',
-    ])
-  })
+  // #2747 re-scope 2 (DL ruling (A), pre-accepted): two rows deleted — "each site actually READS THE REGISTER" and
+  // "CONTRAST — the WIRE FIELD is untouched wherever it is read". Their only subject was each site's win-share caption
+  // and the `win_probability` read behind it; C shows no win share on any surface, so all three captions are removed.
+  // The census rows (outcome inspector, chat analysis card ×2, chat comparison card) prove the absence on screen; the
+  // no-contest-framing negatives above and below are kept.
 })
 
 describe('the register is the single authority for this word', () => {

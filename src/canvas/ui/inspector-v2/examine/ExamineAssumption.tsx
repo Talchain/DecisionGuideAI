@@ -1,10 +1,4 @@
-/**
- * ⭐ EXAMINE THIS ASSUMPTION — the inspector section (slice 1, 52f8cd). The view is `examineAssumptionView.ts`.
- *
- * ⛔ READ-ONLY AND PREFILL-ONLY. Its one action goes through `requestAsk`, which never dispatches: it prefills the
- * composer (or opens the drawer) and the USER sends. The proposal Olumi returns carries its own approval card; no
- * figure changes here. Hidden, not disabled, when nothing can receive an ask (`InspectorQuickActions` precedent).
- */
+/** Examine sends a chip about its typed target. Any proposed change returns for approval. */
 import { useCallback, useMemo } from 'react'
 
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -13,19 +7,26 @@ import type { AttentionReason } from '../../../nodes/shared/nodeAttention'
 import { typography } from '../../../../styles/typography'
 import { canReceiveAsk, requestAsk } from '../askSemantic'
 import { inspectorButton, inspectorButtonRow, inspectorDetailRow, inspectorHeading } from '../inspectorStyle'
-import { buildExamineAssumptionView, EXAMINE_ACTION, EXAMINE_HEADING, EXAMINE_LIMIT } from './examineAssumptionView'
+import { buildExamineAssumptionView, EXAMINE_ACTION, EXAMINE_HEADING, EXAMINE_LIMIT, type ExamineAssumptionView } from './examineAssumptionView'
+
+/** The same sender serves the original component and the merged anatomy Ask. */
+export function requestExamineAssumption(nodeId: string, view: ExamineAssumptionView) {
+  return requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: nodeId, intent: 'challenge' })
+}
 
 export function ExamineAssumption({
   nodeId,
   label,
   data,
   reasons,
+  showAction = true,
 }: {
   nodeId: string
   label: string
   /** The factor node's data (the card's own reading of its figure and its `observedState`). */
   data: Record<string, unknown> | undefined
   reasons: readonly AttentionReason[]
+  showAction?: boolean
 }) {
   const canAsk = useGuidanceStore(canReceiveAsk)
   const view = useMemo(
@@ -34,7 +35,7 @@ export function ExamineAssumption({
   )
   const prepare = useCallback(() => {
     if (!view) return
-    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: nodeId })
+    requestExamineAssumption(nodeId, view)
   }, [view, nodeId])
 
   if (!view || !canAsk) return null
@@ -53,11 +54,11 @@ export function ExamineAssumption({
         </div>
       )}
       <p data-testid="inspector-examine-why" className={`mt-2 ${typography.panelBody} text-text-body`}>{view.why}</p>
-      <div className={`${inspectorButtonRow} pt-2`}>
+      {showAction && <div className={`${inspectorButtonRow} pt-2`}>
         <button type="button" data-testid="inspector-examine-prepare" onClick={prepare} className={inspectorButton}>
           {EXAMINE_ACTION}
         </button>
-      </div>
+      </div>}
       <p className={`mt-1.5 ${typography.panelMeta} text-text-light`}>{EXAMINE_LIMIT}</p>
     </section>
   )

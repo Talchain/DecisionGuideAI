@@ -17,6 +17,7 @@ import {
   buildV5PatchDeps,
   formatConstraintValue,
   V5_OPERATION_LABELS,
+  STRENGTH_NOT_SET_BEFORE,
 } from '../v5GraphPatchDescription'
 
 const FORBIDDEN_TERMS = [
@@ -466,8 +467,28 @@ describe('buildV5PatchReceipt — adjust_edge_strength', () => {
     const r = buildV5PatchReceipt(block(), deps)
     expect(r.actionLabel).toBe('Adjusted connection strength')
     expect(r.entityLabel).toBe('team morale → outcome')
-    expect(r.changeSummary).toBe('0.3 → 0.6')
+    // EDIT-UX §5.4 (8 Oct): plain words first. The band words the user chose, with direction; numbers only in technicalSummary.
+    expect(r.changeSummary).toBe('Moderate → Strong, increases')
+    expect(r.technicalSummary).toBe('0.3 → 0.6')
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
+  })
+
+  it('EDIT-UX §5.4: the audit\'s own receipt (-0.15 → -0.85) reads "Slight → Very strong, decreases"; the numbers sit in details only', () => {
+    const r = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'edge_morale_to_outcome',
+      before: { strength: { mean: -0.15, std: 0.1 }, effect_direction: 'negative' }, after: { strength: { mean: -0.85, std: 0.1 }, effect_direction: 'negative' } } as never, makeDeps([], []))
+    expect(r.changeSummary).toBe('Slight → Very strong, decreases')
+    expect(r.changeSummary).not.toMatch(/\d/)
+    expect(r.technicalSummary).toBe('-0.15 → -0.85')
+  })
+
+  it('EDIT-UX §5.4: a change within one band says the band once; a direction flip says "now"', () => {
+    const same = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'e',
+      before: { strength: 0.45 }, after: { strength: 0.6 } } as never, makeDeps([], []))
+    expect(same.changeSummary).toBe('Strong, increases')
+    const flip = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'e',
+      before: { strength: { mean: 0.4 }, effect_direction: 'positive' }, after: { strength: { mean: -0.4 }, effect_direction: 'negative' } } as never, makeDeps([], []))
+    expect(flip.changeSummary).toBe('Strong, now decreases')
+    expect(flip.technicalSummary).toBe('0.4 → -0.4, direction now negative')
   })
 
   it('emits empty entityLabel when endpoints unresolved (no leak)', () => {
@@ -531,5 +552,27 @@ describe('the action label names the field that moved', () => {
     )
     expect(V5_OPERATION_LABELS.set_factor_value).not.toMatch(/\bstrength\b/i)
     expect(V5_OPERATION_LABELS.adjust_edge_strength).not.toMatch(/\bfactor value\b/i)
+  })
+})
+
+// P48 dry walk (8 Oct, scenario d8c01a8f, turn 67ac7856): CEE's block for an unsized Pro plan price → MRR set to
+// moderate rendered "Strong → Moderate, increases". The before/after are the captured block's; CEE now stamps
+// `before.sizing: 'placeholder'` (CEE #2832). Bound by the link's ends.
+describe('buildV5PatchReceipt — adjust_edge_strength on a link nobody had sized (P48)', () => {
+  const captured = (sizing?: 'placeholder'): V5GraphPatchBlock => ({
+    type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'pro_plan_price\u2192mrr',
+    before: { from: 'pro_plan_price', to: 'mrr', strength: { mean: 0.5, std: 0.125 }, effect_direction: 'positive', ...(sizing ? { sizing } : {}) },
+    after: { from: 'pro_plan_price', to: 'mrr', strength: { mean: 0.3, std: 0.075 }, effect_direction: 'positive' },
+  } as V5GraphPatchBlock)
+  const deps = buildV5PatchDeps([{ id: 'pro_plan_price', data: { label: 'Pro plan price' } }, { id: 'mrr', data: { label: 'MRR' } }], [])
+  it('the before side reads "Not set", never the prior\'s band or figure', () => {
+    const r = buildV5PatchReceipt(captured('placeholder'), deps)
+    expect(r.entityLabel).toBe('Pro plan price → MRR')
+    expect(r.changeSummary).toBe(`${STRENGTH_NOT_SET_BEFORE} → Moderate, increases`)
+    expect(r.changeSummary).not.toMatch(/Strong/)
+    expect(r.technicalSummary ?? '').not.toMatch(/0\.5/)
+  })
+  it('CONTROL: without the stamp (a sized link) the before band stays: Strong → Moderate', () => {
+    expect(buildV5PatchReceipt(captured(), deps).changeSummary).toBe('Strong → Moderate, increases')
   })
 })

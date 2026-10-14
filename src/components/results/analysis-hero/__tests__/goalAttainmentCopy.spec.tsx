@@ -1,3 +1,4 @@
+import { withCanonicalTestCells } from './helpers/canonicalTestCells'
 /**
  * Goal-attainment copy — ONE claim across THREE hero surfaces.
  *
@@ -7,11 +8,9 @@
  * `'joint_goal_withheld'` and it now returns NO number, and PLoT #308
  * suppresses the frame-broken joint channel at source, so the ordinary live
  * run lands on basis 'none' with an empty goal slot. These fixtures hand-set
- * `goalFitIsSubstitutedJoint: true` (see `liveJointOnly`, whose name is now
- * historical), so they still exercise the copy gates they pin; what changed
- * is the claim that live runs take this path — today they do not. The pins
- * stay so the wording cannot regress if a number-bearing substituted basis
- * ever returns.
+ * `goalFitIsSubstitutedJoint: true` until #2747 re-scope 2 deleted the flag (no
+ * producer path set it in C); `liveJointOnly`'s name is historical. The pins
+ * stay: the hero says CEE's cells and no possessive, on any basis.
  *
  * THE DEFECT THIS PINS (family 2, slice −1), as traced at the time. On every
  * live V5 analysis the shared selector resolved
@@ -56,6 +55,9 @@ import { HERO_COPY } from '../heroCopy'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
 import type { OptionResult } from '../../types'
+import { chanceCellOf, withChanceReport } from './helpers/chanceCellOf'
+import { report as servedReport } from '../../__tests__/helpers/paulRun4276f3f9'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 /**
  * The two things a goal-attainment surface must not assert, because neither is
@@ -75,7 +77,7 @@ import type { OptionResult } from '../../types'
  */
 const POSSESSIVE = /your goal/i
 /** AIQ #72 5885116642: the PERMITTED goal claim, as a share of model runs. The substituted basis never makes it. */
-const TARGET_CLAIM = /reaches the target/i
+const TARGET_CLAIM = /chance of meeting your goal/i
 const PLURALITY = /\ball targets\b|\bthe targets\b/i
 
 /**
@@ -89,15 +91,40 @@ const PLURALITY = /\ball targets\b|\bthe targets\b/i
 function liveJointOnly(base: OptionResult): OptionResult {
   return makeOption({
     ...(base as OptionResult & { id: string; label: string }),
-    goalFitIsSubstitutedJoint: true,
     constraintAnalysis: undefined,
   })
 }
 
-function chart(data = makeHeroData()): HeroChartModel {
-  const model = buildHeroModel(data)
+const dataOf = new WeakMap<HeroChartModel, ResultsSectionDataReturn>()
+function chart(data = makeHeroData(), scalarTargetControl = false): HeroChartModel {
+  const options = data.recommendation.allOptions
+  const report = {
+    ...servedReport,
+    option_probabilities: Object.fromEntries(options.map(o => [o.id, { goal_probability: o.goalProbability }])),
+    inference_warnings: [{
+      code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+      option_ids: options.map(o => o.id),
+      // CEE licenses whole percentages; the sub-1% fixtures retain their raw values and license the rounded bucket.
+      pct_by_option: Object.fromEntries(options.map(o => [o.id, Math.round(o.goalProbability! * 100)])),
+      target: { comparator: 'at_least', value: data.recommendation.goalThreshold, unit: 'count' },
+    }],
+  }
+  const fed = withChanceReport(data, report)
+  // Only this positive control asserts the scalar target identity. Historical joint fixtures keep their original gates.
+  if (scalarTargetControl) {
+    fed.goalChanceLicence = fed.runView!.goalChance
+    Object.assign(fed, withCanonicalTestCells(fed))
+  }
+  const model = buildHeroModel(fed)
   expect(model.kind).toBe('chart')
+  dataOf.set(model as HeroChartModel, fed)
   return model as HeroChartModel
+}
+
+function cellText(model: HeroChartModel, id: string): string {
+  const text = chanceCellOf(dataOf.get(model)!, id).text
+  expect(text).not.toBeNull()
+  return text!
 }
 
 interface Surfaces {
@@ -130,7 +157,8 @@ function readSurfaces(model: HeroChartModel): Surfaces {
   })
   const surfaces: Surfaces = {
     headline: screen.getByTestId('hero-headline').textContent ?? '',
-    caption: screen.getByTestId('hero-caption').textContent ?? '',
+    // #2747 re-scope 2 round 2: the Goal fit lens draws no caption in C (its caption was the UI's joint-register words).
+    caption: screen.queryByTestId('hero-caption')?.textContent ?? '',
     rowDetails,
   }
   view.unmount()
@@ -197,7 +225,9 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
     // that the row-detail lookup actually resolves a node per row.
     const s = readSurfaces(liveLeaderModel())
     expect(s.headline.length).toBeGreaterThan(0)
-    expect(s.caption.length).toBeGreaterThan(0)
+    // Round 2 (DL rule C / U2): the Goal fit lens has no caption, so there is no caption surface to scan (it was the UI's
+    // "Each value is the chance that option meets every target this run scored."); the row cells say CEE's words.
+    expect(s.caption).toBe('')
     expect(s.rowDetails).toHaveLength(2)
     for (const detail of s.rowDetails) expect(detail.length).toBeGreaterThan(0)
   })
@@ -238,10 +268,10 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
     const m = chart(
       makeHeroData({
         options: [
-          makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: false }),
-          makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false }),
+          makeOption({ ...OPTION_A }),
+          makeOption({ ...OPTION_B }),
         ],
-      }),
+      }), true,
     )
     const s = readSurfaces(m)
     expect(s.rowDetails[0]).toMatch(TARGET_CLAIM)
@@ -277,22 +307,26 @@ describe('hero goal-attainment copy — no surface asserts the possessive on the
 })
 
 describe('hero goal-attainment copy — no over-suppression, no value change', () => {
-  it('the goal line still APPEARS on every row (a rewording, never a removal)', () => {
+  // #2747 re-scope 2 (U0): the row's goal line is CEE's served cell words, verbatim (was the UI's joint-basis sentence,
+  // "… chance of meeting every target this run scored", re-worded around a figure taken out of the cell).
+  it('the goal line still APPEARS on every row (the served cell, never a removal)', () => {
     const m = liveLeaderModel()
     const s = readSurfaces(m)
     expect(s.rowDetails).toHaveLength(2)
-    for (const detail of s.rowDetails) {
-      expect(detail.length).toBeGreaterThan(0)
-      expect(detail).toMatch(/of model runs/i)
-    }
+    m.rows.forEach((row, i) => {
+      expect(s.rowDetails[i].length).toBeGreaterThan(0)
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
+    })
   })
 
-  it('every row detail still carries its OWN readout verbatim', () => {
+  it('every row detail still carries its OWN served chance cell, verbatim (no UI joint-basis rewording)', () => {
     const m = liveLeaderModel()
     const s = readSurfaces(m)
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toContain(row.goal.readout)
+      // #2747 re-scope 2 (U0): its own cell by identity, and never the UI-composed joint-basis sentence.
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
     })
+    expect(s.rowDetails[0]).not.toBe(s.rowDetails[1])
   })
 
   it('the numbers are byte-identical to the non-substituted control', () => {
@@ -312,9 +346,11 @@ describe('hero goal-attainment copy — no over-suppression, no value change', (
   })
 
   it('renders the same percentages the response carried (0.34 -> 34%, 0.49 -> 49%)', () => {
-    render(<AnalysisHeroPanel model={liveLeaderModel()} rerunDisabled={false} />)
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    const m = liveLeaderModel()
+    render(<AnalysisHeroPanel model={m} rerunDisabled={false} />)
+    m.rows.forEach(row => {
+      expect(within(screen.getByTestId(`hero-option-row-${row.index}`)).getByText(cellText(m, row.id))).toBeInTheDocument()
+    })
   })
 
   it('the goal lens is still available and still the default lens', () => {
@@ -330,15 +366,16 @@ describe('hero goal-attainment copy — the copy lives in the central module', (
     const s = readSurfaces(m)
     const leader = m.rows.find((r) => r.id === m.leaders.goal)
     expect(leader, 'a goal leader is crowned in this fixture').toBeTruthy()
-    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label, leader!.goal.readout))
-    expect(s.caption).toBe(HERO_COPY.caption.goalOnly)
+    // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own and the Goal fit lens draws no caption
+    // (headline.goalOnly / caption.goalOnly are deleted); the crown stays on the lens.
+    expect(s.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(s.caption).toBe('')
+    // #2747 re-scope 2 (U0): a row detail is CEE's served cell, verbatim — neither a HERO_COPY primitive nor a local literal.
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(row.goal.readout))
+      expect(s.rowDetails[i]).toBe(cellText(m, row.id))
     })
   })
 
-  it('none-on-track renders the central noneOnTrack primitive', () => {
-    const s = readSurfaces(liveNoneOnTrackModel())
-    expect(s.headline).toBe(HERO_COPY.headline.noneOnTrack)
-  })
+  // #2747 re-scope 2 round 2: row deleted — "none-on-track renders the central noneOnTrack primitive". Its only subject was
+  // HERO_COPY.headline.noneOnTrack, deleted (the UI's own goal-chance sentence; rule C).
 })

@@ -210,7 +210,7 @@ const CONFIRM_REFUSAL_NOTICE: Readonly<
 > = {
   refused_unassertable:
     'Olumi has not stated a strength for this link, so there is nothing to agree with yet.',
-  no_carrier: 'Not sent: this decision has no open conversation to record it in.',
+  no_carrier: 'Not sent: this scenario has no open conversation to record it in.',
   not_encodable: 'Not sent: this link could not be identified.',
   moved_since_review: 'Not sent: this link changed after you reviewed it. Review it again.',
 }
@@ -1461,7 +1461,7 @@ export function ModelTabV2Panel({
                 phase: 'editing',
                 notice:
                   'Not saved: the model moved on while this was in flight. ' +
-                  'Ask me anything about this decision, then set this value again.',
+                  'Ask me anything about this scenario, then set this value again.',
               }
             }
             if (settlement === 'unverified') {
@@ -1492,7 +1492,7 @@ export function ModelTabV2Panel({
                 phase: 'editing',
                 notice:
                   'I could not confirm whether that reached the model. ' +
-                  'Ask me anything about this decision to see where it stands.',
+                  'Ask me anything about this scenario to see where it stands.',
               }
             }
             // `sent`: the turn was issued. The row stays pending until the
@@ -1520,7 +1520,7 @@ export function ModelTabV2Panel({
             awaitingFreshBase: true,
             notice:
               'Not sent yet: I need to re-sync with the saved model first. ' +
-              'Ask me anything about this decision, then set this value again.',
+              'Ask me anything about this scenario, then set this value again.',
           }
         }
         return {

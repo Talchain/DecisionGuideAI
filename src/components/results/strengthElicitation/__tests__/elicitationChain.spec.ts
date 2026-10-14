@@ -360,8 +360,8 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // Plain words first (Paul, standing): the estimate reads as a band ("● Strong") until its own "Show details"
     // disclosure opens (`ScienceQuantity`). This row is about the EXACT live value, so it opens that disclosure, the
     // way a person would, before reading the figure. Without it, this assertion was red on staging f682154a.
-    fireEvent.click(within(screen.getByText(/Olumi’s current estimate is/)).getByRole('button', { name: 'Show details' }))
-    expect(screen.getByText(/Olumi’s current estimate is/)).toHaveTextContent('0.52')
+    fireEvent.click(within(screen.getByTestId('edge-strength-spread')).getByRole('button', { name: 'Show details' }))
+    expect(screen.getByTestId('edge-strength-spread')).toHaveTextContent('0.52')
     expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
 
     // Server/store refresh after mount: the click must confirm 0.6147, not the
@@ -376,8 +376,8 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       // reads the live value rather than the first-render closure.
       useCanvasStore.setState({ edges: refreshedEdges } as never)
     })
-    expect(screen.getByText(/Olumi’s current estimate is/)).toHaveTextContent('0.6147')
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm this estimate' }))
+    expect(screen.getByTestId('edge-strength-spread')).toHaveTextContent('0.6147')
+    fireEvent.click(screen.getByRole('button', { name: "Keep Olumi's estimate" }))
 
     const confirmed = useCanvasStore.getState()
     const data = confirmed.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
@@ -407,7 +407,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     expect(notice).toHaveAttribute('data-outcome', 'no_carrier')
     expect(notice).toHaveTextContent('Not sent to Olumi')
     expect(screen.queryByText('Updated')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Confirm this estimate' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "Keep Olumi's estimate" })).toBeInTheDocument()
 
     /**
      * ⭐ THE SERVER'S ACKNOWLEDGEMENT, SIMULATED — because that is where the
@@ -491,8 +491,8 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       null,
       createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
     ))
-    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
-    expect(screen.queryByText(/Olumi’s current estimate is/)).toBeNull()
+    expect(screen.queryByRole('button', { name: "Keep Olumi's estimate" })).toBeNull()
+    expect(screen.queryByTestId('edge-strength-spread')).toBeNull()
   })
 
   /**
@@ -565,8 +565,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       null,
       createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
     ))
-    expect(screen.queryByText(/Olumi’s current estimate is/)).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
+    // The producer estimate has a surviving band readout, but its numeric
+    // disclosure remains fenced because the server holds no assertable tuple.
+    expect(within(screen.getByTestId('edge-strength-spread')).getByRole('button', { name: 'Show details' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: "Keep Olumi's estimate" })).toBeNull()
   })
 
   it('HONESTY — confirming an AI estimate AS-IS is not an analytical change, so no rerun is promised', () => {

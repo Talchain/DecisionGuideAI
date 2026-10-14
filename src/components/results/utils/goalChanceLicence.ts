@@ -17,24 +17,80 @@
  * otherwise disagrees with itself and is not read).
  */
 
-import { formatGoalTarget } from './formatGoalTarget'
+import { readGoalChanceHorizonLine } from './goalChanceRange'
+import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
+export type { GoalChanceComparator } from './goalChanceTarget'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
 export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
-export type GoalChanceComparator = 'at_least' | 'above' | 'at_most' | 'below'
+
+/** Whose assumption a driver varies, as CEE read it off the Run's own model. */
+export type GoalChanceDriverAuthor = 'user' | 'olumi' | 'unattributed'
+
+/**
+ * ⭐ G4/G5 phase 2, P3 (DL 6 Oct): what one option's chance rests on MOST, as CEE decided it (`driver_by_option`, CEE
+ * `goal-chance-driver.ts`). CEE picks the row, the side where the chance FALLS and whose assumption it is; the UI only
+ * words it. A link's strength carries no figure (DL ruling: never a model coefficient, never its cut).
+ */
+export type GoalChanceDriver =
+  | {
+    readonly kind: 'factor_value'
+    readonly factorId: string
+    readonly side: 'low' | 'high'
+    /** The cut on the falling side, in the user's units. */
+    readonly cutValue: number
+    /** The cut's unit as CEE carried it (`cut_unit`, PLoT's `display_unit`); `null` when the claim has none. */
+    readonly cutUnit: string | null
+    /** The displayed chance on the falling side (a whole percentage, CEE's own step). */
+    readonly pctIfSide: number
+    readonly authoredBy: GoalChanceDriverAuthor
+  }
+  | {
+    readonly kind: 'link_strength'
+    readonly from: string
+    readonly to: string
+    readonly strength: 'weaker' | 'stronger'
+    readonly authoredBy: GoalChanceDriverAuthor
+    readonly userStatedLink: boolean
+  }
+  | {
+    readonly kind: 'link_existence'
+    readonly from: string
+    readonly to: string
+    readonly side: 'absent' | 'present'
+    readonly pctIfSide: number
+    readonly authoredBy: GoalChanceDriverAuthor
+    readonly userStatedLink: boolean
+  }
+
+/**
+ * How the driver sentence names things: a model node's display label, and a factor's unit as the user stated it. The
+ * results hook supplies these from the canvas. (#2747 re-scope 2: the UI no longer words a driver; CEE's
+ * `main_driver.detail` is said verbatim.)
+ */
+export interface GoalChanceDriverNames {
+  readonly labelOf: (nodeId: string) => string | null
+  readonly unitOf: (nodeId: string) => string | null
+}
 
 export interface GoalChanceLicence {
   readonly form: GoalChanceForm
   readonly optionIds: readonly string[]
   readonly pctByOption: Readonly<Record<string, number>>
+  /** RC4 attribution recorded by CEE for this Run; the screen never recounts the graph. */
+  readonly olumiEstimateLinkCount?: number
+  /** Recovery Batch C (C CEE amendment 7): Olumi's estimated starting values on this Run's goal paths. */
+  readonly olumiEstimateValueCount?: number
+  /** Recovery Batch C (C CEE amendment 7): Olumi's own settings per option, said only on that option's line. */
+  readonly olumiEstimateSettingsByOption?: Readonly<Record<string, number>>
   /** Options whose chance was withheld for their own path (subset of `optionIds`, no figure); empty when none. */
   readonly withheldOptionIds: readonly string[]
   /** `similar` (H2) only: the options within 10 points of the top, in the model's order (≥ 2); else empty. */
   readonly similarOptionIds: readonly string[]
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
-  readonly target: { readonly comparator: GoalChanceComparator; readonly value: number; readonly unit: string }
+  readonly target: GoalChanceTarget
   /**
    * ⭐ D3 cut 5 (DL 0df0e1; Science d5 #87 6008252938): CEE's `user_link_existence` — the chances also count Olumi's
    * own existence prior on links the USER stated. `oneIn` is N ("a 1-in-N chance each") when every such link shares one
@@ -47,10 +103,73 @@ export interface GoalChanceLicence {
    * hero says c6's sentence for THIS form. `null` when CEE wrote none (or a malformed one: the `each` lines still stand).
    */
   readonly summaryWithheld?: { readonly cause: 'olumi_existence_assumption'; readonly form: Exclude<GoalChanceForm, 'each'> } | null
+  /**
+   * ⭐ P3: CEE's main-driver claim for each QUOTED option that has one (`driver_by_option`). An option CEE gave no driver
+   * (`no_driver_by_option`), a claim on a withheld or unknown id, and a claim that is not the ruled shape are all simply
+   * absent here: nothing is said for them. Absent or empty when CEE wrote none.
+   */
+  readonly driverByOption?: Readonly<Record<string, GoalChanceDriver>>
+  /** CEE's deadline clause, present only with a well-formed horizon claim. */
+  readonly horizonLine?: string | null
+  /**
+   * ⭐ Science 393023 (1), CEE #2775: the quoted options whose chance comes from a wider spread while their typical result
+   * falls short (CEE `spread_note_by_option`, decided on the threshold the Run sent, with the reversal half), each with
+   * CEE's served sentence verbatim. Read only on `each`, only on a quoted option, only as one of CEE's two exact
+   * sentences; one malformed entry silences the whole Run, as in CEE. Absent or empty when CEE wrote none.
+   */
+  readonly spreadNoteByOption?: Readonly<Record<string, string>>
+  /**
+   * ⭐ Science 393023 B19, CEE #2787: each quoted option's goal-relative shortfall sentence (`shortfall_note_by_option`),
+   * read only on `each`, only on a quoted option, only as one of CEE's two exact templates; one malformed entry silences
+   * the Run, as in CEE. The card says CEE's string verbatim and never formats a downside figure itself.
+   */
+  readonly shortfallNoteByOption?: Readonly<Record<string, string>>
+}
+
+/**
+ * CEE `goal-chance-licence.ts` SPREAD_NOTE_WITHOUT_DOWNSIDE, byte for byte: the only served sentence a card may say after
+ * the option's chance. A card carries no downside, so where CEE served the other sentence ("(see its downside)") the card
+ * says nothing for that note; it never substitutes this one (#2747 C, last check, blocking 2).
+ */
+export const CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE =
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
+/** CEE `goal-chance-licence.ts` SPREAD_NOTE_WITH_DOWNSIDE / _WITHOUT_DOWNSIDE, byte for byte: the only notes read. */
+const CEE_SPREAD_NOTES: ReadonlySet<string> = new Set([
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also widens how far short it could fall (see its downside).',
+  CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE,
+])
+
+function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): Record<string, string> {
+  if (form !== 'each' || !isRec(v)) return {}
+  const entries = Object.entries(v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && typeof note === 'string' && CEE_SPREAD_NOTES.has(note))) return {}
+  return Object.fromEntries(entries) as Record<string, string>
+}
+
+/** CEE `goal-chance-licence.ts` SHORTFALL_TEMPLATE / TYPICAL_SHORTFALL_TEMPLATE; group 1 is the option's label. */
+const CEE_SHORTFALL_NOTES: readonly RegExp[] = [
+  /^In its worst 1 in 20 runs of this model, ‘([^\r\n]+)’ falls short of your target by [^\r\n]+ or more\.$/,
+  /^In this model, ‘([^\r\n]+)’ falls short of your target in almost every run, typically by about [^\r\n]+\.$/,
+]
+
+/** The option label CEE's shortfall sentence names, or `null` when the text is not one of its two templates. */
+export function shortfallNoteLabel(note: unknown): string | null {
+  if (typeof note !== 'string') return null
+  for (const pattern of CEE_SHORTFALL_NOTES) {
+    const m = pattern.exec(note)
+    if (m !== null) return m[1]
+  }
+  return null
+}
+
+function shortfallNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): Record<string, string> {
+  if (form !== 'each' || !isRec(v)) return {}
+  const entries = Object.entries(v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && shortfallNoteLabel(note) !== null)) return {}
+  return Object.fromEntries(entries) as Record<string, string>
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
-const COMPARATORS: ReadonlySet<string> = new Set(['at_least', 'above', 'at_most', 'below'])
 const isRec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /** The two forms that name a highest chance — and so the only ones that license an order by goal chance. */
@@ -59,14 +178,23 @@ export function goalChanceLicensesOrder(licence: GoalChanceLicence | null): bool
 }
 
 /** The Run's goal-chance licence, read verbatim off its `inference_warnings`; `null` when absent or malformed. */
+/** C CEE `olumi_estimate_settings_by_option`: a positive whole count per option the licence names; anything else unread. */
+function settingsByOptionOf(v: unknown, ids: readonly string[]): { olumiEstimateSettingsByOption?: Readonly<Record<string, number>> } {
+  if (!isRec(v)) return {}
+  const out = Object.fromEntries(Object.entries(v).filter(([id, n]) => ids.includes(id)
+    && typeof n === 'number' && Number.isSafeInteger(n) && n > 0)) as Record<string, number>
+  return Object.keys(out).length === 0 ? {} : { olumiEstimateSettingsByOption: out }
+}
+
 export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLicence | null {
   if (!Array.isArray(inferenceWarnings)) return null
   const records = inferenceWarnings.filter((w) => isRec(w) && w.code === GOAL_CHANCE_LICENSED)
   if (records.length !== 1) return null
   const r = records[0] as Record<string, unknown>
   const ids = r.option_ids
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
   const pct = r.pct_by_option
-  const target = r.target
+  const target = readGoalChanceTarget(r.target)
   if (typeof r.form !== 'string' || !FORMS.has(r.form)) return null
   if (!Array.isArray(ids) || ids.length < 2 || !ids.every((id) => typeof id === 'string')) return null
   const withheldRaw = r.withheld_option_ids ?? []
@@ -78,8 +206,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     && (pct[id] as number) >= 0 && (pct[id] as number) <= 100
   if (!isRec(pct) || !(ids as string[]).every((id) => (withheld.has(id) ? !(id in pct) : quoted(id))) || withheld.size === ids.length) return null
   if (Object.keys(pct).some((id) => !(ids as string[]).includes(id))) return null
-  if (!isRec(target) || typeof target.comparator !== 'string' || !COMPARATORS.has(target.comparator)
-    || typeof target.value !== 'number' || !Number.isFinite(target.value) || typeof target.unit !== 'string') return null
+  if (target === null) return null
   const named = (v: unknown): string | null => (typeof v === 'string' && (ids as string[]).includes(v) ? v : null)
   const leaderOptionId = named(r.leader_option_id)
   const nextOptionId = named(r.next_option_id)
@@ -101,14 +228,70 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     form,
     optionIds: ids as string[],
     pctByOption: pct as Record<string, number>,
+    ...(typeof r.olumi_estimate_link_count === 'number' && Number.isSafeInteger(r.olumi_estimate_link_count)
+      && r.olumi_estimate_link_count > 0 ? { olumiEstimateLinkCount: r.olumi_estimate_link_count } : {}),
+    ...(typeof r.olumi_estimate_value_count === 'number' && Number.isSafeInteger(r.olumi_estimate_value_count)
+      && r.olumi_estimate_value_count > 0 ? { olumiEstimateValueCount: r.olumi_estimate_value_count } : {}),
+    ...settingsByOptionOf(r.olumi_estimate_settings_by_option, ids as string[]),
     withheldOptionIds: (ids as string[]).filter((id) => withheld.has(id)),
     similarOptionIds: sameRaw as string[],
     leaderOptionId,
     nextOptionId,
-    target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },
+    target,
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
+    driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
+    horizonLine: readGoalChanceHorizonLine(r),
+    spreadNoteByOption: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
+    shortfallNoteByOption: shortfallNotesOf(r.shortfall_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
   }
+}
+
+const AUTHORS: ReadonlySet<string> = new Set(['user', 'olumi', 'unattributed'])
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+const wholePct = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100
+
+/** One CEE driver claim, shape-checked; anything else is not read (no sentence for that option). */
+export function goalChanceDriverOf(v: unknown): GoalChanceDriver | null {
+  if (!isRec(v) || typeof v.authored_by !== 'string' || !AUTHORS.has(v.authored_by)) return null
+  const authoredBy = v.authored_by as GoalChanceDriverAuthor
+  if (v.kind === 'factor_value') {
+    if (!nonEmpty(v.factor_id) || (v.side !== 'low' && v.side !== 'high')) return null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
+    if (typeof v.cut_value !== 'number' || !Number.isFinite(v.cut_value) || !wholePct(v.pct_if_side)) return null
+    // A unit that is present must be sayable; an absent one falls back to the canvas node's.
+    const cutUnit = v.cut_unit === undefined ? null : nonEmpty(v.cut_unit) && v.cut_unit.trim() !== '' ? v.cut_unit : undefined
+    if (cutUnit === undefined) return null
+    return {
+      kind: 'factor_value', factorId: v.factor_id, side: v.side, cutValue: v.cut_value, cutUnit,
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
+      pctIfSide: v.pct_if_side, authoredBy,
+    }
+  }
+  if (!nonEmpty(v.from) || !nonEmpty(v.to) || typeof v.user_stated_link !== 'boolean') return null
+  if (v.kind === 'link_strength') {
+    if (v.strength !== 'weaker' && v.strength !== 'stronger') return null
+    return { kind: 'link_strength', from: v.from, to: v.to, strength: v.strength, authoredBy, userStatedLink: v.user_stated_link }
+  }
+  if (v.kind === 'link_existence') {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
+    if ((v.side !== 'absent' && v.side !== 'present') || !wholePct(v.pct_if_side)) return null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: reader: parses the wire record into the gate's inputs; displays nothing
+    return { kind: 'link_existence', from: v.from, to: v.to, side: v.side, pctIfSide: v.pct_if_side, authoredBy, userStatedLink: v.user_stated_link }
+  }
+  return null
+}
+
+/** CEE's `driver_by_option`, kept only for the options this record QUOTES (never a withheld or unknown id). */
+function driversOf(v: unknown, quotedIds: readonly string[]): Record<string, GoalChanceDriver> {
+  const drivers: Record<string, GoalChanceDriver> = {}
+  if (!isRec(v)) return drivers
+  for (const id of quotedIds) {
+    const driver = goalChanceDriverOf(v[id])
+    if (driver !== null) drivers[id] = driver
+  }
+  return drivers
 }
 
 /** CEE's `summary_withheld`, shape-checked; a malformed one is not read (no sentence; the `each` lines still stand). */
@@ -133,6 +316,7 @@ export function goalChanceHeroArmOpen(
   goalThreshold: number | null | undefined,
   options: ReadonlyArray<{ goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
 ): boolean {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: which options bear a gated figure; no number leaves
   const bearing = options.filter((o) => o.goalProbability != null)
   const hasConstraints = bearing.length > 0 && bearing.every((o) => (o.constraintAnalysis?.constraints?.length ?? 0) > 0)
   return goalThreshold != null && !hasConstraints
@@ -150,39 +334,15 @@ export function goalChanceHeroSays(
   licence: GoalChanceLicence | null,
 ): boolean {
   if (licence === null || options.length < 2 || !goalChanceHeroArmOpen(goalThreshold, options)) return false
-  if (!licence.optionIds.every((id) => options.some((o) => o.id === id))) return false
-  return formatGoalTarget(licence.target.value, licence.target.unit, 'level') !== null
+  // #2747 re-scope 2 round 2 (DL rules C and D; LABEL, DON'T WITHHOLD): the arm opens on CEE's licence alone. It used to
+  // need the target sayable in the UI's own words (`goalChanceTargetBound`, which read a missing frame as a level); the UI
+  // now words no target and composes no chance sentence, so there is nothing left to check: each option's cell is CEE's
+  // served face, and the headline needs CEE's chance words (`goalChanceHeadline`).
+  return licence.optionIds.every((id) => options.some((o) => o.id === id))
 }
 
-/**
- * c6/d5's words (cut 5), said ONCE beside the chance lines: the chances also count Olumi's existence prior on the user's
- * own links. CEE's fraction (`oneIn`), never computed; mixed values say it is Olumi's estimate for each. `null` otherwise.
+/*
+ * #2747 re-scope 2: the disclosure lines said once beside the chance lines (cut 6's summary-withheld words and cut 5's
+ * existence line, "These chances also count Olumi's own assumption …") lost their last callers (the hero and the WinGauge
+ * goal rows) and are deleted: the journey surfaces say CEE's served notes verbatim (`goal_chance.notes`).
  */
-const SUMMARY_WITHHELD_WORDS: Readonly<Record<Exclude<GoalChanceForm, 'each'>, string>> = {
-  highest: 'Olumi isn’t naming the option with the highest chance, because that could depend on its own assumption that some links might not hold.',
-  highest_all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, or naming the option with the highest chance, because both could depend on its own assumption that some links might not hold.',
-  all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, because that could depend on its own assumption that some links might not hold.',
-  similar: 'Olumi isn’t saying whether the options have similar chances of meeting your goal, because that could depend on its own assumption that some links might not hold.',
-}
-
-/** c6's words (cut 6 interim), chosen by the withheld FORM (never "highest" for a withheld `similar`). `null` otherwise. */
-export function goalChanceSummaryWithheldLine(licence: GoalChanceLicence | null): string | null {
-  const w = licence?.summaryWithheld ?? null
-  return w === null ? null : SUMMARY_WITHHELD_WORDS[w.form]
-}
-
-/**
- * Everything said once beside the chance lines, in order: why no summary is stated (cut 6), then the existence line
- * (cut 5). ONE home: the hero when it speaks, else the WinGauge goal rows. `null` when there is nothing to say.
- */
-export function goalChanceDisclosureLines(licence: GoalChanceLicence | null): string | null {
-  const lines = [goalChanceSummaryWithheldLine(licence), goalChanceExistenceLine(licence)].filter((l): l is string => l !== null)
-  return lines.length > 0 ? lines.join(' ') : null
-}
-
-export function goalChanceExistenceLine(licence: GoalChanceLicence | null): string | null {
-  const e = licence?.userLinkExistence ?? null
-  if (e === null) return null
-  const which = e.oneIn !== null ? `a 1-in-${e.oneIn} chance each` : 'Olumi’s estimate for each'
-  return `These chances also count Olumi’s own assumption that each of your links might not hold (${which}).`
-}

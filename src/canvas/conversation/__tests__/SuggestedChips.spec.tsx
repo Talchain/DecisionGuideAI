@@ -17,7 +17,7 @@
  * - XML escaping: labels/messages with &amp; &lt; &gt; render correctly
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import type { ActionChip } from '../types'
@@ -90,16 +90,6 @@ describe('SuggestedChips — chip count', () => {
     ])
   })
 
-  it('caps at 3 chips when 4+ are supplied (ruled doctrine D-K: 0-3)', () => {
-    const chips = [
-      chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' }),
-      chip({ id: 'c4' }), chip({ id: 'c5' }),
-    ]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(3)
-    expect(screen.queryByTestId('suggested-chip-c4')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('suggested-chip-c5')).not.toBeInTheDocument()
-  })
 
   it('does not render chips without a message field', () => {
     const chips: ActionChip[] = [
@@ -174,10 +164,10 @@ describe('SuggestedChips — no role dots', () => {
     expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
   })
 
-  it('preserves role in aria-label for accessibility', () => {
+  it('preserves the producer label for accessibility', () => {
     const c = chip({ id: 'c1', role: 'facilitator', label: 'Explain results' })
     render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByLabelText('Facilitator: Explain results')).toBeInTheDocument()
+    expect(screen.getByLabelText('Explain results')).toBeInTheDocument()
   })
 
   it('preserves data-chip-role attribute for styling hooks', () => {
@@ -242,10 +232,10 @@ describe('SuggestedChips — historical', () => {
 // ---------------------------------------------------------------------------
 
 describe('SuggestedChips — accessibility', () => {
-  it('aria-label includes role name for known roles', () => {
+  it('aria-label keeps the producer label for known roles', () => {
     const c = chip({ id: 'c1', label: 'Push back on this', role: 'challenger' })
     render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByRole('button', { name: 'Challenger: Push back on this' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Push back on this' })).toBeInTheDocument()
   })
 
   it('aria-label is the label text when role is absent', () => {

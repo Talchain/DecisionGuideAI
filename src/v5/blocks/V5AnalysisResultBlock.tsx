@@ -3,9 +3,7 @@
  *
  * Card content:
  *   - Always: summary text and uncertainty calibration copy.
- *   - win_probabilities as pills, ONLY when the producer did not withhold the
- *     leader claim (UI-SEM-097): leader-first then largest-first for a
- *     licensed leader, otherwise in canvas order.
+ *   - No win share (#2747 re-scope 2, DL ruling (A)): `win_probabilities` rides the wire but no pill row reads it in C.
  *   - When the turn carries a 0.30 `decision_review` with prose: the five
  *     fields no other wire block delivers — `narrative_summary`,
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
@@ -55,21 +53,21 @@ import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../c
 import { readDecisionReviewWireState } from '../decisionReviewAdapter'
 import {
   buildV5VerdictReportLike,
-  resolveLeaderKeys,
   resolveOptionLabelById,
 } from '../mapV5AnalysisToReport'
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
-import { deriveDecisionVerdict, readProducerLeaderPermission } from '../../lib/decisionVerdict'
+import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { useCanvasStore } from '../../canvas/store'
 import { isRecord } from '../../lib/guards'
-import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
-import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
+import { chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
+import { CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE, shortfallNoteLabel } from '../../components/results/utils/goalChanceLicence'
+import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -98,28 +96,13 @@ export interface V5AnalysisResultBlockProps {
    * removed or reworded; one click shows it verbatim. Defaults to FALSE, so a
    * turn whose ONLY account of the run is this card still shows it open.
    *
-   * When the folded summary would be the card's only body (no win-share row,
-   * no review prose), there is no card FRAME (design audit #8): no heading and
+   * When the folded summary would be the card's only body (no review prose,
+   * no goal-chance lines), there is no card FRAME (design audit #8): no heading and
    * no border. The same closed "Details" fold and the uncertainty line render
    * inline, unframed. Still nothing is removed: `assistantTextWordCount > 0`
    * says only that SOME reply is on screen, never that it carries this account.
    */
   summaryBehindDisclosure?: boolean
-}
-
-/**
- * ⭐ ROADMAP 2.236 — the Olumi decision-review chips now apply the shared floor.
- *
- * This was `${Math.round(p * 100)}%`, a fourth private percentage rule, and it
- * is what a real-browser walk photographed printing
- * `Phased Hub-and-Spoke Pilot · 0%` for `win_probability = 0.002675` — in the
- * SAME capture where the CEE prose immediately above the chips read "each has
- * less than a 1% chance" (walk-548-pixels.md F5). The chip and the sentence
- * above it now agree.
- */
-function formatProbability(p: number): string {
-  if (!Number.isFinite(p)) return '—'
-  return formatProbabilityWithResolution(p, undefined)
 }
 
 /**
@@ -328,9 +311,6 @@ function V5AnalysisResultBlockImpl({
       {sinceLastRunText}
     </p>
   ) : null
-  const hasProbs =
-    block.win_probabilities && Object.keys(block.win_probabilities).length > 0
-
   // Sci-4B: verbal uncertainty calibration — same tiers/copy as the results
   // panel headline, read from this block's raw
   // enrichment passthrough. Honest-render: null when the wire carries no
@@ -340,8 +320,9 @@ function V5AnalysisResultBlockImpl({
 
   // ROADMAP 1.267 — WHO leads and WHETHER anyone does are different questions.
   //
-  // The leader treatment below (first position, `data-leader`, the heavier
-  // border) was gated ONLY on `resolveLeaderKeys` returning a non-empty set,
+  // The leader treatment (first position, `data-leader`, the heavier border;
+  // deleted with the pill row in #2747 re-scope 2) was gated ONLY on
+  // `resolveLeaderKeys` returning a non-empty set,
   // which happens exactly when `leading_option_id` is a non-empty string. That
   // covers the WITHHELD turn — CEE nulls the field — but it is NOT equivalent
   // to the shared verdict, and the gap is a live producer state, not a
@@ -370,9 +351,8 @@ function V5AnalysisResultBlockImpl({
   const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
   const leaderClaimLicensed = verdict.hasLeadingOption && modelLicensesComparativeClaim
-  const leaderKeys = leaderClaimLicensed
-    ? resolveLeaderKeys(block.enrichment, block.leading_option_id)
-    : new Set<string>()
+  // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
+  // licence still gates the uncertainty tier.
 
   // ⭐ A RUN THAT MAY NOT NAME A LEADER MAY NOT CALL ITSELF "FAIRLY CONFIDENT"
   // (#63 5821253411, OpenAI pricing run, `constraint_verdict_withheld`: the
@@ -395,90 +375,66 @@ function V5AnalysisResultBlockImpl({
       ? null
       : uncertaintyCopy
 
-  // ⭐⭐ UI-SEM-097 — A WITHHELD LEADER IS NOT RANKED BY WIN SHARE EITHER.
-  //
-  // THE DEFECT, served on the final tuple (UI `b017e3c2` · CEE `9417228`,
-  // #69 5827478637): pricing's explicit Run carried
-  // `leader_claim { permitted: false, withheld_reason:
-  // 'constraint_verdict_withheld' }` and `leading_option_id: null`, and the reply
-  // said "No option can be put forward yet". This card still printed
-  // "Raise to £59 · 82%", "Keep £49 · 16%", "Raise to £55 · 2%", in descending
-  // order. That is an overall ranking by win share, the one thing the producer
-  // had just declined to state, on 29 of 30 served explicit Runs (AI Quality,
-  // #69 5827505713).
-  //
-  // The note that used to sit on the sort below ("the order restates a fact
-  // already on screen rather than designating a winner") was the error. A win
-  // share IS the share of runs in which an option comes out best, so a list of
-  // them ordered largest-first reads as a verdict whatever its styling. The
-  // agreed rule (#63, the C2 ruling) is: a withheld overall leader means no
-  // ranking through win percentages. The Reasoning tab already obeys it: it
-  // lists the options in canvas order with no percentages
-  // (`optionDisplayOrder.ts`, `designationsWithheld`).
-  //
-  // WITHHELD WHEN EITHER producer signal says so, which fails closed:
-  //   · THIS RUN named no leader: `block.leading_option_id` is null (or blank,
-  //     which names no one either). CEE nulls
-  //     it on a withheld claim while the win probabilities keep riding the wire
-  //     (UI-SEM-060). It is per card, and the transcript persists it, so an
-  //     earlier withheld run stays withheld after a later run permits.
-  //   · The HELD REPORT carries the producer's refusal
-  //     (`producer_leader_permission.permitted === false`, stamped by
-  //     `applyV5State` step 5b on the typed `leader_claim`). It is bound to the
-  //     report, so it survives a reload.
-  // A near tie keeps its `leading_option_id`, so it is untouched here; it has
-  // its own no-crown handling above.
-  //
-  // SUPPRESSION ONLY. No value is transformed, and the summary, the prose, the
-  // review's named metrics and the uncertainty line all render as before. What
-  // goes is the pill row, the one element that ranks by win share.
-  // Read through the ONE sanctioned reader (`readProducerLeaderPermission`,
-  // fail-OPEN on a malformed record), never the field directly.
-  const heldReportWithholdsLeader = useCanvasStore(
-    (s) => readProducerLeaderPermission(s.results?.report?.producer_leader_permission) === false,
-  )
-  const thisRunNamedNoLeader =
-    typeof block.leading_option_id !== 'string' || block.leading_option_id.trim() === ''
-  const winShareRankingWithheld = thisRunNamedNoLeader || heldReportWithholdsLeader
-  const showWinShares = hasProbs && !winShareRankingWithheld
-
-  // ⭐ UI-SEM-097, ORDER (RC ruling, #69 5829442152 §4): ORDER IS A DESIGNATION.
-  //
-  // A LICENSED leader (`leaderClaimLicensed`: the verdict found one AND the model
-  // licenses a comparative claim) goes first, and the rest follow largest-first:
-  // the producer ranked that set and licensed saying so.
-  //
-  // Any other card that still shows the row (an exploratory admission, a near
-  // tie) keeps EVERY number but lists the options in CANVAS order, the order the
-  // Reasoning tab (`sortOptionsForDisplay`, `designationsWithheld`) and the
-  // inspector's option comparison (#2001, L2) use, so every surface lists options
-  // alike. Largest-first there would be a ranking nobody licensed. A key that
-  // matches no canvas option keeps its wire position, after the matched ones.
+  // #2747 re-scope 2, DL ruling (A): no win-share readout on any surface in C. Win share ('comes out on top in X% of
+  // runs') is not shown in C: CEE serves no wording or Run authority for it. The restore trigger is a CEE-served share
+  // string with its own Run licence (post-C), never worded as a chance. So the pill row (and its withheld-leader
+  // suppression and ordering, UI-SEM-097) is deleted, not gated.
   const canvasLabels = useCanvasNodeLabels()
-  /** Position of a win-share key (an option id or its label) among canvas nodes. */
-  const canvasRank = (key: string): number => {
-    let i = 0
-    for (const [id, label] of canvasLabels) {
-      if (id === key || label === key) return i
-      i += 1
+  // Paul's 6 Oct rule: the chance of meeting the goal is the per-option
+  // headline; win share below is supporting detail. Read the licence from THIS
+  // persisted block, never the current report in the store, so an older card
+  // cannot acquire a newer Run's figures. #2747 re-scope: every figure passes the
+  // ONE authority gate, against the scenario's canonical view matched to THIS
+  // card's Run by identity (its stamped run id AND graph hash); a card for an older
+  // or not-current Run quotes none.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
+  const goalChanceLicence = blockRunView.goalChance
+  const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
+  // Recovery Batch C: the Run's words for what the chance is OF, its status quo, each target and its notes, from the
+  // matching current canonical view (the gate's own rule), never the generic "your goal".
+  const goalChanceDetail = blockRunView.goalChanceDetail()
+  // #2747 r2 (BLOCKING 4): each option's line is CEE's own canonical cell for THIS Run, verbatim (`chanceCellOf`, the
+  // reader Results uses). A figure or range says its face, with the provisional clause and chance words CEE wrote; a
+  // withheld option says CEE's own reason (`why`: a moved reference, the status quo by assumption, …). Never a line
+  // composed here and never "your goal". The joint's withheld reason is said once, by the detail lines below.
+  const cellLine = (id: string): string | null => {
+    const cell = blockRunView.chanceCellOf(id, { goalChanceHeroSays: true, labelOf: goalChanceLabelOf })
+    if (cell.kind === 'none') return null
+    const label = goalChanceLabelOf(id)
+    if (cell.kind === 'withheld') {
+      const codes = blockRunView.withheldReasonCodesOf(id)
+      if (codes.length > 0 && codes.every(code => code === 'goal_joint_not_shown')) return null
+      if (cell.why !== undefined) return cell.why
     }
-    return Number.MAX_SAFE_INTEGER
+    // #2747 re-scope 2 round 2 (DL, restoring what staging said): after the option's chance, CEE's own notes on it — CEE's
+    // served spread sentence verbatim, only when it is the without-downside one (this card has no downside for "see its
+    // downside" to point at, so that sentence says nothing here and is never swapped; last check, blocking 2), then CEE's
+    // shortfall sentence verbatim, only when it names THIS option's label (identity, not position). No UI words.
+    const spread = goalChanceLicence?.spreadNoteByOption?.[id]
+    const shortfall = goalChanceLicence?.shortfallNoteByOption?.[id]
+    // CEE's face already carries the notes it was built with (chance and notes are one unit, `goal-chance-screen-lines.ts`):
+    // a note the face says is not said again (capacity witness, CEE 351eeda0: the shortfall sentence twice in a row).
+    const notes = [
+      ...(spread !== undefined && spread === CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE ? [spread] : []),
+      ...(shortfall !== undefined && label !== null && shortfallNoteLabel(shortfall) === label ? [shortfall] : []),
+    ].filter(note => !cell.text.includes(note))
+    const after = notes.length > 0 ? ` ${notes.join(' ')}` : ''
+    if (cell.text.startsWith('‘')) return `${cell.text}${after}`
+    return label === null || label.trim() === '' ? null : `‘${label}’: ${cell.text}${after}`
   }
-  const winEntries = showWinShares
-    ? Object.entries(block.win_probabilities as Record<string, number>)
-    : []
-  const sortedProbs = leaderClaimLicensed
-    ? [...winEntries].sort(([keyA, pA], [keyB, pB]) => {
-        const aLeads = leaderKeys.has(keyA)
-        const bLeads = leaderKeys.has(keyB)
-        if (aLeads !== bLeads) return aLeads ? -1 : 1
-        return pB - pA
-      })
-    : [...winEntries].sort(([keyA], [keyB]) => canvasRank(keyA) - canvasRank(keyB))
-
+  // A card not bound to the scenario's CURRENT canonical Run (an older Run, unknown identity, no view) says no option line.
+  const cellLines = goalChanceLicence === null || !blockRunView.boundToCurrentCanonical() ? []
+    : goalChanceLicence.optionIds.flatMap(id => { const line = cellLine(id); return line === null ? [] : [{ id, line }] })
+  const shownGoalChanceLines = cellLines.length > 0 ? cellLines : null
+  const statusQuoSaidByItsCell = goalChanceDetail?.status_quo !== undefined
+    && cellLines.some(({ line }) => line === goalChanceDetail.status_quo!.line)
+  const goalChanceDetailLinesShown = goalChanceDetail === null ? []
+    : licensedGoalChanceDetailLines(goalChanceDetail, goalChanceLabelOf, statusQuoSaidByItsCell)
   // ⭐ NO EMPTY CARD (design audit #8, served on UI 853feeb7, pricing, one Run).
   // With the reply on screen the summary folds behind "Details"; when nothing
-  // else would render (no win-share row, no review prose) the card's whole face
+  // else would render (no review prose, no goal-chance lines) the card's whole face
   // was a heading, a closed "▸ Details" and the uncertainty line: a 382×107.5
   // frame that read as empty, once per Run in the transcript. The folded
   // summary restates the reply above it, so there is no card: the uncertainty
@@ -486,7 +442,8 @@ function V5AnalysisResultBlockImpl({
   // one-word reply ("Done.") also sets `summaryBehindDisclosure`, so dropping
   // the summary would lose the only account of the run. The `v5-analysis-result`
   // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
-  const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
+  const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showProse && shownGoalChanceLines === null
+    && goalChanceDetailLinesShown.length === 0
   // ⭐ THE FOLD CLOSES THE RESULT (Paul's test, 27 Sep, AIC B4): it sat ABOVE the result's own content, so under a
   // reply it stacked as a third disclosure below "Show more" and "N questions…", in a caret style of its own. Content
   // first, the fold last, in the chat's own chevron — as "Show less" closes an answer (#2169). The words are unchanged.
@@ -578,52 +535,6 @@ function V5AnalysisResultBlockImpl({
         </p>
       )}
 
-      {/* ⚠⚠ A CONTEST-FRAME SURVIVOR THAT REACHES ONLY ASSISTIVE-TECHNOLOGY
-          USERS. This is an accessible NAME on a `role="list"` container with no
-          matching text node, so it is invisible to a body-text sweep and to a
-          visual review alike — which is why #1281's replacement set, which
-          targeted the visible strings ("Ahead", "Leading option", "Leads via",
-          "leads at N%"), never reached it.
-
-          The ruling was applied to what the product SHOWS and left in what it
-          SAYS. `byOptionAria` is the register's own answer for exactly this
-          shape, taken by reference so it cannot drift back. */}
-      {showWinShares && (
-        <div
-          className="flex flex-wrap gap-2"
-          role="list"
-          aria-label={COMPARATIVE_COPY.byOptionAria}
-          data-testid="v5-analysis-result-probabilities"
-        >
-          {/*
-            `optionKey` is the win_probabilities KEY — an option LABEL on real
-            staging payloads, an option_id on some paths. It is the human string
-            we render, so it is NOT renamed to optionId: the previous name is
-            what disguised the identity-space mismatch fixed here.
-          */}
-          {sortedProbs.map(([optionKey, prob]) => {
-            const isLeader = leaderKeys.has(optionKey)
-            return (
-              <span
-                key={optionKey}
-                role="listitem"
-                className={[
-                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5',
-                  'bg-transparent text-text-body',
-                  isLeader ? 'border border-option/50' : 'border border-option/30',
-                  typography.chatMeta,
-                ].join(' ')}
-                data-leader={isLeader ? 'true' : 'false'}
-              >
-                <span className="font-medium">{optionKey}</span>
-                {/* Design bundle 1 (re-audit #8): the separator and the figure are one
-                    unbreakable unit, so a long option name never strands "·" or splits "23 / %". */}
-                <span className="whitespace-nowrap"><span className="text-text-light">·</span> {formatProbability(prob)}</span>
-              </span>
-            )
-          })}
-        </div>
-      )}
 
       {/*
         ROADMAP 2.154 — the five orphaned prose fields. Rendered in the
@@ -762,6 +673,27 @@ function V5AnalysisResultBlockImpl({
           )}
         </div>
       )}
+
+      {shownGoalChanceLines !== null && (
+        <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-goal-chances">
+          {shownGoalChanceLines.map(({ id, line }) => (
+            <li key={id} className={`${typography.chatBody} ${PROSE_WRAP}`} data-option-id={id}>
+              {line}
+            </li>
+          ))}
+        </ul>
+      )}
+      {goalChanceDetailLinesShown.length > 0 && (
+        <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-goal-chance-detail">
+          {goalChanceDetailLinesShown.map((line, index) => (
+            <li key={`${line.kind}-${index}`} className={`${typography.chatBody} ${PROSE_WRAP}`} data-line-kind={line.kind}>
+              {line.text}
+            </li>
+          ))}
+        </ul>
+      )}
+
+
 
       {summaryBehindDisclosure && summaryFold}
 

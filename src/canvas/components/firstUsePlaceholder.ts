@@ -16,4 +16,4 @@
  * architectural boundary. A leaf carries no graph.
  */
 export const FIRST_USE_PLACEHOLDER =
-  'Describe the decision or challenge you’re working through, any options you’re weighing, and what a good outcome looks like.'
+  'Describe the question or situation you’re working through, any options you’re weighing, and what a good outcome looks like.'

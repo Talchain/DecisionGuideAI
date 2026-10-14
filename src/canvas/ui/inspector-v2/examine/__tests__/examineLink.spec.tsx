@@ -1,6 +1,6 @@
 /**
  * ⭐ EXAMINE THIS LINK (slice 1, 52f8cd) — the view's bases, the sound-link control, and the mounted section's one
- * action: it PREFILLS the composer and sends nothing. The mounted rows go through the deployed chain
+ * action: it sends one chip through the merged Ask Olumi button. The mounted rows go through the deployed chain
  * (`InspectorModal` → `InspectorRouter`'s edge branch), never the component alone (#2380's lesson).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -8,6 +8,7 @@ import { render, within, fireEvent } from '@testing-library/react'
 
 import { InspectorModal } from '../../../../components/InspectorModal'
 import { useCanvasStore } from '../../../../store'
+import { buildV5Payload } from '../../../../../v5/buildPayload'
 import { useGuidanceStore } from '../../../../stores/guidanceStore'
 import { getStrengthLabel } from '../../../../domain/vocabulary'
 import { buildExamineLinkView, EXAMINE_LINK_WHY } from '../examineLinkView'
@@ -57,13 +58,16 @@ describe('the view: an explicit basis, or nothing', () => {
     for (const w of Object.values(EXAMINE_LINK_WHY)) expect(w).not.toMatch(/haven.t confirmed|not confirmed/i)
   })
 
-  it('the prepared message names both ends and the band, asks what it rests on — never for Olumi to choose', () => {
-    const t = view(OLUMIS)!.prepare.text
-    expect(t).toContain('"Warm hours"')
-    expect(t).toContain('"Qualified conversations"')
-    expect(t).toContain(SLIGHT.toLowerCase())
-    expect(t).toMatch(/What is it based on/)
-    expect(t).not.toMatch(/suggest|propose|\bmy\b/i)
+  it('the question on the wire names its target, asks about its basis, and carries no model figure', () => {
+    seed(OLUMIS)
+    const sent = captureWire()
+    const dialog = open()
+    fireEvent.click(within(dialog).getByTestId('inspector-quick-ask'))
+    const payload = sent()[0]
+    expect(payload.message).toBe('Why would ‘Warm hours’ change ‘Qualified conversations’, and how sure are we?')
+    expect(payload.message).not.toMatch(/currently|30%|0\.\d|suggest|propose|\bmy assumption\b/i)
+    expect(payload.selected_elements).toEqual([expect.objectContaining({ id: 'f_warm→o_conv', kind: 'edge' })])
+    expect(payload.source).toBe('chip')
   })
 })
 
@@ -74,6 +78,7 @@ function seed(edgeData: Record<string, unknown>) {
       { id: 'o_conv', type: 'outcome', position: { x: 200, y: 0 }, data: { kind: 'outcome', label: 'Qualified conversations' } },
     ] as never[],
     edges: [{ id: 'e1', source: 'f_warm', target: 'o_conv', data: edgeData }] as never[],
+    hasCompletedFirstRun: false, v5AnalysisFact: null,
     results: { status: 'idle', report: null },
     selection: { nodeIds: new Set(), edgeIds: new Set(['e1']), anchorPosition: { x: 0, y: 0 } },
     goalThreshold: null,
@@ -89,43 +94,58 @@ function open(): HTMLElement {
   return dialog as HTMLElement
 }
 
+function captureWire() {
+  const payloads: Array<{ message: string; source?: string; selected_elements?: unknown }> = []
+  useGuidanceStore.setState({ _isConversationBusy: () => false, _dispatchAction: opts => {
+    const built = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'clarify', mode: 'user', message: opts.message, source: 'chip', chipMeta: { id: opts.id! } })
+    expect(built.ok).toBe(true)
+    if (built.ok && built.payload.kind === 'message') payloads.push(built.payload)
+  } })
+  return () => payloads
+}
+
 describe('the mounted section (InspectorModal → InspectorRouter edge branch)', () => {
   const prefill = vi.fn()
   const send = vi.fn()
   const dispatch = vi.fn()
   beforeEach(() => {
     vi.clearAllMocks()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch } as never)
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
   })
 
-  it('RED: Olumi’s link shows the section with the band and the basis', () => {
+  it('Olumi’s link shows its single sentence and More basis', () => {
     seed(OLUMIS)
-    const s = within(open()).getByTestId('inspector-examine-link')
-    expect(s.getAttribute('data-basis')).toBe('olumi_estimate')
-    expect(within(s).getByTestId('inspector-examine-link-value').textContent).toBe(SLIGHT)
+    const dialog = open()
+    fireEvent.click(within(dialog).getByTestId('inspector-more-toggle'))
+    const why = within(dialog).getByTestId('inspector-examine-link-why')
+    expect(why.getAttribute('data-basis')).toBe('olumi_estimate')
+    expect(within(dialog).getByTestId('inspector-summary-sentence').textContent).toContain(SLIGHT.toLowerCase())
   })
 
-  it('RED: the action PREFILLS the composer with the prepared message and sends nothing', () => {
+  it('the merged action sends one bound chip with the label and no model figure', () => {
     seed(PLACEHOLDER)
-    const s = within(open()).getByTestId('inspector-examine-link')
-    fireEvent.click(within(s).getByTestId('inspector-examine-link-prepare'))
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(String(prefill.mock.calls[0]![0])).toContain('"Qualified conversations"')
+    const dialog = open()
+    fireEvent.click(within(dialog).getByTestId('inspector-quick-ask'))
+    expect(prefill).not.toHaveBeenCalled()
+    expect(String(dispatch.mock.calls[0]![0].message)).toBe('Why would ‘Warm hours’ change ‘Qualified conversations’, and how sure are we?')
+    expect(dispatch.mock.calls[0][0].message).not.toContain('currently')
     expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ source: 'chip' })
   })
 
   it('⛔ SOUND CONTROL on the mount: the user’s own link → no section, and the inspector still opened on the link', () => {
     seed(USERS)
     const dialog = open()
-    expect(within(dialog).queryByTestId('inspector-examine-link')).toBeNull()
+    fireEvent.click(within(dialog).getByTestId('inspector-more-toggle'))
+    expect(within(dialog).queryByTestId('inspector-examine-link-why')).toBeNull()
     expect(within(dialog).getAllByText(/Warm hours/).length, 'PRECONDITION: the inspector opened on the link').toBeGreaterThan(0)
   })
 
   it('nothing can receive an ask → the section is hidden, not disabled', () => {
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
     seed(OLUMIS)
-    expect(within(open()).queryByTestId('inspector-examine-link')).toBeNull()
+    expect(within(open()).queryByTestId('inspector-quick-ask')).toBeNull()
   })
 })
 
@@ -139,18 +159,22 @@ describe('gate 5 item 3c — Examine replaces the generic Explore on a link', ()
     useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn() } as never)
   })
 
-  it.each([['Olumi’s estimate', OLUMIS], ['a starting strength', PLACEHOLDER]])('%s: Examine is shown and Explore is not', (_n, data) => {
+  it.each([['Olumi’s estimate', OLUMIS], ['a starting strength', PLACEHOLDER]])('%s: one merged Ask replaces Examine and Explore', (_n, data) => {
     seed(data)
     const dialog = open()
-    expect(within(dialog).getByTestId('inspector-examine-link-prepare').textContent).toBe('Examine with Olumi')
-    expect(within(dialog).queryByTestId('inspector-quick-ask')).toBeNull()
-    expect(within(dialog).getByTestId('inspector-back-to-conversation'), 'the row itself is still there').toBeTruthy()
+    expect(within(dialog).getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
+    expect(within(dialog).getAllByRole('button', { name: /^Ask Olumi/ })).toHaveLength(1)
+    expect(within(dialog).queryByRole('button', { name: 'Examine with Olumi' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: /^Explore with Olumi/ })).toBeNull()
+    fireEvent.click(within(dialog).getByTestId('inspector-header-menu'))
+    expect(within(dialog).getByTestId('inspector-back-to-conversation'), 'navigation is still in the header menu').toBeTruthy()
   })
 
-  it('CONTROL: the user’s own link (no Examine) keeps "Explore with Olumi"', () => {
+  it('CONTROL: the user’s own link keeps its explore route through Ask Olumi', () => {
     seed(USERS)
     const dialog = open()
-    expect(within(dialog).queryByTestId('inspector-examine-link')).toBeNull()
-    expect(within(dialog).getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+    fireEvent.click(within(dialog).getByTestId('inspector-more-toggle'))
+    expect(within(dialog).queryByTestId('inspector-examine-link-why')).toBeNull()
+    expect(within(dialog).getByTestId('inspector-quick-ask').textContent).toBe('Ask Olumi')
   })
 })

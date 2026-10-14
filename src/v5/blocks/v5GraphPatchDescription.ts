@@ -22,6 +22,7 @@
  */
 
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
+import { getStrengthLabel } from '../../canvas/domain/vocabulary'
 import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
@@ -53,6 +54,9 @@ import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeFrameOf, limitCh
  * questions, named apart. What is fixed here is that the second question now
  * has an answer.
  */
+/** The BEFORE side of a strength receipt for a link nobody had sized (CEE `before.sizing: 'placeholder'`). */
+export const STRENGTH_NOT_SET_BEFORE = 'Not set'
+
 export const V5_OPERATION_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
   set_factor_value: 'Updated factor value',
   add_constraint: 'Added constraint',
@@ -258,6 +262,11 @@ export interface V5PatchReceipt {
    */
   readonly changeSummary: string
   /**
+   * The raw figures behind `changeSummary`, for a details disclosure only (EDIT-UX §5.4: plain words first).
+   * Set for a connection strength, whose `changeSummary` is band words ("Slight → Very strong, decreases").
+   */
+  readonly technicalSummary?: string
+  /**
    * Whether the patch was applied or a noop. Mirrors the wire status.
    */
   readonly status: 'applied' | 'noop'
@@ -461,13 +470,16 @@ export function buildV5PatchReceipt(
         if (ep.from && ep.to) entityLabel = `${ep.from} → ${ep.to}`
       }
 
-      const beforeStrengthScalar = strengthScalar(beforeRaw?.strength)
+      // Placeholder licence (P48 dry walk, 8 Oct): CEE stamps `before.sizing: 'placeholder'` on a link nobody had sized.
+      // Its stored mean is a default prior, never a strength: no band word and no figure for the BEFORE side.
+      const beforeUnsized = (beforeRaw as { sizing?: unknown } | null)?.sizing === 'placeholder'
+      const beforeStrengthScalar = beforeUnsized ? null : strengthScalar(beforeRaw?.strength)
       const afterStrengthScalar = strengthScalar(afterRaw?.strength)
       const beforeStr = formatScalar(beforeStrengthScalar)
       const afterStr = formatScalar(afterStrengthScalar)
-      let changeSummary = ''
+      let technicalSummary = ''
       if (status === 'applied' && afterStr && afterStr !== '—') {
-        changeSummary = beforeStr && beforeStr !== '—' && beforeStr !== afterStr
+        technicalSummary = beforeStr && beforeStr !== '—' && beforeStr !== afterStr
           ? `${beforeStr} → ${afterStr}`
           : afterStr
       }
@@ -477,11 +489,23 @@ export function buildV5PatchReceipt(
       // hint when the direction changed.
       const beforeDir = typeof beforeRaw?.effect_direction === 'string' ? beforeRaw.effect_direction : null
       const afterDir = typeof afterRaw?.effect_direction === 'string' ? afterRaw.effect_direction : null
-      if (status === 'applied' && beforeDir && afterDir && beforeDir !== afterDir) {
+      const flipped = status === 'applied' && beforeDir !== null && afterDir !== null && beforeDir !== afterDir
+      if (flipped) {
         const dirHint = `direction now ${afterDir}`
-        changeSummary = changeSummary ? `${changeSummary}, ${dirHint}` : dirHint
+        technicalSummary = technicalSummary ? `${technicalSummary}, ${dirHint}` : dirHint
       }
-      return { actionLabel, entityLabel, changeSummary, status }
+      // EDIT-UX §5.4 (8 Oct): the receipt line says the band words the user chose, with direction, in the canvas's ONE
+      // band vocabulary; the figures move to `technicalSummary` (a details disclosure).
+      let changeSummary = ''
+      if (status === 'applied' && afterStrengthScalar !== null) {
+        const afterBand = getStrengthLabel(Math.abs(afterStrengthScalar))
+        const beforeBand = beforeStrengthScalar === null ? null : getStrengthLabel(Math.abs(beforeStrengthScalar))
+        const negative = afterDir !== null ? afterDir === 'negative' : afterStrengthScalar < 0
+        const bands = beforeUnsized ? `${STRENGTH_NOT_SET_BEFORE} → ${afterBand}`
+          : beforeBand !== null && beforeBand !== afterBand ? `${beforeBand} → ${afterBand}` : afterBand
+        changeSummary = `${bands}, ${flipped ? 'now ' : ''}${negative ? 'decreases' : 'increases'}`
+      }
+      return { actionLabel, entityLabel, changeSummary, ...(technicalSummary ? { technicalSummary } : {}), status }
     }
 
     default: {

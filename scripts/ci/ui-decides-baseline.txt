@@ -4,7 +4,7 @@
 #
 # -- ADJUDICATED. Each argued for individually; see
 #    src/canvas/__tests__/theUiRendersItDoesNotDecide.spec.ts.
-src/canvas/components/DraftLoadingAnimation.tsx:383
+src/canvas/components/DraftLoadingAnimation.tsx:379
 src/canvas/components/InsightsPanel.tsx:126
 src/canvas/components/ModelQualityScore.tsx:264
 #
@@ -38,15 +38,15 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1139
+src/canvas/contextMenu/actions.ts:1151
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8177
-src/canvas/stores/readinessStore.ts:829
-src/canvas/stores/readinessStore.ts:922
+src/canvas/store.ts:8235
+src/canvas/stores/readinessStore.ts:896
+src/canvas/stores/readinessStore.ts:989
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
@@ -59,9 +59,9 @@ src/canvas/utils/limitsStatus.ts:51
 src/components/results/TornadoChart.tsx:673
 src/components/results/TornadoChart.tsx:690
 src/hooks/useCEEDraft.ts:101
-src/lib/stability.ts:110
-src/lib/stability.ts:123
-src/lib/stability.ts:136
+src/lib/stability.ts:108
+src/lib/stability.ts:119
+src/lib/stability.ts:130
 src/types/constraints.ts:78
 #
 # -- INHERITED, AND NEWLY VISIBLE ON 24 Sep 2026 (#1921), for the same reason
@@ -92,6 +92,9 @@ src/types/constraints.ts:78
 #    from #2256's +47 lines above them (28 Sep 2026: the readiness body built
 #    from the registration projection, READINESS_EXCLUDED_NODE_FIELDS and its
 #    helper); the 429 and 404 branch text is identical.)
+#    (`readinessStore.ts:829` -> `896` and `:922` -> `989` are pure line shifts
+#    from #2703's +67 lines above them (8 Oct 2026: the readiness owner/lifecycle
+#    fence and the signed-in Bearer); the 429 and 404 branch text is identical.)
 #    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
 #    same +7, is a pure line shift from #1922's seven added lines —
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
@@ -193,7 +196,15 @@ src/types/constraints.ts:78
 #    `topFigurePercent === 100` line; 100 copy lines were added above it. Scanner added/gone = exactly this pair.
 # 6 Oct 2026 (D3 #2550, the unsized-path withhold's first ask): re-lined 2730 → 2771, the same `topFigurePercent === 100`
 #    line; 41 lines (`unsizedPathAskOf` + its docblock, and one type import) were added above it. Scanner added/gone = exactly this pair.
-src/components/results/analysisNew/analysisNewCopy.ts:2771
+# 6 Oct 2026 (D3, RT-19 fx1: the withhold's own links named when it typed no ask): re-lined 2771 → 2786, the same
+#    `topFigurePercent === 100` line; 15 lines (`withheldLinkOf` + its docblock, and the no-ask reroute) were added above it.
+# 6 Oct 2026 (D3 near tie, the target warning's typed ask): re-lined 2771 → 2787, the same `topFigurePercent === 100`
+#    line; 16 lines (`targetLinkAskOf` + its docblock, and the one-line reroute in `unsizedPathAskOf`) were added above it.
+# 7 Oct 2026 (P39 carrier, #2561 merged with staging: both `withheldLinkOf` and `targetLinkAskOf` above it): re-lined → 2802,
+#    the same `topFigurePercent === 100` line, derived with the scanner. Scanner added/gone = exactly this key.
+# 8 Oct 2026 (Reasoning panel, commitment short form): re-lined 2802 → 2828, the same `topFigurePercent === 100` line;
+#    26 lines (`unsizedAssumptionsOf` + its docblock, `changeValueShort`) were added above it.
+src/components/results/analysisNew/analysisNewCopy.ts:2828
 # 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`
@@ -204,3 +215,15 @@ src/components/results/analysisNew/analysisNewCopy.ts:2771
 #   import and the two-line viewer guard in `updateNodeLabel` (both above this site). Line text identical.
 #   Then 8137 → 8141: the two-line viewer change filters at the top of `onNodesChange` / `onEdgesChange` (above). Same line.
 # 2 Oct 2026 (ACCOUNTS-UI, merge of staging 69ec63d3 into #2449): store.ts 8143 (staging) + this PR's +7 (viewer guards above) → 8150. Same line text.
+#
+# 8 Oct 2026 (Canvas, 'Ask AI' -> 'Ask Olumi' copy): `contextMenu/actions.ts:1139` -> `1137` is a pure
+#    -2 line shift from the shortened 'Register:' comment above CHALLENGE_COPY. Same site, same code;
+#    re-derived with the scanner, not hand-picked.
+#
+# 12 Oct 2026 (recovery Batch B): the moved-base saved-model read in `proposeFromMenu` (+15, then +1) was removed after
+#    B UI's independent check, so `contextMenu/actions.ts` is staging's text again and the site is back at `1151`.
+#    Same site, same code; re-derived with the scanner, not hand-picked.
+# 12 Oct 2026 (Batch C UI #2747, chance authority gate): `store.ts:8197` -> `8200` is a pure +3 line shift from the
+#    canonical-view import and the gated previous-Run view above. Same site, same code; re-derived with the scanner.
+# 12 Oct 2026 (Batch C UI #2747 r2, chance gate lint): `store.ts:8200` -> `8202` is a pure +2 line shift from the two
+#    line-level `chance-gate` reasons inserted above it. Same site, same code; re-derived with the scanner.

@@ -142,13 +142,12 @@ describe('U3 — no Chance row when the run produced no goal chance (contract v3
     expect(container.textContent ?? '').not.toContain('Rerun to update')
   })
 
-  it('CONTRAST — a real goal chance still renders its ONE Chance row, and the target line survives', () => {
+  // #2747 re-scope 2 (U0): the Chance-row presence ("Chance", "34%") is deleted — the canvas goal card shows no chance in C.
+  // The target line, this row's other subject, stays.
+  it('CONTRAST — with a real goal chance served, the target line survives', () => {
     mockStore(POST_RUN)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34 } as never)
     renderGoal(WITH_TARGET)
-    const row = screen.getByTestId('goal-achievement-metric-row')
-    expect(row.textContent).toContain('Chance')
-    expect(row.textContent).toContain('34%')
     expect(screen.getByTestId('goal-node-resting-state').textContent).toContain('100%')
   })
 })
@@ -158,7 +157,8 @@ describe('U4 — "Target not captured" once; no second "Needs input" pill on the
     mockStore()
     const { container } = renderGoal({})
     const chip = screen.getByTestId('goal-node-no-target-chip')
-    expect(chip.textContent).toBe(GOAL_NO_TARGET_STATE)
+    expect(chip.getAttribute('aria-label')).toContain(GOAL_NO_TARGET_STATE)
+    expect(chip.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
     expect(container.textContent ?? '').not.toContain('Needs input')
     // The node is still incomplete — only the duplicate words went.
@@ -190,7 +190,8 @@ describe('U8 — no rail source icon on the goal (contract v3.1 pt 1)', () => {
     mockStore()
     renderGoal({ provenance: 'from_brief', ...WITH_TARGET })
     const resting = screen.getByTestId('goal-node-resting-state')
-    const mark = within(resting).getByTestId('goal-target-source-goal-1')
+    expect(resting.textContent).toContain('Target:')
+    const mark = within(screen.getByTestId('goal-bottom-marks-goal-1')).getByTestId('goal-target-source-goal-1')
     expect(mark.getAttribute('data-value-source')).toBe('unknown')
   })
 

@@ -77,6 +77,7 @@ import {
   fragileEdgeConsequence,
   fragileEValueNote,
   fragileDiscussDraft,
+  linkMarginSentence,
 } from '../utils/fragileEdgeCopy'
 import { classifyFlipEvidence } from '../utils/selectFlipRisk'
 
@@ -207,7 +208,7 @@ describe('OPPOSITE DIRECTION — a genuinely fragile result must still say so', 
   it('the per-edge and E-value claims also survive on a flip-bearing run', () => {
     const v = { designationsWithheld: false, flipEvidenceAttestsNoFlip: false }
     expect(fragileEdgeConsequence(v)).toMatch(FLIP_CLAIM_RE)
-    expect(fragileEValueNote({ eValue: 2.0, ...v })).toMatch(FLIP_CLAIM_RE)
+    expect(fragileEValueNote({ eValue: 2.0, ...v })).not.toMatch(FLIP_CLAIM_RE)
   })
 
   it('UNRESOLVED evidence is not an attestation — the verb is kept, failing toward "we do not know"', () => {
@@ -276,9 +277,11 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
     'fragileEdgeGroupHeader',
     'fragileEdgeConsequence',
     'fragileEValueNote',
+    'linkMarginSentence',
     'fragileDiscussDraft',
     'lensFragileEdgeLabel',
-    'lensFragileRowAlternative',
+    // #2747 re-scope 2 (DL ruling (A)): 'lensFragileRowAlternative' removed from the set — the function is deleted (the
+    // robustness lens lists fragile links by label only in C, no "towards X").
   ].sort()
 
   it('NAME TRIPWIRE: the covered set IS the exported function set — a new export REDs here (adding the name silences it; that is the limit)', () => {
@@ -300,6 +303,7 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
       h.kind === 'altWinner' ? h.lead + h.altWinnerLabel : h.text,
       fragileEdgeConsequence(v),
       fragileEValueNote({ eValue: 2.0, ...v }),
+      linkMarginSentence(2.0),
       fragileDiscussDraft({
         edgeCount: walkAGroup.length, altWinnerLabel: ALT,
         fromLabel: 'Sales Headcount Expansion', toLabel: 'Budget Overrun Risk', ...v,
@@ -308,14 +312,15 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
     for (const s of strings) expect(s).not.toMatch(FLIP_CLAIM_RE)
     // …and the alternative is still named in the two sentences that carry it.
     expect(strings[0]).toContain(ALT)
-    expect(strings[3]).toContain(ALT)
+    expect(strings[4]).toContain(ALT)
   })
 
-  it('the lens copy (edge hover label, lens row) names the alternative with no flip claim and no winner arrow', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the lens-row strings (lensFragileRowAlternative's text and title) are deleted from this
+  // row — the function is deleted (the robustness lens lists fragile links by label only in C). The hover label stays.
+  it('the lens copy (edge hover label) names the alternative with no flip claim and no winner arrow', () => {
     // These take no verdict: the withheld form is true on every run, so there is
     // no attested/withheld branch to exercise — the check is the vocabulary.
-    const row = fragileEdgeCopy.lensFragileRowAlternative(ALT)
-    const lens = [fragileEdgeCopy.lensFragileEdgeLabel(ALT), row.text, row.title]
+    const lens = [fragileEdgeCopy.lensFragileEdgeLabel(ALT)]
     for (const s of lens) {
       expect(s).not.toMatch(FLIP_CLAIM_RE)
       expect(s).not.toMatch(/If wrong|→/)

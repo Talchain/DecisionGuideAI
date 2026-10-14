@@ -60,6 +60,14 @@ export function downsideSummaryCopy(p05Display: string, cvar10Display: string): 
 }
 
 /**
+ * B19-0 (DL, 7 Oct): the tail figures are on the model's own scale until the goal band is anchored to the user's units
+ * (`goalBandIsInUserUnits`, DL 5854887316 item 1: Paul's "£15,320" beside a stated £75,000). Printed with or without a
+ * unit they would read as the user's own figures, so they are withheld and the limit is said. CONTAINS NO NUMERAL.
+ */
+export const DOWNSIDE_NOT_IN_USER_UNITS_COPY =
+  "Worst-case figures for this option aren't shown yet: the simulated runs are on the model's own scale, not in your goal's units."
+
+/**
  * The honesty caveat that must accompany the numbers above.
  *
  * It names the un-ratified choice WITHOUT implying the numbers are unreliable:

@@ -2,17 +2,20 @@
  * ⭐ E4 — "WHAT ELSE…?" IS A CHOICE (Paul 29 Sep: "'What else…?' chips: Factor / Risk / Option / Outcome").
  *
  * A click on a ghost door ("What else drives this?", "What else could you do?", …) opens this small chooser at the
- * pointer: four chips and a free-text line. The door's own kind keeps the door's own contextual question; the
- * other chips ask the plain question for their kind.
+ * pointer: four chips and a free-text line. Each chip sends its kind’s registered question,
+ * built from the current model and stage; the option chip includes the authored option labels.
  *
- * ⚠ IT NEVER SENDS AND NEVER WRITES THE GRAPH. Every choice goes through `requestAsk`, which prefills the composer
- * (or the Ask drawer) — the same seam the doors used directly before — and the person presses Send. Anything
- * added arrives through Olumi's validated patch route, never from here.
+ * Choices send chip questions; free text sends the person’s own words.
+ * The chooser closes only after a send. Proposed additions return through
+ * Olumi’s approval route.
  */
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { askAi } from '../conversation/askAi'
+import type { AskIntent } from '../conversation/askAiQuestions'
 import { typography } from '../../styles/typography'
+import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 
 export type WhatElseKind = 'factor' | 'risk' | 'option' | 'outcome'
 
@@ -26,7 +29,7 @@ export const WHAT_ELSE_CHOICES: ReadonlyArray<{ kind: WhatElseKind; label: strin
 interface WhatElseOpen {
   x: number
   y: number
-  /** The door's kind and its own contextual question, used for that kind's chip. */
+  /** The door's kind highlights its chip; doorPrompt supplies legacy request text. */
   doorKind?: string
   doorPrompt?: string
 }
@@ -41,10 +44,44 @@ export const useWhatElseStore = create<{
   close: () => set({ open: null }),
 }))
 
-/** The ask a chip makes: the door's own question for the door's kind, else the plain question for that kind. */
+/** Legacy request text. An explicit intent makes requestAsk build the sent question from the registry. */
 export function whatElsePrompt(kind: WhatElseKind, open: Pick<WhatElseOpen, 'doorKind' | 'doorPrompt'>): string {
   if (open.doorKind === kind && open.doorPrompt) return open.doorPrompt
   return WHAT_ELSE_CHOICES.find((c) => c.kind === kind)!.prompt
+}
+
+/**
+ * The width the Outputs dock covers at the right: `FloatingOlumiPanel.measureDockInset`'s measurement, restated over the
+ * import-free `DOCK_SELECTOR` (the reason `computeFitPadding` restates it) so the chooser does not pull the floating panel
+ * and its conversation tree into every node's import graph. `WhatElseChooser.spec` pins the two selectors equal.
+ */
+function dockInsetPx(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 0
+  const dock = document.querySelector(DOCK_SELECTOR) as HTMLElement | null
+  if (!dock) return 0
+  const rect = dock.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return 0
+  const inset = window.innerWidth - rect.left
+  return inset > 0 ? inset : 0
+}
+
+export const WHAT_ELSE_CHOOSER_WIDTH = 248
+
+/**
+ * Where the chooser opens: beside the pointer, but always inside the canvas the person can see, never under the Outputs
+ * dock. Served askAi witness, 7 Oct (staging d47c8d13): at a right-edge door the chooser opened beside the dock and its
+ * Factor chip could not be clicked in 2 of 3 layouts. With no dock (`dockInset` 0) this is the previous window clamp.
+ */
+export function placeWhatElseChooser(
+  anchor: { x: number; y: number },
+  viewport: { width: number; height: number },
+  dockInset: number,
+): { left: number; top: number } {
+  const rightEdge = viewport.width - Math.max(0, dockInset)
+  return {
+    left: Math.max(12, Math.min(anchor.x + 8, rightEdge - WHAT_ELSE_CHOOSER_WIDTH - 12)),
+    top: Math.min(anchor.y + 8, viewport.height - 160),
+  }
 }
 
 export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose: () => void }) {
@@ -59,13 +96,17 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onDown, true) }
   }, [onClose])
 
-  const ask = (prompt: string, label: string) => {
-    requestAsk({ text: prompt, label, source: 'ghost-door' })
-    onClose()
+  const ask = (kind: WhatElseKind, prompt: string, label: string) => {
+    const intent: AskIntent = kind === 'option' ? 'widen' : kind === 'risk' ? 'risks' : kind === 'factor' ? 'missing-factor' : 'missing-outcome'
+    const result = requestAsk({ text: prompt, label, source: 'ghost-door', intent, includeOptions: kind === 'option', nodeIds: [], edgeIds: [] })
+    if (result === 'sent') onClose()
   }
 
-  const left = Math.min(open.x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 260)
-  const top = Math.min(open.y + 8, (typeof window !== 'undefined' ? window.innerHeight : 900) - 160)
+  const { left, top } = placeWhatElseChooser(
+    open,
+    { width: typeof window !== 'undefined' ? window.innerWidth : 1440, height: typeof window !== 'undefined' ? window.innerHeight : 900 },
+    dockInsetPx(),
+  )
 
   return (
     <div
@@ -86,7 +127,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
             className={`${typography.panelMeta} rounded-full border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               open.doorKind === c.kind ? 'border-text-body text-text-body' : 'border-panel-border text-text-body'
             }`}
-            onClick={() => ask(whatElsePrompt(c.kind, open), `What else: ${c.label}`)}
+            onClick={() => ask(c.kind, whatElsePrompt(c.kind, open), `What else: ${c.label}`)}
           >
             {c.label}
           </button>
@@ -97,7 +138,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
         onSubmit={(e) => {
           e.preventDefault()
           const t = text.trim()
-          if (t) ask(t, 'What else')
+          if (t && askAi({ userWords: text }) === 'sent') onClose()
         }}
       >
         <input

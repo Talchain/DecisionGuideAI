@@ -109,14 +109,16 @@ describe('WorthInvestigating component', () => {
     expect(screen.getByLabelText('Worth investigating')).toBeInTheDocument()
   })
 
-  // UI-BUG-6: the "Ask AI to research" text pill was replaced by the standard
+  // UI-BUG-6: the research text pill was replaced by the standard
   // DiscussWithAiButton sparkle icon. The affordance is now rendered via the
   // guidance-store sendMessage handler; there is no per-gap onAskAI prop.
-  it('never renders the deprecated "Ask AI to research" text pill', () => {
+  it('never renders the deprecated "Ask Olumi to research" text pill in either wording', () => {
     const gaps = [
       { factorId: 'f99', factorLabel: 'Customer Acquisition Cost', description: 'Desc', connectivityScore: 1 },
     ]
     render(<WorthInvestigating gaps={gaps} />)
-    expect(screen.queryByText('Ask AI to research')).not.toBeInTheDocument()
+    for (const retiredPill of ['Ask Olumi to research', 'Ask AI to research']) {
+      expect(screen.queryByText(retiredPill)).not.toBeInTheDocument()
+    }
   })
 })

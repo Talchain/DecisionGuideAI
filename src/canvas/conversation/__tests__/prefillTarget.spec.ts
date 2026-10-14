@@ -31,3 +31,15 @@ describe('prefillInto', () => {
     expect(() => prefillInto(null, undefined, 'hello')).not.toThrow()
   })
 })
+
+// Product asks no longer enter this utility; only explicitly editable prefills do.
+import { requestAsk } from '../../ui/inspector-v2/askSemantic'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+it('an Ask dispatches once rather than prefilling either composer', () => {
+  const dispatch = vi.fn(); const prefill = vi.fn()
+  useGuidanceStore.setState({ _dispatchAction: dispatch, _prefillChat: prefill, _isConversationBusy: () => false })
+  requestAsk({ text: 'Explain', label: 'Explain', intent: 'explain', nodeIds: [] })
+  expect(dispatch).toHaveBeenCalledTimes(1)
+  expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip' })
+  expect(prefill).not.toHaveBeenCalled()
+})

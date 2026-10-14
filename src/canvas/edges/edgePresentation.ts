@@ -39,7 +39,7 @@
  * ⭐ NARROWED AGAIN — THE LOCKED CONNECTOR GRAMMAR (Experience Design, 23 Sep
  * 2026, which wins over the Canvas Final spec §5 where it refines it):
  *   thickness = relationship magnitude · colour/sign = direction ·
- *   dash = existence certainty ONLY · orange = AI-review SIGN disagreement only ·
+ *   dash = existence doubt · dots = strength not set (7 Oct 2026) · orange = AI-review SIGN disagreement only ·
  *   fragility = a discreet exception cue, never a line style · no "contested"
  *   without attributable human disagreement.
  * Two rules left this module with it: the `contested` DASH (a review
@@ -77,6 +77,8 @@ import type { CSSProperties } from 'react'
 import type { ValidationMetadata } from '../../types/validation'
 import type { ExistenceDash } from '../utils/graphDisplayCalculations'
 import { MEASURED_EDGE_STROKE_WIDTH_FLOOR } from '../utils/graphDisplayCalculations'
+import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 import { glyphCounterScale } from '../utils/zoomLegibility'
 
 // ── Colour constants ────────────────────────────────────────────────────────
@@ -88,17 +90,16 @@ import { glyphCounterScale } from '../utils/zoomLegibility'
  * ("quiet and grey"), replacing the cool mid-grey that sat beside warm stone
  * factor borders on every graph. Built from an EXISTING token (DS v5; Paul pt 9
  * "no new colours"; `check-ds-compliance` refuses a new production hex): the
- * muted-ink token at 50%, which composites on the canvas ground to within a
+ * muted-ink token at the shared resting alpha, which composites on the canvas ground to within a
  * few units of the contract's grey. Width 1 and no arrowhead are unchanged
  * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
  *
- * ⭐ 0.5 → 0.75 (Paul, 30 Sep: "the graph is nearly invisible"). The contract's
- * 1px grey is drawn at 100%; ours is a 1px `non-scaling-stroke` BEZIER, and its
- * anti-aliasing halves the ink. Measured on served `61f5b909` (1440×900, MRR):
- * the darkest pixel of a question→option link was ~40 below the ground, the
- * contract's ~64. At 0.75 the curve reaches the contract's contrast.
+ * Paul, 7 Oct 2026: lighten decision→option and darken option→factor
+ * to one shared 0.55 resting alpha, with no group dim at rest.
  */
-export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.75)'
+// Paul, 7 Oct 2026: both structural tiers use the same resting ink.
+export const STRUCTURAL_EDGE_RESTING_ALPHA = 0.55
+export const STRUCTURAL_EDGE_COLOUR = `rgb(var(--text-light-rgb) / ${STRUCTURAL_EDGE_RESTING_ALPHA})`
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that
@@ -113,6 +114,28 @@ export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.75)'
  * the arrowhead draw THIS value rather than a hand-typed copy (trap 12).
  */
 export const DIRECTION_DISPUTED_STROKE = 'var(--semantic-warning)'
+
+/** Strength not set has round-capped dots, distinct from the existence-doubt dash. */
+export const STRENGTH_NOT_SET_DASH = '0.1 4'
+export const STRENGTH_NOT_SET_LABEL = 'No strength estimate: dotted'
+
+/** Provenance decides this state, never a magnitude or an existence probability. */
+export function isEdgeStrengthNotSet(data: Record<string, unknown> | undefined | null): boolean {
+  return isStrengthPlaceholder(data) || !resolveEdgeSignedStrengthDisplay(data).show
+}
+
+/**
+ * Is a link STRUCTURAL (no arrowhead, no sign)? The same resolution order as
+ * this component's own `isStructuralEdge` memo: an explicit `edge_type` wins
+ * ('structural' → yes; any other value → no), else decision → option and
+ * option → factor are. Read by the fragile-cue pass for every OTHER link.
+ */
+export function linkIsStructural(srcKind: unknown, tgtKind: unknown, data: unknown): boolean {
+  const explicit = (data as Record<string, unknown> | undefined)?.edge_type
+  if (explicit === 'structural') return true
+  if (explicit != null && explicit !== '') return false
+  return (srcKind === 'decision' && tgtKind === 'option') || (srcKind === 'option' && tgtKind === 'factor')
+}
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -221,6 +244,8 @@ export interface EdgePresentationState {
    * resolved union, and the two answers are separate named rules below.
    */
   readonly existence: ExistenceDash
+  /** The strength provenance reader's result; independent of existence. */
+  readonly strengthNotSet?: boolean
   /**
    * Dash from the legacy visual-props map (the edge's presentational `style`).
    *
@@ -345,6 +370,14 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
 export const EDGE_DASH_RULES = [
   /** Structural scaffolding is always solid. */
   'structural',
+  /**
+   * STRENGTH NOT SET (Paul 7 Oct: "we lost … dotted"; DL ruling 7 Oct). A placeholder or an unset strength draws
+   * round-capped DOTS at the unset width, keeping its direction colour. Keyed on the strength's PROVENANCE
+   * (`isEdgeStrengthNotSet`), never on a value and never on existence: route-once and S-DEF hold existence at 1.0 on
+   * the Run, so an existence-keyed style would restyle lines on its own. It outranks the existence rules because a
+   * link whose size nobody set has no size to qualify; the dots are distinct from the 6,4 existence dash.
+   */
+  'strength_not_set',
   // ⭐ NO `contested` RULE (Experience Design, 23 Sep 2026: "dash = existence
   // certainty only"). It stood here and dashed EVERY contested edge at a
   // divergence-scaled pattern, whatever the passes disagreed about — so a
@@ -382,10 +415,12 @@ export type EdgeDashRule = (typeof EDGE_DASH_RULES)[number]
 export interface EdgeDashDecision {
   readonly value: string | undefined
   readonly rule: EdgeDashRule
+  readonly linecap: 'round' | 'butt'
 }
 
 export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision {
-  if (state.isStructural) return { value: undefined, rule: 'structural' }
+  if (state.isStructural) return { value: undefined, rule: 'structural', linecap: 'round' }
+  if (state.strengthNotSet) return { value: STRENGTH_NOT_SET_DASH, rule: 'strength_not_set', linecap: 'round' }
   // `state.contested` is deliberately NOT read here — see `EDGE_DASH_RULES`.
   // Provenance before value. Nobody stated a likelihood, so neither this
   // channel NOR the legacy `style` map (no longer read at all) may mark the edge: `style`
@@ -394,11 +429,11 @@ export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision 
   // Inert as measured — a sweep of `src/` for `style: 'dashed'|'dotted'` outside
   // tests and fixtures returns zero against a `style: 'solid'` contrast control
   // in the same run — so this closes a hole rather than changing a pixel.
-  if (state.existence.kind === 'unset') return { value: undefined, rule: 'existence_unset' }
+  if (state.existence.kind === 'unset') return { value: undefined, rule: 'existence_unset', linecap: 'round' }
   // A stated likelihood decides alone: its own dash below the cut, solid above
   // it. `state.visualPropsDash` is deliberately NOT read (Paul 23 Sep contract
   // feedback point 4 — see `EDGE_DASH_RULES`).
-  return { value: state.existence.dash, rule: 'existence_certainty' }
+  return { value: state.existence.dash, rule: 'existence_certainty', linecap: state.existence.dash ? 'butt' : 'round' }
 }
 
 // ── Direction of causation ──────────────────────────────────────────────────

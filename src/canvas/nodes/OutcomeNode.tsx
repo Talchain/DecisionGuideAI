@@ -1,3 +1,4 @@
+import { CardMark } from './shared/CardMark'
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
@@ -407,24 +408,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
             )}
           </div>
         ) : showUnquantified ? (
-          isDetailed ? (
-            <div className={`${typography.edgeLabel} text-text-light`} data-testid="outcome-unquantified">
-              {OUTCOME_UNQUANTIFIED_LINE}
-            </div>
-          ) : (
-            <div
-              // Contract v3.1 `.small-state` "Outcome not quantified", VISIBLE —
-              // the risk card's sibling line (DESIGN-GAP-v31 #34) keeps one
-              // element and one class list with it; wraps, never cut.
-              // `.node .small-state{line-height:1.4}` (29 Sep, pixel-match).
-              className={`${typography.edgeLabel} !leading-[1.4] text-text-light break-words`}
-              data-testid="outcome-unquantified"
-              data-card-primary-line="outcome"
-            >
-              <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_LINE}</span>
-              <span className={typography.screenReaderOnly}>{OUTCOME_UNQUANTIFIED_LINE}</span>
-            </div>
-          )
+          <div className={`${typography.edgeLabel} h-[1lh]`} data-card-primary-line="outcome"><CardMark id="outcome-unquantified" testId="outcome-unquantified" words={OUTCOME_UNQUANTIFIED_LINE} /></div>
         ) : null}
 
         {/* Authored consequence, AFTER the card's own state and one step smaller

@@ -2,17 +2,17 @@
  * D3 cut 5 (Codex r1 #2551 finding 4): the existence line has ONE home. Under the hero's chance lines when the hero's
  * goal-chance arm is open (`goalChanceHeroArmOpen`: a user target, goal figures not each a joint with limits); else under
  * the WinGauge goal rows, where the chances are then read. Never both, never neither.
+ *
+ * #2747 re-scope 2 (U0, DL ruling (A)): `goalChanceExistenceLine` and WinGauge are deleted (their last production callers,
+ * the hero's disclosure lines and the gauge, went in C); their rows are deleted. The arm predicates' rows stay.
  */
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { goalChanceExistenceLine, goalChanceHeroArmOpen, goalChanceHeroSays, type GoalChanceLicence } from '../goalChanceLicence'
-import { WinGauge } from '../../WinGauge'
+import { goalChanceHeroArmOpen, goalChanceHeroSays, type GoalChanceLicence } from '../goalChanceLicence'
 
 const limits = { constraints: [{ id: 'c1' }] }
 const LIC: GoalChanceLicence = { form: 'highest', optionIds: ['a', 'b'], pctByOption: { a: 50, b: 35 }, withheldOptionIds: [],
   similarOptionIds: [], leaderOptionId: 'a', nextOptionId: 'b', target: { comparator: 'at_least', value: 1, unit: '£' },
   userLinkExistence: { links: 2, oneIn: 5 } }
-const LINE = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
 
 describe('the existence line\'s one home', () => {
   it('the hero\'s arm is open with a user target and no joint goal figures; closed with limits on every goal figure, or no target', () => {
@@ -29,17 +29,7 @@ describe('the existence line\'s one home', () => {
     expect(goalChanceHeroSays(20000, both, null)).toBe(false)
   })
 
-  it('the words are CEE\'s fraction; no record → none', () => {
-    expect(goalChanceExistenceLine(LIC)).toBe(LINE)
-    expect(goalChanceExistenceLine({ ...LIC, userLinkExistence: null })).toBeNull()
-  })
-
-  it('WinGauge says it under the goal rows when handed it (the hero\'s arm closed); otherwise nothing', () => {
-    const goal = [{ id: 'a', label: 'Raise', goalProbability: 0.5 }, { id: 'b', label: 'Starter', goalProbability: 0.35 }]
-    const { unmount } = render(<WinGauge shares={[]} goalShares={goal} goalChanceLicence={LIC} goalChanceDisclosure={LINE} />)
-    expect(screen.getByTestId('win-gauge-goal-existence').textContent).toBe(LINE)
-    unmount()
-    render(<WinGauge shares={[]} goalShares={goal} goalChanceLicence={LIC} />)
-    expect(screen.queryByTestId('win-gauge-goal-existence')).toBeNull()
-  })
+  // #2747 re-scope 2 (DL ruling (A)): rows deleted — 'the words are CEE's fraction; no record → none' (its only subject,
+  // `goalChanceExistenceLine`, was deleted with its last production caller) and 'WinGauge says it under the goal rows when
+  // handed it …' (its only subject, WinGauge, was removed in C).
 })

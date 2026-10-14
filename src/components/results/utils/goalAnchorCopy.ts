@@ -32,9 +32,9 @@
  * `useResultsSectionData`, never re-derived at a render site), so every
  * caller here passes it straight through.
  *
- * The two permitted registers ALREADY SHIPPED, as `HERO_COPY.detail.goalFit`
- * and `HERO_COPY.detail.goalFitJointBasis`. Their wording is unchanged and it
- * now lives HERE, with `heroCopy` delegating to `sentence()` — so there is
+ * The two permitted registers ship as `HERO_COPY.detail.goalFit`
+ * and `HERO_COPY.detail.goalFitJointBasis`. Their wording follows ruling 4
+ * and lives HERE, with `heroCopy` delegating to `sentence()` — so there is
  * exactly one copy of each sentence in the repo and every surface reads the
  * same one.
  *
@@ -69,13 +69,13 @@ export const GOAL_ANCHOR_COPY = {
    * Label form — names the quantity, carries no number, no full stop.
    * Used by chart headers, data-bar labels and column captions.
    */
-  // ⭐ AIQ #72 5885033487 / 5885116642 (29 Sep 2026): P(goal) is a SHARE OF MODEL RUNS, always — never "chance of
-  // success / reaching / hitting". The reply in the same view says "model outcomes, not probabilities that the target
-  // will be achieved", and no surface may contradict it. Authorship stays a separate disclosure beside the figure.
+  // Science ruling 4 (#87 6027792767; Paul, 6 Oct 2026; DL #87): probability_of_goal IS the chance of meeting
+  // the goal, in this model. This retires AIQ #72's 29 Sep share-of-model-runs rule for this figure.
+  // The substituted joint quantity still names every target this run scored, never "your goal".
   label: (isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? 'Share of model runs meeting every target this run scored'
-      : 'Share of model runs that reach the target',
+      ? 'Chance of meeting every target this run scored, in this model'
+      : 'Chance of meeting your goal, in this model',
 
   /**
    * Compact readout — number first, no full stop. Used inline beside an
@@ -83,10 +83,10 @@ export const GOAL_ANCHOR_COPY = {
    */
   phrase: (formatted: string, isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? `meets every target this run scored in ${formatted} of model runs`
-      : `reaches the target in ${formatted} of model runs`,
+      ? `${goalProbabilityWords(formatted)} chance of meeting every target this run scored`
+      : `${goalProbabilityWords(formatted)} chance of meeting your goal`,
 
-  /** Readout form — the phrase as a standalone line: capitalised, no full stop ("Reaches the target in 25% of model runs"). */
+  /** Readout form — the phrase as a standalone line: capitalised, no full stop ("About 25% chance of meeting your goal"). */
   readout: (formatted: string, isSubstitutedJoint: boolean): string => {
     const p = GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint)
     return p.charAt(0).toUpperCase() + p.slice(1)
@@ -116,6 +116,7 @@ export const GOAL_ANCHOR_COPY = {
   byOptionAria: (isSubstitutedJoint: boolean): string =>
     `${GOAL_ANCHOR_COPY.label(isSubstitutedJoint)}, by option`,
 
+
   /**
    * A5 — the no-target state. ISL computes a goal probability ONLY when a
    * success threshold was supplied, so this is not an edge case: it is the
@@ -129,58 +130,12 @@ export const GOAL_ANCHOR_COPY = {
   noTarget: 'Set a success target to see which option is most likely to reach it.',
   /** Inline unlock action beside `noTarget`. `HERO_COPY` re-exports this. */
   noTargetCta: 'Define success',
-
-  /**
-   * ⭐ L62 — the WITHHELD state. A second no-number state, NOT a third
-   * A-register voice.
-   *
-   * The header above forbids inventing a third voice for a DISPLAYED number,
-   * and this is not one: it is the sentence for when there is no number at
-   * all. It exists because `noTarget` is the wrong sentence in this state and
-   * saying it would be its own small untruth — the user HAS set a target, or
-   * the run DID carry limits; the surface is not asking for one. What
-   * happened is that the only figure available was
-   * `probability_of_joint_goal` standing in for a goal probability the engine
-   * refused to produce, and nothing on the wire lets us check that the
-   * threshold and the samples are even in the same frame
-   * (`selectGoalProbability`, basis `'joint_goal_withheld'`). Scoring it
-   * anyway is what produced "< 1%" for every option on every decision.
-   *
-   * Plain language, no jargon, no number, no blame on the user, and it does
-   * not promise the figure is coming back.
-   */
-  notScored: "This run couldn't score your options against your target.",
-  /**
-   * The one-line reason, rendered beside `notScored` where there is room.
-   * Separate string so a compact surface can take the headline alone rather
-   * than truncate a sentence mid-clause.
-   */
-  notScoredReason:
-    'The analysis produced a figure for your limits, but not one that answers whether an option reaches your target.',
-
-  /**
-   * ⭐ L65 — the TARGET-SET-BUT-NOT-SCORED state. A third no-number state,
-   * and like `notScored` above it is NOT a third A-register voice: there is
-   * no number to voice.
-   *
-   * LICENSED BY: a user target exists (the store-derived `goalThreshold`
-   * signal the V7 goal lens already gates with, `buildV7Lenses.ts`) and NO
-   * goal-fit figure arrived at all — basis 'none'. Post-#308 the producer
-   * suppresses the frame-broken joint channel at source, so this is the
-   * ordinary shape of that run class, and BOTH existing sentences are wrong
-   * for it: `noTarget` asks the user for something they already gave, and
-   * `notScoredReason` claims "the analysis produced a figure for your
-   * limits" when nothing arrived. This sentence claims only the gap.
-   *
-   * The wording is the V7 goal lens's producer-gap gate, MOVED here verbatim
-   * (byte-identical) so the lens and WinGauge render one claim from one
-   * register — `V7_LENS_COPY.goal.gateProducerGap` now references this key,
-   * the same delegation shape as its `gateNoTarget`. No CTA beside it:
-   * there is nothing a user action currently unlocks.
-   */
-  producerGap:
-    'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
+  // #2747 re-scope 2: `notScored`, `notScoredReason` (L62) and `producerGap` (L65) went with WinGauge, their last
+  // caller. In C a withheld or stale option says CEE's own served words on the Results hero instead.
 } as const
+
+/** #87, 6 Oct: the Analysis hero's earned per-option wording, shared with the Reasoning Goal fit lens. */
+export const GOAL_CHANCE_LABEL = 'chance of meeting your goal, in this model'
 
 /**
  * The C-register — the comparative quantity, described by what it measures.
@@ -262,30 +217,8 @@ export const COMPARATIVE_COPY = {
    * inventing a second one.
    */
   anchor: 'Support',
-  /**
-   * The same claim with NO magnitude — for the runs that carry the
-   * comparative RANK but not a displayable probability for the most-supported
-   * option.
-   *
-   * ⚠ This arm exists because the first draft did not have it, and the
-   * builder fell back to the missing-value glyph INSIDE the sentence:
-   * "supported in — of simulated scenarios". A placeholder rendered as
-   * though it were a quantity is worse than saying less, and the honesty bar
-   * this whole change serves forbids it. Caught by an existing readout-tie
-   * spec, not by a new one.
-   */
-  phraseNoMagnitude: 'supported in more simulated scenarios than any other option',
-  /**
-   * The magnitude-free claim in SENTENCE-INITIAL position.
-   *
-   * ⚠ Added because the F1 fix opened by writing
-   * `phraseNoMagnitude.charAt(0).toUpperCase() + …slice(1)` inline at the call
-   * site — which is EXACTLY the duplicated string surgery that produced the
-   * §10.2 casing defect, reintroduced two sections after being named. The
-   * register owns casing; call sites never do it. `goalAnchorCopy.spec.ts`
-   * pins this against `phraseNoMagnitude` so the two cannot drift.
-   */
-  leadNoMagnitude: 'Supported in more simulated scenarios than any other option',
+  // Run-4 judge (DL 12 Oct, the class): `phraseNoMagnitude` ("supported in more simulated scenarios than any other
+  // option") and `leadNoMagnitude` are DELETED, with the leader claims that read them.
   /**
    * Mid-sentence form — `phrase()` with a lower-case initial, for when the
    * claim follows an option label rather than opening a line.
@@ -304,14 +237,8 @@ export const COMPARATIVE_COPY = {
     const phrase = COMPARATIVE_COPY.phrase(formatted)
     return `${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`
   },
-  /**
-   * The model-relative leader clause (principle audit, 5 Oct; Science's ruling): a win share is said as "came out best in
-   * N of simulated futures" after "In this model, {label}". "Came out best" holds whatever the goal's direction (a churn
-   * goal is minimised, so "highest" would read as the most churn).
-   */
-  modelLeaderClause: (formatted: string): string => `was supported by ${formatted} of runs`,
-  /** The magnitude-free form of `modelLeaderClause` (no placeholder ever stands in for the share). */
-  modelLeaderNoMagnitude: 'was supported by more runs than any other option',
+  // Run-4 judge (DL 12 Oct, the class): `modelLeaderClause` / `modelLeaderNoMagnitude` (the hero's "In this model, X was
+  // supported by …" leader headline) and `runShare`, which only they read, are DELETED with that headline.
   /** Mid-sentence honest-absence form, parallel to `clause`. */
   unavailableClause: 'comparative support is unavailable for this run',
   /** Sentence form. */
@@ -349,6 +276,7 @@ export function isFiniteProbability(value: number | null | undefined): value is 
 export function runHasGoalNumbers(
   options: ReadonlyArray<{ goalProbability?: number | null }> | null | undefined,
 ): boolean {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
   return (options ?? []).some((o) => isFiniteProbability(o.goalProbability))
 }
 
@@ -671,3 +599,13 @@ export const COMPARISON_SCOPE_COPY = {
   detail: (scope: ComparisonScope): string =>
     `Ranks and comparative percentages describe those ${scope.analysed} only.`,
 } as const
+
+/** Ruling 4: word the existing formatted percentage without changing its precision or bound. */
+export function goalProbabilityWords(formatted: string): string {
+  const figure = formatted.trim()
+  const bound = /^([<>])\s*(.+)$/.exec(figure)
+  if (bound) return `${bound[1] === '<' ? 'less than' : 'more than'} ${bound[2]}`
+  if (figure === '0%') return 'less than 1%'
+  if (figure === '100%') return 'more than 99%'
+  return /^\d+(?:\.\d+)?%$/.test(figure) ? `about ${figure}` : figure
+}

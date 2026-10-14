@@ -1,51 +1,18 @@
+// Paul, 7 Oct 2026: all former marker rows now pin no arrowhead on the same e1 identity; stroke and glyph pins remain.
 /**
- * THE ARROW MUST BE THE SAME COLOUR AS ITS LINE, AND MUST ONLY APPEAR ON EDGES
- * THAT ACTUALLY CLAIM A DIRECTION OF CAUSATION.
- *
- * ── WHY THE MARKER IS PER-EDGE AND NOT ONE SHARED `<defs>` ENTRY ───────────
- * Stroke colour is decided by a SEVEN-RULE ordered precedence
- * (`EDGE_STROKE_RULES`), whose outputs include `var(--semantic-warning)`, a
- * `color-mix(…)`, the structural grey and the polarity stroke. A marker in a
- * shared `<defs>` cannot know which of those won, so a shared marker is a second
- * copy of a decision that already has an authority — the hand-maintained mirror
- * this estate pays for over and over (CLAUDE.md trap 12). The per-edge marker
- * reads `edgeStroke.value`: the SAME resolved decision that sets `stroke`, one
- * quantity with two readers. If a rule is added or reordered, the arrow follows
- * with no edit here at all, and the test below would go red if it stopped.
- *
- * SVG 2's `fill="context-stroke"` would also achieve this, in one shared marker.
- * It is NOT used, deliberately: this lane has no browser witness (stated in the
- * PR), so a feature whose fallback is a black arrowhead on every edge cannot be
- * verified with the instruments actually in hand. The explicit fill can be —
- * below, in jsdom, by identity.
- *
- * `BaseEdge` forwarding `markerEnd` to its `<path>` was verified at the library
- * bytes, not assumed: `@xyflow/react@12.8.6` spreads `...props` onto the path
- * element, and `BaseEdgeProps` declares `markerEnd?: string` in the
- * `url(#markerId)` form.
- *
- * ── HONEST LIMIT ──────────────────────────────────────────────────────────
- * jsdom has no layout, no paint and no viewport transform. Nothing here shows
- * that the arrowhead LOOKS right, is the right size on screen, or does not
- * collide with a node card. `Visual Regression` is a standing estate-wide red;
- * `Canvas Browser Gate` is green on staging as well as on this change, so it
- * discriminates nothing about the mark. **Nobody has seen this arrowhead
- * painted** — every size and clearance number in this file and in
- * `edgePresentation.ts` is arithmetic over declared constants. The geometry
- * cases below assert that the rendered ELEMENT carries those numbers; they do
- * not and cannot assert what happens on a screen. Read them at that rung.
+ * Paul, 7 Oct 2026: every link has no arrowhead. Keep the same e1 identities,
+ * stroke-rule preconditions, strength ladder, selection width and polarity glyph.
+ * These are jsdom DOM/prop assertions, not evidence of paint or deployed behaviour.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 import {
-  edgeArrowheadMarkerId,
   STRUCTURAL_EDGE_COLOUR,
-  edgeArrowheadViewBox,
+  STRUCTURAL_EDGE_RESTING_ALPHA,
   EDGE_ARROWHEAD_MIN_PX,
   EDGE_ARROWHEAD_STROKE_MULTIPLE,
-  edgeArrowheadPolygonPoints,
 } from '../edgePresentation'
 
 // ── Node kind registry — switched per-test ───────────────────────────────────
@@ -169,7 +136,7 @@ function renderEdge(props: Record<string, unknown>) {
 const markerOf = (root: Element) => root.querySelector('marker')
 const strokeOf = () => (baseEdgeProps?.style as Record<string, unknown> | undefined)?.stroke
 
-describe('StyledEdge — the direction of causation carries a mark', () => {
+describe('StyledEdge — no arrowhead on any link (Paul 7 Oct)', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
     for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
@@ -180,9 +147,9 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     strengthWidth.px = 2
   })
 
-  it('points a marker at the target end of a causal edge', () => {
+  it('leaves the target end unmarked on the same causal edge', () => {
     renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    expect(baseEdgeProps?.markerEnd).toBe(`url(#${edgeArrowheadMarkerId('e1')})`)
+    expect(baseEdgeProps?.markerEnd).toBeUndefined()
   })
 
   it('leaves marker-start empty — the mark states one direction, not two', () => {
@@ -190,11 +157,10 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     expect(baseEdgeProps?.markerStart).toBeUndefined()
   })
 
-  it('renders the marker it references, under exactly that id', () => {
+  it('renders no orphan marker for the same causal edge', () => {
     const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
     const marker = markerOf(root)
-    expect(marker).not.toBeNull()
-    expect(marker!.getAttribute('id')).toBe(edgeArrowheadMarkerId('e1'))
+    expect(marker).toBeNull()
   })
 
   /**
@@ -288,7 +254,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
   ]
 
   it.each(COLOUR_CASES)(
-    'paints the arrow in the exact colour the stroke precedence resolved — $rule',
+    'keeps the resolved stroke with no arrowhead — $rule',
     ({ stroke, data, store }) => {
       Object.assign(storeOverrides, store ?? {})
       const root = renderEdge({ data })
@@ -296,9 +262,9 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
       // never fires and the neutral wins instead — which is exactly how the two
       // cases this table replaces came to be identical.
       expect(strokeOf(), `the ${stroke} rule did not fire; this case proves nothing`).toBe(stroke)
-      const fill = markerOf(root)!.querySelector('polygon')!.getAttribute('fill')
-      expect(fill).toBe(strokeOf())
-      expect(fill).toBeTruthy()
+      // Paul, 7 Oct: keep each stroke-rule row, but no arrowhead on this same edge.
+      expect(markerOf(root)).toBeNull()
+      expect(baseEdgeProps?.markerEnd).toBeUndefined()
     },
   )
 
@@ -309,6 +275,49 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * value — the precise thing that happened here — this REDs, whereas every
    * individual row would keep passing.
    */
+  it('both structural tiers resolve identical colour and alpha at rest', () => {
+    const inks: string[] = []
+    for (const [sourceKind, targetKind] of [['decision', 'option'], ['option', 'factor']]) {
+      nodeKinds.src = sourceKind
+      nodeKinds.tgt = targetKind
+      const root = renderEdge({ data: {} })
+      expect(strokeOf()).toBe(STRUCTURAL_EDGE_COLOUR)
+      const group = root.querySelector('[data-edge-group-id="e1"]') as unknown as HTMLElement
+      expect(Number(group.style.opacity || 1)).toBe(1)
+      inks.push(String(strokeOf()))
+    }
+    expect(inks[0]).toBe(inks[1])
+    expect(STRUCTURAL_EDGE_RESTING_ALPHA).toBe(0.55)
+    expect(inks[0]).toBe('rgb(var(--text-light-rgb) / 0.55)')
+  })
+
+  it('an option→factor link still dims to 0.18 with an unrelated card selected', () => {
+    nodeKinds.src = 'option'
+    nodeKinds.tgt = 'factor'
+    storeOverrides.selection = { nodeIds: new Set(['unrelated']), edgeIds: new Set() }
+    // The selection-focus producer supplies the unrelated edge set to StyledEdge.
+    storeOverrides.dimmedEdgeIds = new Set(['e1'])
+    const root = renderEdge({ data: {} })
+    const group = root.querySelector('[data-edge-group-id="e1"]') as unknown as HTMLElement
+    expect(group.getAttribute('data-selection-dimmed')).toBe('true')
+    expect(group.style.opacity).toBe('0.18')
+    expect(strokeOf()).toBe(STRUCTURAL_EDGE_COLOUR)
+  })
+
+  it.each([
+    ['strong positive', 'positive', 4, 0.8, 'var(--edge-positive)', undefined],
+    ['negative', 'negative', 3, 0.8, 'var(--edge-negative)', undefined],
+    ['stated uncertain', 'positive', 3, 0.4, 'var(--edge-positive)', '6,4'],
+  ] as const)('keeps causal stroke width, colour and dash: %s', (_label, direction, width, belief, colour, dash) => {
+    strengthWidth.px = width
+    const root = renderEdge({ data: { strength_mean: width === 4 ? 0.5 : 0.3, effect_direction: direction, beliefExists: belief, beliefExistsSource: 'cee' } })
+    const style = baseEdgeProps?.style as Record<string, unknown>
+    expect(style.strokeWidth).toBe(width)
+    expect(style.stroke).toBe(colour)
+    expect(style.strokeDasharray).toBe(dash)
+    expect(markerOf(root)).toBeNull()
+  })
+
   it('exercises four DISTINCT stroke values, so agreement is not one constant coinciding', () => {
     const seen = new Set<string>()
     for (const c of COLOUR_CASES) {
@@ -322,9 +331,9 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     expect([...seen].sort()).toEqual([...COLOUR_CASES.map((c) => c.stroke)].sort())
   })
 
-  it('orients along the path, so the arrow points the way the edge runs', () => {
+  it('hides the arrowhead on the same directed path', () => {
     const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    expect(markerOf(root)!.getAttribute('orient')).toBe('auto')
+    expect(markerOf(root)).toBeNull()
   })
 
   /**
@@ -337,23 +346,24 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * Observed against TWO strength widths — one width alone could be satisfied by
    * a constant that happens to equal it — plus the floor.
    */
-  it('is 2.5 × the strength width (Paul 1 Oct), floored at 6px — a discriminating pair', () => {
+  it('hides heads at each of the same strength widths, preserving the width ladder', () => {
     expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(2.5)
     expect(EDGE_ARROWHEAD_MIN_PX).toBe(6)
     const stated = { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 }
     strengthWidth.px = 3
-    const thin = markerOf(renderEdge({ data: stated }))!
-    expect(Number(thin.getAttribute('markerWidth'))).toBe(7.5)
-    expect(Number(thin.getAttribute('markerHeight'))).toBe(7.5)
+    const thin = renderEdge({ data: stated })
+    expect(markerOf(thin)).toBeNull()
+    expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(3)
     document.body.innerHTML = ''
     strengthWidth.px = 4
-    const thick = markerOf(renderEdge({ data: stated }))!
-    expect(Number(thick.getAttribute('markerWidth'))).toBe(10)
-    expect(Number(thick.getAttribute('markerHeight'))).toBe(10)
+    const thick = renderEdge({ data: stated })
+    expect(markerOf(thick)).toBeNull()
+    expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(4)
     document.body.innerHTML = ''
     // The floor: 2.5 × 2 = 5 would be a near-invisible head on the thinnest line.
     strengthWidth.px = 2
-    expect(Number(markerOf(renderEdge({ data: stated }))!.getAttribute('markerWidth'))).toBe(6)
+    expect(markerOf(renderEdge({ data: stated }))).toBeNull()
+    expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(2)
   })
 
   /**
@@ -363,12 +373,11 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * direction channel. The contract never widens a selected line (it glows), so
    * the mark stays `userSpaceOnUse`, sized from the strength width alone.
    */
-  it('does not grow when the edge is selected — the head reads strength, not interaction', () => {
+  it('has no head when selected, preserving the interaction width', () => {
     const stated = { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 }
     strengthWidth.px = 3
-    const marker = markerOf(renderEdge({ data: stated, selected: true }))!
-    expect(marker.getAttribute('markerUnits')).toBe('userSpaceOnUse')
-    expect(Number(marker.getAttribute('markerWidth'))).toBe(7.5)
+    expect(markerOf(renderEdge({ data: stated, selected: true }))).toBeNull()
+    expect(baseEdgeProps?.markerEnd).toBeUndefined()
     // CONTRAST: the line itself IS wider while selected.
     expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(5)
   })
@@ -387,12 +396,10 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * static page (27 Sep 2026): var 2 painted the head twice the size of var
    * fallback 1, tip fixed at the path end.
    */
-  it('is counter-scaled about its tip by the glyph scale, and is not clipped by its own box', () => {
-    const marker = markerOf(renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } }))!
-    const polygon = marker.querySelector('polygon') as SVGPolygonElement
-    expect(polygon.style.transform).toBe('scale(var(--canvas-glyph-scale, 1))')
-    expect(polygon.style.transformOrigin).toBe('0 0')
-    expect(marker.getAttribute('overflow')).toBe('visible')
+  it('has no counter-scaled marker polygon left half-drawn', () => {
+    const root = renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } })
+    expect(markerOf(root)).toBeNull()
+    expect(root.querySelector('marker polygon')).toBeNull()
   })
 
   /**
@@ -400,15 +407,11 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * line and the point never leaves the path's end. The viewBox and the marker
    * box are the same size, so nothing is letterboxed.
    */
-  it('keeps its tip on the path end and its viewBox at 1:1 with the marker box', () => {
+  it('has no marker box or marker-end at the same moderate strength', () => {
     strengthWidth.px = 3
-    const marker = markerOf(renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } }))!
-    expect(marker.getAttribute('viewBox')).toBe(edgeArrowheadViewBox(7.5))
-    expect(marker.getAttribute('viewBox')).toBe('-7.5 -3.75 7.5 7.5')
-    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe(edgeArrowheadPolygonPoints(7.5))
-    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe('-7.5 -3.75, 0 0, -7.5 3.75')
-    expect(Number(marker.getAttribute('refX'))).toBe(0)
-    expect(Number(marker.getAttribute('refY'))).toBe(0)
+    const root = renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } })
+    expect(markerOf(root)).toBeNull()
+    expect(baseEdgeProps?.markerEnd).toBeUndefined()
   })
 
   /**
@@ -429,7 +432,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     const glyph = root.querySelector('[data-edge-id="e1"][aria-label^="Effect direction:"]')
     expect(glyph, 'no polarity glyph — this case cannot observe co-existence without one').not.toBeNull()
     expect(glyph!.textContent).toBe('+')
-    expect(markerOf(root), 'the arrowhead must be present alongside the glyph').not.toBeNull()
+    expect(markerOf(root), 'Paul 7 Oct: the same polarity glyph remains without an arrowhead').toBeNull()
     // Exactly one polarity mark: the arrow must not become a second sign channel.
     expect(root.querySelectorAll('[aria-label^="Effect direction:"]').length).toBe(1)
   })
@@ -442,7 +445,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
  * the fix, it is to go red if the fix OVER-APPLIES. A change that marks every
  * edge would satisfy every assertion above and fail every one below.
  */
-describe('StyledEdge — edges that make no claim about direction get no mark', () => {
+describe('StyledEdge — structural and bidirected identities also keep no arrowhead', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
     for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
@@ -491,11 +494,11 @@ describe('StyledEdge — edges that make no claim about direction get no mark', 
    * RENDERS A MARKER". Same suite, same harness, an edge that MUST be marked.
    * Without this, a fix that was reverted entirely would leave this file green.
    */
-  it('CONTROL — a plain causal edge in this same harness IS marked', () => {
+  it('CONTROL — the same plain causal edge also has no arrowhead', () => {
     nodeKinds.src = 'factor'
     nodeKinds.tgt = 'outcome'
     const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    expect(baseEdgeProps?.markerEnd).toBe(`url(#${edgeArrowheadMarkerId('e1')})`)
-    expect(markerOf(root)).not.toBeNull()
+    expect(baseEdgeProps?.markerEnd).toBeUndefined()
+    expect(markerOf(root)).toBeNull()
   })
 })

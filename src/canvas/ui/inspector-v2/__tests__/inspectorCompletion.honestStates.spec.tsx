@@ -10,6 +10,8 @@
  * `data.interventions` while the connections list was derived from `edges` —
  * two different data sources answering the same user-facing question. The fix
  * derives the empty state from the SAME edge data the connections list reads.
+ * EDIT-UX 3b-i moves linked factors without values into editable target rows in
+ * Input; the same no-denial rule now binds to those rows, by factor identity.
  *
  * L-40 half B (S04): the Decision inspector said "No connections yet." while
  * the canvas showed its edges. `otherConnections` EXCLUDES option edges by
@@ -24,7 +26,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 import { OptionPanel } from '../panels/OptionPanel'
 import { DecisionPanel } from '../panels/DecisionPanel'
@@ -88,14 +90,14 @@ beforeEach(() => {
 })
 
 // ─────────────────────────────────────────────────────────────────────
-// L-40 half A — the option empty-state must agree with the connections list
+// L-40 half A — the option empty-state must agree with the linked target rows
 // ─────────────────────────────────────────────────────────────────────
 
 describe('L-40 · OptionPanel does not deny factor links it is simultaneously listing', () => {
   /**
    * The exact S02 shape: an add-path option with NO `interventions` map but
-   * three real outbound edges to factors. The Connections group renders three
-   * rows from `edges`; the Input group must not deny them.
+   * three real outbound edges to factors. Input now renders three empty target
+   * rows from `edges`; it must not deny them or duplicate them in Connections.
    */
   function setContradictionStore() {
     setStore({
@@ -113,17 +115,23 @@ describe('L-40 · OptionPanel does not deny factor links it is simultaneously li
     })
   }
 
-  it('renders the three factor connections (fixture precondition — pinned in-test)', () => {
+  it('renders the three linked factors as empty saving rows (fixture precondition — pinned by identity)', () => {
     setContradictionStore()
     const { container } = render(<OptionPanel {...optionProps} />)
-    const connections = container.querySelector('[data-panel-group="connections"]')
-    expect(connections).not.toBeNull()
+    const input = container.querySelector('[data-panel-group="input"]')
+    expect(input).not.toBeNull()
     // Pin the precondition: this fixture DOES render a populated list. Without
     // this the absence assertion below could pass on an empty panel.
-    expect(connections?.textContent).toContain('Team productivity')
-    expect(connections?.textContent).toContain('Hiring spend')
-    expect(connections?.textContent).toContain('Onboarding load')
-    expect(connections?.textContent).not.toContain(EMPTY_STATES.noInterventions)
+    for (const [id, label] of [['fac1', 'Team productivity'], ['fac2', 'Hiring spend'], ['fac3', 'Onboarding load']]) {
+      const row = within(input as HTMLElement).getByTestId(`inspector-intervention-${id}`)
+      expect(row).toHaveTextContent(label)
+      // These factors carry no unit, so their entry is on the model's 0–1 scale: like a set row, the box sits under
+      // technical detail (Codex head review P1), and the route note says where it is.
+      expect(within(row).queryByRole('textbox')).toBeNull()
+    }
+    expect(within(input as HTMLElement).getByTestId('option-target-edit-route')).toBeInTheDocument()
+    expect(input?.textContent).not.toContain(EMPTY_STATES.noInterventions)
+    expect(container.querySelector('[data-panel-group="connections"]')).toBeNull()
   })
 
   it('does NOT render the "changes no factors" denial while those connections are on screen', () => {
@@ -134,7 +142,7 @@ describe('L-40 · OptionPanel does not deny factor links it is simultaneously li
     expect(input?.textContent).not.toContain(EMPTY_STATES.noInterventions)
   })
 
-  it('names the unset-values state honestly, counting the same edges the list reads', () => {
+  it('names the unset-values state honestly, counting the same linked factors the rows show', () => {
     setContradictionStore()
     render(<OptionPanel {...optionProps} />)
     expect(screen.getByTestId('option-links-without-values')).toBeTruthy()
@@ -150,9 +158,8 @@ describe('L-40 · OptionPanel does not deny factor links it is simultaneously li
       // Only the organisational decision→option edge exists.
       edges: [{ id: 'e0', source: 'dec1', target: 'optA', data: {} }],
     })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const input = container.querySelector('[data-panel-group="input"]')
-    expect(input?.textContent).toContain(EMPTY_STATES.noInterventions)
+    render(<OptionPanel {...optionProps} />)
+    expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent(EMPTY_STATES.noInterventions)
     expect(screen.queryByTestId('option-links-without-values')).toBeNull()
   })
 })
@@ -189,16 +196,19 @@ describe('L-40 · DecisionPanel does not claim "no connections" while its option
   it('does NOT render the flat "No connections yet." denial', () => {
     setDecisionStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const connections = container.querySelector('[data-panel-group="connections"]')
-    expect(connections).not.toBeNull()
-    expect(connections?.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
+    const alternatives = container.querySelector('[data-panel-group="alternatives"]')
+    expect(alternatives).not.toBeNull()
+    expect(alternatives?.textContent).toContain('Option A')
+    expect(alternatives?.textContent).toContain('Option B')
+    expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
   })
 
   it('names where those connections are, counting the option edges the canvas draws', () => {
     setDecisionStore()
     render(<DecisionPanel {...decisionProps} />)
-    const el = screen.getByTestId('decision-connections-are-options')
-    expect(el.textContent).toContain('2')
+    const el = screen.getByTestId('inspector-summary-sentence')
+    expect(el.textContent).toBe('This question has 2 options.')
+    expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 
   it('still shows the plain empty state for a decision with genuinely no edges', () => {
@@ -247,7 +257,10 @@ describe('L-24 · OptionPanel Impact group is derived per node, not from global 
     expect(impact?.textContent).not.toContain(OPTION_STRINGS.impactUnavailable)
   })
 
-  it('keeps the honest generic fallback for a node the run DID cover but returned nothing for', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the impactUnavailable presence assertion is deleted — "covered but returned nothing"
+  // meant "no win share", and OptionPanel says no share in C (a covered option gets "Compare all options"). The per-node
+  // negative (no "added since the run" line for a covered node) stays.
+  it('a node the run DID cover is never told it was added since the run', () => {
     setStore({
       nodes: [
         { id: 'optA', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Covered option' } },
@@ -257,9 +270,7 @@ describe('L-24 · OptionPanel Impact group is derived per node, not from global 
       results: { status: 'complete', report: { option_comparison: [{ option_id: 'optA', label: 'Covered option' }] } },
     })
     mockDisplayMetadata.mockReturnValue({ ...baseMetadata, winRate: null })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact?.textContent).toContain(OPTION_STRINGS.impactUnavailable)
+    render(<OptionPanel {...optionProps} />)
     expect(screen.queryByTestId('option-impact-not-in-run')).toBeNull()
   })
 

@@ -1,3 +1,9 @@
+import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
+import { gatedDriversOf, heldCanonicalFor } from '../runView/heldRunView'
+import { runViewOf } from '../runView/runView'
+import { askAiStage } from './askAi'
+import { createRefusedGraphRefresh, isGraphRecoverySystemEvent } from './refusedGraphRefresh'
+import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
  *
@@ -6,15 +12,26 @@
  * (not persisted). Clears on scenario switch.
  */
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useReducer } from 'react'
 import { useCanvasStore } from '../store'
 import { revealRunReply, runTurnEndedUnanswered } from './runTurnEndedUnanswered'
 import { setCurrentScenarioId } from '../store/scenarios'
+import {
+  turnReducer,
+  TURN_IDLE,
+  isTurnInFlight,
+  reportTurnFailure,
+  withSessionReadTimeout,
+  type TurnFailureKind,
+} from './turnLifecycle'
+import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
-import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
+import { isThinClientSession } from '../thinClient/thinClient'
+import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
@@ -26,7 +43,11 @@ import {
   formatRecoveryHints,
   isDisplaySafeReason,
 } from './ceeRecovery'
-import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } from './transportFailure'
+import {
+  buildTransportFailureCopy, classifyUnansweredSend, DELIVERY_UNKNOWN_COPY, isTransportFailure, isUnverifiedDelivery,
+  NOT_DELIVERED_COPY,
+} from './transportFailure'
+import { edgePairKey } from '../utils/graphIdentity'
 import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
@@ -44,6 +65,9 @@ import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/con
 import { routeV5Response } from '../../v5/responseRouter'
 import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
+import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
+import { readGuidedSizing } from '../../v5/readGuidedSizing'
+import { OWNERSHIP_REFUSAL_COPY, ownershipRefusalRetryable, type OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -62,9 +86,12 @@ import {
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
 import {
+  readRenameReadback,
   readStructuralRenameReceipt,
   revertStructuralRename,
+  settleNotAppliedRename,
   STRUCTURAL_RENAME_NOTICE,
+  type StructuralRenameReadback,
   type StructuralRenameIntent,
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
@@ -82,13 +109,16 @@ import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisC
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
 import { deriveV5Stage } from '../../v5/stageMapper'
-import { applyV5State } from '../../v5/applyV5State'
+import { applyV5State, turnCanonicalRunOf } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
+  toStoreGuidanceItem,
   type Phase3RawBlock,
-  type DerivedGuidanceItem,
 } from '../../v5/extractPhase3FromV5Response'
+// Moved to the leaf extractor (SD-1 Slice R) so the guidance store can map a Run's delivered record without importing
+// this hook's chain (#2308). Re-exported: every existing importer keeps this path.
+export { toStoreGuidanceItem }
 import {
   adaptTypedReviewCardBlock,
   adaptTypedCoachingBlock,
@@ -101,11 +131,11 @@ import {
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
 import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
-import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
 import { extractProvisionalViewSidecar } from './provisionalView'
-import { extractAnswerShapeSidecar } from './answerShape'
+import { extractAnswerShapeSidecar, answerStateKeyOf } from './answerShape'
 import { extractGroundedSelectionSidecar } from './groundedSelection'
 import { extractModelBuildingNoticesSidecar } from './modelBuildingNotices'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
@@ -123,13 +153,14 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread, reconcileRestoredHeldControls } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredProposalFields, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
-import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
+import { readAgentTurnReceipts } from '../undo/captureAgentTurnForUndo'
 import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
@@ -158,7 +189,7 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
-import { readsBackBeforeResend, waitBeforeStreamCloseReadback } from './streamCloseReadback'
+import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
@@ -166,6 +197,7 @@ import {
   markGraphServerAcknowledged,
 } from '../store/importRegistrationMarker'
 import { getSessionIdentity } from '../../lib/supabase'
+import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
@@ -196,18 +228,21 @@ import {
   type OptimisticEdgeEdit,
 } from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
-import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
+import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
-  EXPLAIN_RUN_LABEL,
-  explainRunChipId,
+  EXPLAIN_RUN_CHIP_PREFIX,
   isForeignExplanation,
   namesALatestRun,
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
+import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
+import { readActionBar } from './actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from './actionBar/actionBarStore'
 import { readProposalPreview } from './proposalPreview'
+import { readRecordedServerTurnId } from './serverTurnId'
 import {
   beginInteractionChain,
   bindRequestToInteraction,
@@ -234,7 +269,7 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
  * else (CLAUDE.md trap 12).
  */
 export const NO_SCENARIO_OPEN_NOTICE =
-  'Open or create a decision first — then I can work on it with you. Your decisions are on the Decisions page.'
+  'Open or create a scenario first — then I can work on it with you. Your scenarios are listed under My scenarios.'
 
 export const DRAFT_DELIVERY_UNRESOLVED_NOTICE =
   "The model hasn't reached this canvas, and I couldn't confirm a saved model. Try loading it again below; this won't resend your brief."
@@ -509,6 +544,8 @@ function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] 
 }
 
 export interface StreamedDraftTurnResult {
+  /** Accepted GRAPH_READY content, carried to every later read-back fence; null when no preview rendered. */
+  previewFingerprint: string | null
   /**
    * The turn ended with NO graph anywhere: none on the canvas (no preview
    * survived) and none in the buffered fallback's body. The caller must read
@@ -608,11 +645,15 @@ async function runStreamedDraftTurn(args: {
   scenarioIdAtDispatch: string | null
   headers: Record<string, string>
   signal: AbortSignal
+  onRequestStarted?: () => void
+  onResponseReceived?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
-  readBackCommittedDraft?: () => Promise<boolean>
+  readBackCommittedDraft?: (options: { overPreview: boolean; previewFingerprint: string | null }) => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
-  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, readBackCommittedDraft } = args
+  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
+  // Captured from this turn's accepted canvas render, before any later edit.
+  let previewFingerprint: string | null = null
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
   //
@@ -648,15 +689,15 @@ async function runStreamedDraftTurn(args: {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
     }
 
-    // A stream that OPENED and then CLOSED, with nothing on the canvas: read the saved model first, the same
-    // read a reload does, once, after a short wait. Only when that finds nothing does the re-send run.
-    if (streamOpened && !previewOnCanvas && readBackCommittedDraft && readsBackBeforeResend(reason)) {
+    // ⭐ P44 draft-stall (DL forensics 8 Oct): read the saved model before re-sending, even over this turn's preview.
+    if (streamOpened && readBackCommittedDraft && readsBackBeforeResend(reason)) {
       await waitBeforeStreamCloseReadback(signal)
-      if (!signal.aborted && (await readBackCommittedDraft())) {
+      if (!signal.aborted && (await readBackCommittedDraft({ overPreview: previewOnCanvas, previewFingerprint }))) {
         logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
         useDraftStore.getState().setDraftStreamPhase('idle', null, null)
         return {
           result: { kind: 'parse_error', reason: `recovered by read-back after ${reason}` },
+          previewFingerprint,
           previewOwnsCanvas: false,
           recoveredBeforeResend: true,
         }
@@ -693,7 +734,7 @@ async function runStreamedDraftTurn(args: {
     // to close. Fail-closed toward honesty.
     let result: V5CallResult
     try {
-      result = await callV5Turn(payload, { signal, headers })
+      result = await callV5Turn(payload, { signal, headers, onRequestStarted, onResponseReceived: args.onResponseReceived })
     } catch (e) {
       if (previewOnCanvas) {
         useDraftStore
@@ -713,7 +754,7 @@ async function runStreamedDraftTurn(args: {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
       useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-      return { result, previewOwnsCanvas: previewOnCanvas }
+      return { result, previewFingerprint, previewOwnsCanvas: previewOnCanvas }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
@@ -722,7 +763,7 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
+      return { result, previewFingerprint, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
     }
     // No browser preview does not prove no server commit: frames can be lost
     // before the original draft finishes. The caller must read the canonical
@@ -753,6 +794,7 @@ async function runStreamedDraftTurn(args: {
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
     return {
       result,
+      previewFingerprint,
       previewOwnsCanvas: false,
       missingGraphAfterFallback: result.kind === 'response' || streamOpened,
     }
@@ -763,7 +805,8 @@ async function runStreamedDraftTurn(args: {
   // it measures the turn the user waited for, not the frame parse.
   const streamStartedAt = Date.now()
   try {
-    res = await openV5TurnStream(payload, { headers, signal })
+    res = await openV5TurnStream(payload, { headers, signal, onRequestStarted })
+    args.onResponseReceived?.()
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -781,6 +824,10 @@ async function runStreamedDraftTurn(args: {
   }
 
   const outcome = await consumeStreamedDraftTurn(streamStageFrames(res), {
+    // ⭐ P44 S2: real server dispatches drive the owning turn's waiting phase.
+    onServerPhase: (p) => {
+      useDraftStore.getState().markDraftStreamServerPhase(turnClientId, p)
+    },
     // F1 (honest staged progress): record the COACHING_READY frame so the
     // settling narration can stop claiming coaching is outstanding once the
     // pass has landed. Identity-guarded in the store — a stale stream's frame
@@ -832,6 +879,8 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('settling', turnClientId, scenarioIdAtDispatch)
+      const previewCanvas = useCanvasStore.getState()
+      previewFingerprint = canvasDraftPreviewFingerprint(previewCanvas.nodes, previewCanvas.edges)
     },
   })
 
@@ -1017,6 +1066,7 @@ async function runStreamedDraftTurn(args: {
     useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
     return {
       result,
+      previewFingerprint,
       previewOwnsCanvas: false,
       // The cause decides the notice: a kept model behind a terminal error is
       // a different fact from a 200 that lost its graph, and one sentence
@@ -1026,7 +1076,7 @@ async function runStreamedDraftTurn(args: {
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-  return { result, previewOwnsCanvas }
+  return { result, previewFingerprint, previewOwnsCanvas }
 }
 
 
@@ -1625,67 +1675,6 @@ function normaliseProposalReviewItems(raw: unknown): ProposalReviewItem[] {
  * Returns null when title or body would be empty — the bridge refuses to
  * render an empty card. No fallback copy, no semantic rewriting.
  */
-/**
- * Map a derived Phase 3 guidance item onto the GuidanceStore's `GuidanceItem`.
- *
- * EXPORTED SO THE PASSTHROUGH IS TESTABLE. This was an anonymous inline
- * `.map()` inside the turn handler, which is why the defect below survived:
- * nothing could assert on it without driving the whole hook.
- *
- * ⚠ `actionLabel` AND `signal` WERE DOCUMENTED AND SILENTLY DROPPED
- * (ROADMAP 2.225). The store's own contract says of each: "Producer
- * `action_label` VERBATIM when supplied" / "Producer `signal` display line
- * VERBATIM when supplied" — and the V5 derivation dutifully produced both,
- * and this mapper listed neither, so every V5-derived guidance item reached
- * the store with the producer's CTA label and signal line missing. The store
- * doc was describing a field the V5 path could never deliver. This is the
- * boundary-field silent-drop hazard in miniature, inside one file.
- *
- * Every field here is producer-owned passthrough: carried only when supplied,
- * never invented, never defaulted, never recomputed.
- */
-export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
-  return {
-    item_id: g.item_id,
-    // signal_code / category are producer-owned passthrough: carry
-    // them only when the producer supplied them, never invented.
-    ...(g.signal_code ? { signal_code: g.signal_code } : {}),
-    ...(g.coaching_kind ? { coaching_kind: g.coaching_kind } : {}),
-    ...(g.category ? { category: g.category } : {}),
-    source: g.source,
-    title: g.title,
-    ...(g.detail ? { detail: g.detail } : {}),
-    // The two restored fields. Same passthrough discipline as the rest.
-    ...(g.actionLabel ? { actionLabel: g.actionLabel } : {}),
-    ...(g.signal ? { signal: g.signal } : {}),
-    primary_action: g.primary_action,
-    ...(g.target_object ? { target_object: g.target_object } : {}),
-    ...(g.related_elements ? { related_elements: g.related_elements } : {}),
-    ...(g.valid_while ? { valid_while: g.valid_while } : {}),
-    priority: g.priority,
-    // UI-SEM-085 (narrowed): carry the producer's verbatim rank
-    // and the priority-provenance fact through unchanged — never
-    // recomputed, never inverted here.
-    ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
-    priorityIsProducerSupplied: g.priorityIsProducerSupplied,
-    // DSK claim provenance (ROADMAP 2.962) — the SECOND of the two hops that
-    // silently dropped this family, and the same defect class the header
-    // above records for `actionLabel`/`signal`: the store's `GuidanceItem`
-    // has declared these fields since #633 and this mapper listed none, so
-    // every V5-derived item reached the store ungrounded no matter what the
-    // producer attested.
-    //
-    // Straight passthrough by design. The gate lives at the single site in
-    // `deriveGuidance` (contract `DskClaimProvenanceSchema`, applied to the
-    // atomic wire object as a unit); re-deriving it here would be a second
-    // rule home for one fact — and `deriveGuidanceDskProvenance` in the store
-    // is already the independent re-gate the render reads through.
-    ...(g.dsk_claim_id ? { dsk_claim_id: g.dsk_claim_id } : {}),
-    ...(g.dsk_protocol_id ? { dsk_protocol_id: g.dsk_protocol_id } : {}),
-    ...(g.evidence_strength ? { evidence_strength: g.evidence_strength } : {}),
-  }
-}
-
 export function adaptPhase3ReviewCard(
   raw: Record<string, unknown>,
 ): ReviewCardBlock | null {
@@ -2170,6 +2159,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? dataObj.options.map((o: any) => ({
                 id: o?.id != null ? String(o.id) : undefined,
                 label: String(o?.label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 probability: typeof o?.probability === 'number' ? o.probability : undefined,
                 rank: typeof o?.rank === 'number' ? o.rank : undefined,
                 strengths: Array.isArray(o?.strengths) ? o.strengths.map(String) : undefined,
@@ -2204,7 +2194,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? {
                 id: String((dataObj.current_winner as any).id ?? ''),
                 label: String((dataObj.current_winner as any).label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 ...(typeof (dataObj.current_winner as any).probability === 'number'
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                   ? { probability: (dataObj.current_winner as any).probability }
                   : {}),
               }
@@ -2343,6 +2335,7 @@ export interface DispatchActionOpts {
   source: ActionSource
   /** G1 — the card action this is; stamped on the user bubble, never on the wire. */
   sourceBlockKey?: string
+  proposalEdits?: ProposalEdits
 }
 
 /**
@@ -2350,7 +2343,7 @@ export interface DispatchActionOpts {
  * naming the card action it stands for (G1). The key is forwarded to the user
  * bubble beside the chip metadata — never into it, so never onto the wire.
  */
-export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string }
+export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string; proposalEdits?: ProposalEdits }
 
 function resolveUserTurnType(
   source: string | undefined,
@@ -2377,17 +2370,25 @@ function resolveUserTurnType(
  */
 export interface SendFailureNotice {
   /**
-   * 'transport': no CEE body reached the UI (proxy 504, network throw) —
+   * 'not_sent':  proven never dispatched (offline before send, or a failure
+   *   before the fetch started).
+   * 'delivery_unknown': dispatched, but no response or acknowledgement
+   *   arrived (network error after dispatch, timeout, abort mid-flight). The
+   *   server may have received and applied it; a retry reuses the same
+   *   `turn_id`, which CEE deduplicates (recovery-notes/batchB-delivery.md).
+   * 'rejected':  the server answered with a typed refusal, not HTTP 5xx.
+   * 'transport': no CEE body reached the UI (e.g. proxy output) —
    *   the turn never produced a server outcome.
    * 'timeout':   the browser's own timer aborted the wait.
-   * 'server':    the server received the turn and failed it (typed error /
-   *   empty response).
+   * 'server':    an actual HTTP 5xx response.
    */
-  kind: 'transport' | 'timeout' | 'server'
+  kind: 'not_sent' | 'delivery_unknown' | 'transport' | 'timeout' | 'server' | 'rejected'
   /** Whether the retry affordance is being offered for this failure. */
   retryable: boolean
   /** The submitted input text, for restore-into-composer affordances. */
   inputText: string
+  /** Validated refusal shared by the transcript and first-use hero. */
+  ownershipRefusal?: OwnershipRefusalReason
 }
 
 /**
@@ -2425,6 +2426,9 @@ export interface SendFailureNotice {
  * Extracted from the inline signature it used to carry — no members changed.
  */
 export interface SendTurnOpts {
+  proposalEdits?: ProposalEdits
+  /** Session delivery epoch captured at the original gesture, retained through the deferred queue. Never on the wire. */
+  editNoteRevision?: number
   message: string
   /** Text shown in conversation bubble (defaults to message) */
   displayText?: string
@@ -2626,6 +2630,8 @@ export class SystemEventSendError extends Error {
    * deferral queue asks it for exactly that (`flushDeferredSystemSends`).
    */
   readonly retryable?: boolean
+  /** Recovery wake-up after a carrier has completed its refusal rollback/copy. Never wire data. */
+  onRefusedGraphSettled?: () => void
   constructor(
     kind: 'transport' | 'server',
     options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean },
@@ -2739,13 +2745,19 @@ export interface UseConversationReturn {
 
 export function useConversation(): UseConversationReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
-  const [isThinking, setIsThinking] = useState(false)
-  // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
-  // waiting for the current turn to settle, and whether request 2 is in flight.
+  // ⭐ ONE STATE MACHINE (`turnLifecycle.ts`). `isThinking` is DERIVED from the turn's phase and is never set on its
+  // own; every writer below dispatches a named, owned event. `turnOwnerRef` is the synchronous twin of the owned
+  // turn id: a turn's late exit (a preempted or timed-out request's `finally`) settles only while it still owns it.
+  const [turn, dispatchTurn] = useReducer(turnReducer, TURN_IDLE)
+  const isThinking = isTurnInFlight(turn)
+  const turnOwnerRef = useRef<string | null>(null)
+  // Ownership is per ATTEMPT, never per wire id: `retryLast` reuses the client turn id, so an old attempt's late
+  // exit would otherwise settle the live retry (buddy r2 P1-3). Each `sendTurn` start takes the next sequence number.
+  const turnAttemptSeqRef = useRef(0)
+  // Pending narration is available on request. Only an admitted Explain attempt is in flight.
   const latestRunKeyRef = useRef<string | null>(null)
-  const sentExplainKeysRef = useRef<Set<string>>(new Set())
-  const [pendingExplainKey, setPendingExplainKey] = useState<string | null>(null)
-  const [explainingRun, setExplainingRun] = useState(false)
+  const [explainAttempt, setExplainAttempt] = useState<string | null>(null)
+  const explainingRun = isThinking && turn.turnId === explainAttempt
   // Mirror isThinking in a ref so sendTurn can read it without being in the
   // useCallback dependency array. Including the state value in deps caused the
   // callback to be recreated on every isThinking toggle, breaking the async
@@ -2793,8 +2805,11 @@ export function useConversation(): UseConversationReturn {
     clientTurnId?: string
     chipMeta?: ChipMeta
     chipSource?: 'chip' | 'chip_click'
+    proposalEdits?: ProposalEdits
   }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
+  /** B UI: the saved-model read before a re-send, while it is out. A scenario switch clears it, as it clears the one above. */
+  const streamLossReadRef = useRef<object | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
   // bubble. Written when the V5 path adds a user bubble; read by the
   // retryLast/skipUserBubble path so a retry re-pends and (on the next
@@ -2981,6 +2996,8 @@ export function useConversation(): UseConversationReturn {
   // restored 19-node model. Verified live on staging 25 Jul 2026.
   const didMountRestoreRef = useRef(false)
   useEffect(() => {
+    // CEE owns signed-in history; a leftover browser transcript has no authority.
+    if (isThinClientSession()) return
     if (didMountRestoreRef.current) return
     if (!scenarioId) return
     didMountRestoreRef.current = true
@@ -3003,9 +3020,10 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId, buildRestoredMessages])
 
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
-  // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
-  // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
-  // transcript. The offer is scenario-bound and spent once.
+  // stored turns and held authority (`serverConversationTurnsStore`). Guest local history keeps its words; its restored
+  // held controls are reconciled ONLY with the current server sidecar. For thin sessions, server text fills an empty
+  // panel regardless of leftover local storage; live messages still reconcile exact missing replies and controls.
+  // The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
     if (!serverTurnsOffer || !scenarioId || serverTurnsOffer.scenarioId !== scenarioId) return
@@ -3013,17 +3031,27 @@ export function useConversation(): UseConversationReturn {
     if (messagesOwnerRef.current !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
     if (messagesRef.current.length > 0) {
-      const next = reconcileRestoredHeldControls(messagesRef.current, serverTurnsOffer.heldProposalOffers)
+      const reconciled = reconcileUnconfirmedServerTurns(
+        messagesRef.current, scenarioId, serverTurnsOffer.turns, serverTurnsOffer.run,
+      )
+      const next = reconcileRestoredProposalFields(reconcileRestoredSuggestedActions(
+        reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns), serverTurnsOffer.proposalFields)
+      if (messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
+        && next.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'sent')) {
+        setLastSendFailure(null)
+      }
       messagesRef.current = next
       setMessages(next)
       return
     }
-    try {
-      if (loadTranscript(scenarioId) !== null) return
-    } catch {
-      return
+    if (!isThinClientSession()) {
+      try {
+        if (loadTranscript(scenarioId) !== null) return
+      } catch {
+        return
+      }
     }
-    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers)
+    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers, serverTurnsOffer.proposalFields)
     if (next.length === 0) return
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next
@@ -3041,6 +3069,7 @@ export function useConversation(): UseConversationReturn {
   // words these are, and on the switch render those are two different
   // decisions.
   useEffect(() => {
+    if (isThinClientSession()) return
     const owner = messagesOwnerRef.current
     if (!owner) return
     if (messages.length === 0) return
@@ -3049,12 +3078,23 @@ export function useConversation(): UseConversationReturn {
 
   // Clear conversation when scenario changes (with Track 3 thread hydration)
   const prevScenarioRef = useRef(scenarioId)
+  /** The scenario id `sendTurn` last minted for its own in-flight turn (see "adoption" below). */
+  const lazyMintedScenarioIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
       const leavingScenarioId = prevScenarioRef.current ?? null
-      const wasNull = leavingScenarioId === null
+      // ⭐ AN ID THIS HOOK MINTED FOR AN IN-FLIGHT TURN IS ADOPTION, NOT A SWITCH
+      // (S-F, Paul 7 Oct: "it shouldn't go blank"). `sendTurn` replaces a null OR
+      // a legacy non-UUID id with a fresh UUID after the user's bubble is on
+      // screen. The null case was already adopted below; the legacy case fell
+      // through to the reset and blanked the dialogue mid-turn. Bound to the
+      // exact id minted, one-shot, so a real switch later still resets.
+      const adoptedMint = scenarioId !== null && scenarioId === lazyMintedScenarioIdRef.current
+      lazyMintedScenarioIdRef.current = null
+      const adoptsTurnId = leavingScenarioId === null || adoptedMint
       prevScenarioRef.current = scenarioId
       missingDraftRecoveryRef.current = null
+      streamLossReadRef.current = null
 
       // Every branch below ends with `messages` belonging to the NEW scenario,
       // so ownership transfers here, once, rather than in four places.
@@ -3071,7 +3111,7 @@ export function useConversation(): UseConversationReturn {
       // When the previous ID was null/undefined, this is the initial lazy UUID
       // assignment from buildRequest — not a real scenario switch. Clearing
       // messages here would wipe the in-flight conversation and kill isThinking.
-      if (wasNull && scenarioId) {
+      if (adoptsTurnId && scenarioId) {
         if (import.meta.env.DEV) {
           console.debug('[useConversation] Skipping reset — initial scenario_id assignment:', scenarioId)
         }
@@ -3082,7 +3122,7 @@ export function useConversation(): UseConversationReturn {
         if (messagesRef.current.length === 0) {
           didMountRestoreRef.current = true
           try {
-            const restored = loadTranscript(scenarioId)
+            const restored = isThinClientSession() ? null : loadTranscript(scenarioId)
             if (restored && restored.fromPreviousSession) {
               const next = buildRestoredMessages(restored, true)
               messagesRef.current = next
@@ -3130,7 +3170,8 @@ export function useConversation(): UseConversationReturn {
             messagesRef.current = hydrated
             setMessages(hydrated)
             setPatchBlockStates(result.blockStates)
-            setIsThinking(false)
+            turnOwnerRef.current = null
+            dispatchTurn({ type: 'reset' })
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastSendFailure(null)
@@ -3154,7 +3195,8 @@ export function useConversation(): UseConversationReturn {
             // stale messages from the previous scenario.
             messagesRef.current = []
             setMessages([])
-            setIsThinking(false)
+            turnOwnerRef.current = null
+            dispatchTurn({ type: 'reset' })
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastSendFailure(null)
@@ -3181,7 +3223,8 @@ export function useConversation(): UseConversationReturn {
       // switching TO gets restored when one is stored, so returning to a
       // decision shows what was left there rather than a blank slate.
       sessionStateRef.current = null
-      setIsThinking(false)
+      turnOwnerRef.current = null
+      dispatchTurn({ type: 'reset' })
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastSendFailure(null)
@@ -3195,7 +3238,7 @@ export function useConversation(): UseConversationReturn {
       // storage: the user's own work, present, and withheld. What the flag still
       // decides is whether a SESSION boundary is drawn — see `markBoundary`.
       let restoredForSwitch: ConversationMessage[] | null = null
-      if (scenarioId) {
+      if (scenarioId && !isThinClientSession()) {
         try {
           const restored = loadTranscript(scenarioId)
           if (restored) {
@@ -3217,6 +3260,23 @@ export function useConversation(): UseConversationReturn {
       return next
     })
   }, [])
+
+  const refusedGraphRefreshRef = useRef<ReturnType<typeof createRefusedGraphRefresh> | null>(null)
+  useEffect(() => {
+    const refresh = createRefusedGraphRefresh({
+      hasPendingTurn: () => inFlightRef.current || inFlightOptimisticFactorEditRef.current !== null ||
+        deferredSystemSendsRef.current.some(entry => entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          isGraphRecoverySystemEvent(entry.opts.systemEvent?.type)),
+      identity: () => withSessionReadTimeout(getSessionIdentity()),
+      onFailure: () => addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true,
+        content: "The latest state couldn't be refreshed.", timestamp: new Date() }),
+    })
+    refusedGraphRefreshRef.current = refresh
+    return () => {
+      refresh.dispose()
+      if (refusedGraphRefreshRef.current === refresh) refusedGraphRefreshRef.current = null
+    }
+  }, [addMessage])
 
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the lasting line. When the boot read took
   // elements off the canvas because the saved model lacks them, the hydration
@@ -3376,7 +3436,7 @@ export function useConversation(): UseConversationReturn {
         // categories carry a no-write guarantee.
         const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
         shouldRevert = provenNoWrite
-        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        notice = provenNoWrite ? (outcome.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'base_hash_diverged') : 'unconfirmed_server'
         fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         notice = 'unconfirmed_transport'
@@ -3420,6 +3480,46 @@ export function useConversation(): UseConversationReturn {
     [addMessage],
   )
 
+  /** One non-mutating persisted-graph read, bounded across identity, fetch and body parsing. */
+  const readRenameAuthority = useCallback(
+    async (nodeId: string, scenarioId: string | null): Promise<StructuralRenameReadback> => {
+      if (!scenarioId) return { kind: 'unreadable' }
+      const controller = new AbortController()
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const deadline = new Promise<StructuralRenameReadback>(resolve => {
+        timer = setTimeout(() => {
+          controller.abort()
+          resolve({ kind: 'unreadable' })
+        }, 8000)
+      })
+      const read = async (): Promise<StructuralRenameReadback> => {
+        try {
+          const identity = await getSessionIdentity()
+          if (controller.signal.aborted) return { kind: 'unreadable' }
+          const result = await fetchScenarioGraph(scenarioId, {
+            userId: identity.userId,
+            accessToken: identity.accessToken,
+            signal: controller.signal,
+            timeoutMs: 8000,
+            retry503: false,
+          })
+          return result.status === 'graph' && result.scenarioId === scenarioId
+            ? readRenameReadback(nodeId, result.graph)
+            : { kind: 'unreadable' }
+        } catch {
+          return { kind: 'unreadable' }
+        }
+      }
+      try {
+        return await Promise.race([read(), deadline])
+      } finally {
+        clearTimeout(timer)
+        controller.abort()
+      }
+    },
+    [],
+  )
+
   /**
    * schemas 0.50.0 — resolve a `structural_rename` against what the SERVER did.
    *
@@ -3439,21 +3539,22 @@ export function useConversation(): UseConversationReturn {
    * So a UI keyed on `conflict_category` alone reads the concurrent-rename case
    * as SUCCESS and leaves the user's name standing over a model that holds
    * someone else's. The verdict here is therefore taken from the COMMITTED BYTES
-   * — `readStructuralRenameReceipt` reads the node BY ID out of `draft_graph` and
-   * compares its label — because CEE's refusal path passes the PERSISTED graph
-   * through `commitDirectAnswer(..., { contentGraph })`, so that arm carries a
-   * positive, readable refutation rather than a silence.
+   * — `readStructuralRenameReceipt` reads the node BY ID out of `draft_graph`.
+   * CEE's refusal shape carries NO graph (structural-rename.ts:239-257), so that
+   * 200 is settled by one persisted read instead. Neither assistant wording nor
+   * node membership is evidence of the saved label.
    *
    * THE EVIDENCE, AND ITS THREE STATES (never two):
    *   · `proven`   — the committed graph carries this id at this label. Nothing
    *     to do; CEE's own confirmation prose renders through the 200 branch.
    *   · `refuted`  — the committed graph carries this id at a DIFFERENT label.
-   *     REVERT. This is both the concurrent-rename case and every server-side
-   *     refusal that still committed a turn. No notice is added when CEE spoke:
+   *     REVERT. A graphless reply uses the persisted read's exact label.
+   *     No notice is added to a readback refutation; CEE's words stay the reply.
+   *     For inline refutations no notice is added when CEE spoke:
    *     its sentence names the label the model holds, and ours would not.
-   *   · `unproven` — no readable committed graph. KEEP the name and say we could
-   *     not confirm. Reverting on a guess is data loss, which is strictly worse
-   *     than the uncertainty it would be trying to hide.
+   *   · `unproven` — no readable evidence after the optional readback. KEEP the
+   *     name and say we could not confirm. Reverting on a guess is data loss,
+   *     which is strictly worse than the uncertainty it would be trying to hide.
    *
    * ⚠ A 409 IS DECIDED BY THE SHARED PREDICATE, not by an equality: CEE has two
    * 409 sources that both state a no-write guarantee, and `isProvenNoWriteConflict`
@@ -3461,7 +3562,7 @@ export function useConversation(): UseConversationReturn {
    * UNKNOWN and takes the cannot-confirm line, never a promise we cannot keep.
    */
   const resolveStructuralRename = useCallback(
-    (
+    async (
       intent: StructuralRenameIntent,
       capturedScenarioId: string | null,
       outcome:
@@ -3469,7 +3570,8 @@ export function useConversation(): UseConversationReturn {
         | { kind: 'typed_error'; conflictCategory: string | undefined }
         | { kind: 'transport' },
     ) => {
-      const store = useCanvasStore.getState()
+      if ((useCanvasStore.getState().currentScenarioId ?? null) !== capturedScenarioId) return
+      let revertLabel = intent.restore.label
       let notice: StructuralRenameNoticeKey | null = null
       // The fence's own sentence, when the proven no-write was a turn fence.
       let fenceCopy: string | null = null
@@ -3488,11 +3590,32 @@ export function useConversation(): UseConversationReturn {
 
       if (outcome.kind === 'response') {
         const receipt = readStructuralRenameReceipt(intent, outcome.response)
-        if (receipt === 'proven') {
+        if (outcome.response.draft_graph == null) {
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          // The canvas may have changed while the read was in flight. No lifecycle,
+          // label or transcript write may cross this dispatch's scenario boundary.
+          if ((useCanvasStore.getState().currentScenarioId ?? null) !== capturedScenarioId) return
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          if (settlement.status === 'refused') {
+            settle('refused')
+            shouldRevert = true
+            revertLabel = settlement.canvasLabel
+            // CEE's reply is the voice here. The existing unconfirmed sentence
+            // says the name is still on canvas and cannot describe this correction.
+          } else {
+            settle('unconfirmed')
+            notice = 'unconfirmed_server'
+          }
+        } else if (receipt === 'proven') {
           settle('committed')
           return
-        }
-        if (receipt === 'refuted') {
+        } else if (receipt === 'refuted') {
           settle('refused')
           shouldRevert = true
           // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
@@ -3524,8 +3647,11 @@ export function useConversation(): UseConversationReturn {
       }
 
       if (shouldRevert) {
+        const store = useCanvasStore.getState()
         const revertOutcome = revertStructuralRename(
-          intent,
+          revertLabel === intent.restore.label
+            ? intent
+            : { ...intent, restore: { ...intent.restore, label: revertLabel } },
           {
             nodes: store.nodes,
             currentScenarioId: store.currentScenarioId,
@@ -3550,7 +3676,7 @@ export function useConversation(): UseConversationReturn {
         })
       }
     },
-    [addMessage],
+    [addMessage, readRenameAuthority],
   )
 
   /**
@@ -3710,7 +3836,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' || outcome.kind === 'typed_error' && outcome.conflictCategory === 'revision_conflict' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -3778,6 +3904,12 @@ export function useConversation(): UseConversationReturn {
       let notice: OptimisticFactorEditNoticeKey
 
       if (isProvenNoWriteConflict(conflictCategory)) {
+        // A newer queued edit may request the SAME number. Value equality alone
+        // cannot license A's rollback over that distinct optimistic gesture.
+        if (deferredSystemSendsRef.current.some(entry =>
+          entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          entry.opts.optimisticFactorEdit !== edit && entry.opts.optimisticFactorEdit?.nodeId === edit.nodeId,
+        )) return
         const revertOutcome = revertOptimisticFactorEdit(edit)
         // The copy promises the previous value is back. If the revert stood
         // down — the node is gone, or a newer edit moved the value on — that
@@ -4167,6 +4299,25 @@ export function useConversation(): UseConversationReturn {
    */
   const flushDeferredSystemSendsRef = useRef<() => void>(() => {})
 
+  /**
+   * ⭐ THE ONE SETTLE PATH (`turnLifecycle.ts`). Ends the turn ONLY while `turnId` still owns it — a preempted or
+   * already-settled turn's late exit is a no-op — and is the one place a failed turn is reported. Every exit of a
+   * turn goes through here: the request's `finally`, and the wait-expiry timer.
+   */
+  const settleTurn = useCallback(
+    (turnId: string, failure: TurnFailureKind | null, report: Omit<Parameters<typeof reportTurnFailure>[0], 'kind'>) => {
+      if (turnOwnerRef.current !== turnId) return
+      turnOwnerRef.current = null
+      // Synchronously, not only via the effect mirror: the deferred-send queue drains on the next microtask and
+      // `sendTurn`'s early `isThinkingRef` guard would otherwise drop a queued edit (see the finally's history).
+      isThinkingRef.current = false
+      useDraftStore.getState().setIsGenerating(false)
+      dispatchTurn({ type: 'settle', turnId, failure })
+      if (failure !== null) reportTurnFailure({ kind: failure, ...report })
+    },
+    [],
+  )
+
   const sendTurn = useCallback(
     async (opts: SendTurnOpts): Promise<SendTurnOutcome> => {
       const {
@@ -4302,7 +4453,16 @@ export function useConversation(): UseConversationReturn {
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
-      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? crypto.randomUUID()
+      // ⭐ Recovery Batch B, row 3 (DL, §7.3 "check idempotency before offering a retry"): the user typing the SAME words
+      // again (equal after trim, as CEE's request hash reads them) while their LAST send is still delivery-unknown is
+      // that send again, so it re-uses its turn id and CEE replays the recorded answer instead of recording the message
+      // twice (served marketing row 3). A confirmed reply or non-send, other words, a chip, or a send in between: fresh id.
+      const lastInput = lastUserInputRef.current
+      const unknownResendId = mode === 'user' && !hidden && !systemEvent && !chipMeta && lastInput.chipMeta === undefined
+        && lastInput.clientTurnId !== undefined && lastInput.message.trim() === message.trim()
+        && messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
+        ? lastInput.clientTurnId : undefined
+      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? unknownResendId ?? crypto.randomUUID()
       // Stamp the V5 active-turn ref at dispatch time for every turn kind
       // (visible, hidden, system). The stale-turn guard in applyV5State
       // reads this ref, not lastUserInputRef, so hidden/system responses
@@ -4433,7 +4593,7 @@ export function useConversation(): UseConversationReturn {
           },
         })
         lastUserInputRef.current = { message, clientTurnId: turnClientId,
-          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source } : {}) }
+          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source, proposalEdits: opts.proposalEdits } : {}) }
         setLastSendFailure(null)
       } else if (hidden && source === 'right_panel_action') {
         recordUserAction({
@@ -4518,13 +4678,31 @@ export function useConversation(): UseConversationReturn {
           console.warn('[sendTurn V5] Allocated fresh scenario_id:', newId)
         }
         currentScenarioId = newId
-        useCanvasStore.setState({ currentScenarioId: newId })
+        // Recorded BEFORE the store write: the switch effect reads it to tell
+        // this turn's own mint from the user opening another decision.
+        lazyMintedScenarioIdRef.current = newId
+        useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, newId))
         setCurrentScenarioId(newId)
       }
       // Response ownership is the scenario that actually goes on the wire.
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      const graphOpeningAtDispatch = refusedGraphRefreshRef.current?.captureOpening()
+      const editNoteBeforeState = useCanvasStore.getState()
+      const editNoteRevision = opts.editNoteRevision ?? currentManualEditRevision()
+      // Factor/rename gestures are already optimistic; their existing intents carry the actual preimage.
+      const editNoteBefore = {
+        ...editNoteBeforeState,
+        nodes: editNoteBeforeState.nodes.map(node => {
+          if (node.id === opts.optimisticFactorEdit?.nodeId) return { ...node, data: { ...node.data,
+            observedState: opts.optimisticFactorEdit.prevObservedState,
+            observed_state: opts.optimisticFactorEdit.prevObservedState,
+            display_value: opts.optimisticFactorEdit.prevDisplayValue } }
+          if (node.id === opts.structuralRename?.nodeId) return { ...node, data: { ...node.data, label: opts.structuralRename.expectedLabel } }
+          return node
+        }),
+      }
 
       const resolvedTurnType: TurnType = isSystemEvent
         ? 'system_event'
@@ -4536,6 +4714,7 @@ export function useConversation(): UseConversationReturn {
       // Settled in this turn's finally; a landed analysis_result flips
       // 'complete' via applyV5State before the settle no-ops.
       const isRunAnalysisTurn = resolvedTurnType === 'run_analysis'
+      if (isRunAnalysisTurn) clearPendingEditNotes()
       if (isRunAnalysisTurn) {
         useCanvasStore.getState().resultsAnalysing()
         activeRunTurnIdRef.current = turnClientId
@@ -4569,6 +4748,7 @@ export function useConversation(): UseConversationReturn {
         message,
         source,
         chipMeta,
+        proposalEdits: opts.proposalEdits,
         systemEvent,
       })
 
@@ -4626,16 +4806,44 @@ export function useConversation(): UseConversationReturn {
       // Lifecycle: abort any previous request, set up AbortController,
       // timeout timer, and long-running hint. Mirrors V4 block structure
       // so behaviour is consistent across both paths.
+      // Read BEFORE the turn starts: it throws when no endpoint is configured, and a throw after the start but before
+      // the request's try used to strand the spinner and the lock (S-F audit A3.1).
+      const v5Endpoint = getV5Endpoint()
+
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
       missingDraftRecoveryRef.current = null
 
-      setIsThinking(true)
+      // The turn starts: owned by THIS ATTEMPT until it settles (`settleTurn`).
+      const turnAttempt = `${turnClientId}#${++turnAttemptSeqRef.current}`
+      // A superseded attempt's timers die with it: they live in shared refs that this attempt is about to arm, and a
+      // late cleanup or expiry of theirs must never reach this attempt's (buddy r2 P1-2).
+      clearTimeout(timeoutTimerRef.current)
+      clearTimeout(longRunningTimerRef.current)
+      clearInterval(elapsedIntervalRef.current)
+      timeoutTimerRef.current = undefined
+      longRunningTimerRef.current = undefined
+      elapsedIntervalRef.current = undefined
+      turnOwnerRef.current = turnAttempt
+      dispatchTurn({ type: 'start', turnId: turnAttempt })
+      const isBoundExplain = chipMeta?.id?.startsWith(EXPLAIN_RUN_CHIP_PREFIX) === true
+      setExplainAttempt(isBoundExplain ? turnAttempt : null)
+      if (isBoundExplain) {
+        // Cold reopen uses the retained Run's identity, never the requested chip's key as authority.
+        latestRunKeyRef.current = [...messagesRef.current].reverse().find(m => m.role === 'assistant'
+          && m.narration && m.narration.status !== 'stale')?.narration?.runKey ?? null
+      }
+      // Synchronously: a preempt cleared the mirror, and pending → pending does not re-run its effect, so without this
+      // Stop would read "not thinking" and do nothing under a live spinner (buddy r2 P1-1).
+      isThinkingRef.current = true
       useDraftStore.getState().setIsGenerating(true)
+      addBreadcrumb('chat.turn', 'start', { turn_type: resolvedTurnType, mode })
 
       const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
       const sendStartTime = Date.now()
+      // Why this turn failed, if it did — set at each failure site, read once by the settle in `finally`.
+      let turnFailure: TurnFailureKind | null = null
       setLongRunningHint(hint)
       longRunningTimerRef.current = setTimeout(() => {
         elapsedIntervalRef.current = setInterval(() => {
@@ -4662,7 +4870,7 @@ export function useConversation(): UseConversationReturn {
 
       bindRequestToInteraction(turnClientId, {
         chainId: interactionChainId,
-        endpoint: getV5Endpoint(),
+        endpoint: v5Endpoint,
         triggerSurface,
         sourceSurface: resolvedSourceSurface,
         initiatedBy: initiatedBy ?? (mode === 'system' ? 'automatic' : 'user'),
@@ -4674,6 +4882,9 @@ export function useConversation(): UseConversationReturn {
       })
 
       const clearLifecycleTimers = () => {
+        // Only this attempt's timers, or orphans (no owner after a Stop / reset / expiry) — never a NEWER attempt's,
+        // which sit in the same refs (buddy r2 P1-2: a superseded attempt's late catch cancelled the live 175 s timer).
+        if (turnOwnerRef.current !== null && turnOwnerRef.current !== turnAttempt) return
         if (timeoutTimerRef.current !== undefined) {
           clearTimeout(timeoutTimerRef.current)
           timeoutTimerRef.current = undefined
@@ -4705,13 +4916,31 @@ export function useConversation(): UseConversationReturn {
       // session, and which failure produced that — its PRESENCE is the
       // unsettled answer (there is no separate boolean that can disagree).
       let streamedPreviewOwnsCanvas = false
+      let streamedPreviewFingerprint: string | null = null
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
+      let deliveryRequestId: string | undefined
+      // Delivery evidence, two separate facts (Batch B amendment). `requestStarted`: some transport in this send
+      // reached its dispatch boundary (`onRequestStarted`, just before `fetch`). `responseReceived`: HTTP headers came
+      // back. Dispatched without a response is UNKNOWN, never "not sent" (`classifyUnansweredSend`).
+      let requestStarted = false
+      const onRequestStarted = () => { requestStarted = true }
+      let responseReceived = false
+      /** What a failure report says about this turn (no user text; `turnLifecycle.reportTurnFailure`). */
+      const turnReportBase = () => ({
+        turnType: resolvedTurnType,
+        mode,
+        requestId: deliveryRequestId,
+        scenarioId: scenarioIdAtDispatch,
+        elapsedMs: Date.now() - sendStartTime,
+      })
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
         // (login 3.4 UI half) and the post-response graph re-fetch auth
         // guard. A single call avoids two getSession() round-trips per turn.
-        const v5Identity = await getSessionIdentity()
+        // Bounded (S-F audit A3.2): a session read that never returns used to hold the spinner with nothing sent.
+        // On expiry it throws `SessionReadTimeoutError`, which the catch below reports as NOT sent, with Retry.
+        const v5Identity = await withSessionReadTimeout(getSessionIdentity())
         const v5UserId = v5Identity.userId
         // ═══════════════════════════════════════════════════════════════════
         // HOP ZERO — the browser ORIGINATES this send's correlation id
@@ -4766,9 +4995,10 @@ export function useConversation(): UseConversationReturn {
         // `access-control-allow-headers` list containing `X-Request-Id`
         // (contrast control: a fabricated header name returned the IDENTICAL
         // list, proving a fixed server allowlist rather than a reflection).
+        deliveryRequestId = generateRequestId()
         const v5Headers: Record<string, string> = {
           ...buildTurnAuthHeaders(v5Identity),
-          ...buildRequestIdHeaders(generateRequestId()),
+          ...buildRequestIdHeaders(deliveryRequestId),
           ...aiComparisonHeaders(),
         }
 
@@ -4798,20 +5028,17 @@ export function useConversation(): UseConversationReturn {
           nodeCountAtDispatch: canvasSnap.nodes.length,
         })
 
-        // A18 AUDIT — ARMED HERE, NOT AT DISPATCH START. Everything above
-        // this line (session identity, correlation headers, eligibility) is
-        // pre-flight work that happens before any request leaves the
-        // browser; a throw anywhere in it is caught below and honestly
-        // reported as NOT sent. From this line on, the very next `await` is
-        // the fetch itself (`runStreamedDraftTurn` / `callV5Turn`), so only
-        // NOW is "the message did reach the server" a claim this timer is
-        // entitled to make if it fires.
+        // Start the wait at dispatch, after session/header work. A fetch call
+        // alone is not acknowledgement: the transport records HTTP headers
+        // through onResponseReceived before reading the response body.
         timeoutTimerRef.current = setTimeout(() => {
           controller.abort()
           clearTimeout(longRunningTimerRef.current)
           clearInterval(elapsedIntervalRef.current)
-          setIsThinking(false)
-          useDraftStore.getState().setIsGenerating(false)
+          // The timer is armed at dispatch and fires only while a transport call is pending, so with no response
+          // the request may have arrived: delivery unknown (b), never "not sent".
+          turnFailure = responseReceived ? 'timeout' : 'delivery_unknown'
+          settleTurn(turnAttempt, turnFailure, turnReportBase())
           setLongRunningHint(null)
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
           // already put a graph on the canvas must NOT be told "your message has
@@ -4831,36 +5058,24 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
           )
           if (mode === 'user' && !hidden && !streamedPreviewStanding) {
-            // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
-            //
-            // This branch used to mark the bubble `failed` and say "We stopped
-            // waiting, so your message has not gone through." Both were false.
-            // We stopped waiting; the SERVER did not. CEE runs the turn to
-            // completion and commits it — live-witnessed 2026-08-07, client
-            // gave up at 60.0s while the same turn returned 200 at 123.1s with
-            // its rows written. What actually happened here is UNKNOWN to this
-            // client, and it stays unknown: no status route exists to poll and
-            // `v5_conversation_turns` has zero readers in this codebase, so
-            // there is nothing to reconcile against on this render or any
-            // later one. See `deliveryUnknown.ts` for the full derivation.
-            //
-            // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
-            // per-HTTP-request id, not on `payload.turn_id`, and this client
-            // sends no request-id header for it to reuse.
+            // Either way the server may still complete this turn after our wait ends, so the bubble stays
+            // unconfirmed. Before any response (b), "Try again" is offered: `retryLast` re-sends the SAME
+            // `turn_id`, which CEE deduplicates, so it cannot apply twice (recovery-notes/batchB-delivery.md).
             if (userBubbleIdForTurn) {
-              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed',
+                deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch })
             }
             if (inputForRestore) {
-              // `retryable: false` — the copy-agrees-with-affordance rule. No
-              // retry is offered, so none is advertised. The text is still
-              // carried for restore-into-composer.
-              setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
+              setLastSendFailure({ kind: responseReceived ? 'timeout' : 'delivery_unknown', retryable: !responseReceived, inputText: inputForRestore })
             }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: WAIT_EXPIRY_UNKNOWN_COPY,
+              content: responseReceived ? WAIT_EXPIRY_UNKNOWN_COPY : DELIVERY_UNKNOWN_COPY,
               synthetic: true,
+              ...(!responseReceived ? { actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }] } : {}),
+              deliveryRequestId,
+              deliveryScenarioId: scenarioIdAtDispatch,
               timestamp: new Date(),
             })
           }
@@ -4869,6 +5084,27 @@ export function useConversation(): UseConversationReturn {
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
         let recoveredBeforeResend = false
+        // ONE fence for both read-backs over a streamed preview. Recovery can
+        // replace only the owning turn's untouched content, under its live
+        // controller and scenario. The phase advances to unsettled after a
+        // graphless fallback; that does not grant authority over a user edit.
+        const canApplyDraftReadBack = (
+          overPreview: boolean,
+          previewFingerprint: string | null,
+          phase: 'settling' | 'unsettled',
+        ) => {
+          const canvas = useCanvasStore.getState()
+          const draft = useDraftStore.getState()
+          return !controller.signal.aborted &&
+            abortRef.current === controller &&
+            responseBelongsToDispatchingScenario(canvas.currentScenarioId, scenarioIdAtDispatch) &&
+            (overPreview
+              ? previewFingerprint !== null &&
+                draft.draftStreamTurnId === turnClientId &&
+                draftStreamPhaseFor(draft, scenarioIdAtDispatch) === phase &&
+                canvasDraftPreviewFingerprint(canvas.nodes, canvas.edges) === previewFingerprint
+              : canvas.nodes.length === 0)
+        }
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -4876,32 +5112,43 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            onRequestStarted,
+            // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
+            onResponseReceived: () => { responseReceived = true; dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async () =>
-              (await recoverDraftFromServer({
+            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) => {
+              // B UI: lost streams read first now, so this read is fenced as the recovery after the re-send is: a scenario
+              // switch, even away and back, ends its claim on the canvas.
+              const readToken = {}
+              streamLossReadRef.current = readToken
+              const recovery = await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
                 accessToken: v5Identity.accessToken,
                 turnClientId,
                 signal: controller.signal,
-                canApply: () =>
-                  !controller.signal.aborted &&
-                  abortRef.current === controller &&
-                  responseBelongsToDispatchingScenario(
-                    useCanvasStore.getState().currentScenarioId,
-                    scenarioIdAtDispatch,
-                  ) &&
-                  useCanvasStore.getState().nodes.length === 0,
-              })) === 'recovered',
+                canApply: () => streamLossReadRef.current === readToken &&
+                  canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
+                // B UI (capacity 001307): a read that gets no answer is tried once more before anything is re-sent.
+                unansweredRetry: STREAM_LOSS_READ,
+              })
+              if (streamLossReadRef.current === readToken) streamLossReadRef.current = null
+              return recovery === 'recovered'
+            },
           })
           recoveredBeforeResend = streamed.recoveredBeforeResend === true
           v5Result = streamed.result
           streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
+          streamedPreviewFingerprint = streamed.previewFingerprint
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
-          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers,
+            onRequestStarted,
+            onResponseReceived: () => { responseReceived = true },
+          })
         }
+        responseReceived ||= v5Result.kind !== 'parse_error' || v5Result.http_status !== undefined
         clearLifecycleTimers()
 
         // Race guard: if the controller was aborted while the fetch was in
@@ -5047,6 +5294,8 @@ export function useConversation(): UseConversationReturn {
                 recoveryCanvas.nodes.length === 0 &&
                 useCanvasStore.getState().nodes === recoveryCanvas.nodes &&
                 useCanvasStore.getState().edges === recoveryCanvas.edges,
+              // B UI (capacity 001307): this one 8 s read gave up 2 s before CEE answered with the saved model.
+              unansweredRetry: STREAM_LOSS_READ,
             })
             reading = false
             if (!ownsRecovery()) return
@@ -5113,6 +5362,13 @@ export function useConversation(): UseConversationReturn {
         }
 
         const target = routeV5Response(v5Result)
+        // CEE's revision CAS can use error.v1 or additive code keys, retained as raw JSON by strict parsing.
+        const conflictEnvelope = target.kind === 'typed_error'
+          ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
+          : undefined
+        const conflictEnvelopeSource = target.kind === 'typed_error' && !target.boundaryError ? 'raw' : 'parsed'
+        const conflictCategory = extractConflictCategory(conflictEnvelope, v5Result.kind === 'response' ? undefined : v5Result.http_status, conflictEnvelopeSource)
+        const revisionConflict = conflictCategory === 'revision_conflict'
 
         // CANVAS UNDO JOURNAL (Undo/Redo S2, dark): record this turn's own
         // versioned write — or another writer's — so ⌘Z can later restore the
@@ -5183,7 +5439,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5199,7 +5455,7 @@ export function useConversation(): UseConversationReturn {
           systemEvent?.type === 'structural_rename' &&
           activeV5TurnIdRef.current === turnClientId
         ) {
-          resolveStructuralRename(
+          await resolveStructuralRename(
             structuralRename,
             // Captured at DISPATCH, not read now — a scenario switch mid-turn
             // must stand the revert down rather than write this label into a
@@ -5208,10 +5464,13 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
+          if (!responseBelongsToDispatchingScenario(
+            useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch,
+          )) return
         }
 
         // 0.50.0 — the ADD twin, and NOT gated on `target.kind !==
@@ -5233,7 +5492,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5287,7 +5546,7 @@ export function useConversation(): UseConversationReturn {
           if (target.kind === 'typed_error') {
             resolveFailedOptimisticFactorEdit(
               optimisticEdit,
-              extractConflictCategory(target.boundaryError),
+              conflictCategory,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
@@ -5354,22 +5613,30 @@ export function useConversation(): UseConversationReturn {
         // only typed_error leaves it failed. Resolved BEFORE rendering so
         // the marker and the outcome message land in the same commit.
         //
-        // ROADMAP 2.665: 'failed' is a CLAIM, and one shape of typed_error
-        // cannot support it. A proxy/edge timeout body (transport-class,
-        // `network === false`) means the request DID reach CEE and something
-        // downstream stopped waiting — CEE commits that turn anyway. Marking
-        // it "Not delivered" asserts something this client cannot check, so
-        // it resolves to 'unconfirmed' instead. Network throws and CEE-class
-        // errors are unchanged: both are verified.
+        // With no response, the label follows dispatch evidence (Batch B
+        // amendment): (a) `not_sent` only on positive proof that nothing was
+        // dispatched; otherwise (b) `delivery_unknown`, because a dispatched
+        // request may have been received and applied. An acknowledged stream
+        // or proxy timeout retains the uncertain-outcome treatment below.
+        const noResponse = target.kind === 'typed_error' && target.transportMeta?.network === true &&
+          streamedUnsettledCause == null && !recoveredBeforeResend && !responseReceived
+        const unanswered = noResponse
+          ? classifyUnansweredSend({
+              requestStarted,
+              transportProvedNotStarted: target.transportMeta?.requestNotStarted === true,
+            })
+          : null
+        const httpStatus = v5Result.kind !== 'response' && 'http_status' in v5Result ? v5Result.http_status : undefined
+        const httpServerFailure = typeof httpStatus === 'number' && httpStatus >= 500 && httpStatus < 600
         if (userBubbleIdForTurn) {
-          const unverified =
+          const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
             isUnverifiedDelivery({
-              hasBoundaryError: target.boundaryError !== undefined,
+              hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
               transportMeta: target.transportMeta,
               recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
               rawBody: target.rawBody,
-            })
+            }))
           // F1: a typed_error whose stream already delivered GRAPH_READY is
           // PROOF the server received and processed this message — a
           // "failed"/"unconfirmed" marker would assert something the held
@@ -5377,13 +5644,20 @@ export function useConversation(): UseConversationReturn {
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
-              target.kind !== 'typed_error' || deliveryProvenByFrame
+              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame
                 ? 'sent'
                 : unverified
                   ? 'unconfirmed'
                   : 'failed',
+            deliveryRequestId: unverified && !deliveryProvenByFrame ? deliveryRequestId : undefined,
+            deliveryScenarioId: unverified && !deliveryProvenByFrame ? scenarioIdAtDispatch : undefined,
           })
         }
+
+        // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
+        // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
+        if (target.kind === 'typed_error') turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
+        else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
           // Apply side-effects (stage, graph_patch mutations) BEFORE the
@@ -5450,6 +5724,7 @@ export function useConversation(): UseConversationReturn {
             {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
+              turnScenarioId: scenarioIdAtDispatch,
               // Row 3b: a receipt for THIS turn's own factor edit applies only while
               // that edit still stands — the predicate the confirm above already reads.
               factorEditReceiptStands: (nodeId: string) =>
@@ -5922,12 +6197,33 @@ export function useConversation(): UseConversationReturn {
             })()
           }
 
+          // Manual typed events alone enter the note owner, after CEE's graph has landed.
+          // The note owner excludes proposal attribution (applied_from) and confirmations.
+          if (systemEvent && activeV5TurnIdRef.current === turnClientId) {
+            const landed = useCanvasStore.getState()
+            const stage = askAiStage(landed)
+            reportManualEditReceipt({ revision: editNoteRevision, event: systemEvent, response: target.response,
+              before: { nodes: editNoteBefore.nodes, edges: editNoteBefore.edges, options: editNoteBefore.ceeAnalysisReady?.options },
+              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options, goal_constraints: landed.goalConstraints },
+              // The Run the user can see. Its key is the run's own response hash (`results.hash`), else the v5 fact's;
+              // notes also clear on every Run (`clearPendingEditNotes`), so "first edit since that Run" re-arms.
+              lastRun: { visible: stage === 'ran-current' || stage === 'stale',
+                runId: landed.results?.hash ?? landed.v5AnalysisFact?.analysisHash ?? 'visible-run',
+                report: landed.results?.report,
+                // #2747 r2: a note names a driver only from the GATED canonical view of the Run on screen.
+                drivers: gatedDriversOf(runViewOf(landed.results?.report, heldCanonicalFor(landed.currentScenarioId))),
+                fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
+                turningPoints: selectTurningPoints(landed.results?.report),
+                goalConstraints: landed.goalConstraints,
+              } })
+          }
+
           const mappedBlocks =
             target.kind === 'blocks'
               // Pass suggested_actions so the held-proposal mapper (R8) can
               // resolve confirm_action_id / decline_action_id refs into the
               // {label, message} the card dispatches through the chip seam.
-              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions, turnCanonicalRunOf(target.response))
               : []
 
           // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
@@ -5948,7 +6244,7 @@ export function useConversation(): UseConversationReturn {
           // the store synchronously above. Gated on the flag + a non-empty
           // coaching summary; the block is local-only (no CEE/wire/parser change).
           const receipt = maybeBuildModelReceiptBlock({
-            enabled: isPreAnalysisEnrichedEnabled(),
+            enabled: false,
             isDraftTurn: draftAppliedThisTurn,
             store: useCanvasStore.getState(),
           })
@@ -6020,6 +6316,7 @@ export function useConversation(): UseConversationReturn {
           // merged into `content` (attached as its own field, rendered by
           // AnswerBody). See answerShape.ts for the full contract note.
           const answerShape = extractAnswerShapeSidecar(target.response)
+          const answerStateKey = answerShape ? answerStateKeyOf(target.response) : null
           // CEE hop 4b — WHICH model elements this answer was grounded on.
           // `_grounded_selection` rides the SAME `__additive__` demotion as
           // `_reasoning` and `_answer_shape` (it is undeclared at the pinned
@@ -6064,28 +6361,44 @@ export function useConversation(): UseConversationReturn {
           // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
           const narration = readNarration(target.response)
           const guidance = readGuidance(target.response)
+          // Additive wire fields may live in the parser sidecar until the turn schema declares them.
+          const scienceResponse = target.response as OlumiResponseWithExtensions & { _action?: unknown }
+          const action = scienceResponse._action ?? scienceResponse[ADDITIVE_EXTENSIONS_KEY]?._action
+          const actionScience = DskClaimProvenanceSchema.safeParse(
+            action !== null && typeof action === 'object' ? (action as Record<string, unknown>).science : undefined,
+          )
+          // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
+          // is drawn (the surfaces keep the controls they had).
+          useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
-          if (namesALatestRun(narration)) {
+          if (namesALatestRun(narration) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
-            if (narration.status === 'pending' && !sentExplainKeysRef.current.has(narration.runKey)) {
-              setPendingExplainKey(narration.runKey)
-            }
           }
-          // A LIVE held reply carries only its request correlation. heldProposalId is written solely by transcriptStore at
-          // save, so reconcile (which acts on restored history) can never strip a live card's controls on a late read.
-          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))
+          // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the
+          // pending server echo to serverTurnId, so a late read cannot replace a live card's controls.
+          const guidedSizing = readGuidedSizing(target.response)
+          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))
+          const pendingServerTurnId = readRecordedServerTurnId(target.response)
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            proposalFields: readTurnProposalFields(target.response),
+            ...(guidedSizing ? { guidedSizing } : {}),
+            ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
+            ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),
+            // Keep stale narration even with an empty key and no result blocks:
+            // the existing freshness pill must disclose the unknown identity.
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
+            ...(actionScience.success ? { actionScience: actionScience.data } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),
             ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
             ...(answerShape ? { answerShape } : {}),
+            ...(answerStateKey ? { answerStateKey } : {}),
             ...(groundedSelection ? { groundedSelection } : {}),
             ...(openQuestionList ? { openQuestionList } : {}),
             ...(provisionalView ? { provisionalView } : {}),
@@ -6122,7 +6435,7 @@ export function useConversation(): UseConversationReturn {
           if (inputForRestore) {
             // Delivered but produced nothing — the hero must still show
             // feedback rather than fail silently (server class).
-            setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
+            setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
           }
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
@@ -6158,7 +6471,9 @@ export function useConversation(): UseConversationReturn {
           // CeeTypedError-shaped bodies (via rawBody), plus the server
           // retryable marker. Fail closed on every field.
           const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
-          const retryable = resolveV5Retryable(target.code, recovery.retryable)
+          const retryable = target.ownershipRefusal !== undefined
+            ? ownershipRefusalRetryable(target.ownershipRefusal)
+            : resolveV5Retryable(target.code, recovery.retryable)
           // Transcript honesty (trust item #3): the rehearsal's 504s carry
           // NO CEE body — the proxy timeout JSON is not a server-processing
           // fault, and "Something went wrong on our side" was a false
@@ -6166,7 +6481,7 @@ export function useConversation(): UseConversationReturn {
           // zero CEE signal renders transport-honest copy instead, and
           // never invents a recovery suggestion.
           const transportFailure = isTransportFailure({
-            hasBoundaryError: target.boundaryError !== undefined,
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
@@ -6178,14 +6493,20 @@ export function useConversation(): UseConversationReturn {
           // server's `retryable` marker is about whether the FAILURE is
           // transient, not about whether re-asking is safe; on this shape it
           // is overruled, and the copy says why instead.
-          const deliveryUnverified = isUnverifiedDelivery({
-            hasBoundaryError: target.boundaryError !== undefined,
+          const deliveryUnverified = !noResponse && isUnverifiedDelivery({
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
           })
           let content: string
-          if (transportFailure && target.transportMeta) {
+          if (unanswered === 'not_sent') {
+            content = NOT_DELIVERED_COPY
+          } else if (unanswered === 'delivery_unknown') {
+            content = DELIVERY_UNKNOWN_COPY
+          } else if (target.ownershipRefusal !== undefined) {
+            content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
+          } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
             // CEE-class — layered content, each layer display-honest:
@@ -6206,7 +6527,9 @@ export function useConversation(): UseConversationReturn {
             const baseCopy = resolveFailureCopyForError(
               target.code,
               retryable,
-              target.boundaryError,
+              conflictEnvelope,
+              v5Result.kind === 'response' ? undefined : v5Result.http_status,
+              conflictEnvelopeSource,
             )
             const reason = extractV5ErrorReason(target.boundaryError)
             const reasonLayer =
@@ -6218,7 +6541,7 @@ export function useConversation(): UseConversationReturn {
                   // guidance, never "rephrase your message".
                   resolveV5ErrorGuidance(target.code, target.boundaryError)
                 : ''
-            content = [
+            content = revisionConflict ? baseCopy : [
               baseCopy,
               recovery.suggestion ?? '',
               reasonLayer,
@@ -6228,8 +6551,10 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
+                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
+                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
             : []
           // System turns get NO transcript bubble — the failure propagates to
           // the dispatcher instead (see SystemEventSendError). Gating here
@@ -6242,18 +6567,27 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               synthetic: true,
               content,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
+              ...(deliveryUnverified || unanswered === 'delivery_unknown' ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
               timestamp: new Date(),
             })
           }
           if (inputForRestore) {
             setLastSendFailure({
-              kind: transportFailure ? 'transport' : 'server',
+              kind: unanswered ?? (httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected'),
               // Copy-agrees-with-affordance: no retry is offered on the
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
               inputText: inputForRestore,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
             })
+            // Row 3: CEE refused the re-used id as another request ("Nothing was run or changed"). That id is spent, so
+            // "Try again" sends a fresh one rather than meeting the same refusal for ever.
+            if (unknownResendId !== undefined && (String(target.code) === 'TURN_ID_REUSED'
+              || (target.rawBody as { error?: unknown } | undefined)?.error === 'TURN_ID_REUSED')) {
+              lastUserInputRef.current = { ...lastUserInputRef.current, clientTurnId: undefined }
+            }
           } else if (mode === 'system') {
             // inputForRestore is null for system turns; record the failure so
             // it is rethrown after `finally` and the dispatcher can react.
@@ -6265,8 +6599,8 @@ export function useConversation(): UseConversationReturn {
               // generic copy.
               {
                 ...(typeof target.code === 'string' ? { code: target.code } : {}),
-                ...(target.boundaryError
-                  ? { conflictCategory: extractConflictCategory(target.boundaryError) }
+                ...(conflictEnvelope && (conflictEnvelopeSource === 'parsed' || conflictCategory)
+                  ? { conflictCategory }
                   : {}),
                 // ⭐ `details.reason`, carried for the same reason as the
                 // category: the producer states a no-write on THIS field for
@@ -6283,6 +6617,18 @@ export function useConversation(): UseConversationReturn {
                 retryable,
               },
             )
+            // U: only a proven 409 on an actual graph-writing event requests
+            // recovery. Existing rollback and refusal copy have already run.
+            if (v5Result.kind !== 'response' && v5Result.http_status === 409 &&
+              isGraphRecoverySystemEvent(systemEvent?.type) && isProvenNoWriteConflict(conflictCategory)) {
+              systemSendFailure.onRefusedGraphSettled = refusedGraphRefreshRef.current?.request(
+                systemSendFailure, graphOpeningAtDispatch,
+              )
+            }
+            // A graph-writing event CEE did not state it refused may have changed the saved model (a lost reply, served
+            // capacity row 7a): the last analysis can no longer be vouched for as current.
+            if (isGraphRecoverySystemEvent(systemEvent?.type) && !isProvenNoWriteConflict(systemSendFailure.conflictCategory) &&
+              !isProvenNoWriteReason(systemSendFailure.reason)) useCanvasStore.getState().markAnalysisFreshnessDirty?.()
           }
         }
 
@@ -6325,6 +6671,8 @@ export function useConversation(): UseConversationReturn {
             // attributed to a different session than the turn it recovers.
             accessToken: v5Identity.accessToken,
             turnClientId,
+            signal: controller.signal,
+            canApply: () => canApplyDraftReadBack(true, streamedPreviewFingerprint, 'unsettled'),
           })
           if (recovery === 'recovered') {
             // The merge applied the server's committed values and released
@@ -6369,7 +6717,15 @@ export function useConversation(): UseConversationReturn {
         }
       } catch (err) {
         clearLifecycleTimers()
-        const isAbort = (err as Error).name === 'AbortError'
+        // A transport AbortError is a failed send; only our own controller
+        // identifies an intentional Stop/preempt (or an already reported timeout).
+        const isAbort = (err as Error).name === 'AbortError' && (mode === 'system' || controller.signal.aborted)
+        // An abort is a Stop, a preempt or the wait timer (which classified itself); it is not a new failure.
+        if (!isAbort && turnFailure === null) {
+          turnFailure = (err as Error)?.name === 'SessionReadTimeoutError'
+            ? 'session_timeout'
+            : responseReceived ? 'transport' : classifyUnansweredSend({ requestStarted })
+        }
 
         // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
         // An abort that left a GRAPH_READY preview standing is the ONE abort
@@ -6423,21 +6779,31 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Transcript honesty: the dispatch itself threw — nothing
-          // reached the server, so the bubble must not read as sent.
+          // Preserve acknowledged-stream uncertainty. With no response: (a)
+          // only when no transport reached its dispatch boundary, else (b).
+          // Both offer "Try again"; on (b) `retryLast` reuses the same turn_id.
+          const unanswered = responseReceived ? null : classifyUnansweredSend({ requestStarted })
+          const maybeArrived = unanswered !== 'not_sent'
           if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: maybeArrived ? 'unconfirmed' : 'failed',
+              deliveryRequestId: maybeArrived ? deliveryRequestId : undefined,
+              deliveryScenarioId: maybeArrived ? scenarioIdAtDispatch : undefined,
+            })
           }
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             synthetic: true,
-            content: "Your message didn't reach the server, so it has not been added to the conversation. Nothing you typed was lost. Try again.",
-            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            content: unanswered === null
+              ? buildTransportFailureCopy({ network: true }, false)
+              : unanswered === 'not_sent' ? NOT_DELIVERED_COPY : DELIVERY_UNKNOWN_COPY,
+            actionChips: unanswered === null ? [] : [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            ...(maybeArrived ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
             timestamp: new Date(),
           })
           if (inputForRestore) {
-            setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
+            setLastSendFailure({ kind: unanswered ?? 'transport', retryable: unanswered !== null, inputText: inputForRestore })
           }
         }
         if (!isAbort && mode === 'system') {
@@ -6461,7 +6827,7 @@ export function useConversation(): UseConversationReturn {
           // unfounded as keeping it) and the user is told it is unconfirmed
           // rather than left to discover it on the next reload.
           if (opts.structuralRename && systemEvent?.type === 'structural_rename') {
-            resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
+            await resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
               kind: 'transport',
             })
           }
@@ -6518,15 +6884,11 @@ export function useConversation(): UseConversationReturn {
           console.warn('[sendTurn V5] Dispatch error:', err)
         }
       } finally {
-        setIsThinking(false)
-        // Mirror it into the ref SYNCHRONOUSLY — see the identical line in
-        // the V4 finally below for the full reasoning. Short version:
-        // `isThinkingRef` is effect-synced, so it still reads `true` on the
-        // microtask that drains the deferred-send queue, and `sendTurn`'s
-        // early `isThinkingRef` guard would drop the queued edit. This is not
-        // a new source of truth — the line above sets the same value and the
-        // effect will set it again; this only removes the one-render lag.
-        isThinkingRef.current = false
+        // ⭐ THE TURN SETTLES HERE, OWNED (`settleTurn`): only while this turn still owns the lifecycle, so a
+        // preempted turn's late finally can no longer end the newer turn (S-F audit A3.3). `settleTurn` also mirrors
+        // `isThinkingRef` SYNCHRONOUSLY (the deferred-send queue drains on the next microtask and `sendTurn`'s early
+        // `isThinkingRef` guard would drop a queued edit) and clears the draft store's `isGenerating`.
+        settleTurn(turnAttempt, turnFailure, turnReportBase())
         // Clear BY REFERENCE IDENTITY, never unconditionally: a preempted
         // turn's late finally must not wipe the newer turn's edit out from
         // under `cancelTurn`. Same ownership rule as the run slot below.
@@ -6547,7 +6909,7 @@ export function useConversation(): UseConversationReturn {
         // `confirmOptimisticFactorEdit` and `revertOptimisticFactorEdit`, the
         // two functions that own that transition. By construction rather than
         // by guessing at attempt boundaries.
-        useDraftStore.getState().setIsGenerating(false)
+        // (`isGenerating` is cleared by `settleTurn` above, owned: a preempted turn no longer clears the newer one's.)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
         // OWNERSHIP GUARD, same rule as the run slot below: only clear while
@@ -6590,7 +6952,7 @@ export function useConversation(): UseConversationReturn {
       }
       return
     },
-    [addMessage, updateMessage, cleanupStreamRefs],
+    [addMessage, updateMessage, cleanupStreamRefs, settleTurn],
   )
 
   /**
@@ -6712,6 +7074,17 @@ export function useConversation(): UseConversationReturn {
       if (!next) return
 
       next.dispatching = true
+
+      // An approval can add the reviewed pair while this older draw waits.
+      // Adding it again would replay the draw's obsolete sign over that review.
+      const addPair = ownAddEdgePair(next.opts.systemEvent)
+      if (addPair && useCanvasStore.getState().lastAuthoritativeGraph?.edgePairs.includes(edgePairKey(addPair.from, addPair.to))) {
+        deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter(d => d !== next)
+        publishPendingEditCount()
+        next.opts.onDeferredSettled?.(Promise.resolve(undefined))
+        flushDeferredSystemSendsRef.current()
+        return
+      }
 
       // ⭐ A QUEUED LINK-STRENGTH `set` ASSERTS WHAT THE SERVER HOLDS **NOW**
       // (canvas audit edit-values F1). Its `expected` was read at the click,
@@ -7002,6 +7375,7 @@ export function useConversation(): UseConversationReturn {
       const releaseEditDelivery = beginModelEditDelivery(event.type)
       return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
+        editNoteRevision: (opts?.structuralRename ? takeRenameEditRevision(opts.structuralRename.id) : undefined) ?? currentManualEditRevision(),
         systemEvent: event,
         mode: 'system',
         source: opts?.debugSource ?? 'system_event',
@@ -7099,29 +7473,12 @@ export function useConversation(): UseConversationReturn {
         turnType,
         chipMeta,
         chipInitiated: !opts.hidden,
+        proposalEdits: opts.proposalEdits,
         ...(opts.sourceBlockKey ? { sourceBlockKey: opts.sourceBlockKey } : {}),
       })
     },
     [sendTurn],
   )
-
-  // Result-first: send request 2 once the Run's own turn has settled (the busy lock would refuse it mid-turn), once per
-  // run_key, hidden, routed by its id. Absent `narration` nothing is pending and the chip stays the path.
-  useEffect(() => {
-    if (pendingExplainKey === null || isThinking) return
-    const runKey = pendingExplainKey
-    setPendingExplainKey(null)
-    if (sentExplainKeysRef.current.has(runKey) || latestRunKeyRef.current !== runKey) return
-    sentExplainKeysRef.current.add(runKey)
-    setExplainingRun(true)
-    void dispatchAction({
-      id: explainRunChipId(runKey),
-      label: EXPLAIN_RUN_LABEL,
-      message: EXPLAIN_RUN_LABEL,
-      hidden: true,
-      source: 'chip',
-    }).finally(() => setExplainingRun(false))
-  }, [pendingExplainKey, isThinking, dispatchAction])
 
   const sendChip = useCallback(
     async (chip: SourceKeyedChip) => {
@@ -7171,6 +7528,7 @@ export function useConversation(): UseConversationReturn {
           label: chip.label,
           message: messageToSend,
           source: 'chip',
+          proposalEdits: chip.proposalEdits,
           // G1 — rides beside the chip metadata, never inside it.
           ...(chip.sourceBlockKey ? { sourceBlockKey: chip.sourceBlockKey } : {}),
         })
@@ -7220,7 +7578,7 @@ export function useConversation(): UseConversationReturn {
         skipUserBubble: true,
         retryClientTurnId: last.clientTurnId,
         // A typed press retries as itself (its chip source + chip); free text retries as 'retry'.
-        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource } : { source: 'retry' as const }),
+        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource, proposalEdits: last.proposalEdits } : { source: 'retry' as const }),
       })
     }
   }, [sendTurn])
@@ -7270,7 +7628,8 @@ export function useConversation(): UseConversationReturn {
     messagesRef.current = []
     sessionStateRef.current = null
     setMessages([])
-    setIsThinking(false)
+    turnOwnerRef.current = null
+    dispatchTurn({ type: 'reset' })
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
     setLastSendFailure(null)
@@ -7392,7 +7751,8 @@ export function useConversation(): UseConversationReturn {
     clearTimeout(longRunningTimerRef.current)
     clearTimeout(timeoutTimerRef.current)
     clearInterval(elapsedIntervalRef.current)
-    setIsThinking(false)
+    turnOwnerRef.current = null
+    dispatchTurn({ type: 'stop' })
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
 

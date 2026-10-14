@@ -26,9 +26,17 @@ describe('unsizedPathAskOf', () => {
     expect(unsizedPathAskOf('separation_unavailable', [], labelOf)).toBeUndefined()
   })
 
-  it('a withhold whose ask cannot be named → null: no first_ask (older CEE), an unlabelled end, an unknown kind', () => {
-    expect(unsizedPathAskOf('goal_path_unsized', warning(), labelOf)).toBeNull()
+  it('a withhold whose TYPED ask cannot be read → null: an unlabelled end, an unknown kind (never a substitute)', () => {
     expect(unsizedPathAskOf('goal_path_unsized', warning({ kind: 'link', from: 'a', to: 'zz' }), labelOf)).toBeNull()
     expect(unsizedPathAskOf('goal_path_unsized', warning({ kind: 'riddle' }), labelOf)).toBeNull()
+  })
+
+  // ⭐ RE-PINNED (DL #87, 6 Oct, RT-19 fx1): "no first_ask (older CEE) → null" emptied the panel ("No findings need
+  // attention") while the chat said "Set them". With NO typed ask, the withhold's own first link is NAMED (CEE's list).
+  it('NO typed ask (absent, or null on the wire): the withhold\'s own first link, named, with how many more', () => {
+    expect(unsizedPathAskOf('goal_path_unsized', warning(), labelOf))
+      .toEqual({ kind: 'withheld_link', fromId: 's', toId: 'g', from: 'Strain', to: 'MRR', more: 1 })
+    expect(unsizedPathAskOf('goal_path_unsized', warning(null), labelOf)?.kind).toBe('withheld_link')
+    expect(unsizedPathAskOf('goal_path_unsized', [{ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [] }], labelOf), 'names none → null').toBeNull()
   })
 })

@@ -190,7 +190,9 @@ describe('NODE-ANATOMY v3.2 · Goal · missing target — ONE pill only', () => 
     renderGoal({})
     // Positive control: the missing state IS on the card.
     const chip = screen.getByTestId('goal-node-no-target-chip')
-    expect(row().contains(chip)).toBe(true)
+    expect(chip.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(chip.getAttribute('aria-label')).toContain('Target not captured')
+    expect(row().contains(chip)).toBe(false)
     expect(allPills()).toHaveLength(0)
   })
 })

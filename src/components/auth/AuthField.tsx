@@ -46,7 +46,7 @@ const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(function AuthFiel
           aria-invalid={error ? true : undefined}
           aria-describedby={error || hint ? describedBy : undefined}
           {...inputProps}
-          className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 ${
+          className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info disabled:opacity-50 ${
             isPassword ? 'pr-12' : ''
           } ${error ? 'border-danger' : 'border-[rgba(38,38,38,0.16)] hover:border-[rgba(38,38,38,0.28)]'}`}
         />
@@ -56,7 +56,7 @@ const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(function AuthFiel
             onClick={() => setRevealed(r => !r)}
             aria-label={revealed ? 'Hide password' : 'Show password'}
             aria-pressed={revealed}
-            className="absolute inset-y-0 right-1 my-auto flex h-9 w-9 items-center justify-center rounded-sm text-text-light transition-colors duration-fast hover:text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+            className="absolute inset-y-0 right-1 my-auto flex h-9 w-9 items-center justify-center rounded-sm text-text-light transition-colors duration-fast hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           >
             {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>

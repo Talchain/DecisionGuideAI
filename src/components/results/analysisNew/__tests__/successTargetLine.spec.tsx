@@ -42,6 +42,7 @@ import { SuccessTargetLine } from '../sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
 import { action } from '../panelSurfaces'
+import { MARK_COLOUR } from '../nodeMarks'
 
 const TID = 'target'
 /** V2 prototype's success row, verbatim; the component holds it as a local constant. */
@@ -76,7 +77,9 @@ describe('it shows the target the user already stated', () => {
     state.goalThreshold = 110
     state.goalThresholdRepresentation = 'raw'
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('110')
+    // #2747 r2 (fresh check BLOCKING 6): the store's scalar alone (no target on the node) is never said as the target.
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('Target not captured')
+    expect(screen.getByTestId(`${TID}-value`)).not.toHaveTextContent('110')
     // DESIGN-GAP-v31 #22 (26 Sep, WS4): provenance comes only from a carried
     // `threshold_source`. Nothing here carries one, so the line says "Source not
     // recorded" — never "From brief", which the node did not record.
@@ -244,11 +247,12 @@ describe('it refuses to print a number it cannot express', () => {
    * that never renders a value at all. Same number, different tag, different
    * render — so the tag is provably what decides.
    */
-  it('…and DOES render the same number when it is raw', () => {
+  it('…and a raw scalar renders the value slot, as "Target not captured" (#2747 r2: never the bare stored number)', () => {
     state.goalThreshold = 0.8
     state.goalThresholdRepresentation = 'raw'
     draw()
-    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('0.8')
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('Target not captured')
+    expect(screen.queryByTestId(`${TID}-none`)).toBeNull()
   })
 
   /**
@@ -290,10 +294,10 @@ describe('it refuses to print a number it cannot express', () => {
   })
 })
 
-describe('with NO dispatcher mounted the write is local, and says so', () => {
+describe('with NO dispatcher mounted the target is refused', () => {
   /**
    * ⚠⚠ THE PRECONDITION IS PINNED IN-TEST, NOT ASSUMED. Every case below is
-   * about the `local_only` path, which exists only while
+   * about the `local_only` refusal path, which exists only while
    * `goalTargetDispatchAvailable` is false. Asserting it here means a fixture
    * change that silently arms the dispatcher REDs, instead of turning these
    * cases into tautologies about a path they are no longer on (trap 13b).
@@ -302,21 +306,17 @@ describe('with NO dispatcher mounted the write is local, and says so', () => {
     expect(goalTargetDispatchAvailable).toBe(false)
   })
 
-  it('writes to the GOAL node it was given', async () => {
+  it('leaves the GOAL node unchanged without a dispatcher', async () => {
     const user = userEvent.setup()
     draw(vi.fn(), 'goal-42')
     await user.click(screen.getByTestId(`${TID}-edit`))
     await user.type(screen.getByTestId(`${TID}-input`), '110')
     await user.click(screen.getByTestId(`${TID}-save`))
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('goal-42', 110)
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${TID}-editor`)).toBeInTheDocument()
   })
 
-  /**
-   * ⚠⚠ `local_only` IS STILL A REAL OUTCOME, and it is the honest one HERE:
-   * with no dispatcher mounted there is no send to report. What changed is that
-   * it is no longer the ONLY outcome, and it no longer carries a sentence
-   * promising the next analysis will use the value.
-   */
+  /** A missing carrier keeps the local_only caller contract and retains the draft. */
   it('reports local_only when there is no dispatcher to ask', async () => {
     const user = userEvent.setup()
     const onCommitOutcome = draw()
@@ -373,5 +373,50 @@ describe('it refuses to be an affordance writing into nowhere', () => {
       <SuccessTargetLine goalNodeId={null} onCommitOutcome={vi.fn()} testId={TID} />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+/**
+ * Paul 14 Oct 2026: the checklist's Goal row draws the canvas's own goal diamond (the shared `NodeMark`, goal
+ * token), and the goal's words are italic only while the goal is provisional. A discriminating pair: the same goal
+ * label, provisional and not.
+ */
+describe('the checklist Goal row', () => {
+  const drawChecklist = (provisional: boolean) =>
+    render(
+      <ul>
+        <SuccessTargetLine
+          goalNodeId="g1"
+          onCommitOutcome={vi.fn()}
+          testId={TID}
+          variant="checklist"
+          goalLabel="Grow quarterly revenue"
+          provisional={provisional}
+        />
+      </ul>,
+    )
+
+  it('marks the row with the goal diamond in the canvas goal colour, not a lucide icon', () => {
+    drawChecklist(false)
+    const row = screen.getByTestId(TID)
+    const marks = row.querySelectorAll('svg[data-mark-kind]')
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toHaveAttribute('data-mark-kind', 'goal')
+    expect(marks[0]).toHaveClass(MARK_COLOUR.goal)
+    expect(row.querySelector('svg.lucide-target')).toBeNull()
+  })
+
+  it('sets the goal words in italics when provisional', () => {
+    drawChecklist(true)
+    const goal = screen.getByTestId(`${TID}-goal`)
+    expect(goal).toHaveTextContent('Grow quarterly revenue')
+    expect(goal).toHaveClass('italic')
+  })
+
+  it('keeps the goal words upright when the goal is not provisional', () => {
+    drawChecklist(false)
+    const goal = screen.getByTestId(`${TID}-goal`)
+    expect(goal).toHaveTextContent('Grow quarterly revenue')
+    expect(goal).not.toHaveClass('italic')
   })
 })

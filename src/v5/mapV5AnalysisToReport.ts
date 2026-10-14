@@ -811,9 +811,10 @@ function briefWinProbability(
  * one the report itself uses.
  *
  * The id↔label source falls back to `decision_brief.options[]` exactly as
- * `resolveLeaderKeys` does, and for the same reason: the verdict decides
- * WHETHER a leader may be marked and `resolveLeaderKeys` decides WHICH key
- * it is, so the two MUST resolve identity from the same chain. When they
+ * `resolveOptionLabelById` does, so the verdict and the card's labels resolve
+ * identity from the same chain. (`resolveLeaderKeys`, which picked the leader's
+ * win-share pill from this chain, went with that pill row in #2747 re-scope 2.)
+ * When the verdict and the leader key
  * disagreed, a payload carrying only the brief fallback resolved a leader key
  * and no verdict — silently withholding a designation the producer permitted.
  */
@@ -824,7 +825,7 @@ export function buildV5VerdictReportLike(block: {
   const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
   const winProbs = block.win_probabilities ?? {}
 
-  // Same fallback chain as `resolveLeaderKeys`; NOT applied to the report
+  // Same fallback chain as `resolveOptionLabelById`; NOT applied to the report
   // mapper itself, whose `option_probabilities` keying is a separate,
   // already-pinned contract (path B keys by win_probabilities verbatim).
   const fromComparison = resolveOptionEntries(enrichment)
@@ -886,44 +887,13 @@ export function buildV5VerdictReportLike(block: {
   }
 }
 
-export function resolveLeaderKeys(
-  enrichment: Record<string, unknown> | undefined,
-  leadingOptionId: string | null | undefined,
-): ReadonlySet<string> {
-  if (typeof leadingOptionId !== 'string' || leadingOptionId === '') {
-    return new Set<string>()
-  }
-  // The id itself always counts: some paths/fixtures DO key by option_id.
-  const keys = new Set<string>([leadingOptionId])
-
-  const fromComparison: ResolvedOptionIdentity[] = resolveOptionEntries(enrichment).map((r) => ({
-    optionId: r.optionId,
-    label: r.optionLabel,
-  }))
-  const identities =
-    fromComparison.length > 0 ? fromComparison : resolveDecisionBriefOptions(enrichment)
-
-  const labelOccurrences = new Map<string, number>()
-  for (const identity of identities) {
-    if (identity.label !== undefined) {
-      labelOccurrences.set(identity.label, (labelOccurrences.get(identity.label) ?? 0) + 1)
-    }
-  }
-
-  const leaderLabel = identities.find((i) => i.optionId === leadingOptionId)?.label
-  if (leaderLabel !== undefined && (labelOccurrences.get(leaderLabel) ?? 0) === 1) {
-    keys.add(leaderLabel)
-  }
-  return keys
-}
-
 /**
  * option_id → human label, derived from the SAME payload the caller is
  * rendering: `enrichment.option_comparison` first, falling back to
  * `enrichment.decision_brief.options` (that array is not guaranteed — the wire
  * carries a sibling `option_comparison_status` precisely because of it).
  *
- * Reuses the two resolvers `resolveLeaderKeys` uses, so this is one derivation
+ * Reuses the two resolvers `buildV5VerdictReportLike` uses, so this is one derivation
  * chain over producer data with two callers, NOT a second hand-maintained
  * mapping. Ids with no resolvable label are simply absent from the map; the
  * caller decides what to show instead (ROADMAP 2.154 renders the raw id, which
@@ -975,6 +945,8 @@ export interface MapV5AnalysisOptions {
    * probabilities) still produce a distinct hash and re-hydrate.
    */
   responseHash?: string
+  /** Producer run_state timestamp, carried verbatim for hash+time RunView matching. */
+  computedAt?: string | null
 }
 
 /**
@@ -989,7 +961,7 @@ export interface MapV5AnalysisOptions {
 export function mapV5AnalysisToReport(
   block: AnalysisResultBlock,
   options: MapV5AnalysisOptions = {},
-): ReportV1 {
+): ReportV1 & { meta: ReportV1['meta'] & { computed_at?: string } } {
   // Receipts fail closed: no real seed → null (Seed row hides), never 0.
   // NOTE: meta.seed does NOT feed the deriveBlockHash `v5:` digest — that
   // hashes summary/leading_option_id/win_probabilities/enrichment only —
@@ -1676,6 +1648,7 @@ export function mapV5AnalysisToReport(
       seed,
       response_id: responseHash,
       elapsed_ms: 0,
+      ...(options.computedAt ? { computed_at: options.computedAt } : {}),
     },
     model_card: {
       response_hash: responseHash,
@@ -1711,6 +1684,11 @@ export function mapV5AnalysisToReport(
   // the widened ResultsReport / InspectorReport index signatures. These are
   // NOT on ReportV1 but are written onto the same record by the V4 mapper.
   const widened = report as ReportV1 & Record<string, unknown>
+  // Preserve the producer's Run identity for the READ view. V5 blocks currently use the graph-hash fallback.
+  const identity = block as unknown as Record<string, unknown>
+  for (const key of ['run_id', 'computed_against_hash'] as const) {
+    if (typeof identity[key] === 'string' && identity[key].length > 0) widened[key] = identity[key]
+  }
   if (factors.length > 0) {
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,

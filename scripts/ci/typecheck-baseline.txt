@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2059
+# count=2055
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -279,7 +279,7 @@
 1	src/canvas/ui/inspector-v2/__tests__/Brief3Panels.spec.tsx
 1	src/canvas/ui/inspector-v2/__tests__/EdgePanelCausalClaims.spec.tsx
 2	src/canvas/ui/inspector-v2/__tests__/SharedComponents.spec.tsx
-2	src/canvas/ui/inspector-v2/panels/DecisionPanel.tsx
+1	src/canvas/ui/inspector-v2/panels/DecisionPanel.tsx
 3	src/canvas/ui/inspector-v2/panels/EdgePanel.tsx
 2	src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx
 1	src/canvas/ui/inspector-v2/panels/FactorExternalPanel.tsx
@@ -383,10 +383,9 @@
 5	src/components/results/__tests__/v12.2-factor-labels.spec.tsx
 13	src/components/results/__tests__/v12.2-fixes.spec.tsx
 1	src/components/results/buildResultsVM.ts
-1	src/components/results/decision-overview/DecisionOverviewCard.tsx
 1	src/components/results/strengthen/__tests__/buildRecommendations.spec.ts
 1	src/components/results/useResultCompleteness.ts
-24	src/components/results/useResultsSectionData.ts
+23	src/components/results/useResultsSectionData.ts
 11	src/components/results/utils/__tests__/optionDisplayOrder.spec.ts
 1	src/components/results/utils/linkifyCoachingText.tsx
 13	src/components/shared/TriageCard.tsx
@@ -469,7 +468,7 @@
 1	src/plc/components/GraphCanvasPlc.tsx
 3	src/poc/state/__tests__/undoRedo.reducer.spec.ts
 4	src/routes/CanvasIsolationTest.tsx
-2	src/routes/CanvasMVP.tsx
+1	src/routes/CanvasMVP.tsx
 1	src/routes/PlotWorkspace.tsx
 1	src/routes/SandboxV1.tsx
 2	src/routes/templates/components/WhyPanel.tsx

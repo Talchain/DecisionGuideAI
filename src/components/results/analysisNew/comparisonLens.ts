@@ -98,7 +98,10 @@ export function comparisonLensAvailability(
 ): ComparisonLensAvailability {
   return {
     outcome: outcomeRangeScale(section.rows) !== null,
-    goal: goalFitAvailable(section.rows),
+    // #2747 re-scope 2 (U0): no chance off the journey path in C, so the Reasoning tab's options comparison draws no Goal
+    // fit lens (its bars and its "chance of meeting your goal" note). Interim limit; the restore trigger is the chance's
+    // own served string and Run licence on this surface (post-C). The chances are on the Analysis tab, in CEE's words.
+    goal: false,
   }
 }
 
@@ -157,7 +160,7 @@ export const COMPARISON_LENS_COPY = {
    */
   locked: {
     outcome: 'This run did not return a range for these options.',
-    goal: "Goal fit shows the share of model runs in which each option reaches the target. This run did not return one.",
+    goal: "Goal fit shows each option’s chance of meeting your goal, in this model. This run did not return one.",
   } satisfies Record<ComparisonLens, string>,
   rowActions: (label: string): string => `Show actions for ${label}`,
   inspectInModel: (label: string): string => `Inspect ${label} in Model`,

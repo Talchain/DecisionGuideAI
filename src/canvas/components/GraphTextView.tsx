@@ -1,3 +1,5 @@
+import { servedSwitchReading } from '../domain/switchFactors'
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 /**
  * GraphTextView - Hierarchical text representation of decision graph
  *
@@ -212,19 +214,19 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
   }
 
   // Format value for human comprehension (no raw floats)
-  let value: string | null = null
+  let value: string | null = servedSwitchReading(data)
   const rawVal = observedState.raw_value
   const unit = typeof observedState.unit === 'string' ? observedState.unit : null
   const numValue = typeof observedState.value === 'number' ? observedState.value : null
 
-  if (rawVal != null && String(rawVal).trim() !== '') {
+  if (value === null && rawVal != null && String(rawVal).trim() !== '') {
     const numeric = Number(rawVal)
     if (unit && CURRENCY_SYMBOLS.has(unit[0]) && !isNaN(numeric)) {
       value = formatInterventionValue(numeric, unit, observedState.factor_type)
     } else {
       value = unit ? `${rawVal} ${unit}` : String(rawVal)
     }
-  } else if (numValue !== null) {
+  } else if (value === null && numValue !== null) {
     if (unit) {
       // Polish 4 follow-up Item B: preserveTierLabel keeps the qualitative
       // tier ("Very low" / "High") for generic-placeholder units (e.g. "scale")
@@ -267,7 +269,8 @@ export function GraphTextView({
   const [copied, setCopied] = useState(false)
 
   // Group and filter nodes
-  const groupedNodes = useMemo(() => groupNodesByType(nodes), [nodes])
+  const displayNodes = useSwitchFactorNodes(nodes)
+  const groupedNodes = useMemo(() => groupNodesByType(displayNodes), [displayNodes])
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return groupedNodes

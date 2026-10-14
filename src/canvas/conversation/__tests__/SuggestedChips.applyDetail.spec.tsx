@@ -101,10 +101,10 @@ describe('SuggestedChips — the apply control exposes its detail', () => {
     expect(screen.getByTestId('suggested-chip-plain_01').getAttribute('title')).toBeNull()
   })
 
-  it('composes with the role prefix rather than displacing it', () => {
+  it('U17: accessibility keeps the producer label and detail without a role prefix', () => {
     renderChips([{ ...applyChip, role: 'scientist' }])
     expect(screen.getByTestId(`suggested-chip-${APPLY_ID}`).getAttribute('aria-label')).toBe(
-      `Scientist: ${APPLY_LABEL}: ${APPLY_DETAIL}`,
+      `${APPLY_LABEL}: ${APPLY_DETAIL}`,
     )
   })
 })

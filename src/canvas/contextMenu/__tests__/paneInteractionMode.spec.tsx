@@ -22,7 +22,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasContextMenu } from '../CanvasContextMenu'
 import type { PaneTarget } from '../types'
 
-vi.mock('../../ToastContext', () => ({ useShowToast: () => vi.fn() }))
+vi.mock('../../ToastContext', () => ({ useShowToast: () => vi.fn(), useShowToastSafe: () => vi.fn() }))
 
 vi.mock('../../store', () => {
   const mockState = {
@@ -137,6 +137,6 @@ describe('pointer mode on the pane context menu', () => {
   it('leaves the rest of the pane menu intact', () => {
     renderMenu({ interactionMode: 'select', onSetInteractionMode: vi.fn() })
     expect(screen.getByText('Add node')).toBeInTheDocument()
-    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Ask Olumi')).toBeInTheDocument()
   })
 })

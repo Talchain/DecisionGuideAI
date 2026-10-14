@@ -25,10 +25,11 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import { createElement, type ComponentType } from 'react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { nodeTypes, rawNodeTypes } from '../registry'
+import { useCanvasStore } from '../../store'
 import {
   withNodeKeyboardScope,
   NODE_KEYBOARD_SCOPE_CLASS,
@@ -46,6 +47,27 @@ import {
 const SCOPE_SELECTOR = `[${NODE_KEYBOARD_SCOPE_ATTR}]`
 
 describe('node registry: keyboard scope coverage', () => {
+  it('a portalled no-target control stays inside the scope that arms at keydown', () => {
+    const Wrapped = nodeTypes.goal as ComponentType<NodeProps>
+    const props = { id: 'goal-scope', type: 'goal', data: { label: 'Grow', type: 'goal' }, selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0 }
+    useCanvasStore.setState({ nodes: [{ ...props, position: { x: 0, y: 0 } }], edges: [], lodRung: 'full', goalThreshold: null, goalConstraints: [], results: { status: 'idle', report: null } } as never)
+    // Inside a React Flow node wrapper, as the canvas mounts it: React Flow reads the key at the NODE, and a portalled
+    // event's React capture runs from the band (below the node), so the arm must already be up when the node sees it.
+    const { container } = render(createElement(ReactFlowProvider, null, createElement('div', { className: 'react-flow__node' }, createElement(Wrapped, props as unknown as NodeProps))))
+    const chip = container.querySelector<HTMLElement>('[data-testid="goal-node-no-target-chip"]')!
+    expect(chip).not.toBeNull()
+    const scope = chip.closest(SCOPE_SELECTOR)!
+    expect(scope).not.toBeNull()
+    expect(scope).toBe(chip.closest('[data-card-bottom-band]'))
+    const rfNode = container.querySelector<HTMLElement>('.react-flow__node')!
+    let armed: Element | null = null
+    // The gate's probe (nodeKeyboardBleed 1b): a native capture listener on the node, added after mount.
+    rfNode.addEventListener('keydown', (ev) => { armed = (ev.target as Element).closest(`.${NODE_KEYBOARD_SCOPE_CLASS}`) }, true)
+    fireEvent.keyDown(chip, { key: 'Enter' })
+    expect(armed).toBe(scope)
+    fireEvent.pointerDown(chip)
+    expect(scope).not.toHaveClass(NODE_KEYBOARD_SCOPE_CLASS)
+  })
   it('exports one wrapped renderer for every raw renderer, in both directions', () => {
     const raw = Object.keys(rawNodeTypes).sort()
     const exported = Object.keys(nodeTypes).sort()

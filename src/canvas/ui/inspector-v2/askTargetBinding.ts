@@ -26,11 +26,11 @@ export const ASK_BINDING_PREFIX_CHARS = 24
 let pending: AskTargetBinding | null = null
 
 /** Bind the next send to this ask's target. An ask with no target binds nothing. */
-export function bindAskTarget(draft: string, nodeIds: Iterable<string>, edgeIds: Iterable<string>): void {
+export function bindAskTarget(draft: string, nodeIds: Iterable<string>, edgeIds: Iterable<string>, bindEmpty = false): void {
   const text = draft.trim()
   const nodes = new Set(nodeIds)
   const edges = new Set(edgeIds)
-  pending = text.length > 0 && nodes.size + edges.size > 0 ? { draft: text, nodeIds: nodes, edgeIds: edges } : null
+  pending = text.length > 0 && (bindEmpty || nodes.size + edges.size > 0) ? { draft: text, nodeIds: nodes, edgeIds: edges } : null
 }
 
 /**

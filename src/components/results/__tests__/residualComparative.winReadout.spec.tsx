@@ -72,6 +72,6 @@ describe('RangeVisualization per-option probability text (ROADMAP 1.239)', () =>
     // Over-suppression control: only the win-probability readout is relabelled,
     // and only when no goal threshold is in play.
     render(<RangeVisualization options={OPTIONS} winnerId="opt_mac" goalThreshold={50} />)
-    expect(screen.getByText('reaches the target in 40% of model runs')).toBeDefined()
+    expect(screen.getByText('about 40% chance of meeting your goal')).toBeDefined()
   })
 })
