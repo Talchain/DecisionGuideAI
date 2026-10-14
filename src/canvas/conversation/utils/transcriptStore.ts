@@ -627,6 +627,6 @@ export function clearTranscript(scenarioId: string | null | undefined): void {
  */
 export function formatTruncationNotice(droppedCount: number): string {
   return droppedCount === 1
-    ? 'The earliest message from this decision could not be restored'
-    : `The earliest ${droppedCount} messages from this decision could not be restored`
+    ? 'The earliest message from this scenario could not be restored'
+    : `The earliest ${droppedCount} messages from this scenario could not be restored`
 }

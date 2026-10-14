@@ -84,7 +84,7 @@ export const OVERVIEW_COPY = {
   workThrough: 'Work through with Olumi',
   answerDirectly: 'Answer directly',
   answerDraftPrefix: 'My answer: ',
-  reviewBrief: 'Review your decision brief',
+  reviewBrief: 'Review your brief',
   reviewBriefHelper: 'Olumi challenges one issue at a time.',
   pillContext:
     'Help me check whether this decision classification is right and how it should affect the process.',

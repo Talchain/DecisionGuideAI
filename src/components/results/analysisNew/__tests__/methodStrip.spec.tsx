@@ -361,7 +361,7 @@ describe('the overflow menu', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('"Edit decision brief" opens the drawer with the shared review-brief ask', () => {
+  it('"Edit your brief" opens the drawer with the shared review-brief ask', () => {
     draw({}, WIDE)
     openMenu()
     fireEvent.click(screen.getByTestId(`${TID}-menu-action-edit_brief`))

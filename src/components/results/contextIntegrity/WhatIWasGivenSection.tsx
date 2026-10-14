@@ -167,7 +167,7 @@ const COPY = {
   // whole job is to say "these lists are not exhaustive" may not open by
   // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
   caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
-  noBrief: "I don't have your original wording saved for this decision.",
+  noBrief: "I don't have your original wording saved for this scenario.",
   /**
    * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
    * against the LIVE deployed router (staging `cee-staging.onrender.com`,

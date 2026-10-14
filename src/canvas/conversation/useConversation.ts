@@ -269,7 +269,7 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
  * else (CLAUDE.md trap 12).
  */
 export const NO_SCENARIO_OPEN_NOTICE =
-  'Open or create a model first — then I can work on it with you. Your models are listed under My models.'
+  'Open or create a scenario first — then I can work on it with you. Your scenarios are listed under My scenarios.'
 
 export const DRAFT_DELIVERY_UNRESOLVED_NOTICE =
   "The model hasn't reached this canvas, and I couldn't confirm a saved model. Try loading it again below; this won't resend your brief."

@@ -162,7 +162,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Crosshair, FileText, Lightbulb, Pencil, X } from 'lucide-react'
+import { Crosshair, Lightbulb, Pencil, X } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
  * AND A GUARD IS WHY.
@@ -538,6 +538,8 @@ export function ModelStrip({
     return null
   })
   const briefText = useCurrentBriefText()
+  /** The Brief row shows the user's own words (Paul 14 Oct 2026: brief = what the user wrote); the question only when there is no brief. */
+  const briefRowText = briefText !== null && briefText.trim() !== '' ? briefText.trim() : null
   const questionLead =
     decisionQuestion !== null
       ? oneSentence(decisionQuestion)
@@ -1440,8 +1442,8 @@ export function ModelStrip({
               question", the store `ModelReviewTool` hosts), ✦ = the whole-framing ask — the pair that sat on the
               "N to review" row. The text element carries `subjectId`, so the landmark keeps its name. */}
           <li role="listitem" className="contents" data-testid={`${testId}-decision`} data-kind="decision">
-            <span className="flex min-h-7 items-center gap-1 px-1 py-0.5 min-w-0">
-              <FileText className={`${icon('inline')} shrink-0 text-text-light`} aria-hidden={true} />
+            <span className="flex min-h-7 items-center gap-1 py-0.5 min-w-0">
+              <NodeMark kind="decision" />
               <span className={`${typography.panelMeta} text-text-light truncate`}>Brief</span>
             </span>
             <SubjectTag id={subjectId} className="m-0 min-w-0" data-testid={`${testId}-lead`}>
@@ -1449,13 +1451,13 @@ export function ModelStrip({
                 type="button"
                 onClick={() => setDecisionWrapped((v) => !v)}
                 aria-expanded={decisionWrapped}
-                title={leadLabel ?? undefined}
+                title={briefRowText ?? leadLabel ?? undefined}
                 className={`${typography.panelBody} text-text-body block w-full min-w-0 py-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                   decisionWrapped ? 'whitespace-normal break-words' : 'truncate'
                 }`}
                 data-testid={`${testId}-lead-text`}
               >
-                {leadLabel ?? NO_SUBJECT_LABEL}
+                {briefRowText ?? leadLabel ?? NO_SUBJECT_LABEL}
               </button>
             </SubjectTag>
             <span className="flex items-center shrink-0 justify-self-end">
@@ -1500,7 +1502,7 @@ export function ModelStrip({
               data-zero="true"
             >
               {/* Not a control: there is nothing of this kind to ring or narrow to. */}
-              <span className="flex min-h-6 items-center gap-1 px-1 py-0.5 min-w-0">
+              <span className="flex min-h-6 items-center gap-1 py-0.5 min-w-0">
                 <NodeMark kind={row.kind} />
                 <span className={`${typography.panelMeta} text-text-light truncate`}>{row.label}</span>
               </span>
@@ -1533,7 +1535,7 @@ export function ModelStrip({
                 onClick={() => pickKind(row.kind)}
                 aria-pressed={kindFilter === row.kind}
                 aria-label={COPY.modelStrip.onlyKind(row.label)}
-                className={`flex min-h-6 items-center gap-1 rounded px-1 py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                className={`flex min-h-6 items-center gap-1 rounded py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                   kindFilter === row.kind ? 'bg-panel-hover' : 'hover:bg-panel-hover'
                 }`}
                 data-testid={`${testId}-row-filter`}

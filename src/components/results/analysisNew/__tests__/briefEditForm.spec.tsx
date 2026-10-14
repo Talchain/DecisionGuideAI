@@ -142,7 +142,7 @@ describe('the form', () => {
   })
 })
 
-describe('"Edit decision brief" in the Method strip opens the SAME form', () => {
+describe('"Edit your brief" in the Method strip opens the SAME form', () => {
   it('with the review row mounted: the inline form opens, and no drawer', () => {
     render(
       <>

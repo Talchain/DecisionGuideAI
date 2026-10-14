@@ -20,15 +20,15 @@ import { DecisionBriefView } from './DecisionBriefView'
 import { useSavedScenarioRead } from './useSavedScenarioRead'
 import { useDecisionRecordForScenario } from '../../components/results/modals'
 
-export const DECISION_BRIEF_TRIGGER_LABEL = 'Decision brief'
+export const DECISION_BRIEF_TRIGGER_LABEL = 'Summary'
 
 const READ_FAILURE_COPY: Record<string, string> = {
-  absent: 'This decision has no saved model yet, so there is nothing to brief.',
-  notReadable: 'I couldn’t open the saved model for this decision.',
+  absent: 'This scenario has no saved model yet, so there is nothing to summarise.',
+  notReadable: 'I couldn’t open the saved model for this scenario.',
   unavailable: 'The saved model is unavailable right now. Try again shortly.',
   signInRequired: 'Sign in again to open the saved model.',
-  refused: 'I couldn’t open the saved model for this decision.',
-  unusable: 'I couldn’t read the saved model for this decision.',
+  refused: 'I couldn’t open the saved model for this scenario.',
+  unusable: 'I couldn’t read the saved model for this scenario.',
 }
 
 export function DecisionBriefTrigger({ className = '' }: { className?: string }) {
@@ -140,7 +140,7 @@ export function DecisionBriefTrigger({ className = '' }: { className?: string })
                 type="button"
                 onClick={close}
                 className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header"
-                aria-label="Close decision brief"
+                aria-label="Close summary"
                 data-testid="decision-brief-close"
               >
                 <X size={14} aria-hidden="true" />

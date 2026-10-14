@@ -454,7 +454,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
 
 export function decisionBriefToText(brief: DecisionBriefModel): string {
   const lines: string[] = []
-  lines.push(`Decision brief${brief.decision.label ? `: ${brief.decision.label}` : ''}`)
+  lines.push(`Summary${brief.decision.label ? `: ${brief.decision.label}` : ''}`)
   lines.push(
     `Saved model version ${brief.version.shortVersion ?? 'not stated'}` +
       (brief.run.computedAtText ? ` · latest Run ${brief.run.computedAtText}` : ''),

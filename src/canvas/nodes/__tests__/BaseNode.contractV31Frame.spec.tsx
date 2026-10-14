@@ -312,7 +312,8 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
     // 29 Sep: measured from the anchor's 13px side padding, and 0.5px under the rail so the card is the contract's 65.
     expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -7px)`)
-    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3.5px)')
+    // Paul 14 Oct 2026: the rail box is 24 (was 25) to match the reasoning panel's icon buttons.
+    expect(body.style.minHeight).toBe('calc(24px * var(--canvas-glyph-scale, 1) + -3.5px)')
     // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
     expect(root.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
@@ -389,10 +390,11 @@ describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01
   // box to the contract's 25px (`.icon-btn{width:25px;height:25px}`); the band is
   // derived from it, 6 + (25 + 2) × scale. The claim — a calc over the live
   // scale, not a fixed band — is unchanged.
+  // ⛔ UPDATED 14 Oct 2026 (Paul: node Olumi icon to match the panel's 24px button): 27 → 26, box 25 → 24.
   it('an ordinary card renders the band as a calc over --canvas-glyph-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    // 29 Sep: 5 + 27 = 32 at 100%, the contract's `padding-bottom:32px` (rail at `bottom:5px`).
-    expect(root.style.paddingBottom).toBe('calc(5px + 27px * var(--canvas-glyph-scale, 1))')
+    // 29 Sep: 5 + 27 = 32 at 100% (contract `padding-bottom:32px`); 14 Oct: 5 + 26 = 31 with the 24px box.
+    expect(root.style.paddingBottom).toBe('calc(5px + 26px * var(--canvas-glyph-scale, 1))')
   })
 })
 

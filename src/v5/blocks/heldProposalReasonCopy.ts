@@ -31,7 +31,7 @@ export const HELD_PROPOSAL_REASON_COPY = {
   OPTION_TOP_LEVEL_OPTIONS_DIVERGENCE:
     'This changes how your options are organised, so it needs your confirmation first.',
   FRAME_UNAVAILABLE:
-    'The current decision framing could not be read, so this change is waiting for your confirmation.',
+    'The current framing could not be read, so this change is waiting for your confirmation.',
   CURRENT_GRAPH_UNREADABLE:
     'The current model could not be read cleanly, so this change is waiting for your confirmation.',
   CLASSIFY_FAILED:

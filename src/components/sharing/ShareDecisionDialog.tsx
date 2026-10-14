@@ -24,16 +24,16 @@ import {
 
 export const SHARE_DIALOG_COPY = {
   title: 'Invite a colleague',
-  lead: 'They can view this model and its latest analysis. They cannot change it.',
+  lead: 'They can view this scenario and its latest analysis. They cannot change it.',
   done: "Done. If they have an Olumi account, they'll see it under Shared with me.",
   membersHeading: 'People with view access',
   noMembers: 'Not shared with anyone yet.',
 } as const
 
 const FAILURE_COPY: Record<SharingFailure, string> = {
-  not_owner: 'Only the owner of this model can share it.',
+  not_owner: 'Only the owner of this scenario can share it.',
   bad_email: 'Enter a valid email address, other than your own.',
-  member_cap: 'This model has reached the limit of people it can be shared with.',
+  member_cap: 'This scenario has reached the limit of people it can be shared with.',
   unavailable: "That didn't work just now. Try again in a moment.",
 }
 

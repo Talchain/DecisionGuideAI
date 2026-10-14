@@ -770,13 +770,13 @@ it('escalates the narration after 20 seconds', async () => {
   // Unlike the old slow-run region, the banner speaks immediately — the
   // silence this replaced was the defect, not the baseline.
   expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
-    'Analysing your decision…',
+    'Analysing your model…',
   )
 
   advanceTo(20000)
 
   expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
-    'Still analysing your decision…',
+    'Still analysing your model…',
   )
 
   vi.useRealTimers()
@@ -791,7 +791,7 @@ it('escalates again after 40 seconds', async () => {
   advanceTo(40000)
 
   expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
-    'Still analysing — complex decisions can take a while…',
+    'Still analysing — complex models can take a while…',
   )
 
   vi.useRealTimers()
@@ -1528,7 +1528,7 @@ describe('Wave1-L2: single run-status live region', () => {
     // stale (old copy) — left untouched to avoid colliding with the lane
     // reviving it."
     expect(screen.getByTestId('analysis-running-banner')).toHaveTextContent(
-      'Still analysing your decision…',
+      'Still analysing your model…',
     )
 
     vi.useRealTimers()

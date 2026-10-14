@@ -317,6 +317,6 @@ describe('V5 live-chain error recovery — non-2xx BoundaryError through the rea
     // Copy agrees with the withheld affordance and the guidance names the way forward.
     expect(last.content).toContain('That took longer than we allow for a single turn.')
     expect(last.content).not.toMatch(/please retry/i)
-    expect(last.content).toContain('start a new model')
+    expect(last.content).toContain('start a new scenario')
   })
 })

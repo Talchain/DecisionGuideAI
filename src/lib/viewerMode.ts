@@ -38,7 +38,7 @@ import { useSyncExternalStore } from 'react'
 
 /** What a viewer sees where the composer would be. Neutral: no claim about the chat. */
 export const VIEWER_COMPOSER_NOTICE =
-  "You're viewing a decision shared with you. The owner's conversation stays private, and only the owner can change or run the model."
+  "You're viewing a scenario shared with you. The owner's conversation stays private, and only the owner can change or run the model."
 
 let viewerScenarioId: string | null = null
 const listeners = new Set<() => void>()

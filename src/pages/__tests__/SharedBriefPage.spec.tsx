@@ -194,7 +194,7 @@ describe('SharedBriefPage', () => {
     renderPage()
     // All six headings must appear. If this grouped by `type` instead, every
     // node would fall into "Also in the model" — 45,876 of them, in a week.
-    expect(await screen.findByText('The decision')).toBeInTheDocument()
+    expect(await screen.findByText('The question')).toBeInTheDocument()
     expect(screen.getByText('What it is for')).toBeInTheDocument()
     expect(screen.getByText('Options on the table')).toBeInTheDocument()
     expect(screen.getByText('What it depends on')).toBeInTheDocument()
@@ -528,13 +528,13 @@ describe('SharedBriefPage', () => {
   it('shows a not-found state for an unknown or expired slug', async () => {
     mockGetSharedSnapshotBySlug.mockResolvedValue(null)
     renderPage()
-    expect(await screen.findByText('Decision not found')).toBeInTheDocument()
+    expect(await screen.findByText('Scenario not found')).toBeInTheDocument()
   })
 
   it('shows an error state when the read fails', async () => {
     mockGetSharedSnapshotBySlug.mockRejectedValue(new Error('network down'))
     renderPage()
-    expect(await screen.findByText('Failed to load this decision')).toBeInTheDocument()
+    expect(await screen.findByText('Failed to load this scenario')).toBeInTheDocument()
     expect(screen.getByText('network down')).toBeInTheDocument()
   })
 

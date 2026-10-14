@@ -362,7 +362,7 @@ const INGRESS_SIGN_IN_GUIDANCE =
  * that arrives without a recovery block.
  */
 const INGRESS_SCENARIO_DELETED_GUIDANCE =
-  'This model has been deleted, so nothing more can be saved to it — nothing you typed was the problem. Start a new model, or open a different one from your list.'
+  'This scenario has been deleted, so nothing more can be saved to it — nothing you typed was the problem. Start a new scenario, or open a different one from your list.'
 
 const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
   'scenario_preflight',
@@ -507,7 +507,7 @@ export function resolveGuidance(code: FailureTypeLiteral, err?: BoundaryError): 
     case 'FEATURE_NOT_ENABLED':
       return 'This feature is not yet available in your session.'
     case 'TURN_BUDGET_EXCEEDED':
-      return 'This session has reached its turn limit — start a new model to continue.'
+      return 'This session has reached its turn limit — start a new scenario to continue.'
     case 'UPSTREAM_TIMEOUT':
     case 'UPSTREAM_UNAVAILABLE':
     case 'LLM_UNAVAILABLE':

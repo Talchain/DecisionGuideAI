@@ -79,8 +79,9 @@ it('all information marks are bottom-left, title has full width, Olumi stays in 
   expect(rail).toHaveAttribute('data-rail-placement', 'inset')
   expect(rail).toHaveClass('bottom-[5px]', 'right-[6px]')
   expect(olumi.querySelector('img')).toHaveAttribute('data-icon', 'olumi-brand-mark')
-  expect(olumi.querySelector('img')).toHaveAttribute('width', '15')
-  expect(olumi.querySelector('img')).toHaveAttribute('height', '15')
+  // Paul 14 Oct 2026: the node Olumi mark is the panel's 12px AI glyph (was 15).
+  expect(olumi.querySelector('img')).toHaveAttribute('width', '12')
+  expect(olumi.querySelector('img')).toHaveAttribute('height', '12')
 })
 
 it('baseline with a concrete target has its own shape and exact words', () => {

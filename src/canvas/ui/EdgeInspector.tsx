@@ -302,7 +302,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <div className="mt-2" data-testid="organisational-edge-notice">
           <p className={`${typography.panelMeta} text-text-light`}>Organisational link</p>
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
-            This connection shows how options relate to the decision. It does not affect analysis.
+            This connection shows how options relate to the question. It does not affect analysis.
           </p>
         </div>
       ) : isInterventionEdge ? (

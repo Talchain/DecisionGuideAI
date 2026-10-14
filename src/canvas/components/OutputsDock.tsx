@@ -3509,7 +3509,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
                   const isComplexGraph = nodes.length > 15
                   if (isCeeTimeout && isComplexGraph) {
-                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                    friendlyError.explanation = 'Your model has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
                   }
 
                   return (
@@ -3670,7 +3670,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                       data-testid="outputs-analysis-empty-describe"
                     >
-                      Describe your decision to Olumi
+                      Describe your situation to Olumi
                     </button>
                   </div>
                 )}

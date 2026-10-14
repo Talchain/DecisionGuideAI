@@ -74,7 +74,7 @@ describe('OutcomePanel v6.2', () => {
     expect(screen.getByTestId('inspector-summary-sentence')).toHaveTextContent('Likelihood and impact are not recorded. That does not imply low risk.')
     expect(screen.queryByTestId('inspector-description-empty')).toBeNull()
     expect(screen.queryByText('No description recorded.')).toBeNull()
-    expect(screen.queryByText('What does this outcome represent in your decision?')).toBeNull()
+    expect(screen.queryByText('What does this outcome represent in your situation?')).toBeNull()
   })
 
   it('shows description text when present', () => {

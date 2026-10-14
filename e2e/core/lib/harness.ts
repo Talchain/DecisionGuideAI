@@ -1319,8 +1319,8 @@ export async function enterAuthenticated(page: Page): Promise<void> {
   ).not.toContainText(/Continue without an account/i, { timeout: 30_000 })
 
   const composer = page.getByTestId('first-use-input-bar-textarea')
-  const start = page.getByRole('button', { name: /start a new model/i })
-    .or(page.getByRole('link', { name: /start a new model/i }))
+  const start = page.getByRole('button', { name: /start a new scenario/i })
+    .or(page.getByRole('link', { name: /start a new scenario/i }))
 
   // ⚠ `if (await start.count())` WAS A SNAPSHOT WITH NO WAIT. `count()` resolves
   // immediately, so a landing that had not yet committed its render scored zero, the

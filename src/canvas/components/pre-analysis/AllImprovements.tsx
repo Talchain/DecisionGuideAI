@@ -927,7 +927,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             )}
             {/* Source badge */}
             {item.sourceBadge === 'brief' && (
-              <Tooltip delay={300} content="Extracted from your decision brief">
+              <Tooltip delay={300} content="Extracted from your brief">
               <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
                 From brief

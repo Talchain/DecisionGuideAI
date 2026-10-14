@@ -178,7 +178,7 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
 export const GLOBAL_ACTIONS: GlobalActionEntry[] = [
   {
     id: 'edit_brief',
-    title: 'Edit decision brief',
+    title: 'Edit your brief',
     description: 'Review goal, context, constraints and options.',
   },
   {

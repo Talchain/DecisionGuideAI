@@ -700,7 +700,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
              * change accurate and left the defect where it matters most.
              */
             placeholder={FIRST_USE_PLACEHOLDER}
-            ariaLabel="Describe your decision or challenge"
+            ariaLabel="Describe your question or situation"
             testId="first-use-input-bar"
             onAfterSend={handleAfterSend}
             inBoxAction={briefUpload.trigger}

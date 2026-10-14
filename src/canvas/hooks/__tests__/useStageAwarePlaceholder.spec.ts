@@ -60,8 +60,8 @@ describe('useStageAwarePlaceholder', () => {
    * see a directory returns the same clean green as one that looked and found
    * nothing. Caught by CI, not by the sweep.
    */
-  it('no model → "Describe your decision or challenge…"', () => {
-    expect(placeholder()).toBe('Describe your decision or challenge…')
+  it('no model → "Describe your question or situation…"', () => {
+    expect(placeholder()).toBe('Describe your question or situation…')
   })
 
   it('model exists, no analysis → "Ask about this model…"', () => {

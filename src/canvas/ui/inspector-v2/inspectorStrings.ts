@@ -69,7 +69,7 @@ export const BADGE_TOOLTIPS: Record<string, string> = {
   observable:   'Your team can track this but not directly control it',
   external:     "Market conditions, competitor actions, or other forces you can't influence",
   baseline:     'What happens if you change nothing',
-  explicit:     'This value was stated in your decision brief',
+  explicit:     'This value was stated in your brief',
   inferred:     'This value was estimated because it wasn\'t stated explicitly',
 }
 
@@ -534,7 +534,7 @@ export const INLINE_LABELS = {
 export const EDGE_LINK_NOTICES = {
   organisational: {
     title: 'Organisational link',
-    body:  'This connection shows how options relate to the decision. It does not affect analysis.',
+    body:  'This connection shows how options relate to the question. It does not affect analysis.',
   },
   intervention: {
     title: 'Intervention link',
@@ -774,11 +774,11 @@ export const ACTION_LABELS = {
 export const INSPECTOR_DESCRIPTION_EMPTY = 'No description recorded.'
 
 export const DESCRIPTION_PLACEHOLDERS = {
-  decision: "What's the decision you're facing and why does it matter now?",
+  decision: "What's the question you're working on and why does it matter now?",
   option:   'What would choosing this option actually mean in practice?',
   goal:     'Describe what achieving this goal looks like for your team.',
   factor:   'What is this factor and why does it matter?',
-  outcome:  'What does this outcome represent in your decision?',
+  outcome:  'What does this outcome represent in your situation?',
   risk:     'What could go wrong and how would it affect the decision?',
 } as const
 
@@ -1026,7 +1026,7 @@ export const DECISION_STRINGS = {
    * Derived from the SAME edge data the options list reads, and it names where
    * those connections went rather than pretending they do not exist.
    */
-  connectionsAreOptions: 'Its {count} option{s} above are its only connections. Nothing else links to this decision yet.',
+  connectionsAreOptions: 'Its {count} option{s} above are its only connections. Nothing else links to this question yet.',
 } as const
 
 // ─── Generic fallback panel strings ──────────────────────────────

@@ -207,7 +207,7 @@ describe('L-40 · DecisionPanel does not claim "no connections" while its option
     setDecisionStore()
     render(<DecisionPanel {...decisionProps} />)
     const el = screen.getByTestId('inspector-summary-sentence')
-    expect(el.textContent).toBe('This decision has 2 options.')
+    expect(el.textContent).toBe('This question has 2 options.')
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 

@@ -55,7 +55,7 @@ function remedyClause(copy: string): string {
 }
 
 /** The proposed remedies, verbatim. */
-const DELETE_REMEDY = 'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
+const DELETE_REMEDY = 'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this scenario to see the saved model.'
 const RENAME_REMEDY = 'Would you like to rename it again, or change the name back?'
 /** The add hold's remedy (the element is on the canvas, so removing and re-adding it is reachable). N4 add path. */
 const ADD_REMEDY = 'Would you like to remove it and add it again?'
@@ -126,7 +126,7 @@ describe.each(CAUSES)('$cause: the hold and the transcript give ONE remedy', ({ 
   // N4: no SECOND remedy. Reload may appear only as the one remedy's own fallback
   // clause (delete, Panel F1-residual), never as a separate instruction elsewhere.
   it.each(transcriptLines)('%s never offers reload outside the one remedy', (_line, copy) => {
-    expect(copy.replace(remedy, '')).not.toMatch(/reload this decision/i)
+    expect(copy.replace(remedy, '')).not.toMatch(/reload this scenario/i)
   })
 })
 
