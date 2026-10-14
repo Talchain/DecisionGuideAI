@@ -15,6 +15,7 @@ import { ArrowUp, ChevronUp, RefreshCw, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
+import { useBriefDocumentUpload } from './BriefDocumentUpload'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { normalisePastedText } from '../conversation/normalisePastedText'
 import { AddOptionPanel } from '../conversation/AddOptionPanel'
@@ -371,6 +372,12 @@ export const AIInputBar = memo(
      * rest state justified by a control cluster that had been deleted.
      */
     const hasActionRow = isStrip || isFloating
+    // #2145: the panel-footer composers (an existing model) take a document mid-conversation through the SAME in-browser
+    // reader as the first brief. Its text goes into this box, so it reaches CEE only as the user's own next message.
+    const documentUpload = useBriefDocumentUpload({
+      draft, setDraft, onAdded: () => textareaRef.current?.focus(), inChat: true,
+    })
+    const showDocumentUpload = hasActionRow && !isViewer && !disabled
 
     // Auto-grow between the variant's rest and ceiling, then scroll inside.
     // - welcome:            3-line rest, grows to 12 (hero composer).
@@ -812,10 +819,12 @@ export const AIInputBar = memo(
               className="flex items-center justify-end gap-1 px-2 pb-1"
               data-testid={`${base}-actions`}
             >
+              {showDocumentUpload && !isGenerating ? <span className="mr-auto flex">{documentUpload.trigger}</span> : null}
               {analysisControl}
               {chevronControl}
               {sendControl}
             </div>
+            {showDocumentUpload && documentUpload.feedback ? <div className="px-2 pb-2">{documentUpload.feedback}</div> : null}
           </div>
         ) : (
           /* OVERLAY LAYOUT — the hero surfaces, where the send disc sits inside

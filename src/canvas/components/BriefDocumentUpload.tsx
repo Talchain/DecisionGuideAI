@@ -23,6 +23,8 @@ export const BRIEF_UPLOAD_COPY = {
   hint: 'Upload a document (.xlsx, .csv, .pptx, .docx, .pdf)',
   reading: 'Reading your file…',
   check: 'Olumi read this from your file. Check the figures before you draft.',
+  /** The same check on a model that already exists (the chat composer, #2145): the text goes into the next message. */
+  checkInChat: 'Olumi read this from your file. Check the figures before you send.',
   privacy: 'Olumi reads your file in this browser; the file is not uploaded. Only the text you send is kept.',
   remove: 'Remove what was added',
   removeMissing: 'Olumi couldn’t find the added text unchanged, so it was left as it is.',
@@ -34,9 +36,14 @@ interface UseBriefDocumentUploadArgs {
   setDraft: (text: string) => void
   /** Called after text is added, e.g. to return focus to the brief box. */
   onAdded?: () => void
+  /**
+   * The chat composer on an existing model (#2145): the check names the send, and the feedback (privacy line included)
+   * shows only once something was read or failed, so a footer composer carries no standing text.
+   */
+  inChat?: boolean
 }
 
-export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDocumentUploadArgs): {
+export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = false }: UseBriefDocumentUploadArgs): {
   trigger: ReactNode
   feedback: ReactNode
 } {
@@ -118,7 +125,7 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
   const feedback = (
     <div className="flex flex-col gap-1 min-w-0" data-testid="brief-document-upload">
       <div role="status" className={typo('chatBody', 'text-text-body')} data-testid="brief-document-status">
-        {added ? `${added.summary} ${BRIEF_UPLOAD_COPY.check}` : ''}
+        {added ? `${added.summary} ${inChat ? BRIEF_UPLOAD_COPY.checkInChat : BRIEF_UPLOAD_COPY.check}` : ''}
       </div>
       {added ? (
         <button
@@ -142,5 +149,5 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
     </div>
   )
 
-  return { trigger, feedback }
+  return { trigger, feedback: inChat && !added && !error ? null : feedback }
 }
