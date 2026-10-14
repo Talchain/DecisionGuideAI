@@ -208,7 +208,8 @@ describe.each([
     const card = screen.getByTestId('analysis-new-challenge')
     const promotedId = card.getAttribute('data-recommendation-id')
     expect(promotedId, 'PRECONDITION: a promoted finding').toMatch(/^strengthen:/)
-    fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
+    // Paul 14 Oct 2026: the card's acts sit in the section's title row, beside the card.
+    fireEvent.click(within(screen.getByTestId('analysis-new-challenge-section')).getByTestId('analysis-new-challenge-more'))
     expect(screen.getByTestId('analysis-new-challenge-why')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
