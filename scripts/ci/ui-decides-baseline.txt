@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8235
+src/canvas/store.ts:8252
 src/canvas/stores/readinessStore.ts:896
 src/canvas/stores/readinessStore.ts:989
 src/canvas/utils/briefValidation.ts:43
@@ -227,3 +227,6 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #    canonical-view import and the gated previous-Run view above. Same site, same code; re-derived with the scanner.
 # 12 Oct 2026 (Batch C UI #2747 r2, chance gate lint): `store.ts:8200` -> `8202` is a pure +2 line shift from the two
 #    line-level `chance-gate` reasons inserted above it. Same site, same code; re-derived with the scanner.
+#    (`store.ts:8235` -> `8252`, a pure +17 line shift from #2788 (14 Oct 2026):
+#    `syncGoalThresholdFromCeeReadiness` and its comments, all above this site.
+#    Line text identical (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
