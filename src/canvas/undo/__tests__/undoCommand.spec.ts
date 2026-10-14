@@ -32,6 +32,7 @@ import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { useUndoJournalStore } from '../captureUndoReceipt'
 import { EMPTY_UNDO_JOURNAL, recordBarrier, recordEditReceipt, type UndoJournalState } from '../undoJournal'
 import { runCanvasUndo, UNDO_NOTICE } from '../undoCommand'
+import { useRestoredRunReplyStore } from '../../stores/restoredRunReplyStore'
 
 const S = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const h = (c: string) => c.repeat(64)
@@ -85,6 +86,7 @@ beforeEach(() => {
   identity.userId = 'u-1'
   setPersistenceSessionActive(true)
   hydrateCanvasFromServer.mockResolvedValue('merged')
+  useRestoredRunReplyStore.getState().clear()
   useUndoJournalStore.setState({ journal: journalWithAdd() })
   seedCanvasWithOption()
 })
@@ -167,6 +169,37 @@ describe('the restored model gets its own fresh analysis (Paul 14 Oct)', () => {
     await act(async () => { await runCanvasUndo('undo') })
     expect(run).not.toHaveBeenCalled()
     cleanup()
+  })
+})
+
+describe('Undo shows what the restored model now implies: CEE’s Run reply (#3044)', () => {
+  const REPLY = 'The restored model was analysed. Option A now reaches the goal in 62% of runs.'
+
+  it('a restored result WITH reply text offers it, verbatim, for this scenario', async () => {
+    restoreModelVersion.mockResolvedValue({ ...restored(h('0')), analysisReplyText: REPLY })
+    await expect(runCanvasUndo('undo')).resolves.toBe('done')
+    const offered = useRestoredRunReplyStore.getState()
+    expect(offered.id).not.toBeNull()
+    expect(offered.scenarioId).toBe(S)
+    expect(offered.text).toBe(REPLY)
+    expect(offered.delivered).toBe(false)
+  })
+
+  it('CONTRAST: a restored result with NO reply (null) offers nothing', async () => {
+    restoreModelVersion.mockResolvedValue({ ...restored(h('0')), analysisReplyText: null })
+    await expect(runCanvasUndo('undo')).resolves.toBe('done')
+    expect(useRestoredRunReplyStore.getState().id).toBeNull()
+    expect(useRestoredRunReplyStore.getState().text).toBeNull()
+  })
+
+  it.each([
+    ['a conflict (409)', { status: 'conflict' }, 'refused_stale'],
+    ['a refused restore', { status: 'refused', httpStatus: 403 }, 'failed'],
+    ['a version that cannot be restored', { status: 'versionNotRestorable' }, 'failed'],
+  ])('CONTRAST: %s offers nothing', async (_name, outcome, expected) => {
+    restoreModelVersion.mockResolvedValue({ ...outcome, analysisReplyText: REPLY })
+    await expect(runCanvasUndo('undo')).resolves.toBe(expected)
+    expect(useRestoredRunReplyStore.getState().id).toBeNull()
   })
 })
 

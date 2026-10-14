@@ -39,6 +39,7 @@ import {
 } from './undoJournal'
 import { logger } from '../../lib/logger'
 import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
+import { useRestoredRunReplyStore } from '../stores/restoredRunReplyStore'
 
 export type UndoDirection = 'undo' | 'redo'
 
@@ -179,6 +180,10 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
       useUndoJournalStore.setState({ journal: moved })
       // The restored model is a canvas-local commit: it gets its own fresh analysis.
       noteCanvasLocalCommit(result.version.versionId)
+      // CEE ran the restored model and answered (#3044): the chat shows that reply, verbatim, for this scenario.
+      if (typeof result.analysisReplyText === 'string') {
+        useRestoredRunReplyStore.getState().offer(scenarioId, result.analysisReplyText)
+      }
       void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
         logger.warn('canvas_undo.settle_failed', {
           scenarioId,

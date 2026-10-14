@@ -656,6 +656,55 @@ describe('restoreModelVersion — v2', () => {
     expect(result.version.versionNumber).toBe(4) // ← from `receipt.sequence`
     expect(result.undoVersionId).toBe(SNAPSHOT_VERSION)
     expect(result.requestId).toBe('req-5')
+    // No `analysis_turn` on the wire (the Run did not answer) → no reply.
+    expect(result.analysisReplyText).toBeNull()
+  })
+
+  // CEE #3044: the restore returns the Run turn's own reply for the restored model, as `/orchestrate/v2/turn` answered.
+  describe('analysis_turn — the restored model’s Run reply', () => {
+    const REPLY = 'The restored model was analysed.\n  Option A now reaches the goal in 62% of runs (±8).  '
+    async function restoreWith(analysisTurn: unknown, present = true) {
+      const body: Record<string, unknown> = restoreBodyV2()
+      if (present) body.analysis_turn = analysisTurn
+      fetchSpy.mockResolvedValue(jsonResponse(200, body))
+      const result = await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })
+      if (result.status !== 'restored') throw new Error(`expected restored, got ${result.status}`)
+      return result
+    }
+
+    it('its assistant_text is the reply, byte for byte; the restore itself is read as before', async () => {
+      const result = await restoreWith({
+        assistant_text: REPLY,
+        blocks: [{ type: 'analysis_result', computed_against_hash: 'restored-hash' }],
+        suggested_actions: [{ id: 'agent-explain-run:restored', label: 'Explain this result', message: 'Explain.' }],
+      })
+      expect(result.analysisReplyText).toBe(REPLY)
+      expect(result.graph).toEqual(RESTORED_GRAPH_V2)
+      expect(result.version.versionId).toBe(RESTORED_VERSION)
+      expect(result.undoVersionId).toBe(SNAPSHOT_VERSION)
+      expect(result.fullHash).toBe(HASH_A)
+      expect(result.requestId).toBe('req-5')
+    })
+
+    it.each([
+      ['absent', undefined, false],
+      ['null', null, true],
+      ['an array', [{ assistant_text: REPLY }], true],
+      ['a string', REPLY, true],
+      ['an object with no assistant_text', { blocks: [] }, true],
+      ['empty assistant_text', { assistant_text: '' }, true],
+      ['whitespace assistant_text', { assistant_text: ' \n\t ' }, true],
+      ['non-string assistant_text', { assistant_text: 42 }, true],
+    ])('%s → no reply (null), and the restore still stands', async (_name, turn, present) => {
+      const result = await restoreWith(turn, present)
+      expect(result.analysisReplyText).toBeNull()
+      expect(result.graph).toEqual(RESTORED_GRAPH_V2)
+    })
   })
 
   it('a v2 restore whose receipt carries NO graph is unusable — never applied blind', async () => {

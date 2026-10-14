@@ -33,6 +33,7 @@ import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasD
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
+import { useRestoredRunReplyStore } from '../stores/restoredRunReplyStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
 // and `./turnService` still exports it. `callOrchestratorTurn` / `streamOrchestratorTurn`
@@ -3306,6 +3307,29 @@ export function useConversation(): UseConversationReturn {
       timestamp: new Date(),
     })
   }, [reloadDifferenceId, scenarioId, addMessage])
+
+  // ⭐ UNDO SHOWS WHAT THE RESTORED MODEL NOW IMPLIES. CEE analyses a committed restore and returns its Run turn's
+  // reply (#3044); the Undo command offers its words, scenario-keyed (`restoredRunReplyStore`), and this appends them
+  // VERBATIM as ONE assistant line. Same guards and same declaration-order reason as the reload-difference line above.
+  // ⚠ `synthetic: true` ON PURPOSE: the reply already lives in CEE's durable conversation rows, so it is never sent
+  // back as history (`buildHistory`), never persisted locally (`transcriptStore` `isPersistable`, so a reload shows
+  // CEE's own row once), and never taken as the last turn's answer for held or suggested controls
+  // (`serverConversationTurns.ts`).
+  const restoredRunReplyId = useRestoredRunReplyStore((s) => s.id)
+  useEffect(() => {
+    if (!restoredRunReplyId || !scenarioId) return
+    const reply = useRestoredRunReplyStore.getState()
+    if (reply.id !== restoredRunReplyId || reply.delivered || reply.text === null) return
+    if (reply.scenarioId !== scenarioId) return
+    reply.markDelivered(restoredRunReplyId)
+    addMessage({
+      id: `restored-run-${restoredRunReplyId}`,
+      role: 'assistant',
+      synthetic: true,
+      content: reply.text,
+      timestamp: new Date(),
+    })
+  }, [restoredRunReplyId, scenarioId, addMessage])
 
   /**
    * schemas 0.48.0 — resolve a `structural_delete` against what the SERVER did.

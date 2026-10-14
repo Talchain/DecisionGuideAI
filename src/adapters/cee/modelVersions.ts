@@ -201,6 +201,10 @@ export type RestoreModelVersionResult =
        *  the receipt carries no well-formed hash. */
       fullHash?: string | null
       requestId: string | null
+      /** The words of the Run turn CEE ran on the restored model (`analysis_turn.assistant_text`, CEE #3044),
+       *  verbatim. Null when CEE sent no reply (the Run did not answer) or one with no words. Nothing else of
+       *  that turn is read here: hydration adopts its analysis state and result. */
+      analysisReplyText: string | null
     }
   | { status: 'signInRequired'; cause: SignInRefusalCause }
   /** 409 VERSION_STALE — the model moved. RECOVERABLE: refresh, then retry. */
@@ -683,7 +687,19 @@ export async function restoreModelVersion(
         ? receipt.full_hash
         : null,
     requestId: typeof b.request_id === 'string' ? b.request_id : null,
+    analysisReplyText: analysisReplyTextOf(b.analysis_turn),
   }
+}
+
+/**
+ * The restored model's Run reply (CEE #3044: `analysis_turn`, the internal Run turn's own answer, ABSENT when that
+ * turn did not answer). Only its words are read, and they are kept byte for byte: the text is CEE's reply, never
+ * re-worded here. Anything that is not a plain object with non-blank `assistant_text` is no reply.
+ */
+function analysisReplyTextOf(turn: unknown): string | null {
+  if (turn === null || typeof turn !== 'object' || Array.isArray(turn)) return null
+  const text = (turn as Record<string, unknown>).assistant_text
+  return typeof text === 'string' && text.trim().length > 0 ? text : null
 }
 
 /**
