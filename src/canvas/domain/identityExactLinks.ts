@@ -7,9 +7,12 @@
  * model never uses. CEE's goal-certainty `exact` rule, mirrored: the link's target carries `nonlinear_identity`, the
  * current Run evaluated it, and the source is one of its `factor_ids`.
  *
- * CARRIER: the scenario-graph read's `analysis_identity_evaluated_node_ids` (CEE `assist.v1.scenario-graph.ts`),
- * applied by `applyScenarioAnalysisRead` on load and on the auto-run's delivery. The turn response does not carry it
- * (CEE staging 3661630e), so an in-session Run shows it from the next read.
+ * CARRIERS, one reader:
+ * - the scenario-graph read's `analysis_identity_evaluated_node_ids` (CEE `assist.v1.scenario-graph.ts`), applied by
+ *   `applyScenarioAnalysisRead` on load and on the auto-run's delivery;
+ * - the turn that ran the Run: `identity_evaluated_node_ids`, top level or the additive sidecar (CEE #3046), applied by
+ *   `applyV5State`, so a Run pressed mid-session shows it at once.
+ * Same array on both; `[]` = recorded, none; absent = not attested (nothing recorded).
  *
  * Bound to the Run it came with: it holds only while the displayed report is the one whose read carried it
  * (`model_card.response_hash`) and that Run is current (`selectRunAffirmedCurrent`). A stale Run or another Run's
@@ -18,6 +21,7 @@
  * Words (DL ruling on #2686): "Exact: ‘<identity>’ = ‘<A>’ × ‘<B>’". They credit nobody's confirmation.
  */
 import { create } from 'zustand'
+import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { useCanvasStore } from '../store'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 
@@ -29,6 +33,17 @@ const OPERATOR: Record<string, string> = { product: '×', sum: '+' }
 const labelOf = (n: NodeLike | undefined, id: string): string => {
   const label = (n?.data as { label?: unknown } | undefined)?.label
   return typeof label === 'string' && label.trim() !== '' ? label : id
+}
+
+export const IDENTITY_EVALUATED_TURN_KEY = 'identity_evaluated_node_ids'
+
+/** The array from a parsed turn: top level first, then the additive sidecar (the option-participation pattern). */
+export function identityEvaluatedFromResponse(response: unknown): unknown {
+  if (response === null || typeof response !== 'object') return undefined
+  const top = (response as Record<string, unknown>)[IDENTITY_EVALUATED_TURN_KEY]
+  if (top !== undefined) return top
+  const additive = (response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY] as Record<string, unknown> | undefined
+  return additive?.[IDENTITY_EVALUATED_TURN_KEY]
 }
 
 /** The read's raw value → a sorted id list, or null when it is not a list of ids. */
