@@ -18,7 +18,8 @@ import type { BiasRiskItemView, BiasRiskView } from './biasRiskContract'
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 
 export const BIAS_RISK_COPY = {
-  name: (bias: string) => `Check for: ${bias}`,
+  // The icon names the bias and the reason CEE gave for it in this model (its own trailing full stop dropped, so never "..").
+  name: (bias: string, why: string) => `Check for: ${bias}. ${why.trim().replace(/\.+$/, '')}.`,
   question: (bias: string, why: string) =>
     `Briefly explain how ${lowerFirst(bias.trim())} could be affecting this model — ${why.trim().replace(/[.!?]+$/, '')} — and suggest a few practical ways to counter it here.`,
 } as const
@@ -59,7 +60,7 @@ export function BiasRiskIcons({ view, className, onResult }: BiasRiskIconsProps)
   return (
     <span data-testid="bias-risk-row" className="contents">
       {view.items.map((item) => {
-        const name = BIAS_RISK_COPY.name(item.name)
+        const name = BIAS_RISK_COPY.name(item.name, item.why)
         return (
           <Tooltip key={item.claim_id} asChild content={name}>
             <button

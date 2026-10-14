@@ -124,7 +124,7 @@ export const SERVER_GRAPH_RETRY_LOOKING_COPY = 'Looking for your model…'
  * sentence on screen.
  */
 export const SERVER_GRAPH_RETRY_EXHAUSTED_COPY =
-  'Olumi did not return a model for this decision.'
+  'Olumi did not return a model for this scenario.'
 
 /**
  * What actually happened when a model WAS delivered and this client could not
@@ -135,7 +135,7 @@ export const SERVER_GRAPH_RETRY_EXHAUSTED_COPY =
  * on screen, which is why the reload is still offered.
  */
 export const SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY =
-  'Olumi returned a model for this decision, but this page could not display it.'
+  'Olumi returned a model for this scenario, but this page could not display it.'
 
 /** The action measured to recover it every time. */
 export const SERVER_GRAPH_RETRY_ACTION_COPY = 'Reload the page'

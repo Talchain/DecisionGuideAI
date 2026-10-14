@@ -56,17 +56,28 @@ afterEach(() => {
 const renderIcons = () => render(<BiasRiskIcons view={view} className="icon-token" onResult={onResult} />)
 
 describe('BiasRiskIcons', () => {
-  it('draws one icon per bias, in CEE’s order, named “Check for: <bias>” and showing no words', () => {
+  it('draws one icon per bias, in CEE’s order, named “Check for: <bias>. <its why>” and showing no words', () => {
     renderIcons()
     const buttons = screen.getAllByRole('button')
     expect(buttons.map((el) => el.getAttribute('data-testid'))).toEqual(['bias-risk-press-DSK-B-007', 'bias-risk-press-DSK-B-001'])
-    expect(screen.getByTestId('bias-risk-press-DSK-B-007')).toHaveAccessibleName('Check for: Narrow framing')
-    expect(screen.getByTestId('bias-risk-press-DSK-B-001')).toHaveAccessibleName('Check for: Anchoring')
+    expect(screen.getByTestId('bias-risk-press-DSK-B-007')).toHaveAccessibleName('Check for: Narrow framing. These options all work through the same lever, which can hide better routes.')
+    expect(screen.getByTestId('bias-risk-press-DSK-B-001')).toHaveAccessibleName('Check for: Anchoring. Olumi’s starting figure for ‘Migration preparation effort’ could pull later estimates towards it.')
     for (const button of buttons) {
       expect(button.textContent).toBe('')
       expect(button.className).toBe('icon-token') // the bar's own icon classes, so it matches its neighbours
       expect(button.querySelector('svg.lucide-scan-eye')).not.toBeNull()
     }
+  })
+
+  it('a why with no full stop of its own still ends with exactly one; ⛔ CONTRAST: one that has it is not doubled', () => {
+    const bare = parseBiasRisk({ v: 1, items: [
+      { claim_id: 'DSK-B-007', name: 'Narrow framing', why: 'These options all work through the same lever', action_id: 'more_options', press_id: WIDEN.press_id, offer_key: WIDEN.offer_key },
+      { claim_id: 'DSK-B-001', name: 'Anchoring', why: ANCHOR_WHY, action_id: 'bias_anchoring', press_id: ANCHOR.press_id, offer_key: ANCHOR.offer_key },
+    ] }, [WIDEN, ANCHOR])!
+    render(<BiasRiskIcons view={bare} className="icon-token" onResult={onResult} />)
+    expect(screen.getByTestId('bias-risk-press-DSK-B-007')).toHaveAccessibleName('Check for: Narrow framing. These options all work through the same lever.')
+    expect(screen.getByTestId('bias-risk-press-DSK-B-001')).toHaveAccessibleName('Check for: Anchoring. Olumi’s starting figure for ‘Migration preparation effort’ could pull later estimates towards it.')
+    expect(screen.getByTestId('bias-risk-press-DSK-B-001').getAttribute('aria-label')).not.toContain('..')
   })
 
   it('a press sends ONE discuss chip turn about THAT bias, quoting its own why sentence; ⛔ CONTRAST: the other bias sends its own', () => {

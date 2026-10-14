@@ -166,7 +166,7 @@ describe('Strengthen the model in Analysis (beat 5)', () => {
  * withheld leader does not hide it.
  */
 describe('Review this decision in Analysis (A4 slice 1)', () => {
-  const REVIEW = 'Review this decision'
+  const REVIEW = 'Review this model'
 
   it('shows one entry on a current Run and sends CEE\'s exact press, once', () => {
     mount()

@@ -17,7 +17,7 @@ export interface DecisionMatrixProps {
   isStale: boolean
 }
 
-const STALE_LINE = 'This Run is stale. Run the analysis again to view the decision matrix.'
+const STALE_LINE = 'This Run is stale. Run the analysis again to see the options side by side.'
 
 /** Read-only projection of the held Run; disclosure state belongs to SectionShell. */
 export function DecisionMatrix(props: DecisionMatrixProps) {
@@ -28,7 +28,7 @@ export function DecisionMatrix(props: DecisionMatrixProps) {
 
 function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: DecisionMatrixProps) {
   if (isStale) {
-    return <p className={`${typography.panelBody} text-text-body`} data-testid="decision-matrix" role="status">Decision matrix: {STALE_LINE}</p>
+    return <p className={`${typography.panelBody} text-text-body`} data-testid="decision-matrix" role="status">Options side by side: {STALE_LINE}</p>
   }
 
   const rec = data.recommendation
@@ -67,14 +67,14 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
   const cell = `${typography.panelBody} align-top border-t border-panel-border px-1 py-2 first:pl-0 last:pr-0`
 
   return (
-    <SectionShell title="Decision matrix" count={null} variant="disclose" testId="decision-matrix">
+    <SectionShell title="Options side by side" count={null} variant="disclose" testId="decision-matrix">
       <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-stamp"
         data-graph-hash={run.graphHash} data-computed-at={run.computedAt} data-run-id={run.runId}>
         From the Run{runTime ? ` at ${runTime}` : ' (time not recorded)'}
       </p>
       <div className="max-w-full overflow-auto">
         <table className={`${typography.panelBody} text-text-body my-2 w-full border-collapse tabular-nums`}>
-          <caption className="sr-only">Decision matrix</caption>
+          <caption className="sr-only">Options side by side</caption>
           <tbody>{rows.map((row) => <tr key={row.id} data-testid={`decision-matrix-row-${row.id}`}>
             <th scope="row" className={`${cell} [font-weight:inherit] text-left`}>{row.label}</th>
             <td className={cell} data-testid={`decision-matrix-chance-${row.id}`}>
@@ -89,7 +89,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
       {withheldLine !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-withheld">{withheldLine}</p>}
       {hasOutcome && <SectionShell title="Modelled outcomes" count={null} variant="disclose" testId="decision-matrix-outcomes">
         {rows.map((row) => <div key={row.id} className={`${typography.panelBody} text-text-body py-2`}>
-          <p data-testid={`decision-matrix-outcome-${row.id}`}>{row.label}: {row.centreReadout ?? 'Not shown.'}</p>
+          <p data-testid={`decision-matrix-outcome-${row.id}`}>{row.label}: {row.centreReadout ?? 'No modelled outcome for this option.'}</p>
           {row.outcome !== null && <p>Modelled outcome range: {row.outcome}</p>}
         </div>)}
       </SectionShell>}

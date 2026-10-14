@@ -39,7 +39,7 @@
  * Two different data, two different surfaces — CLAUDE.md trap 21.
  */
 
-import { classifyInterventionProvenance } from '@/canvas/domain/valueProvenance'
+import { UNVERIFIED_BRIEF_LABEL, classifyInterventionProvenance } from '@/canvas/domain/valueProvenance'
 import { resolveNodeTypeLiteral } from '@/canvas/domain/nodes'
 import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '@/canvas/utils/labelUtils'
 import { containsRawIdentifier } from './decisionBriefViewModel'
@@ -121,6 +121,16 @@ export function formatEstimatedInterventionNote(optionLabel: string, factorLabel
 }
 
 /**
+ * The sentence for a figure the AI said came from the brief but the host could not
+ * confirm (`unverified_brief`). Same shape as the estimate note, with the shipped
+ * Inspector words (`UNVERIFIED_BRIEF_LABEL`) in place of the estimate mark; it
+ * claims neither that Olumi chose the number nor that the user stated it.
+ */
+export function formatUnverifiedInterventionNote(optionLabel: string, factorLabel: string): string {
+  return `${UNVERIFIED_BRIEF_LABEL}: the effect of "${optionLabel}" on "${factorLabel}".`
+}
+
+/**
  * Select the interventions whose value the MODEL chose, from the canvas nodes.
  *
  * ⭐⭐ THE DISCRIMINATION IS THE POINT, AND IT RUNS BOTH WAYS. On the same
@@ -185,13 +195,14 @@ export function selectEstimatedInterventions(
       if (value == null) continue
 
       // A setting the host could not verify as the user's (`user_material_unverified`)
-      // classifies as `unverified_brief`, so it is not Olumi's estimate and is
-      // neither listed nor counted here: this note says "No figure for this was
-      // stated in your brief", which that stamp does not support.
+      // classifies as `unverified_brief`. It is not Olumi's estimate, so it never
+      // gets the estimate note ("No figure for this was stated in your brief" is a
+      // claim that stamp does not support), but it is KEPT with the Inspector's own
+      // words, so the Summary does not silently drop a figure the analysis used.
       const provenance = classifyInterventionProvenance(source, {
         userMaterialUnverified: interventionIsUserMaterialUnverified(rawValue),
       })
-      if (provenance?.kind !== 'ai') continue
+      if (provenance?.kind !== 'ai' && provenance?.kind !== 'unverified_brief') continue
 
       const factorLabel = labelById.get(factorId)
       if (factorLabel === undefined) continue
@@ -201,7 +212,9 @@ export function selectEstimatedInterventions(
         factorId,
         optionLabel,
         factorLabel,
-        note: formatEstimatedInterventionNote(optionLabel, factorLabel),
+        note: provenance.kind === 'ai'
+          ? formatEstimatedInterventionNote(optionLabel, factorLabel)
+          : formatUnverifiedInterventionNote(optionLabel, factorLabel),
       })
     }
   }
