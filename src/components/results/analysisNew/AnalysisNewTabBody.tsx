@@ -103,6 +103,7 @@ import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
+import { DecisionMatrix } from './sections/DecisionMatrix'
 import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningActionBar } from './sections/ReasoningActionBar'
@@ -695,6 +696,9 @@ export function AnalysisNewTabBody({
 }: AnalysisNewTabBodyProps) {
   const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
+  const matrixRunId = useCanvasStore((s) => s.results?.runId)
+  const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
   // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): while this surface's footer shows the Re-analyse bar,
   // that is the rerun; the pre-run action, ribbon's Re-run and ⋯ menu's "Rerun analysis" stand aside.
   const footerOwnsRerun = shellRerunControl(useReanalyseBarInputs()) === 'bar'
@@ -2959,9 +2963,20 @@ export function AnalysisNewTabBody({
             reading, the scope, the condition) moves here, so the chart and its
             qualifier reach the first screen (fidelity gap 1; #63 5825359499). */}
         {renderGlance('reading')}
-        {/* #2747 re-scope 2 (U0): no decision matrix in C. It was a table of each option's chance and what it rests on, off
-            the journey path; CEE's cells are said on the Analysis tab. Restore trigger: the chance's own served string and Run
-            licence on this surface (post-C). */}
+        {/* Reasoning artefact A1 (#2580), reinstated: each option's chance cell is CEE's served cell, verbatim. */}
+        <DecisionMatrix
+          data={resultsSectionData}
+          comparison={vm.optionsComparison}
+          optionOrder={nodes.map((node) => node.id)}
+          run={{
+            hash: responseHash,
+            runId: matrixRunId,
+            completedAt: matrixFinishedAt,
+            computedAt: matrixFreshness?.computedAt ?? (matrixFinishedAt === undefined ? undefined : new Date(matrixFinishedAt).toISOString()),
+            graphHash: matrixFreshness?.graphHashAtRun,
+          }}
+          isStale={vm.status.isStale}
+        />
         <PreMortemWorksheet isBusy={isBusyNow} isStale={vm.status.isStale} />
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
