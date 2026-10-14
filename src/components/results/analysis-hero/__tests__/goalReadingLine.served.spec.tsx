@@ -31,7 +31,7 @@ const SAID = 'Olumi works out ‘Starter-tier MRR’ as ‘Starter subscription 
 /** A derived quantity on this graph's goal path stands in for #3059's constructed product node. */
 const NODE = 'investment_firm_meetings'
 const GOAL_READING = { origin: 'olumi', readings: [{ kind: 'product', node_id: NODE, words: SAID }] }
-const LINE = `Olumi read your goal as “${SAID}” Change it if that’s wrong.`
+const LINE = `Olumi’s reading: ${SAID} Change goal`
 
 const MODEL_ORDER = fx.draft.nodes.filter((n) => n.kind === 'option').map((n) => n.id)
 const QUOTED_ORDER = ['current_outreach', 'angel_bridge', CONVERTIBLE]
@@ -77,14 +77,14 @@ function renderMatrix(data: ReturnType<typeof seed>) {
 afterEach(() => { cleanup(); resetPaulRun() })
 
 describe('CEE #3059 goal_reading: the chance says it rests on Olumi’s reading of the goal, and the reading can be changed', () => {
-  it('⭐ Analysis hero: CEE’s exact words, attributed to Olumi; “Change it” opens the inspector on that exact node', () => {
+  it('⭐ Analysis hero: CEE’s exact words, attributed to Olumi; “Change goal” opens the inspector on that exact node', () => {
     const data = seed(GOAL_READING)
     expect(data.goalChanceLicence?.goalReading).toEqual({ origin: 'olumi', readings: [{ kind: 'product', nodeId: NODE, words: SAID }] })
     renderHero(data)
     const line = screen.getByTestId('hero-goal-reading')
     expect(line).toHaveAttribute('data-origin', 'olumi')
     expect(line.textContent).toBe(LINE)
-    expect(screen.getByTestId('hero-goal-reading-words').textContent).toBe(`“${SAID}”`)
+    expect(screen.getByTestId('hero-goal-reading-words').textContent).toBe(SAID)
     expect(screen.getByTestId('hero-goal-reading-words')).toHaveAttribute('data-kind', 'product')
 
     const raised: Event[] = []
@@ -92,7 +92,7 @@ describe('CEE #3059 goal_reading: the chance says it rests on Olumi’s reading 
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, onRaise)
     try {
       expect(useCanvasStore.getState().selection.nodeIds.has(NODE)).toBe(false)
-      fireEvent.click(screen.getByRole('button', { name: 'Change it' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Change goal' }))
     } finally {
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, onRaise)
     }
@@ -116,7 +116,7 @@ describe('CEE #3059 goal_reading: the chance says it rests on Olumi’s reading 
     cleanup()
     renderMatrix(seed())
     expect(screen.queryByTestId('decision-matrix-goal-reading')).toBeNull()
-    expect(document.body.textContent).not.toContain('Olumi read your goal')
+    expect(document.body.textContent).not.toContain('Olumi’s reading:')
   })
 
   it('NEGATIVE: the user confirmed the goal, so the next Run’s licence carries no goal_reading → the line goes', () => {

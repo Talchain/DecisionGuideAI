@@ -16,7 +16,6 @@ export function GoalReadingLine({ reading, onChange = openNodeInspector, testId 
 }) {
   const readings = reading?.origin === 'olumi' ? reading.readings : []
   if (readings.length === 0) return null
-  const single = readings.length === 1
   const control = (nodeId: string, label: string) => (
     <button
       type="button"
@@ -28,19 +27,18 @@ export function GoalReadingLine({ reading, onChange = openNodeInspector, testId 
       {label}
     </button>
   )
-  // CEE's words are whole sentences; a closing stop is added only where they have none.
-  const quoted = (words: string) => `“${words}”${single && !/[.!?]$/.test(words) ? '.' : ''}`
+  // CEE's words are already Olumi's own whole sentence ("Olumi works out … tell me if it's wrong"), so they are shown
+  // once under an "Olumi's reading" label, never wrapped in a second "Olumi read …" sentence (Paul's UI session, 14 Oct).
   return (
     <p className={`${typography.panelBody} text-text-light`} data-testid={testId} data-origin="olumi">
-      {'Olumi read your goal as '}
       {readings.map((r, i) => (
         <Fragment key={`${r.nodeId}-${i}`}>
-          {i > 0 && (i === readings.length - 1 ? ' and ' : ', ')}
-          <span data-testid={`${testId}-words`} data-kind={r.kind ?? undefined}>{quoted(r.words)}</span>
-          {single ? <> {control(r.nodeId, 'Change it')} if that’s wrong.</> : <> ({control(r.nodeId, 'change it')})</>}
+          {i > 0 && ' '}
+          <span className="font-medium text-text-body">Olumi’s reading: </span>
+          <span data-testid={`${testId}-words`} data-kind={r.kind ?? undefined}>{r.words}</span>{' '}
+          {control(r.nodeId, 'Change goal')}
         </Fragment>
       ))}
-      {!single && '.'}
     </p>
   )
 }
