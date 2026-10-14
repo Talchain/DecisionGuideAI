@@ -16,24 +16,35 @@
  * persisted graph, so the Run is bound to the saved revision. A refused gate runs nothing and leaves today's Re-analyse
  * bar with its reason. The Run waits until no turn is in flight (a run send preempts an in-flight turn), no edit is on
  * the wire and no Run is running; a change made during a Run is analysed when that Run settles.
+ *
+ * ⛔ A RESTORE THAT LANDS UNDER AN IN-FLIGHT RESPONSE IS NEVER DELIVERED BY IT (J5a investigation, 14 Oct). An Undo or
+ * Redo is the one canvas-local commit no turn answers, and nothing stops it while a Run or a turn is in flight. That
+ * response was composed against the graph CEE loaded at its turn's start (the model the restore replaced), so its own
+ * "current" clears the restore's dirty mark and, read at dispatch, presented that older Run as current for the restored
+ * model, with no Run. A restore noted while anything is in flight therefore re-asserts the dirty mark when that settles
+ * (in a layout effect: before paint, and before the deliver check below), so it runs; a later Run that saw it clears it.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../store'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import type { CanonicalRunOptions, CanonicalRunOutcome } from './canonicalRunRegistry'
 
+/** `edit_receipt`: the commit's own turn answered (its Run, if any, saw it). `restore`: no turn answers it. */
+export type CanvasLocalCommitOrigin = 'edit_receipt' | 'restore'
+
 interface CanvasLocalCommit {
   /** Increases once per commit, so two commits of one version id are still two commits. */
   readonly seq: number
   readonly versionId: string | null
+  readonly origin: CanvasLocalCommitOrigin | null
 }
 
-const useCanvasLocalCommitStore = create<CanvasLocalCommit>(() => ({ seq: 0, versionId: null }))
+const useCanvasLocalCommitStore = create<CanvasLocalCommit>(() => ({ seq: 0, versionId: null, origin: null }))
 
 /** A canvas-local commit landed: a direct canvas edit's receipt, or a journal Undo/Redo restore. */
-export function noteCanvasLocalCommit(versionId: string): void {
-  useCanvasLocalCommitStore.setState((s) => ({ seq: s.seq + 1, versionId }))
+export function noteCanvasLocalCommit(versionId: string, origin: CanvasLocalCommitOrigin = 'edit_receipt'): void {
+  useCanvasLocalCommitStore.setState((s) => ({ seq: s.seq + 1, versionId, origin }))
 }
 
 export const ANALYSE_AFTER_CHANGE_SOURCE = 'after-change'
@@ -47,14 +58,33 @@ export function useAnalyseAfterCommittedChange(input: {
 }): void {
   const { run, idle, hasRunOnRecord } = input
   const commitSeq = useCanvasLocalCommitStore((s) => s.seq)
+  const commitOrigin = useCanvasLocalCommitStore((s) => s.origin)
   const [handledSeq, setHandledSeq] = useState(commitSeq)
   const startedRef = useRef<number | null>(null)
+  /** The commit last observed, and the latest restore that was observed while something was in flight. */
+  const observedSeqRef = useRef<number | null>(null)
+  const restoreUnderFlightRef = useRef<number | null>(null)
   const pending = commitSeq !== handledSeq
+
+  useLayoutEffect(() => {
+    if (!pending || commitOrigin !== 'restore') return
+    // Judged once, at the render that first sees the restore: was a response already in flight that predates it?
+    if (observedSeqRef.current !== commitSeq) {
+      observedSeqRef.current = commitSeq
+      if (!idle) restoreUnderFlightRef.current = commitSeq
+    }
+    // Settled, and not by our own Run: what just answered was composed before this restore, so its "current" is not
+    // about the restored model.
+    if (idle && restoreUnderFlightRef.current === commitSeq && startedRef.current !== commitSeq) {
+      useCanvasStore.getState().markAnalysisFreshnessDirty()
+    }
+  }, [pending, idle, commitSeq, commitOrigin])
 
   useEffect(() => {
     if (!pending || !idle || startedRef.current === commitSeq) return
     const seq = commitSeq
-    // Before the first Run, or when the Run on screen already holds this model, there is nothing to run.
+    // Before the first Run, or when the Run on screen already holds this model, there is nothing to run. (A restore
+    // overtaken by an in-flight response was re-marked dirty above, in this same commit, so it is never "current" here.)
     if (!hasRunOnRecord || selectRunAffirmedCurrent(useCanvasStore.getState())) {
       setHandledSeq(seq)
       return

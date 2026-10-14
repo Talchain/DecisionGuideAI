@@ -65,6 +65,17 @@ describe('a canvas-local commit is analysed once, on the saved version, through 
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('CONTRAST to the Undo-under-a-Run row (undoCommand.spec): an edit’s receipt seen while its own turn still reads busy is still delivered by that turn’s current Run', async () => {
+    // The receipt IS the commit's own turn answering, so its Run saw the saved model; only a restore, which no turn
+    // answers, can be overtaken by a response that predates it.
+    const view = render(<Host idle={false} />)
+    await canvasEdit('t1', receipt('v1', 'v0'))
+    seedPaulRun(SERVED_STAMP)
+    await act(async () => { view.rerender(<Host idle />) })
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('CEE OWNS a change made through a CEE turn: a chat turn’s receipt (no canvas edit) runs nothing', async () => {
     render(<Host idle />)
     await act(async () => { captureTurnForUndo({ scenarioId: S, turnId: 't1', systemEvent: undefined, response: receipt('v1', 'v0') }) })

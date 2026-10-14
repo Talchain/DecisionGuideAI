@@ -178,7 +178,7 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
             : redoSucceeded(journal, next.step, head)
       useUndoJournalStore.setState({ journal: moved })
       // The restored model is a canvas-local commit: it gets its own fresh analysis.
-      noteCanvasLocalCommit(result.version.versionId)
+      noteCanvasLocalCommit(result.version.versionId, 'restore')
       void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
         logger.warn('canvas_undo.settle_failed', {
           scenarioId,
