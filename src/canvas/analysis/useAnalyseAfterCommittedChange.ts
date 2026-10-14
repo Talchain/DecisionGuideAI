@@ -8,7 +8,8 @@
  * turn; it never notes a canvas-local commit, so nothing here runs it a second time.
  *
  * ⛔ DELIVER, DON'T RE-RUN. At dispatch the Run on screen is asked whether it is already current for this model
- * (`analysisResultsAreCurrentIn`, CEE's verdict comparing the Run's graph hash with the current one). If the commit's own
+ * (`selectRunAffirmedCurrent`, the one authority an action reads at dispatch: CEE's verdict comparing the Run's graph hash
+ * with the current one, under the composed analysis state). If the commit's own
  * turn already carried a Run for the saved model, that Run is shown and nothing runs again.
  *
  * ONE RUN PATH: the canonical runner (the Re-analyse button's own pipeline, gate and save flush). CEE reloads its own
@@ -19,7 +20,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../store'
-import { analysisResultsAreCurrentIn } from '../hooks/useAnalysisResultsAreCurrent'
+import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import type { CanonicalRunOptions, CanonicalRunOutcome } from './canonicalRunRegistry'
 
 interface CanvasLocalCommit {
@@ -54,7 +55,7 @@ export function useAnalyseAfterCommittedChange(input: {
     if (!pending || !idle || startedRef.current === commitSeq) return
     const seq = commitSeq
     // Before the first Run, or when the Run on screen already holds this model, there is nothing to run.
-    if (!hasRunOnRecord || analysisResultsAreCurrentIn(useCanvasStore.getState())) {
+    if (!hasRunOnRecord || selectRunAffirmedCurrent(useCanvasStore.getState())) {
       setHandledSeq(seq)
       return
     }

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
-import { analysisResultsAreCurrentIn } from '../../hooks/useAnalysisResultsAreCurrent'
+import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
+import { SERVED_STAMP, resetPaulRun, seedPaulRun } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
 import { captureTurnForUndo, useUndoJournalStore } from '../../undo/captureUndoReceipt'
 import { EMPTY_UNDO_JOURNAL, nextUndo } from '../../undo/undoJournal'
 import { ANALYSE_AFTER_CHANGE_SOURCE, useAnalyseAfterCommittedChange } from '../useAnalyseAfterCommittedChange'
@@ -28,18 +29,13 @@ function Host({ idle, hasRunOnRecord = true }: { idle: boolean; hasRunOnRecord?:
   return null
 }
 
-/** The Run on screen is current for the model: CEE's fresh verdict, hashes equal, no local edit since. */
-function runOnScreenIsCurrent() {
-  useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh', graphHashAtRun: 'g1', currentGraphHash: 'g1' },
-    analysisFreshnessDirty: false, importPendingServerRegistration: false, analysisStateV1: null } as never)
-}
 
 beforeEach(() => {
   useUndoJournalStore.setState({ journal: EMPTY_UNDO_JOURNAL })
   useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: true, analysisStateV1: null } as never)
   run = vi.fn<Parameters<Run>, ReturnType<Run>>(async () => ({ status: 'dispatched' }))
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); resetPaulRun() })
 
 describe('a canvas-local commit is analysed once, on the saved version, through the canonical runner', () => {
   it('a direct canvas edit CEE saved (its receipt) runs the analysis once, with the after-change source', async () => {
@@ -61,8 +57,9 @@ describe('a canvas-local commit is analysed once, on the saved version, through 
   })
 
   it('DELIVER, DON’T RE-RUN: when the commit’s own turn already carried a current Run, nothing runs again', async () => {
-    runOnScreenIsCurrent()
-    expect(analysisResultsAreCurrentIn(useCanvasStore.getState())).toBe(true)
+    // The served capture's Run: CEE's fresh verdict for the model on screen.
+    seedPaulRun(SERVED_STAMP)
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
     render(<Host idle />)
     await canvasEdit('t1', receipt('v1', 'v0'))
     expect(run).not.toHaveBeenCalled()
