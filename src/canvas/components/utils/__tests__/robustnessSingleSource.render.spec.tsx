@@ -36,7 +36,7 @@ const POST_FOOTER_ICONS: Record<string, LucideIcon> = {
 
 /** Render the live footer exactly as OutputsDock does for a given verdict. */
 function renderFooter(verdict: RobustnessDisplayVerdict | null | undefined) {
-  const status = derivePostFooterStatus(verdict)
+  const status = derivePostFooterStatus(verdict, true)
   return render(
     <AnalysisFooter
       statusIcon={POST_FOOTER_ICONS[status.icon]}
@@ -69,7 +69,7 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     // and NOT the ranking_stability fallback. So however high those raw fields
     // are, an absent verdict renders the neutral footer above. The helper's
     // signature makes this structural: it accepts only RobustnessDisplayVerdict.
-    const status = derivePostFooterStatus(undefined)
+    const status = derivePostFooterStatus(undefined, true)
     expect(status).toEqual({ icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' })
     expect(status.label).not.toBe('Stable ranking')
   })
@@ -145,7 +145,7 @@ describe('footer ↔ certified glyph consistency (single source)', () => {
 
   it('footer renders a positive verdict iff the glyph would (verdict === "robust")', () => {
     for (const v of ALL) {
-      const status = derivePostFooterStatus(v)
+      const status = derivePostFooterStatus(v, true)
       const glyphPositive = v === 'robust'
       const footerPositive = status.label === 'Stable ranking' && status.icon === 'check'
       expect(footerPositive).toBe(glyphPositive)
@@ -158,6 +158,6 @@ describe('footer ↔ certified glyph consistency (single source)', () => {
   })
 
   it('when the glyph is neutral (verdict undefined), the footer is also neutral', () => {
-    expect(derivePostFooterStatus(undefined).label).toBe('Robustness unknown')
+    expect(derivePostFooterStatus(undefined, true).label).toBe('Robustness unknown')
   })
 })

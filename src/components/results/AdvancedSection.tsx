@@ -82,6 +82,14 @@ export interface AdvancedSectionProps {
    */
   robustnessVerdict?: RobustnessDisplayVerdict | null
   /**
+   * May this run's stability be stated at all —
+   * `analysisClaimPolicy(recommendation).mayStateStability`. FAIL-CLOSED: only `true`
+   * licenses "Stable ranking" / "Ranking sensitive to assumptions"; absent or
+   * `false` renders the neutral "Robustness not established" (PL #94
+   * 6135017311).
+   */
+  stabilityLicensed?: boolean
+  /**
    * Freshness reason code from the analysis-freshness slice (e.g.
    * 'graph_hash_match'). Consumed only by the D1 'translate' branch of the
    * Freshness receipt row; ignored while FRESHNESS_RECEIPT_D1_MODE is 'omit'.
@@ -145,6 +153,7 @@ export function AdvancedSection({
   // it is accepted but never rendered (see the prop's @deprecated note). The
   // "Result stability" row uses `robustnessVerdict` below.
   robustnessVerdict,
+  stabilityLicensed,
   freshnessReason,
   responseHashIsLocal,
   nSamples,
@@ -200,7 +209,9 @@ export function AdvancedSection({
   // Result-stability verdict for the receipts row — the display-safe
   // `robustnessVerdict` mapped through the shared verdict contract
   // (`derivePostFooterStatus`). NEVER the deprecated recommendation_stability.
-  const resultStabilityLabel = derivePostFooterStatus(robustnessVerdict).label
+  // The run's licence is consulted first: an unlicensed run states no ranking
+  // verdict here either (PL #94 6135017311).
+  const resultStabilityLabel = derivePostFooterStatus(robustnessVerdict, stabilityLicensed === true).label
 
   // D1 branch (b) copy — resolved once, consumed only when the mode is
   // 'translate'. Unknown/absent reason codes → null (row omitted).

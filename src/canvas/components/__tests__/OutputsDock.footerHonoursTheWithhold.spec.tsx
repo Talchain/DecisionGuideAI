@@ -250,6 +250,6 @@ describe('the dock footer may not explain a verdict by a ranking the run withhel
     seedPostRun(true)
     render(<OutputsDock />)
 
-    expect(footer().textContent).toContain(derivePostFooterStatus('moderate').label)
+    expect(footer().textContent).toContain(derivePostFooterStatus('moderate', true).label)
   })
 })
