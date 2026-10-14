@@ -878,10 +878,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
   const edgeStrokeWidth = useMemo(
     // An exact operand draws thin: the engine computes through it, so no band (and never the prior's) applies.
-    () => identityExact === null && edgeSignedStrength.show && !isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined)
+    // `strengthIsPlaceholder` already equals the placeholder read whenever `identityExact === null` (one read, not two).
+    () => identityExact === null && edgeSignedStrength.show && !strengthIsPlaceholder
       ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
       : UNSET_EDGE_STROKE_WIDTH,
-    [edgeSignedStrength, edgeData, identityExact]
+    [edgeSignedStrength, strengthIsPlaceholder, identityExact]
   )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
