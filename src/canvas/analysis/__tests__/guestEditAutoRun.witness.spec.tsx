@@ -20,6 +20,7 @@ import { useUndoJournalStore } from '../../undo/captureUndoReceipt'
 import { EMPTY_UNDO_JOURNAL } from '../../undo/undoJournal'
 import { noteCanvasLocalCommit, useAnalyseAfterCommittedChange } from '../useAnalyseAfterCommittedChange'
 import type { CanonicalRunOptions, CanonicalRunOutcome } from '../canonicalRunRegistry'
+import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import witness from './fixtures/witness-20261014T174333Z-turn03-guest-option-edit.json'
 
 vi.mock('../useAnalyseAfterCommittedChange', async (importOriginal) => {
@@ -74,15 +75,16 @@ let run: ReturnType<typeof vi.fn<Parameters<Run>, ReturnType<Run>>>
 /** The model CEE held (as the canvas knows it) at the moment each Run started. */
 let hashAtRun: Array<string | null>
 
-function stub200(body: Record<string, unknown>) {
+function stubStatus(status: number, body: Record<string, unknown>) {
   vi.stubGlobal('fetch', vi.fn(async () => ({
-    ok: true,
-    status: 200,
+    ok: status >= 200 && status < 300,
+    status,
     headers: new Headers({ 'content-type': 'application/json' }),
     json: async () => structuredClone(body),
     text: async () => JSON.stringify(body),
   } as unknown as Response)))
 }
+const stub200 = (body: Record<string, unknown>) => stubStatus(200, body)
 
 function mount() {
   return renderHook(({ idle }: { idle: boolean }) => {
@@ -92,14 +94,22 @@ function mount() {
   }, { initialProps: { idle: false } })
 }
 
+type View = ReturnType<typeof mount>
+
+/** One edit turn on a mounted canvas: the dock is busy while it is out, then idle once it settles. */
+async function sendEdit(view: View, event: typeof editEvent = editEvent) {
+  await act(async () => { view.rerender({ idle: false }) })
+  await act(async () => {
+    await view.result.current.sendSystemEvent(event as never, { debugSource: 'canvas_option_edit' } as never).catch(() => undefined)
+  })
+  await act(async () => { view.rerender({ idle: true }) })
+}
+
 /** The edit turn goes out (busy), settles, then the dock is idle. */
 async function commitEdit(body: Record<string, unknown>) {
   const view = mount()
   stub200(body)
-  await act(async () => {
-    await view.result.current.sendSystemEvent(editEvent as never, { debugSource: 'canvas_option_edit' } as never).catch(() => undefined)
-  })
-  await act(async () => { view.rerender({ idle: true }) })
+  await sendEdit(view)
   return view
 }
 
@@ -162,6 +172,144 @@ describe('a committed canvas edit starts exactly one automatic Run, with or with
   it('NO GRAPH CHANGE (CEE answers at the base hash): no commit, no Run', async () => {
     await commitEdit({ ...witness.response_body, graph_hash: H1 })
 
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ⛔ PL RULE (14 Oct, #94 6135017311): the guest auto-run fires ONLY on a SUCCESSFULLY APPLIED guest model revision.
+ * Each row below is the witness above with only the field that defines its case changed, and asserts no Run.
+ */
+describe('CONTRAST — nothing but an applied guest edit starts the automatic Run', () => {
+  it('(b) REFUSED at 200 (prose, no blocks, no graph_hash, no analysis_ready): no commit, no Run', async () => {
+    const rest: Record<string, unknown> = structuredClone(witness.response_body)
+    delete rest.graph_hash
+    delete rest.analysis_ready
+    await commitEdit({
+      ...rest,
+      assistant_text: 'Value 25 exceeds the factor\'s cap of 10. I haven\'t changed anything.',
+      blocks: [],
+    })
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('(b) REFUSED with 422 `system_event_refused_no_write`: no commit, no Run', async () => {
+    const view = mount()
+    stubStatus(422, {
+      error: 'INGRESS_CONTRACT_VIOLATION', boundary: 'B1', direction: 'egress', validator: 'turn_commit',
+      details: { retryable: false, reason: 'system_event_refused_no_write', event_kind: sent.kind, stage: 'analyse' },
+      request_id: 'req_guest_422', retryable: false,
+    })
+    await sendEdit(view)
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('(b) FAILED at 200 (a fatal error block) even though graph_hash differs from the base: no commit, no Run', async () => {
+    await commitEdit({
+      ...witness.response_body,
+      blocks: [{ type: 'error', error_code: 'INTERNAL_ERROR', severity: 'error' }],
+    })
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('(c) CONFLICT — 409 GRAPH_DIVERGED `stale_base_graph_hash`: no commit, no Run', async () => {
+    const view = mount()
+    stubStatus(409, {
+      error: 'GRAPH_DIVERGED', boundary: 'B1', direction: 'egress', validator: 'turn_commit',
+      details: {
+        retryable: false, reason: 'graph_write_conflict', conflict_category: 'stale_base_graph_hash',
+        recovery_action: 'refresh_and_reconfirm', expected_base_graph_hash: H2, event_kind: sent.kind,
+      },
+      request_id: 'req_guest_409', retryable: false,
+    })
+    await sendEdit(view)
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('(d) DUPLICATE RESEND after the first reply was applied (same event bytes, CEE replays H1 → H2): still ONE Run', async () => {
+    const view = await commitEdit(witness.response_body)
+    expect(useCanvasStore.getState().lastServerGraphHash).toBe(H2)
+    expect(run).toHaveBeenCalledTimes(1)
+
+    await sendEdit(view)
+
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('(d) RETRY after the first reply was applied, on the applied base (base H2, CEE answers H2): still ONE Run', async () => {
+    const view = await commitEdit(witness.response_body)
+    expect(run).toHaveBeenCalledTimes(1)
+
+    await sendEdit(view, { ...editEvent, payload: { ...editEvent.payload, base_graph_hash: H2 } })
+
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('(d) POSITIVE CONTRAST — the first reply was LOST (canvas still at H1), the retry lands H2: exactly ONE Run, on H2', async () => {
+    const view = mount()
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    await sendEdit(view)
+    expect(useCanvasStore.getState().lastServerGraphHash).toBe(H1)
+    expect(run).not.toHaveBeenCalled()
+
+    stub200(witness.response_body)
+    await sendEdit(view)
+
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(hashAtRun).toEqual([H2])
+  })
+
+  it('(e) an AI PROPOSAL turn (held for approval, chat lane) whose reply carries a moved graph_hash: no commit, no Run', async () => {
+    const view = mount()
+    const proposalId = `prop_${'a'.repeat(32)}`
+    stub200({
+      ...witness.response_body,
+      assistant_text: 'I could set "Additional specialists" to 2 for "Add one specialist". Shall I?',
+      suggested_actions: [
+        { id: `agent-approve-proposal:${proposalId}`, label: 'Apply it', message: 'Yes, apply that.' },
+        { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' },
+      ],
+    })
+    await act(async () => { view.rerender({ idle: false }) })
+    await act(async () => { await view.result.current.sendMessage('Make it two specialists').catch(() => undefined) })
+    await act(async () => { view.rerender({ idle: true }) })
+
+    // Positive control: the proposal turn really settled on this canvas.
+    expect(view.result.current.messages.some((m) => m.role === 'assistant' && /Shall I\?/.test(m.content))).toBe(true)
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('(f) COLD REOPEN of the guest scenario (CEE read lands H2; an earlier session had noted a commit): no Run', async () => {
+    // A commit noted before the canvas mounts (the previous session's edit) is not this session's change.
+    noteCanvasLocalCommit(H2)
+    vi.mocked(noteCanvasLocalCommit).mockClear()
+    const view = mount()
+    stub200({
+      schema: 'scenario_graph.v1', scenario_id: SCENARIO_ID, graph_present: true,
+      graph: witness.response_body.draft_graph, graph_hash: H2,
+      conversation_turns: [{ turn_id: witness.request_body.turn_id, created_at: new Date(0).toISOString(),
+        user_message: '', assistant_message: witness.response_body.assistant_text }],
+    })
+    let outcome: unknown
+    await act(async () => { outcome = await hydrateCanvasFromServer(SCENARIO_ID, { includeConversationTurns: true }) })
+    await act(async () => { view.rerender({ idle: true }) })
+
+    // Positive control: the reopen read really landed CEE's model on this canvas.
+    expect(outcome).not.toBe('skipped')
+    expect(useCanvasStore.getState().lastServerGraphHash).toBe(H2)
     expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
     expect(run).not.toHaveBeenCalled()
   })
