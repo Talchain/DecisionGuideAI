@@ -4,7 +4,6 @@ import { stripEncodingNotation } from '../../utils/cleanFactorLabel'
 import { formatThreshold } from '../../RangeVisualization'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { MODEL_SCORE_COPY } from '../modelScore'
-import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
@@ -33,18 +32,15 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
   }
 
   const rec = data.recommendation
-  const runLicence = data.goalChanceLicence ?? null
-  const licence = goalChanceHeroSays(rec.goalThreshold, rec.allOptions, runLicence) ? runLicence : null
   // Follow the caller's model option order, never the results hook's win-share ranking.
   const order = new Map(optionOrder.map((id, index) => [id, index]))
   const options = [...rec.allOptions].sort((a, b) =>
     (order.get(a.id) ?? optionOrder.length) - (order.get(b.id) ?? optionOrder.length))
-  // Both clauses were read verbatim by readGoalChanceHorizonLine; the licence has the hero's precedence.
-  const horizonLine = licence?.horizonLine ?? data.goalChanceRange?.horizonLine ?? null
   const rows = options.map((option) => {
     const id = option.id
     const existingRow = comparison.rows.find((r) => r.id === id)
-    // The chance cell is CEE's served cell, verbatim (RunView's one resolver); the matrix composes no chance words.
+    // The chance cell is CEE's served cell, verbatim (RunView's one resolver); the matrix composes no chance words, not even
+    // a column label (CEE's face names the option and the goal itself).
     const chanceCell = optionChanceCellFromResults(data, id)
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
@@ -68,7 +64,6 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
   const runTime = run.computedAt && Number.isFinite(Date.parse(run.computedAt))
     ? new Date(run.computedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : null
-  const header = `${typography.panelBody} text-text-light [font-weight:inherit] text-left px-1 py-2 first:pl-0 last:pr-0`
   const cell = `${typography.panelBody} align-top border-t border-panel-border px-1 py-2 first:pl-0 last:pr-0`
 
   return (
@@ -80,10 +75,6 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
       <div className="max-w-full overflow-auto">
         <table className={`${typography.panelBody} text-text-body my-2 w-full border-collapse tabular-nums`}>
           <caption className="sr-only">Decision matrix</caption>
-          <thead><tr>
-            <th scope="col" className={header}>Option</th>
-            <th scope="col" className={header}>Chance of meeting your goal, in this model</th>
-          </tr></thead>
           <tbody>{rows.map((row) => <tr key={row.id} data-testid={`decision-matrix-row-${row.id}`}>
             <th scope="row" className={`${cell} [font-weight:inherit] text-left`}>{row.label}</th>
             <td className={cell} data-testid={`decision-matrix-chance-${row.id}`}>
@@ -96,7 +87,6 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
         </table>
       </div>
       {withheldLine !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-withheld">{withheldLine}</p>}
-      {horizonLine !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-horizon">{horizonLine}</p>}
       {hasOutcome && <SectionShell title="Modelled outcomes" count={null} variant="disclose" testId="decision-matrix-outcomes">
         {rows.map((row) => <div key={row.id} className={`${typography.panelBody} text-text-body py-2`}>
           <p data-testid={`decision-matrix-outcome-${row.id}`}>{row.label}: {row.centreReadout ?? 'Not shown.'}</p>

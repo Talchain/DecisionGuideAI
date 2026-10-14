@@ -234,9 +234,12 @@ const SURFACES: readonly Surface[] = [
     reaches: { boundary: [`goal-readout-${A}`, `goal-readout-${B}`] },
   },
   {
-    name: 'Reasoning tab (AnalysisNewTabBody: decision matrix, options comparison, glance, commitment, model strip)', u0: false,
+    // The decision matrix (reasoning artefact A1, reinstated 14 Oct on the DL's order) says each option's served cell, so this
+    // tab is on the journey path: CEE's faces verbatim are its positive control, and rule C reads everything else.
+    name: 'Reasoning tab (AnalysisNewTabBody: decision matrix, options comparison, glance, commitment, model strip)', u0: true,
     mount: hash => render(<AnalysisNewTabBody resultsSectionData={sectionData()} isPreRun={false} isRunning={false} isStale={false}
       responseHash={hash} />).container,
+    says: CARD_FACES_OF,
   },
   {
     name: 'chat analysis card (V5AnalysisResultBlock)', u0: true,

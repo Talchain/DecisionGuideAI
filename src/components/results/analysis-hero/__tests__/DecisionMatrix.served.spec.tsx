@@ -25,7 +25,6 @@ const PCT = { current_outreach: 20, angel_bridge: 41, [CONVERTIBLE]: 62 }
 const ready = fx.analysis_ready as typeof fx.analysis_ready & { computed_at?: string; graph_hash_at_run?: string }
 const RUN = { hash: 'run-4276', computedAt: ready.computed_at, graphHash: ready.graph_hash_at_run }
 
-const HORIZON = 'This model doesn’t yet say whether any option gets there within 9 months.'
 
 function propsFor(data: ReturnType<typeof useResultsSectionData>): DecisionMatrixProps {
   const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
@@ -77,7 +76,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(hero.kind).toBe('chart')
     render(<DecisionMatrix {...props} />)
     open()
-    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1)
+    const rows = within(screen.getByRole('table')).getAllByRole('row')
     expect(rows).toHaveLength(data.recommendation.allOptions.length)
     expect(rows.map((r) => r.getAttribute('data-testid'))).toEqual(MODEL_ORDER.map((id) => `decision-matrix-row-${id}`))
     for (const option of SCORED) {
@@ -191,29 +190,6 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
-  it('a licence-only horizon uses S3’s reader and appears once below the table', () => {
-    seedChance()
-    const state = useCanvasStore.getState()
-    const source = state.results.report as unknown as { inference_warnings: Array<Record<string, unknown>> }
-    useCanvasStore.setState({ results: { ...state.results, report: {
-      ...source, inference_warnings: source.inference_warnings.map((record) => record.code === 'GOAL_CHANCE_LICENSED'
-        ? { ...record, horizon_untested: true, horizon_line: HORIZON } : record),
-    } } } as never)
-    const data = renderHook(() => useResultsSectionData()).result.current
-    expect(data.goalChanceRange).toBeNull()
-    expect(data.goalChanceLicence?.horizonLine).toBe(HORIZON)
-    render(<DecisionMatrix {...propsFor(data)} />)
-    open()
-    expect(screen.getAllByText(HORIZON)).toHaveLength(1)
-    expect(screen.getByTestId('decision-matrix-horizon')).toHaveTextContent(HORIZON)
-  })
-
-  it('no horizon clause is invented when the Run has none', () => {
-    render(<DecisionMatrix {...propsFor(seedChance())} />)
-    open()
-    expect(screen.queryByTestId('decision-matrix-horizon')).toBeNull()
-  })
-
   it('the stamp uses Compare’s human-readable Run time; full hash and ISO time are data attributes only', () => {
     render(<DecisionMatrix {...propsFor(seedChance())} />)
     open()
@@ -238,14 +214,14 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(screen.getByTestId('decision-matrix-stamp')).toHaveTextContent('time not recorded')
   })
 
-  it('the slim table has two columns, panelBody core cells, and no inputs or weighted scores', () => {
+  it('the slim table has no UI chance label, panelBody core cells, and no inputs or weighted scores', () => {
     render(<DecisionMatrix {...propsFor(seedChance())} />)
     open()
     const matrix = screen.getByTestId('decision-matrix')
     const table = screen.getByRole('table')
-    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
-      'Option', 'Chance of meeting your goal, in this model',
-    ])
+    // CEE's face names the option and the goal; the matrix sets no chance label of its own beside it (no header row; the
+    // sentinel census reads the words).
+    expect(within(table).queryAllByRole('columnheader')).toHaveLength(0)
     for (const cell of table.querySelectorAll('th, td')) {
       expect(cell).toHaveClass(...typography.panelBody.split(' '))
       expect(cell).not.toHaveClass('text-[11px]')
