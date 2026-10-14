@@ -668,7 +668,6 @@ test.describe.serial('J1 · whole PoC', () => {
     if (J.optionEdit) {
       const oe = J.optionEdit
       const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const optionLabel = labelOf(J.G1!, oe.option)
       // J2e's rerun is on a model the automatic Run already analysed (#2767), so after the reload the strip says exactly
       // that, by its own words; the £49 → £59 change was shown for the automatic Run in J2d ([J2d reload]).
       await expect(pageA.getByRole('status').filter({ hasText: 'Since the last run' }).getByText('Both runs used the same input values.', { exact: true }),
