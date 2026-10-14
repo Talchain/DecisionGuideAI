@@ -310,7 +310,9 @@ describe('CEE’s action bar heads the Reasoning tab when the latest answer carr
   it('before a Run the bar says what each Run-dependent action needs, and sends nothing for it', () => {
     useActionBarStore.getState().setBar(SCENARIO, captured('pre-run'))
     mount({ isPreRun: true })
-    fireEvent.click(screen.getByTestId(`${BAR}-icon-review`))
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): a disabled standard sinks below CEE's enabled More offers, into the ⋯ menu.
+    fireEvent.click(screen.getByTestId(`${BAR}-more`))
+    fireEvent.click(screen.getByTestId(`${BAR}-menu-review`))
     expect(dispatch).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${BAR}-notice`)).toHaveTextContent('Review: Needs a current analysis.')
   })

@@ -560,7 +560,7 @@ export function ScenarioSwitcher({
                 className={`px-4 py-3 ${typography.body} text-gray-500`}
                 data-testid="scenario-switcher-persisted-notice"
               >
-                Your decisions are on the Decisions page.
+                Your models are listed under My models.
               </div>
             ) : (
             <div className="max-h-64 overflow-y-auto">

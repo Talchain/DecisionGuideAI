@@ -200,9 +200,16 @@ describe('with a goal — the strip owns the ask, and the glance does not repeat
     // V2 prototype (Paul, 25 Sep 2026): the unset row is the question, and the
     // control is an icon-only pencil. ⚠ 26 Sep (design audit B5): named as the
     // prototype names it — words OR an optional target — not "Set a target".
-    expect(screen.getByTestId('analysis-new-model-strip-target-none').textContent).toBe(
-      'What would success look like?',
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The open strip's Goal row states the goal
+    // and its state ("needs a target"); the question line is the closed-strip layout only.
+    const target = screen.getByTestId('analysis-new-model-strip-target')
+    expect(target).toHaveAttribute('data-variant', 'checklist')
+    expect(target).toHaveAttribute('data-kind', 'goal')
+    expect(screen.getByTestId('analysis-new-model-strip-target-text').textContent).toBe(
+      'Board wants NRR back above 110% · needs a target',
     )
+    expect(screen.getByTestId('analysis-new-model-strip-target-none').textContent).toBe('· needs a target')
+    expect(screen.queryByTestId('analysis-new-model-strip-target-value')).toBeNull()
     expect(screen.getByTestId('analysis-new-model-strip-target-edit')).toHaveAccessibleName(
       COPY.successTarget.describeSuccess,
     )

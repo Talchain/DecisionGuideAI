@@ -113,15 +113,27 @@ describe('fidelity gaps #3 / #8 — the subject line is screen-reader-only, neve
     expect(lead.closest('[aria-hidden="true"]'), 'hidden visually, never from assistive tech').toBeNull()
   })
 
-  it('⭐ and stays `sr-only` with no `truncate` once opened — either state', () => {
+  // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. Opened, the subject is the Decision row's text:
+  // displayed, one clipped line at rest, the whole question on a click (never lost: `title` carries it too).
+  it('⭐ once opened, the subject is the Decision row: shown, clipped at rest, whole on a click', () => {
     setNodes(DECISION_AND_GOAL)
     render(<ModelStrip isPreRun={false} />)
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'true')
     const lead = screen.getByTestId(`${TID}-lead`)
-    expect(lead.className).not.toMatch(/\btruncate\b/)
-    expect(lead).toHaveClass('sr-only')
-    expect(screen.getByTestId(`${TID}-goal`)).toHaveClass('sr-only')
+    expect(lead).not.toHaveClass('sr-only')
+    expect(lead.closest('[aria-hidden="true"]'), 'never hidden from assistive tech').toBeNull()
+    const text = screen.getByTestId(`${TID}-lead-text`)
+    expect(text).toHaveTextContent('Which data platform to adopt')
+    expect(text).toHaveAttribute('title', 'Which data platform to adopt')
+    expect(text).toHaveAttribute('aria-expanded', 'false')
+    expect(text.className).toMatch(/\btruncate\b/)
+    fireEvent.click(text)
+    expect(text).toHaveAttribute('aria-expanded', 'true')
+    expect(text.className, 'a click shows the whole question').not.toMatch(/\btruncate\b/)
+    // The goal is the Goal row now, not an sr-only sub-line.
+    expect(screen.queryByTestId(`${TID}-goal`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-target-text`)).toHaveTextContent('Sustained margin')
   })
 })
 

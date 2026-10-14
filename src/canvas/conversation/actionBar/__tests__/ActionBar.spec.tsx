@@ -10,7 +10,7 @@ import { Pencil } from 'lucide-react'
 
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { ASK_BUSY_NOTICE } from '../../askAi'
-import { ACTION_BAR_COPY, ActionBar } from '../ActionBar'
+import { ACTION_BAR_COPY, ACTION_BAR_SLOTS, ActionBar } from '../ActionBar'
 import { REASONING_TYPE } from '../../../../components/results/analysisNew/sections/ReasoningActionBar'
 import { parseActionBar, type ActionBarV1 } from '../actionBarContract'
 import { useActionBarStore } from '../actionBarStore'
@@ -27,6 +27,12 @@ const chipOf = (offer: { press_id: string; label: string; user_line: string; off
   id: offer.press_id, label: offer.label, message: offer.user_line, parameters: { offer_key: offer.offer_key, revision }, source: 'chip',
 })
 
+const MORE_RISKS = { ...MORE_OPTIONS, action_id: 'more_risks', label: 'More risks', offer_key: 'abababababababab' }
+const FRAME_BRIEF = { ...MORE_OPTIONS, action_id: 'frame_brief', label: 'Frame brief', offer_key: 'acacacacacacacac' }
+/** The row's controls, in DOM order, by test id (⋯ included). */
+const rowOrder = () =>
+  Array.from((screen.getByTestId('action-bar').firstElementChild as HTMLElement).querySelectorAll('button')).map((el) => el.getAttribute('data-testid'))
+
 beforeEach(() => {
   dispatch = vi.fn()
   resetPressOfferClocks()
@@ -35,33 +41,38 @@ beforeEach(() => {
 })
 
 describe('what is drawn', () => {
-  it('WIDE: two pills, CEE’s four icons in CEE’s order, and the rest in the menu', () => {
-    render(<ActionBar bar={bar()} surface="chat" compact={false} />)
-    const root = screen.getByTestId('action-bar')
-    expect(root).toHaveAttribute('data-compact', 'false')
-    expect(within(root).getAllByTestId(/^action-bar-pill-[a-z_]+$/).map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-pill-set_target', 'action-bar-pill-more_options'])
-    expect(within(root).getAllByTestId(/^action-bar-icon-/).map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-icon-review', 'action-bar-icon-what_changes', 'action-bar-icon-strengthen', 'action-bar-icon-pre_mortem'])
-    fireEvent.click(screen.getByTestId('action-bar-more'))
-    expect(within(screen.getByTestId('action-bar-menu')).getAllByRole('menuitem').map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-menu-test_link'])
-  })
-
-  it('NARROW: one pill and three icons; the second pill and the fourth icon are in the menu, nothing is lost', () => {
-    render(<ActionBar bar={bar()} surface="reasoning" compact />)
-    expect(screen.getByTestId('action-bar')).toHaveAttribute('data-compact', 'true')
-    expect(screen.getAllByTestId(/^action-bar-pill-[a-z_]+$/)).toHaveLength(1)
-    expect(screen.getByTestId('action-bar-pill-set_target')).toBeInTheDocument()
-    expect(screen.getAllByTestId(/^action-bar-icon-/).map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-icon-review', 'action-bar-icon-what_changes', 'action-bar-icon-strengthen'])
+  // ⛔ EXPECTATION CHANGED (Paul, 14 Oct: six icon slots, '…' on the right): old = two pills + CEE's four standards
+  // (narrow: one pill + three); new = six slots in both layouts, priority → enabled standard → bias → top of More →
+  // disabled standard, and everything else in the menu.
+  it.each([false, true])('SIX SLOTS (compact=%s): 2 priority + 4 standard + 3 more fill exactly six, in order; the rest are in the menu', (compact) => {
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [TEST_LINK, MORE_RISKS, FRAME_BRIEF] })} surface="chat" compact={compact} />)
+    expect(screen.getByTestId('action-bar')).toHaveAttribute('data-compact', String(compact))
+    expect(ACTION_BAR_SLOTS).toBe(6)
+    expect(rowOrder()).toEqual([
+      'action-bar-pill-set_target-press', 'action-bar-pill-more_options-press',
+      'action-bar-icon-review', 'action-bar-icon-strengthen', 'action-bar-icon-pre_mortem', // enabled standards, CEE's order
+      'action-bar-icon-test_link', // top of More, by CEE's rank
+      'action-bar-more',
+    ])
+    // ⛔ The DISABLED standard sinks below the enabled More offer: it is in the menu, not the row. Nothing is lost.
+    expect(screen.queryByTestId('action-bar-icon-what_changes')).toBeNull()
     fireEvent.click(screen.getByTestId('action-bar-more'))
     expect(screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid')).sort())
-      .toEqual(['action-bar-menu-more_options', 'action-bar-menu-pre_mortem', 'action-bar-menu-test_link'])
+      .toEqual(['action-bar-menu-frame_brief', 'action-bar-menu-more_risks', 'action-bar-menu-what_changes'])
+  })
+
+  it('⛔ CONTRAST: with room left after the enabled offers, the disabled standard takes the last slot', () => {
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [] })} surface="chat" compact={false} />)
+    expect(rowOrder()).toEqual([
+      'action-bar-pill-set_target-press', 'action-bar-pill-more_options-press',
+      'action-bar-icon-review', 'action-bar-icon-strengthen', 'action-bar-icon-pre_mortem', 'action-bar-icon-what_changes',
+    ])
+    expect(screen.queryByTestId('action-bar-more')).toBeNull()
   })
 
   it('every control is named by its label and the reason it is offered (or what stops it)', () => {
-    render(<ActionBar bar={bar()} surface="chat" />)
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): no More offers, so the disabled standard is in the row.
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [] })} surface="chat" />)
     expect(screen.getByTestId('action-bar-icon-review')).toHaveAccessibleName('Review — Check what to confirm before relying on this analysis.')
     expect(screen.getByTestId('action-bar-icon-what_changes')).toHaveAccessibleName('What changes — Run the analysis first: there is no result to test yet.')
     expect(screen.getByTestId('action-bar-pill-set_target-press')).toHaveAccessibleName('Set target — The goal has no target, so no chance can be worked out.')
@@ -71,16 +82,19 @@ describe('what is drawn', () => {
     expect(screen.getByTestId('action-bar-pill-set_target')).toHaveTextContent('')
   })
 
-  it('the menu groups its rows, and each row says why it is offered', () => {
-    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [TEST_LINK, { ...MORE_OPTIONS, action_id: 'more_risks', label: 'More risks', offer_key: 'abababababababab' }] })} surface="chat" compact />)
+  it('the menu groups its rows, and each row says why it is offered (or what stops it)', () => {
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): the menu holds what the six slots leave, so More carries enough to overflow.
+    const TEST_LINK_2 = { ...TEST_LINK, action_id: 'test_link_two', label: 'Test link two', offer_key: 'cdcdcdcdcdcdcdcd' }
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [TEST_LINK, MORE_RISKS, TEST_LINK_2] })} surface="chat" compact />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     expect(within(screen.getByTestId('action-bar-menu-group-gap')).getByText(ACTION_BAR_COPY.groups.gap)).toBeInTheDocument()
     expect(within(screen.getByTestId('action-bar-menu-group-gap')).getAllByRole('menuitem').map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-menu-more_options', 'action-bar-menu-more_risks'])
+      .toEqual(['action-bar-menu-more_risks'])
     expect(within(screen.getByTestId('action-bar-menu-group-method')).getAllByRole('menuitem').map((el) => el.getAttribute('data-testid')))
-      .toEqual(['action-bar-menu-pre_mortem', 'action-bar-menu-test_link'])
+      .toEqual(['action-bar-menu-what_changes', 'action-bar-menu-test_link_two'])
     expect(screen.queryByTestId('action-bar-menu-group-review')).toBeNull()
-    expect(screen.getByTestId('action-bar-menu-test_link')).toHaveTextContent('Test linkThis link moves the result the most.')
+    expect(screen.getByTestId('action-bar-menu-test_link_two')).toHaveTextContent('Test link twoThis link moves the result the most.')
+    expect(screen.getByTestId('action-bar-menu-what_changes')).toHaveTextContent('What changesRun the analysis first: there is no result to test yet.')
   })
 
   it('an icon name this build does not hold still shows the offer, under its label', () => {
@@ -114,8 +128,9 @@ describe('what is drawn', () => {
   })
 
   it('the host chooses the type tokens and nothing else: body-size labels on both (the Reasoning tab passes its own)', () => {
-    // ⛔ INPUT CHANGE (icons only, 14 Oct): the only words left are the ⋯ menu's rows, so the token is read there.
-    const label = () => screen.getByTestId('action-bar-menu-test_link').querySelector('span > span')!
+    // ⛔ INPUT CHANGE (icons only, 14 Oct): the only words left are the ⋯ menu's rows, so the token is read there
+    // (six slots: the disabled standard is the example bar's one menu row).
+    const label = () => screen.getByTestId('action-bar-menu-what_changes').querySelector('span > span')!
     const { unmount } = render(<ActionBar bar={bar()} surface="chat" />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     expect(label().className).toContain('text-[13px]')
@@ -134,8 +149,12 @@ describe('what is drawn', () => {
       expect(control.textContent).toBe('')
       expect(control.getAttribute('aria-label') ?? '').not.toBe('')
     }
-    // The ⋯ control is spaced like the rest, never pushed apart.
-    expect((screen.getByTestId('action-bar-more').parentElement as HTMLElement).className).not.toContain('ml-auto')
+    // ⛔ EXPECTATION CHANGED (Paul, 14 Oct: '…' pinned to the far right): old = ⋯ spaced like the rest (no ml-auto);
+    // new = ⋯ is the row's last control, pushed to the right edge.
+    expect((screen.getByTestId('action-bar-more').parentElement as HTMLElement).className).toContain('ml-auto')
+    expect(rowOrder().at(-1)).toBe('action-bar-more')
+    // ⛔ CONTRAST: the icons themselves are not pushed apart.
+    expect(screen.getByTestId('action-bar-icon-review').className).not.toContain('ml-auto')
   })
 })
 
@@ -151,7 +170,8 @@ describe('one press, one chip turn', () => {
   })
 
   it('a menu row sends the same way, and the menu closes', () => {
-    render(<ActionBar bar={bar()} surface="chat" />)
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): More's first offer takes the last slot, so Test link is ranked second.
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [MORE_RISKS, TEST_LINK] })} surface="chat" />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     fireEvent.click(screen.getByTestId('action-bar-menu-test_link'))
     expect(dispatch).toHaveBeenCalledTimes(1)
@@ -160,7 +180,8 @@ describe('one press, one chip turn', () => {
   })
 
   it('⛔ a DISABLED offer sends nothing and says what stops it; ⛔ CONTRAST: its enabled neighbour sends', () => {
-    render(<ActionBar bar={bar()} surface="chat" compact={false} />)
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): no More offers, so the disabled standard is in the row.
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [] })} surface="chat" compact={false} />)
     const disabled = screen.getByTestId('action-bar-icon-what_changes')
     expect(disabled).toHaveAttribute('aria-disabled', 'true')
     expect(disabled).not.toBeDisabled() // focusable, so keyboard and touch can reach the reason
@@ -244,7 +265,8 @@ describe('the priority action (Paul, 14 Oct: icon-only, no hide control)', () =>
 
 describe('keyboard and the host’s own controls', () => {
   it('opening the menu focuses its first row; arrows rove; Escape closes and returns focus to ⋯', () => {
-    render(<ActionBar bar={bar()} surface="chat" compact />)
+    // ⛔ INPUT CHANGE (six slots, 14 Oct): two More offers, so the menu has more than one row to rove.
+    render(<ActionBar bar={bar({ ...EXAMPLE_BAR, more: [TEST_LINK, MORE_RISKS] })} surface="chat" compact />)
     const more = screen.getByTestId('action-bar-more')
     fireEvent.click(more)
     expect(more).toHaveAttribute('aria-expanded', 'true')
@@ -298,6 +320,13 @@ describe('the bars CEE captured, drawn and pressed', () => {
     render(<ActionBar bar={b} surface="chat" compact={false} />)
     const reason = (o: ActionBarV1['standard'][number]) => `${o.label} — ${o.enabled ? o.why_now : o.disabled_reason}`
     let sent = 0
+    // ⛔ EXPECTATION CHANGED (six slots, 14 Oct): old = every priority a pill and every standard an icon; new = each
+    // offer is in the row OR the menu, exactly once, and the row holds six slots (bias icons included).
+    const rowControl = (o: ActionBarV1['standard'][number]) =>
+      screen.queryByTestId(`action-bar-pill-${o.action_id}-press`) ?? screen.queryByTestId(`action-bar-icon-${o.action_id}`)
+    const all = [...b.priority, ...b.standard, ...b.more]
+    const biasCount = b.bias_risk?.items.length ?? 0
+    expect(rowOrder().filter((id) => id !== 'action-bar-more')).toHaveLength(Math.min(ACTION_BAR_SLOTS, all.length + biasCount))
     const pressed = (el: HTMLElement, o: ActionBarV1['standard'][number]) => {
       fireEvent.click(el)
       if (o.enabled) {
@@ -309,33 +338,41 @@ describe('the bars CEE captured, drawn and pressed', () => {
       }
       expect(dispatch).toHaveBeenCalledTimes(sent)
     }
-    expect(screen.queryAllByTestId(/^action-bar-pill-[a-z_]+$/)).toHaveLength(b.priority.length)
-    for (const o of b.priority) {
-      const el = screen.getByTestId(`action-bar-pill-${o.action_id}-press`)
-      expect(el).toHaveAccessibleName(reason(o))
-      pressed(el, o)
-    }
-    expect(screen.queryAllByTestId(/^action-bar-icon-/).map((el) => el.getAttribute('data-testid'))).toEqual(b.standard.map((o) => `action-bar-icon-${o.action_id}`))
-    for (const o of b.standard) {
-      const el = screen.getByTestId(`action-bar-icon-${o.action_id}`)
-      expect(el).toHaveAccessibleName(reason(o))
-      pressed(el, o)
-    }
-    for (const o of b.more) {
+    let inRow = 0
+    for (const o of all) {
+      const el = rowControl(o)
+      if (el) {
+        inRow += 1
+        expect(el).toHaveAccessibleName(reason(o))
+        fireEvent.click(screen.getByTestId('action-bar-more'))
+        expect(screen.queryByTestId(`action-bar-menu-${o.action_id}`), `${o.action_id} is drawn once`).toBeNull()
+        fireEvent.click(screen.getByTestId('action-bar-more'))
+        pressed(el, o)
+        continue
+      }
       fireEvent.click(screen.getByTestId('action-bar-more'))
       const row = screen.getByTestId(`action-bar-menu-${o.action_id}`)
       expect(row).toHaveTextContent(`${o.label}${o.enabled ? o.why_now : o.disabled_reason}`)
       pressed(row, o)
     }
+    expect(inRow, 'POSITIVE CONTROL: offers are drawn in the row').toBeGreaterThanOrEqual(3)
     expect(b.priority.length + b.standard.length + b.more.length, 'POSITIVE CONTROL: the capture holds offers').toBeGreaterThanOrEqual(5)
     expect(sent, 'POSITIVE CONTROL: at least one press was sent').toBeGreaterThanOrEqual(2)
   })
 
-  it('before a Run, the three Run-dependent icons say what they need and the pre-mortem still runs', () => {
+  // ⛔ EXPECTATION CHANGED (six slots, 14 Oct): old = the three disabled standards were row icons; new = they sink below
+  // CEE's enabled More offers into the menu, still saying what they need.
+  it('before a Run, the row is the priority, the pre-mortem and the top of More; the three Run-dependent actions are in the menu and say what they need', () => {
     const b = captured('pre-run')
     render(<ActionBar bar={b} surface="reasoning" compact={false} />)
-    for (const id of ['review', 'what_changes', 'strengthen']) expect(screen.getByTestId(`action-bar-icon-${id}`)).toHaveAttribute('aria-disabled', 'true')
-    fireEvent.click(screen.getByTestId('action-bar-icon-review'))
+    expect(rowOrder()).toEqual([
+      'action-bar-pill-set_goal-press', 'action-bar-icon-pre_mortem',
+      'action-bar-icon-more_risks', 'action-bar-icon-more_options', 'action-bar-icon-frame_brief', 'action-bar-icon-bias_check',
+      'action-bar-more',
+    ])
+    fireEvent.click(screen.getByTestId('action-bar-more'))
+    for (const id of ['review', 'what_changes', 'strengthen']) expect(screen.getByTestId(`action-bar-menu-${id}`)).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(screen.getByTestId('action-bar-menu-review'))
     expect(dispatch).not.toHaveBeenCalled()
     expect(screen.getByTestId('action-bar-notice')).toHaveTextContent('Review: Needs a current analysis.')
     fireEvent.click(screen.getByTestId('action-bar-icon-pre_mortem'))

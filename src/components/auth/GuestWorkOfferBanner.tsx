@@ -28,13 +28,13 @@ import { requestGuestCopy } from '../../services/guestCopyService'
 import { getSessionIdentity } from '../../lib/supabase'
 
 export const GUEST_WORK_OFFER_COPY = {
-  heading: 'Decisions from before you signed in',
-  body: 'You worked on these as a guest. Add the ones that are yours to your decisions.',
-  unnamed: 'A decision from an earlier visit',
-  add: 'Add to my decisions',
+  heading: 'Models from before you signed in',
+  body: 'You worked on these as a guest. Add the ones that are yours to your models.',
+  unnamed: 'A model from an earlier visit',
+  add: 'Add to my models',
   decline: 'Not mine',
   retry: "Couldn't add it just now. Please try again.",
-  gone: 'That decision can no longer be added.',
+  gone: 'That model can no longer be added.',
 } as const
 
 /** A fixed table, not `toLocaleDateString`: ICU versions disagree on "Sep" vs "Sept". */

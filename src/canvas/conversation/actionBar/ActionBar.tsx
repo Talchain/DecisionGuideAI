@@ -5,15 +5,15 @@
  * tab, and a press must genuinely work. This is the one renderer of CEE's
  * `action_bar` (`actionBarContract.ts`); a surface chooses only its type tokens.
  *
- *   [pill] [pill] [icon] [icon] [icon] [icon] [bias] [⋯]
+ *   [slot] [slot] [slot] [slot] [slot] [slot]                    [⋯]
  *
  *  · ICONS ONLY, evenly spaced (Paul, 14 Oct: "just icons there, no words"). Every control's name is its
  *    aria-label and tooltip; only the ⋯ menu's rows carry words.
- *  · Pills: at most two, the reason this state is worth acting on, drawn as the same icon as the rest. Narrow: one.
- *  · Icons: CEE's fixed-position standards, so a reader learns their places.
- *    Narrow: three inline, the rest in ⋯.
- *  · Bias: one icon per `bias_risk` item; a press asks Olumi to explain it here and how to counter it.
- *  · ⋯: everything else that is relevant, grouped, each with why it is offered.
+ *  · SIX slots, wide or narrow, filled in this order: live priority offers → ENABLED standards (CEE's fixed
+ *    order) → bias icons → the top ENABLED `more` offers (CEE's rank) → only then DISABLED standards.
+ *  · Bias: one icon per `bias_risk` item; a press asks Olumi to explain it here and how to counter it. It has no
+ *    menu row, so its slots are always kept.
+ *  · ⋯ at the far right: everything else (hidden priority, disabled and unplaced offers), grouped, each with why.
  * That layout is the MAXIMUM (DL §E): only what CEE sends is drawn.
  *
  * ⚠ NOTHING HERE KNOWS AN ACTION. Label, icon name, press id and the reason all
@@ -38,9 +38,10 @@ import { pressOffer } from './pressOffer'
 
 export type ActionBarSurface = 'chat' | 'reasoning'
 
-/** Below this many pixels the bar shows one pill and three icons (Paul's approved narrow layout). */
+/** Below this many pixels the bar tightens its gap (the slot count is the same). */
 export const ACTION_BAR_COMPACT_BELOW = 380
-const COMPACT_ICONS = 3
+/** Paul 14 Oct 2026: six icon slots (priority → enabled standard → bias → top of More), '…' on the right. */
+export const ACTION_BAR_SLOTS = 6
 
 export const ACTION_BAR_COPY = {
   group: 'What you can do next',
@@ -114,18 +115,30 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   const [notice, setNotice] = useState<string | null>(null)
   const type = typeScale ?? CHAT_TYPE
 
-  const { pills, icons, menu } = useMemo(() => {
+  const { pills, icons, trailing, menu } = useMemo(() => {
     const live = bar.priority.filter((offer) => !dismissed.includes(offer.offer_key))
     const hidden = bar.priority.filter((offer) => dismissed.includes(offer.offer_key))
-    const pillCount = compact ? 1 : 2
-    const iconCount = compact ? COMPACT_ICONS : bar.standard.length
-    return {
-      pills: live.slice(0, pillCount),
-      icons: bar.standard.slice(0, iconCount),
-      // Nothing CEE offered is lost to the layout: what does not fit, or was hidden, is in the menu.
-      menu: [...live.slice(pillCount), ...hidden, ...bar.standard.slice(iconCount), ...bar.more],
+    // Bias icons have no menu row, so their slots are reserved; offers fill the rest in the slot order.
+    let room = Math.max(0, ACTION_BAR_SLOTS - (bar.bias_risk?.items.length ?? 0))
+    const take = (offers: readonly ActionOffer[]) => {
+      const placed = offers.slice(0, room)
+      room -= placed.length
+      return placed
     }
-  }, [bar, compact, dismissed])
+    const pills = take(live)
+    const icons = take(bar.standard.filter((offer) => offer.enabled))
+    const topMore = take(bar.more.filter((offer) => offer.enabled))
+    const disabledStandard = take(bar.standard.filter((offer) => !offer.enabled))
+    const placed = new Set([...pills, ...icons, ...topMore, ...disabledStandard])
+    const rest = (offers: readonly ActionOffer[]) => offers.filter((offer) => !placed.has(offer))
+    return {
+      pills,
+      icons,
+      trailing: [...topMore, ...disabledStandard],
+      // Nothing CEE offered is lost to the layout: what does not fit, or was hidden, is in the menu.
+      menu: [...rest(live), ...hidden, ...rest(bar.standard), ...rest(bar.more)],
+    }
+  }, [bar, dismissed])
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -180,7 +193,25 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   }
 
   const hostGroups = (hostMenu ?? []).filter((group) => group.items.length > 0)
-  if (pills.length === 0 && icons.length === 0 && menu.length === 0 && hostGroups.length === 0) return null
+  if (pills.length === 0 && icons.length === 0 && trailing.length === 0 && menu.length === 0 && hostGroups.length === 0) return null
+
+  const iconButton = (offer: ActionOffer) => {
+    const Glyph = actionGlyph(offer.icon)
+    return (
+      <Tooltip key={offer.offer_key} asChild content={offerName(offer)}>
+        <button
+          type="button"
+          aria-label={offerName(offer)}
+          aria-disabled={offer.enabled ? undefined : 'true'}
+          onClick={() => press(offer)}
+          data-testid={`${testId}-icon-${offer.action_id}`}
+          className={iconButtonClass(offer.enabled)}
+        >
+          <Glyph className={icon('section')} aria-hidden={true} />
+        </button>
+      </Tooltip>
+    )
+  }
 
   return (
     <div
@@ -213,23 +244,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
             </span>
           )
         })}
-        {icons.map((offer) => {
-          const Glyph = actionGlyph(offer.icon)
-          return (
-            <Tooltip key={offer.offer_key} asChild content={offerName(offer)}>
-              <button
-                type="button"
-                aria-label={offerName(offer)}
-                aria-disabled={offer.enabled ? undefined : 'true'}
-                onClick={() => press(offer)}
-                data-testid={`${testId}-icon-${offer.action_id}`}
-                className={iconButtonClass(offer.enabled)}
-              >
-                <Glyph className={icon('section')} aria-hidden={true} />
-              </button>
-            </Tooltip>
-          )
-        })}
+        {icons.map(iconButton)}
         {bar.bias_risk ? (
           <BiasRiskIcons
             view={bar.bias_risk}
@@ -237,8 +252,9 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
             onResult={(result) => setNotice(result === 'none' ? ACTION_BAR_COPY.noConversation : null)}
           />
         ) : null}
+        {trailing.map(iconButton)}
         {menu.length > 0 || hostGroups.length > 0 ? (
-          <div ref={overflowRef} className="relative shrink-0">
+          <div ref={overflowRef} className="relative ml-auto shrink-0">
             <Tooltip asChild content={ACTION_BAR_COPY.more}>
               <button
                 ref={moreRef}

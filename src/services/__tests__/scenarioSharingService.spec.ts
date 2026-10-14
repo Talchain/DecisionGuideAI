@@ -59,14 +59,14 @@ describe('unshareScenario / members / shared list', () => {
     expect(rpc).toHaveBeenCalledWith('list_scenario_members', { p_scenario_id: SID })
   })
 
-  it('list_shared_scenarios maps rows; a blank title reads "Untitled decision"', async () => {
+  it('list_shared_scenarios maps rows; a blank title reads "Untitled model"', async () => {
     rpc.mockResolvedValue({
       data: [{ scenario_id: SID, title: ' ', updated_at: 'u', shared_at: 's', owner_name: 'Paul' }],
       error: null,
     })
     await expect(listSharedScenarios()).resolves.toEqual({
       ok: true,
-      items: [{ scenarioId: SID, title: 'Untitled decision', updatedAt: 'u', sharedAt: 's', ownerName: 'Paul' }],
+      items: [{ scenarioId: SID, title: 'Untitled model', updatedAt: 'u', sharedAt: 's', ownerName: 'Paul' }],
     })
     expect(rpc).toHaveBeenCalledWith('list_shared_scenarios', {})
   })

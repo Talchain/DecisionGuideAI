@@ -26,7 +26,7 @@ export const GrowingInput = memo(function GrowingInput({
   onSend,
   onCollapse,
   disabled = false,
-  placeholder = 'Describe your decision...',
+  placeholder = 'Write your brief...',
 }: GrowingInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
