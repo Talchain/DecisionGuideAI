@@ -25,6 +25,7 @@
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS } from '@/canvas/conversation/chipMeta'
 import { revealOlumiSurface } from '@/canvas/conversation/revealOlumi'
 import { isAiPanelV2Enabled } from '@/flags'
 import { buildFocusRows } from './buildFocusRows'
@@ -91,7 +92,8 @@ export function useFocusNow(applicableStaticIds?: readonly string[]): FocusNowPr
     // it land + the reply. `_sendMessage` is the real conversation sendMessage.
     const send = useGuidanceStore.getState()._sendMessage
     if (!send) return
-    void send(text)
+    // T1H-2: the coaching prompt is Olumi's — a chip, never the user's typed words.
+    void send(text, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.focusNowPrompt } })
     revealOlumiSurface()
   }, [])
 

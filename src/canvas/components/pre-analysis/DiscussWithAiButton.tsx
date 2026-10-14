@@ -17,6 +17,7 @@
 import { memo, useCallback } from 'react'
 import Tooltip from '@/components/Tooltip'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '@/canvas/conversation/chipMeta'
 import { requestAsk } from '@/canvas/ui/inspector-v2/askSemantic'
 import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPrompt'
 import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
@@ -30,7 +31,7 @@ interface DiscussWithAiButtonProps {
    * ChallengeSection passing onSendMessage as a prop). When provided, the
    * guidanceStore is bypassed entirely.
    */
-  onSend?: (prompt: string) => void
+  onSend?: OlumiTextSend
   /** Optional ARIA label override; defaults to "Discuss {label} with AI" */
   ariaLabel?: string
   /** Optional className extension for positioning context */
@@ -61,7 +62,8 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className, varian
     const text = buildAiDiscussPrompt(element)
     // When caller provides onSend, bypass the store entirely.
     if (onSend) {
-      onSend(text)
+      // T1H-2: the prompt is Olumi's — if the override sends it, it goes as a chip.
+      onSend(text, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.discussWithAi } })
       return
     }
     // ONE ASK SEMANTIC (ledger L-18). This control has always been

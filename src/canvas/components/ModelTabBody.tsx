@@ -69,7 +69,7 @@ import { type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
-import { createOlumiHandOff } from '../conversation/olumiHandOff'
+import { createOlumiHandOff, type OlumiSend } from '../conversation/olumiHandOff'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ interface ModelTabBodyProps {
    * unpersisted tier and the two disagreed — see that panel's `expertMode` prop.
    */
   onToggleExpert?: (next: boolean) => void
-  onSendMessage?: (message: string, opts?: { hidden?: boolean; debugSource?: string }) => void
+  onSendMessage?: OlumiSend
 }
 
 // ── Source mapping ────────────────────────────────────────────────────────────

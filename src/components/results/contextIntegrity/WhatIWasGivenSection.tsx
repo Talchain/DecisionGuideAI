@@ -57,6 +57,7 @@ import {
   resolveValueInputSeed,
 } from '../../../canvas/conversation/factorValueEdit'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../../canvas/conversation/chipMeta'
 import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
 import type { ModelBuildingNoticeRow } from '../../../canvas/conversation/modelBuildingNotices'
 import { ClampToggle } from '../ClampToggle'
@@ -643,7 +644,8 @@ function Rows({
 export interface WhatIWasGivenSectionProps {
   /** Starts the conversation to add an unmodelled figure. When absent, no
    *  action is offered — we never render a button that does nothing. */
-  onSendMessage?: (text: string) => void
+  /** Forwards `opts` so Olumi's question travels as a chip (T1H-2). */
+  onSendMessage?: OlumiTextSend
   /**
    * ⭐⭐ OPT IN TO THE ANALYSIS (NEW) CONTAINER GRAMMAR. **Default `false`, and
    * the default is the whole design of this prop.**
@@ -928,7 +930,8 @@ export const WhatIWasGivenSection = forwardRef<
   const noticeRows = notModelledNoticeRows(draftNotices)
 
   const addMessage = (item: NotModelledItem) =>
-    onSendMessage?.(composeNotModelledQuestion(item, briefText))
+    // T1H-2: Olumi composed this question (it quotes the brief, which CEE already holds as the user's) — a chip.
+    onSendMessage?.(composeNotModelledQuestion(item, briefText), { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.whatIWasGivenNotModelled } })
 
   return (
     <section

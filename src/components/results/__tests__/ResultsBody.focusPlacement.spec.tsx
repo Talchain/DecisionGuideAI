@@ -154,7 +154,7 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
     fireEvent.click(screen.getByTestId(testid))
     // the prompt is sent to Olumi…
-    expect(sendSpy).toHaveBeenCalledWith(PROMPT)
+    expect(sendSpy).toHaveBeenCalledWith(PROMPT, { chipMeta: { id: 'focus_now_prompt' } })
     // …and the chat surface is revealed (Olumi tab activated)…
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     // …with NO graph mutation (node/edge collections untouched by reference).

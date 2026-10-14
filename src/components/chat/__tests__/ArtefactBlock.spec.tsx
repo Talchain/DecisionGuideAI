@@ -184,10 +184,10 @@ describe('ArtefactActions', () => {
     expect(chips).toHaveLength(2)
 
     fireEvent.click(chips[0])
-    expect(onSend).toHaveBeenCalledWith('refine it')
+    expect(onSend).toHaveBeenCalledWith('refine it', { chipMeta: { id: 'ai_panel_artefact_action' } })
 
     fireEvent.click(chips[1])
-    expect(onSend).toHaveBeenCalledWith('expand it')
+    expect(onSend).toHaveBeenCalledWith('expand it', { chipMeta: { id: 'ai_panel_artefact_action' } })
   })
 
   it('renders max 3 actions', () => {
@@ -316,7 +316,7 @@ describe('ArtefactBlock', () => {
 
     const chips = screen.getAllByTestId('artefact-action-chip')
     fireEvent.click(chips[0])
-    expect(onSend).toHaveBeenCalledWith('Please refine the weights')
+    expect(onSend).toHaveBeenCalledWith('Please refine the weights', { chipMeta: { id: 'ai_panel_artefact_action' } })
   })
 
   it('renders multiple artefacts independently', () => {

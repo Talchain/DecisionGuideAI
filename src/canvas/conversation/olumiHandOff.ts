@@ -50,6 +50,7 @@
  */
 
 import { revealOlumiSurface } from './revealOlumi'
+import { OLUMI_TEXT_CHIP_IDS, type ChipMeta } from './chipMeta'
 
 /**
  * Whether the Olumi surface actually came to the front.
@@ -94,7 +95,7 @@ export type HandOffToOlumi = (opts: {
  */
 export type OlumiSend = (
   message: string,
-  opts?: { hidden?: boolean; debugSource?: string },
+  opts?: { hidden?: boolean; debugSource?: string; chipMeta?: ChipMeta },
 ) => void
 
 /**
@@ -113,7 +114,14 @@ export function createOlumiHandOff(send: OlumiSend | undefined | null): HandOffT
     // Then send — unconditionally. A turn is still worth posting into a panel
     // the user can open themselves; what must not happen is CLAIMING it was
     // fronted when it was not, which the return value prevents.
-    send(message, reason ? { debugSource: reason } : undefined)
+    //
+    // T1H-2: every hand-off message is a Model-tab control's OWN sentence — Olumi's
+    // text, never the user's typed words — so it travels as a chip. The id carries
+    // the control's fixed `reason`, one stable id per control.
+    send(message, {
+      ...(reason ? { debugSource: reason } : {}),
+      chipMeta: { id: reason ? `${OLUMI_TEXT_CHIP_IDS.modelTabHandOff}:${reason}` : OLUMI_TEXT_CHIP_IDS.modelTabHandOff },
+    })
     return fronted ? 'fronted' : 'deferred'
   }
 }

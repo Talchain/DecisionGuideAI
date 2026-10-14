@@ -22,6 +22,7 @@ import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conver
 import { OPTION_TARGET_ENTRY_REFUSAL } from '../ui/inspector-v2/shared/optionTargetEntry'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
+import { OLUMI_TEXT_CHIP_IDS } from '../conversation/chipMeta'
 import { cleanFactorLabel, isSuppressedUnit, qualitativeTierLabel, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { everyOptionSetsFactor, factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
@@ -1678,7 +1679,8 @@ export const FactorNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                if (counterfactualQuestion) useGuidanceStore.getState()._sendMessage?.(counterfactualQuestion)
+                // T1H-2: Olumi's question — a chip, never the user's typed words.
+                if (counterfactualQuestion) useGuidanceStore.getState()._sendMessage?.(counterfactualQuestion, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.factorCounterfactualQuestion } })
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >

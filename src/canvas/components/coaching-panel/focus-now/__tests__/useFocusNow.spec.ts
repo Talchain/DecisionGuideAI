@@ -61,7 +61,7 @@ describe('useFocusNow container', () => {
   it('onPrefill AUTO-SENDS the prompt to Olumi and reveals the chat', () => {
     const { result } = renderHook(() => useFocusNow())
     result.current.onPrefill?.('Help me add a risk.')
-    expect(h.sendMessage).toHaveBeenCalledWith('Help me add a risk.')
+    expect(h.sendMessage).toHaveBeenCalledWith('Help me add a risk.', { chipMeta: { id: 'focus_now_prompt' } })
     expect(h.reveal).toHaveBeenCalled()
     // it is a re-run of neither analysis nor anything else
     expect(h.runV2Analysis).not.toHaveBeenCalled()

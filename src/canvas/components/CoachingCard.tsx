@@ -5,6 +5,7 @@
  */
 import { memo, useCallback } from 'react'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS } from '../conversation/chipMeta'
 import { typography } from '../../styles/typography'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 
@@ -39,6 +40,8 @@ export const CoachingCard = memo(({
         console.warn('[CoachingCard] Chip dispatched without action_type — legacy chip needs migration:', chip.label)
       }
       dispatch({
+        // T1H-2: `action_type`/`parameters` are optional here — with neither, the turn went out as `composer`.
+        id: OLUMI_TEXT_CHIP_IDS.canvasCoachingChip,
         action_type: chip.action_type,
         parameters: chip.parameters,
         label: chip.label,
@@ -48,7 +51,8 @@ export const CoachingCard = memo(({
     } else {
       // Fallback: use _sendMessage if _dispatchAction not yet registered
       const send = useGuidanceStore.getState()._sendMessage
-      if (send) send(chip.message)
+      // T1H-2: the chip's message is Olumi's copy — a chip, never the user's typed words.
+      if (send) send(chip.message, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.canvasCoachingChip } })
       if (import.meta.env.DEV) console.warn('[CoachingCard] _dispatchAction not registered, falling back to _sendMessage')
     }
   }, [])
@@ -56,10 +60,11 @@ export const CoachingCard = memo(({
   const handleLinkAction = useCallback((label: string, msg: string) => {
     const dispatch = useGuidanceStore.getState()._dispatchAction
     if (dispatch) {
-      dispatch({ label, message: msg, source: 'canvas_coaching' })
+      // T1H-2: without an id this went out as `composer` (no chip meta, non-chip source) — Olumi's link text.
+      dispatch({ id: OLUMI_TEXT_CHIP_IDS.canvasCoachingLink, label, message: msg, source: 'canvas_coaching' })
     } else {
       const send = useGuidanceStore.getState()._sendMessage
-      if (send) send(msg)
+      if (send) send(msg, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.canvasCoachingLink } })
     }
   }, [])
 

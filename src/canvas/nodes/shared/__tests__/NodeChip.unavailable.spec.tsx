@@ -56,7 +56,8 @@ describe('coaching when Olumi is unavailable', () => {
     render(chip)
     fireEvent.click(screen.getByRole('button', { name: 'What could be missing?' }))
     expect(send).toHaveBeenCalledOnce()
-    expect(send).toHaveBeenCalledWith('What assumptions might we have missed?')
+    expect(send).toHaveBeenCalledWith('What assumptions might we have missed?',
+      { chipMeta: { id: 'option_counter_case', parameters: { chip_id: 'option_counter_case' } } })
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 })

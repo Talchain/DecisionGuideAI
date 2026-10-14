@@ -62,13 +62,14 @@ describe('createOlumiHandOff — fronts BEFORE it sends', () => {
     expect(send.mock.calls[0][0]).toBe("I'd like to add a causal relationship")
   })
 
-  it('carries the reason as the debug source, and omits the option when absent', () => {
+  it('carries the reason as the debug source and in the chip id; no debug source when absent (T1H-2: always a chip)', () => {
     const send = vi.fn()
     const handOff = createOlumiHandOff(send)!
     handOff({ message: 'm', reason: 'model-tab-v2:factors-add' })
-    expect(send.mock.calls[0][1]).toEqual({ debugSource: 'model-tab-v2:factors-add' })
+    expect(send.mock.calls[0][1]).toEqual({ debugSource: 'model-tab-v2:factors-add',
+      chipMeta: { id: 'model_tab_hand_off:model-tab-v2:factors-add' } })
     handOff({ message: 'm' })
-    expect(send.mock.calls[1][1]).toBeUndefined()
+    expect(send.mock.calls[1][1]).toEqual({ chipMeta: { id: 'model_tab_hand_off' } })
   })
 
   it('never marks a user gesture hidden — the turn belongs in the transcript', () => {
