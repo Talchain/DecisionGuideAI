@@ -127,3 +127,24 @@ export function toLegacyChipMetadata(
 export const PENDING_WIRE_ACTION_TYPES = [] as const
 
 export type PendingWireActionType = (typeof PENDING_WIRE_ACTION_TYPES)[number]
+
+/**
+ * T1H (14 Oct): chip identities for OLUMI-authored text that a surface sends
+ * through `sendMessage`. Without a chip such text travels as `source: 'composer'`
+ * — the user's own typed words on the wire and in CEE's request hash — so CEE
+ * counts Olumi's sentence (and any figure in it) as something the user said.
+ * Each surface sends its words unchanged with `chipMeta: { id }` from here, the
+ * same way the starter brief does (`STARTER_REDRAFT_CHIP_ID`). One stable id per
+ * surface; never reuse an id across surfaces.
+ */
+export const OLUMI_TEXT_CHIP_IDS = {
+  guidanceDiscuss: 'guidance_discuss',
+  guidanceExercise: 'guidance_exercise',
+  proposalConfirm: 'proposal_confirm',
+  optionsComparisonBringIn: 'options_comparison_bring_in',
+  optionPreviewExploreStrategies: 'option_preview_explore_strategies',
+  draftNotesConstraintFactor: 'draft_notes_constraint_factor',
+} as const
+
+/** The send seam a surface needs to mark Olumi's text as a chip. */
+export type OlumiTextSend = (text: string, opts?: { chipMeta?: ChipMeta }) => void

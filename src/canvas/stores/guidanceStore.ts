@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
+import type { OlumiTextSend } from '../conversation/chipMeta'
 import { registerDeliveredRecordAdopter } from '../hydrate/deliveredGuidanceSink'
 import { guidanceItemsFromDeliveredBlocks, toStoreGuidanceItem } from '../../v5/extractPhase3FromV5Response'
 
@@ -298,7 +299,8 @@ export interface GuidanceState {
   /** Task 3: Deep-link field target for inspector scroll-to-field */
   inspectorDeepLinkField: string | null
   /** Registered by ConversationPanel so inspector actions can send messages */
-  _sendMessage: ((text: string) => void) | null
+  /** Forwards `opts` so a surface can mark Olumi's text as a chip (T1H, `OLUMI_TEXT_CHIP_IDS`). */
+  _sendMessage: OlumiTextSend | null
   /** Registered by ConversationPanel so cross-surface Analyse CTAs can trigger the hidden run path */
   _runAnalysis: (() => void) | null
   /**
@@ -361,7 +363,7 @@ export interface GuidanceActions {
    * and silently killed every cross-surface run/ask CTA.
    */
   registerConversationCallbacks: (
-    sendMessage: (text: string) => void,
+    sendMessage: OlumiTextSend,
     scrollToPatch: (patchId: string) => void,
     sendChip?: (label: string, message: string) => void,
     runAnalysis?: () => void,

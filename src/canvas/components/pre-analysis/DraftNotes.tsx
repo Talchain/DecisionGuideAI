@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../conversation/chipMeta'
 
 /** Accepts CEEGoalConstraint shape */
 interface GoalConstraint {
@@ -22,7 +23,7 @@ interface DraftNotesProps {
   repairActions: string[]
   postRunRepairs?: string[]
   goalConstraints?: GoalConstraint[]
-  onSendMessage?: (text: string) => void
+  onSendMessage?: OlumiTextSend
 }
 
 /** Format raw adjustment/repair text for display:
@@ -119,7 +120,8 @@ export function DraftNotes({
                   {onSendMessage && (
                     <button
                       type="button"
-                      onClick={() => onSendMessage(`I'd like to add a factor for this constraint: ${c.label}`)}
+                      // T1H: Olumi's sentence around a constraint label (which can carry figures) — a chip, never the user's typed words.
+                      onClick={() => onSendMessage(`I'd like to add a factor for this constraint: ${c.label}`, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.draftNotesConstraintFactor } })}
                       className={`${typography.panelMeta} text-info hover:underline cursor-pointer shrink-0`}
                     >
                       Add factor

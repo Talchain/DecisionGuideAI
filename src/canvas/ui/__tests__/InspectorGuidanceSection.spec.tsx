@@ -212,7 +212,8 @@ describe('InspectorGuidanceSection — action buttons', () => {
     render(<InspectorGuidanceSection elementId="node-a" onSendMessage={onSendMessage} />)
 
     fireEvent.click(screen.getByRole('button', { name: /discuss/i }))
-    expect(onSendMessage).toHaveBeenCalledWith('Discuss this.')
+    // T1H: Olumi's prompt travels as a chip with this surface's identity.
+    expect(onSendMessage).toHaveBeenCalledWith('Discuss this.', { chipMeta: { id: 'guidance_discuss' } })
   })
 
   it('open_inspector action calls onOpenInspector', () => {
@@ -263,7 +264,8 @@ describe('InspectorGuidanceSection — action buttons', () => {
     render(<InspectorGuidanceSection elementId="node-a" />)
     fireEvent.click(screen.getByRole('button', { name: /discuss/i }))
 
-    expect(storeSend).toHaveBeenCalledWith('Via store.')
+    // T1H: Olumi's prompt travels as a chip with this surface's identity.
+    expect(storeSend).toHaveBeenCalledWith('Via store.', { chipMeta: { id: 'guidance_discuss' } })
 
     // Cleanup
     useGuidanceStore.setState({ _sendMessage: null, _scrollToPatch: null })

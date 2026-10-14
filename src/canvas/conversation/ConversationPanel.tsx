@@ -19,6 +19,7 @@ import {
   type LocallyRoutedChipId,
 } from './chipDispatch'
 import type { UseConversationReturn } from './useConversation'
+import { OLUMI_TEXT_CHIP_IDS } from './chipMeta'
 import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
 import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
@@ -198,9 +199,11 @@ export const ConversationPanel = memo(function ConversationPanel({
   // ── Proposal confirm handler ──────────────────────────────────────
   const handleProposalConfirm = useCallback(
     (proposalId: string) => {
+      // T1H: `confirm:<id>` is OLUMI's text — a chip, never the user's typed words.
       void sendMessage(`confirm:${proposalId}`, {
         debugSource: 'proposal_confirm',
         debugVisibleText: 'Apply proposed changes',
+        chipMeta: { id: OLUMI_TEXT_CHIP_IDS.proposalConfirm },
       })
     },
     [sendMessage],
