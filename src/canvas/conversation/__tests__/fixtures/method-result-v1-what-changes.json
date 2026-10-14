@@ -11,8 +11,7 @@
     "scenario_id": "b207acee-050c-4c8b-9801-ab4aca062bc0",
     "turn_id": "turn_wc_01",
     "run": {
-     "graph_hash_at_run": "a1b2c3d4e5f60718",
-     "run_id": "run_d3"
+     "graph_hash_at_run": "a1b2c3d4e5f60718"
     },
     "rows": [
      {
