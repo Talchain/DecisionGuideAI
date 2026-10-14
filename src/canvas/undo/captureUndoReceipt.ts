@@ -82,22 +82,35 @@ export function undoLabelFor(event: { type: string; payload?: unknown }): string
 }
 
 /**
- * CEE's own evidence that a canvas edit with no version receipt committed: the turn's `graph_hash` (the
- * analysis-affecting hash CEE stamps on what it holds) differs from the base the edit was sent against — the event's
- * CAS-checked `base_graph_hash`, else the hash the canvas held at dispatch. Returns the new hash, or `null` when there
- * is no claim: a refusal carries no `graph_hash`, a no-op answers at the base, and no base means nothing to compare.
+ * CEE's own evidence that THIS canvas edit, with no version receipt, was applied: a successful turn (no fatal error
+ * block) whose `graph_hash` (the analysis-affecting hash CEE stamps on what it holds) moved off the base this edit was
+ * sent against — the event's CAS-checked `base_graph_hash`, else the hash the canvas held at dispatch — AND off the
+ * model the canvas already held when it was sent. Returns the new hash, or `null` when there is no claim:
+ *  - a refusal carries no `graph_hash`; a failed turn carries a fatal error block (whatever hash rides with it);
+ *  - a no-op, or a retry on the applied base, answers at the base;
+ *  - a duplicate resend of an edit whose first reply was already applied (the same bytes, base still the old one)
+ *    answers with the model the canvas already holds: that revision was noted once, by the first reply;
+ *  - no base means nothing to compare.
+ * (PL rule, 14 Oct, #94 6135017311: only a successfully applied guest model revision starts the automatic Run.)
  */
 export function canvasEditMovedServerGraph(
   event: { type: string; payload?: unknown },
   response: unknown,
   serverGraphHashAtDispatch: string | null | undefined,
 ): string | null {
-  const after = (response as { graph_hash?: unknown } | null | undefined)?.graph_hash
+  const body = response as { graph_hash?: unknown; blocks?: unknown } | null | undefined
+  const after = body?.graph_hash
   if (typeof after !== 'string' || after.length === 0) return null
+  // The router's own fatal test (`responseRouter.ts`: only `severity: 'error'` blocks are fatal).
+  const failed = Array.isArray(body?.blocks) && body.blocks.some((b: unknown) =>
+    (b as { type?: unknown; severity?: unknown } | null)?.type === 'error' &&
+    (b as { severity?: unknown }).severity === 'error')
+  if (failed) return null
   const sentBase = (event.payload as { base_graph_hash?: unknown } | undefined)?.base_graph_hash
   const base = typeof sentBase === 'string' && sentBase.length > 0 ? sentBase : serverGraphHashAtDispatch
   if (typeof base !== 'string' || base.length === 0) return null
-  return after === base ? null : after
+  if (after === base || after === serverGraphHashAtDispatch) return null
+  return after
 }
 
 export function captureTurnForUndo(input: {
