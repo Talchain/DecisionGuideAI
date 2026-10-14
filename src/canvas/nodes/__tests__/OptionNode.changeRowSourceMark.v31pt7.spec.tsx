@@ -327,3 +327,62 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
     expect(r.fullChange).toBe('Moderate (0.5) → Very high (0.9)')
   })
 })
+
+/**
+ * ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026). Measured on the local build: option "O3 Split Sprint Capacity"
+ * (Olumi-suggested, two Olumi-chosen targets) painted THREE identical sparkles in its bottom band — the authorship
+ * mark plus one `est.` per row. The card now paints ONE, whose name lists what Olumi did, counted. Bound by identity:
+ * the band's test id, `data-card-mark="source-olumi"`, the exact accessible name.
+ */
+describe('one Olumi sparkle per card — authorship and estimated targets merge into one named mark', () => {
+  const withOption = (id: string, provenance: string, interventions: Record<string, unknown>) => {
+    state.nodes = [...FACTORS, ...OPTIONS, { id, type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Split the work', is_baseline: false, provenance } }]
+    state.ceeAnalysisReady = { ...CEE, options: [...CEE.options, { id, interventions }] }
+    const n = (state.nodes as N[]).find(x => x.id === id)!
+    return render(
+      <ReactFlowProvider>
+        <OptionNode id={id} type="option" data={n.data} selected={false} isConnectable zIndex={0}
+          positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} deletable={false} selectable draggable />
+      </ReactFlowProvider>,
+    )
+  }
+  const olumiMarks = (id: string) =>
+    Array.from(screen.getByTestId(`option-bottom-marks-${id}`).querySelectorAll<HTMLElement>('[data-card-mark="source-olumi"]'))
+
+  it('Olumi authorship + two estimated targets → exactly ONE sparkle naming both clauses, counted 2', () => {
+    withOption('opt-split', 'ai_inferred', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
+    const marks = olumiMarks('opt-split')
+    expect(marks).toHaveLength(1)
+    expect(marks[0].querySelectorAll('.lucide-sparkles')).toHaveLength(1)
+    expect(marks[0].getAttribute('aria-label')).toBe('Olumi suggested this option · 2 target values are Olumi estimates')
+    // It is still the authorship mark by identity, so its claim is not lost in the merge.
+    expect(marks[0].getAttribute('data-testid')).toBe('node-provenance-mark')
+    expect(marks[0].getAttribute('data-provenance-claim')).toBe('structural')
+    expect(marks[0].getAttribute('data-provenance-kind')).toBe('ai')
+    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-thru')).toBeNull()
+    expect(screen.queryByTestId('option-change-row-estimate-opt-split-fac-ratio')).toBeNull()
+    // Each row keeps its reserved mark slot on the value (the glyph moved; the row did not).
+    expect(row(document.body, 'opt-split', 'fac-thru').querySelector('[data-testid="option-change-row-mark-opt-split-fac-thru"]')).not.toBeNull()
+  })
+
+  it('contrast: a brief-authored option keeps "From your brief" as its OWN mark; the estimates merge without an authorship clause', () => {
+    withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-ratio': iv(0.6, '0.6 ratio', 'cee_hypothesis') })
+    const band = screen.getByTestId('option-bottom-marks-opt-split')
+    const brief = band.querySelector<HTMLElement>('[data-testid="node-provenance-mark"]')
+    expect(brief?.getAttribute('data-provenance-kind')).toBe('brief')
+    expect(brief?.getAttribute('aria-label')).toBe('From your brief')
+    const marks = olumiMarks('opt-split')
+    expect(marks).toHaveLength(1)
+    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi estimates')
+    expect(marks[0].getAttribute('aria-label')).not.toContain('suggested')
+  })
+
+  it('contrast: ONE Olumi sparkle on a card is left exactly as it was (its own row mark, words and route)', () => {
+    withOption('opt-split', 'from_brief', { 'fac-thru': iv(0.85, '0.85 scale', 'cee_hypothesis'), 'fac-price': iv(59, '£59', 'user_specified') })
+    const marks = olumiMarks('opt-split')
+    expect(marks).toHaveLength(1)
+    expect(marks[0].getAttribute('data-testid')).toBe('option-change-row-estimate-opt-split-fac-thru')
+    expect(marks[0].getAttribute('data-olumi-mark')).toBeNull()
+    expect(screen.getByTestId('option-change-row-source-opt-split-fac-price').getAttribute('data-value-source')).toBe('you')
+  })
+})

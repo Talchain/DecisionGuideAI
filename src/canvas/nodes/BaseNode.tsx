@@ -107,6 +107,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
+import { OlumiMarkGroupProvider } from './shared/olumiMarkGroup'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
 import { attentionCueSentence } from './shared/nodeAttention'
@@ -3175,5 +3176,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   )
 })
 
-export const BaseNode = memo((props: BaseNodeProps) => <BottomMarksProvider><BaseNodeCard {...props} /></BottomMarksProvider>)
+// ⭐ `OlumiMarkGroupProvider`: one Olumi sparkle per card (Paul, 14 Oct 2026) — see `shared/olumiMarkGroup.tsx`.
+export const BaseNode = memo((props: BaseNodeProps) => <BottomMarksProvider><OlumiMarkGroupProvider><BaseNodeCard {...props} /></OlumiMarkGroupProvider></BottomMarksProvider>)
 BaseNode.displayName = 'BaseNode'

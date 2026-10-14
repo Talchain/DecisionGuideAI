@@ -104,8 +104,11 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     expect(flagged.getAttribute('aria-label')).toContain(UNVERIFIED)
     expect(screen.queryByTestId(`option-change-row-estimate-${OPT}-${F_FLAGGED}`)).toBeNull()
 
-    // CONTRAST: the same literal without the stamp is still the estimate mark.
-    expect(screen.getByTestId(`option-change-row-estimate-${OPT}-${F_PLAIN}`)).toHaveAttribute('data-card-mark', 'source-olumi')
+    // CONTRAST: the same literal without the stamp is still an Olumi estimate — counted in the card's ONE Olumi
+    // sparkle beside the option's own authorship (Paul, 14 Oct 2026: one sparkle per card), while the flagged row is not.
+    const olumi = screen.getByTestId('node-provenance-mark')
+    expect(olumi).toHaveAttribute('data-card-mark', 'source-olumi')
+    expect(olumi.getAttribute('aria-label')).toBe('Olumi suggested this option · 1 target value is an Olumi estimate')
 
     // CONTRAST: a target the user set stays theirs, flag or no flag.
     cleanup()

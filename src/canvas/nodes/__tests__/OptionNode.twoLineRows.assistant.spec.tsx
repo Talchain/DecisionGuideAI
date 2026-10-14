@@ -162,11 +162,16 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect([dt.tagName, dd.tagName]).toEqual(['DT', 'DD'])
     expect(visibleText(dt)).toBe(name)
     expect(visibleText(dd)).toBe(amount)
-    // The value retains its line box; its source glyph is in the bottom band.
+    // The value retains its line box; its source glyph is in the bottom band — and since this option carries two
+    // Olumi-chosen targets, they are ONE merged sparkle that counts them (Paul, 14 Oct 2026: one sparkle per card).
     const mark = dd.querySelector(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
     expect(mark, 'the reserved mark slot is in the amount cell').not.toBeNull()
-    const source = onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
-    expect(source.getAttribute('aria-description')).toContain('Olumi estimate')
+    expect(onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)).toHaveLength(0)
+    const sparkles = onCard(container, '[data-card-mark="source-olumi"]')
+    expect(sparkles, 'one Olumi sparkle on the card').toHaveLength(1)
+    const source = sparkles[0]
+    expect(source.getAttribute('data-olumi-mark')).toBe('merged')
+    expect(source.getAttribute('aria-label')).toContain('2 target values are Olumi estimates')
     expect(source.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(source.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
