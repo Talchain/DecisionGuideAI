@@ -116,7 +116,7 @@ const J: {
   autoPassAt?: string | null; R1at?: string | null; R2at?: string | null
   fragile1?: Fragile[]; edited?: Fragile
   G2?: Graph; H2?: string; H2id?: string
-  AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
+  AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]; j5EditAt?: number
   G0?: Graph; H0?: string; R0?: string | null; sized?: { from: string; to: string; target: number }[]; j2dBranch?: J2dBranch
   optionEdit?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number; stripName?: string }
   j5Branch?: 'fragile_link' | 'option_intervention'; j5Option?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
@@ -758,7 +758,7 @@ test.describe.serial('J1 · whole PoC', () => {
     }
   })
 
-  test('J5 · approved typed edit: the fragile link if its strength is editable, else another option target; H2 ≠ H1, user_specified (+J5a staleness)', async () => {
+  test('J5 · approved typed edit: the fragile link if its strength is editable, else another option target; H2 ≠ H1, user_specified (+J5a: the edit is analysed automatically, and R2 is current)', async () => {
     const top = [...J.fragile1!].sort((a, b) => b.switch_probability - a.switch_probability)[0]
     J.edited = top
     const topEdge = J.G1!.edges.find((e) => e.from === top.from_id && e.to === top.to_id)!
@@ -770,6 +770,31 @@ test.describe.serial('J1 · whole PoC', () => {
     console.log(`[J5] branch: ${branch} (top fragile ${edgeKey(topEdge)} = ${verdict})`)
     test.info().annotations.push({ type: 'J5 branch', description: `${branch} (top fragile ${edgeKey(topEdge)} = ${verdict})` })
     await quiet()
+    // J5a · adopted behaviour (Paul 14 Oct, #2767): a canvas edit is analysed automatically, so R1 is never what is current
+    // after it. The stored read settles on a FRESH Run (R2), computed on H2 with its own computed_at, and the UI says it
+    // reflects the current model. J6 binds that Run as R2; nothing is re-run by hand.
+    const j5aFreshRun = async () => {
+      const fresh = async () => read('J5a auto-run')
+      await expect.poll(async () => {
+        const r = await fresh()
+        return r.analysis_state?.run_state?.kind === 'complete_current' && r.current_read?.computed_against_hash !== J.A1
+      }, { message: '[J5a] the edit was not analysed automatically (no fresh current Run on the edited model)', timeout: 120_000 }).toBe(true)
+      // The fresh Run's own turns (and any narration) answered from the frozen boundary, exactly as recorded.
+      await quiet()
+      assertBoundaryClean('J5a auto-run')
+      const r = await fresh()
+      expect(r.graph_hash, '[J5a] the fresh Run is not on the edited model').toBe(J.H2)
+      expect(r.analysis_state?.run_state?.kind, '[J5a] the stored read does not call the fresh Run current').toBe('complete_current')
+      expect(r.current_read?.computed_against_hash, '[J5a] the stored read names no analysis hash for the fresh Run').toMatch(HASH)
+      expect(r.current_read?.computed_against_hash, '[J5a] the current Run is still R1\'s analysis').not.toBe(J.A1)
+      expect(r.current_read?.computed_against_hash, '[J5a] the fresh Run was not computed on the current model').toBe(r.current_read?.current_analysis_hash)
+      expect(r.analysis_state?.run_state?.computed_at, '[J5a] the fresh Run has no computed_at').toBeTruthy()
+      expect(r.analysis_state?.run_state?.computed_at, '[J5a] the current Run is R1, not a fresh Run').not.toBe(J.R1at)
+      const notice = pageA.getByTestId('analysis-freshness-notice')
+      await expect(notice, '[J5a] the UI does not call the fresh Run current').toHaveAttribute('data-freshness', 'fresh', { timeout: 30_000 })
+      await expect(notice, '[J5a] the freshness notice has the wrong words').toHaveText('Analysis reflects the current model.')
+    }
+    J.j5EditAt = Date.now()
     if (branch === 'option_intervention') {
       J.j5Option = await editOptionTarget('J5', J.G1!, J.optionEdit ?? null)
       const body = await read('J5')
@@ -782,11 +807,7 @@ test.describe.serial('J1 · whole PoC', () => {
       const newlyUser = J.G2.edges.filter((e) => e.provenance?.source === 'user_specified' &&
         J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey)
       expect(newlyUser, '[J5] the option edit stamped links as the user\'s').toEqual([])
-      expect(body.analysis_state?.run_state?.kind, '[J5a] the stored read does not call R1 stale').toBe('complete_stale')
-      expect(body.analysis_state?.run_state?.cause, '[J5a] staleness has the wrong cause').toBe('graph_changed')
-      const notice = pageA.getByTestId('analysis-freshness-notice')
-      await expect(notice, '[J5a] the UI shows no stale notice').toHaveAttribute('data-freshness', 'stale', { timeout: 30_000 })
-      await expect(notice, '[J5a] the stale notice has the wrong words').toContainText('Model changed since this analysis. Re-run to update.')
+      await j5aFreshRun()
       writeEvidence('J5-edit.json', { branch, top_fragile: edgeKey(topEdge), top_verdict: verdict, option_edit: J.j5Option, H2: J.H2, H2id: J.H2id })
       return
     }
@@ -814,24 +835,21 @@ test.describe.serial('J1 · whole PoC', () => {
     // it is the user's (asserted above) and no OTHER link newly became the user's.
     expect(newlyUser.filter((k) => k !== edgeKey({ from: top.from_id, to: top.to_id })), '[J5] the edit stamped other edges as the user\'s').toEqual([])
 
-    // J5a: staleness is derived at read: R1 is now out of date for H2, and the UI says so.
-    expect(body.analysis_state?.run_state?.kind, '[J5a] the stored read does not call R1 stale').toBe('complete_stale')
-    expect(body.analysis_state?.run_state?.cause, '[J5a] staleness has the wrong cause').toBe('graph_changed')
-    const notice = pageA.getByTestId('analysis-freshness-notice')
-    await expect(notice, '[J5a] the UI shows no stale notice').toHaveAttribute('data-freshness', 'stale', { timeout: 30_000 })
-    await expect(notice, '[J5a] the stale notice has the wrong words').toContainText('Model changed since this analysis. Re-run to update.')
+    await j5aFreshRun()
     writeEvidence('J5-edit.json', { branch, edited: edgeKey({ from: top.from_id, to: top.to_id }), target, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
   })
 
-  test('J6 · rerun: R2 is computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
+  test('J6 · R2, J5\'s automatic Run: computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
     await pageA.keyboard.press('Escape')
     const footer = pageA.getByTestId('results-analysis-footer-action')
     await expect(footer, '[J6] the footer does not offer the rerun').toBeVisible()
-    const since = Date.now()
-    await footer.click()
-    const turn = await nextTurn(turns, since, 'J6 rerun')
+    // Adopted behaviour (#2767): R2 is the Run J5's edit triggered (J5a), not a second Run on the same model. Its turn is
+    // the first one after J5's edit whose analysis_result is not R1's; it must be computed on what the stored read names.
+    const runHash = (t: CapturedTurn): string => String(analysisResultOf(t.body)?.computed_against_hash ?? '')
+    const turn = turns.find((t) => t.at >= J.j5EditAt! && HASH.test(runHash(t)) && runHash(t) !== J.A1)
+    expect(turn, '[J6] no turn after J5\'s edit carries the automatic Run\'s analysis_result').toBeTruthy()
     assertBoundaryClean('J6')
-    J.AR2 = analysisResultOf(turn.body)!
+    J.AR2 = analysisResultOf(turn!.body)!
     expect(J.AR2, '[J6] the rerun carries no analysis_result').toBeTruthy()
     expect(rankingWord(String(J.AR2.summary ?? ''), optionLabels()), '[J6] R2\'s served summary ranks the options').toBeNull()
     putForwardRow('J6 R2 summary', String(J.AR2.summary ?? ''), optionLabels())
