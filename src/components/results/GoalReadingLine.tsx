@@ -34,7 +34,7 @@ export function GoalReadingLine({ reading, onChange = openNodeInspector, testId 
       {readings.map((r, i) => (
         <Fragment key={`${r.nodeId}-${i}`}>
           {i > 0 && ' '}
-          <span className="font-medium text-text-body">Olumi’s reading: </span>
+          <span className="text-text-body">Olumi’s reading: </span>
           <span data-testid={`${testId}-words`} data-kind={r.kind ?? undefined}>{r.words}</span>{' '}
           {control(r.nodeId, 'Change goal')}
         </Fragment>
