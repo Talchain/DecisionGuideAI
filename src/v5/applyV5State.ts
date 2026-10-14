@@ -60,6 +60,7 @@ import {
 } from '../canvas/state/storedLimitVerdicts'
 import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
 import { optionParticipationFromResponse, readOptionParticipation } from '../canvas/state/storedOptionParticipation'
+import { identityEvaluatedFromResponse, recordIdentityEvaluated } from '../canvas/domain/identityExactLinks'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -2419,6 +2420,9 @@ export function applyV5State(
         optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
       })
       const hash = report.model_card.response_hash
+      // CEE #3046: the turn that ran the Run names the identities it evaluated; absent = not attested, nothing recorded.
+      const identityEvaluated = identityEvaluatedFromResponse(response)
+      if (identityEvaluated !== undefined) recordIdentityEvaluated(hash, identityEvaluated)
       const prevHash = store.currentResultsHash ?? null
       if (hash !== prevHash) {
         store.resultsComplete({

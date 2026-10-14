@@ -75,6 +75,9 @@ vi.mock('../../store/edgeLabelMode', () => ({
   useEdgeLabelMode: vi.fn((selector: any) => selector({ mode: 'human' })),
 }))
 vi.mock('../../hooks/useTheme', () => ({ useIsDark: () => false }))
+// #2686 rebuild: the identity reader is a store hook; each row says which link (if any) is an evaluated operand.
+const exactFor: { value: Record<string, string> } = { value: {} }
+vi.mock('../../domain/identityExactLinks', () => ({ useIdentityExactWords: (id: string) => exactFor.value[id] ?? null }))
 vi.mock('../../hooks/useFirstTimeHints', () => ({
   useEdgeEditHint: () => ({ showHint: false, dismissHint: vi.fn() }),
 }))
@@ -294,5 +297,47 @@ describe('POM-8 — the hover says it is a placeholder, not an estimate', () => 
     const c = hover(ESTIMATE())
     expect(c.querySelector('[data-testid="edge-hover-popover"]')).not.toBeNull()
     expect(c.querySelector('[data-testid="edge-hover-strength-placeholder"]')).toBeNull()
+  })
+})
+
+// #2686 rebuild: an operand link of an identity the current Run evaluated (MRR = price × subscribers) is computed
+// through, so it reads the exact words. Never "Strength not set", never dotted, never a placeholder or source mark, and
+// never a band (the prior's 0.5 would draw Strong). CONTRAST: the same link without the exact words is the placeholder.
+describe('IDENTITY-EXACT — an evaluated identity\'s operand reads exact, not "not set"', () => {
+  const WORDS = 'Exact: ‘MRR’ = ‘Pro plan price’ × ‘Pro subscribers’'
+  const nameOf = (c: HTMLElement) =>
+    [...c.querySelectorAll('[aria-label]')].map(el => el.getAttribute('aria-label') ?? '').find(l => l.startsWith('Edge from')) ?? ''
+  afterEach(() => { exactFor.value = {} })
+
+  it('the placeholder link is thin, with no not-set dots and no marks', () => {
+    exactFor.value = { e1: WORDS }
+    const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
+    expect(styleOf(container).strokeDasharray).not.toBe(STRENGTH_NOT_SET_DASH)
+    expect(container.querySelector('g[data-edge-group-id="e1"]')!.getAttribute('data-strength-placeholder')).toBeNull()
+    expect(container.querySelector('[data-edge-source-icon]')).toBeNull()
+    expect(strokeWidthOf(container)).toBe(UNSET_EDGE_STROKE_WIDTH)
+  })
+  it('its hover Strength row says the exact words, never the prior\'s 0.50', () => {
+    exactFor.value = { e1: WORDS }
+    vi.useFakeTimers()
+    const { container: c } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
+    act(() => {
+      fireEvent.mouseEnter(c.querySelector('path[stroke="transparent"]')!)
+      vi.advanceTimersByTime(400)
+    })
+    vi.useRealTimers()
+    expect(c.querySelector('[data-testid="edge-hover-strength"]')?.textContent).toContain(WORDS)
+    expect(c.querySelector('[data-testid="edge-hover-strength-value"]')).toBeNull()
+  })
+  it('an exact operand never draws a band, even with an estimate on it', () => {
+    exactFor.value = { e1: WORDS }
+    const { container } = render(<StyledEdge {...(props as any)} data={ESTIMATE()} />)
+    expect(strokeWidthOf(container)).toBe(UNSET_EDGE_STROKE_WIDTH)
+  })
+  it('CONTRAST: the same placeholder link with no exact words keeps its not-set reading', () => {
+    const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
+    expect(nameOf(container)).not.toContain('Exact:')
+    expect(styleOf(container).strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(container.querySelector('g[data-edge-group-id="e1"]')!.getAttribute('data-strength-placeholder')).toBe('true')
   })
 })
