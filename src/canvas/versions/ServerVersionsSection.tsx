@@ -492,6 +492,17 @@ export function ServerVersionsSection() {
     }
   }, [addressable, signedIn, refresh])
 
+  // #1943: a turn that commits moves the server graph hash. A panel left OPEN across it re-reads the list then, or it
+  // keeps showing the pre-turn version number. The mount read above covers the first value, so only a CHANGE reads,
+  // and the current list stays on screen (no loading flash) until the new one lands.
+  const lastServerGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
+  const seenGraphHashRef = useRef(lastServerGraphHash)
+  useEffect(() => {
+    if (seenGraphHashRef.current === lastServerGraphHash) return
+    seenGraphHashRef.current = lastServerGraphHash
+    if (addressable && signedIn) void refresh()
+  }, [lastServerGraphHash, addressable, signedIn, refresh])
+
   // No server-addressable scenario ⇒ nothing to offer; the local history
   // above is the whole story. Rendering a dead section would be an
   // affordance that cannot keep its promise.
