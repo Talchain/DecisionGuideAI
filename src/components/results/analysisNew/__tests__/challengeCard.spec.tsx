@@ -461,11 +461,12 @@ describe('"I disagree" on the promoted finding records the objection', () => {
  * SECOND act beside that icon, never a replacement for it (ruling
  * `c5806258826.md` §3: "primary AI act = Olumi AI icon / existing ask
  * route"), and it must not compose a question the producer never sent.
- * T1H-3 (14 Oct): the message is the reader's exact words ALONE — chipless
- * composer, so CEE credits them to the user. The card heading (Olumi's copy)
- * and typed parameters (which force a chip; no CEE reader consumed them) no
- * longer travel; the target still does, through typed binding. Busy sends
- * retain the response.
+ * T1H-3 (14 Oct): chipless composer, so CEE credits the words to the user;
+ * typed parameters (which force a chip; no CEE reader consumed them) no longer
+ * travel; the target still does, through typed binding. DL ruling (14 Oct): the
+ * `On ‘<title>’:` heading stays for a METHOD reply only (the catalogue's title,
+ * resolved by method id — no figures); an intervention's title (model copy,
+ * figures included) is dropped. Busy sends retain the response.
  */
 describe('Respond — the reader\'s own thinking, through the existing ask route', () => {
   it('is offered beside the AI icon, closed at rest, for a grounded intervention', () => {
@@ -550,7 +551,8 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
 
     expect(askAi).toHaveBeenCalledTimes(1)
     const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual({ userWords: 'Worth checking the downside case' })
+    // DL ruling 14 Oct: a METHOD reply keeps the catalogue's heading (catalogue copy, no figures).
+    expect(payload).toEqual({ userWords: 'On ‘Run a pre-mortem’:\nWorth checking the downside case' })
   })
 
   /**
@@ -585,7 +587,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'About B' } })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
     const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual({ userWords: 'About B' })
+    expect(payload).toEqual({ userWords: `On ‘${b.title}’:\nAbout B` })
     expect(payload.userWords).not.toContain('METHOD A')
   })
 

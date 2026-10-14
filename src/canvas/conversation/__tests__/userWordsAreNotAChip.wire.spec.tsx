@@ -49,6 +49,10 @@ import { useServerConversationTurnsStore } from '../../stores/serverConversation
 import { __resetTranscriptTombstonesForTests } from '../utils/transcriptStore'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { Sparkles } from 'lucide-react'
+import { METHOD_CATALOGUE, type MethodEntry } from '../../../components/results/decision-overview/actionsCatalogue'
+import { respondToMethod } from '../../../components/results/analysisNew/challengeResponse'
+import { AskOlumiDrawer } from '../../../components/results/coaching/AskOlumiDrawer'
+import { openAskOlumi, useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 
 const SID = '7a2c1e9b-5d4f-4c3a-9b8e-1f2d3c4b5a69'
 type Body = { kind?: string; chip?: { id?: string; action_type?: string; parameters?: unknown } | null; message: string
@@ -123,6 +127,7 @@ beforeEach(() => {
   useServerConversationTurnsStore.setState({ offer: null })
   useGuidanceStore.getState().clearGuidanceItems()
   useStrengthenStore.getState()._reset()
+  useAskOlumiStore.setState({ isOpen: false, draft: '', promptCleared: false })
   mockCallV5Turn.mockReset()
   mockCallV5Turn.mockResolvedValue({ kind: 'boundary_error', error: {
     error: 'INTERNAL_ERROR', boundary: 'B1', direction: 'egress', validator: 'draft_graph_pipeline',
@@ -181,12 +186,90 @@ describe('T1H-3 — the person\'s own typed words go out as theirs: chipless com
     expect(cee.typedByUser(body)).toBe(true)
   })
 
-  it('Respond on a picked method → composer, the reader\'s words alone', async () => {
+  /**
+   * DL ruling (14 Oct, honouring c5806258826 §3): the `On ‘<title>’:` heading stays for a METHOD reply only — the title
+   * is the catalogue's (resolved by the reply's method id; fixed copy, no figures). Every other title is dropped.
+   */
+  it('Respond on a picked METHOD → composer, `On ‘<catalogue title>’:` + the reader\'s words, no chip', async () => {
+    const title = METHOD_CATALOGUE.find(m => m.id === 'pre_mortem')?.title
+    expect(title, 'PRECONDITION: pre_mortem is a catalogue method').toBe('Run a pre-mortem')
     render(<Registered><ChallengeCard intervention={viaVm(rec({ id: 'strengthen:broaden' }))} methodId="pre_mortem"
       onRunIntervention={vi.fn()} onRunMethod={vi.fn()} analysisHash="hash_1" /></Registered>)
     await respond('Worth checking the downside case')
     const body = await onlyBody()
-    expect(body.message).toBe('Worth checking the downside case')
+    expect(body.message).toBe('On ‘Run a pre-mortem’:\nWorth checking the downside case')
+    expect(body.source).toBe('composer')
+    expect(body).not.toHaveProperty('chip')
+    expect(cee.typedByUser(body)).toBe(true)
+  })
+
+  it('Respond on a FACTOR-titled (non-method) finding → the reader\'s words only: the title and its figure are not sent', async () => {
+    const r = viaVm(rec({ id: 'strengthen:flip:budget', title: 'Budget under $40,000' }))
+    expect(r.title, 'PRECONDITION: the card carries the figure-bearing title').toBe('Budget under $40,000')
+    render(<Registered><ChallengeCard intervention={r} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} analysisHash="hash_1" /></Registered>)
+    await respond('I think the budget can stretch')
+    const body = await onlyBody()
+    expect(body.message).toBe('I think the budget can stretch')
+    expect(body.source).toBe('composer')
+    expect(body).not.toHaveProperty('chip')
+  })
+
+  it('CONTRAST: a non-catalogue title that merely LOOKS like a method name gets no heading (identity, not text)', async () => {
+    const r = viaVm(rec({ id: 'strengthen:lookalike', title: 'Run a pre-mortem' }))
+    render(<Registered><ChallengeCard intervention={r} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} analysisHash="hash_1" /></Registered>)
+    await respond('Lookalike words')
+    const body = await onlyBody()
+    expect(body.message).toBe('Lookalike words')
+    // …and a method entry whose id is NOT in the catalogue, titled like one, is sent bare too.
+    mockCallV5Turn.mockClear()
+    const forged: MethodEntry = { id: 'not_in_catalogue', title: 'Run a pre-mortem', description: '', prompt: '' }
+    await act(async () => { expect(respondToMethod(forged, 'Forged words')).toBe('sent') })
+    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
+    expect((mockCallV5Turn.mock.calls[0][0] as Body).message).toBe('Forged words')
+  })
+})
+
+/**
+ * DL ruling (14 Oct) — AskOlumiDrawer "discuss": the field opens with OLUMI's prefilled text and the person may edit
+ * it. FAIL-SAFE: unedited → chip; edited without clearing → STILL a chip; only cleared + typed → composer, no chip.
+ */
+describe('AskOlumiDrawer — mixed authorship, fail-safe (ruled)', () => {
+  const PREFILL = 'Help me work through: is a 20% uplift realistic for Revenue?'
+  const open = () => {
+    render(<Registered><AskOlumiDrawer /></Registered>)
+    act(() => openAskOlumi({ context: 'Revenue uplift', draft: PREFILL, label: 'Discuss' }))
+  }
+  const send = async () => { await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send' })) }) }
+
+  it('sent UNEDITED → a chip with its id (Olumi\'s text)', async () => {
+    open()
+    await send()
+    const body = await onlyBody()
+    expect(body.message).toBe(PREFILL)
+    expect(body.source).toBe('chip')
+    expect(body.chip?.id).toBe(OLUMI_TEXT_CHIP_IDS.askOlumiDiscuss)
+    expect(cee.typedByUser(body)).toBe(false)
+  })
+
+  it('EDITED (prefill never cleared) → STILL a chip: a wrong author is worse than lost credit', async () => {
+    open()
+    const edited = 'Help me work through: is a 12% uplift realistic for Revenue?'
+    fireEvent.change(screen.getByTestId('ask-olumi-draft'), { target: { value: edited } })
+    await send()
+    const body = await onlyBody()
+    expect(body.message).toBe(edited)
+    expect(body.source).toBe('chip')
+    expect(body.chip?.id).toBe(OLUMI_TEXT_CHIP_IDS.askOlumiDiscuss)
+    expect(cee.typedByUser(body)).toBe(false)
+  })
+
+  it('CLEARED then typed → composer, the exact typed words, no chip', async () => {
+    open()
+    fireEvent.change(screen.getByTestId('ask-olumi-draft'), { target: { value: '' } })
+    fireEvent.change(screen.getByTestId('ask-olumi-draft'), { target: { value: 'Our uplift last year was 9%.' } })
+    await send()
+    const body = await onlyBody()
+    expect(body.message).toBe('Our uplift last year was 9%.')
     expect(body.source).toBe('composer')
     expect(body).not.toHaveProperty('chip')
     expect(cee.typedByUser(body)).toBe(true)

@@ -40,7 +40,9 @@
  * (onChange state), `consumeBrief()`, a `.userWords` read, a direct
  * `.target.value`, or a local `const` whose initialiser reaches one of these.
  * SuccessTarget's typed constraint and the Respond door (`askAi` userWords with
- * parameters) were chips until T1H-3.
+ * parameters) were chips until T1H-3. The one remaining case — AskOlumiDrawer's
+ * prefilled, editable "discuss" text — is RULED (DL, 14 Oct, fail-safe): a chip
+ * unless the person cleared the prefill and typed their own words.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -77,17 +79,25 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
   'canvas/conversation/zones/ChatComposer.tsx::sendMessage(text)': { count: 1,
     reason: 'the chat composer\'s submit — the words the person typed.' },
   'components/results/coaching/AskOlumiDrawer.tsx::sendMessage(text)': { count: 1,
-    reason: 'the drawer\'s editable textarea — what the person typed or edited and chose to send (recordsUserWords spec).' },
+    reason: 'the drawer\'s textarea ONLY after the person cleared Olumi\'s prefill (`promptCleared`) — every word is their own typed words (DL ruling 14 Oct; userWordsAreNotAChip.wire cleared+typed row).' },
 }
 
 /**
- * USER-INPUT sends that still carry a chip — the baseline found when this check was written (T1H-3, 14 Oct). Shrink-
- * only, like `ALLOWED`: a count may only fall, a new key fails. Each entry is a KNOWN demotion of the person's words,
- * not an endorsement.
+ * USER-INPUT sends that still carry a chip and are OPEN — a known demotion of the person's words awaiting a ruling.
+ * Shrink-only: a count may only fall, a new key fails. EMPTY since the DL ruled the one open case (14 Oct); a new open
+ * case needs a ruling, then an entry in `USER_INPUT_CHIP_RULED`.
  */
-const USER_INPUT_CHIP_ALLOWED: Record<string, { count: number; reason: string }> = {
-  "components/results/coaching/AskOlumiDrawer.tsx::dispatchAction({ action_type: 'discuss', ...(intent ? { intent } : {}), parameters, label: text, message: text, source, })": { count: 1,
-    reason: 'KNOWN, open: the drawer\'s textarea is prefilled with Olumi\'s prompt and editable; its chip carries the `intent` that makes CEE run a coaching method (only on chip turns), so the person\'s edits travel demoted. Needs a ruling on mixed authorship — not fixed here.' },
+const USER_INPUT_CHIP_ALLOWED: Record<string, { count: number; reason: string }> = {}
+
+/**
+ * USER-INPUT sends that carry a chip BY RULING — mixed authorship resolved fail-safe. Shrink-only, like the others.
+ * Each entry names its ruling and the rows that pin it.
+ */
+const USER_INPUT_CHIP_RULED: Record<string, { count: number; reason: string }> = {
+  "components/results/coaching/AskOlumiDrawer.tsx::dispatchAction({ ...(chipId ? { id: chipId } : {}), action_type: 'discuss', ...(intent ? { intent } : {}), parameters, label: text, message: text, source, })": { count: 1,
+    reason: 'DL ruling 14 Oct (mixed authorship, fail-safe): the textarea opens with Olumi\'s prefill; sent unedited OR edited without clearing it, the text may hold Olumi\'s words, so it stays a chip (a wrong author is worse than lost credit). Only cleared + typed goes composer. Pinned: userWordsAreNotAChip.wire unedited/edited/cleared rows.' },
+  'components/results/coaching/AskOlumiDrawer.tsx::sendMessage(text)': { count: 1,
+    reason: 'DL ruling 14 Oct (mixed authorship, fail-safe): the same prefilled text when no dispatch seam is registered — still a chip (`chipMeta`), never chipless. Pinned: AskOlumiDrawer.spec "degrades to _sendMessage".' },
 }
 
 export interface SendSite { key: string; family: 'send' | 'dispatch'; chip: boolean; userInput: boolean; line: number }
@@ -336,11 +346,18 @@ describe('⇄ SYMMETRIC — the person\'s own words never reach CEE as a chip (s
   it('no send whose message comes from user input carries a chip, beyond the recorded baseline', () => {
     const counts = new Map<string, number>()
     for (const s of scanTree()) if (s.userInput && s.chip) counts.set(s.key, (counts.get(s.key) ?? 0) + 1)
-    const over = [...counts].filter(([k, n]) => n > (USER_INPUT_CHIP_ALLOWED[k]?.count ?? 0)).map(([k, n]) => `${k}: ${n}`)
-    const stale = Object.entries(USER_INPUT_CHIP_ALLOWED).filter(([k, v]) => (counts.get(k) ?? 0) < v.count).map(([k]) => `${k} — lower it`)
+    const allowed = (k: string) => (USER_INPUT_CHIP_ALLOWED[k]?.count ?? 0) + (USER_INPUT_CHIP_RULED[k]?.count ?? 0)
+    const over = [...counts].filter(([k, n]) => n > allowed(k)).map(([k, n]) => `${k}: ${n}`)
+    const stale = [...Object.entries(USER_INPUT_CHIP_ALLOWED), ...Object.entries(USER_INPUT_CHIP_RULED)]
+      .filter(([k]) => (counts.get(k) ?? 0) < allowed(k)).map(([k]) => `${k} — lower it`)
     expect(over).toEqual([])
     expect(stale).toEqual([])
   }, 60_000)
+
+  it('no user-input chip is an OPEN case: every one left is ruled, and names its ruling', () => {
+    expect(Object.keys(USER_INPUT_CHIP_ALLOWED)).toEqual([])
+    for (const [k, v] of Object.entries(USER_INPUT_CHIP_RULED)) expect(v.reason, k).toMatch(/DL ruling \d+ \w+/)
+  })
 
   it('CONTRAST: the provenance scan sees the known user-input sends (typed constraint, Respond/askAi words, Generate brief, composer)', () => {
     const typed = scanTree().filter(s => s.userInput)
