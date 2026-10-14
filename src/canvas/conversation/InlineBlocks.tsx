@@ -183,6 +183,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   onProposalConfirm,
   onHeldProposalSettle,
   assistantTextWordCount = 0,
+  alreadyRendered,
   isLatestAssistantTurn = false,
   consentPending = false,
 }: InlineBlocksProps) {
@@ -239,6 +240,7 @@ export const InlineBlocks = memo(function InlineBlocks({
         onHeldProposalSettle={onHeldProposalSettle}
         assistantTextWordCount={assistantTextWordCount}
         narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
+        alreadyRendered={alreadyRendered}
         isLatestAssistantTurn={isLatestAssistantTurn}
         blockContainerRef={blockContainerRef}
       />
@@ -317,6 +319,8 @@ interface BlockRendererProps {
    * narrative as its own titled card? Only `v5_analysis_result` reads it.
    */
   narrativeDeliveredByTypedCard?: boolean
+  /** `InlineBlocksProps.alreadyRendered`: the analysis card omits an option line the reply above already says. */
+  alreadyRendered?: readonly string[]
   /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
@@ -340,6 +344,7 @@ function BlockRenderer({
   assistantTextWordCount = 0,
   commentaryTextOverride,
   narrativeDeliveredByTypedCard = false,
+  alreadyRendered,
   isLatestAssistantTurn = false,
   onRevealHiddenBlocks,
   blockContainerRef,
@@ -435,6 +440,7 @@ function BlockRenderer({
           block={block}
           narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
           summaryBehindDisclosure={false}
+          alreadyRendered={alreadyRendered}
         />
       )
 

@@ -444,7 +444,7 @@ export const MessageBubble = memo(function MessageBubble({
           onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
           consentPending={turnOfferedConsent(message)}
-          alreadyRendered={[]}
+          alreadyRendered={[displayContent]}
           isLatestAssistantTurn={isLatestAssistantTurn}
         />
       )}

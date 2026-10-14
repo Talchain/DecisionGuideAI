@@ -103,6 +103,13 @@ export interface V5AnalysisResultBlockProps {
    * says only that SOME reply is on screen, never that it carries this account.
    */
   summaryBehindDisclosure?: boolean
+  /**
+   * Text the turn ALREADY rendered above this card (`InlineBlocksProps.alreadyRendered`: the reply body). An option line
+   * byte-equal to a line of it, or to the opening of a line it continues ("<face> It rests most on…"), is not said again
+   * here (capacity, CEE 5b6e5eb7 turn 01: the reply's chance line, then the same face on this card). Exact identity
+   * only, per option; absent ⇒ every line renders, as before.
+   */
+  alreadyRendered?: readonly string[]
 }
 
 /**
@@ -287,6 +294,7 @@ function V5AnalysisResultBlockImpl({
   block,
   narrativeDeliveredByTypedCard = false,
   summaryBehindDisclosure = false,
+  alreadyRendered,
 }: V5AnalysisResultBlockProps): ReactElement {
   // ROADMAP 2.154 — the wire has FOUR states and only ONE of them is an alarm.
   // `absent` (the enricher's soft-fail skips) and `degraded`
@@ -427,7 +435,11 @@ function V5AnalysisResultBlockImpl({
   // A card not bound to the scenario's CURRENT canonical Run (an older Run, unknown identity, no view) says no option line.
   const cellLines = goalChanceLicence === null || !blockRunView.boundToCurrentCanonical() ? []
     : goalChanceLicence.optionIds.flatMap(id => { const line = cellLine(id); return line === null ? [] : [{ id, line }] })
-  const shownGoalChanceLines = cellLines.length > 0 ? cellLines : null
+  // A line the reply above already says, byte for byte, is said once: by the reply (DL product call, capacity row 4).
+  const renderedLines = (alreadyRendered ?? []).flatMap(text => text.split('\n').map(l => l.trim()))
+  const saidAbove = (line: string): boolean => renderedLines.some(l => l === line || l.startsWith(`${line} `))
+  const shownCellLines = cellLines.filter(({ line }) => !saidAbove(line))
+  const shownGoalChanceLines = shownCellLines.length > 0 ? shownCellLines : null
   const statusQuoSaidByItsCell = goalChanceDetail?.status_quo !== undefined
     && cellLines.some(({ line }) => line === goalChanceDetail.status_quo!.line)
   const goalChanceDetailLinesShown = goalChanceDetail === null ? []
