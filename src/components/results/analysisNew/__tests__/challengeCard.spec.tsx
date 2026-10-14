@@ -11,7 +11,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { ChallengeCard } from '../sections/ChallengeCard'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
@@ -23,7 +23,20 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import { useStrengthenStore, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
+import { readDissent } from '../../../../canvas/stores/dissentStore'
 import { genuineDecision } from './analysisNewFixtures'
+
+/**
+ * The conversation dispatcher, mocked at the OPTIONAL context — the seam
+ * `dissentReachesTheModel.spec.tsx` uses for the same mechanism on
+ * `StrengthenTheReasoning`. `dispatcherMounted = false` is the "no live
+ * conversation" state (any route without a `ConversationProvider`).
+ */
+const sendSystemEvent = vi.fn()
+let dispatcherMounted = true
+vi.mock('../../../../canvas/conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => (dispatcherMounted ? { sendSystemEvent } : null),
+}))
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -91,6 +104,10 @@ const renderCard = (props: Partial<Parameters<typeof ChallengeCard>[0]> = {}) =>
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
+  localStorage.clear()
+  dispatcherMounted = true
+  // `undefined` is the only dispatched outcome (SendTurnOutcome's own rule).
+  sendSystemEvent.mockReset().mockResolvedValue(undefined)
   ;(openAskOlumi as unknown as ReturnType<typeof vi.fn>).mockClear(); vi.mocked(askAi).mockReset().mockReturnValue('sent')
 })
 afterEach(cleanup)
@@ -260,28 +277,179 @@ describe('"Not useful right now" is the Strengthen lifecycle dismissal', () => {
   })
 })
 
-describe('"I disagree" on the promoted finding', () => {
-  it('is offered in the card menu and hands the finding to the host, which continues into the conversation', () => {
-    const onDisagree = vi.fn()
-    const finding = rec({ id: 'strengthen:phase3:blk_x' })
-    render(
-      <ChallengeCard
-        intervention={finding}
-        methodId={null}
-        onRunIntervention={vi.fn()}
-        onRunMethod={vi.fn()}
-        onDisagree={onDisagree}
-      />,
-    )
+/**
+ * "I disagree" RECORDS the objection (DL 14 Oct 2026, "preserve meaningful
+ * dissent"): the ⋯ menu opens an inline composer; Save writes the session
+ * record, the DURABLE record (`dissentStore`) and — only with a run identity
+ * and a live conversation — one `finding_dissent`. Everything is bound by the
+ * finding's id, never by "some text is present".
+ */
+describe('"I disagree" on the promoted finding records the objection', () => {
+  const FINDING_ID = 'strengthen:phase3:blk_x'
+  const WORDS = 'Our Q1 capacity assumption is wrong: we hired two people in September.'
+  const finding = () => rec({ id: FINDING_ID })
+  const dissentEvents = () =>
+    sendSystemEvent.mock.calls.map((c) => c[0]).filter((e) => e?.type === 'finding_dissent')
+
+  const openComposer = () => {
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
-    expect(onDisagree).toHaveBeenCalledWith(finding)
+  }
+  const typeAndSave = async (words: string) => {
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-note'), { target: { value: words } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-save'))
+    })
+  }
+
+  it('⭐ RED-FIRST: ⋯ → I disagree → type → Save writes the durable record by finding id, shows the receipt, survives a remount, and sends finding_dissent ONCE', async () => {
+    const onDisagree = vi.fn()
+    const { unmount } = renderCard({ intervention: finding(), onDisagree })
+    openComposer()
+    // Opening the composer is not the chat route.
+    expect(onDisagree).not.toHaveBeenCalled()
+    expect(vi.mocked(openAskOlumi)).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(ZONE.disagreeLabel)).toBe(screen.getByTestId('analysis-new-challenge-disagree-note'))
+    await typeAndSave(WORDS)
+
+    // The durable record, by identity.
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]?.reason).toBe(WORDS)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]?.analysisHash).toBe('hash_1')
+    // The session record, by identity.
+    const history = useStrengthenStore.getState().records[recordKey(SPEC_DECISION, FINDING_ID)]?.history ?? []
+    expect(history.filter((e) => e.event === 'disputed').map((e) => e.disputeReason)).toEqual([WORDS])
+    // The wire: exactly one, addressed by both ids, carrying the words.
+    expect(dissentEvents()).toEqual([
+      { type: 'finding_dissent', payload: { finding_id: FINDING_ID, analysis_id: 'hash_1', statement: WORDS } },
+    ])
+    // The receipt, on THIS finding.
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+    const receipt = screen.getByTestId('analysis-new-challenge-disagree-receipt')
+    expect(receipt).toHaveAttribute('data-recommendation-id', FINDING_ID)
+    expect(receipt).toHaveTextContent(ZONE.disagreeRecorded)
+    expect(screen.getByTestId('analysis-new-challenge-disagree-words').textContent).toBe(WORDS)
+    // The chat route is still there, from the receipt, with the finding.
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-discuss'))
+    expect(onDisagree).toHaveBeenCalledTimes(1)
+    expect(onDisagree).toHaveBeenCalledWith(expect.objectContaining({ id: FINDING_ID }))
+
+    // Reload: a fresh mount reads the objection back from the durable store.
+    unmount()
+    useStrengthenStore.getState()._reset()
+    renderCard({ intervention: finding() })
+    expect(screen.getByTestId('analysis-new-challenge-disagree-receipt')).toHaveAttribute('data-recommendation-id', FINDING_ID)
+    expect(screen.getByTestId('analysis-new-challenge-disagree-words').textContent).toBe(WORDS)
+    // Still exactly one send — a read-back sends nothing.
+    expect(dissentEvents()).toHaveLength(1)
   })
 
-  it('CONTRAST: without a host handler there is no disagree item', () => {
-    render(
-      <ChallengeCard intervention={rec({ id: 'strengthen:phase3:blk_y' })} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} />,
-    )
+  it('CONTRAST: the receipt is per finding — a different finding on the same decision shows none', async () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    await typeAndSave(WORDS)
+    cleanup()
+    renderCard({ intervention: rec({ id: 'strengthen:phase3:blk_other' }) })
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-receipt')).toBeNull()
+  })
+
+  it('no live conversation: the objection is recorded, nothing is sent', async () => {
+    dispatcherMounted = false
+    renderCard({ intervention: finding() })
+    openComposer()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-disclosure')).toHaveTextContent(COPY.dissent.prompt)
+    await typeAndSave(WORDS)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]?.reason).toBe(WORDS)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-receipt')).toHaveTextContent(ZONE.disagreeRecorded)
+  })
+
+  it('no run identity (pre-run): the objection is recorded, nothing is sent', async () => {
+    renderCard({ intervention: finding(), analysisHash: null })
+    openComposer()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-disclosure')).toHaveTextContent(COPY.dissent.prompt)
+    await typeAndSave(WORDS)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]?.reason).toBe(WORDS)
+    expect(dissentEvents()).toEqual([])
+  })
+
+  it('the disclosure says the words travel when the send WILL happen', () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-disclosure')).toHaveTextContent(COPY.dissent.promptSendsToOlumi)
+  })
+
+  it('empty or whitespace-only text: Save is disabled and nothing is written', () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    const save = screen.getByTestId('analysis-new-challenge-disagree-save')
+    expect(save).toBeDisabled()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-note'), { target: { value: '   ' } })
+    expect(save).toBeDisabled()
+    fireEvent.click(save)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]).toBeUndefined()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('Cancel writes nothing and shows no receipt', () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-note'), { target: { value: WORDS } })
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-cancel'))
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-receipt')).toBeNull()
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]).toBeUndefined()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('⭐ a FAILED durable write says so: no "recorded" receipt, no send, the words stay for a retry', async () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    try {
+      await typeAndSave(WORDS)
+    } finally {
+      setItem.mockRestore()
+    }
+    expect(screen.getByTestId('analysis-new-challenge-disagree-error')).toHaveTextContent(COPY.dissent.notSaved)
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-receipt')).toBeNull()
+    expect(screen.queryByText(ZONE.disagreeRecorded)).toBeNull()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-note')).toHaveValue(WORDS)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('a decision switched mid-compose writes nothing under either decision and reports the change', async () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'a-different-decision' })
+    })
+    await typeAndSave(WORDS)
+    expect(screen.getByTestId('analysis-new-challenge-disagree-error')).toHaveTextContent(COPY.dissent.scenarioChanged)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]).toBeUndefined()
+    expect(readDissent('a-different-decision')[FINDING_ID]).toBeUndefined()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('reopening "I disagree" on a recorded objection prefills the saved words', async () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    await typeAndSave(WORDS)
+    openComposer()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-note')).toHaveValue(WORDS)
+  })
+
+  it('without a host chat route, "I disagree" still records; the receipt offers no discuss link', async () => {
+    renderCard({ intervention: finding() })
+    openComposer()
+    await typeAndSave(WORDS)
+    expect(readDissent(SPEC_DECISION)[FINDING_ID]?.reason).toBe(WORDS)
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-discuss')).toBeNull()
+  })
+
+  it('CONTRAST: a picked method (not a grounded finding) offers no "I disagree"', () => {
+    renderCard({ intervention: null, methodId: METHOD_CATALOGUE[0].id })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     expect(screen.queryByTestId('analysis-new-challenge-disagree')).toBeNull()
   })

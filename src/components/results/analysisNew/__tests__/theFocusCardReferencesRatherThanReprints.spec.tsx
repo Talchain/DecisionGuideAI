@@ -50,8 +50,11 @@
  * `rec.title`, verbatim, for every kind) and keeps the paragraph and its source
  * behind "Why this?" on the same card. The catalogue/producer split in the
  * first case below is RETIRED (X): V2 renders both kinds the same way.
- * ⛔ The second case ("every disagreement affordance survives") is NOT
- * re-pointed: V2 offers no "I disagree" anywhere on this tab (reported).
+ * ⭐ UPDATED 14 Oct 2026 (DL, "preserve meaningful dissent"): the card's
+ * "I disagree" now RECORDS the objection on the card (`useFindingDissent`:
+ * session + durable `dissentStore` + `finding_dissent`) instead of jumping
+ * straight to a chat draft. The chat route survives as the receipt's
+ * "Discuss with Olumi", so the second case asserts both halves.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -63,6 +66,9 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
+import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
+import { useCanvasStore } from '../../../../canvas/store'
+import { readDissent } from '../../../../canvas/stores/dissentStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 /**
@@ -204,6 +210,8 @@ describe.each([
     // excludes it), so the card itself must carry the disagreement acts.
     const { openAskOlumi } = await import('../../coaching/askOlumiStore')
     vi.mocked(openAskOlumi).mockClear()
+    localStorage.clear()
+    useCanvasStore.setState({ currentScenarioId: 'focus-card-decision' })
     renderBody(fixture())
     const card = screen.getByTestId('analysis-new-challenge')
     const promotedId = card.getAttribute('data-recommendation-id')
@@ -213,6 +221,15 @@ describe.each([
     expect(screen.getByTestId('analysis-new-challenge-why')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    // "I disagree" opens the recording composer on the card — no chat draft yet.
+    expect(screen.getByTestId('analysis-new-challenge-disagree-form')).toHaveAttribute('data-recommendation-id', promotedId!)
+    expect(vi.mocked(openAskOlumi)).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-note'), { target: { value: 'This framing is wrong.' } })
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-save'))
+    expect(readDissent('focus-card-decision')[promotedId!]?.reason).toBe('This framing is wrong.')
+    expect(screen.getByTestId('analysis-new-challenge-disagree-receipt')).toHaveTextContent(ZONE.disagreeRecorded)
+    // The chat route stays, from the receipt, with the same payload as before.
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-discuss'))
     expect(vi.mocked(openAskOlumi)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(openAskOlumi).mock.calls[0][0].label).toBe(REVIEW_TOOL_COPY.disagree)
   })
