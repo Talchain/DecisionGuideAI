@@ -64,6 +64,17 @@ interface AskOlumiState {
   source: string
   intent: string | undefined
   attentionNote: OlumiAttentionNote | null
+  /**
+   * MIXED AUTHORSHIP (DL ruling, 14 Oct 2026 — fail-safe): true only once the draft field has held NO text (trimmed
+   * empty) at some point since this ask opened — i.e. none of Olumi's prefill can remain in it, so whatever is in the
+   * field now was typed by the person. An ask that OPENS with an empty draft starts true (there was no Olumi text to
+   * clear). It never turns back to false while the ask is open (re-typing Olumi's words after clearing them is still
+   * the person typing); each `openAsk` resets it. Only `setDraft` (the drawer textarea's onChange) can set it.
+   *
+   * The drawer reads it to decide authorship: true → the person's own words, a chipless composer turn; false (sent
+   * unedited OR edited without clearing) → Olumi's text, a chip. A wrong author is worse than lost credit.
+   */
+  promptCleared: boolean
   openAsk: (payload: AskOlumiPayload) => void
   setDraft: (draft: string) => void
   close: () => void
@@ -79,6 +90,7 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
   source: 'chip',
   intent: undefined,
   attentionNote: null,
+  promptCleared: false,
   openAsk: (payload) =>
     set({
       isOpen: true,
@@ -93,8 +105,9 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
       // Absent stays absent here too: `focusModelTarget` treats a null note as
       // "focus without a card", which is the pre-existing behaviour.
       attentionNote: payload.attentionNote ?? null,
+      promptCleared: payload.draft.trim() === '',
     }),
-  setDraft: (draft) => set({ draft }),
+  setDraft: (draft) => set((s) => ({ draft, promptCleared: s.promptCleared || draft.trim() === '' })),
   close: () => set({ isOpen: false }),
 }))
 

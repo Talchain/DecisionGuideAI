@@ -102,13 +102,24 @@ describe('AskOlumiDrawer', () => {
     )
   })
 
-  it('degrades to _sendMessage when dispatch is unavailable', () => {
+  it('degrades to _sendMessage when dispatch is unavailable — still a chip, the prefill is Olumi\'s text (DL ruling 14 Oct)', () => {
     const send = vi.fn()
     useGuidanceStore.setState({ _sendMessage: send } as never)
     render(<AskOlumiDrawer />)
     act(() => openAskOlumi(payload))
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(send).toHaveBeenCalledWith(payload.draft)
+    expect(send).toHaveBeenCalledWith(payload.draft, { chipMeta: {
+      id: 'ask_olumi_discuss', action_type: 'discuss', parameters: payload.parameters } })
+  })
+
+  it('a chip_id the opener carries stays the chip identity — the drawer\'s own id never overrides it', () => {
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatch } as never)
+    render(<AskOlumiDrawer />)
+    act(() => openAskOlumi({ ...payload, parameters: { chip_id: 'coach_anchor' } }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('id')
+    expect(dispatch.mock.calls[0][0].parameters).toEqual({ chip_id: 'coach_anchor' })
   })
 
   it('with NO conversation callbacks Send is disabled with an honest hint — never a silent no-op', () => {

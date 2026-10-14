@@ -31,6 +31,7 @@ import { MODEL_LIMIT_CAVEAT } from '../utils/modelLimitCaveat'
 import { typography } from '../../../styles/typography'
 import { useAskOlumiStore } from './askOlumiStore'
 import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
+import { OLUMI_TEXT_CHIP_IDS } from '../../../canvas/conversation/chipMeta'
 import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../../lib/viewerMode'
 
 const TOAST_MS = 1800
@@ -50,6 +51,7 @@ export function AskOlumiDrawer() {
   const source = useAskOlumiStore((s) => s.source)
   const intent = useAskOlumiStore((s) => s.intent)
   const attentionNote = useAskOlumiStore((s) => s.attentionNote)
+  const promptCleared = useAskOlumiStore((s) => s.promptCleared)
   const setDraft = useAskOlumiStore((s) => s.setDraft)
   const close = useAskOlumiStore((s) => s.close)
 
@@ -95,13 +97,31 @@ export function AskOlumiDrawer() {
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, close])
 
+  /**
+   * WHO AUTHORED THE TEXT (DL ruling, 14 Oct 2026 — mixed authorship, fail-safe). The field opens prefilled with
+   * OLUMI's text and the person may edit it. CEE credits a turn's words to the person only on a chipless `composer`
+   * turn, and then credits ALL of them — so:
+   *   · sent UNEDITED → a chip (Olumi's text);
+   *   · EDITED without ever clearing the prefill → STILL a chip: some of Olumi's words (and any figure in them) may
+   *     remain, and a wrong author is worse than lost credit;
+   *   · the person CLEARED the prefill (`promptCleared`, askOlumiStore.ts) and typed their own words → `composer`, no
+   *     chip — the only case whose every word is theirs. The chip's intent/parameters do not travel on that turn.
+   * Every chip send carries its id (a lifted `chip_id`/`spark_id` from the opener's parameters wins, else
+   * `OLUMI_TEXT_CHIP_IDS.askOlumiDiscuss`).
+   */
   const handleSend = () => {
     const text = draft.trim()
     if (!text || !canSend) return
-    if (dispatchAction) {
+    const lifted = parameters?.chip_id ?? parameters?.spark_id
+    const chipId = typeof lifted === 'string' && lifted.length > 0 ? undefined : OLUMI_TEXT_CHIP_IDS.askOlumiDiscuss
+    if (promptCleared && sendMessage) {
+      // The person's own words, alone: chipless composer.
+      sendMessage(text)
+    } else if (dispatchAction) {
       // Conversation-typed turn: chip_metadata (the contextual-session
       // carrier) survives ONLY on this turn type.
       void dispatchAction({
+        ...(chipId ? { id: chipId } : {}),
         action_type: 'discuss',
         // ⭐⭐ THIS IS WHAT MAKES THE TURN DECISION SCIENCE RATHER THAN CHAT.
         // CEE resolves a DSK protocol for the intent and builds a
@@ -141,7 +161,8 @@ export function AskOlumiDrawer() {
         source,
       })
     } else if (sendMessage) {
-      sendMessage(text)
+      // No dispatch seam, and the text may still hold Olumi's words: it goes as a chip all the same (fail-safe).
+      sendMessage(text, { chipMeta: { ...(chipId ? { id: chipId } : {}), action_type: 'discuss', ...(intent ? { intent } : {}), parameters } })
     }
     showToast('Sent to Olumi with the relevant model context')
     close()

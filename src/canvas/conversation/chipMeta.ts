@@ -161,6 +161,8 @@ export const OLUMI_TEXT_CHIP_IDS = {
   /** The AI panel's artefact / follow-up / insight text (ConversationPanel's artefact handler). */
   aiPanelArtefactAction: 'ai_panel_artefact_action',
   insightAction: 'insight_action',
+  /** AskOlumiDrawer's prefilled "discuss" text, sent unedited or edited without clearing the prefill (DL ruling 14 Oct). */
+  askOlumiDiscuss: 'ask_olumi_discuss',
 } as const
 
 /** The send seam a surface needs to mark Olumi's text as a chip. */

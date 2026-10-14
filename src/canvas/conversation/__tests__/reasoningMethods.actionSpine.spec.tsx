@@ -212,6 +212,8 @@ describe('SYS9 method registry and action spine', () => {
     render(<AskOlumiDrawer />)
     expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(freeText).toHaveBeenCalledWith(method.prompt)
+    // DL ruling 14 Oct (mixed authorship, fail-safe): the unedited prefill is Olumi's text — a chip even on this seam.
+    expect(freeText).toHaveBeenCalledWith(method.prompt, { chipMeta: expect.objectContaining({
+      id: 'ask_olumi_discuss', action_type: 'discuss', parameters: { method_id: methodId } }) })
   })
 })

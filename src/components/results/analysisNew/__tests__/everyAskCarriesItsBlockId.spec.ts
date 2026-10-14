@@ -30,6 +30,13 @@
  * This guard derives drawer and immediate ask routes from the source at run time. A new
  * rec-holding ask route fails it the day it is written, wherever it lives.
  *
+ * ⇄ T1H-3 (14 Oct): an ask whose message is the PERSON'S OWN WORDS (`askAi({ userWords })`,
+ * the Respond door in `challengeResponse.ts`) is the opposite case and carries NO
+ * parameters: typed parameters exist on the wire only on a chip, and a chip demotes the
+ * person's words (CEE credits words to the user only on a chipless `composer` turn —
+ * `stated-by-user.ts` `typedByUser`). At CEE staging 38b33bb no reader consumes
+ * `chip.parameters.block_id` / `method_id`; the target travels as `selected_elements`.
+ *
  * ⚠ WHAT IT CANNOT DO, STATED SO NOBODY READS MORE INTO IT. It watches the
  * CARRIER (does this call site pass `parameters`?), never the BEHAVIOUR (does
  * the id reach CEE, and can CEE resolve it?). Those are different claims and
@@ -106,6 +113,8 @@ const stripComments = (body: string): string =>
 
 /** A site HOLDS a recommendation when it reads fields off one. */
 const holdsRecommendation = (body: string): boolean => /\brec\.\w/.test(stripComments(body))
+/** A site SENDS THE PERSON'S OWN WORDS when it passes `userWords` (T1H-3). */
+const sendsUserWords = (body: string): boolean => /\buserWords\s*:/.test(stripComments(body))
 
 describe('every ask that holds a recommendation carries its block_id', () => {
   const sites = askCallSites()
@@ -125,15 +134,24 @@ describe('every ask that holds a recommendation carries its block_id', () => {
     expect(sites.some((s) => !holdsRecommendation(s.body))).toBe(true)
   })
 
-  it('includes the immediate intervention response in its derived population', () => {
-    expect(sites.filter(s => holdsRecommendation(s.body)).map(s => s.file)).toContain('components/results/analysisNew/challengeResponse.ts')
+  it('includes the immediate intervention response in its derived population — as a user-words send', () => {
+    const respond = sites.filter(s => s.file === 'components/results/analysisNew/challengeResponse.ts' && holdsRecommendation(s.body))
+    expect(respond.length).toBeGreaterThanOrEqual(1)
+    expect(respond.every(s => sendsUserWords(s.body))).toBe(true)
   })
 
-  it('forwards parameters from every rec-holding ask route', () => {
+  it('forwards parameters from every rec-holding ask route that sends Olumi\'s text', () => {
     const offenders = sites
-      .filter((s) => holdsRecommendation(s.body))
+      .filter((s) => holdsRecommendation(s.body) && !sendsUserWords(s.body))
       .filter((s) => !/\bparameters\b/.test(stripComments(s.body)))
       .map((s) => `${s.file}:${s.line}`)
+    expect(offenders).toEqual([])
+  })
+
+  it('⇄ T1H-3: a user-words ask carries NO parameters (they would force a chip and demote the person\'s words)', () => {
+    const userWords = sites.filter((s) => sendsUserWords(s.body))
+    expect(userWords.length).toBeGreaterThanOrEqual(2)
+    const offenders = userWords.filter((s) => /\bparameters\b/.test(stripComments(s.body))).map((s) => `${s.file}:${s.line}`)
     expect(offenders).toEqual([])
   })
 })
