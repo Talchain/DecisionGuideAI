@@ -33,6 +33,8 @@ import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useAnalyseAfterCommittedChange } from '../analysis/useAnalyseAfterCommittedChange'
+import { useEditDeliveryHeld } from '../registration/editDeliveryHold'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
@@ -1791,6 +1793,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  // Paul 14 Oct (#94 6166259456): every committed change (an edit, Olumi's approved change, Undo, Redo) is analysed
+  // through this same runner once nothing else is in flight; the rerun surfaces compare it with the preceding Run.
+  const editDeliveryHeld = useEditDeliveryHeld()
+  useAnalyseAfterCommittedChange({
+    run: runCanonicalAnalysis,
+    idle: !isRunning && !conversationIsThinking && !editDeliveryHeld,
+    hasRunOnRecord: rerunInputs.hasRunOnRecord,
+  })
 
   const handleRunAnalysis = useCallback(async () => {
     const outcome = await runCanonicalAnalysis()

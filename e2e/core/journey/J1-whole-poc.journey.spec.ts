@@ -575,7 +575,21 @@ test.describe.serial('J1 · whole PoC', () => {
     }
     // The revision bumps: the stored model's hash moves off H1.
     expect(body.graph_hash, '[J2d] the edit did not change the model').not.toBe(J.H1)
-    expect(body.analysis_state?.run_state?.kind, '[J2d] R1 is not stale after the edit').toBe('complete_stale')
+    // Adopted behaviour (Paul 14 Oct, #2767): the canvas edit is analysed automatically. R1 is never what is current after
+    // the edit: the stored read settles on a FRESH Run, computed on the edited model, with its own computed_at.
+    const fresh = async () => (await read('J2d auto-run')) as typeof body
+    await expect.poll(async () => {
+      const r = await fresh()
+      return r.analysis_state?.run_state?.kind === 'complete_current' && r.current_read?.computed_against_hash !== J.A1
+    }, { message: '[J2d] the edit was not analysed automatically (no fresh current Run on the edited model)', timeout: 120_000 }).toBe(true)
+    // The fresh Run's own turns (and any narration) answered from the frozen boundary, exactly as recorded.
+    await quiet()
+    assertBoundaryClean('J2d auto-run')
+    const after = await fresh()
+    expect(after.graph_hash, '[J2d] the fresh Run is not on the edited model').toBe(body.graph_hash)
+    expect(after.current_read?.computed_against_hash, '[J2d] the fresh Run is still R1\'s analysis').not.toBe(J.A1)
+    expect(after.current_read?.computed_against_hash, '[J2d] the fresh Run was not computed on the current model').toBe(after.current_read?.current_analysis_hash)
+    expect(after.analysis_state?.run_state?.computed_at, '[J2d] the current Run is R1, not a fresh Run').not.toBe(J.R1at)
     J.G0 = J.G1; J.H0 = J.H1; J.R0 = J.R1; J.sized = sized
     J.G1 = G; J.H1 = body.graph_hash; J.H1id = body.graph_identity_hash?.value
     writeEvidence('J2d-edit.json', { branch, warning: w ? { code: w.code, option_ids: w.option_ids, links: w.links } : null, sized, option_edit: J.optionEdit ?? null, H0: J.H0, H1: J.H1 })

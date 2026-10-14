@@ -38,6 +38,7 @@ import {
   type NextRestore,
 } from './undoJournal'
 import { logger } from '../../lib/logger'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 
 export type UndoDirection = 'undo' | 'redo'
 
@@ -176,6 +177,8 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
             ? undoSucceeded(journal, next.step, head)
             : redoSucceeded(journal, next.step, head)
       useUndoJournalStore.setState({ journal: moved })
+      // The restored model is a canvas-local commit: it gets its own fresh analysis.
+      noteCanvasLocalCommit(result.version.versionId)
       void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
         logger.warn('canvas_undo.settle_failed', {
           scenarioId,
