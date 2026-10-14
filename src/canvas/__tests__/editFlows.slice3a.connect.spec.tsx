@@ -6,7 +6,7 @@ import { useConnectGesture } from '../hooks/useConnectGesture'
 import * as strengthEditor from '../utils/openEdgeStrengthEditor'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
 
-vi.mock('../conversation/drawnLinkProposal', () => ({ proposeForDrawnLink: vi.fn() }))
+vi.mock('../conversation/drawnLinkProposal', () => ({ proposeForDrawnLink: vi.fn(), proposeWhenLeftUnsized: vi.fn(() => () => {}) }))
 vi.mock('../editNotes/editNoteStore', () => ({ reportManualEdit: vi.fn() }))
 
 const realAddEdge = useCanvasStore.getState().addEdge

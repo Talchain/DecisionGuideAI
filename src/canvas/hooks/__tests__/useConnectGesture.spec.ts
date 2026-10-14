@@ -22,8 +22,8 @@ import { useConnectGesture, CONNECTION_REFUSAL_COPY } from '../useConnectGesture
 import { useCanvasStore } from '../../store'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { SHARED_MODEL_AUTHORITY_COPY } from '../../mutations/mutationAuthority'
-import { proposeForDrawnLink } from '../../conversation/drawnLinkProposal'
-vi.mock('../../conversation/drawnLinkProposal', () => ({ proposeForDrawnLink: vi.fn(() => 'sent') }))
+import { proposeForDrawnLink, proposeWhenLeftUnsized } from '../../conversation/drawnLinkProposal'
+vi.mock('../../conversation/drawnLinkProposal', () => ({ proposeForDrawnLink: vi.fn(() => 'sent'), proposeWhenLeftUnsized: vi.fn(() => () => {}) }))
 
 const FALSE_REASON = 'This connection is not allowed.'
 
@@ -82,6 +82,7 @@ beforeEach(() => {
   inspectorOpens = 0
   showToast.mockClear()
   vi.mocked(proposeForDrawnLink).mockClear()
+  vi.mocked(proposeWhenLeftUnsized).mockClear()
   seed()
   window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, onInspector)
 })
@@ -285,14 +286,18 @@ describe('Item 3 (Paul 7 Oct): a drawn link asks Olumi to propose its direction,
   it('a handle drop: ONE proposal press, for the link just drawn', () => {
     gesture().onConnect({ source: 'fac_adoption_friction', target: 'out_nrr', sourceHandle: null, targetHandle: null })
     expect(drawnId()).toBeDefined()
-    expect(vi.mocked(proposeForDrawnLink).mock.calls).toEqual([[drawnId()]])
+    // ⛔ Never pressed while the user is choosing the strength (their add would queue behind it; a reload lost the
+    // link — DL 58e392, 8 Oct). It is registered to FOLLOW the user: pressed if they leave the link unsized.
+    expect(vi.mocked(proposeForDrawnLink)).not.toHaveBeenCalled()
+    expect(vi.mocked(proposeWhenLeftUnsized).mock.calls).toEqual([[drawnId()]])
   })
 
   it('a card-body drop: the same one press', () => {
     const g = gesture()
     g.onConnectStart(null, { nodeId: 'fac_adoption_friction', handleType: 'source' })
     g.onConnectEnd(release(cardBody('out_nrr')))
-    expect(vi.mocked(proposeForDrawnLink).mock.calls).toEqual([[drawnId()]])
+    expect(vi.mocked(proposeForDrawnLink)).not.toHaveBeenCalled()
+    expect(vi.mocked(proposeWhenLeftUnsized).mock.calls).toEqual([[drawnId()]])
   })
 
   it('CONTROL: a refused draw (duplicate) presses nothing', () => {
