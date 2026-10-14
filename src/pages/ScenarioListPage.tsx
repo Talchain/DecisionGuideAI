@@ -160,7 +160,7 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
 
 function listTitle(scenario: ScenarioListItem): string {
   // The same name the canvas shows for this row — see `scenarioDisplayTitle`.
-  return scenarioDisplayTitle(scenario) ?? 'Untitled model'
+  return scenarioDisplayTitle(scenario) ?? 'Untitled scenario'
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ function DeleteConfirmDialog({
         className="bg-panel rounded-[20px] shadow-3 p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={`${typography.h4} text-text-header`}>Delete model</h3>
+        <h3 className={`${typography.h4} text-text-header`}>Delete scenario</h3>
         <p className={`${typography.body} text-text-body mt-2`}>
           This will permanently delete &ldquo;{scenarioTitle}&rdquo; and its analysis. This cannot be undone.
         </p>
@@ -371,7 +371,7 @@ export default function ScenarioListPage() {
       const list = await scenarioService.listScenarios(user.id)
       if (request === listRequestRef.current) setScenarios(list)
     } catch (err) {
-      if (request === listRequestRef.current) setError(err instanceof Error ? err.message : 'Failed to load models')
+      if (request === listRequestRef.current) setError(err instanceof Error ? err.message : 'Failed to load scenarios')
     } finally {
       if (request === listRequestRef.current) setLoading(false)
     }
@@ -414,7 +414,7 @@ export default function ScenarioListPage() {
       await createScenario()
       trackEvent('scenario_created', {})
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create model')
+      setError(err instanceof Error ? err.message : 'Failed to create scenario')
     } finally {
       setCreating(false)
     }
@@ -428,7 +428,7 @@ export default function ScenarioListPage() {
       setDeleteTarget(null)
       setScenarios(prev => prev.filter(s => s.id !== deleteTarget.id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete model')
+      setError(err instanceof Error ? err.message : 'Failed to delete scenario')
     } finally {
       setDeleting(false)
     }
@@ -463,7 +463,7 @@ export default function ScenarioListPage() {
       trackEvent('scenario_created', { source: 'duplicate' })
       await fetchScenarios()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to duplicate model')
+      setError(err instanceof Error ? err.message : 'Failed to duplicate scenario')
     }
   }
 
@@ -627,7 +627,7 @@ export default function ScenarioListPage() {
           <div className="text-center py-20" data-testid="first-run">
             <h2 className={`${typography.h2} text-text-header`}>Welcome to Olumi</h2>
             <p className={`${typography.body} text-text-light mt-3 max-w-md mx-auto`}>
-              Describe a decision you're facing and we'll build a model to help you think it through.
+              Describe a situation you're facing and we'll build a model to help you think it through.
             </p>
             <button
               onClick={handleCreate}
@@ -635,21 +635,21 @@ export default function ScenarioListPage() {
               className={`${typography.button} mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
             >
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Start a new model
+              Start a new scenario
             </button>
           </div>
         ) : (
           <>
             {/* ---- Header row ---- */}
             <div className="flex items-center justify-between mb-6 mt-4">
-              <h3 className={`${typography.h3} text-text-header`}>My models</h3>
+              <h3 className={`${typography.h3} text-text-header`}>My scenarios</h3>
               <button
                 onClick={handleCreate}
                 disabled={creating}
                 className={`${typography.button} inline-flex items-center gap-1.5 px-4 py-2 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
               >
                 {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                New model
+                New scenario
               </button>
             </div>
 
@@ -691,10 +691,10 @@ export default function ScenarioListPage() {
               <div className="text-center py-16">
                 <p className={`${typography.body} text-text-light`}>
                   {filter === 'active'
-                    ? 'No active models. Start a new one or check your archive.'
+                    ? 'No active scenarios. Start a new one or check your archive.'
                     : filter === 'archived'
-                      ? 'No archived models.'
-                      : 'No models yet.'}
+                      ? 'No archived scenarios.'
+                      : 'No scenarios yet.'}
                 </p>
               </div>
             )}
@@ -745,7 +745,7 @@ export default function ScenarioListPage() {
 
                     {/* Title */}
                     <h4 className={`${typography.h4} text-text-header pr-16 truncate`}>
-                      {listTitle(scenario) === 'Untitled model' ? <span className="text-text-light">Untitled model</span> : listTitle(scenario)}
+                      {listTitle(scenario) === 'Untitled scenario' ? <span className="text-text-light">Untitled scenario</span> : listTitle(scenario)}
                     </h4>
                     {optionLine && (
                       <p

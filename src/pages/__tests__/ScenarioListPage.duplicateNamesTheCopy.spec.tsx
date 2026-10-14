@@ -74,7 +74,7 @@ describe('Duplicate names the copy for the name its card shows', () => {
   it('⭐ an untitled decision named by its goal: the copy is "<that name> (copy)", never "Untitled decision (copy)"', async () => {
     render(<MemoryRouter><ScenarioListPage /></MemoryRouter>)
     const shown = await duplicateFromCard((name) => name !== 'Pricing review')
-    expect(shown, 'precondition: the card is named from the model, not the empty title').not.toBe('Untitled model')
+    expect(shown, 'precondition: the card is named from the model, not the empty title').not.toBe('Untitled scenario')
     expect(mockDuplicateScenario).toHaveBeenCalledWith('s-untitled', `${shown} (copy)`)
   })
 

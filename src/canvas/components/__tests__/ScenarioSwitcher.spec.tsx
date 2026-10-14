@@ -324,7 +324,7 @@ describe('ScenarioSwitcher (A3)', () => {
     expect(mockRenameCurrentScenario).not.toHaveBeenCalled()
   })
 
-  it('displays "Untitled model" when no current scenario', () => {
+  it('displays "Untitled scenario" when no current scenario', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
       const state = {
         currentScenarioId: null,
@@ -344,9 +344,10 @@ describe('ScenarioSwitcher (A3)', () => {
 
     renderWithToast()
 
-    // Paul, 14 Aug 2026: "decision" -> "model" on the naming surface.
-    expect(screen.getByText('Untitled model')).toBeInTheDocument()
+    // Paul, 14 Oct 2026: the saved record is a "scenario".
+    expect(screen.getByText('Untitled scenario')).toBeInTheDocument()
     expect(screen.queryByText('Untitled decision')).not.toBeInTheDocument()
+    expect(screen.queryByText('Untitled model')).not.toBeInTheDocument()
   })
 
   it('pill does not show when not saving and no lastSavedAt', () => {

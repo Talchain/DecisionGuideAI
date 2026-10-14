@@ -122,8 +122,10 @@ export function detectGoal(text: string): boolean {
  *
  * ⚠ THE DECISION CASE IS NOT DEMOTED. #1110's own regression control is
  * *"Should we expand into the US this year?"*, and it was kept undegraded
- * precisely so generalising would not cost decision reasoning. "Decision" leads
- * in both strings for that reason, and `options` still names "two or more" —
+ * precisely so generalising would not cost decision reasoning. "Question" leads
+ * the goal tip for that reason (Paul's agreed vocabulary, 14 Oct 2026, replaced
+ * "decision or challenge" with "question or situation": "decision" names only
+ * the user's own act of choosing), and `options` still names "two or more" —
  * it is now CONDITIONAL rather than an instruction, which is the whole change.
  *
  * ⚠ NOT TOUCHED, AND DELIBERATELY: `SCAFFOLD_LABELS`' *"the decision i'm facing
@@ -133,7 +135,7 @@ export function detectGoal(text: string): boolean {
  * the founder's language ruling forbids. Pinned by the spec.
  */
 const COACHING_TIPS: Record<BriefElementKind, string> = {
-  goal:        'State the decision or challenge you\'re working through, and what you want to achieve.',
+  goal:        'State the question or situation you\'re working through, and what you want to achieve.',
   options:     'If you\'re weighing specific alternatives, name them — two or more.',
   metric:      'Include a measurable outcome with a number or percentage.',
   constraints: 'Mention any limits such as budget, timeline, or resources.',

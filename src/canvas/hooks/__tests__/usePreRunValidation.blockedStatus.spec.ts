@@ -323,7 +323,7 @@ describe('OPPOSITE-DIRECTION TWIN — a genuinely unrecognised status keeps the 
       blockedCarrier({ status: 'needs_user_input', blocked_reason: undefined } as Partial<CEEAnalysisReady>),
     )
     const inputBlocker = needsInput.blockers.find(b => b.code === 'ANALYSIS_NOT_READY')
-    expect(inputBlocker?.message).toBe('Your decision brief needs changes before analysis can run.')
+    expect(inputBlocker?.message).toBe('Your brief needs changes before analysis can run.')
     expect(blockerCodes(needsInput)).not.toContain('ANALYSIS_BLOCKED')
 
     // ready stays runnable.

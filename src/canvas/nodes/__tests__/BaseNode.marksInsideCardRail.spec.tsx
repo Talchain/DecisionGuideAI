@@ -66,8 +66,9 @@ import { NodeQuickActions } from '../shared/NodeQuickActions'
 const CONTRACT_FRAME_PX = 1
 
 
-const CONTRACT_MARK_BOX_PX = 25
- // 12 + 21 = 7 + 25 + 1
+// Paul 14 Oct 2026: the rail box is 24 (was the contract's 25) to match the reasoning panel's
+// `PanelIconButton`; the title reserve follows: 12 + 20 = 7 + 24 + 1.
+const CONTRACT_MARK_BOX_PX = 24
 const CONTRACT_ICON_GLYPH_PX = 15
 const CONTRACT_ICON_REST_HEX = '#777B77'
 const CONTRACT_BEHAVIOUR_HEX = '#736DA0'
@@ -318,10 +319,10 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(root.style.paddingBottom).toBe(NODE_QUICK_ACTION_BAND_CSS)
   })
 
-  it('the contract figure itself: one mark at 100% beside 12px of card padding reserves exactly 21px (`.node h3{padding-right:21px}`)', () => {
-    expect(px(cornerMarksHeaderReserveCss(1, '12px')!, 1)).toBe(21)
-    // …and the same 1px clearance at the bound, where the mark is 50 wide.
-    expect(px(cornerMarksHeaderReserveCss(1, '12px')!, 2)).toBe(46)
+  it('one 24px mark at 100% beside 12px of card padding reserves exactly 20px (contract 21px less the 1px box cut, Paul 14 Oct 2026)', () => {
+    expect(px(cornerMarksHeaderReserveCss(1, '12px')!, 1)).toBe(20)
+    // …and the same 1px clearance at the bound, where the mark is 48 wide.
+    expect(px(cornerMarksHeaderReserveCss(1, '12px')!, 2)).toBe(44)
     // CONTRAST — no mark reserves nothing at all (not a zero-width declaration).
     expect(cornerMarksHeaderReserveCss(0, '12px')).toBeUndefined()
   })
@@ -495,18 +496,18 @@ describe('GAP 11 — worded state pills leave the corner for an in-flow row on t
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () => {
-  it('box 25, glyph 15 — counter-scaled, from the shared rail constants', () => {
+  it('box 24 (Paul 14 Oct 2026; contract 25), glyph 15 — counter-scaled, from the shared rail constants', () => {
     expect(CANVAS_QUICK_ACTION_BOX_PX).toBe(CONTRACT_MARK_BOX_PX)
     expect(NODE_RAIL_GLYPH_PX).toBe(CONTRACT_ICON_GLYPH_PX)
     expect(NODE_RAIL_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[15])
-    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('w-[calc(25px*var(--canvas-glyph-scale,1))]')
-    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('h-[calc(25px*var(--canvas-glyph-scale,1))]')
+    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('w-[calc(24px*var(--canvas-glyph-scale,1))]')
+    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('h-[calc(24px*var(--canvas-glyph-scale,1))]')
   })
 
-  it('a rendered rail icon is a 25px box holding a 15px glyph (class AND the size attribute fallback)', () => {
+  it('a rendered rail icon is a 24px box holding a 15px glyph (class AND the size attribute fallback)', () => {
     render(<NodeRailIcon testId="rail-ev" label="Evidence" icon={SearchCheck} tone="muted" onActivate={() => {}} />)
     const b = screen.getByTestId('rail-ev')
-    expect(tokens(b)).toContain('w-[calc(25px*var(--canvas-glyph-scale,1))]')
+    expect(tokens(b)).toContain('w-[calc(24px*var(--canvas-glyph-scale,1))]')
     const svg = b.querySelector('svg')
     expect(tokens(svg)).toContain('w-[calc(15px*var(--canvas-glyph-scale,1))]')
     expect(svg?.getAttribute('width')).toBe('15')

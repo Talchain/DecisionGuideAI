@@ -212,7 +212,7 @@ export function BlockersSection({
                             Edit brief
                           </button>
                           <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                            The previous draft couldn't be validated. Try rephrasing your decision brief.
+                            The previous draft couldn't be validated. Try rephrasing your brief.
                           </p>
                         </>
                       ) : (

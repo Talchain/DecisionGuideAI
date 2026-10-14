@@ -93,7 +93,7 @@ export async function listSharedScenarios(): Promise<Outcome<{ items: SharedScen
     .filter((r): r is Record<string, unknown> & { scenario_id: string } => typeof r?.scenario_id === 'string')
     .map((r) => ({
       scenarioId: r.scenario_id,
-      title: typeof r.title === 'string' && r.title.trim() !== '' ? r.title : 'Untitled model',
+      title: typeof r.title === 'string' && r.title.trim() !== '' ? r.title : 'Untitled scenario',
       updatedAt: typeof r.updated_at === 'string' ? r.updated_at : '',
       sharedAt: typeof r.shared_at === 'string' ? r.shared_at : '',
       ownerName: typeof r.owner_name === 'string' && r.owner_name.trim() !== '' ? r.owner_name : null,

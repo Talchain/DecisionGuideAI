@@ -274,7 +274,7 @@ function CanvasMVPBody() {
   )
 
   const handleSave = useCallback(async () => {
-    const name = scenarioTitle || 'Untitled model'
+    const name = scenarioTitle || 'Untitled scenario'
     if (currentScenarioId) {
       await saveCurrentScenario()
     } else {
@@ -329,7 +329,7 @@ function CanvasMVPBody() {
       const result = await createSharedSnapshot()
       if (!result) {
         // eslint-disable-next-line no-alert
-        window.alert("We couldn't create a share link for this model. Please try again shortly.")
+        window.alert("We couldn't create a share link for this scenario. Please try again shortly.")
         return
       }
       const url = `${window.location.origin}/#/brief/${result.slug}`
@@ -354,8 +354,8 @@ function CanvasMVPBody() {
       // eslint-disable-next-line no-alert
       window.alert(
         noModel
-          ? "This decision has no saved model yet, so a link would open empty for whoever you send it to. Add to the model first, then share."
-          : "We couldn't create a share link for this model. Please try again shortly.",
+          ? "This scenario has no saved model yet, so a link would open empty for whoever you send it to. Add to the model first, then share."
+          : "We couldn't create a share link for this scenario. Please try again shortly.",
       )
     }
   }, [isPersistenceActive, currentScenarioId, createSharedSnapshot])

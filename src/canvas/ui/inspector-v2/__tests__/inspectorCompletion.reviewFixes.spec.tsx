@@ -413,7 +413,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
     expect(alternatives?.textContent).toContain('Option A')
     expect(alternatives?.textContent).toContain('Option B')
     expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
   })
 
   it('counts an option connected in BOTH directions exactly once', () => {
@@ -428,7 +428,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
       ],
     })
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 1 option.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 1 option.')
     expect(screen.getAllByText('Option A')).toHaveLength(1)
   })
 
@@ -448,7 +448,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
   it('states the count for both directions in the single summary location', () => {
     setInboundStore()
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 })

@@ -140,10 +140,10 @@ describe('transcriptStore', () => {
     // The oldest survived message is the first one AFTER the dropped run.
     expect(out!.messages[0].content).toBe('turn 7')
     expect(formatTruncationNotice(7)).toBe(
-      'The earliest 7 messages from this decision could not be restored',
+      'The earliest 7 messages from this scenario could not be restored',
     )
     expect(formatTruncationNotice(1)).toBe(
-      'The earliest message from this decision could not be restored',
+      'The earliest message from this scenario could not be restored',
     )
   })
 

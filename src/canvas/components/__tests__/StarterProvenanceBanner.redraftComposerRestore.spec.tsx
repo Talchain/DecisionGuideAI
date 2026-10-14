@@ -201,6 +201,6 @@ describe('a failed starter re-draft returns the brief to the composer (affordanc
     // is deliberately left alone, so an unconditional warning would be its own
     // false claim.
     const text = String(confirmSpy.mock.calls[0][0])
-    expect(text).toContain('If this decision isn’t saved, it also clears the conversation so far.')
+    expect(text).toContain('If this scenario isn’t saved, it also clears the conversation so far.')
   })
 })

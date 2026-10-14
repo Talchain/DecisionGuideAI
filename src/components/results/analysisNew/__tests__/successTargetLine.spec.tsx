@@ -42,6 +42,7 @@ import { SuccessTargetLine } from '../sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
 import { action } from '../panelSurfaces'
+import { MARK_COLOUR } from '../nodeMarks'
 
 const TID = 'target'
 /** V2 prototype's success row, verbatim; the component holds it as a local constant. */
@@ -372,5 +373,50 @@ describe('it refuses to be an affordance writing into nowhere', () => {
       <SuccessTargetLine goalNodeId={null} onCommitOutcome={vi.fn()} testId={TID} />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+/**
+ * Paul 14 Oct 2026: the checklist's Goal row draws the canvas's own goal diamond (the shared `NodeMark`, goal
+ * token), and the goal's words are italic only while the goal is provisional. A discriminating pair: the same goal
+ * label, provisional and not.
+ */
+describe('the checklist Goal row', () => {
+  const drawChecklist = (provisional: boolean) =>
+    render(
+      <ul>
+        <SuccessTargetLine
+          goalNodeId="g1"
+          onCommitOutcome={vi.fn()}
+          testId={TID}
+          variant="checklist"
+          goalLabel="Grow quarterly revenue"
+          provisional={provisional}
+        />
+      </ul>,
+    )
+
+  it('marks the row with the goal diamond in the canvas goal colour, not a lucide icon', () => {
+    drawChecklist(false)
+    const row = screen.getByTestId(TID)
+    const marks = row.querySelectorAll('svg[data-mark-kind]')
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toHaveAttribute('data-mark-kind', 'goal')
+    expect(marks[0]).toHaveClass(MARK_COLOUR.goal)
+    expect(row.querySelector('svg.lucide-target')).toBeNull()
+  })
+
+  it('sets the goal words in italics when provisional', () => {
+    drawChecklist(true)
+    const goal = screen.getByTestId(`${TID}-goal`)
+    expect(goal).toHaveTextContent('Grow quarterly revenue')
+    expect(goal).toHaveClass('italic')
+  })
+
+  it('keeps the goal words upright when the goal is not provisional', () => {
+    drawChecklist(false)
+    const goal = screen.getByTestId(`${TID}-goal`)
+    expect(goal).toHaveTextContent('Grow quarterly revenue')
+    expect(goal).not.toHaveClass('italic')
   })
 })

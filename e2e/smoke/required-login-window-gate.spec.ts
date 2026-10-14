@@ -113,7 +113,7 @@
 //   login email input      #login-email                      LoginPage.tsx
 //   login submit           button "Send magic link"          LoginPage.tsx
 //   first-use composer     [data-testid="first-use-composer"] FirstUseComposer.tsx:262
-//   composer textarea      aria-label "Describe your decision" FirstUseComposer.tsx:314
+//   composer textarea      aria-label "Describe your question or situation" FirstUseComposer.tsx
 //   send                   button[aria-label="Send"]          AIInputBar.tsx:516
 //   graph nodes            .react-flow__node                  ReactFlowGraph
 //   run analysis           [data-testid="btn-run-analysis"]    CanvasToolbar.tsx:347
@@ -416,7 +416,7 @@ test.describe('required-login window gate (ROADMAP 2.126b)', () => {
     await expect(page.locator('[data-testid="first-use-composer"]')).toBeVisible({
       timeout: PROBE_TIMEOUT_MS,
     })
-    await expect(page.getByLabel('Describe your decision').first()).toBeVisible()
+    await expect(page.getByLabel('Describe your question or situation').first()).toBeVisible()
   })
 
   // ── Steps 4+5 — draft, and the authenticated wire contract (pack §3 4–5) ─
@@ -434,7 +434,7 @@ test.describe('required-login window gate (ROADMAP 2.126b)', () => {
       { timeout: DRAFT_TIMEOUT_MS },
     )
 
-    await page.getByLabel('Describe your decision').first().fill(FIXTURE_BRIEF)
+    await page.getByLabel('Describe your question or situation').first().fill(FIXTURE_BRIEF)
     await page.locator('button[aria-label="Send"]').click()
 
     const req = await turnRequest

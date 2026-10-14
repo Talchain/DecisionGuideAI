@@ -540,7 +540,7 @@ export async function deleteScenario(scenarioId: string): Promise<void> {
   if (!Array.isArray(data) || data.length === 0) {
     throw new ScenarioPersistenceError(
       `Failed to delete scenario: no rows were deleted (${scenarioId}). ` +
-        'The decision may belong to another account, or your session may have expired.',
+        'The scenario may belong to another account, or your session may have expired.',
       'DELETE_FAILED',
     )
   }
@@ -648,7 +648,7 @@ export async function createSharedSnapshot(
   // reason rather than a generic retry.
   if (!row || row.graph == null || typeof row.graph !== 'object') {
     throw new ScenarioPersistenceError(
-      'This decision has no saved model yet, so a link would open empty for whoever you send it to.',
+      'This scenario has no saved model yet, so a link would open empty for whoever you send it to.',
       'CREATE_SHARED_SNAPSHOT_NO_GRAPH',
     )
   }

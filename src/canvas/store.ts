@@ -6910,7 +6910,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // UUID. Auto-generate a name if not provided.
         const scenarioName = name
           || currentScenarioFraming?.title
-          || `Decision - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+          || `Scenario - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 
         const scenario = scenarios.createScenario({
           name: scenarioName,

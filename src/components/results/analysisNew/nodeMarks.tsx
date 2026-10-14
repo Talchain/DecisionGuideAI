@@ -36,8 +36,20 @@ export type MarkKind = 'option' | 'factor' | 'risk' | 'outcome'
 
 export const MARK_KINDS: readonly MarkKind[] = ['option', 'factor', 'risk', 'outcome']
 
-/** Mirrors the canvas glyph vocabulary: square, disc, down-triangle, up-triangle. */
-const SHAPE: Record<MarkKind, string> = {
+/**
+ * Paul 14 Oct 2026: "The brief and goal both already have coloured shapes that identify them … We should be using
+ * them in this top panel." The Reasoning checklist's Brief and Goal rows draw the canvas's own decision hexagon and
+ * goal diamond (`canvas/nodes/NodeShapeIndicator.tsx`, same 12-unit box). Kept OUT of `MARK_KINDS`, so
+ * `markKindForTarget` still answers `null` for a goal or decision target.
+ */
+export type SubjectMarkKind = 'decision' | 'goal'
+export const SUBJECT_MARK_KINDS: readonly SubjectMarkKind[] = ['decision', 'goal']
+export type AnyMarkKind = MarkKind | SubjectMarkKind
+
+/** Mirrors the canvas glyph vocabulary: square, disc, down-triangle, up-triangle; hexagon, diamond. */
+const SHAPE: Record<AnyMarkKind, string> = {
+  decision: 'M3.25 1.5h5.5L11.5 6l-2.75 4.5h-5.5L.5 6z',
+  goal: 'M6 1l5 5-5 5-5-5z',
   option: 'M1.6 1.6h8.8v8.8H1.6z',
   factor: 'M6 1.2a4.8 4.8 0 100 9.6 4.8 4.8 0 000-9.6z',
   risk: 'M6 10.8L1.2 2.4h9.6z',
@@ -45,7 +57,9 @@ const SHAPE: Record<MarkKind, string> = {
 }
 
 /** Derived, never restated. */
-export const MARK_COLOUR: Record<MarkKind, string> = {
+export const MARK_COLOUR: Record<AnyMarkKind, string> = {
+  decision: nodeColors.decision.text,
+  goal: nodeColors.goal.text,
   option: nodeColors.option.text,
   factor: nodeColors.factor.text,
   risk: nodeColors.risk.text,
@@ -53,10 +67,10 @@ export const MARK_COLOUR: Record<MarkKind, string> = {
 }
 
 /** Exposed so a test can assert shape and colour cover the same set. */
-export const MARK_SHAPE_KEYS = Object.keys(SHAPE) as MarkKind[]
+export const MARK_SHAPE_KEYS = Object.keys(SHAPE) as AnyMarkKind[]
 
 export interface NodeMarkProps {
-  kind: MarkKind
+  kind: AnyMarkKind
   /** Tailwind size classes. Defaults to the 12px panel mark. */
   className?: string
 }

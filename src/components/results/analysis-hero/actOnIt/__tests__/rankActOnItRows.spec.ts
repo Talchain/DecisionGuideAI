@@ -699,7 +699,7 @@ describe('rankActOnItRows — §5 readyToBrief posture', () => {
     expect(ready.category).toBe('ready')
     expect(ready.priority).toBe('Ready')
     expect(ready.priorityWidth).toBe(100)
-    expect(ready.title).toBe('Create decision brief')
+    expect(ready.title).toBe('Create a summary')
     expect(ready.reason).toBe(
       'Capture the result, rationale, key assumptions and caveats before sharing.',
     )
@@ -739,7 +739,7 @@ describe('rankActOnItRows — §5 readyToBrief posture', () => {
     )
     expect(rows.map(r => r.key)).toEqual(['ready-brief', 'reflect-0', 'reflect-1'])
     expect(rows.map(r => r.title)).toEqual([
-      'Create decision brief',
+      'Create a summary',
       'Challenge Anchoring',
       'Challenge Sunk cost',
     ])

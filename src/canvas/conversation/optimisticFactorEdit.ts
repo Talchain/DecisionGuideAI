@@ -696,7 +696,7 @@ export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
    * shows the fence's own sentence (`fenceRefusalCopyForCategory`) instead.
    */
   proven_no_write:
-    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this decision and I'll re-sync with the saved model, then you can make the change again.",
+    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this scenario and I'll re-sync with the saved model, then you can make the change again.",
   /**
    * The turn reached the server and failed there, but nothing states the write
    * did not land — the untyped 500 a contended commit actually returns, an

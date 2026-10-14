@@ -154,7 +154,7 @@ const STRENGTH_STATED_COPY = 'From your figure. Olumi sized this link from a fig
 const STRENGTH_ACCEPTED_COPY = 'You accepted Olumi\u2019s estimate of this strength. It is still an estimate, not a measurement.'
 /** RT-12: the example's strength belongs to no one's situation or judgement. */
 const STRENGTH_EXAMPLE_COPY =
-  'Example figure. The example model comes with this strength so you can see a Run; change it to see how much it matters.'
+  'Example figure. The example scenario comes with this strength so you can see a Run; change it to see how much it matters.'
 const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {

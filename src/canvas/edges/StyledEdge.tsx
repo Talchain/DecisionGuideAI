@@ -1357,7 +1357,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (explicit === 'structural') {
       // Use sub-type for tooltip text where possible
       if (srcKind === 'decision' && tgtKind === 'option') {
-        return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
+        return { isStructuralEdge: true, structuralTooltip: 'Option for this question', isOptionFactorLink: false }
       }
       if (srcKind === 'option' && tgtKind === 'factor') {
         return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }
@@ -1372,7 +1372,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
     // No explicit value — infer from node kinds.
     if (srcKind === 'decision' && tgtKind === 'option') {
-      return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
+      return { isStructuralEdge: true, structuralTooltip: 'Option for this question', isOptionFactorLink: false }
     }
     if (srcKind === 'option' && tgtKind === 'factor') {
       return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }

@@ -785,7 +785,7 @@ export const STRUCTURAL_RENAME_NOTICE = {
    * works, in-session, with no reload.
    */
   base_hash_diverged:
-    "The saved model changed while you were renaming that, so the new name wasn't saved — I've put the old one back rather than show you a name the model doesn't hold. Ask me anything about this decision and I'll re-sync with the saved model, then rename it again.",
+    "The saved model changed while you were renaming that, so the new name wasn't saved — I've put the old one back rather than show you a name the model doesn't hold. Ask me anything about this scenario and I'll re-sync with the saved model, then rename it again.",
   /**
    * The turn reached the server and failed, or came back with no readable
    * committed graph. We hold no bytes, so we know neither that it landed nor

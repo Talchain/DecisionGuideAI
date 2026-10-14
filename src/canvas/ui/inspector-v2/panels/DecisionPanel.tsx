@@ -200,8 +200,8 @@ export const DecisionPanel = memo(function DecisionPanel({
   return (
     <div>
       <InspectorSummary sentence={connectedOptions.length > 0
-        ? `This decision has ${connectedOptions.length} option${connectedOptions.length === 1 ? '' : 's'}.`
-        : 'This decision has no options yet.'} />
+        ? `This question has ${connectedOptions.length} option${connectedOptions.length === 1 ? '' : 's'}.`
+        : 'This question has no options yet.'} />
       {summaryContext}
       {readOnly && (
         <p data-testid="decision-authority-route" className={`${typography.panelBody} text-text-body mt-2`}>

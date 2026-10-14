@@ -94,7 +94,7 @@ interface ChatComposerProps {
  * missing something.
  */
 export const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
-  frame:    'Describe the decision or challenge you\'re working through, any options you\'re weighing, and what a good outcome looks like.',
+  frame:    'Describe the question or situation you\'re working through, any options you\'re weighing, and what a good outcome looks like.',
   ideate:   'Explore options, add factors, or challenge assumptions...',
   evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
   decide:   'Challenge the result, or generate your brief...',

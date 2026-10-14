@@ -27,7 +27,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, renderHook } from '@testing-library/react'
 import { SearchCheck } from 'lucide-react'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from '../nodeCardRailStyles'
+import { NODE_RAIL_AI_GLYPH_CLASSES, NODE_RAIL_AI_GLYPH_PX, NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from '../nodeCardRailStyles'
 import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvasGlyphScale'
 import { NodeRailIcon, NodeSignalRailIcons, NODE_RAIL_REVEAL_CLASSES } from '../NodeRailIcons'
 import { NodeQuickActions } from '../NodeQuickActions'
@@ -106,7 +106,7 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
     expect(NODE_RAIL_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[15])
   })
 
-  it('quick-action glyphs and resting glyphs are the SAME size (no 11px member left)', () => {
+  it('quick-action glyphs and resting glyphs are the SAME size (no 11px member left); the Olumi mark is 12', () => {
     useGuidanceStore.setState({ _sendMessage: () => {}, _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never, false)
     setRung('full')
@@ -125,10 +125,16 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
     // Positive control: challenge + more + the resting icon + the coaching icon.
     expect(svgs.length).toBeGreaterThanOrEqual(4)
     expect(container.querySelectorAll('button img[data-icon="olumi-brand-mark"]')).toHaveLength(1)
+    // ⭐ Paul 14 Oct 2026 ("reduce the Olumi icon … in the graph nodes so they match" the panel): the Olumi mark is
+    // the panel's 12px AI glyph, one step below the Lucide rail glyph; every Lucide member stays 15.
+    expect(NODE_RAIL_AI_GLYPH_PX).toBe(12)
+    expect(NODE_RAIL_AI_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[12])
     for (const svg of svgs) {
-      expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[15])
+      const isOlumi = svg.getAttribute('data-icon') === 'olumi-brand-mark'
+      const px = isOlumi ? 12 : 15
+      expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[px])
       expect(svg.getAttribute('class')).not.toContain(CANVAS_GLYPH_SIZE_CLASSES[11])
-      expect(svg.getAttribute('width')).toBe('15')
+      expect(svg.getAttribute('width')).toBe(String(px))
     }
   })
 })
@@ -192,7 +198,7 @@ describe('ICON-04 (fallback) — the rail data icons leave with the coaching ico
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph, not a bordered donut', () => {
-  it('borderless, shadowless, counter-scaled contract 25px box (20 before gap 34); a LocateFixed target glyph at the rail size', () => {
+  it('borderless, shadowless, counter-scaled 24px rail box (Paul 14 Oct 2026; 25 from gap 34, 20 before); a LocateFixed target glyph at the rail size', () => {
     render(<NodeAttentionMarker nodeId="n1" sentence="Worth reviewing: a top driver." />)
     const b = screen.getByTestId('attention-marker-n1')
     for (const t of tokens(b)) {
@@ -200,7 +206,7 @@ describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph
       expect(t, 'no shadow').not.toMatch(/^shadow/)
     }
     expect(has(b, 'rounded-full')).toBe(false)
-    expect(b.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[25])
+    expect(b.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[24])
     // Contract `.node .attention{background:none}`: inside the card (gap 11) it
     // has no panel fill of its own.
     expect(tokens(b).some((t) => t.startsWith('bg-'))).toBe(false)
@@ -244,7 +250,7 @@ describe('PILL-07 / PILL-08 (colour) / T14(b) / ICON-09 — the coaching marker 
     expect(has(m, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(has(m, 'hover:text-info')).toBe(true)
     expect(has(m, 'hover:bg-info/10')).toBe(true)
-    expect(has(m, 'h-[calc(25px*var(--canvas-glyph-scale,1))]')).toBe(true)
+    expect(has(m, 'h-[calc(24px*var(--canvas-glyph-scale,1))]')).toBe(true)
     const svg = m.querySelector('svg')
     expect(tokens(svg).some((t) => /danger/.test(t))).toBe(false)
     expect(svg?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
@@ -294,7 +300,7 @@ describe('PILL-07 / ICON-09 — the structural marker drops the dash and gains a
       expect(t).not.toMatch(/^border/)
       expect(t).not.toMatch(/^shadow/)
     }
-    expect(m.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[25])
+    expect(m.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[24])
     expect(has(m, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(m.querySelector('svg')?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
   })

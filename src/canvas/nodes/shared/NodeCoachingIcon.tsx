@@ -65,7 +65,7 @@ import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import type { LucideProps } from 'lucide-react'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { NODE_RAIL_AI_GLYPH_CLASSES, NODE_RAIL_AI_GLYPH_PX, NODE_RAIL_BUTTON_CLASSES } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
@@ -232,7 +232,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         {/* ⭐ v3.1 `coaching`: the bubble with "?" (`COACHING_ICON_GLYPH`, #42).
             Was `MessageCircle` under Panel's R3 (#63 5796486697 / 5796609717,
             "one glyph for an ask") — the conflict is named at the constant. */}
-        <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
+        <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_AI_GLYPH_PX} className={NODE_RAIL_AI_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )

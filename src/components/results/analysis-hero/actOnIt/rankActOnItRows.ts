@@ -429,7 +429,7 @@ function reflectRows(data: ResultsSectionDataReturn): ActOnItRow[] {
 function readyRow(): ActOnItRow {
   return {
     key: 'ready-brief',
-    title: 'Create decision brief',
+    title: 'Create a summary',
     reason: 'Capture the result, rationale, key assumptions and caveats before sharing.',
     priority: 'Ready',
     priorityWidth: 100,

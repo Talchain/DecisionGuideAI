@@ -64,7 +64,7 @@ function useRunGateObjects(): boolean {
  *   3. Analysis exists, can't confirm → "Ask about this analysis..."
  *      (cannot-confirm / no freshness verdict — never claims "latest")
  *   4. Model exists                   → "Ask about this model..."
- *   5. No model                       → "Describe your decision or challenge..."
+ *   5. No model                       → "Describe your question or situation..."
  *
  * ── L-17: THE SELECTION BRANCH IS GONE, DELIBERATELY ───────────────────────
  * This hook used to return "Ask about [label]…" whenever one element was
@@ -102,7 +102,10 @@ export function useStageAwarePlaceholder(): string {
   if (stage === 'modelled') {
     return 'Ask about this model…'
   }
-  // ⭐ "OR CHALLENGE" — the empty-canvas line.
+  // ⭐ "QUESTION OR SITUATION" — the empty-canvas line (Paul's agreed vocabulary,
+  // 14 Oct 2026: "decision" names only the user's own act of choosing, so the
+  // thing the user brings is a question or a situation; this supersedes the
+  // earlier "decision or challenge" wording described below).
   //
   // ⚠ AND IT IS NOT THE FIRST-USE HERO, WHICH AN EARLIER VERSION OF THIS COMMENT
   // CLAIMED. `AIInputBar` resolves `placeholder ?? stagePlaceholder`, so an
@@ -112,9 +115,10 @@ export function useStageAwarePlaceholder(): string {
   // OLD copy while this hook already returned the new line.
   // CEE #1110 (`aa134eac`, live on deployed `c24bfe37`) accepts open strategic
   // challenges, so asking only for a decision steered users away from a
-  // capability the product ships. "Decision" stays FIRST: #1110's own
-  // regression control is "Should we expand into the US this year?", kept
-  // undegraded, and this copy must not cost what that change protected.
-  return 'Describe your decision or challenge…'
+  // capability the product ships. "Question" stays FIRST: #1110's own
+  // regression control is "Should we expand into the US this year?" — a
+  // question — kept undegraded, and this copy must not cost what that change
+  // protected.
+  return 'Describe your question or situation…'
 }
 

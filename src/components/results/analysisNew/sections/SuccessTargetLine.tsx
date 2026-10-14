@@ -101,6 +101,7 @@ import {
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
 import { action, icon } from '../panelSurfaces'
+import { NodeMark } from '../nodeMarks'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { askAi } from '../../../../canvas/conversation/askAi'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -1156,8 +1157,9 @@ function ChecklistGoalRow({
   return (
     <>
       <li role="listitem" className="contents" data-testid={testId} data-variant="checklist" data-kind="goal">
-        <span className="flex min-h-7 items-center gap-1 px-1 py-0.5 min-w-0">
-          <Target className={`${icon('inline')} shrink-0 text-text-light`} aria-hidden="true" />
+        <span className="flex min-h-7 items-center gap-1 py-0.5 min-w-0">
+          {/* The canvas's own goal diamond, in the goal token — the same mark family as every census row. */}
+          <NodeMark kind="goal" />
           <span className={`${typography.panelMeta} text-text-light truncate`}>Goal</span>
         </span>
         {/* One clipped line like the Decision row; a click shows it whole. */}
@@ -1171,7 +1173,13 @@ function ChecklistGoalRow({
           }`}
           data-testid={`${testId}-text`}
         >
-          {goalLabel ? `${goalLabel} ` : null}
+          {/* Paul 14 Oct 2026: "the goal should be in italics if it's provisional" — the goal's words only. */}
+          {goalLabel ? (
+            <span className={provisional ? 'italic' : undefined} data-testid={`${testId}-goal`}>
+              {goalLabel}
+            </span>
+          ) : null}
+          {goalLabel ? ' ' : null}
           <span
             className="text-text-light"
             data-testid={shownText !== null && !provisional ? `${testId}-value` : `${testId}-none`}

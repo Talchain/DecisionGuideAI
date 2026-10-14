@@ -3512,7 +3512,7 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
             ? 'Early sketch'
             : 'Unknown',
       description: tier === 'strong'
-        ? 'Your model captures this decision well.'
+        ? 'Your model captures this situation well.'
         : tier === 'fair'
           ? 'Your model covers the basics. Address the items below.'
           : tier === 'needs_work'

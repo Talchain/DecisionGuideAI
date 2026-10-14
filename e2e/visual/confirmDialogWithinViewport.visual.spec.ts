@@ -56,7 +56,7 @@ for (const vp of VIEWPORTS) {
     await page.click('button[aria-label="More options"]')
     await page.click('[data-testid="kebab-start-new-model"]')
 
-    const card = page.locator('[role="dialog"]', { hasText: 'Start a new model?' }).locator('> div')
+    const card = page.locator('[role="dialog"]', { hasText: 'Start a new scenario?' }).locator('> div')
     await expect(card).toBeVisible()
 
     const box = await card.boundingBox()
@@ -72,6 +72,6 @@ for (const vp of VIEWPORTS) {
 
     // The precondition: the title we are framing is actually rendered, so this
     // cannot pass by measuring some other dialog's box.
-    await expect(page.getByText('Start a new model?')).toBeVisible()
+    await expect(page.getByText('Start a new scenario?')).toBeVisible()
   })
 }

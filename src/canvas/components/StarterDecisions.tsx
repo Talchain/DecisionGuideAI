@@ -65,10 +65,10 @@ export const STARTER_LOAD_FAILED_MESSAGE =
  *   being true. Advertise a key again only with a test that goes RED when
  *   its handler stops working.
  */
-export const EXAMPLE_OPEN_FAILED_MESSAGE = 'Couldn’t open the example model. Try again in a moment.'
+export const EXAMPLE_OPEN_FAILED_MESSAGE = 'Couldn’t open the example scenario. Try again in a moment.'
 /** Registered but not read back: the scenario exists, so a reload opens it; clicking again would mint a second one. */
-export const EXAMPLE_READ_BACK_FAILED_MESSAGE = 'The example model was created but didn’t load. Reload the page to open it.'
-export const EXAMPLE_DECISION_LABEL = 'Open the example model'
+export const EXAMPLE_READ_BACK_FAILED_MESSAGE = 'The example scenario was created but didn’t load. Reload the page to open it.'
+export const EXAMPLE_DECISION_LABEL = 'Open the example scenario'
 /** Both read from D1's own graph (goal node label, option count); the spec binds them to `d1.graph.json`. */
 export const EXAMPLE_DECISION_GOAL_LABEL = 'Grow quarterly revenue'
 export const EXAMPLE_DECISION_OPTION_COUNT = 4
@@ -168,12 +168,12 @@ export function StarterDecisions() {
       className="w-full max-w-2xl"
       data-testid="starter-decisions"
       role="group"
-      aria-label="Saved example models"
+      aria-label="Saved example scenarios"
     >
       {/* Our framing of our own UI. "saved example" is load-bearing: these are
           previously-drafted models, not something generated on this click. */}
       <p className={`mb-3 text-center ${typography.bodySmall} text-text-light`}>
-        Or open a saved example — a real model Olumi has built
+        Or open a saved example — a real scenario Olumi has modelled
       </p>
 
       {!isPersistenceSessionActive() && (

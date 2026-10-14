@@ -435,7 +435,7 @@ function AnalysisSection({ analysis }: { analysis: ReadAnalysis }) {
  * 6,698 nodes that would have rendered under "Also in the model".
  */
 const GROUPS: Array<{ type: string; heading: string }> = [
-  { type: 'decision', heading: 'The decision' },
+  { type: 'decision', heading: 'The question' },
   { type: 'goal', heading: 'What it is for' },
   { type: 'option', heading: 'Options on the table' },
   { type: 'factor', heading: 'What it depends on' },
@@ -493,7 +493,7 @@ function ModelContent({ graph }: { graph: unknown }) {
     return (
       <div data-testid="shared-snapshot-unrenderable">
         <h2 className="text-xl font-semibold text-text-header">
-          This decision could not be displayed
+          This scenario could not be displayed
         </h2>
         <p className="mt-2 text-text-body leading-relaxed">
           The link is genuine and the record below is real, but the model is not in a
@@ -561,7 +561,7 @@ export default function SharedBriefPage() {
         }
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to load this decision')
+        setError(err instanceof Error ? err.message : 'Failed to load this scenario')
       })
       .finally(() => {
         setLoading(false)
@@ -583,7 +583,7 @@ export default function SharedBriefPage() {
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="text-center max-w-md">
           <AlertTriangle className="w-10 h-10 text-warning mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-text-header">Decision not found</h1>
+          <h1 className="text-xl font-semibold text-text-header">Scenario not found</h1>
           <p className="mt-2 text-sm text-text-light">
             This link doesn&apos;t exist or has expired.
           </p>
@@ -598,7 +598,7 @@ export default function SharedBriefPage() {
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="text-center max-w-md">
           <AlertTriangle className="w-10 h-10 text-danger mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-text-header">Failed to load this decision</h1>
+          <h1 className="text-xl font-semibold text-text-header">Failed to load this scenario</h1>
           <p className="mt-2 text-sm text-text-light">{error}</p>
         </div>
       </div>
@@ -617,7 +617,7 @@ export default function SharedBriefPage() {
         {/* Header */}
         <div className="flex items-center gap-2 mb-6">
           <FileText className="w-5 h-5 text-info" />
-          <h1 className="text-lg font-semibold text-text-header">Shared decision</h1>
+          <h1 className="text-lg font-semibold text-text-header">Shared scenario</h1>
         </div>
 
         {/* The brief, as the sender wrote it. Plain text, so it is rendered as

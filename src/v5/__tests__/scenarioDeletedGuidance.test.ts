@@ -27,7 +27,7 @@ describe('resolveGuidance — scenario_deleted refusal reads truthfully', () => 
     "Something on our side isn't working — your message was fine. Please try again in a moment."
 
   const DELETED_COPY =
-    "This model has been deleted, so nothing more can be saved to it — nothing you typed was the problem. Start a new model, or open a different one from your list."
+    "This scenario has been deleted, so nothing more can be saved to it — nothing you typed was the problem. Start a new scenario, or open a different one from your list."
 
   /** The envelope as CEE emits it, recovery block included (the live wire). */
   const deletedErr = (): BoundaryError => ({
@@ -105,7 +105,7 @@ describe('resolveGuidance — scenario_deleted refusal reads truthfully', () => 
   it('names what happened and an action that can actually work', () => {
     const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', deletedErr())
     expect(g).toMatch(/deleted/i)
-    expect(g).toMatch(/start a new model/i)
+    expect(g).toMatch(/start a new scenario/i)
   })
 
   it('is the exact copy, bound by identity (both envelope shapes agree)', () => {

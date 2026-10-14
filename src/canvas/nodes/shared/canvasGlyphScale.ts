@@ -494,8 +494,14 @@ export const CANVAS_CORNER_INSET_CLASSES: Readonly<Record<6, string>> = Object.f
  * it — derived, not restated. The hit area grows with it (25 + 2 x 2 = 29 from
  * 24), so no target shrinks. At 100% the band is now 6 + 27 = 33px, against the
  * contract's `.node{padding-bottom:32px}` (rail at bottom 5 + 25 + 2).
+ *
+ * ⭐ 24 NOW (Paul, 14 Oct 2026: "reduce the Olumi icon to the right size in the
+ * graph nodes so they match" the reasoning panel's 24px `PanelIconButton`). One
+ * number, so every rail member, the corner marks, the band (5 + 26 = 31px at
+ * 100%) and the anchor reserve move together. The hit area is 24 + 2 x 2 = 28,
+ * still above WCAG 2.2 §2.5.8's 24.
  */
-export const CANVAS_QUICK_ACTION_BOX_PX = 25 as const
+export const CANVAS_QUICK_ACTION_BOX_PX = 24 as const
 export const CANVAS_QUICK_ACTION_INSET_PX = 6 as const
 export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
 /**
@@ -631,10 +637,10 @@ export function anchorRailReservePx(buttons: AnchorRailButtons): number {
 }
 
 export const ANCHOR_RAIL_RESERVE_CLASSES: Readonly<Record<AnchorRailButtons, string>> = Object.freeze({
-  3: '[&>:last-child]:pr-[calc(6px+93px*var(--canvas-glyph-scale,1))]',
-  4: '[&>:last-child]:pr-[calc(6px+124px*var(--canvas-glyph-scale,1))]',
-  5: '[&>:last-child]:pr-[calc(6px+155px*var(--canvas-glyph-scale,1))]',
-  6: '[&>:last-child]:pr-[calc(6px+186px*var(--canvas-glyph-scale,1))]',
+  3: '[&>:last-child]:pr-[calc(6px+90px*var(--canvas-glyph-scale,1))]',
+  4: '[&>:last-child]:pr-[calc(6px+120px*var(--canvas-glyph-scale,1))]',
+  5: '[&>:last-child]:pr-[calc(6px+150px*var(--canvas-glyph-scale,1))]',
+  6: '[&>:last-child]:pr-[calc(6px+180px*var(--canvas-glyph-scale,1))]',
 })
 
 /** Clamp a counted rail to a key of `ANCHOR_RAIL_RESERVE_CLASSES`. */

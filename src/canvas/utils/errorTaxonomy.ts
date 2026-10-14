@@ -178,8 +178,8 @@ export function mapErrorToUserMessage(error: {
   if (error.code === 'EMPTY_CANVAS' || messageLower.includes('empty_canvas')) {
     return {
       title: 'Empty canvas',
-      message: 'Add nodes to your decision graph before running analysis.',
-      suggestion: 'Start by adding a Goal node, then build out your decision structure.',
+      message: 'Add nodes to your model before running analysis.',
+      suggestion: 'Start by adding a Goal node, then build out your model.',
       retryable: false,
       severity: 'warning',
     }
