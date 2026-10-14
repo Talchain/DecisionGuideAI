@@ -18,6 +18,7 @@ import { useRef, useMemo, memo, useState } from 'react'
 import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import type { OlumiTextSend } from '../../canvas/conversation/chipMeta'
 import { buildResultsVM } from './buildResultsVM'
 import { deriveDefaultEstimateDisclosure } from './utils/defaultEstimateDisclosure'
 import { flipThresholdStatusNote } from './utils/flipThresholdStatusNote'
@@ -83,8 +84,8 @@ export interface ResultsBodyProps {
   driversExpanded?: boolean
   /** Callback when Drivers accordion expansion changes */
   onDriversExpandChange?: (expanded: boolean) => void
-  /** Handler for sending a message to the conversation panel */
-  onSendMessage?: (text: string) => void
+  /** Handler for sending a message to the conversation panel; forwards `opts` so Olumi's text can travel as a chip (T1H). */
+  onSendMessage?: OlumiTextSend
   /** Handler for confirming a factor value (triage cards) */
   onConfirmFactor?: (nodeId: string) => void
   /** Handler for setting a factor value via inline editor (triage cards) */

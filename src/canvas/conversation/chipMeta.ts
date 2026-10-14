@@ -144,6 +144,23 @@ export const OLUMI_TEXT_CHIP_IDS = {
   optionsComparisonBringIn: 'options_comparison_bring_in',
   optionPreviewExploreStrategies: 'option_preview_explore_strategies',
   draftNotesConstraintFactor: 'draft_notes_constraint_factor',
+  // T1H-2 (14 Oct): the census's remaining Olumi-text sends.
+  factorCounterfactualQuestion: 'factor_counterfactual_question',
+  riskCounterfactualQuestion: 'risk_counterfactual_question',
+  preAnalysisAddOption: 'pre_analysis_add_option',
+  preAnalysisAddBaseline: 'pre_analysis_add_baseline',
+  scienceIconDiscuss: 'science_icon_discuss',
+  discussWithAi: 'discuss_with_ai',
+  whatIWasGivenNotModelled: 'what_i_was_given_not_modelled',
+  canvasCoachingChip: 'canvas_coaching_chip',
+  canvasCoachingLink: 'canvas_coaching_link',
+  focusNowPrompt: 'focus_now_prompt',
+  actOnItRow: 'act_on_it_row',
+  /** Prefix: the Model-tab hand-off appends its fixed per-control `reason` (`model_tab_hand_off:<reason>`). */
+  modelTabHandOff: 'model_tab_hand_off',
+  /** The AI panel's artefact / follow-up / insight text (ConversationPanel's artefact handler). */
+  aiPanelArtefactAction: 'ai_panel_artefact_action',
+  insightAction: 'insight_action',
 } as const
 
 /** The send seam a surface needs to mark Olumi's text as a chip. */

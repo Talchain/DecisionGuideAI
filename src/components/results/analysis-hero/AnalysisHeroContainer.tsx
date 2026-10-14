@@ -19,6 +19,7 @@ import { useCallback, useMemo, type ReactNode } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS } from '../../../canvas/conversation/chipMeta'
 import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
@@ -149,7 +150,8 @@ export function AnalysisHeroContainer({
         sendToOlumi: (text: string) => {
           const send = useGuidanceStore.getState()._sendMessage
           if (!send) return
-          send(text)
+          // T1H-2: the row's chat prompt is Olumi's — a chip, never the user's typed words.
+          send(text, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.actOnItRow } })
           revealOlumiSurface()
         },
         onFocusNode,

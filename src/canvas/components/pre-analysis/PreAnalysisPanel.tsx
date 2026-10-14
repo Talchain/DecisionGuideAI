@@ -89,7 +89,7 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 import { ICON_DENSE } from '../../conversation/panelIcons'
-import type { OlumiTextSend } from '../../conversation/chipMeta'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../conversation/chipMeta'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
@@ -2013,7 +2013,8 @@ export function PreAnalysisPanel({
         id: 'fewer_than_2_options',
         label: 'Fewer than 2 options',
         actionLabel: 'Add option',
-        onAction: () => onSendMessage?.('Add another option to compare'),
+        // T1H-2: Olumi's copy — a chip, never the user's typed words.
+        onAction: () => onSendMessage?.('Add another option to compare', { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.preAnalysisAddOption } }),
         testId: 't1-check-fewer-than-2-options',
       })
     }
@@ -2022,7 +2023,7 @@ export function PreAnalysisPanel({
         id: 'no_baseline',
         label: 'No baseline set',
         actionLabel: 'Add baseline',
-        onAction: () => onSendMessage?.('Add a status quo option to compare against'),
+        onAction: () => onSendMessage?.('Add a status quo option to compare against', { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.preAnalysisAddBaseline } }),
         testId: 't1-check-no-baseline',
       })
     }

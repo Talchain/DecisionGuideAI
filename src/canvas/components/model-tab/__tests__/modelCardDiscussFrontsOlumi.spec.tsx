@@ -89,7 +89,7 @@ function renderCard() {
   // NO declared params, so `toHaveBeenCalledWith(message, opts)` below would be
   // checked against a zero-arity signature. Typed to `OlumiSend`'s real shape so
   // the argument assertion is type-checked rather than silently widened.
-  const send = vi.fn((_message: string, _opts?: { hidden?: boolean; debugSource?: string }) => {
+  const send = vi.fn((_message: string, _opts?: { hidden?: boolean; debugSource?: string; chipMeta?: { id?: string } }) => {
     order.push('send')
   })
   vi.mocked(revealOlumiSurface).mockImplementation(() => { order.push('reveal'); return true })
@@ -126,7 +126,8 @@ describe('⭐ modelcard-discuss — the click reaches a surface the user can see
     // MUTATION (b): fronting without sending REDs here, on a DIFFERENT
     // signature from the test above.
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send).toHaveBeenCalledWith(V1_TURN, { debugSource: 'modelcard-discuss' })
+    // T1H-2: the turn is the card's own sentence — Olumi's — so it travels as a chip.
+    expect(send).toHaveBeenCalledWith(V1_TURN, { debugSource: 'modelcard-discuss', chipMeta: { id: 'model_tab_hand_off:modelcard-discuss' } })
   })
 
   it('⚠ fronts BEFORE sending — never the reverse', () => {

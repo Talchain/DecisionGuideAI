@@ -71,7 +71,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
-import type { PendingWireActionType } from '../../conversation/chipMeta'
+import { buildChipMeta, type PendingWireActionType } from '../../conversation/chipMeta'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { executeCanonicalRun } from '../../analysis/canonicalRunRegistry'
 import { useAnalysisHeldNotice } from '../../hooks/useAnalysisHold'
@@ -181,7 +181,8 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     // Legacy bridge — metadata cannot travel; the message still lands.
     const send = callbacks._sendMessage
     if (send) {
-      send(message)
+      // T1H-2: the chip's message is Olumi's — it keeps the SAME chip identity the dispatch arm sends.
+      send(message, { chipMeta: buildChipMeta({ ...(actionType ? { action_type: actionType } : {}), parameters: { chip_id: chipId } }) })
       return
     }
     // Keep the question available without pretending that an unregistered

@@ -14,6 +14,7 @@
 import { memo, useState, useCallback, useRef, useEffect, useId } from 'react'
 import { X } from 'lucide-react'
 import type { ArtefactBlock as ArtefactBlockData } from '../../canvas/conversation/types'
+import type { OlumiTextSend } from '../../canvas/conversation/chipMeta'
 import { buildArtefactSrcdoc } from './artefactIframeTemplate'
 import { ArtefactHeader } from './ArtefactHeader'
 import { ArtefactActions } from './ArtefactActions'
@@ -25,7 +26,7 @@ const MAX_INLINE_HEIGHT = 600
 
 interface ArtefactBlockProps {
   block: ArtefactBlockData
-  onSendMessage: (message: string) => void
+  onSendMessage: OlumiTextSend
 }
 
 export const ArtefactBlock = memo(function ArtefactBlock({

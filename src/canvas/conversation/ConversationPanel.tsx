@@ -191,7 +191,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   // and (agent lane) no consent to write or run, like every other suggestion.
   const handleArtefactMessage = useCallback(
     (text: string) => {
-      void dispatchAction({ id: 'ai_panel_artefact_action', label: text, message: text, source: 'chip' })
+      void dispatchAction({ id: OLUMI_TEXT_CHIP_IDS.aiPanelArtefactAction, label: text, message: text, source: 'chip' })
     },
     [dispatchAction],
   )

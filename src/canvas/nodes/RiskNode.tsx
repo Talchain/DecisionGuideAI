@@ -17,6 +17,7 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS } from '../conversation/chipMeta'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { openNodeInspector } from './shared/openNodeInspector'
@@ -617,7 +618,8 @@ export const RiskNode = memo((props: NodeProps) => {
               onClick={(e) => {
                 e.stopPropagation()
                 const send = useGuidanceStore.getState()._sendMessage
-                if (send) send(counterfactualQuestion)
+                // T1H-2: Olumi's question — a chip, never the user's typed words.
+                if (send) send(counterfactualQuestion, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.riskCounterfactualQuestion } })
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >

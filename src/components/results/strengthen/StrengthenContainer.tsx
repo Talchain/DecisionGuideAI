@@ -314,6 +314,8 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const { _dispatchAction, _sendChip } = useGuidanceStore.getState()
     if (_dispatchAction) {
       _dispatchAction({
+        // T1H-2: the same chip identity the `_sendChip` arm below sends — static, whatever actionType holds.
+        id: `strengthen:${record.id}`,
         action_type: rec.action.actionType, // explicit — never the keyword heuristic
         parameters: rec.action.parameters,
         label: rec.action.label,

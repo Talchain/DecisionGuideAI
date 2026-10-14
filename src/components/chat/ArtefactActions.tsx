@@ -7,13 +7,15 @@
 
 import { memo } from 'react'
 import type { ArtefactAction } from '../../canvas/conversation/types'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../canvas/conversation/chipMeta'
 import styles from './Artefact.module.css'
 
 const MAX_ACTIONS = 3
 
 interface ArtefactActionsProps {
   actions: ArtefactAction[]
-  onSendMessage: (message: string) => void
+  /** Olumi's action text; it carries its chip identity whoever receives it (T1H-2). */
+  onSendMessage: OlumiTextSend
 }
 
 export const ArtefactActions = memo(function ArtefactActions({
@@ -29,7 +31,7 @@ export const ArtefactActions = memo(function ArtefactActions({
           key={`${action.label}:${action.message}`}
           type="button"
           className={styles.actionChip}
-          onClick={() => onSendMessage(action.message)}
+          onClick={() => onSendMessage(action.message, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.aiPanelArtefactAction } })}
           data-testid="artefact-action-chip"
         >
           {action.label}

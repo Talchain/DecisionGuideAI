@@ -20,6 +20,7 @@
 import { useState, useRef, useEffect, useCallback, type ComponentType } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS } from '../../conversation/chipMeta'
 import { typography } from '../../../styles/typography'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 
@@ -68,7 +69,8 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
 
   const handleDiscuss = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    sendMessage?.(action)
+    // T1H-2: the per-trigger `action` string is Olumi's — a chip, never the user's typed words.
+    sendMessage?.(action, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.scienceIconDiscuss } })
     setOpen(false)
   }, [sendMessage, action])
 

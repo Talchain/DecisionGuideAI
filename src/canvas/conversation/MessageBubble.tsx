@@ -25,6 +25,7 @@ import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isReasonin
 import { useCanvasStore } from '../store'
 import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from './chipMeta'
 import { FALLBACK_TEXT } from './validateResponse'
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
@@ -508,7 +509,7 @@ function getInsightAction(type: string, entityLabel: string): InsightAction | nu
 }
 
 /** Deterministic CEE insights — rendered between assistant_text and blocks */
-function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSendMessage?: (text: string) => void }) {
+function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSendMessage?: OlumiTextSend }) {
   // Resolve target_id → node label from the graph
   const nodes = useCanvasStore(s => s.nodes)
   const labelMap = useMemo(() => {
@@ -546,6 +547,8 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
                     const dispatch = useGuidanceStore.getState()._dispatchAction
                     if (dispatch) {
                       dispatch({
+                        // T1H-2: a static chip identity, not only an action_type the guard cannot see is set.
+                        id: OLUMI_TEXT_CHIP_IDS.insightAction,
                         action_type: action.action_type,
                         label: action.label,
                         message: action.message,
@@ -553,7 +556,8 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
                         ...(insight.target_id ? { parameters: { target_id: insight.target_id } } : {}),
                       })
                     } else {
-                      onSendMessage?.(action.message)
+                      // Fallback is the panel's artefact handler (`onArtefactMessage`), itself a chip.
+                      onSendMessage?.(action.message, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.aiPanelArtefactAction } })
                     }
                   }}
                   style={{ marginTop: 8 }}

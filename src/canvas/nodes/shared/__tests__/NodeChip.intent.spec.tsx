@@ -165,6 +165,8 @@ describe('NodeChip — legacy bridge fallback', () => {
       'What reduces this?',
     )
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith('What factors or actions could reduce this risk?')
+    // T1H-2: the legacy bridge keeps the SAME chip identity the dispatch arm sends.
+    expect(sendMessage).toHaveBeenCalledWith('What factors or actions could reduce this risk?',
+      { chipMeta: { id: 'risk_what_reduces', parameters: { chip_id: 'risk_what_reduces' } } })
   })
 })

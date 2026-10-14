@@ -295,7 +295,7 @@ describe('bias-surface liveness gate (§4.3 UI surface leg)', () => {
     const discuss = screen.getByTestId('science-icon-discuss')
     expect(discuss.textContent).toMatch(/discuss with ai/i)
     fireEvent.click(discuss)
-    expect(send).toHaveBeenCalledWith(bias.action)
+    expect(send).toHaveBeenCalledWith(bias.action, { chipMeta: { id: 'science_icon_discuss' } })
   })
 
   // ── §1.5(3) REALITY-TEST — decision_review bias findings, re-homed onto the

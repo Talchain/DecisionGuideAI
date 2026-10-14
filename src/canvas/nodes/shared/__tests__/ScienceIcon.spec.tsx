@@ -62,7 +62,7 @@ describe('ScienceIcon — disclosure step (icon -> popover)', () => {
 
     fireEvent.click(discuss)
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send).toHaveBeenCalledWith(ACTION)
+    expect(send).toHaveBeenCalledWith(ACTION, { chipMeta: { id: 'science_icon_discuss' } })
     // Sending closes the popover.
     expect(screen.queryByRole('dialog')).toBeNull()
   })

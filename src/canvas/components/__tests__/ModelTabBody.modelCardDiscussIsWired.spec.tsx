@@ -133,7 +133,7 @@ describe('⭐ ModelTabBody wires the model card through the hand-off, not a bare
     // REDs the test above — this one pins that what IS passed actually fronts.
     expect(revealOlumiSurface).toHaveBeenCalledTimes(1)
     expect(onSendMessage).toHaveBeenCalledTimes(1)
-    expect(onSendMessage).toHaveBeenCalledWith(V1_TURN, { debugSource: 'modelcard-discuss' })
+    expect(onSendMessage).toHaveBeenCalledWith(V1_TURN, { debugSource: 'modelcard-discuss', chipMeta: { id: 'model_tab_hand_off:modelcard-discuss' } })
   })
 
   /**
