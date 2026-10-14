@@ -19,6 +19,7 @@ import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useFactorRunCues } from '../../nodes/shared/useFactorRunCues'
+import { selectIdentityExactLinks, useIdentityEvaluatedStore } from '../../domain/identityExactLinks'
 
 const READ = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/served-3b6369b0-mrr-current.read.json'), 'utf8'))
 const SCN = READ.scenario_id as string
@@ -56,5 +57,22 @@ describe('a fresh browser cold-opens a current Run', () => {
 
   it('CONTROL: an unranked factor gets no driver line (the cue binds to THIS factor\'s rank)', async () => {
     expect(cues('monthly_new_subscribers').driverLine).toBeNull()
+  })
+})
+
+// IDENTITY-EXACT (#2686 rebuild), on the real path: the served read carries `analysis_identity_evaluated_node_ids:
+// ["mrr"]` and MRR = Pro plan monthly price × Paying subscribers. After the cold open, exactly the two operand links
+// into MRR read exact; every other link on the board is untouched (contrast).
+describe('a fresh browser cold-opens a Run that evaluated an identity', () => {
+  it('the operand links into the evaluated MRR identity read exact, and no other link does', () => {
+    expect(READ.analysis_identity_evaluated_node_ids).toEqual(['mrr'])
+    const s = useCanvasStore.getState()
+    const exact = selectIdentityExactLinks(s, useIdentityEvaluatedStore.getState().held)
+    const idOf = (source: string, target: string) => s.edges.find(e => e.source === source && e.target === target)?.id
+    const words = 'Exact: ‘MRR’ = ‘Pro plan monthly price’ × ‘Paying subscribers’'
+    expect(exact.get(idOf('pro_plan_monthly_price', 'mrr')!)).toBe(words)
+    expect(exact.get(idOf('paying_subscribers', 'mrr')!)).toBe(words)
+    expect(exact.size).toBe(2)
+    expect(s.edges.length).toBeGreaterThan(2)
   })
 })

@@ -96,6 +96,7 @@ import {
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
 import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
+import { useIdentityExactWords } from '../domain/identityExactLinks'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
@@ -402,6 +403,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // here for the new selector rather than adding a third baselined error.
   // Fixing the pre-existing two is a typing change outside this lane's fence.
   const edgeIdKey = String(id)
+  // IDENTITY-EXACT (#2686 rebuild): an operand of an identity the current Run evaluated has no strength to set.
+  const identityExact = useIdentityExactWords(edgeIdKey)
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
@@ -870,14 +873,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * `isStrengthPlaceholder` holds the staleness rule (see its module).
    */
   const strengthIsPlaceholder = useMemo(
-    () => isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined),
-    [edgeData]
+    () => identityExact === null && isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined),
+    [edgeData, identityExact]
   )
   const edgeStrokeWidth = useMemo(
-    () => edgeSignedStrength.show && !strengthIsPlaceholder
+    // An exact operand draws thin: the engine computes through it, so no band (and never the prior's) applies.
+    () => identityExact === null && edgeSignedStrength.show && !isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined)
       ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
       : UNSET_EDGE_STROKE_WIDTH,
-    [edgeSignedStrength, strengthIsPlaceholder]
+    [edgeSignedStrength, edgeData, identityExact]
   )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
@@ -1202,8 +1206,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const edgeDescription = useMemo(
-    () => getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    () => identityExact !== null
+      ? { label: identityExact, tooltip: identityExact }
+      : getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
+    [identityExact, edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -2208,12 +2214,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    strengthNotSet: isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
+    strengthNotSet: identityExact === null && isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
     // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceDash, edgeData,
+    isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -2319,8 +2325,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isGoalChanceDriverEdge, report, heldCanonical, heldCanonicalScenarioId, currentScenarioId, goalChanceDriverNodes, source, target])
   const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
   const strengthSourceMark = useMemo(
-    () => edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
-    [edgeData],
+    () => identityExact !== null ? null : edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
+    [edgeData, identityExact],
   )
   const sourceGlyphPlacement = useMemo(() => {
     if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
@@ -3449,7 +3455,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               strengthSettled={!strengthUnconfirmed}
               strengthDefinitional={strengthIsDefinitional}
               strengthStated={strengthIsStated}
-              placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
+              // An exact operand's Strength row says what it is, never the prior's 0.50 (#2686 rebuild).
+              placeholderSentence={identityExact ?? (strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null)}
               fragileSentence={isFragileEdge ? fragileSentence : null}
               size={edgeSize}
               runChanged={isRunChangedEdge}
