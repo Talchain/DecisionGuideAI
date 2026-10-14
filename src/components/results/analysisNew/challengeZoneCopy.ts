@@ -31,11 +31,6 @@ export const CHALLENGE_ZONE_COPY = {
    */
   pickAMethod: 'Choose a method above to challenge the thinking.',
   /**
-   * The title's ⓘ (V2 prototype `method-info`). It opens the same basis as
-   * "Why this question?".
-   */
-  whyMethodHere: 'Why this method here?',
-  /**
    * The AI act when a method is attached to the item (picked, or named by the
    * finding). An unattached finding keeps `workThrough`, because there is no
    * method to guide.

@@ -300,7 +300,9 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
   it('is offered beside the AI icon, closed at rest, for a grounded intervention', () => {
     renderCard({ intervention: viaVm(FLIP) })
     const trigger = screen.getByTestId('analysis-new-challenge-respond')
-    expect(trigger).toHaveTextContent(ZONE.respond)
+    // Paul 14 Oct 2026: an icon (✎) named "Respond", no visible words.
+    expect(trigger).toHaveAttribute('aria-label', ZONE.respond)
+    expect(trigger.textContent).toBe('')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId('analysis-new-challenge-respond-note')).toBeNull()
   })

@@ -2249,8 +2249,8 @@ export function AnalysisNewTabBody({
             with !mt-0 and states its own pt-1, so the total is 11 (rule) + 4
             (group) ≈ the prototype's figure; the title no longer carries pt-3. */}
         {/* ⭐ V2 (design audit B7): the h3 now renders INSIDE `ChallengeCard`
-            (`title` below), beside the ⓘ "Why this method here?" that opens the
-            card's basis — same h3, same classes, same testid. */}
+            (`title` below), with the card's icon acts at the row's far end
+            (Paul, 14 Oct 2026; the ⓘ is gone) — same h3, same classes, same testid. */}
         {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
             instruction to shorten the answer zone so both "what matters most"
             and "how the options compare" fit at 1440.
@@ -2340,7 +2340,7 @@ export function AnalysisNewTabBody({
           </div>
         ) : null}
         <ChallengeCard
-          title="Challenge the thinking"
+          title="Challenge Your Thinking"
           titleTestId="analysis-new-zone-also"
           intervention={glancePrimary}
           methodId={effectivePick}
