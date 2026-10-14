@@ -549,6 +549,13 @@ export interface OptionInterventionField {
    * is the defect one level up from the one this field closes.
    */
   provenanceSource?: string
+  /**
+   * The producer's `user_material_unverified: true` on THIS intervention. The
+   * KEY IS OMITTED unless the stamp is literally `true` (the same rule as
+   * `provenanceSource`): the surface then says "Not confirmed from your brief"
+   * and never Olumi's estimate.
+   */
+  userMaterialUnverified?: true
 }
 
 /**

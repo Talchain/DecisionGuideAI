@@ -175,10 +175,28 @@ const IV_USER_SPECIFIED = {
  */
 const IV_UNSTAMPED = 0.6
 
+/**
+ * The AI claimed the user as the source of this setting and the host could not
+ * verify it (CEE stamps `user_material_unverified: true` on the setting itself,
+ * beside the demoted `cee_hypothesis`). The same field FactorNode.tsx:64 reads
+ * on a factor's `observed_state`.
+ */
+const IV_UNVERIFIED_USER_MATERIAL = {
+  ...IV_INVENTED_22K5,
+  user_material_unverified: true,
+}
+
+/** A user-set target carrying the flag: the user's own act outranks the stamp. */
+const IV_USER_SPECIFIED_STALE_FLAG = {
+  ...IV_USER_SPECIFIED,
+  user_material_unverified: true,
+}
+
 // ── The exact sentences a user reads. Written literally, never imported. ─────
 const MARK_AI = 'Estimated by Olumi'
 const MARK_BRIEF = 'From your brief'
 const MARK_EDITED = 'Set by you'
+const MARK_UNVERIFIED = 'Not confirmed from your brief'
 
 // ── Store harness ────────────────────────────────────────────────────────────
 
@@ -400,6 +418,35 @@ describe('B1-b — the Inspector says who chose each target', () => {
 
     expect(mark(dialog, FACTOR_LICENSING)?.textContent).toBe(MARK_AI)
     expect(mark(dialog, FACTOR_MIGRATION)?.textContent).toBe(MARK_BRIEF)
+  })
+
+  it('⭐⭐ T-UNVERIFIED a setting the AI attributed to the user but the host could not verify is NOT “Estimated by Olumi”', () => {
+    // The wrong author in the other direction: `cee_hypothesis` alone reads as
+    // Olumi's estimate, but this setting was the AI's CLAIM that the user said it
+    // and nobody verified the claim. The row says what the factor card already
+    // says for the same stamp (FactorNode.tsx:64 → `VALUE_PROVENANCE_LABEL`).
+    // Three rows on one option, each resolved by factorId: the flagged setting,
+    // its plain `cee_hypothesis` twin, and a user-set target with the flag.
+    seedStore([
+      factorNode(FACTOR_LICENSING, FACTOR_LICENSING_LABEL),
+      factorNode(FACTOR_MIGRATION, FACTOR_MIGRATION_LABEL),
+      factorNode(FACTOR_UNSTAMPED, FACTOR_UNSTAMPED_LABEL),
+      optionNode(OPTION_ID, OPTION_LABEL, {
+        [FACTOR_LICENSING]: IV_UNVERIFIED_USER_MATERIAL,
+        [FACTOR_UNSTAMPED]: IV_INVENTED_22K5,
+        [FACTOR_MIGRATION]: IV_USER_SPECIFIED_STALE_FLAG,
+      }),
+    ])
+    const { dialog } = openInspector(OPTION_ID)
+
+    expect(mark(dialog, FACTOR_LICENSING)?.textContent).toBe(MARK_UNVERIFIED)
+    expect(rowText(dialog, FACTOR_LICENSING)).not.toContain(MARK_AI)
+
+    // CONTRAST: the same `cee_hypothesis` without the flag is still Olumi's.
+    expect(mark(dialog, FACTOR_UNSTAMPED)?.textContent).toBe(MARK_AI)
+    // CONTRAST: a number the user set stays theirs, flag or no flag.
+    expect(mark(dialog, FACTOR_MIGRATION)?.textContent).toBe(MARK_EDITED)
+    expect(rowText(dialog, FACTOR_MIGRATION)).not.toContain(MARK_UNVERIFIED)
   })
 
   it('⭐⭐ T-VOCAB `user_specified` reads as the USER’s, and the surface’s own helper would have inverted it', () => {

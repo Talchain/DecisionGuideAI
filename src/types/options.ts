@@ -110,6 +110,13 @@ export interface UIInterventionValue {
   source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
 
   /**
+   * The producer's stamp that the AI claimed the user as the source of this
+   * setting and the host could not verify that. Present only when `true`; the
+   * readers then say "Not confirmed from your brief", never Olumi's estimate.
+   */
+  user_material_unverified?: boolean
+
+  /**
    * Information about how this intervention was matched to a node.
    */
   target_match?: {
@@ -164,6 +171,8 @@ export interface CEEInterventionV3 {
    * that cannot attribute a figure is not forced to invent an attribution.
    */
   source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  /** See `UIInterventionValue.user_material_unverified`. */
+  user_material_unverified?: boolean
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'
@@ -234,6 +243,7 @@ export function normaliseOptionFromCEE(ceeOption: CEEOptionV3): UIOption {
           {
             value: isNumber ? iv : iv.value,
             ...(isNumber || iv.source === undefined ? {} : { source: iv.source }),
+            ...(!isNumber && iv.user_material_unverified === true ? { user_material_unverified: true } : {}),
             target_match: isNumber ? undefined : iv.target_match,
             value_confidence: isNumber ? undefined : iv.value_confidence,
             reasoning: isNumber ? undefined : iv.reasoning,

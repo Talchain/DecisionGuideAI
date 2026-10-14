@@ -244,8 +244,11 @@ function extractionMarkerWithdrawn(obs: Record<string, unknown> | undefined): bo
  * never acquire human confirmation, an evidence binding, or an asserted AI
  * origin). The canonical classifier is not widened to make it answer.
  */
-export function interventionTargetSourceMark(source: string | null | undefined): FactorValueSourceMark {
-  const stamped = classifyInterventionProvenance(source ?? null)
+export function interventionTargetSourceMark(
+  source: string | null | undefined,
+  stamps: { userMaterialUnverified?: boolean } = {},
+): FactorValueSourceMark {
+  const stamped = classifyInterventionProvenance(source ?? null, stamps)
   if (!stamped) return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
   return { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }
 }

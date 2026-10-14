@@ -24,7 +24,7 @@ import {
   EMPTY_STATES,
   OPTION_STRINGS,
 } from '../inspectorStrings'
-import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
@@ -302,6 +302,7 @@ export const OptionPanel = memo(function OptionPanel({
          * the one that renders a guess. Absent is the fact.
          */
         provenanceSource: source ?? undefined,
+        userMaterialUnverified: interventionIsUserMaterialUnverified(rawValue),
       }]
     })
   }, [node?.data, nodes, edges, nodeId])
@@ -492,6 +493,7 @@ export const OptionPanel = memo(function OptionPanel({
       readingIsTarget: boolean
       inputMatchesReading: boolean
       provenanceSource: string | undefined
+      userMaterialUnverified: boolean
     }>()
     if (!nodeId || !node) return out
     const ceeOptions = (ceeAnalysisReady as { options?: CeeOptionTargetsLike[] } | null | undefined)?.options
@@ -505,6 +507,7 @@ export const OptionPanel = memo(function OptionPanel({
         value: iv.value,
         displayValue: iv.displayValue ?? null,
         source: iv.provenanceSource ?? null,
+        userMaterialUnverified: iv.userMaterialUnverified,
       }
       const factorNode = nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined
       const row = buildOptionTargetRow({
@@ -527,6 +530,7 @@ export const OptionPanel = memo(function OptionPanel({
         readingIsTarget: row.target !== '',
         inputMatchesReading: fieldTakesTheReadingsUnit || readingShowsModelValue(reading, iv.value),
         provenanceSource: target.source ?? undefined,
+        userMaterialUnverified: target.userMaterialUnverified === true,
       })
     }
     return out
@@ -538,6 +542,7 @@ export const OptionPanel = memo(function OptionPanel({
   const firstReading = firstTarget ? targetReadings.get(firstTarget.factorId) : undefined
   const firstTargetProvenance = classifyInterventionProvenance(
     firstReading ? firstReading.provenanceSource : firstTarget?.provenanceSource,
+    { userMaterialUnverified: firstReading ? firstReading.userMaterialUnverified : firstTarget?.userMaterialUnverified },
   )
   const summaryChip = firstTargetProvenance?.kind === 'brief'
     ? 'brief'
@@ -698,6 +703,11 @@ export const OptionPanel = memo(function OptionPanel({
                   targetReadings.has(iv.factorId)
                     ? targetReadings.get(iv.factorId)!.provenanceSource
                     : iv.provenanceSource
+                }
+                userMaterialUnverified={
+                  targetReadings.has(iv.factorId)
+                    ? targetReadings.get(iv.factorId)!.userMaterialUnverified
+                    : iv.userMaterialUnverified
                 }
                 reading={iv.value === undefined
                   ? `${iv.factorLabel} to …`

@@ -72,6 +72,14 @@ const INTERVENTION_ROW_CLASS = `py-2 border-b ${INSPECTOR_RULE.row} last:border-
  * they are not covered by any render test and must not be claimed as such.
  * `T-REACH` pins the reachable set, so a schemas minor that adds a literal REDs
  * rather than arriving silently on an arm nobody has read since it was typed.
+ *
+ * ⭐ THE ONE ARM THAT IS REACHED BY A STAMP, NOT BY A LITERAL: `unverified_brief`.
+ * The producer marks a setting `user_material_unverified: true` when the AI
+ * claimed the user as its source and the host could not verify that. It keeps
+ * the same words the factor card says for the same stamp (`FactorNode.tsx:64`),
+ * `VALUE_PROVENANCE_LABEL.unverified_brief` — not "Estimated by Olumi", which
+ * would name the wrong author. No source literal reaches it, so `T-REACH` (which
+ * walks literals) is unchanged; `T-UNVERIFIED` pins the stamp.
  */
 export const INSPECTOR_INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind, string> = {
   brief: 'From your brief',
@@ -221,6 +229,13 @@ interface InterventionRowProps {
    */
   provenanceSource?: string
   /**
+   * The producer's `user_material_unverified: true` on THIS intervention: the AI
+   * claimed the user as the source of the setting and the host could not verify
+   * it. Shown as the existing `unverified_brief` words, never as Olumi's estimate.
+   * Absent or false changes nothing; a target the user set keeps its own kind.
+   */
+  userMaterialUnverified?: boolean
+  /**
    * The factor's `observed_state.cap`. With a real `unit` it is the scale a
    * typed AMOUNT is converted through — see `optionTargetEntry.ts` for when a
    * row takes amounts in the factor's unit and when it stays on the model
@@ -292,6 +307,7 @@ export function InterventionRow({
   displayValue,
   unit = '',
   provenanceSource,
+  userMaterialUnverified,
   cap,
   unapplied = null,
   onDismissUnapplied,
@@ -528,7 +544,7 @@ export function InterventionRow({
       : housed
   })()
 
-  const provenance = currentValue === undefined ? null : classifyInterventionProvenance(provenanceSource)
+  const provenance = currentValue === undefined ? null : classifyInterventionProvenance(provenanceSource, { userMaterialUnverified })
 
   /**
    * ⭐ THE BOX'S ACCESSIBLE NAME (DEFECT 5 (b)). Served `a4434670` rendered the

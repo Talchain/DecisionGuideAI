@@ -22,7 +22,7 @@
  * existing, trusted chain; the reverse direction belongs to the input-parsing
  * path and is not invented here.
  */
-import { joinInterventionDetails, unwrapInterventionValue } from '../../utils/labelUtils'
+import { interventionIsUserMaterialUnverified, joinInterventionDetails, unwrapInterventionValue } from '../../utils/labelUtils'
 import {
   binaryTargetReading,
   buildOptionChangeRow,
@@ -105,7 +105,8 @@ export function resolveOptionTargets(
     const details = cell !== null && typeof cell === 'object' && !Array.isArray(cell)
       ? cell as Record<string, unknown> : undefined
     targets.set(fid, { value: u.value, displayValue: u.displayValue, source,
-      raw_value: details?.raw_value, unit: details?.unit })
+      raw_value: details?.raw_value, unit: details?.unit,
+      ...(interventionIsUserMaterialUnverified(cell) ? { userMaterialUnverified: true } : {}) })
   }
   return targets
 }
