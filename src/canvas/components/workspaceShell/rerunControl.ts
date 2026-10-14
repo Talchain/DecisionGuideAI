@@ -23,6 +23,7 @@ import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
+import type { AnalysisRefusalNotice } from '../../store/analysisRefusalNotice'
 
 export interface ReanalyseBarInputs {
   /** `useAnalysisTrust().semantic`. */
@@ -33,6 +34,33 @@ export interface ReanalyseBarInputs {
   hasRunOnRecord: boolean
   /** The readiness bar's pre-run window; absent means this caller offers no readiness button. */
   preRunWithModel?: boolean
+  /**
+   * The latest Run was refused in a way a bare re-run reproduces, and the model has not changed since
+   * (`refusalHoldsRerun`). Absent means false.
+   */
+  refusedUnchanged?: boolean
+}
+
+/**
+ * CEE refusals that a bare re-run of the SAME model reproduces byte for byte. `analysis_blocked` is PLoT/ISL blocking
+ * the model (e.g. an identity whose total cannot be worked out exactly): CEE marks it `retryable: false` — "The MODEL
+ * must change first; a bare re-run reproduces the verdict" (`run-analysis.ts`, the `analysis_blocked` throw). It is the
+ * `blocked_reason` CEE puts on `analysis_ready` for every such refusal (no finer code reaches the wire).
+ */
+const RERUN_REPRODUCES_REFUSAL: ReadonlySet<string> = new Set(['analysis_blocked'])
+
+/**
+ * Whether a refusal holds the rerun back: the notice's reason is one a re-run reproduces AND the server graph is still
+ * the one that was refused. Fail-open: no notice, an unknown reason, or no hash on either side → false (today's
+ * behaviour, the rerun is offered).
+ */
+export function refusalHoldsRerun(
+  notice: AnalysisRefusalNotice | null | undefined,
+  lastServerGraphHash: string | null | undefined,
+): boolean {
+  if (!notice || !RERUN_REPRODUCES_REFUSAL.has(notice.blockedReason)) return false
+  const at = notice.graphHashAtRefusal
+  return typeof at === 'string' && at.length > 0 && at === lastServerGraphHash
 }
 
 /** AnalysisReadinessBar renders its Analyse button throughout this window, even when disabled. */
@@ -45,7 +73,9 @@ export function readinessBarShowsAnalyse(preRunWithModel: boolean): boolean {
  * stand aside for it read ONE predicate: never run → the bar (as "Analyse"); a held import it cannot confirm → the bar
  * ("Can't confirm…"); the model changed → the bar ("Model changed…"); anything else → no bar.
  */
-export function reanalyseBarShows({ semantic, importHold, hasRunOnRecord }: ReanalyseBarInputs): boolean {
+export function reanalyseBarShows({ semantic, importHold, hasRunOnRecord, refusedUnchanged }: ReanalyseBarInputs): boolean {
+  // A re-run of the refused, unchanged model can only refuse again (OC1 probe, 8 Oct): no Re-analyse.
+  if (refusedUnchanged === true) return false
   const neverRun = !hasRunOnRecord
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   return semantic === 'changed' || heldUnsure || neverRun
@@ -62,7 +92,8 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   }))
   // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
   const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
-  return { semantic, importHold, hasRunOnRecord, preRunWithModel: !hasRunOnRecord && nodeCount > 0 }
+  const refusedUnchanged = useCanvasStore((s) => refusalHoldsRerun(s.analysisRefusalNotice, s.lastServerGraphHash))
+  return { semantic, importHold, hasRunOnRecord, preRunWithModel: !hasRunOnRecord && nodeCount > 0, refusedUnchanged }
 }
 
 /** Which shell control owns the run. Before the first Run, 'none' leaves the chat chip available. */
@@ -70,6 +101,8 @@ export type ShellRerunControl = 'readiness' | 'bar' | 'composer' | 'none'
 
 export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl {
   if (!inputs.hasRunOnRecord) return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false) ? 'readiness' : 'none'
+  // Refused and unchanged: no rerun control at all (the composer icon would be the same dead press).
+  if (inputs.refusedUnchanged === true) return 'none'
   return reanalyseBarShows(inputs) ? 'bar' : 'composer'
 }
 

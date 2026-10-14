@@ -76,6 +76,7 @@ import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { reanalyseBarShows, useReanalyseBarInputs } from '../workspaceShell/rerunControl'
 import { useCanvasStore } from '../../store'
+import { ANALYSIS_REFUSAL_HEADLINE, ANALYSIS_REFUSAL_POINTER } from '../../store/analysisRefusalNotice'
 import { changedSinceRunForVerdict, useChangedSinceRunStore } from '../../changes/changedSinceRun'
 import { changedSinceRunWords } from '../../changes/changedSinceRunWords'
 
@@ -200,6 +201,17 @@ export function ReanalyseBar({
    */
   const neverRun = !hasRunOnRecord
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
+  // Refused, and nothing has changed since: a Re-analyse press can only refuse again, so the bar offers none and says
+  // where the next step is instead (the refusal reply always carries it — `ANALYSIS_REFUSAL_POINTER`).
+  if (barInputs.refusedUnchanged === true) {
+    return (
+      <div className="bg-panel border-t border-panel-border px-3 py-2" data-testid="reanalyse-bar-refused" role="status">
+        <p className={`${typography.panelMeta} text-text-body`}>
+          {ANALYSIS_REFUSAL_HEADLINE} {ANALYSIS_REFUSAL_POINTER} Change the model, then run it again.
+        </p>
+      </div>
+    )
+  }
   if (!reanalyseBarShows(barInputs)) return null
 
   // The gate's verdict, and the gate's own sentence. Both arrive from the shell;

@@ -67,6 +67,13 @@ export interface AnalysisRefusalNotice {
   readonly blockedReason: string
   /** CEE's `computed_at` when present. Debug/ordering only — never fabricated. */
   readonly computedAt: string | null
+  /**
+   * The server graph hash this refusal was for, stamped by the store setter from `lastServerGraphHash` when the
+   * notice is set (a refusal turn does not move the graph). `null`/absent when none was known. Read only by
+   * `refusalHoldsRerun` (`workspaceShell/rerunControl.ts`) to tell "refused, and nothing has changed since" apart from
+   * "refused, then the user changed the model".
+   */
+  readonly graphHashAtRefusal?: string | null
 }
 
 /**
