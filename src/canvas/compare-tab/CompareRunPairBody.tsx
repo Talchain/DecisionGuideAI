@@ -15,7 +15,7 @@
  * reads the SAME fact Reasoning reads (`selectRunOnRecordWithoutResult`, from the Run control's own facts), passed
  * down by the dock; it decides nothing of its own.
  */
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
@@ -32,9 +32,10 @@ import { runDeltaSentence } from '../../components/results/analysisNew/commitmen
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
-import { ComparePairSections } from './ComparePairSections'
+import { ComparePairSections, type SizingPath } from './ComparePairSections'
 import { withheldReasonSegments } from './withheldReasonSegments'
-import type { OptionCanvasLink } from './CompareSupportFigures'
+import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
+import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
@@ -99,7 +100,7 @@ export function CompareRunPairBody({
   /** `selectRunOnRecordWithoutResult` from the dock; absent = no Run on record, so "No comparison yet" stands. */
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
-  const view = useDisplayedRunDeltaView(responseHash)
+  const view = useDisplayedRunDeltaView(responseHash, 'all')
   const delta = useCanvasStore(s => s.runDelta?.delta)
   const endpoints = delta?.endpoints
   const nodes = useCanvasStore(s => s.nodes)
@@ -114,11 +115,14 @@ export function CompareRunPairBody({
     const data = nodes.find(n => n.id === id)?.data as { label?: unknown } | undefined
     return typeof data?.label === 'string' ? data.label : null
   }), [withheldReason, inferenceWarnings, nodes])
+  // Each named link's tick reads the canvas NOW, by the link's ids (a sizing edit after the Run ticks its row).
+  const edges = useCanvasStore(s => s.edges)
+  const linkSizingState: LinkSizingStateOf = useCallback((fromId, toId) => linkSizingStateOf(edges, fromId, toId), [edges])
+  const unsizedLinks = useMemo(() => unsizedLinksOf(inferenceWarnings), [inferenceWarnings])
+  const sizingPath: SizingPath = useMemo(() => ({ stateOf: linkSizingState, listed: unsizedLinks }), [linkSizingState, unsizedLinks])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
-  // The shared display order's own gate (`sortOptionsForDisplay`): a run that withholds designations keeps the producer's order.
-  const designationsWithheld = useCanvasStore(s => !deriveDecisionVerdict(s.results?.report).hasLeadingOption)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   const artefact = buildRunChangeArtefact({
     view,
@@ -163,16 +167,12 @@ export function CompareRunPairBody({
     return link ? { on: () => light.on(link), off: light.off } : null
   }
   // An option's movement row lights and focuses the option's own node, by id, only when the canvas has it now.
-  const optionLink: OptionCanvasLink = (optionId) => {
-    if (!nodes.some(n => n.id === optionId)) return null
-    const link = canvasLinkOfTarget({ kind: 'node', id: optionId })
-    return link ? { focus: link.focus, on: () => light.on(link), off: light.off } : null
-  }
+  const resultsAllowed = runIsCurrent && !winSharesWithheld
   return (
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
-        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />
+        nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
+        runIsCurrent={runIsCurrent} analysing={analysing} sizingPath={sizingPath} />
     </div>
   )
 }

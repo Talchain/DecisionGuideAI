@@ -240,9 +240,14 @@ const DERIVED_LABEL_READS: readonly string[] = [
   'src/components/results/OptionCards.tsx::recommendationStability',
   'src/components/results/ResultsBody.tsx::recommendationStability',
   'src/components/results/TriageActionCardsBody.tsx::recommendationStability',
-  'src/components/results/utils/certaintyCopy.ts::recommendationStability',
   'src/components/results/utils/getStabilityDisplayLabel.ts::recommendationStability',
-  'src/components/results/utils/winnerChipCopy.ts::recommendationStability',
+  // ⭐ `utils/certaintyCopy.ts` AND `utils/winnerChipCopy.ts` ARE GONE FROM THIS LIST BECAUSE THE DEBT IS DISCHARGED BY
+  // REMOVAL (Run-4 judge, DL ruling 12 Oct, the class), as `DecisionNode.tsx` and `GoalNode.tsx` left it. Both read
+  // `recommendationStability` only to gate LEADER copy (`buildCertaintyCopy`'s "{winner} supported in more simulated
+  // scenarios than any other option" headlines; the leading option's chip "Why did the most runs in this model support
+  // this?"); those words were removed with no replacement, and the stability input went with them (`buildCertaintyCopy`
+  // / `CertaintyCopyInput` deleted; `winnerChipLabel` lost its tier + stability parameters). `shouldSoftenPhrasing(tier, stability)` stays in `certaintyCopy.ts` under its unchanged parameter name;
+  // its caller `getStabilityDisplayLabel.ts` is still pinned above. A read coming back REDs this equality on a GROWN set.
   'src/canvas/adapters/modelCardAdapter.ts::ranking_stability',
   'src/canvas/adapters/modelCardAdapter.ts::recommendation_stability',
   'src/canvas/hooks/useNodeDisplayMetadata.ts::recommendationStability',
@@ -256,8 +261,10 @@ const DERIVED_LABEL_READS: readonly string[] = [
   // only field licensed to make a robustness claim on screen — and shows no
   // percentage and no bar. The scan is the authority: if a read comes back,
   // this equality assertion REDs on a GROWN set, which is the point of pinning.
-  'src/canvas/nodes/GoalNode.tsx::recommendationStability',
-  'src/canvas/nodes/GoalNode.tsx::recommendation_stability',
+  // ⭐ `GoalNode.tsx` IS GONE FROM THIS LIST BECAUSE THE DEBT IS DISCHARGED BY REMOVAL (#2747 re-scope 2 round 2, DL
+  // ruling (A), 12 Oct 2026), as `DecisionNode.tsx` left it: the goal card printed "Decision stability N%" with a bar and a
+  // "Marginal" word from `recommendation_stability`. The block is deleted; the card reads the field nowhere. A read coming
+  // back REDs this equality on a GROWN set.
   // ⚠ MOVED HERE FROM CLASS (a) — it was filed as toleration and it is not.
   // `analysisSnapshotFactory.ts` reads the withheld number, calls
   // `deriveStabilityLabel(stability)` on it, and PERSISTS the resulting word

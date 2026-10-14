@@ -239,6 +239,8 @@ export interface ReadinessDisplayInput {
   readonly isAnalysing: boolean
   /** OutputsDock's `canRunAnalysis` — the run gate, not a copy of it. */
   readonly canRun: boolean
+  /** The current readiness record's first blocker, rendered verbatim. */
+  readonly currentBlockerMessage?: string
   /** The gate's own reason. Read only while the gate is shut. */
   readonly blockedReason?: string
   /**
@@ -332,13 +334,20 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
     return { dot: 'success', headline: FOOTER_COPY.running, subline: FOOTER_COPY.runningSub }
   }
   if (!input.canRun) {
-    const subline = gateBlockedSubline(input.blockedReason)
     const sentences = vettedBlockerList(input.blockedListing, input.blockedReason)
+    // ⭐ THE HEADLINE'S BLOCKER IS SAID ONCE (marketing post3011, steps 7 and 10: the footer printed the risk's
+    // question as its headline, then the same three sentences again beneath it). The headline IS blocker 0's own
+    // message, so the line that blocker authored leaves the list, by `analysisBlockedItems`' own authorship rule (the
+    // blocker's exact message, trimmed). Every other line, and the disabled control's tooltip, keep their words.
+    const authored = input.currentBlockerMessage?.trim()
+    const said =
+      sentences === undefined || !authored ? -1 : input.blockedListing!.sentences.findIndex((item) => item.text.trim() === authored)
+    const rest = said === -1 ? sentences : sentences!.filter((_, i) => i !== said)
     return {
       dot: 'muted',
-      headline: FOOTER_COPY.notReady,
-      subline,
-      ...(sentences !== undefined ? { sublineSentences: sentences } : {}),
+      headline: input.currentBlockerMessage ?? '',
+      subline: said === -1 ? gateBlockedSubline(input.blockedReason) : rest!.map((item) => item.text).join(' '),
+      ...(rest !== undefined ? { sublineSentences: rest } : {}),
     }
   }
   if (input.nothingHasAnswered) {

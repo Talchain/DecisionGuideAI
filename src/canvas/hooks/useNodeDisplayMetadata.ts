@@ -1,3 +1,5 @@
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
+import { runViewOf } from '../runView/runView'
 /**
  * Hook to provide node display metadata from analysis results
  * Decision Graph Display v2: Tasks 5, 8, 10
@@ -13,6 +15,7 @@ import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
 import {
   hasMeaningfulMagnitude,
+  isRankedDriverRow,
   rowCarriesMagnitudeMetric,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
@@ -22,7 +25,7 @@ import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
 import { holdsValueOrRange } from '../utils/observedStateHelpers'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import {
-  selectGoalProbability,
+  goalProbabilityDetails,
   type GoalProbabilityInput,
   type GoalProbabilityBasis,
   type GoalFitBaseCaveat,
@@ -248,25 +251,10 @@ export interface NodeDisplayMetadata {
    * real hook so "optional in the type" cannot decay into "absent in practice".
    */
   achievementProbabilityBasis?: GoalProbabilityBasis | null
-  /**
-   * ROADMAP 2.296 item 5 (2.282-C2) — the raw joint-goal quantity, FORWARDED
-   * VERBATIM from the SAME `selectGoalProbability` decision that produced
-   * `achievementProbability`. It exists because `GoalPanel` renders the joint
-   * figure as its own separately-labelled claim ("Chance of hitting every
-   * target") beside the goal figure; until this field the panel obtained both
-   * by feeding the WHOLE report into the selector — which expects one
-   * option-probability record — so on the real V5 mapper shape every read was
-   * null and #556's basis gate was dark. Never re-read off the raw record and
-   * never re-derived at a render site: the selector's `jointGoalProbability`
-   * is the one answer, and this hook only carries it.
-   *
-   * OPTIONAL for the same mock-churn reason as `achievementProbabilityBasis`
-   * below; the real hook populates it whenever the pointer resolves.
-   * `useNodeDisplayMetadata.jointGoal.spec.ts` pins that.
-   */
-  jointGoalProbability?: number | null
-  /** The selector's `jointGoalIsModelledBasis`, carried beside the joint figure it qualifies (AIQ 5883088747). */
-  jointGoalProbabilityIsModelledBasis?: boolean
+  // #2747 chance authority gate: the legacy limits-channel joint ("all your limits hold") number is not carried; no
+  // canonical cell licenses it. CEE's licensed AND-target answer is a different claim, shown through the canonical view.
+  /** Whether the producer sent a joint figure at all (the selector's `jointGoalPresent`), for classification only. */
+  jointGoalPresent?: boolean
   /**
    * ROADMAP 2.275. True when this run carries an admissible per-option goal
    * figure (per `selectGoalProbability`) even though no single probability is
@@ -362,6 +350,9 @@ export function useNodeDisplayMetadata(
 ): NodeDisplayMetadata {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  const nodes = useCanvasStore(state => state.nodes)
+  const scenarioId = useCanvasStore(state => state.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(state => state.scenarioId === scenarioId ? state.view : null)
   // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
   // hold NO stated value now — CEE #2154's second condition. PLoT does not send
   // `value_source` for every factor (`valueProvenance.ts`), so the row fact alone
@@ -394,8 +385,6 @@ export function useNodeDisplayMetadata(
         achievementProbabilityIsModelledBasis: false,
         achievementProbabilityBaseCaveat: null,
         achievementProbabilityBasis: null,
-        jointGoalProbability: null,
-        jointGoalProbabilityIsModelledBasis: false,
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
@@ -437,7 +426,7 @@ export function useNodeDisplayMetadata(
       // subsumes the certified-array-first / enrichment-fallback precedence
       // this hook used to apply, and is memoised per REPORT (not per node),
       // so running it for every factor node stays O(1) after the first.
-      const feed = selectDriverPolicyFeed(report as unknown as ResultsReport)
+      const feed = selectDriverPolicyFeed(report as unknown as ResultsReport, nodes)
       const rows = feed.policyRows
       const displayModel = feed.displayModel
       // ⭐ The rank rule lives in ONE place (`nodes/shared/rankFactor.ts`),
@@ -508,7 +497,7 @@ export function useNodeDisplayMetadata(
           modelEntry != null &&
           Number.isFinite(modelEntry.value) &&
           (modelEntry.provenance === 'influence_score' ||
-            (hasMeaningfulMagnitude(rows) &&
+            (hasMeaningfulMagnitude(rows.filter((row) => displayModel.has(row.key) && isRankedDriverRow(row))) &&
               rowCarriesMagnitudeMetric(feed.rawFactors[rawRowForNode])))
         if (measured && modelEntry) {
           influence = modelEntry.value
@@ -539,15 +528,17 @@ export function useNodeDisplayMetadata(
 
     // Task 8 & 10: Outcome/Goal achievement probability
     // Read from option_probabilities (the field the responseMapper actually populates)
+    // Post-C (DL ruling): the goal card says no chance, so its chance cell is gone with it; the canvas option cards say
+    // CEE's served cell (`OptionChanceCellProvider`).
+    const view = runViewOf(report, canonical)
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
     let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
     let achievementProbabilityBasis: GoalProbabilityBasis | null = null
-    let jointGoalProbability: number | null = null
-    let jointGoalProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
     let achievementCertaintyUnearned: { say: string | null } | null = null
+    let jointGoalPresent = false
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
       const optionProbabilities = report.option_probabilities ?? {}
@@ -558,60 +549,22 @@ export function useNodeDisplayMetadata(
       if (recommendedOptionId) {
         const rec = optionProbabilities[recommendedOptionId] as GoalProbabilityInput | undefined
         if (rec) {
-          // GOAL-PROBABILITY IDENTITY — ONE chooser, never two.
-          //
-          // This hook used to pick between `probability_of_joint_goal` and
-          // `goal_probability` itself, with a rule that DIFFERED from the
-          // results panel's: it took the joint figure only when the option
-          // carried its own `constraint_analysis` (which no live V5 producer
-          // populates) and otherwise returned `goal_probability ?? null`. On
-          // the documented ISL-auto-derived-goal-threshold run
-          // (`goal_probability` absent, `probability_of_joint_goal` present)
-          // that returned null while the results panel returned the joint
-          // value WITH its provenance caveat — one session, one option, the
-          // panel stating a percentage and the canvas denying any figure
-          // existed. `selectGoalProbability` now owns the decision outright:
-          // which quantity may be shown, and with what provenance. Read it;
-          // never re-derive either field here, and never add a third chooser.
-          const decision = selectGoalProbability(rec)
-          achievementProbability = decision.goalProbability
-          achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
-          achievementProbabilityBaseCaveat = decision.goalFitBaseCaveat
-          // ROADMAP 2.283. Forwarded, not interpreted: the one place the basis
-          // was previously read and thrown away.
-          achievementProbabilityBasis = decision.basis
-          // ROADMAP 2.296 item 5. Same discipline: the joint figure rides the
-          // SAME decision — never a second read of the raw record.
-          jointGoalProbability = decision.jointGoalProbability
-          jointGoalProbabilityIsModelledBasis = decision.jointGoalIsModelledBasis
-          achievementCertaintyUnearned = decision.goalCertaintyUnearned ?? null
+          const details = goalProbabilityDetails(rec)
+          const chance = view.chanceOf(recommendedOptionId)
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
+          achievementProbability = chance.kind === 'figure' ? chance.pct / 100 : null
+          achievementProbabilityBaseCaveat = achievementProbability === null ? null : details.baseCaveat
+          achievementProbabilityBasis = achievementProbability !== null ? 'goal_probability'
+            : details.jointGoalPresent ? 'joint_goal_withheld' : 'none'
+          jointGoalPresent = details.jointGoalPresent
+          achievementCertaintyUnearned = details.goalCertaintyUnearned
+
         }
       }
 
-      // ROADMAP 2.275 — WHY THIS EXISTS, and why it is not a fourth chooser.
-      //
-      // Witnessed on staging `a27cadf7` (witness-2267 §6b / §11a): the canvas
-      // goal node said "Target set. This run did not produce a goal
-      // probability." while the Analysis→Goal-fit sub-tab rendered "< 1%" four
-      // times, simultaneously visible, from the SAME report.
-      //
-      // The cause is NOT the chooser — `selectGoalProbability` is correct and
-      // both surfaces call it. The cause is the POINTER above: this hook can
-      // only read `option_probabilities[recommendedOptionId]`, and the live V5
-      // payload carries neither `robustness.recommended_option_id` nor a
-      // non-null `leading_option_id` (verified in f-turn-2.json / r4-turn-2.json).
-      // So the `if (recommendedOptionId)` gate never opens, the selector is
-      // never called, and the node denies a figure the very same report holds
-      // for every option.
-      //
-      // This flag reports ONLY whether the report carries an admissible
-      // per-option goal figure, and it answers that by asking the SAME owner —
-      // no re-derivation, no second rule. It deliberately does NOT pick an
-      // option: naming a leader the producer did not designate is exactly the
-      // fabrication this estate forbids.
       let goalFitAvailableForOptions = false
       if (nodeType === 'goal' && achievementProbability === null) {
-        for (const entry of Object.values(optionProbabilities)) {
+        for (const [optionId, entry] of Object.entries(optionProbabilities)) {
           if (!entry) continue
           // ⭐ THE PRODUCER'S COMPUTE STATUS, CONSULTED BEFORE THE ENTRY IS
           // READ — the same predicate, on the same field, as the win gate
@@ -637,7 +590,7 @@ export function useNodeDisplayMetadata(
           ) {
             continue
           }
-          if (selectGoalProbability(entry as GoalProbabilityInput).goalProbability != null) {
+          if (view.chanceOf(optionId).kind === 'figure') {
             goalFitAvailableForOptions = true
             break
           }
@@ -706,6 +659,7 @@ export function useNodeDisplayMetadata(
       const optionData = optionProbabilities[nodeId]
       if (optionData) {
         if (optionComputationProducedResult(optionData.status)) {
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
           winRate = optionData.win_probability ?? null
         } else {
           // Left `null` deliberately: suppressing the share is the point, and
@@ -740,11 +694,10 @@ export function useNodeDisplayMetadata(
       achievementProbabilityIsModelledBasis,
       achievementProbabilityBaseCaveat,
       achievementProbabilityBasis,
-      jointGoalProbability,
-      jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
       goalIdentityWithheld: nodeType === 'goal' ? readGoalIdentityWithheld(report) : null,
       achievementCertaintyUnearned,
+      jointGoalPresent,
       stabilityPercentage,
       winRate,
       winComputationFailed,
@@ -758,8 +711,7 @@ export function useNodeDisplayMetadata(
     // no longer an input. It was, for one commit, and the note that stood in
     // this position explained why the memo had to re-run when the graph moved —
     // correct reasoning about a read that should not have been in this hook.
-    // The memo is keyed on the REPORT, which is exactly right for a question
-    // about the report; the render site re-reads its own gate on every render
-    // and is not memoised on this.
-  }, [isResultsMode, report, nodeId, nodeType, factorHoldsValue])
+    // Graph levels participate in driver eligibility; currency remains a
+    // separate gate that the render site reads on every render.
+  }, [isResultsMode, report, canonical, nodes, nodeId, nodeType, factorHoldsValue])
 }

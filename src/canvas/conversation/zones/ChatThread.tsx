@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo, useMemo, useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
@@ -19,11 +19,6 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
-import { GuidanceRows } from './GuidanceRows'
-import { DskClaimBadge } from '../../../v5/blocks/DskClaimBadge'
-import { ActionBar } from '../actionBar/ActionBar'
-import { pressIdsOnBar } from '../actionBar/actionBarContract'
-import { useScenarioActionBar } from '../actionBar/useScenarioActionBar'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import { readProposalFields } from '../proposalFields'
@@ -302,30 +297,6 @@ export const ChatThread = memo(function ChatThread({
   // ghost (useProposalGhostBridge.ts). Render-only; Accept stays on the chip.
   useProposalGhostBridge(messages)
 
-  // Get suggested chips from the latest reply.
-  //
-  // `SuggestedChips` below is the SOLE render surface for `actionChips`
-  // (verified at 4fbc6451: `<ActionChipRow` has zero production render sites,
-  // and `MessageBubble` renders no chips). Until 2026-08-07 this line was
-  // followed by a `suggestedChipsWillRender` predicate feeding a `hideChips`
-  // prop down ChatMessage → MessageBubble to "suppress the inline
-  // ActionChipRow". MessageBubble declared that prop and never destructured
-  // it: the whole chain was inert, and its comments described a suppression
-  // mechanism that no longer had anything to suppress. Removed rather than
-  // re-documented — a dead guard that reads as a live one is how ROADMAP
-  // 2.668's second defect came to be diagnosed against this file at all.
-  // Dividers are assistant-role transcript markers, never the owner of a reply's controls.
-  // Ordinary actions belong to the latest reply; restored held cards retain their issuing replies.
-  // ⭐ S-B slice 1: CEE's action bar sits under the latest reply (the Reasoning tab shows the same bar). A suggested
-  // action whose id is a press on the bar is already there, so it is not drawn twice; approval, amend and answer
-  // controls are never bar offers and stay chips.
-  const actionBar = useScenarioActionBar()
-  const lastReplyChips = lastReplyMsg?.actionChips
-  const suggestedChips = useMemo(() => {
-    const onBar = pressIdsOnBar(actionBar)
-    const chips = lastReplyChips ?? []
-    return onBar.size === 0 ? chips : chips.filter((chip) => !onBar.has(chip.id))
-  }, [actionBar, lastReplyChips])
   // Re-offers share an approve id. Only its newest reply owns that card, while distinct restored holds stay visible.
   // ⛔ STALE-LIVE: an earlier reply's card shows only while CEE's CURRENT held set (the latest reply's proposal_fields,
   // which projects only live proposals) still lists it; approving or declining it on a later turn retires the card.
@@ -406,10 +377,6 @@ export const ChatThread = memo(function ChatThread({
             compact={compact}
           />
         )
-        // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
-        const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
-        const bar = msg === lastReplyMsg && actionBar
-          ? <div className="mt-2"><ActionBar bar={actionBar} surface="chat" testId="chat-action-bar" /></div> : null
         // ⭐ ONE WRAPPER TYPE PER REPLY, WHATEVER IT CARRIES (Paul, 7 Oct: "the
         // text doesn't move … it shouldn't go blank or do anything weird").
         // A reply used to render as a `div` while it was the latest (chips or
@@ -430,9 +397,16 @@ export const ChatThread = memo(function ChatThread({
         const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
           && currentHeldIds.has(heldId)
           && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)
-        const replyChips = isLastAssistant ? suggestedChips : ownsHeldCard
-          ? (msg.actionChips ?? []).filter(chip => chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
-            || chip.id === `agent-decline-proposal:${heldId}`) : []
+        // Keep ordinary chips with their owning reply; held consent keeps its single live owner.
+        // Preserve the latest reply's array identity so pending-row freezing survives host rerenders.
+        const replyChips = isLastAssistant ? (msg.actionChips ?? []) : (msg.actionChips ?? []).filter(chip => {
+          const isConsent = chip.id?.startsWith('agent-approve-proposal:')
+            || chip.id?.startsWith('agent-decline-proposal:') || chip.id === 'agent-amend-proposal'
+          return !isConsent || Boolean(ownsHeldCard && (
+            chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
+            || chip.id === `agent-decline-proposal:${heldId}`
+          ))
+        })
         const chipGroup = replyChips.length > 0
         return (
           <div
@@ -441,8 +415,6 @@ export const ChatThread = memo(function ChatThread({
             data-testid={chipGroup ? 'response-chip-group' : undefined}
           >
             {chatMsg}
-            {guidanceRows}
-            {msg.actionScience && <DskClaimBadge claim={msg.actionScience} testId="chat-action-science" />}
             {chipGroup && (
               <SuggestedChips
                 chips={replyChips}
@@ -458,7 +430,6 @@ export const ChatThread = memo(function ChatThread({
                 rerunOwnedByHost={rerunOwnedByHost}
               />
             )}
-            {bar}
           </div>
         )
       })}

@@ -100,3 +100,37 @@ export function buildTransportFailureCopy(
   const action = showRetry ? "Try again when you're ready." : ''
   return [what, consequence, action].filter((s) => s.length > 0).join(' ')
 }
+
+/**
+ * Recovery Batch B (PL amendment, accepted by the DL, 12 Oct): a send that got NO response has two honest readings.
+ *
+ * (a) `not_sent`: positive proof the request was never dispatched. No transport reached its own dispatch boundary
+ *     (`onRequestStarted`, called immediately before `fetch`), and the transport's result, when there is one, says so
+ *     too (`requestNotStarted`). Offline before send, or a failure before the fetch started.
+ * (b) `delivery_unknown`: anything else. A request that was dispatched and never answered (network error after
+ *     dispatch, a timeout, an abort mid-flight) may have been received and applied, so it is never called "not sent".
+ *
+ * Fails toward (b): an absent proof is not a proof. Error names and elapsed time are never evidence.
+ */
+export type UnansweredSendOutcome = 'not_sent' | 'delivery_unknown'
+
+export function classifyUnansweredSend(evidence: {
+  /** Some transport in this send reached its dispatch boundary. */
+  requestStarted: boolean
+  /**
+   * The transport result's own pre-dispatch proof, when a result exists (`TypedErrorTransportMeta.requestNotStarted`).
+   * Omit when there is no result (a throw), where the dispatch boundary alone decides.
+   */
+  transportProvedNotStarted?: boolean
+}): UnansweredSendOutcome {
+  if (evidence.requestStarted) return 'delivery_unknown'
+  if (evidence.transportProvedNotStarted === false) return 'delivery_unknown'
+  return 'not_sent'
+}
+
+/** (a) Confirmed not sent. */
+export const NOT_DELIVERED_COPY = "Your message wasn't sent. Check your connection and try again."
+
+/** (b) Dispatched, no response or acknowledgement. */
+export const DELIVERY_UNKNOWN_COPY =
+  "We couldn't confirm your message arrived. Check the conversation before sending it again."

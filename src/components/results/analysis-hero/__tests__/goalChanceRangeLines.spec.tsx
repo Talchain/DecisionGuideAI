@@ -32,8 +32,16 @@ function clickWitnessed(name: string) {
 }
 beforeEach(() => { vi.clearAllMocks(); seed() })
 
-const LABELS: Record<string, string> = { starter: 'Starter tier', raise: 'Raise prices', price: 'Price', revenue: 'Revenue' }
-const labelOf = (id: string) => LABELS[id] ?? null
+/**
+ * #2747 re-scope 2 (U2): each line is CEE's served face for the option's range cell, verbatim (`RunView.servedCellOf`),
+ * followed by the link's action; the component composes no chance words of its own. These faces are SELF-AUTHORED
+ * stand-ins in CEE's words; the bounds, link and dependence are CEE's to say.
+ */
+const FACES: Record<string, string> = {
+  starter: '‘Starter tier’: between about 23% and 90% chance of meeting your goal, in this model.',
+  raise: '‘Raise prices’: between about 5% and 30% chance of meeting your goal, in this model.',
+}
+const faceOf = (id: string) => FACES[id] ?? null
 const ENTRY = {
   low_pct: 23, high_pct: 90, low_rounding: 'whole', high_rounding: 'nearest_5',
   kind: 'link_strength', from: 'price', to: 'revenue', among: 'all',
@@ -46,17 +54,17 @@ function range(entry: Record<string, unknown> = {}, fields: Record<string, unkno
   }])
 }
 
-describe('goal-chance range lines: exact CEE-selected words and actions', () => {
+describe('goal-chance range lines: CEE\'s served face, verbatim, and the link\'s action', () => {
   it.each([
-    ['link_strength', 'all', 'It depends most on how strongly ‘Price’ affects ‘Revenue’, which isn’t sized in the model yet.', 'Size it to see where it lands'],
-    ['link_existence', 'all', 'It depends most on whether ‘Price’ affects ‘Revenue’ at all, which Olumi assumed.', 'Confirm or remove it to see where it lands'],
-    ['link_strength', 'unsized_links', 'Of the links not sized yet, it depends most on how strongly ‘Price’ affects ‘Revenue’, which isn’t sized in the model yet.', 'Size it to see where it lands'],
-    ['link_existence', 'unsized_links', 'Of the links not sized yet, it depends most on whether ‘Price’ affects ‘Revenue’ at all, which Olumi assumed.', 'Confirm or remove it to see where it lands'],
-  ])('%s / %s says the exact line; ONE click opens that link’s inspector', (kind, among, rest, action) => {
-    render(<GoalChanceRangeLines range={range({ kind, among })} labelOf={labelOf} />)
-    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(
-      `‘Starter tier’: between about 23% and 90% chance of meeting your goal, in this model. ${rest} ${action}`,
-    )
+    ['link_strength', 'all', 'Size it to see where it lands'],
+    ['link_existence', 'all', 'Confirm or remove it to see where it lands'],
+    ['link_strength', 'unsized_links', 'Size it to see where it lands'],
+    ['link_existence', 'unsized_links', 'Confirm or remove it to see where it lands'],
+  ])('%s / %s says the served face then the action; ONE click opens that link’s inspector', (kind, among, action) => {
+    render(<GoalChanceRangeLines range={range({ kind, among })} faceOf={faceOf} />)
+    expect(screen.getByTestId('goal-chance-range-line').textContent).toBe(`${FACES.starter} ${action}`)
+    // Nothing of the UI's own: the bounds are never worded from the record, nor the link's dependence.
+    expect(screen.getByTestId('goal-chance-range-line').textContent).not.toMatch(/depends most on/)
     // RED at 24830cc4: the click only focused the link (no inspector event, dock left open).
     const seen = clickWitnessed(`Focus on ${action} in model`)
     expect(seen).toHaveBeenCalledTimes(1)
@@ -70,7 +78,7 @@ describe('goal-chance range lines: exact CEE-selected words and actions', () => 
     ['stale (reversed endpoints)', [{ ...EDGE, source: 'revenue', target: 'price' }]],
   ])('CONTRAST: an %s link opens no inspector and keeps the dock; GraphLink only focuses', (_name, edges) => {
     seed(edges)
-    render(<GoalChanceRangeLines range={range()} labelOf={labelOf} />)
+    render(<GoalChanceRangeLines range={range()} faceOf={faceOf} />)
     const seen = clickWitnessed('Focus on Size it to see where it lands in model')
     expect(seen).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().selection.edgeIds.size).toBe(0)
@@ -83,32 +91,28 @@ describe('goal-chance range lines: exact CEE-selected words and actions', () => 
       option_ids: ['starter', 'raise'], range_by_option: {
         raise: { ...ENTRY, low_pct: 5, high_pct: 30 }, starter: ENTRY,
       },
-    })} labelOf={labelOf} />)
+    })} faceOf={faceOf} />)
     expect(screen.getAllByTestId('goal-chance-range-line').map((line) => line.getAttribute('data-option-id')))
       .toEqual(['starter', 'raise'])
   })
 
-  it.each(['starter', 'price', 'revenue'])('omits the whole option line and action when %s has no label', (missing) => {
-    const { container } = render(<GoalChanceRangeLines range={range()} labelOf={(id) => id === missing ? null : labelOf(id)} />)
+  it('omits the whole option line and its action when CEE served no face for it', () => {
+    const { container } = render(<GoalChanceRangeLines range={range()} faceOf={() => null} />)
     expect(container.textContent).toBe('')
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('omits blank labels and still renders a valid sibling', () => {
+  it('a line with no served face is left out and a sibling with one still renders', () => {
     render(<GoalChanceRangeLines range={range({}, {
       option_ids: ['starter', 'raise'], range_by_option: { starter: ENTRY, raise: ENTRY },
-    })} labelOf={(id) => id === 'starter' ? ' ' : labelOf(id)} />)
+    })} faceOf={(id) => id === 'starter' ? null : faceOf(id)} />)
     expect(screen.getAllByTestId('goal-chance-range-line').map((line) => line.getAttribute('data-option-id'))).toEqual(['raise'])
   })
 
-  it('uses the existing extreme-percentage words instead of claiming impossibility or certainty', () => {
-    render(<GoalChanceRangeLines range={range({ low_pct: 0, high_pct: 100 })} labelOf={labelOf} />)
-    expect(screen.getByTestId('goal-chance-range-line').textContent)
-      .toContain('between less than 1% and more than 99% chance of meeting your goal')
-  })
+  // #2747 re-scope 2 (U2): the extreme words (less than 1% / more than 99%) are CEE's, inside its served face.
 
   it('renders nothing for a null reader result', () => {
-    const { container } = render(<GoalChanceRangeLines range={readGoalChanceRange([])} labelOf={labelOf} />)
+    const { container } = render(<GoalChanceRangeLines range={readGoalChanceRange([])} faceOf={faceOf} />)
     expect(container.innerHTML).toBe('')
   })
 
@@ -116,7 +120,7 @@ describe('goal-chance range lines: exact CEE-selected words and actions', () => 
     render(<GoalChanceRangeLines range={range({}, {
       option_ids: ['starter', 'raise'], range_by_option: { starter: ENTRY, raise: ENTRY },
       horizon_untested: true, horizon_line: HORIZON,
-    })} labelOf={labelOf} />)
+    })} faceOf={faceOf} />)
     const parent = screen.getByTestId('goal-chance-range-lines')
     expect(parent.textContent?.split(HORIZON)).toHaveLength(2)
     expect(parent.lastElementChild).toBe(screen.getByTestId('goal-chance-range-horizon'))
@@ -124,7 +128,7 @@ describe('goal-chance range lines: exact CEE-selected words and actions', () => 
 
   it('does not repeat the deadline when the hero already said it', () => {
     render(<GoalChanceRangeLines range={range({}, { horizon_untested: true, horizon_line: HORIZON })}
-      labelOf={labelOf} heroHorizonShown />)
+      faceOf={faceOf} heroHorizonShown />)
     expect(screen.queryByTestId('goal-chance-range-horizon')).toBeNull()
     expect(screen.getByTestId('goal-chance-range-line')).toBeTruthy()
   })

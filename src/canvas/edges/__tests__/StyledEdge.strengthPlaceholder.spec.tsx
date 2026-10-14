@@ -162,8 +162,14 @@ describe('P53x — the edge group names a placeholder strength by identity', () 
 describe('a set causal link carries its strength source icon', () => {
   beforeEach(() => { lod.rung = 'full' })
 
+  // Data layer Phase 1, DL call (a) 8 Oct: a template's strength is an example figure (no author mark), as the
+  // inspector already said; the "From brief" mark now belongs to a strength sized from the user's stated figure.
+  it('template provenance carries no author mark (example figure)', () => {
+    const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: 'template' }} />)
+    expect(container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')).toBeNull()
+  })
+
   it.each([
-    ['template', 'From brief', 'lucide-file-text'],
     ['cee', 'Olumi estimate', 'lucide-sparkles'],
     ['user', 'Set by you', 'lucide-user-check'],
   ] as const)('%s provenance uses the shared glyph and exact words', (source, words, glyph) => {

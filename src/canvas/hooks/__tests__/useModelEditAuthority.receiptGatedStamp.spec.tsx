@@ -194,7 +194,7 @@ describe('proposeFactorValue reports how the send settled (the card editor says 
       result.current.proposeFactorValue(20000, { onSendSettled })
     })
     await vi.waitFor(() => expect(onSendSettled).toHaveBeenCalled())
-    expect(onSendSettled.mock.calls).toEqual([['sent']])
+    expect(onSendSettled.mock.calls).toEqual([['sent', {}]])
   })
 
   it('CONTRAST — a send the busy lock refused settles `blocked`, and the local stamp is still applied', async () => {
@@ -206,7 +206,7 @@ describe('proposeFactorValue reports how the send settled (the card editor says 
       result.current.proposeFactorValue(20000, { onSendSettled })
     })
     await vi.waitFor(() => expect(onSendSettled).toHaveBeenCalled())
-    expect(onSendSettled.mock.calls).toEqual([['blocked']])
+    expect(onSendSettled.mock.calls).toEqual([['blocked', {}]])
     expect(resolveReviewSource(currentNode())).toBe(USER_VALUE_STAMP.source)
   })
 })

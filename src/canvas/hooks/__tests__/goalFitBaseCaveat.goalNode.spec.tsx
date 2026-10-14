@@ -102,39 +102,43 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('the hook forwards the chooser\'s base-caveat, never re-derives it', () => {
+// S1: these reports carry raw figures, but no GOAL_CHANCE licence or canonical view.
+describe('the hook withholds an unlicensed figure and its display caveat', () => {
   it.each([
-    ['olumi', 'olumi_estimate'],
-    ['unattested', 'from_inputs'],
+    ['olumi', null],
+    ['unattested', null],
     [undefined, null],
   ] as const)('goalLevelAuthor %s → %s', (author, expected) => {
     useStore(record(author))
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
-    expect(result.current.achievementProbability).toBe(0.41)
+    expect(result.current.achievementProbability).toBeNull()
     expect(result.current.achievementProbabilityBaseCaveat).toBe(expected)
   })
 })
 
 describe('GoalNode: the chance is never bare when its base was worked out', () => {
-  it('typed Olumi author: the resting card shows the Olumi copy beside the chance', () => {
+  it('typed Olumi author: no unlicensed chance or figure caveat on the resting card', () => {
     useStore(record('olumi'))
     renderGoalNode()
-    expect(screen.getByTestId('goal-achievement-metric-row')).toBeDefined()
-    expect(screen.getByTestId('goal-fit-base-caveat-node').textContent).toBe(OLUMI_COPY)
+    expect(screen.queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(screen.queryByTestId('goal-fit-base-caveat-node')).toBeNull()
+    expect(screen.queryByText(OLUMI_COPY)).toBeNull()
+    expect(screen.queryByText(/41%/)).toBeNull()
   })
 
-  it('author unknown (the carrier dropped it): the neutral copy, never "Olumi\'s"', () => {
+  it('author unknown: no unlicensed chance or neutral figure caveat', () => {
     useStore(record('unattested'))
     renderGoalNode()
-    const caveat = screen.getByTestId('goal-fit-base-caveat-node').textContent ?? ''
-    expect(caveat).toBe(NEUTRAL_COPY)
-    expect(caveat).not.toContain("Olumi's")
+    expect(screen.queryByTestId('goal-fit-base-caveat-node')).toBeNull()
+    expect(screen.queryByText(NEUTRAL_COPY)).toBeNull()
+    expect(screen.queryByText(/41%/)).toBeNull()
   })
 
-  it('CONTROL: a goal level the user gave carries no base-caveat, and the chance still shows', () => {
+  it('CONTROL: a user-given goal level alone does not license the chance', () => {
     useStore(record())
     renderGoalNode()
-    expect(screen.getByTestId('goal-achievement-metric-row')).toBeDefined()
+    expect(screen.queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(screen.queryByText(/41%/)).toBeNull()
     expect(screen.queryByTestId('goal-fit-base-caveat-node')).toBeNull()
   })
 })

@@ -42,6 +42,7 @@ export const CARD_MARKS = [
   entry('not-analysed', 'Not analysed', CircleSlash, ['option'], true),
   entry('needs-input', 'Needs input', CircleDashed, ['option']),
   entry('source-olumi', UNCONFIRMED_ESTIMATE_TOKEN, VALUE_PROVENANCE_ICON.ai, values, true, UNCONFIRMED_ESTIMATE_TOKEN, `Olumi estimate — ${UNCONFIRMED_ESTIMATE_LABEL.toLowerCase()}`),
+  entry('source-unverified_brief', VALUE_PROVENANCE_LABEL.unverified_brief, VALUE_PROVENANCE_ICON.unverified_brief, values, true),
   entry('source-brief', 'brief', VALUE_PROVENANCE_ICON.brief, values, true, 'From your brief'),
   { ...entry('source-you', 'you', VALUE_PROVENANCE_ICON.human, values, true, 'Set by you'), keyWords: ['Set by you', ' · entered'] },
   entry('source-edited', VALUE_PROVENANCE_LABEL.edited, VALUE_PROVENANCE_ICON.edited, values, true),

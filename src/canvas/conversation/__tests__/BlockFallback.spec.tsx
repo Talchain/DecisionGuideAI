@@ -11,10 +11,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { ConversationBlock, GraphPatchBlock } from '../types'
-import type { PatchBlockState } from '../useConversation'
 
 describe('InlineBlocks — unknown block type fallback', () => {
   it('renders the fallback card for unknown block_type, does not throw', () => {
@@ -124,7 +123,7 @@ describe('InlineBlocks — initial exposure and the single disclosure', () => {
     expect(screen.queryByTestId('block-detail-toggle')).not.toBeInTheDocument()
   })
 
-  it('reveals every demoted block through ONE interaction — nothing is dropped', () => {
+  it('U7: renders every block at rest — nothing is dropped', () => {
     // A genuinely demotable mix: four coaching cards exceed the point cap, so
     // the overflow is demoted. Control first — the demotion must actually be
     // happening, or the reveal below proves nothing (an earlier draft of this
@@ -134,15 +133,13 @@ describe('InlineBlocks — initial exposure and the single disclosure', () => {
       makeCoaching('Card 3'), makeCoaching('Card 4'),
     ]
     render(<InlineBlocks blocks={blocks} />)
-    expect(screen.queryByText('Card 4')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('block-detail-toggle'))
+    expect(screen.getByText('Card 4')).toBeVisible()
 
     // Total partition at the render layer: every block is on screen exactly once.
     for (const label of ['Card 1', 'Card 2', 'Card 3', 'Card 4']) {
       expect(screen.getAllByText(label)).toHaveLength(1)
     }
-    expect(screen.getByText('Show less')).toBeInTheDocument()
+    expect(screen.queryByTestId('block-detail-toggle')).toBeNull()
   })
 
   it('keeps a proposed graph_patch top-level by CLASS — even arriving LAST behind a flood', () => {
@@ -163,8 +160,8 @@ describe('InlineBlocks — initial exposure and the single disclosure', () => {
     render(<InlineBlocks blocks={blocks} />)
 
     // Control: the cap IS engaged on this turn, so "top-level" is a real claim.
-    expect(screen.queryByText('C4')).not.toBeInTheDocument()
-    expect(screen.getByTestId('block-detail-toggle')).toBeInTheDocument()
+    expect(screen.getByText('C4')).toBeVisible()
+    expect(screen.queryByTestId('block-detail-toggle')).toBeNull()
 
     // The patch is visible WITHOUT opening the disclosure, and is not inside it.
     const patch = screen.getByTestId('block-graph-patch-p1')

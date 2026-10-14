@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ THE OPTION SHARE LINE AND THE LEFT-OUT OPTION, ON PAUL'S REAL RUN
  * (side-by-side DIFF 27 Sep, items 1 and 5; `mrr-90b8f080`).
@@ -38,11 +39,13 @@
  * permitted rows pin their absence instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { useOptionChanceCell } from '../shared/useOptionChanceCell'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { formatWinProbability } from '../../utils/labelUtils'
@@ -72,7 +75,8 @@ const LEFT_OUT = '146aa89d'
 const report = mapV5AnalysisToReport(fx.analysis_block as never) as unknown as {
   option_probabilities: Record<string, { win_probability?: number }>
 }
-const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind } }))
+// Results identifies option entries by data.kind, as the production graph mapper supplies it.
+const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind, kind: n.kind } }))
 const edges = fx.draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from, target: e.to }))
 const OPTIONS = fx.draft.nodes.filter(n => n.kind === 'option')
 const ANALYSED = OPTIONS.filter(o => typeof report.option_probabilities[o.id]?.win_probability === 'number')
@@ -104,27 +108,23 @@ const seed = (freshness: Freshness, opts: { stamp?: boolean; phase?: 'pre' | 'po
       ? { status: 'complete', hash: 'run-90b8', report: { ...report, ...(opts.stamp === false ? {} : { producer_leader_permission: RUN_STAMP }) } }
       : { status: 'idle', report: null },
   } as never)
+  // SELF-AUTHORED canonical faces isolate caption layout from this historical capture's absent view.
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState(), 'Chance not shown yet') as never)
 }
 
 const renderCard = (id: string) => {
   const n = nodes.find(x => x.id === id)!
-  return render(<ReactFlowProvider><OptionNode
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
     id={n.id} type="option" data={n.data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
     dragging={false} zIndex={0} deletable selectable draggable
-  /></ReactFlowProvider>)
+  /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 
 const tokens = (el: Element | null) => new Set((el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 const byId = (tid: string) => screen.queryByTestId(tid)
-/** Every element between `el` and `stop` (exclusive), innermost first. */
-const between = (el: Element, stop: Element): Element[] => {
-  const out: Element[] = []
-  for (let p = el.parentElement; p && p !== stop; p = p.parentElement) out.push(p)
-  return out
-}
-/** A class that lets a box give way: a shrink weight, a wrap, or an ellipsis. */
-const GIVES_WAY = (el: Element) => [...tokens(el)].some(c => /^shrink(-\[|$)/.test(c) || c === 'flex-wrap' || c === 'truncate' || c === 'min-w-0')
+const chanceText = (id: string) => renderHook(() => useOptionChanceCell(id), { wrapper: OptionChanceCellProvider }).result.current.text
+// #2747 re-scope 2 (U0): the `between` / `GIVES_WAY` caption-geometry helpers are removed with the chance-caption rows they served.
 
 afterEach(() => {
   cleanup()
@@ -148,51 +148,24 @@ describe('preconditions — the real run, read through the product mapper', () =
   })
 })
 
-describe('DIFF item 1 — the model-relative anchor always paints with the figure; the bar always paints', () => {
+describe('DIFF item 1 — the run caption leads the Results chance; the runs-share bar is removed', () => {
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS this run with its withheld stamp,
   // "the anchor, the figure and `Goal only` never give way". The geometry is kept on the same run with no
   // stamp. The compact `Model` anchor and `· Goal only` only rendered WITH a qualifier, which only a withheld
   // run carried; a withheld run now shows no share, so on the permitted run they are pinned ABSENT.
-  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the anchor and the figure never give way; only the unit does', (id) => {
+  // #2747 re-scope 2 (U0): the chance row's assertions (the `Current model` caption's geometry, the readout, the caption
+  // order and the accessible name) are deleted — the canvas card shows no chance in C. The share-part negatives stay; the
+  // bar negative is re-anchored from the removed row onto the slot.
+  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the reserved slot carries no compact anchor, qualifier, figure, unit or bar', (id) => {
     seed('current', { stamp: false })
     renderCard(id)
-    const row = byId(`option-analysis-currency-${id}`)!
-    expect(row, 'precondition: the share row renders').not.toBeNull()
-    const formatted = formatWinProbability(report.option_probabilities[id].win_probability!)
-
-    // The anchor: whole, and no box between it and the row can squeeze it away.
-    const anchor = byId(`option-win-anchor-${id}`)!
-    expect(anchor.textContent).toBe('Current model')
-    expect(tokens(anchor).has('shrink-0')).toBe(true)
-    expect(GIVES_WAY(anchor)).toBe(false)
-    expect(between(anchor, row).filter(GIVES_WAY), 'a yielding box wraps the anchor').toEqual([])
-
-    // No qualifier on a permitted line, so no narrow-width `Model` anchor: the long anchor is the only
-    // one and is never hidden. The slot still measures its own width in em for the caption query.
     expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     expect(byId(`option-share-provisional-${id}`)).toBeNull()
-    expect(tokens(anchor).has('hidden')).toBe(false)
     expect(tokens(byId(`option-share-slot-${id}`)).has('[container-type:inline-size]')).toBe(true)
-
-    // The figure never gives way; the unit `of runs` is the ONE part that may.
-    const figure = byId(`option-win-figure-${id}`)!
-    expect(figure.textContent).toBe(formatted)
-    expect(tokens(figure).has('shrink-0')).toBe(true)
-    expect(between(figure, row).filter(GIVES_WAY)).toEqual([])
-    const unit = byId(`option-win-unit-${id}`)!
-    expect(unit.textContent?.trim()).toBe('of runs')
-    const yieldBox = unit.parentElement!
-    expect([...tokens(yieldBox)]).toEqual(expect.arrayContaining(['flex-wrap', 'overflow-hidden', 'h-[1lh]', 'min-w-0', 'shrink-[1000000]']))
-    expect(byId(`option-win-readout-${id}`)!.textContent).toBe(`${formatted} of runs`)
-
-    // The bar: out of the text flow, under the line, in the strip the row reserves.
-    const fill = row.querySelector('.h-full.rounded-full')!
-    const track = fill.parentElement!
-    expect([...tokens(track)]).toEqual(expect.arrayContaining(['absolute', 'bottom-0', 'left-0', 'w-[54px]', 'h-[3px]']))
-    expect(GIVES_WAY(track)).toBe(false)
-    expect(between(track, row).filter(GIVES_WAY)).toEqual([])
-    expect([...tokens(row)]).toEqual(expect.arrayContaining(['relative', 'pb-[3px]', 'flex-nowrap']))
+    expect(byId(`option-win-figure-${id}`)).toBeNull()
+    expect(byId(`option-win-unit-${id}`)).toBeNull()
+    expect(byId(`option-share-slot-${id}`)!.querySelector('.h-full.rounded-full')).toBeNull()
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): the run AS SERVED (stamp `constraint_verdict_withheld`). WAS
@@ -208,7 +181,7 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     const slot = byId(`option-share-slot-${id}`)!
     expect(slot.getAttribute('class'), 'the Run neither grows nor shrinks the card').toBe(preClass)
     expect(slot.textContent).not.toMatch(/\d\s*%/)
-    expect(byId(`option-analysis-currency-${id}`)).toBeNull()
+    expect(byId(`option-win-readout-${id}`)?.textContent ?? null).toBe(chanceText(id))
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     const marker = byId(`option-not-ranked-${id}`)!
     expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
@@ -221,22 +194,17 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS stale on the withheld stamp, with
   // "`Goal only` is whole". `Last run` and the fixed bar are kept on the same stale run with no stamp; the
   // qualifier cannot render on a share any more, so its absence is pinned instead.
-  it('STALE (the model changed), PERMITTED run: `Last run` stays whole and the bar keeps one fixed width on every card', () => {
+  // #2747 re-scope 2 (U0): the `Last run` chance caption's geometry, the readout and the chance row's accessible name are
+  // deleted — the canvas card shows no chance in C. The compact-anchor and qualifier negatives stay; the bar negative is
+  // re-anchored from the removed row onto the slot, which is also the same-render control.
+  it('STALE (the model changed), PERMITTED run: no compact anchor, qualifier or bar on any card', () => {
     seed('changed', { stamp: false })
     for (const { id } of ANALYSED) {
       renderCard(id)
-      const row = byId(`option-analysis-currency-${id}`)!
-      expect(row, `${id}: precondition: the share row renders`).not.toBeNull()
-      const anchor = byId(`option-win-anchor-${id}`)!
-      expect(anchor.getAttribute('aria-label')).toBe('Last run')
-      expect(GIVES_WAY(anchor), `${id}: "Last run" may not truncate`).toBe(false)
-      expect(between(anchor, row).filter(GIVES_WAY)).toEqual([])
-      // `Last run` is already the short form: no second anchor.
+      const slot = byId(`option-share-slot-${id}`)
+      expect(slot, `${id}: precondition: the slot renders`).not.toBeNull()
       expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
-      expect(tokens(anchor).has('hidden')).toBe(false)
-      const track = row.querySelector('.h-full.rounded-full')!.parentElement!
-      expect(tokens(track).has('w-[54px]')).toBe(true)
-      expect(GIVES_WAY(track), `${id}: the stale bar may not shrink per card`).toBe(false)
+      expect(slot!.querySelector('.h-full.rounded-full')).toBeNull()
       expect(byId(`option-share-goal-only-${id}`)).toBeNull()
       cleanup()
     }
@@ -254,32 +222,26 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
       expect(marker, `${id}: the \`Not ranked\` marker renders`).not.toBeNull()
       expect(marker!.closest('[data-testid^="option-bottom-marks-"]') !== null).toBe(true)
       expect(marker!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
-      expect(marker!.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
+      // ONE status mark (DL 8 Oct, workstream D): on this STALE run the withheld mark wins and names the stale line.
+      expect(marker!.getAttribute('aria-description')).toBe(`${EXPLORATORY_REASON_LINE} · Also: Last run · no new comparison yet`)
+      expect(byId(`option-stale-state-${id}`)).toBeNull()
       expect(tokens(slot).has('h-[1lh]')).toBe(true)
       cleanup()
     }
   })
 
-  it('CONTRAST — no qualifier on the line: the long anchor is the only anchor and is never hidden', () => {
+  // #2747 re-scope 2 (U0): the long `Current model` chance caption is deleted — the canvas card shows no chance in C; the
+  // qualifier and compact-anchor negatives stay, with the slot as the same-render control.
+  it('CONTRAST — no qualifier on the line: no compact anchor', () => {
     seed('current', { stamp: false })
     renderCard('increase_price_to_59')
+    expect(byId('option-share-slot-increase_price_to_59')).not.toBeNull()
     expect(byId('option-share-goal-only-increase_price_to_59')).toBeNull()
     expect(byId('option-win-anchor-compact-increase_price_to_59')).toBeNull()
-    const anchor = byId('option-win-anchor-increase_price_to_59')!
-    expect(anchor.textContent).toBe('Current model')
-    expect(tokens(anchor).has('hidden')).toBe(false)
   })
 
-  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS "… · Goal only. This share compares
-  // the options on the goal alone." on the withheld stamp; the share's name is kept on the same run, no stamp.
-  it('the accessible name still carries the whole line and its meaning, whatever the width shows (PERMITTED run)', () => {
-    seed('current', { stamp: false })
-    renderCard('increase_price_to_59')
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    const name = byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-    expect(name.startsWith('Current model · supported by 68% of runs.')).toBe(true)
-    expect(name).not.toContain('Goal only')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "the accessible name still carries the whole line and its meaning, whatever the
+  // width shows (PERMITTED run)": its only subject, the canvas card's chance row and its accessible name, is removed in C.
 })
 
 describe('DIFF item 5 — the option the run left out keeps saying so, in the reserved slot', () => {
@@ -325,7 +287,10 @@ describe('DIFF item 5 — the option the run left out keeps saying so, in the re
     expect(slot().contains(line())).toBe(true)
     expect(slot().getAttribute('class')).toBe(preClass)
     expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Last run')
-    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toHaveAttribute('aria-label', 'Not analysed')
+    // ONE status mark (DL 8 Oct, workstream D): stale outranks not-analysed; "Not analysed" is named in its tooltip
+    // (and the line's screen-reader sentence still says it), never a second glyph.
+    expect(byId(`option-not-analysed-chip-${LEFT_OUT}`)).toBeNull()
+    expect(byId(`option-not-analysed-last-run-${LEFT_OUT}`)!.getAttribute('aria-description')).toBe('Also: no new comparison yet · Not analysed')
     expect(line()!.textContent).not.toContain('Last run · Not analysed')
     // One line: it never wraps; the reason is the part that gives way, whole.
     expect([...tokens(line())]).toEqual(expect.arrayContaining(['flex-nowrap', 'whitespace-nowrap']))

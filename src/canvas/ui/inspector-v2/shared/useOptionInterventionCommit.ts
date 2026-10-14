@@ -136,7 +136,7 @@ export const OPTION_INTERVENTION_NOT_SAVED_DECLINED =
  * value as `verified_no_op`), so the row may offer a retry.
  */
 export const OPTION_INTERVENTION_UNCONFIRMED =
-  'Could not confirm · the model may or may not have this value. Ask Olumi anything about this decision to see where it stands.'
+  'Could not confirm · the model may or may not have this value. Ask Olumi anything about this scenario to see where it stands.'
 
 /**
  * The declined line, with the producer's own reason appended WHEN IT IS PROSE.

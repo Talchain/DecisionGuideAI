@@ -42,14 +42,9 @@ function renderPanel() {
   )
 }
 
-/**
- * THE EDITOR, BOUND BY IDENTITY. `GoalThresholdEditor` owns `#goal-threshold`
- * and nothing else in the panel does — a text predicate like "Success means
- * reaching" is satisfied by the READOUT too, which is precisely the element
- * whose presence must not be mistaken for the editor's (CLAUDE.md trap 19).
- */
-function editorIn(container: HTMLElement): HTMLInputElement | null {
-  return container.querySelector<HTMLInputElement>('#goal-threshold')
+/** Bind the shared target control independently of the legacy readout text. */
+function editorIn(container: HTMLElement): HTMLElement | null {
+  return container.querySelector('[data-testid="goal-panel-target"]')
 }
 
 /** The readout sentence, which is the editor's alternative on this branch. */

@@ -16,7 +16,7 @@
  * zero `.message` access and need no defence-in-depth exemption.
  */
 import { humaniseCritique } from './humaniseCritique'
-import type { HumanisedCritique } from './humaniseCritique'
+import type { CritiqueRunContext, HumanisedCritique } from './humaniseCritique'
 import type { UncertaintyItem } from '../types'
 
 /** The minimal warning shape both surfaces share. AdvancedSection passes the
@@ -256,6 +256,7 @@ export function humaniseInferenceWarning(
   /** Node id → label, from the graph store. Optional: without it the copy is
    *  exactly what it has always been. */
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): HumanisedCritique {
   const fromField = nodeIdFromField(w.field)
   const item: UncertaintyItem = {
@@ -278,7 +279,7 @@ export function humaniseInferenceWarning(
           : undefined,
     ...(w.goal_direction_correctable === true ? { goalDirectionCorrectable: true } : {}),
   }
-  return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels)
+  return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels, context)
 }
 
 /** Humanised, user-safe headline for an inference warning — the same
@@ -290,8 +291,9 @@ export function humaniseInferenceWarningTitle(
   /** Node id → label, from the graph store. Optional: without it the copy is
    *  exactly what it has always been. */
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): string {
-  return humaniseInferenceWarning(w, nodeLabels).title
+  return humaniseInferenceWarning(w, nodeLabels, context).title
 }
 
 // `selectHumanisedInferenceWarnings` — the UNFILTERED selector — was DELETED on
@@ -318,6 +320,7 @@ export function selectHumanisedInferenceWarningsOutsideStrip(
    *  byte-identical to before — the two same-code rows stay indistinguishable,
    *  which is the pre-existing contract and the fallback this relies on. */
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): Array<{ code: string; title: string; valueNodeId?: string }> {
   const list = warnings ?? []
   /**
@@ -335,7 +338,7 @@ export function selectHumanisedInferenceWarningsOutsideStrip(
     .filter(({ i }) => !shown.has(i))
     .map(({ w }) => ({
       code: w.code,
-      title: humaniseInferenceWarningTitle(w, nodeLabels),
+      title: humaniseInferenceWarningTitle(w, nodeLabels, context),
       // ⚠ THE PROJECTION USED TO END AT `{code, title}`, and that is what made
       // "Add its current value." an instruction with nothing to press. It
       // carries the VALUE-SLOT id only — see `valueNodeIdFromWarning` for why

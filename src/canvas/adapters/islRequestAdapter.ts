@@ -428,7 +428,9 @@ export function extractParameterUncertainties(
     }
 
     // Format 5: Check for probability field
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a node's own probability, sent to ISL as its prior mean), not an analysis result
     if (mean === null && typeof data.probability === 'number') {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a node's own probability, sent to ISL as its prior mean), not an analysis result
       mean = data.probability
       std = 0.1
       if (import.meta.env.DEV) {

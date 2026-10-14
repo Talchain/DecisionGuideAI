@@ -313,28 +313,17 @@ describe('the sentence is the one the outcome earned', () => {
     expect(screen.getByTestId(`${TARGET}-input`)).toBeInTheDocument()
   })
 
-  /**
-   * ⭐⭐ THE THIRD ARM, ON THE OTHER SIDE OF THE FIXTURE. With no dispatcher
-   * mounted the local write IS the whole outcome, and the sentence must say so.
-   * This is the arm the old copy got wrong, so it is pinned on BEHAVIOUR (the
-   * store was written, the authority was not asked) as well as on the sentence.
-   */
-  it('with no dispatcher, it writes locally and says Olumi has not been told', () => {
+  /** The unsendable draft refuses without echoing it into the shared model. */
+  it('with no dispatcher, it writes nothing and discloses the refusal', () => {
     goalTargetDispatchAvailable = false
     typeTarget('125')
     expect(proposeGoalTarget).not.toHaveBeenCalled()
-    /**
-     * ⚠ THIS ASSERTION USED TO READ `('g1', 125)` — TWO ARGUMENTS — AND THE
-     * VERDICT CHANGED DELIBERATELY. The store action has always accepted
-     * `{ unit }` and this path was omitting it, so on the ONE route where
-     * nothing downstream can recover the reader's unit it was discarded. The
-     * fixture's goal declares `'%'`, and the local write now records it.
-     * Strengthened, not relaxed: the old form passes on a call that drops the
-     * unit, this one does not.
-     */
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 125, { unit: '%' })
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
     expect(showToast).toHaveBeenCalledWith(COPY.successTarget.changedLocally)
+    expect(showToast).toHaveBeenCalledWith("Not saved: this target can't be sent to Olumi right now.")
+    expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.notEncodable)
     expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.dispatched)
+    expect(screen.getByTestId(`${TARGET}-editor`)).toBeInTheDocument()
   })
 
   /**

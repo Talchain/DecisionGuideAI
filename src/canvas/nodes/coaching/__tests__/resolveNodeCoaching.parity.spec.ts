@@ -79,6 +79,8 @@ import {
 
 // Restore the whole historical resolver shape from 8441619e. Immediate sends
 // use the Q registry at requestAsk; parity still pins the resolver itself.
+// Run-4 judge (DL 12 Oct, the class): the option/cluster rows drop the two "better supported" doors
+// (`option_what_would_change`, `option_what_would_make_lead`), and `option_why_lead` asks what the option rests on.
 const DOOR_ROWS = JSON.parse(readFileSync(resolve(__dirname, 'resolveNodeCoaching.doors.json'), 'utf8')) as Array<{
   request: NodeCoachingRequest; doors: CoachingChip[]
 }>

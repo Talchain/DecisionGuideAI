@@ -115,7 +115,7 @@ export function formatDecisionSummary(input: DecisionSummaryInput): string {
   const lines: string[] = []
 
   if (framing?.title) {
-    lines.push(`Decision: ${framing.title}`)
+    lines.push(`Scenario: ${framing.title}`)
   }
 
   if (framing?.goal) {
@@ -144,12 +144,12 @@ export function formatDecisionSummary(input: DecisionSummaryInput): string {
     if (parts.length > 0) {
       lines.push(`Last analysed: ${parts.join(', ')}`)
     } else {
-      lines.push('Last analysed: This decision has been analysed, but run metadata is incomplete.')
+      lines.push('Last analysed: This scenario has been analysed, but run metadata is incomplete.')
     }
   } else if (framing) {
-    lines.push('This decision has not yet been analysed.')
+    lines.push('This scenario has not yet been analysed.')
   } else {
-    lines.push('This decision has not yet been framed or analysed.')
+    lines.push('This scenario has not yet been framed or analysed.')
   }
 
   const bands = extractOutcomeBandsFromRun(lastRun)

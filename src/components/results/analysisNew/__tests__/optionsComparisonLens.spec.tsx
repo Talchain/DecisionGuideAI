@@ -23,6 +23,11 @@
  * ⚠ EVERY RUN GOES THROUGH THE REAL VIEW MODEL (`buildAnalysisNewViewModel`),
  * so the goal gates (UI-SEM-071, the complete-field rule) are the builder's and
  * not a hand-written section's.
+ *
+ * #2747 re-scope 2 (U0): in C the Reasoning tab draws no Goal fit lens (`comparisonLens` goal: false) and the lens control
+ * is offered only when every lens is available, so it is never offered. Rows whose only subject was the Goal fit lens or
+ * the lens control are deleted (listed in place); the outcome lens, row order, win-share negatives, the producer's
+ * withheld sentences, the range explanation, the goal-only qualifier and the row actions stay.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,7 +46,6 @@ import {
   comparisonDrawsAFigure,
   comparisonLensAvailability,
 } from '../comparisonLens'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import type { OptionResult } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, makeData, makeOption } from './analysisNewFixtures'
@@ -115,7 +119,6 @@ function renderRun(
   return vm
 }
 
-const lensArm = (arm: 'outcome' | 'goal') => screen.getByTestId(`${T}-lens-${arm}`)
 const rowIds = () =>
   screen.getAllByTestId(`${T}-row`).map((li) => li.getAttribute('data-option-id'))
 const row = (id: string) => {
@@ -133,37 +136,23 @@ const precedes = (a: Element, b: Element) =>
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe('the two lenses', () => {
-  it('PRECONDITION: the three fixtures reach three different lens availabilities', () => {
-    expect(comparisonLensAvailability(vmFor(dataFor({})).optionsComparison)).toEqual({ outcome: true, goal: true })
+  // #2747 re-scope 2 (U0): the two "goal: true" halves are deleted (only the outcome half of those two assertions is kept) —
+  // the Goal fit lens is unavailable on this surface in C. The no-goal-figures assertion (goal: false) stays whole.
+  it('PRECONDITION: the fixtures reach the outcome-lens availabilities the rows rely on', () => {
+    expect(comparisonLensAvailability(vmFor(dataFor({})).optionsComparison).outcome).toBe(true)
     expect(comparisonLensAvailability(vmFor(dataFor({ goals: false })).optionsComparison)).toEqual({ outcome: true, goal: false })
-    expect(comparisonLensAvailability(vmFor(dataFor({ ranges: false })).optionsComparison)).toEqual({ outcome: false, goal: true })
+    expect(comparisonLensAvailability(vmFor(dataFor({ ranges: false })).optionsComparison).outcome).toBe(false)
   })
 
-  it('⛔ an arm never wraps its words: arms size to content (flex-auto) and stay on one line (served: 2 lines at 288px)', () => {
-    // jsdom has no layout: this pins the class contract; R3's dock-run.mjs at 1024 (dock 288) is the served proof.
-    renderRun(dataFor({}))
-    for (const arm of ['outcome', 'goal'] as const) {
-      const cls = lensArm(arm).classList
-      expect(cls.contains('whitespace-nowrap')).toBe(true)
-      expect(cls.contains('flex-auto')).toBe(true)
-      expect(cls.contains('flex-1')).toBe(false)
-    }
-  })
+  // #2747 re-scope 2 (U0): row deleted — "⛔ an arm never wraps its words: arms size to content (flex-auto) and stay on one
+  // line": its only subject, the lens control's arms, is never offered in C (the Goal fit lens is unavailable).
 
-  it('⭐ both available: Goal fit shows first, and Modelled outcome swaps the figures', () => {
+  // #2747 re-scope 2 (U0): the Goal fit half (goal arm first and checked, the 82% / 12% / 44% goal readouts, the goal
+  // basis caveat, no bands under Goal fit) and the click to the outcome arm are deleted — no Goal fit lens and no lens
+  // control in C; the outcome lens is the resting view. Its ranges, markers and the goal-figure negatives stay.
+  it('⭐ Modelled outcome draws each option’s own range, with no goal figure or caveat', () => {
     renderRun(dataFor({}))
 
-    expect(lensArm('goal')).toHaveAttribute('aria-checked', 'true')
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'false')
-    // Goal fit: each option's OWN goal figure, bound by id, and no ranges.
-    expect(goalReadouts()).toEqual(['82%', '12%', '44%'])
-    expect(screen.getAllByTestId(`${T}-goal-basis-caveat`)[0]).toHaveTextContent(GOAL_FIT_BASIS_CAVEAT_COPY)
-    expect(bandsDrawn()).toEqual([])
-
-    fireEvent.click(lensArm('outcome'))
-
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
-    expect(lensArm('goal')).toHaveAttribute('aria-checked', 'false')
     // Modelled outcome: every analysed row's own range, and the goal figure
     // leaves WITH its caveat (the caveat never outlives the number it qualifies).
     expect(bandsDrawn()).toEqual(IDS)
@@ -177,14 +166,12 @@ describe('the two lenses', () => {
     }
   })
 
-  it('⛔ a lens reorders nothing: the row order is the view model’s under both lenses', () => {
+  // #2747 re-scope 2 (U0): the two lens-arm clicks (and the order re-checks after each) are deleted — no lens control in C.
+  // The row order is still the view model's.
+  it('⛔ nothing reorders the rows: the row order is the view model’s', () => {
     const vm = renderRun(dataFor({}))
     const given = vm.optionsComparison.rows.map((r) => r.id)
     expect(given, 'PRECONDITION: the order no figure produces').toEqual(IDS)
-    expect(rowIds()).toEqual(given)
-    fireEvent.click(lensArm('outcome'))
-    expect(rowIds()).toEqual(given)
-    fireEvent.click(lensArm('goal'))
     expect(rowIds()).toEqual(given)
   })
 
@@ -199,19 +186,13 @@ describe('the two lenses', () => {
    */
   // ⭐ 27 Sep 2026 (Paul: bring the locked Goal fit back, as in V2). The lock now states a
   // reason that is true in every case (`LENS_COPY.locked.goal`), not the old invented cause.
-  it('⭐ no goal figures: Goal fit is shown LOCKED with a true reason, and a click changes nothing', () => {
+  // #2747 re-scope 2 (U0): the lens control, the LOCKED Goal fit arm (data-locked, aria-disabled, its reason, the lock
+  // icon) and its click are deleted — in C the locked arm and the control are not offered. The withheld-line negative,
+  // the outcome figures and the goal-figure negative stay.
+  it('⭐ no goal figures: the outcome figures show, with no goal figure and no withheld line', () => {
     renderRun(dataFor({ goals: false }))
-    expect(screen.getByTestId(`${T}-lens-control`)).toBeInTheDocument()
-    const goal = screen.getByTestId(`${T}-lens-goal`)
-    expect(goal).toHaveAttribute('data-locked', 'true')
-    expect(goal).toHaveAttribute('aria-disabled', 'true')
-    expect(goal).toHaveAccessibleDescription(LENS_COPY.locked.goal)
     // CONTRAST: no producer withhold → no visible withheld line.
     expect(screen.queryByTestId(`${T}-goal-withheld`)).toBeNull()
-    expect(goal.querySelector('.lucide-lock')).not.toBeNull()
-    fireEvent.click(goal)
-    expect(goal).toHaveAttribute('aria-checked', 'false')
-    expect(screen.getByTestId(`${T}-lens-outcome`)).toHaveAttribute('aria-checked', 'true')
     // The outcome figures are what shows.
     expect(bandsDrawn()).toEqual(IDS)
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
@@ -219,19 +200,25 @@ describe('the two lenses', () => {
 
   // CEE #2270/#2280: an UNEARNED 0/1 goal figure is withheld by the chooser, which empties the goal-fit lens; the
   // producer's sentence is the visible reason (DL 5887061638).
-  it('an unearned certainty: the lens is locked and the producer’s sentence is the visible reason', () => {
+  // #2747 re-scope 2 (U0): the locked Goal fit arm assertion is deleted — the arm is not offered in C. The producer's
+  // sentence, its short line and its toggle stay.
+  it('an unearned certainty: the producer’s sentence is the visible reason', () => {
     const SAY = "I can't yet say how likely 'Raise to £59' is to reach the target: it depends on how 'Pro plan price' moves 'MRR', which isn't sized yet."
     const data = dataFor({ goals: false })
     const rec = (data as unknown as { recommendation: { allOptions: Array<Record<string, unknown>> } }).recommendation
     rec.allOptions = rec.allOptions.map((o, i) => (i === 0 ? { ...o, goalCertaintyUnearned: { say: SAY } } : o))
     renderRun(data)
-    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(SAY)
-    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('data-locked', 'true')
+    // 8 Oct 2026: one short visible line; the producer's sentence one press away (keyboard-reachable, not a tooltip).
+    expect(screen.getByTestId(`${T}-goal-withheld-short`)).toBeVisible()
+    fireEvent.click(screen.getByTestId(`${T}-goal-withheld-toggle`))
+    expect(screen.getByTestId(`${T}-goal-withheld-why`)).toHaveTextContent(SAY)
   })
 
   // PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure for an unevaluated identity; the
   // locked arm carries ITS words (typed code), not the generic "did not return one". Contrast: the row above.
-  it('PLoT #416: the producer withheld every goal figure → the locked arm states the producer’s words', () => {
+  // #2747 re-scope 2 (U0): the locked Goal fit arm's accessible description is deleted — the arm is not offered in C. The
+  // visible line with the producer's words and the goal-figure negative stay.
+  it('PLoT #416: the producer withheld every goal figure → the visible line states the producer’s words', () => {
     const WORDS = "Not shown. 'MRR' depends on Pro plan price × Pro paying subscribers, but this run couldn't calculate it that way, so the figures for each option would be wrong."
     const data = dataFor({ goals: false })
     const withheld = {
@@ -239,42 +226,20 @@ describe('the two lenses', () => {
       confidence: { ...(data.confidence ?? {}), inferenceWarnings: [{ code: 'GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED', message: WORDS, affected_nodes: [], affected_labels: [] }] },
     } as unknown as ResultsSectionDataReturn
     renderRun(withheld)
-    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAccessibleDescription(WORDS)
-    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip.
-    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(WORDS)
+    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip. Since 8 Oct 2026 the
+    // visible line is short and the producer's words open under it ("Not shown." is said by the line itself).
+    expect(screen.getByTestId(`${T}-goal-withheld-short`)).toBeVisible()
+    fireEvent.click(screen.getByTestId(`${T}-goal-withheld-toggle`))
+    expect(screen.getByTestId(`${T}-goal-withheld-why`)).toHaveTextContent(WORDS.slice('Not shown. '.length))
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 
-  it('CONTRAST: with goal figures, the control is offered and both arms can be chosen', () => {
-    renderRun(dataFor({}))
-    expect(screen.getByTestId(`${T}-lens-control`)).toBeInTheDocument()
-    const goal = lensArm('goal')
-    const outcome = lensArm('outcome')
-    expect(goal).not.toHaveAttribute('aria-disabled')
-    expect(outcome).not.toHaveAttribute('aria-disabled')
-    fireEvent.click(outcome)
-    expect(outcome).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(goal)
-    expect(goal).toHaveAttribute('aria-checked', 'true')
-  })
-
-  // ⚠ The locked-arm half of this case went with the locked arm (no control is
-  // offered with one lens); the keyboard contract between open arms stands.
-  it('arrow keys: between the two open arms they select, and focus follows', () => {
-    renderRun(dataFor({}))
-    fireEvent.keyDown(lensArm('goal'), { key: 'ArrowLeft' })
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
-    expect(document.activeElement).toBe(lensArm('outcome'))
-    fireEvent.keyDown(lensArm('outcome'), { key: 'ArrowRight' })
-    expect(lensArm('goal')).toHaveAttribute('aria-checked', 'true')
-  })
-
-  it('goal figures but no ranges: Modelled outcome is the locked arm, goal figures shown', () => {
-    renderRun(dataFor({ ranges: false }))
-    expect(screen.getByTestId(`${T}-lens-outcome`)).toHaveAttribute('data-locked', 'true')
-    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('aria-checked', 'true')
-    expect(goalReadouts()).toEqual(['82%', '12%', '44%'])
-  })
+  // #2747 re-scope 2 (U0): row deleted — "CONTRAST: with goal figures, the control is offered and both arms can be chosen":
+  // its only subject, the lens control with an open Goal fit arm, is not offered in C.
+  // #2747 re-scope 2 (U0): row deleted — "arrow keys: between the two open arms they select, and focus follows": its only
+  // subject, the lens control's keyboard contract, has no control to act on in C (restores with the control).
+  // #2747 re-scope 2 (U0): row deleted — "goal figures but no ranges: Modelled outcome is the locked arm, goal figures
+  // shown": its only subjects, the goal readouts (82% / 12% / 44%) and the lens control, are removed in C.
 
   it('neither: no control, no figure, no axis, and the host is told there is nothing to draw', () => {
     const data = dataFor({ ranges: false, goals: false })
@@ -288,25 +253,15 @@ describe('the two lenses', () => {
     expect(comparisonDrawsAFigure(vmFor(dataFor({ goals: false })).optionsComparison)).toBe(true)
   })
 
-  it('a re-run that drops the goal figures cannot leave the section on an empty lens', () => {
-    const vm1 = vmFor(dataFor({}))
-    const { rerender } = render(<OptionsComparison options={vm1.optionsComparison} defaultOpen />)
-    // The reader CHOOSES Goal fit, so the fallback below overrides a choice
-    // and not merely a default.
-    fireEvent.click(lensArm('goal'))
-    expect(lensArm('goal'), 'PRECONDITION: the reader is on Goal fit').toHaveAttribute('aria-checked', 'true')
-    const vm2 = vmFor(dataFor({ goals: false }))
-    rerender(<OptionsComparison options={vm2.optionsComparison} defaultOpen />)
-    // One lens left: Goal fit locks, and the outcome view is what shows.
-    expect(lensArm('goal')).toHaveAttribute('data-locked', 'true')
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
-    expect(bandsDrawn()).toEqual(IDS)
-  })
+  // #2747 re-scope 2 (U0): row deleted — "a re-run that drops the goal figures cannot leave the section on an empty lens":
+  // its only subject, falling back from a chosen Goal fit lens, cannot arise in C (Goal fit is never offered).
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe('⛔ the win shares are not on the resting view', () => {
-  it('no readout, label, bar or partition in EITHER lens, though the view model carries shares that partition', () => {
+  // #2747 re-scope 2 (U0): the loop over the two lens arms (and its clicks) is deleted — no lens control in C; every
+  // negative now runs on the one resting view.
+  it('no readout, label, bar or partition on the resting view, though the view model carries shares that partition', () => {
     const vm = renderRun(dataFor({}))
     // PRECONDITION: the shares exist and sum to one, so every win-share
     // presentation the section used to draw WOULD have drawn here.
@@ -315,16 +270,13 @@ describe('⛔ the win shares are not on the resting view', () => {
     const readouts = vm.optionsComparison.rows.flatMap((r) => (r.kind === 'analysed' ? [r.winReadout] : []))
     expect(readouts).toEqual(['10%', '60%', '30%'])
 
-    for (const arm of ['goal', 'outcome'] as const) {
-      fireEvent.click(lensArm(arm))
-      const section = screen.getByTestId(T)
-      for (const gone of ['win', 'win-label', 'bar', 'partition', 'partition-bar', 'partition-caption']) {
-        expect(screen.queryAllByTestId(`${T}-${gone}`), `${arm}: ${gone}`).toHaveLength(0)
-      }
-      expect(section.textContent ?? '', `${arm}: the share label`).not.toContain(COPY.optionFigures.winLabel)
-      for (const r of readouts) {
-        expect(section.textContent ?? '', `${arm}: the share ${r}`).not.toContain(r as string)
-      }
+    const section = screen.getByTestId(T)
+    for (const gone of ['win', 'win-label', 'bar', 'partition', 'partition-bar', 'partition-caption']) {
+      expect(screen.queryAllByTestId(`${T}-${gone}`), gone).toHaveLength(0)
+    }
+    expect(section.textContent ?? '', 'the share label').not.toContain(COPY.optionFigures.winLabel)
+    for (const r of readouts) {
+      expect(section.textContent ?? '', `the share ${r}`).not.toContain(r as string)
     }
   })
 })
@@ -357,13 +309,9 @@ describe('the range explanation left the resting view', () => {
     expect(screen.getByTestId(`${T}-outcome-range-opt_a-marker`).getAttribute('data-mark-at')).toBe('60')
   })
 
-  it('no info button under the Goal fit lens — a legend for a drawing not on screen is furniture', () => {
-    renderRun(dataFor({}))
-    expect(lensArm('goal'), 'PRECONDITION').toHaveAttribute('aria-checked', 'true')
-    expect(screen.queryByTestId(`${T}-range-info`)).toBeNull()
-    fireEvent.click(lensArm('outcome'))
-    expect(screen.getByTestId(`${T}-range-info`)).toBeInTheDocument()
-  })
+  // #2747 re-scope 2 (U0): row deleted — "no info button under the Goal fit lens — a legend for a drawing not on screen is
+  // furniture": its only subject, the Goal fit lens state, is not reachable in C (the info button under the outcome lens
+  // is pinned by the two rows above).
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -385,7 +333,9 @@ describe('#1922: the goal-only qualifier sits above whichever lens is shown', ()
     } as ResultsSectionDataReturn
   }
 
-  it('⭐ above the goal figures and above the ranges, on the constraint-withheld run', () => {
+  // #2747 re-scope 2 (U0): the "above the goal figures" and "above the lens control" assertions and the click to the outcome
+  // arm are deleted — no goal figures and no lens control in C. The qualifier and "above the ranges" stay.
+  it('⭐ above the ranges, on the constraint-withheld run', () => {
     const vm = vmFor(withheldWithFigures(), LIMITS_UNSCORED)
     expect(vm.checks.sharesExcludeLimits, 'PRECONDITION: the run Paul met').toBe(true)
     render(
@@ -399,11 +349,6 @@ describe('#1922: the goal-only qualifier sits above whichever lens is shown', ()
     const qualifier = screen.getByTestId(`${T}-goal-only`)
     expect(qualifier).toHaveTextContent(COPY.optionFigures.goalOnlyQualifier)
 
-    const firstGoal = screen.getAllByTestId(`${T}-goal`)[0]
-    expect(precedes(qualifier, firstGoal), 'above the goal figures').toBe(true)
-    expect(precedes(qualifier, screen.getByTestId(`${T}-lens`)), 'above the lens control').toBe(true)
-
-    fireEvent.click(lensArm('outcome'))
     expect(screen.getByTestId(`${T}-goal-only`)).toBe(qualifier)
     const firstBand = document.querySelector(`[data-testid$="-band"]`) as Element
     expect(firstBand, 'PRECONDITION: ranges drawn').not.toBeNull()

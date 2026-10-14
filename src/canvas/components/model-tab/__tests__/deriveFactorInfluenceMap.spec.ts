@@ -1,20 +1,11 @@
 /**
- * deriveFactorInfluenceMap — unit tests (ROADMAP 1.7, honest-render tail).
+ * deriveFactorInfluenceMap — one outcome-sensitivity list across surfaces.
  *
- * OutputsDock feeds this map into FactorsSection's "factor cards sorted by
- * influence" (model-tab). Before this fix the inline useMemo built the score
- * from `elasticity ?? sensitivity_score ?? importance_score` only — the
- * legacy sensitivity-flavoured measures — and never looked at the
- * producer's `influence_score` (roadmap 1.7; provisional_doctrine_v0:
- * influence ≠ sensitivity, same distinction already honoured by
- * mapV5AnalysisToReport / useNodeDisplayMetadata / useResultsSectionData).
- *
- * Consequence: a pinned/intervention-overridden factor carries
- * sensitivity=0 (options fix its value, so perturbing it moves nothing) but
- * can carry the producer's HIGHEST influence_score (it is structurally the
- * most causally important factor — the model just isn't free to vary it).
- * The old code rendered that factor's card at 0% influence — the opposite
- * of what the producer said.
+ * This retained projection helper's values follow the shared per-set
+ * normalised |elasticity| contract, matching
+ * the hero, results ranking and canvas rank. Producer influence_score is a
+ * separate quantity and cannot put a pinned factor first in this list.
+ * Missing or non-finite elasticity is unranked, represented by no map entry.
  *
  * Fixture: real staging capture (v5-analysis-result.bundle-45c9b625,
  * enrichment.factor_sensitivity) — same fixture already locked by
@@ -30,32 +21,26 @@ import { deriveFactorInfluenceMap } from '../utils'
 import bundleFixture from '../../../../v5/__tests__/fixtures/v5-analysis-result.bundle-45c9b625.json'
 
 describe('deriveFactorInfluenceMap', () => {
-  it('prefers the producer influence_score over elasticity/sensitivity_score for a pinned factor', () => {
+  it('normalises the real fixture by |elasticity|, leaving defined zero elasticities at zero', () => {
     const factorSensitivity = (bundleFixture.block as { enrichment: { factor_sensitivity: unknown[] } })
       .enrichment.factor_sensitivity
 
     const map = deriveFactorInfluenceMap({ factor_sensitivity: factorSensitivity })
 
     expect(map).toBeDefined()
-    // Rank-1 producer influence, but sensitivity/elasticity are BOTH zero
-    // (intervention_override) — the old elasticity-first code would read 0.
-    expect(map!.get('fac_marketing_expertise')).toBe(1)
-    // Rank-4 and rank-5 factors are ALSO pinned (zero_reason
-    // intervention_override) — same failure mode, different magnitudes.
-    expect(map!.get('fac_manager_cost')).toBeCloseTo(0.45161290322580644)
-    expect(map!.get('fac_ad_spend')).toBeCloseTo(0.14516129032258066)
-    // A non-pinned factor's influence_score still wins over its own
-    // elasticity (they happen to be equal here, but the read must come
-    // from influence_score, not elasticity, per doctrine).
-    expect(map!.get('fac_market_receptivity')).toBeCloseTo(0.6209677419354838)
+    // A structural score of 1 does not override a defined elasticity of 0.
+    expect(map!.get('fac_marketing_expertise')).toBe(0)
+    expect(map!.get('fac_manager_cost')).toBe(0)
+    expect(map!.get('fac_ad_spend')).toBe(0)
+    expect(map!.get('fac_market_receptivity')).toBe(1)
+    expect(map!.get('fac_founder_time')).toBeCloseTo(
+      0.4838709677419354 / 0.6209677419354838,
+    )
   })
 
-  it('Lane 2 (R3-B1): PARTIAL producer coverage falls back to per-set normalised elasticity for EVERY factor — no mixed basis', () => {
-    // The complete-metric-set doctrine (driverDisplayModel): adopting the
-    // producer score for SOME factors while others use elasticity mixes two
-    // incomparable bases in one ranking — the exact bug the panel, badge,
-    // hero and tornado were cured of. The model-tab card sits next to the
-    // graph badge for the SAME node; they must agree.
+  it('normalises by |elasticity| regardless of producer score coverage', () => {
+    // A producer score on one row cannot change its basis or outrank a
+    // larger elasticity on another. The Model tab and graph badge agree.
     const map = deriveFactorInfluenceMap({
       factor_sensitivity: [
         { factor_id: 'fac_a', influence_score: 0.9, elasticity: 0.1 },
@@ -67,11 +52,9 @@ describe('deriveFactorInfluenceMap', () => {
     expect(map!.get('fac_b')).toBeCloseTo(1.0)
   })
 
-  it('DELIBERATE PIN FLIP (Lane 2): the legacy shape (no influence_score anywhere) now yields SET-NORMALISED values via the shared policy', () => {
-    // Previously raw passthrough (0.4 / 0.25 / 0.1). Under the shared
-    // driverDisplayModel the no-producer-coverage case normalises to the
-    // set's max |elasticity| — the same numbers the graph badge shows for
-    // these factors.
+  it('normalises legacy magnitude fields through the shared rawElasticity chain', () => {
+    // Legacy fields feed rawElasticity through the shared extractor; they
+    // receive the same set normalisation as explicit elasticity rows.
     const map = deriveFactorInfluenceMap({
       factor_sensitivity: [
         { factor_id: 'fac_legacy_elasticity', elasticity: 0.4 },
@@ -85,26 +68,27 @@ describe('deriveFactorInfluenceMap', () => {
     expect(map!.get('fac_legacy_importance')).toBeCloseTo(0.25)
   })
 
-  it('Lane 2 review fold: factor_sensitivity WINS over the enrichment passthrough when both exist (badge parity)', () => {
+  it('uses factor_sensitivity elasticities ahead of the enrichment passthrough (badge parity)', () => {
     // useNodeDisplayMetadata (the graph badge) prefers certified
     // factor_sensitivity; if this map preferred the untyped enrichment seam
     // the two surfaces could rank different row-sets for the same node.
     const map = deriveFactorInfluenceMap({
-      factor_sensitivity: [{ factor_id: 'fac_x', influence_score: 0.9 }],
+      factor_sensitivity: [
+        { factor_id: 'fac_x', influence_score: 0.9, elasticity: 0.1 },
+        { factor_id: 'fac_leader', elasticity: 0.4 },
+      ],
       enrichment: {
         sensitivity_analysis: {
-          factors: [{ factor_id: 'fac_x', influence_score: 0.1 }],
+          factors: [{ factor_id: 'fac_x', influence_score: 0.1, elasticity: 0.8 }],
         },
       },
     })
 
-    expect(map!.get('fac_x')).toBeCloseTo(0.9)
+    expect(map!.get('fac_x')).toBeCloseTo(0.25)
+    expect(map!.get('fac_leader')).toBe(1)
   })
 
-  it('Lane 2 review fold: camelCase influenceScore is IGNORED (panel parity — snake_case only decides coverage)', () => {
-    // The panel reads snake_case influence_score only; a feeder accepting
-    // camelCase would compute a different coverage-complete verdict for the
-    // same rows. Camel-only rows fall back to the elasticity chain.
+  it('does not let either casing of a producer score change elasticity values', () => {
     const map = deriveFactorInfluenceMap({
       factor_sensitivity: [
         { factor_id: 'fac_camel', influenceScore: 0.9, elasticity: 0.1 },
@@ -112,8 +96,7 @@ describe('deriveFactorInfluenceMap', () => {
       ],
     })
 
-    // fac_camel has NO snake producer score → partial coverage → both
-    // normalise to the set max |elasticity| (0.4).
+    // Producer score fields do not decide the displayed basis.
     expect(map!.get('fac_camel')).toBeCloseTo(0.25)
     expect(map!.get('fac_snake')).toBeCloseTo(1.0)
   })
@@ -122,12 +105,44 @@ describe('deriveFactorInfluenceMap', () => {
     const map = deriveFactorInfluenceMap({
       enrichment: {
         sensitivity_analysis: {
-          factors: [{ factor_id: 'fac_alt_path', influence_score: 0.77 }],
+          factors: [
+            { factor_id: 'fac_alt_path', influence_score: 0.77 },
+            { factor_id: 'fac_defined', elasticity: -0.2 },
+            { factor_id: 'fac_smaller', elasticity: 0.1 },
+          ],
         },
       },
     })
 
-    expect(map!.get('fac_alt_path')).toBeCloseTo(0.77)
+    expect(map!.has('fac_alt_path')).toBe(false)
+    expect(map!.get('fac_defined')).toBe(1)
+    expect(map!.get('fac_smaller')).toBeCloseTo(0.5)
+  })
+
+  it.each([undefined, null, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'omits an undefined/non-finite elasticity (%s), preserving measured zero and signed magnitudes',
+    (elasticity) => {
+      const map = deriveFactorInfluenceMap({
+        factor_sensitivity: [
+          { factor_id: 'fac_unranked', influence_score: 1, elasticity },
+          { factor_id: 'fac_leader', influence_score: 0.1, elasticity: 0.5 },
+          { factor_id: 'fac_negative', elasticity: -0.25 },
+          { factor_id: 'fac_zero', elasticity: 0 },
+        ],
+      })
+
+      expect(map!.has('fac_unranked')).toBe(false)
+      expect(map!.size).toBe(3)
+      expect(map!.get('fac_leader')).toBe(1)
+      expect(map!.get('fac_negative')).toBeCloseTo(0.5)
+      expect(map!.get('fac_zero')).toBe(0)
+    },
+  )
+
+  it('returns no map when every row has a producer score but no defined elasticity', () => {
+    expect(deriveFactorInfluenceMap({
+      factor_sensitivity: [{ factor_id: 'fac_unranked', influence_score: 0.9 }],
+    })).toBeUndefined()
   })
 
   it('returns undefined for an empty or malformed report (no fabrication)', () => {

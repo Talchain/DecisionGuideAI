@@ -104,8 +104,8 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
 // ─── Shared rich option set (echoes the staging Tech Lead scenario) ─────────
 //
 // Row ORDER (and the 1..4 number tokens) follow the SHARED display comparator
-// — win probability descending: 77% > 15% > 6% > 2% (see each row's
-// detail.winChance). It is deliberately NOT the active lens: rows 3 and 4
+// — win probability descending: 77% > 15% > 6% > 2% (the rows no longer
+// say it: #2747 re-scope 2, DL ruling (A)). It is deliberately NOT the active lens: rows 3 and 4
 // read "11% / 22% fit" on Goal fit and "+4% / +6%" on Likely outcome — i.e.
 // row 4 sits ABOVE row 3 on both lenses, yet ranks 4th because it wins least
 // often. This mirrors what the live adapter produces (buildHeroModel ->
@@ -134,7 +134,6 @@ const RICH_ROWS: HeroRowVM[] = [
       watch: 'Onboarding time could delay the first quarter of impact.',
       tradeOff: 'Highest salary cost of the options compared.',
       couldChangeIf: 'Current Team Technical Maturity crosses 70%.',
-      winChance: '77% chance it is the strongest option overall.',
       range: 'Realistic range: -1% to +45%.',
       goalFit: '62% chance of hitting your goal.',
     },
@@ -155,7 +154,6 @@ const RICH_ROWS: HeroRowVM[] = [
     stability: { value: 0.55, readout: 'Moderate' },
     detail: {
       why: 'More capacity helps only after the current bottleneck clears.',
-      winChance: '15% chance it is the strongest option overall.',
       range: 'Realistic range: -5% to +25%.',
       goalFit: '34% chance of hitting your goal.',
     },
@@ -175,7 +173,6 @@ const RICH_ROWS: HeroRowVM[] = [
     changeReadout: '+4% (no change)',
     stability: { value: 0.31, readout: 'Fragile' },
     detail: {
-      winChance: '6% chance it is the strongest option overall.',
       range: 'Realistic range: +1% to +7%.',
       goalFit: '11% chance of hitting your goal.',
     },
@@ -197,7 +194,6 @@ const RICH_ROWS: HeroRowVM[] = [
     changeReadout: '+6% (was +7%)',
     stability: { value: 0.48, readout: 'Moderate' },
     detail: {
-      winChance: '2% chance it is the strongest option overall.',
       range: 'Realistic range: -3% to +18%.',
       goalFit: '22% chance of hitting your goal.',
     },
@@ -239,7 +235,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
       // Producer-text simulations: em-dash-free (house style; the panel
       // also glyph-guards these slots) and a status consistent with the
       // previous-run marks the What-changed lens draws — a first pass
@@ -274,7 +270,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {
@@ -301,7 +297,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
       showGoalHint: true,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
       targetUnit: '%',
     }),
   },
@@ -411,7 +407,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {
@@ -440,7 +436,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {

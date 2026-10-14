@@ -1,3 +1,4 @@
+import { critiqueRunContext } from './utils/critiqueRunContext'
 import { useSwitchFactorNodes } from '../../canvas/hooks/useSwitchFactorNodes'
 /**
  * useResultsSectionData Hook
@@ -75,7 +76,7 @@ import { resultsGoalLabel } from './utils/resultsGoalLabel'
 import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
-import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { goalProbabilityDetails, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { resolveOptionInterventionCount } from '../../canvas/nodes/shared/optionInterventionCount'
@@ -87,7 +88,6 @@ import {
   runAnalysedAnyOption,
   takenOutReasonOf,
 } from './utils/notAnalysedOptions'
-import { optionParticipationOf } from '../../canvas/state/storedOptionParticipation'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
@@ -96,6 +96,10 @@ import {
   readInfluenceGatedBy,
   resolveDriverSemanticLabels,
   selectDriverDisplayModel,
+  isRankedDriverRow,
+  extractPolicyRow,
+  readDriverLevel,
+  type DriverLevelNode,
   MAX_BADGED_RANK,
 } from './driverDisplayModel'
 import { deriveDeterminedFactorOrder } from '../../canvas/utils/factorRowOrder'
@@ -117,14 +121,16 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
-import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
+import { readGoalFigureWithholds, readGoalIdentityWithheld, sharedServedWithheldWhy } from './utils/goalIdentityWithheld'
+import { isUnsizedRelationship } from '../../canvas/domain/edgeProvenance'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
-import { readGoalChanceLicence, type GoalChanceDriverNames, type GoalChanceLicence } from './utils/goalChanceLicence'
+import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
+import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
+import { runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
-import { readGoalChanceRange, type GoalChanceRange } from './utils/goalChanceRange'
+import type { GoalChanceRange } from './utils/goalChanceRange'
 
 // =============================================================================
 // Winner Selection Helper
@@ -153,6 +159,7 @@ export function determineWinnerSelection(
 
   if (backendRecommendedId) {
     const backendOption = options.find(opt => opt.id === backendRecommendedId)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     if (backendOption?.winProbability != null) {
       return { recommendedId: backendRecommendedId, determinedBy: 'win_probability' }
     }
@@ -548,7 +555,7 @@ export interface DriverPolicyRow {
    */
   importanceBasis: string | null
   /**
-   * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
+   * Resolved magnitude (wire chain; NaN when absent, never a measured zero).
    * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
    * field with a comparator that sorts it as given, so the sign must not
    * survive into the feed: it would order equal-magnitude drivers by
@@ -556,6 +563,8 @@ export interface DriverPolicyRow {
    * for the signed wire value when disclosing direction.
    */
   rawElasticity: number
+  /** Known factor level, with graph observed_state.value as fallback. */
+  level?: number
   /** Factor confidence (0-1) when the wire carried one. */
   confidence: number | null
   /**
@@ -626,7 +635,8 @@ const EMPTY_NODE_LABEL_MAP = new Map<string, string>()
 
 /** Per-report memo (C4 review: memoise per REPORT, not per node — the canvas
  * hook runs once per node and must not rebuild the merge each time). */
-const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
+const driverPolicyFeedCache = new WeakMap<object, WeakMap<ReadonlyArray<DriverLevelNode>, DriverPolicyFeed>>()
+const EMPTY_DRIVER_LEVEL_NODES: ReadonlyArray<DriverLevelNode> = []
 
 /**
  * The panel's five-source row merge, extracted VERBATIM into a pure function
@@ -648,9 +658,10 @@ const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
  */
 export function selectDriverPolicyFeed(
   report: ResultsReport | null | undefined,
+  nodes: ReadonlyArray<DriverLevelNode> = EMPTY_DRIVER_LEVEL_NODES,
 ): DriverPolicyFeed {
   if (!report || typeof report !== 'object') return EMPTY_DRIVER_POLICY_FEED
-  const cached = driverPolicyFeedCache.get(report)
+  const cached = driverPolicyFeedCache.get(report)?.get(nodes)
   if (cached) return cached
 
   // Collect raw factors from multiple sources (moved from the drivers memo)
@@ -725,10 +736,13 @@ export function selectDriverPolicyFeed(
     }
   })
 
+  const nodeLevels = new Map(nodes.map((node) => [node.id, readDriverLevel(node.data)]))
   const policyRows: DriverPolicyRow[] = rawFactors.map((f, index) => {
     const norm = normalizeFactorSensitivity(f, EMPTY_NODE_LABEL_MAP)
+    const key = getFactorKey(norm, index)
+    const policy = extractPolicyRow({ ...f, factor_id: key }, nodeLevels.get(key))
     return {
-      key: getFactorKey(norm, index),
+      key,
       influenceScore: norm.influenceScore,
       influenceGated: norm.influenceGatedBy !== undefined,
       importanceBasis: norm.importanceBasis ?? null,
@@ -742,7 +756,8 @@ export function selectDriverPolicyFeed(
       // producer feeding the same comparator) abs's too; this keeps all
       // feeders on one semantics. Direction is NOT lost — surfaces that
       // disclose it read the signed wire row from `rawFactors`.
-      rawElasticity: Math.abs(getRawElasticity(norm)),
+      rawElasticity: policy?.rawElasticity ?? Number.NaN,
+      level: policy?.level ?? readDriverLevel(f) ?? nodeLevels.get(key),
       confidence: norm.confidence,
       // Derived from the SAME normalised row the confidence itself came from,
       // by the SAME function the panel uses — not a second reading of the wire.
@@ -757,7 +772,9 @@ export function selectDriverPolicyFeed(
 
   const displayModel = selectDriverDisplayModel(policyRows)
   const feed: DriverPolicyFeed = { rawFactors, usedEnrichmentFallback, policyRows, displayModel }
-  driverPolicyFeedCache.set(report, feed)
+  const byNodes = driverPolicyFeedCache.get(report) ?? new WeakMap<ReadonlyArray<DriverLevelNode>, DriverPolicyFeed>()
+  byNodes.set(nodes, feed)
+  driverPolicyFeedCache.set(report, byNodes)
   return feed
 }
 
@@ -786,8 +803,7 @@ export function selectDriverPolicyFeed(
 function computeFactorRanks(
   factors: Array<{ key: string; rawElasticity: number; displayValue?: number; importanceRank?: number; label?: string }>
 ): Map<string, number> {
-  // Codex B2: sort by the DISPLAYED influence metric (producer
-  // influence_score, else the elasticity-derived fallback the bar shows) so
+  // Sort by the DISPLAYED influence metric (normalised |elasticity|) so
   // the row order and the rank-1 "Top driver" crown always agree with the
   // visible Influence bar. Elasticity remains the first tie-break.
   const sorted = [...factors].sort((a, b) => {
@@ -1348,12 +1364,16 @@ export interface ResultsSectionDataReturn {
   winSharesWithheld?: boolean
   /** The reason line each withheld surface shows instead (`winShareWithheldReason`), or `null` when permitted. */
   winShareWithheldReason?: string | null
+  /** Typed provenance for deduplicating another wording of the same warning. */
+  winShareWithheldCause?: string | null
   /**
    * ⭐ D3 step 2: the goal chance's OWN licence, as CEE decided it and stored it with the Run (`GOAL_CHANCE_LICENSED`,
    * read by identity in `utils/goalChanceLicence`). Separate from the win-share gate above. OPTIONAL like it: absent or
    * `null` = no licence, and every surface renders exactly as before.
    */
   goalChanceLicence?: GoalChanceLicence | null
+  /** ⭐ RunView PR 1: the Run's one per-option view (`runViewOf`). OPTIONAL: absent = the empty view. */
+  runView?: RunView
   /**
    * ⭐ G4/G5 phase 2, P3: how the hero names what an option's goal chance rests on most (CEE's `driver_by_option` on the
    * licence): a node's canvas label and a factor's unit. The hero words the sentence. OPTIONAL: absent = nothing is said.
@@ -1383,7 +1403,8 @@ export function optionSetReadings(
   return out
 }
 
-export function useResultsSectionData(): ResultsSectionDataReturn {
+/** Results owns row registration; canvas readers reuse its projection without those effects. */
+export function useResultsSectionData({ registerCanvasRows = true }: { registerCanvasRows?: boolean } = {}): ResultsSectionDataReturn {
   // ⛔ AIQ pre-share hold (R3 B0 S3): a Run that is not current is never re-described against today's option list.
   const runIsCurrent = useAnalysisResultsAreCurrent()
   const {
@@ -1496,18 +1517,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const leaderPermission = report?.producer_leader_permission ?? null
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
-  const goalChanceLicence = useMemo(
-    () => readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
-    [report],
-  )
+  // ⭐ RunView PR 1: the Run's ONE view, built once per report (`runViewOf`); the licence and range are read there only.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const runView = useMemo(() => runViewOf(report, canonical), [report, canonical])
+  const goalChanceLicence = runView.goalChance
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
     [report],
   )
-  const goalChanceRange = useMemo(
-    () => readGoalChanceRange((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
-    [report],
-  )
+  const goalChanceRange = runView.goalChanceRange
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -2065,6 +2084,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const recommendation = useMemo<DecisionResultData>(() => {
     if (!hasCompletedFirstRun || !report) {
       return {
+        hasOptionResult: false,
+        rankedComparisonPopulation: 0,
         recommendedOption: null,
         allOptions: [],
         goalLabel,
@@ -2192,7 +2213,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const edge = edges.find((e) => e.source === l.from && e.target === l.to)
           // ⛔ The retained warning is the Run's word; whether the link is STILL unsized is the edge's. Once Edit or an
           // acceptance sizes it (or the user states it), the typed placeholder predicate clears and the offer goes (#2408 CR).
-          if (!edge || seen.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
+          if (!edge || seen.has(edge.id) || !isUnsizedRelationship(edge.data as Record<string, unknown> | undefined)) continue
           seen.add(edge.id)
           const labelOf = (id: string) => String((nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label ?? id)
           out.push({ edgeId: edge.id, fromLabel: labelOf(l.from), toLabel: labelOf(l.to) })
@@ -2280,25 +2301,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           }
         : undefined
 
-      // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
-      // fall back to goal_probability (unconstrained).
-      // Staging trust review: when ISL auto-derives the goal threshold as a
-      // constraint (constraint_probabilities.auto_goal_threshold), the run
-      // carries probability_of_joint_goal but NO goal_probability and NO
-      // constraint_analysis — the joint value IS the goal probability there,
-      // so it is the final fallback. Discarding it hid the run's most
-      // decision-relevant fact (every option at 0% chance of the target).
-      // ROADMAP 1.49: extracted to selectGoalProbability (utils/) so every
-      // surface (this hook, OptionNode's badge) shares one fallback chain
-      // instead of re-deriving it.
-      // GOAL-PROBABILITY IDENTITY: the selector owns the whole decision —
-      // which quantity may be shown, and with what provenance. The caveat
-      // flag was previously re-derived HERE from the selector's `isJoint`
-      // plus a local `goal_fit_basis` read, and the canvas hook derived the
-      // same pair independently; the two disagreed live. Read them, never
-      // re-derive them.
-      const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
-      const { goalProbability, goalFitIsModelledBasis, goalFitBaseCaveat } = goalDecision
+      const chance = runView.chanceOf(nodeId)
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf)
+      const goalProbability = chance.kind === 'figure' ? chance.pct / 100 : null
+      const details = goalProbabilityDetails(prob as GoalProbabilityInput)
+      const goalFitIsModelledBasis = false
+      // A licensed withholding retains its basis metadata without licensing a figure; so does a gated range (#2747: a
+      // ranged option has no point figure through the gate, but its range is this Run's licensed quantity).
+      const gatedRanged = runView.goalChanceRange !== null && Object.prototype.hasOwnProperty.call(runView.goalChanceRange.rangeByOption, nodeId)
+      const goalFitBaseCaveat = chance.kind === 'figure' || (chance.kind === 'withheld' && chance.by === 'licence') || gatedRanged
+        ? details.baseCaveat : null
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -2346,6 +2358,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         p50: scaledP50,
         p90: scaledP90,
         isRecommended: false, // Will be set immutably below
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps the report's win share onto the option view
         winProbability: prob.win_probability,
         nValidSamples,
         // 2.449 — omitted entirely when the engine had nothing honest to say.
@@ -2391,20 +2404,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         goalProbability,
         goalFitIsModelledBasis,
         goalFitBaseCaveat,
-        ...(goalDecision.goalCertaintyUnearned ? { goalCertaintyUnearned: goalDecision.goalCertaintyUnearned } : {}),
-        // Which quantity `goalProbability` actually IS, carried to the render
-        // layer so prose can name it honestly (see types.ts).
-        //
-        // ⭐ L62: reads the owner's published PERMISSION on a present number
-        // rather than testing a basis literal. Always false today — the
-        // substitution is withheld at source, so anything rendered here earns
-        // the possessive.
-        goalFitIsSubstitutedJoint:
-          goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
-        // ⭐ L62: "a goal number was WITHHELD" — distinct from "there is no
-        // goal number", which is also the no-target state. Forwarded from the
-        // owner, never re-derived.
-        goalFitWithheld: goalDecision.jointSubstitutionWithheld,
+        ...(details.goalCertaintyUnearned ? { goalCertaintyUnearned: details.goalCertaintyUnearned } : {}),
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
         ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),
@@ -2424,8 +2424,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
                   ceeOptions: ceeAnalysisReady?.options,
                   nodeInterventions: (optionNodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
                 }),
-                (oid) => optionParticipationOf(report, oid)?.state === 'excluded_olumi_proposed',
-                (oid) => takenOutReasonOf(optionParticipationOf(report, oid)?.state),
+                // ⭐ RunView PR 1b: the participation fact through the Run's one view (same report, same reader).
+                (oid) => runViewOf(report).participationOf(oid)?.state === 'excluded_olumi_proposed',
+                (oid) => takenOutReasonOf(runViewOf(report).participationOf(oid)?.state),
               ),
             }
           : {}),
@@ -2608,6 +2609,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ? sortedOptions.find(o => o.id === baselineId)
       : null
     // Issue #2 fix: Fall back to goalProbability when expected is null
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     const baselineOutcome = baselineOption?.expected ?? baselineOption?.goalProbability ?? null
 
     // Immutably mark recommended option and add baseline/delta info (no mutation of existing objects)
@@ -2615,6 +2617,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const isBaseline = option.id === baselineId
       // Task 2.2: Calculate point delta (absolute, not percent)
       // Issue #2 fix: Use expected ?? goalProbability for delta calculation
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
       const optionOutcome = option.expected ?? option.goalProbability
       const deltaFromBaseline = !isBaseline && baselineOutcome != null && optionOutcome != null
         ? optionOutcome - baselineOutcome
@@ -2639,6 +2642,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         : undefined
 
     // Task 1.3: Extract win_probability from recommended option
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     const winProbability = recommendedOption?.winProbability
 
     // Task 1.5: Extract robustness level and label
@@ -2698,6 +2702,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
+
+    // C5 (run-3 judge): CEE's one served withheld reason, when every option it serves is withheld with the same why.
+    const servedWithheldWhy = sharedServedWithheldWhy((canonical?.options ?? []).map(o => runView.servedCellOf(o.option_id)))
 
     // Display-safe robustness verdict consumption (lane 35 fix 3,
     // ROADMAP 1.6; producer PLoT #202). Raw response first (fresh run),
@@ -2846,6 +2853,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
       // can report: both are rebuilt from the CURRENT option nodes, so a deletion
       // makes them say "this run ranked nothing" about a report that ranked two.
+      hasOptionResult: runAnalysedAny,
       rankedComparisonPopulation,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
@@ -2917,7 +2925,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
-      goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message ?? null,
+      // C5 (run-3 judge): when the producer's warning words fail the display check, the reader says its own fallback;
+      // CEE's served cells may carry the same reason, verbatim, and then they speak instead (label, don't hide).
+      goalFiguresWithheldMessage: (() => {
+        const read = readGoalIdentityWithheld(report)?.message ?? null
+        // Batch E: the reader now keeps CEE's warning words whatever their opening, so the current Run's one served why
+        // speaks first whenever the figures are withheld (it was only the fallback's replacement).
+        return read !== null && servedWithheldWhy !== null ? servedWithheldWhy : read
+      })(),
+      servedWithheldWhy,
       goalHoldsTodayLevel: (() => {
         const os = (goalNode?.data as { observedState?: { raw_value?: unknown } } | undefined)?.observedState
         return typeof os?.raw_value === 'number' && Number.isFinite(os.raw_value)
@@ -3015,7 +3031,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, runView, canonical, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -3027,7 +3043,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // this panel and the canvas hook (useNodeDisplayMetadata) both read, so
     // the coverage verdict (and therefore the disclosed basis) cannot fork
     // between the two surfaces for the same report.
-    const feed = selectDriverPolicyFeed(report)
+    const feed = selectDriverPolicyFeed(report, nodes)
     const rawFactors = feed.rawFactors
 
     // P0 DIAGNOSTIC: Log the resolved source-1 rows to verify field mapping
@@ -3064,6 +3080,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Step 1: Extract keys and raw elasticities
     const allFactorsWithKeys = normalizedFactors.map((f, index) => ({
       raw: f,
+      policy: feed.policyRows[index],
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
       influenceScore: f.influenceScore,
@@ -3074,20 +3091,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // no figure, no bar, no rank, no tier, never "minimal impact". They are
     // listed apart (`gatedDrivers`) and every step below ranges over the rest,
     // on the same split `selectDriverDisplayModel` makes.
-    const factorsWithKeys = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy === undefined)
+    const factorsWithKeys = allFactorsWithKeys.filter((f) => feed.displayModel.has(f.key) && isRankedDriverRow(f.policy))
     const gatedFactors = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy !== undefined)
+    const unrankedFactors = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy === undefined && !feed.displayModel.has(f.key))
 
     // Step 2: Compute dynamic normalisation
     const normalisedMap = computeNormalisedInfluences(factorsWithKeys)
 
     // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
     // the surface says "Influence", so the order and the rank-1 crown follow
-    // the same number the bar renders. Codex R3-B1 tightens this to a
-    // complete-metric-set policy: producer influence_score is used only when
-    // EVERY factor carries one — a partial set would rank a mixture of
-    // producer scores and elasticity-normalised fallbacks, which are not
-    // comparable. Under partial coverage every factor displays and ranks by
-    // normalisedInfluence instead, so the whole surface shares one basis.
+    // the same normalised |elasticity| the bar renders and the hero orders by.
     // Codex R3-B1: display value + provenance from the ONE shared policy
     // (driverDisplayModel) — the same function the graph badge consumes.
     // C4 fix 2: read the model off the shared FEED rather than recomputing it
@@ -3220,6 +3233,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined,
       }
     })
+    const unrankedDrivers: GatedDriverItem[] = unrankedFactors.map((f) => {
+      const { canFocus, matchedNodeId, displayLabel } = resolveRowTarget(f.key, f.raw.label)
+      return { factorKey: f.key, factorLabel: displayLabel, canFocus, matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined }
+    })
     const driverItems: DriverItem[] = factorsWithKeys
       .filter(f => {
         // Always keep if we have few factors — counted over the RANKED rows: a covered-withheld row is listed
@@ -3278,7 +3295,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           factorLabel: displayLabel,
           rawElasticity: f.rawElasticity,
           normalisedInfluence,
-          // ISL influence_score (0-1) - use directly for Influence column
+          // Preserve ISL influence_score separately from the displayed sensitivity.
           influenceScore: f.raw.influenceScore,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
           displayInfluence: displayModel.get(f.key)?.value ?? 0,
@@ -3375,15 +3392,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const topDrivers = nonZeroImpactDrivers.slice(0, 3)
 
     // ⭐ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7): the card's own
-    // Driver 1, off the SAME feed the canvas cards rank from. `topDrivers` above
-    // is the structural order and is NOT this — see `DriversSectionData.driverLeader`.
+    // Driver 1, off the SAME feed and |elasticity| order as `topDrivers` above,
+    // with the card's rank-1 gate — see `DriversSectionData.driverLeader`.
     const driverLeader = feed.policyRows.length > 0
       ? sensitivityLeader(feed.policyRows, feed.displayModel)
       : undefined
 
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
-    const islErrorMessage = driverItems.length === 0 && gatedDrivers.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
+    const islErrorMessage = driverItems.length === 0 && gatedDrivers.length === 0 && unrankedDrivers.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
       ? (report?.drivers_error ??
          report?.sensitivity?.error ??
          report?.isl_error ??
@@ -3392,8 +3409,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     return {
       drivers: driverItems,
-      driversStatus: driverItems.length > 0 || gatedDrivers.length > 0 ? 'computed' : driversStatus,
+      driversStatus: driverItems.length > 0 || gatedDrivers.length > 0 || unrankedDrivers.length > 0 ? 'computed' : driversStatus,
       ...(gatedDrivers.length > 0 ? { gatedDrivers } : {}),
+      ...(unrankedDrivers.length > 0 ? { unrankedDrivers } : {}),
       topDrivers,
       // v7.2: totalCount reflects non-zero-impact drivers only (visible count)
       totalCount: nonZeroImpactDrivers.length,
@@ -3494,7 +3512,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             ? 'Early sketch'
             : 'Unknown',
       description: tier === 'strong'
-        ? 'Your model captures this decision well.'
+        ? 'Your model captures this situation well.'
         : tier === 'fair'
           ? 'Your model covers the basics. Address the items below.'
           : tier === 'needs_work'
@@ -4085,7 +4103,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
     const humanisedCritiques = plotCritiques.map(item => ({
       code: item.code,
-      ...humaniseCritique(item, nodeLabelMap),
+      ...humaniseCritique(item, nodeLabelMap, critiqueRunContext(winSharesAreWithheld, recommendation.rankedComparisonPopulation ?? 0)),
     }))
 
     return {
@@ -4108,6 +4126,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
       // P0.1: Humanised critiques for attention banner
       humanisedCritiques,
+      critiqueRunContext: critiqueRunContext(winSharesAreWithheld, recommendation.rankedComparisonPopulation ?? 0),
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
       // ⭐ THE PRODUCER'S SILENCE IS A THIRD STATE, AND IT USED TO BE
@@ -4498,6 +4517,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
         const probOf = (b: Record<string, unknown>): { ok: boolean; value?: number } => {
           if (!('win_probability' in b)) return { ok: true }
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps the report's win share onto the option view
           const p = b.win_probability
           if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1) return { ok: true, value: p }
           return { ok: false }
@@ -4678,7 +4698,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // decide from ONE adapted array. Listing it is a correctness dependency,
     // not lint appeasement: with a stale closure the CX5 suppression would be
     // computed from the previous run's flip evidence.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable, winSharesAreWithheld])
 
   /**
    * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.
@@ -4789,11 +4809,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // selector) — one order per question, which is the point.
   const optionIds = recommendation.allOptions.map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
+  // ⭐ RUN-3 JUDGE U7: both canvas rows are read again when a layout lands. The drafted graph sits stacked at {0,0}
+  // until then, so a registration or a seat that ran first read no row at all, and only a reopen (laid out first) read
+  // the saved model's row. `layoutVersion` moves on product layouts only, never on a person's drag.
+  const layoutVersion = useCanvasStore((s) => s.layoutVersion)
   useEffect(() => {
-    if (optionIds.length === 0) return
+    if (!registerCanvasRows || optionIds.length === 0) return
     useCanvasStore.getState().registerOptionNumbering(optionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
-  }, [optionIdsKey])
+  }, [registerCanvasRows, optionIdsKey, layoutVersion])
 
   // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
   //
@@ -4824,10 +4848,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // rows, ruling R1 untouched.
   const determinedFactorOrder = useMemo(
     () => {
-      const feed = selectDriverPolicyFeed(report ?? null)
+      const feed = selectDriverPolicyFeed(report ?? null, nodes)
       return deriveDeterminedFactorOrder(
         // A gated row has no rank, so it takes no position either (ISL #213).
-        feed.policyRows.filter((r) => r.influenceGated !== true).map((r) => ({
+        feed.policyRows.filter((r) => feed.displayModel.has(r.key) && isRankedDriverRow(r)).map((r) => ({
           key: r.key,
           elasticity: r.rawElasticity,
           // The SAME resolved display value the badge ranks from, and the same
@@ -4838,14 +4862,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         MAX_BADGED_RANK,
       )
     },
-    [report],
+    [report, nodes],
   )
   const determinedFactorOrderKey = JSON.stringify(determinedFactorOrder)
   useEffect(() => {
-    if (determinedFactorOrder.length < 2) return
+    if (!registerCanvasRows || determinedFactorOrder.length < 2) return
     useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
-  }, [determinedFactorOrderKey])
+  }, [registerCanvasRows, determinedFactorOrderKey, layoutVersion])
 
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return
@@ -4872,10 +4896,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReviewTargets,
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
+      winShareWithheldCause: leaderPermission?.producer_cause,
       goalChanceLicence,
       goalChanceDriverNames,
       goalChanceInvite,
       goalChanceRange,
+      runView,
     }),
     [
       recommendation,
@@ -4900,6 +4926,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalChanceDriverNames,
       goalChanceInvite,
       goalChanceRange,
+      runView,
     ],
   )
 }

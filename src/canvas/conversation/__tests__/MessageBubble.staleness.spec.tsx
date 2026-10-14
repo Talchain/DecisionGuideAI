@@ -48,6 +48,8 @@ vi.mock('../useConversation', async () => {
 
 import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
+import { ChatThread } from '../zones/ChatThread'
+import { readNarration } from '../narrationTurn'
 import type { ConversationMessage, GraphPatchBlock } from '../types'
 import type { CEEAnalysisReady } from '../../../adapters/cee/types'
 
@@ -81,6 +83,84 @@ function makeMsg(freshness?: CEEAnalysisReady['freshness']): ConversationMessage
 }
 
 const noop = async () => {}
+
+describe('stale resend narration', () => {
+  it.each(['top', 'additive'])('accepts an explicitly unknown original Run at %s level', level => {
+    const payload = { narration: { status: 'stale', run_key: '' } }
+    expect(readNarration(level === 'top' ? payload : { __additive__: payload }))
+      .toEqual({ status: 'stale', runKey: '' })
+  })
+
+  it.each(['pending', 'ready', 'unavailable'])('still rejects an empty %s key', status => {
+    expect(readNarration({ narration: { status, run_key: '' } })).toBeNull()
+    expect(readNarration({ narration: { status, run_key: ' ' } })).toBeNull()
+  })
+
+  it.each([undefined, null, 7, ' '])('rejects a malformed stale key: %s', run_key => {
+    expect(readNarration({ narration: { status: 'stale', run_key } })).toBeNull()
+  })
+
+  it.each(['pending', 'ready', 'unavailable'])('retains valid %s narration without adding a pill', status => {
+    const narration = readNarration({ narration: { status, run_key: 'rk' } })!
+    expect(narration).toEqual({ status, runKey: 'rk' })
+    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} />)
+    expect(screen.queryByTestId('staleness-pill')).toBeNull()
+  })
+
+  it.each([
+    ['', 'rk_new', 'unknown'],
+    ['', null, 'unknown'],
+    ['rk_old', null, 'unknown'],
+    ['rk_old', '', 'unknown'],
+    ['rk_old', 'rk_old', 'unknown'],
+    ['rk_old', 'rk_new', 'unknown'],
+  ] as const)('original %s, latest %s → %s without result blocks', (runKey, _latestRunKey, freshness) => {
+    const narration = readNarration({ narration: { status: 'stale', run_key: runKey } })!
+    render(<MessageBubble message={{ ...makeMsg(), blocks: undefined, narration }} onChipClick={noop} />)
+    const pill = screen.getByTestId('staleness-pill')
+    expect(pill.getAttribute('data-freshness')).toBe(freshness)
+    expect(pill.textContent).toBe(freshness === 'unknown'
+      ? 'Cannot confirm this analysis is up to date'
+      : 'Model changed since last analysis')
+    expect(screen.getByTestId('message-assistant').textContent).toBe('Result text')
+  })
+
+  it('unknown narration cannot inherit a stronger claim from a result block', () => {
+    render(<MessageBubble message={{ ...makeMsg('stale'), narration: { status: 'stale', runKey: '' } }} onChipClick={noop} />)
+    expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
+    expect(screen.queryByText('Model changed since last analysis')).toBeNull()
+  })
+
+  it('does not show a narration pill on a user message', () => {
+    render(<MessageBubble message={{ ...makeMsg(), role: 'user', narration: { status: 'stale', runKey: '' } }} onChipClick={noop} />)
+    expect(screen.queryByTestId('staleness-pill')).toBeNull()
+  })
+
+  it('through the thread, a stale resend shows "cannot confirm" even after a newer Run (no hash evidence)', () => {
+    const originalScroll = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = () => {}
+    const resend: ConversationMessage = { ...makeMsg(), blocks: undefined, narration: { status: 'stale', runKey: 'rk_old' } }
+    const draw = (runKey: string) => <ChatThread
+      messages={[
+        { id: 'run', role: 'assistant', content: 'Run complete.', timestamp: new Date(), narration: { status: 'unavailable', runKey } },
+        resend,
+      ]}
+      isThinking={false} longRunningHint={null} nodeCount={4}
+      patchBlockStates={new Map()} patchRejections={new Map()}
+      onChipClick={noop} onPatchAccept={() => {}} onPatchDismiss={() => {}}
+      onFeedback={() => {}} onRetry={() => {}}
+    />
+    try {
+      const { rerender } = render(draw('rk_old'))
+      expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
+      rerender(draw('rk_new'))
+      expect(screen.getByTestId('staleness-pill').getAttribute('data-freshness')).toBe('unknown')
+      expect(screen.queryByText('Model changed since last analysis')).toBeNull()
+    } finally {
+      Element.prototype.scrollIntoView = originalScroll
+    }
+  })
+})
 
 describe('MessageBubble — staleness pill', () => {
   it('renders stale pill when freshness is "stale"', () => {

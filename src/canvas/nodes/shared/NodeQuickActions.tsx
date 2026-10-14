@@ -14,7 +14,7 @@ import {
   CANVAS_REPEATED_RAIL_INSET_CLASSES,
 } from './canvasGlyphScale'
 import { COACHING_ICON_GLYPH, NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
+import { NODE_RAIL_AI_GLYPH_CLASSES, NODE_RAIL_AI_GLYPH_PX, NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import type { ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 
 /**
@@ -476,7 +476,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           >
             {/* The Olumi AI icon (DS v5 §9.8; Paul 30 Sep) — the ONE "Ask Olumi" glyph, the SAME mark as the rail's
                 coaching door (`COACHING_ICON_GLYPH`), so one act never wears two glyphs. */}
-            <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+            <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_AI_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_AI_GLYPH_CLASSES} />
           </button>
         </Tooltip>
       )}

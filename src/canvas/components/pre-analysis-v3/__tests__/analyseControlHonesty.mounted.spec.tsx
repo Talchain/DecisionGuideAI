@@ -100,7 +100,7 @@ describe('the real journey: the obvious Analyse control works on a live model', 
 
     const footer = screen.getByTestId('pre-analysis-v3-footer')
     expect(footer).toHaveTextContent(FOOTER_COPY.ready)
-    expect(footer).not.toHaveTextContent(FOOTER_COPY.notReady)
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
     expect(footer).not.toHaveTextContent('Analysis is held')
   })
 

@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
 import { prioritiseBlocks } from '../useConversation'
 import type { ConversationMessage, ConversationBlock, ActionChip, GraphPatchBlock } from '../types'
@@ -110,7 +110,7 @@ describe('Mixed blocks integration — full assistant message', () => {
     // chips are rendered externally by SuggestedChips, not inside MessageBubble
   })
 
-  it('the disclosure reveals every demoted card, with the pinned patch staying top-level', () => {
+  it('U7: all cards and the approval patch render at rest', () => {
     // Rewritten for the composition ruling: the demoted class must be blocks
     // the cap actually governs (bordered coaching cards), not inline
     // commentary. The patch rides along to pin the two-class interaction —
@@ -145,20 +145,17 @@ describe('Mixed blocks integration — full assistant message', () => {
 
     // Control: the cap IS engaged — C4/C5 are demoted, so the reveal below is
     // a real test of the disclosure and not a no-op on an already-full turn.
-    expect(screen.queryByText('C4')).not.toBeInTheDocument()
-    expect(screen.queryByText('C5')).not.toBeInTheDocument()
+    expect(screen.getByText('C4')).toBeVisible()
+    expect(screen.getByText('C5')).toBeVisible()
     // The pinned patch is top-level BEFORE the disclosure is opened.
     expect(screen.getByTestId('block-graph-patch-patch-2')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('block-detail-toggle'))
 
     // Everything is reachable through ONE interaction, each exactly once.
     for (const label of ['C1', 'C2', 'C3', 'C4', 'C5']) {
       expect(screen.getAllByText(label)).toHaveLength(1)
     }
     // The pinned patch did NOT get swept into the disclosure body.
-    const body = screen.getByTestId('block-detail-body')
-    expect(within(body).queryByTestId('block-graph-patch-patch-2')).not.toBeInTheDocument()
-    expect(screen.getByText('Show less')).toBeInTheDocument()
+    expect(screen.queryByTestId('block-detail-body')).toBeNull()
   })
 })

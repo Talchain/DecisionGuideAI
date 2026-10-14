@@ -495,6 +495,9 @@ describe('rankActOnItRows — §2 per-category row shape', () => {
 })
 
 // ── §3b The fragile-row sentence obeys the model's leader licence ───────────
+// Run-4 judge (DL 12 Oct, the class): the naming arm ("the most-supported option could change") is removed on EVERY run
+// and nothing replaces it; the row no longer reads the leader licence. The arms keep their inputs (withheld, permitted,
+// no authority, no recommendation) and now pin the neutral sentence on each.
 
 describe('rankActOnItRows — the risk row does not name a leader the run withheld', () => {
   const fragile = { fromId: 'n_f', fromLabel: 'Hiring rate' }
@@ -521,15 +524,19 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
     expect(reason).not.toContain('recommended option')
   })
 
-  it('PERMITTED — still names the leading option (the case the gate must NOT affect)', () => {
-    expect(reasonFor(true)).toBe(NAMES)
+  it('PERMITTED — names no leader either: the neutral sentence', () => {
+    // Run-4 judge (DL 12 Oct, the class): the permitted naming sentence is removed; nothing replaces it.
+    expect(reasonFor(true)).not.toBe(NAMES)
+    expect(reasonFor(true)).not.toContain('most-supported option')
+    expect(reasonFor(true)).toBe(WITHHOLDS)
   })
 
-  it('NO AUTHORITY — absent licence is not withholding, so the sentence survives', () => {
-    // ⚠ THE #1232 REGRESSION GUARD, and the reason the gate is `=== false`.
-    // Gating on `=== true` would swallow this arm — a true sentence the
-    // product had earned, swapped for a vaguer one on every legacy run.
-    expect(reasonFor(undefined)).toBe(NAMES)
+  it('NO AUTHORITY — the neutral sentence too', () => {
+    // Was the #1232 regression guard (absent licence kept the naming sentence). Run-4 judge (DL 12 Oct, the class):
+    // the naming sentence is removed on every run; nothing replaces it.
+    expect(reasonFor(undefined)).not.toBe(NAMES)
+    expect(reasonFor(undefined)).not.toContain('most-supported option')
+    expect(reasonFor(undefined)).toBe(WITHHOLDS)
   })
 
   it('NO RECOMMENDATION AT ALL — withholds, though the licence reads undefined', () => {
@@ -545,11 +552,12 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
     expect(reason).not.toContain('most-supported option')
   })
 
-  it('the three arms are genuinely discriminating', () => {
-    // Pins the precondition: if these ever collapse to one string the arms
-    // above would all pass while proving nothing.
-    expect(new Set([reasonFor(false), reasonFor(true)]).size).toBe(2)
-    expect(reasonFor(true)).toBe(reasonFor(undefined))
+  it('the three licences now yield ONE sentence, and it is the neutral one', () => {
+    // Was "the three arms are genuinely discriminating" (two strings). Run-4 judge (DL 12 Oct, the class): the naming
+    // arm is removed; nothing replaces it. The inputs are still three different licences (false / true / undefined),
+    // so this pins the removal across all of them rather than on one.
+    const reasons = new Set([reasonFor(false), reasonFor(true), reasonFor(undefined)])
+    expect([...reasons]).toEqual([WITHHOLDS])
   })
 })
 
@@ -562,9 +570,11 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
       NOT_READY,
     )
     const risk = rowByKey(rows, 'risk-n_f')
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option could change" is removed; nothing replaces it.
     expect(risk.reason).toBe(
-      'If the estimate changes for Hiring rate, the most-supported option could change.',
+      'If the estimate changes for Hiring rate, the result could change.',
     )
+    expect(risk.reason).not.toContain('most-supported option')
     // Anti-drift on every prior copy + glossary regression.
     expect(risk.reason).not.toContain('Check this first')
     expect(risk.reason).not.toContain('evidence priority')
@@ -587,8 +597,9 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
         NOT_READY,
       )
       const risk = rowByKey(rows, 'risk-n_f')
+      // Run-4 judge (DL 12 Oct, the class): "the most-supported option could change" is removed; nothing replaces it.
       expect(risk.reason).toBe(
-        'If the estimate changes for this factor, the most-supported option could change.',
+        'If the estimate changes for this factor, the result could change.',
       )
       // Verb prefix never composes with an empty label ("Verify " + nothing).
       expect(risk.title).toBe('Verify this factor')
@@ -602,8 +613,9 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
       NOT_READY,
     )
     const risk = rowByKey(rows, 'risk-n_f')
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option could change" is removed; nothing replaces it.
     expect(risk.reason).toBe(
-      'If the estimate changes for this factor, the most-supported option could change.',
+      'If the estimate changes for this factor, the result could change.',
     )
     expect(risk.chatPrompt).toBe(
       'Help me with this factor. Ask one focused question first, then suggest the smallest useful update.',
@@ -619,8 +631,9 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
         NOT_READY,
       )
       const risk = rowByKey(rows, 'risk-n_x')
+      // Run-4 judge (DL 12 Oct, the class): "the most-supported option could change" is removed; nothing replaces it.
       expect(risk.reason).toBe(
-        `If the estimate changes for ${label}, the most-supported option could change.`,
+        `If the estimate changes for ${label}, the result could change.`,
       )
       // The label appears verbatim — no silent truncation.
       expect(risk.reason).toContain(label)
@@ -686,7 +699,7 @@ describe('rankActOnItRows — §5 readyToBrief posture', () => {
     expect(ready.category).toBe('ready')
     expect(ready.priority).toBe('Ready')
     expect(ready.priorityWidth).toBe(100)
-    expect(ready.title).toBe('Create decision brief')
+    expect(ready.title).toBe('Create a summary')
     expect(ready.reason).toBe(
       'Capture the result, rationale, key assumptions and caveats before sharing.',
     )
@@ -726,7 +739,7 @@ describe('rankActOnItRows — §5 readyToBrief posture', () => {
     )
     expect(rows.map(r => r.key)).toEqual(['ready-brief', 'reflect-0', 'reflect-1'])
     expect(rows.map(r => r.title)).toEqual([
-      'Create decision brief',
+      'Create a summary',
       'Challenge Anchoring',
       'Challenge Sunk cost',
     ])

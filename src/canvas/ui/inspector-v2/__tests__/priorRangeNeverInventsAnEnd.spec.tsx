@@ -22,6 +22,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
+// The live range editor has a sender; absence is tested by the refusal regression.
+vi.mock('../../../conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => ({ sendSystemEvent: vi.fn().mockResolvedValue(undefined) }),
+}))
+
 vi.setConfig({ testTimeout: 30_000 })
 
 vi.mock('@xyflow/react', () => ({

@@ -60,6 +60,7 @@ export function mapDraftNodeToCanvas(n: any): any {
       label,
       kind: kind || nodeType,
       ...(observed_state ? { observedState: observed_state } : {}),
+      ...(observed_state?.user_material_unverified === true ? { provenance: 'unverified_brief' } : {}),
       ...(interventionKeys ? { interventionKeys } : {}),
     },
   }

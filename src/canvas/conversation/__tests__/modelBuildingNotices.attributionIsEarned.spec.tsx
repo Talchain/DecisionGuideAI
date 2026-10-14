@@ -72,8 +72,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ModelBuildingNoticeKindSchema } from '@talchain/schemas/boundary'
 import type { ModelBuildingNoticeKind } from '@talchain/schemas/boundary'
-import { MessageBubble } from '../MessageBubble'
-import type { ConversationMessage } from '../types'
+import { ModelBuildingNoticesNotice } from '../ModelBuildingNoticesNotice'
 import {
   describeModelBuildingNoticeKind,
   modelBuildingNoticeAttribution,
@@ -81,18 +80,6 @@ import {
   toModelBuildingNoticesView,
 } from '../modelBuildingNotices'
 import { PRODUCER_CORPUS } from './producerNoticeReasons'
-
-const noop = async () => {}
-
-function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
-  return {
-    id: 'msg-mbn-attr-1',
-    role: 'assistant',
-    content: "Here's a first model of your pricing decision.",
-    timestamp: new Date(),
-    ...overrides,
-  }
-}
 
 /** Built through the PRODUCTION shaper, so the fixture cannot drift off-wire. */
 function view(groups: Array<{ kind: ModelBuildingNoticeKind; count: number }>) {
@@ -106,7 +93,7 @@ function view(groups: Array<{ kind: ModelBuildingNoticeKind; count: number }>) {
 /** The collapsed headline, whitespace-normalised. Bound by testid, not by text. */
 function headline(groups: Array<{ kind: ModelBuildingNoticeKind; count: number }>): string {
   render(
-    <MessageBubble message={makeMsg({ modelBuildingNotices: view(groups) })} onChipClick={noop} />,
+    <ModelBuildingNoticesNotice notices={view(groups)} />,
   )
   return (screen.getByTestId('model-building-notices-toggle').textContent ?? '')
     .replace(/\s+/g, ' ')
@@ -371,15 +358,10 @@ describe('model-building notices — ⭐⭐ the zero-absent arm is POSITIVELY as
     // Discriminating fixture: 2 rows, absent count 0, producer total 7. Only
     // `totalCount` yields 7, so this cannot pass on either other quantity.
     render(
-      <MessageBubble
-        message={makeMsg({
-          modelBuildingNotices: view([
+      <ModelBuildingNoticesNotice notices={view([
             { kind: 'alternative_consolidated', count: 5 },
             { kind: 'other', count: 2 },
-          ]),
-        })}
-        onChipClick={noop}
-      />,
+          ])} />,
     )
     const root = screen.getByTestId('model-building-notices')
     expect(root.getAttribute('data-total-count')).toBe('7')
@@ -396,12 +378,7 @@ describe('model-building notices — ⭐⭐ the zero-absent arm is POSITIVELY as
     // unlabelled button. `getByRole(name:)` reads the accessible name, which
     // `textContent` assertions alone do not prove.
     render(
-      <MessageBubble
-        message={makeMsg({
-          modelBuildingNotices: view([{ kind: 'conflict_resolved_conservatively', count: 3 }]),
-        })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={view([{ kind: 'conflict_resolved_conservatively', count: 3 }])} />,
     )
     const byName = screen.getByRole('button', {
       name: 'Olumi made 3 modelling choices worth checking',

@@ -696,7 +696,7 @@ export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
    * shows the fence's own sentence (`fenceRefusalCopyForCategory`) instead.
    */
   proven_no_write:
-    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this decision and I'll re-sync with the saved model, then you can make the change again.",
+    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this scenario and I'll re-sync with the saved model, then you can make the change again.",
   /**
    * The turn reached the server and failed there, but nothing states the write
    * did not land — the untyped 500 a contended commit actually returns, an
@@ -1022,6 +1022,56 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   } catch {
     // Non-critical: the in-memory revert is already applied; the periodic
     // autosave remains the fallback writer.
+  }
+  return 'reverted'
+}
+
+
+/** A prior judgement uses the same capture/revert discipline, without a value stamp. */
+export interface OptimisticPriorRangeEdit {
+  nodeId: string
+  sentMin: number
+  sentMax: number
+  prevPrior: unknown
+  hadPrior: boolean
+  currency: AnalysisCurrencySnapshot
+}
+
+export function captureOptimisticPriorRangeEdit(
+  nodeId: string, sentMin: number, sentMax: number, nodeData: unknown,
+): OptimisticPriorRangeEdit {
+  const data = (nodeData ?? {}) as Record<string, unknown>
+  return {
+    nodeId, sentMin, sentMax,
+    prevPrior: data.prior && typeof data.prior === 'object' ? { ...data.prior } : data.prior,
+    hadPrior: Object.prototype.hasOwnProperty.call(data, 'prior'),
+    currency: captureAnalysisCurrency(),
+  }
+}
+
+/** Restore only this range, and never overwrite a later edit or server readback. */
+export function revertOptimisticPriorRangeEdit(edit: OptimisticPriorRangeEdit): RevertOutcome {
+  const store = useCanvasStore.getState()
+  const node = store.nodes.find(n => n.id === edit.nodeId)
+  if (!node) return 'node_gone'
+  const data = (node.data ?? {}) as Record<string, unknown>
+  const prior = data.prior as Record<string, unknown> | undefined
+  if (prior?.range_min !== edit.sentMin || prior?.range_max !== edit.sentMax) return 'value_moved_on'
+  const analysisReplaced = analysisReplacedSince(edit.currency)
+  const restored = { ...data }
+  if (edit.hadPrior) restored.prior = edit.prevPrior
+  else delete restored.prior
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    store.updateNode(edit.nodeId, { data: restored } as never)
+  } finally {
+    store.endExternalGraphMutation?.()
+  }
+  if (!analysisReplaced) restoreAnalysisCurrencyAfterRevert(edit.currency)
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // The in-memory revert is applied; periodic autosave is the fallback.
   }
   return 'reverted'
 }

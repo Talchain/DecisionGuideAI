@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ DESIGN-GAP ROW 22 — THE THREE OPTION STATES OF VISUAL CONTRACT v3 §02:
  *   · baseline: "Reference for the other alternatives.";
@@ -37,7 +38,9 @@ import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -73,14 +76,14 @@ const OPTION_3 = opt('option-3', 'Run a conversion trial', {
 })
 
 const FRESH = { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-24T00:00:00.000Z' }
-const REPORT = {
+const REPORT = withLicensedOptionChances({
   option_probabilities: {
     'option-1': { status: 'computed', win_probability: 0.72 },
     'option-2': { status: 'computed', win_probability: 0.18 },
     'option-b': { status: 'computed', win_probability: 0.1 },
   },
   robustness: { near_tie: { is_tie: false, top_option_id: 'option-1' } },
-}
+}, { 'option-1': 41, 'option-2': 29, 'option-b': 18 })
 
 type Phase = 'pre' | 'current' | 'changed' | 'cannot_confirm'
 const seed = (
@@ -89,8 +92,8 @@ const seed = (
 ) => {
   const ran = phase !== 'pre'
   useCanvasStore.setState({
-    nodes: nodes ?? [F_PRICE, F_CONV, BASELINE, OPTION_1, OPTION_2, OPTION_3],
-    edges: [], ceeAnalysisReady: null, viewMode, lodRung: 'full', goalThreshold: null, goalConstraints: [],
+    nodes: (nodes ?? [F_PRICE, F_CONV, BASELINE, OPTION_1, OPTION_2, OPTION_3]).map((node: any) => ({ ...node, data: { ...node.data, kind: node.type } })),
+    edges: [], ceeAnalysisReady: null, viewMode, lodRung: 'full', goalThreshold: 100, goalConstraints: [],
     analysisStateV1: null, importPendingServerRegistration: false, currentScenarioId: 'option-states',
     analysisFreshness: ran
       ? (phase === 'cannot_confirm' ? { ...FRESH, freshness: 'unknown', freshnessReason: 'cee_unknown' } : FRESH)
@@ -100,17 +103,18 @@ const seed = (
     hasCompletedFirstRun: ran,
     results: ran ? { status: 'complete', hash: 'last-run', report: REPORT } : { status: 'idle', report: null },
   } as never)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
 }
 
 const renderOption = (node: { id: string; data: Record<string, unknown> }) =>
   render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode
         id={node.id} type="option" data={node.data as never} selected={false}
         isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
         dragging={false} zIndex={0} deletable selectable draggable
       />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 
 /** An element with this test id ON THE CARD (not inside the popover). */
@@ -252,49 +256,42 @@ describe('row 22b — a target with no value reads "Needs input" in its amount c
   })
 })
 
-describe('row 22c — stale: "Last run · no new comparison yet", and the last result is kept, labelled', () => {
-  const shareName = () => onCard('option-analysis-currency-option-1')?.getAttribute('aria-label') ?? ''
-
-  it('changed (Standard): the state line is in the popover; the share stays on the card as `Last run`', () => {
+// #2747 re-scope 2 (U0): the canvas card shows no chance in C, so the kept "last result" (the `Last run` / `Current model` /
+// `Model result` caption, the chance readout and the currency row's accessible name) is gone from these rows; the stale
+// state line and its absence on current / cannot-confirm runs stay pinned.
+describe('row 22c — stale: "Last run · no new comparison yet"', () => {
+  // #2747 re-scope 2 (U0): the caption/readout/currency-name assertions are deleted, and so is "no stale glyph on the
+  // card": its premise (the chance caption's `Last run` holds the one status mark) is removed in C.
+  it('changed (Standard): the state line is in the popover', () => {
     seed({ phase: 'changed' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-label')).toBe('Last run')
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
-    expect(onCard('option-stale-state-option-1')?.getAttribute('aria-label')).toBe(STALE_STATE)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(shareName()).toMatch(/^Last run · supported by 72% of runs\. /)
-    expect(shareName()).toContain('No new comparison yet.')
   })
 
-  it('changed (Detailed): the state line is inline on the card', () => {
-    seed({ phase: 'changed', viewMode: 'expert' })
-    renderOption(OPTION_1)
-    expect(onCard('option-stale-state-option-1')?.getAttribute('aria-label')).toBe(STALE_STATE)
-  })
+  // #2747 re-scope 2 (U0): row deleted — "changed (Detailed): the state line is inline on the card": both assertions
+  // pinned the chance caption `Last run` holding the one status mark (no stale glyph; its aria-description); that caption
+  // is removed in C.
 
-  it('CONTRAST — current: no stale line anywhere, and the share is "Current model"', () => {
+  it('CONTRAST — current: no stale line anywhere', () => {
     seed({ phase: 'current' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.textContent).toBe('Current model')
+    // #2747 re-scope 2 (U0): the `Current model` chance caption and the currency row's name are removed in C.
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
-    expect(shareName()).not.toContain('No new comparison')
   })
 
   it('cannot confirm: no "last run" claim is manufactured', () => {
     seed({ phase: 'cannot_confirm' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.textContent).toBe('Model result')
+    // #2747 re-scope 2 (U0): the `Model result` chance caption and the currency row's name are removed in C.
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
-    expect(shareName()).not.toContain('No new comparison')
   })
 
-  it('the SAME card moves current → changed on a real edit, keeping the result', () => {
+  it('the SAME card moves current → changed on a real edit', () => {
     seed({ phase: 'current' })
     renderOption(OPTION_1)
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true } as never))
-    expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
+    // #2747 re-scope 2 (U0): the kept chance readout is removed in C.
     expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
   })
 })

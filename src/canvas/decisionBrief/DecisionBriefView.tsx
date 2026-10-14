@@ -111,19 +111,6 @@ export function DecisionBriefView({ brief, onShowNode }: DecisionBriefViewProps)
 
       <Section title="Latest Run" testId="brief-run">
         <p data-testid="brief-run-statement">{brief.run.statement}</p>
-        {current && brief.chances.length > 0 && (
-          <ul className="mt-2 space-y-1.5" data-testid="brief-chances">
-            {brief.chances.map((c) => (
-              <li key={c.optionId} data-option-id={c.optionId}>
-                <NodeLink nodeId={c.optionId} onShowNode={onShowNode}>
-                  <span className="font-medium">{c.optionLabel}</span>
-                </NodeLink>
-                <span>: {c.chanceText ?? c.withheldText}</span>
-                {c.caveat && <span className="block text-xs text-text-light">{c.caveat}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
         {current && brief.chancesNote && (
           <p className="mt-2" data-testid="brief-chances-note">{brief.chancesNote}</p>
         )}

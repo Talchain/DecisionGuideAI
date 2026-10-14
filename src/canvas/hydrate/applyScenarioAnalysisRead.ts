@@ -536,6 +536,7 @@ export function applyScenarioAnalysisRead(
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
     const report = mapV5AnalysisToReport(block as AnalysisResultBlock, {
+      computedAt: (verdict.run_state.kind === 'complete_current' || verdict.run_state.kind === 'complete_stale') ? verdict.run_state.computed_at : null,
       goalCertainty: readGoalCertainty(input.goalCertainty),
       optionParticipation: readOptionParticipation(input.optionParticipation),
     })

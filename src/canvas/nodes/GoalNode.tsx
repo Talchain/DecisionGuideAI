@@ -15,7 +15,7 @@ import { cardMark } from './shared/cardMarks'
  *    in Standard, the user-stated limits as compact boundary pills
  *    (`goalLimitPills`; NODE-ANATOMY v3.2, ED #63 choice 2), full sentence on
  *    hover/focus. Never beside the no-target chip (one pill in that state).
- *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
+ *  - Post-analysis with threshold: no achievement probability in C (#2747 re-scope 2); the Results hero says the chance
  *    — only when the run PRODUCED one; no Chance row otherwise (contract v3.1 goal anatomy, gap U3)
  *  - No risks chip (always)
  *  - No rail source icon (contract v3.1 pt 1, gap U8)
@@ -39,11 +39,9 @@ import {
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
-import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
-import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../components/results/utils/formatGoalTarget'
 import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import {
   canCaptureGoalTarget,
@@ -53,21 +51,15 @@ import {
   goalTargetInPlaceEdit,
   goalTodayLevel,
 } from '../domain/goalTarget'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
-import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
-import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
-import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
-import { getStabilityClassification } from '../../lib/stability'
-import { NodeMetricRow, NodePopover, ScienceIcon } from './shared'
+import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
@@ -76,11 +68,9 @@ import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
-import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, goalStatedTargets, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { useScenarioActionBar } from '../conversation/actionBar/useScenarioActionBar'
 import { pressOffer } from '../conversation/actionBar/pressOffer'
@@ -233,7 +223,7 @@ const GOAL_TARGET_PREFIX = 'Target:'
  * and miss the others.
  */
 /** The fact, and the reduced line below the legibility floor. */
-export const GOAL_NO_TARGET_STATE = 'Target not captured'
+export const GOAL_NO_TARGET_STATE = TARGET_NOT_CAPTURED
 
 /**
  * WHERE A TARGET CAN ACTUALLY BE CAPTURED — one name, the estate's existing one.
@@ -440,7 +430,6 @@ export const GoalNode = memo((props: NodeProps) => {
   const confirmReadingName = `${confirmReadingOffer?.label}: ${confirmReadingWords}`
   useEffect(() => { setConfirmReadingNotice(null) }, [bar?.state_key])
   const metadata = NODE_REGISTRY.goal
-  const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
   const nodes = useCanvasStore(state => state.nodes)
   const report = useCanvasStore(state => state.results.report)
@@ -454,25 +443,12 @@ export const GoalNode = memo((props: NodeProps) => {
   // Phase 2.3 — null-probability guard. Post-analysis without any finite
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
-  // F5a (Codex review): the rerun prompt must be driven by the ACTUAL freshness
-  // state — the same composed trust surface AnalysisFreshnessNotice reads — never
-  // by value absence. A completed CURRENT run can legitimately carry no goal
-  // probability (producer returned none), and demanding a rerun then contradicts
-  // the panel's "Analysis reflects the current model". Only a genuinely
-  // changed/stale model ('changed' semantic) warrants "Rerun the analysis".
-  const analysisChanged = useAnalysisTrust().semantic === 'changed'
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
 
-  const robustnessData = useMemo(() => {
-    if (!isPostAnalysis || !report) return null
-    const robustness = (report as any)?.robustness
-    if (!robustness) return null
-    const stability: number | null = typeof (robustness.recommendation_stability ?? robustness.recommendationStability) === 'number'
-      ? (robustness.recommendation_stability ?? robustness.recommendationStability) : null
-    const level: string | null = robustness.level ?? robustness.robustness_level ?? null
-    return { stability, level }
-  }, [report, isPostAnalysis])
+  // #2747 re-scope 2 round 2 (DL ruling (A), rule C): no "Decision stability N%" on the goal card. It printed the Run's
+  // `recommendation_stability` (the share of runs in which the recommendation holds, a win-share figure CEE serves no
+  // wording or Run authority for) in Detailed view; the census reads Detailed view since round 2.
 
   // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
   // Hero's Success-target field commits via setGoalThresholdAndUpdateNode,
@@ -568,21 +544,6 @@ export const GoalNode = memo((props: NodeProps) => {
   // across two components and 13 existing consumers — not a line in this file.
   // Recorded here rather than left as a silent asymmetry.
 
-  const stabilityClassification = useMemo(() =>
-    getStabilityClassification(robustnessData?.stability),
-    [robustnessData?.stability]
-  )
-  const stabilityBarColour = useMemo((): DataBarColour => {
-    const level = robustnessData?.level ?? stabilityClassification?.level
-    switch (level) {
-      case 'high': return 'success'
-      case 'moderate': return 'goal'
-      case 'low': case 'very_low': return 'warning'
-      default: return 'goal'
-    }
-  }, [robustnessData, stabilityClassification])
-
-  const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
 
   const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
   const postAnalysisConstraints = useCanvasStore(state =>
@@ -603,90 +564,11 @@ export const GoalNode = memo((props: NodeProps) => {
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])
 
-  // THE POSSESSIVE GATE (ROADMAP 2.283) — the last live un-gated possessive
-  // surface in the estate.
-  //
-  // `basis === 'joint_goal_substituted'` means this number is P(all
-  // constraints jointly satisfied) STANDING IN for an absent
-  // `probability_of_goal`. "chance of reaching target" then names a question
-  // the number does not answer — witnessed on staging as a ~100x
-  // understatement rendered in the possessive voice (#556). Six sibling
-  // surfaces already withhold the possessive in this state; this node could
-  // not, because `useNodeDisplayMetadata` read the basis and discarded it.
-  // 2.283 forwards it; this is the consumer.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted`, NEVER to "the figure is joint".
-  // `joint_goal_constrained` is the user's own goal AND their own limits —
-  // the possessive is EARNED there and is untouched (the ROADMAP 1.49 case).
-  // The expression is byte-identical to `OptionNode`'s, deliberately.
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
-  // `selectGoalProbability` no longer substitutes the joint figure into the
-  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
-  // number, so this surface renders nothing to re-voice. The bases that still
-  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
-  // both EARN the possessive. The narrowing goes through the owner's exported
-  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
-  // rule instead of four copies of a literal.
-  const goalFitSubstituted =
-    displayMetadata.achievementProbability !== null &&
-    basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
-  // The readout, built ONCE above both arms so the withheld and permitted
-  // wordings can never show different numbers for the same run.
-  //
-  // ⭐ ROADMAP 2.333 — THE EXACT-ZERO DIVERGENCE, CLOSED.
-  // This was the node's own literal, and its sub-1% predicate carried a
-  // `> 0 &&` carve-out the dock surfaces do not have. The consequence was
-  // narrow and live: for an EXACT zero the carve-out fell through to
-  // `Math.round(0 * 100)`, so the canvas node said "0% chance of reaching
-  // target" while the option card beside it said "< 1%" about the same
-  // number. `displayFloors.ts` carried a standing correction recording this
-  // as the open, opposite convention.
-  //
-  // It now calls the goal register's shared formatter, so the canvas and the
-  // dock state one thing. Non-zero sub-1% values are unaffected — they read
-  // "< 1%" here exactly as they always did.
-  //
-  // No sample count is passed: `useNodeDisplayMetadata` carries the
-  // probability and its basis, not `n_valid_samples`, so this surface takes
-  // the floored fallback arm. That is the honest option — threading a count
-  // this hook does not hold would mean inventing one.
-  const achievementReadout =
-    displayMetadata.achievementProbability === null
-      ? null
-      : formatGoalProbability(displayMetadata.achievementProbability)
-
-  /**
-   * ⭐ ONE GATE FOR THE ACHIEVEMENT FIGURE, NAMED ONCE.
-   *
-   * The same three-term expression was written out THREE times below — once
-   * for the readout, once for the modelled-basis caveat, once for the
-   * low-probability guidance — and the metric row would have made it four.
-   * Four hand-kept copies of the permission that decides whether this card
-   * states a probability at all is precisely the mirror this estate keeps
-   * paying for (CLAUDE.md trap 12), and the drift it produces is the worst
-   * kind available here: a number rendered by one copy while the disclosure
-   * that makes it honest is withheld by another.
-   *
-   * ⚠ UI-SEM-082 IS THE REASON FOR `hasThreshold`, and it is not incidental.
-   * The producer synthesises an auto goal threshold and returns a probability
-   * even when the USER set no target, so gating on value presence alone would
-   * crown a target nobody chose.
-   */
-  const showAchievementReadout =
-    hasThreshold &&
-    displayMetadata.isResultsMode &&
-    displayMetadata.achievementProbability !== null
-
-  /**
-   * The critical-probability predicate, also named once. It was written out
-   * three times — the danger colour, the coaching chip's gate, and the
-   * "Target may be ambitious" guidance — each carrying its own null check. The
-   * `< 0.10` threshold is the card's own editorial line and there is no reason
-   * for three copies of it to be able to disagree about where it sits.
-   */
-  const achievementIsCritical =
-    displayMetadata.achievementProbability !== null &&
-    displayMetadata.achievementProbability < 0.10
+  // #2747 re-scope 2 (U0): the canvas goal card shows no goal chance in C (nor the "critically low" reading of one). It
+  // used to state the recommended option's chance cell, with its caveats, a "Why is this so low?" chip and a "Target may
+  // be ambitious" prompt under 10%. Interim limit: restore via the chance's own served string and Run licence on the
+  // canvas (post-C). The chance is said on the Results hero, in CEE's words.
+  const achievementIsCritical = false
 
   /**
    * ⛔ NO BORDER OVERRIDE — THE GOAL IS ALWAYS A SOLID FRAME IN ITS KIND HUE
@@ -743,12 +625,15 @@ export const GoalNode = memo((props: NodeProps) => {
   // SD-1 (DL 0df0e1, 6 Oct): a goal that HOLDS a ceiling says "at most" before its figure, from the node's own
   // `goal_direction` (`heldTargetBoundWords`, the one source) — at every zoom and in the in-place readout alike.
   const heldBound = heldTargetBoundWords(props.data as GoalTargetSource)
+  const quantityFrame = (props.data as GoalTargetSource | undefined)?.quantity_frame
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
+    // target-text: a non-numeric stored target is the user's own words, said verbatim
+    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame, quantityFrame)
+    if (figure === null) return TARGET_NOT_CAPTURED
     return heldBound === null ? figure : `${heldBound} ${figure}`
-  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, heldBound])
+  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, quantityFrame, heldBound])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
@@ -812,11 +697,10 @@ export const GoalNode = memo((props: NodeProps) => {
    * operator, figure and unit, not by node: a `<=` bound on the goal node (the
    * headcount starter's "Delivery deadline ≤2 months") is a limit and stays.
    */
-  const statedLimits = goalStatedLimits(
-    activeConstraints,
-    props.id,
-    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit, comparator: props.data?.goal_direction } : null,
-  )
+  const statedTargetFigure = targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit, comparator: props.data?.goal_direction } : null
+  const statedLimits = goalStatedLimits(activeConstraints, props.id, statedTargetFigure)
+  // Recovery Batch C: the goal's other targets (CEE `role: 'goal_target'`) are stated as targets, never as limits.
+  const statedTargets = goalStatedTargets(activeConstraints, props.id, statedTargetFigure)
 
 
   // Science icons (spec Section 4.1)
@@ -840,8 +724,8 @@ export const GoalNode = memo((props: NodeProps) => {
   // realistic?" coaching chip).
   const hasLayer2 = (
     briefExtract ||
-    stabilityValue !== null ||
     (statedLimits && statedLimits.length > 0) ||
+    statedTargets.length > 0 ||
     hasConstraintDefaultWarning ||
     hasThreshold
   )
@@ -864,29 +748,18 @@ export const GoalNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* Stability bar — stale-dimmed when the model changed since the run */}
-      {stabilityValue !== null && (
-        <div
-          className={`mb-1`}
-        >
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
-            <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
-            {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-              /* Contract v3.1 PILL-12: the same state-word anatomy as the
-                 no-target chip. Vertical padding stays 0 (as before) so this
-                 row, which the pill sets the height of, does not grow in
-                 Detailed view: 16.3px at 1x, from 17.1px. */
-              <span
-                data-testid="goal-stability-marginal"
-                className={GOAL_STATE_WORD_CLASSES}
-                style={{ ...GOAL_STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
-              >
-                Marginal
-              </span>
-            )}
-          </div>
-          <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
+
+      {/* Recovery Batch C: the goal's other targets, said as targets (same neutral pill, never a limit). */}
+      {statedTargets.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {statedTargets.map((c, i) => {
+            const targetText = goalConstraintText(c, nodes)
+            return (
+              <div key={c.constraint_id ?? c.id ?? i} className="flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full border-field/40 text-text-body" data-testid="goal-target-badge" aria-label={targetText}>
+                <span className={`${typography.edgeLabel} break-words`}>{targetText}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -894,7 +767,6 @@ export const GoalNode = memo((props: NodeProps) => {
       {statedLimits && statedLimits.length > 0 && (
         <div className="flex flex-col gap-0.5">
           {statedLimits.map((c, i) => {
-            const prob = typeof c.probability === 'number' ? c.probability : null
             /**
              * ⛔⛔ THE TRAFFIC LIGHT IS GONE — the UI was issuing a verdict in
              * colour, which is the same defect as issuing one in words and
@@ -913,8 +785,7 @@ export const GoalNode = memo((props: NodeProps) => {
              * correctly rejects. Found by reading the card, not by running the
              * guard.
              *
-             * The figure itself is unchanged and still sits beside the
-             * sentence, so nothing is hidden — what is gone is the grading.
+             * (#2747 r2: the figure itself is now gone too; see below.)
              */
             // Contract v3.1 PILL-12: the boundary is the NEUTRAL mini pill
             // (`.pill.mini`: 1px var(--line) #DBD7D0, radius 999, padding
@@ -922,11 +793,11 @@ export const GoalNode = memo((props: NodeProps) => {
             // `border-field/40` over the panel is #D0CDC8, the nearest DS token.
             const colourClass = 'border-field/40 text-text-body'
             const constraintText = goalConstraintText(c, nodes)
-            const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+            // #2747 r2: the limit's satisfaction probability is not shown (here or in its label): no canonical cell
+            // licenses it, so it was a probability on the canvas outside the chance authority gate.
             return (
-              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full ${colourClass}`} data-testid="goal-constraint-badge" aria-label={badgeAriaLabel}>
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full ${colourClass}`} data-testid="goal-constraint-badge" aria-label={constraintText}>
                 <span className={`${typography.edgeLabel} break-words`}>{constraintText}</span>
-                {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
               </div>
             )
           })}
@@ -1082,15 +953,6 @@ export const GoalNode = memo((props: NodeProps) => {
       }),
     [achievementIsCritical],
   )
-  const achievementTitle = [
-    // AIQ #72 5885116642: the register's model-run sentence on BOTH arms — never "chance of reaching target".
-    GOAL_ANCHOR_COPY.sentence(achievementReadout ?? '', goalFitSubstituted),
-    displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
-    goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
-    hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
-    analysisChanged ? 'The model has changed since this run.' : null,
-  ].filter(Boolean).join(' ')
-
   return (
     <div
       ref={nodeElRef as React.Ref<HTMLDivElement>}
@@ -1164,7 +1026,7 @@ export const GoalNode = memo((props: NodeProps) => {
                     inPlaceTarget.unit,
                     goalEditAuthority.captureScenarioId(),
                     inPlaceTarget.direction,
-                    { onSendSettled: (settlement) => opts.onSendSettled(settlement) },
+                    { onSendSettled: (settlement, detail) => opts.onSendSettled(settlement, detail) },
                   )}
                 readCommittedValue={() =>
                   goalTargetInPlaceEdit(useCanvasStore.getState().nodes.find((n) => n.id === props.id)?.data as GoalTargetSource)?.value ?? null}
@@ -1225,6 +1087,18 @@ export const GoalNode = memo((props: NodeProps) => {
               pill's name, on hover AND keyboard focus (`Tooltip` opens on
               both) — the same focusable-readout pattern as the option share
               row (`role="img"` + `aria-label`, one accessible name). */}
+          {/* Recovery Batch C: the goal's other targets at rest, as targets (same neutral pill, never a limit). */}
+          {!isDetailed && statedTargets.map((c, i) => {
+            const text = goalConstraintText(c, nodes)
+            return (
+              <span key={c.constraint_id ?? c.id ?? i} aria-label={text}
+                data-testid={`goal-target-pill-${props.id}-${c.constraint_id ?? c.id ?? i}`}
+                className={`text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-[1.4] inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body`}
+              >
+                {text}
+              </span>
+            )
+          })}
           {restingLimitPills.map((l) => (
             <Tooltip key={l.key} asChild delay={NODE_TOOLTIP_DELAY_MS} content={l.name}>
               <span
@@ -1278,72 +1152,6 @@ export const GoalNode = memo((props: NodeProps) => {
         {todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
             {goalTodayLevelCopy(todayLevel)}
-          </p>
-        )}
-        {showAchievementReadout && (
-          <NodeMetricRow
-            label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
-            value={displayMetadata.achievementProbability}
-            formatted={achievementReadout ?? ''}
-            fillClass="bg-goal"
-            testId="goal-achievement-metric-row"
-            title={achievementTitle}
-            phrase={achievementTitle}
-          />
-        )}
-        {/* ISL #207 (AIQ #72 5877139338): a chance measured from a goal level
-            Olumi worked out is never shown bare. Visible on the resting card,
-            not only in Detailed or a tooltip, because without it the figure
-            reads as the user's own chance. Two strings, fail-closed: the
-            neutral one never says "Olumi's". */}
-        {showAchievementReadout && goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-            data-testid="goal-fit-base-caveat-node"
-          >
-            {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
-          </p>
-        )}
-        {/* No Chance row when the run produced no goal chance (contract v3.1
-            goal anatomy, gap U3): the old unset row ("Not produced by this run" /
-            "See each option" / "Rerun to update") is gone, not reworded. */}
-
-        {/* Detailed adds information, not a different card: the basis caveat
-            and the "may be ambitious" prompt, as before. */}
-        {isDetailed && showAchievementReadout && displayMetadata.achievementProbabilityIsModelledBasis === true && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-            data-testid="goal-fit-basis-caveat-node"
-          >
-            {GOAL_FIT_BASIS_CAVEAT_COPY}
-          </p>
-        )}
-        {isDetailed && hasThreshold && isPostAnalysis && achievementIsCritical && (
-          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
-            Target may be ambitious.{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={(e) => {
-                e.stopPropagation()
-                openNodeInspector(props.id)
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              Adjust target
-            </button>
-            {' '}or{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={(e) => {
-                e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors so the goal is reached in more model runs?')
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              strengthen key factors
-            </button>
           </p>
         )}
 

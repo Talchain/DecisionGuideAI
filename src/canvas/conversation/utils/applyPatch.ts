@@ -646,14 +646,14 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
     if (isUniform) {
       if (hasCanvasInterventions) {
         // Restore from canvas-stored values. Preserve the original CEEInterventionV3
-        // shape (source, target_match etc.) when present; only fill defaults for
-        // plain-number entries (older backfill format).
+        // shape (source, target_match etc.) when present. A plain number (older
+        // backfill format) carries NO provenance, so none is emitted: stamping it
+        // 'cee_hypothesis' would show a figure nobody attributed as Olumi's estimate.
         const interventions: Record<string, CEEInterventionV3> = {}
         for (const [targetId, raw] of Object.entries(canvasInterventions)) {
           if (typeof raw === 'number') {
             interventions[targetId] = {
               value: raw,
-              source: 'cee_hypothesis',
               target_match: { node_id: targetId, match_type: 'exact_id', confidence: 'high' },
             }
           } else if (raw != null && typeof raw === 'object' && typeof (raw as any).value === 'number') {

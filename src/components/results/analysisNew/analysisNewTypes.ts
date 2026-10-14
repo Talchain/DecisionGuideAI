@@ -1020,6 +1020,7 @@ export interface SensitivitySection {
 }
 
 export interface AnalysisNewViewModel {
+  critiqueRunContext?: import('../utils/humaniseCritique').CritiqueRunContext
   /**
    * "What's changed" — the producer's run-over-run consequence for the analysis
    * on screen, or `null` when there is none to show.
@@ -1275,6 +1276,13 @@ export interface ChecksSection {
    * here even if the code is present.
    */
   leaderWithholdDetail: string | null
+  /**
+   * The links behind an unsized-path withhold (`goal_path_unsized`), as canvas labels in the Run's own order, so the
+   * commitment zone can say "It rests on 3 assumptions Olumi made" and list them under a disclosure instead of
+   * restating `leaderWithholdCause`'s long sentence. `total` counts every link; `named` holds those whose two ends have
+   * a label. Null on every other withhold, and when the cause is not the unsized one.
+   */
+  leaderWithholdAssumptions?: { named: ReadonlyArray<{ from: string; to: string }>; total: number } | null
   /**
    * ⭐ THE SHARES COMPARE THE GOAL ONLY — the leader was withheld BECAUSE the
    * check against the user's limits could not support one

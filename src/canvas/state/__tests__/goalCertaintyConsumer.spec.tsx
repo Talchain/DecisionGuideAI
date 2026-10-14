@@ -13,7 +13,7 @@ import type { AnalysisStateV1, OlumiResponse } from '@talchain/schemas/boundary'
 import { applyV5State, type V5ApplicatorStore } from '../../../v5/applyV5State'
 import { applyScenarioAnalysisRead, type ScenarioAnalysisApplyStore } from '../../hydrate/applyScenarioAnalysisRead'
 import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
-import { GOAL_CERTAINTY_UNEARNED_FALLBACK, goalCertaintyFromResponse, readGoalCertainty } from '../storedGoalCertainty'
+import { goalCertaintyFromResponse, readGoalCertainty } from '../storedGoalCertainty'
 import { GoalPanel } from '../../ui/inspector-v2/panels/GoalPanel'
 import { useCanvasStore } from '../../store'
 import { useAuth } from '../../../contexts/AuthContext'
@@ -161,30 +161,36 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
     vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as never)
   })
 
-  it('UNEARNED: the surviving primary line shows the sentence once; no "100%"', () => {
-    const { getByTestId, queryByTestId, container } = renderWith(turnReport({ goal_certainty: [UNEARNED_59] }))
-    expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
+  it('UNEARNED without a canonical view: no 100%', () => {
+    const { queryByTestId, container } = renderWith(turnReport({ goal_certainty: [UNEARNED_59] }))
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (and the negatives bound to that face) and its once-count are deleted — the
+    // goal inspector shows no chance face in C. The panel-wide negatives stay. The negative "no certainty-unearned line"
+    // is deleted too: its subject was the static face pre-empting that line; with the face gone, CEE's own limit sentence
+    // ("I can't yet say how likely…", served words, no figure) is the limit this panel keeps in C (U0: limits retained).
     expect(queryByTestId('goal-impact-certainty-unearned')).toBeNull()
-    expect((container.textContent ?? '').split(SAY).length - 1).toBe(1)
     expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
-  it('no sentence from the producer → the fallback, still no percentage', () => {
-    const { getByTestId, container } = renderWith(turnReport({ goal_certainty: [{ ...UNEARNED_59, say: undefined }] }))
-    expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(GOAL_CERTAINTY_UNEARNED_FALLBACK)
+  it('no sentence or chance licence → still no percentage', () => {
+    const { container } = renderWith(turnReport({ goal_certainty: [{ ...UNEARNED_59, say: undefined }] }))
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (and the negatives bound to that face) is deleted — the
+    // goal inspector shows no chance face in C. The panel-wide negatives stay.
     expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('AIQ 5888121329: an identity-mismatch certainty with no sentence names no cause (never "sized")', () => {
     const mismatch = { option_id: 'raise_to_59', probability_of_goal: 1, earned: false, identity_mismatch: { node_id: 'mrr', reason: 'operand_not_parent' }, no_break_even: 'operand_not_parent' }
-    const { getByTestId } = renderWith(turnReport({ goal_certainty: [mismatch] }))
-    const text = getByTestId('goal-probability-certainty-unearned').textContent ?? ''
-    expect(text).toBe(GOAL_CERTAINTY_UNEARNED_FALLBACK)
+    const { container } = renderWith(turnReport({ goal_certainty: [mismatch] }))
+    const text = container.textContent ?? ''
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (and the negatives bound to that face) is deleted — the
+    // goal inspector shows no chance face in C. The panel-wide negatives stay.
     expect(text).not.toMatch(/sized/i)
   })
 
-  it('CONTROL: an EARNED 100% keeps the figure', () => {
+  it('CONTROL: an earned certainty without a chance licence still withholds the figure', () => {
     const { queryByTestId, container } = renderWith(turnReport({ goal_certainty: [{ option_id: 'raise_to_59', probability_of_goal: 1, earned: true }] }))
+    // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (and the negatives bound to that face) is deleted — the
+    // goal inspector shows no chance face in C. The panel-wide negatives stay.
     expect(queryByTestId('goal-probability-certainty-unearned')).toBeNull()
-    expect(container.textContent ?? '').toContain('More than 99% chance of meeting your goal')
+    expect(container.textContent ?? '').not.toContain('More than 99% chance of meeting your goal')
   })
 })
 
@@ -222,8 +228,9 @@ describe('CEE #2369 — the producer STRIPS the unearned figure; the stored deci
     vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as never)
     const GOAL_NODE = { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'MRR', goal_threshold_raw: 0.8 } }
     useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: strippedTurnReport([UNEARNED_59, EARNED_49]) } } as never)
-    const { getByTestId, container } = render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
-    expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
+    const { container } = render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
+    expect(container.textContent).toContain(SAY)
+    expect((container.textContent ?? '').split(SAY)).toHaveLength(2)
     expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('CONTROL: an interior figure beside a decision is untouched (£54 at 0.8311)', () => {

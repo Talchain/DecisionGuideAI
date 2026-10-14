@@ -236,11 +236,13 @@ describe('⭐ the fragile-edge cue appears only alongside a shown comparison', (
     expect(container.innerHTML).not.toContain('64% flip risk')
   })
 
-  it('90b8 (contrast — comparison shown): the SAME edge carries the cue with its own figure', () => {
+  // #2747 re-scope 2 round 2: the cue says its sentence alone; the "(NN% flip risk)" clause (the Run's switch probability)
+  // is not shown in C. The row's subject — the cue appears only beside a shown comparison — is unchanged.
+  it('90b8 (contrast — comparison shown): the SAME edge carries the cue (its sentence, no switch figure in C)', () => {
     seed(SHOWN)
     renderTopFragileEdge()
     const cue = screen.getByTestId('edge-fragile-tag')
-    expect(cue.getAttribute('aria-label')).toBe(`${FRAGILE_CUE_SENTENCE} (70% flip risk)`)
+    expect(cue.getAttribute('aria-label')).toBe(FRAGILE_CUE_SENTENCE)
   })
 
   it('17d1 STALE: still no cue — a model change does not manufacture a comparison', () => {
@@ -256,7 +258,7 @@ describe('⭐ the fragile-edge cue appears only alongside a shown comparison', (
     markStale()
     renderTopFragileEdge()
     expect(screen.getByTestId('edge-fragile-tag').getAttribute('aria-label')).toBe(
-      `${LAST_RUN_PREFIX}${FRAGILE_CUE_SENTENCE} (70% flip risk)`,
+      `${LAST_RUN_PREFIX}${FRAGILE_CUE_SENTENCE}`,
     )
   })
 
@@ -269,7 +271,7 @@ describe('⭐ the fragile-edge cue appears only alongside a shown comparison', (
     useCanvasStore.setState({ results: { ...s.results, report: { ...report, option_probabilities: probs } } } as never)
     expect(shownShares(WITHHELD)).toEqual(['0.4'])
     renderTopFragileEdge()
-    expect(screen.getByTestId('edge-fragile-tag').getAttribute('aria-label')).toBe(`${FRAGILE_CUE_SENTENCE} (64% flip risk)`)
+    expect(screen.getByTestId('edge-fragile-tag').getAttribute('aria-label')).toBe(FRAGILE_CUE_SENTENCE)
   })
 })
 

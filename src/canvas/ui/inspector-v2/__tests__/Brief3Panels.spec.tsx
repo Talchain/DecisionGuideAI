@@ -202,14 +202,8 @@ describe('GoalPanel v6.2', () => {
     expect(container.querySelector('[data-panel-group="impact"]')).toBeNull()
   })
 
-  it('post-analysis without probability data: impact PanelGroup renders with unavailable copy', () => {
-    // Brief 4 Task 1 behavior change — impact group is now ALWAYS present in
-    // results mode. When probGoal is absent it renders GOAL_STRINGS.impactUnavailable
-    // instead of suppressing entirely (analysis-ran-without-data signal).
-    setGoalStore({ results: { status: 'complete', report: {} } })
-    const { container } = render(<GoalPanel {...goalProps} />)
-    expect(container.querySelector('[data-panel-group="impact"]')).not.toBeNull()
-  })
+  // #2747 re-scope 2 (U0): row deleted — "post-analysis without probability data: impact PanelGroup renders with
+  // unavailable copy": the goal inspector says no chance and no "probability data unavailable" line in C.
 
   it('post-analysis: ImportanceBar is present in context group when influence data is present', () => {
     setGoalStore({ results: { status: 'complete', report: {} } })

@@ -243,14 +243,14 @@ describe('DriversSection — per-run influence QUANTITY disclosure', () => {
   })
 
   /**
-   * The fallback disclosure must say WHY, not just WHAT. Without the reason it
-   * reads as a choice the product made about these factors; it is not, it is
-   * the producer failing to score every factor, which is a fact about the run.
+   * The sensitivity disclosure names the quantity chosen by the display
+   * policy without inferring missing producer scores.
    */
-  it('the fallback disclosure states the producer condition that caused it', () => {
+  it('the sensitivity disclosure names its quantity without inferring missing scores', () => {
     render(<DriversSection data={fallbackBasisData()} />)
     const text = (screen.getByTestId(CAPTION).textContent ?? '').toLowerCase()
-    expect(text).toContain('every factor')
+    expect(text).toContain('these show outcome sensitivity')
+    expect(text).not.toContain('not have')
   })
 
   describe('fail-closed: no quantity is named when the basis is unusable', () => {

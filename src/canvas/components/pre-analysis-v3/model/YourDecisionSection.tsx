@@ -12,6 +12,7 @@
  * canvas and inspector (their canonical editing home).
  */
 
+import { UNVERIFIED_BRIEF_LABEL } from '../../../domain/valueProvenance'
 import { memo, useEffect, useState, type ReactNode } from 'react'
 import { Plus, ArrowUp, ChevronRight, Sparkles } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
@@ -147,6 +148,9 @@ const EntityRow = memo(function EntityRow({ entity }: { entity: AuthoredEntity }
     >
       <span className="flex min-w-0 items-center gap-2">
         <span className={`${typography.panelBody} truncate text-text-body`}>{entity.label}</span>
+        {entity.provenanceKind === 'unverified_brief' && (
+          <Pill variant="default" size="small">{UNVERIFIED_BRIEF_LABEL}</Pill>
+        )}
         {entity.attribution.kind === 'olumi' && (
           <Pill variant="default" size="small">{ATTRIBUTION_COPY.olumiAuthored}</Pill>
         )}

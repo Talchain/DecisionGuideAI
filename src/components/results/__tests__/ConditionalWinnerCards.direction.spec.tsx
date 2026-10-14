@@ -13,12 +13,36 @@
  * Scenarios are the rows the producer attested with `winner_flips: true`;
  * label comparison decides nothing (see ConditionalWinnerCards.honesty.spec
  * for the same-label-flip and label-churn discriminators).
+ *
+ * Run-4 judge (DL 12 Oct, the class): the directional arm ("When {factor}
+ * exceeds / falls below {split}, {alt} becomes the most-supported option
+ * instead") and the bucket footer are removed and nothing replaces them; EVERY
+ * row is the neutral arm. The two rows that drove the directional arm keep
+ * their inputs (the recommended id in the low bucket, then the high bucket), so
+ * they now pin that neither input reaches a direction or an option name, and
+ * that the factor and threshold are still said.
  */
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ConditionalWinnerCards } from '../ConditionalWinnerCards'
 import type { ConditionalWinner } from '../types'
+
+/** The neutral arm's exact sentence for `makeWinner()` (the split is formatted as the component formats it). */
+const NEUTRAL_SENTENCE = `How the options compare depends on Market size; the analysis flips at ${(1000000).toLocaleString()}.`
+
+/** Every input now renders the neutral arm: factor + threshold, no direction, no option name, no bucket footer. */
+function expectNeutralArm(body: HTMLElement): void {
+  const text = body.textContent ?? ''
+  expect(body.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('neutral')
+  expect(text).toContain(NEUTRAL_SENTENCE)
+  expect(text).not.toMatch(/exceeds/i)
+  expect(text).not.toMatch(/falls below/i)
+  expect(text).not.toMatch(/leads instead|becomes the most-supported option/i)
+  expect(text).not.toContain('Expand into Europe')
+  expect(text).not.toContain('Consolidate current market')
+  expect(text).not.toMatch(/Above:|Below:/)
+}
 
 const makeWinner = (overrides: Partial<ConditionalWinner> = {}): ConditionalWinner => ({
   factor_label: 'Market size',
@@ -32,32 +56,28 @@ const makeWinner = (overrides: Partial<ConditionalWinner> = {}): ConditionalWinn
 })
 
 describe('ConditionalWinnerCards — direction derivation (ID-bound)', () => {
-  it('renders "exceeds" + high-bucket winner when the recommended id sits in low_bucket', () => {
+  it('recommended id in low_bucket → the neutral arm (was "exceeds" + the high-bucket winner)', () => {
     render(
       <ConditionalWinnerCards
         winners={[makeWinner()]}
         recommendedOptionId="opt_consolidate"
       />,
     )
-    const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/exceeds/i)
-    expect(body.textContent).not.toMatch(/falls below/i)
-    // The "leads instead" target should be the high-bucket winner (the alternative)
-    expect(body.textContent).toMatch(/Expand into Europe becomes the most-supported option instead/)
+    // Run-4 judge (DL 12 Oct, the class): "When Market size exceeds …, Expand into Europe becomes the most-supported
+    // option instead" is removed; nothing replaces it.
+    expectNeutralArm(screen.getByTestId('conditional-winner-cards'))
   })
 
-  it('renders "falls below" + low-bucket winner when the recommended id sits in high_bucket', () => {
+  it('recommended id in high_bucket → the neutral arm (was "falls below" + the low-bucket winner)', () => {
     render(
       <ConditionalWinnerCards
         winners={[makeWinner()]}
         recommendedOptionId="opt_expand"
       />,
     )
-    const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/falls below/i)
-    expect(body.textContent).not.toMatch(/exceeds/i)
-    // The "leads instead" target should be the low-bucket winner (the alternative)
-    expect(body.textContent).toMatch(/Consolidate current market becomes the most-supported option instead/)
+    // Run-4 judge (DL 12 Oct, the class): "When Market size falls below …, Consolidate current market becomes the
+    // most-supported option instead" is removed; nothing replaces it.
+    expectNeutralArm(screen.getByTestId('conditional-winner-cards'))
   })
 
   it('renders the neutral two-sided arm when recommendedOptionId is omitted — never a guessed direction', () => {

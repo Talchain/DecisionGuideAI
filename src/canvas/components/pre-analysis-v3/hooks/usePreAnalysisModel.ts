@@ -497,7 +497,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       if (analysisReadiness) {
         return {
           dot: 'muted' as const,
-          headline: FOOTER_COPY.notReady,
+          headline: analysisReadiness?.blockers[0]?.message ?? '',
           // ...and from the same LIST that authority decided on. `canRun` is
           // the run gate's verdict, and that gate counts only ACTIONABLE
           // blockers; composing from the raw list here would name an advisory
@@ -512,7 +512,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       const explanation = readiness?.confidence_explanation?.trim()
       return {
         dot: 'muted' as const,
-        headline: FOOTER_COPY.notReady,
+        headline: '',
         subline: explanation
           ? guardCeeText(explanation, FOOTER_COPY.notReadySubFallback).text
           : FOOTER_COPY.notReadySubFallback,

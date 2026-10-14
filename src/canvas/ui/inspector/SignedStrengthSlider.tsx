@@ -61,6 +61,8 @@ interface SignedStrengthSliderProps {
   value: number
   /** Callback with new signed value, debounced internally */
   onChange: (signedValue: number) => void
+  /** Notify the host of a gesture before its first debounced preview tick. */
+  onGestureStart?: (signedValue: number) => void
   /** Debounce delay in ms (default 120) */
   debounceMs?: number
   /** Disabled state */
@@ -99,6 +101,7 @@ interface SignedStrengthSliderProps {
 export function SignedStrengthSlider({
   value,
   onChange,
+  onGestureStart,
   debounceMs = 120,
   disabled = false,
   std,
@@ -107,28 +110,70 @@ export function SignedStrengthSlider({
 }: SignedStrengthSliderProps) {
   const [localValue, setLocalValue] = useState(value)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const pendingValueRef = useRef<number | null>(null)
+  const releaseListenersCleanupRef = useRef<(() => void) | null>(null)
+  const callbacksRef = useRef({ onChange, onBlur, onGestureStart })
+  callbacksRef.current = { onChange, onBlur, onGestureStart }
+
+  // Release must include the final tick even before its debounce has fired.
+  const flushChange = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = undefined
+    const pending = pendingValueRef.current
+    pendingValueRef.current = null
+    if (pending !== null) callbacksRef.current.onChange(pending)
+  }, [])
+  const handleRelease = useCallback(() => {
+    releaseListenersCleanupRef.current?.()
+    releaseListenersCleanupRef.current = null
+    flushChange()
+    callbacksRef.current.onBlur?.()
+  }, [flushChange])
+
+  // A range can release outside its element, or lose its visible page mid-drag.
+  // All carriers flush the same final tick and the panel's captured commit.
+  const beginGesture = useCallback(() => {
+    if (releaseListenersCleanupRef.current) return
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') handleRelease()
+    }
+    window.addEventListener('pointerup', handleRelease)
+    window.addEventListener('touchend', handleRelease)
+    window.addEventListener('touchcancel', handleRelease)
+    document.addEventListener('visibilitychange', handleVisibility)
+    releaseListenersCleanupRef.current = () => {
+      window.removeEventListener('pointerup', handleRelease)
+      window.removeEventListener('touchend', handleRelease)
+      window.removeEventListener('touchcancel', handleRelease)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [handleRelease])
 
   // Sync local state when prop changes
   useEffect(() => {
     setLocalValue(value)
   }, [value])
 
-  // Cleanup timer on unmount
+  // Closing the inspector is also a release: never leave a preview unsent.
   useEffect(() => {
     return () => {
+      if (callbacksRef.current.onBlur) handleRelease()
+      releaseListenersCleanupRef.current?.()
+      releaseListenersCleanupRef.current = null
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [])
+  }, [handleRelease])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value)
+    if (!releaseListenersCleanupRef.current) callbacksRef.current.onGestureStart?.(newValue)
+    beginGesture()
     setLocalValue(newValue)
+    pendingValueRef.current = newValue
 
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      onChange(newValue)
-    }, debounceMs)
-  }, [onChange, debounceMs])
+    timerRef.current = setTimeout(flushChange, debounceMs)
+  }, [beginGesture, flushChange, debounceMs])
 
   const isNegative = localValue < 0
   const absValue = Math.abs(localValue)
@@ -197,9 +242,10 @@ export function SignedStrengthSlider({
           step={0.01}
           value={localValue}
           onChange={handleChange}
-          onBlur={onBlur}
-          onMouseUp={onBlur}
-          onTouchEnd={onBlur}
+          onBlur={handleRelease}
+          onMouseUp={handleRelease}
+          onTouchEnd={handleRelease}
+          onKeyDown={e => { if (e.key === 'Enter') handleRelease() }}
           disabled={disabled}
           className="relative w-full h-6 appearance-none bg-transparent cursor-pointer z-10
             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4

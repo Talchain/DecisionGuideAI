@@ -45,6 +45,11 @@
  * asserts every request this file makes is the same-origin readiness seam.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// The timer harness supplies the new request-time session dependency.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import { useReadinessStore } from '../readinessStore'
 import { useCanvasStore } from '../../store'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'

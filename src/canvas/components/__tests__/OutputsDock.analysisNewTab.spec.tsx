@@ -519,7 +519,8 @@ describe('C · THE SECTION STRUCTURE', () => {
       // ⭐ V2 fidelity gap 16 (24 Sep 2026): the challenge zone's name is now
       // its section title (an h3, the "Move towards commitment" grammar), so it
       // opens the census. The finding under it is a 14px question, not an h3.
-      'Challenge the thinking',
+      // Paul 14 Oct 2026: retitled "Challenge Your Thinking".
+      'Challenge Your Thinking',
       // ⚠ V2 FIRST SCREEN (24 Sep 2026): the answer zone's commitment block now
       // leads the sections. ⛔ REVERSED, V2 prototype (Paul, 25 Sep 2026): the
       // at-rest "Top drivers" line is gone, and the drivers ("What moves the

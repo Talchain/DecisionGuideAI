@@ -23,7 +23,7 @@
  * breaks in test. Targeted unit-level coverage is sufficient.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { render } from '@testing-library/react'
 
 // Importing OutputsDock pulls in services/threadService → src/lib/supabase
@@ -86,6 +86,12 @@ describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="fa
   })
 
   describe('OUTPUT_TABS gating (render-level)', () => {
+    beforeAll(async () => {
+      // Transform the dock's dependency graph during setup. Each case below
+      // still resets modules and imports again after setting its own flag.
+      await import('../OutputsDock')
+    })
+
     beforeEach(() => {
       vi.resetModules()
     })

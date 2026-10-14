@@ -261,14 +261,18 @@ describe('the five orphaned prose fields reach the DOM on a live payload', () =>
     expect(card).toHaveAttribute('data-decision-review-state', 'v0_30')
   })
 
+  // #2747 re-scope 2 (U0 rewrite): was "%s keeps the pre-existing summary and probability pills alongside the new
+  // prose". The summary assertion is kept as written; the pill-row presence assertion became the absence check (DL
+  // ruling (A): C shows no win share on any Run), on the same live 0.30 payloads.
   it.each(LIVE)(
-    '%s keeps the pre-existing summary and probability pills alongside the new prose',
+    '%s keeps the pre-existing summary alongside the new prose: still no win-share row in C (ruling (A))',
     (_tag, block) => {
       render(<V5AnalysisResultBlock block={block} />)
       expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
         (block as unknown as { summary: string }).summary,
       )
-      expect(screen.getByTestId('v5-analysis-result-probabilities')).toBeTruthy()
+      expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+      expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
     },
   )
 

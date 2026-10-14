@@ -540,7 +540,7 @@ describe('Olumi tab click while floating is open', () => {
     useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
   })
 
-  it('persistent strip chevron from Olumi tab opens floating panel (round-14 regression)', async () => {
+  it('the composer carries no second float-out: the Olumi tab icon is the one control (workstream D)', async () => {
     // Round-14 P0: when the user is on the docked Olumi tab and the
     // floating panel is closed, the persistent strip renders the
     // AIInputBar variant='strip' with a chevron-up button. Clicking the
@@ -558,7 +558,6 @@ describe('Olumi tab click while floating is open', () => {
     // openFloatingByUser('user') without the tab swap, regressing the
     // round-3 fix for users who routed through the strip instead of the
     // OlumiTabBody icon.
-    const { fireEvent } = await import('@testing-library/react')
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
     const { useUIStore } = await import('../../../stores/uiStore')
     const { useCanvasStore } = await import('../../store')
@@ -589,21 +588,13 @@ describe('Olumi tab click while floating is open', () => {
       </Wrapper>,
     )
 
-    // Persistent strip renders the AIInputBar variant='strip' with a
-    // chevron when isOlumiTabActive=true && floating closed. The chevron
-    // testid is wired by AIInputBar as `${testId ?? 'ai-input-bar-${variant}'}-chevron`.
-    const chevron = (await findByTestId('ai-input-bar-strip-chevron')) as HTMLElement
-    fireEvent.click(chevron)
-    await new Promise((r) => setTimeout(r, 50))
-
-    // After the click, the floating panel must be OPEN and the active
-    // tab must have swapped away from 'olumi' so the yield gate clears.
-    expect(useFloatingPanelState.getState().isOpen).toBe(true)
-    expect(useUIStore.getState().activeOutputTab).not.toBe('olumi')
-    // Synchronous sessionStorage write keeps the render-time fallback
-    // read in agreement.
-    const persisted = JSON.parse(sessionStorage.getItem('canvas.outputsDock.v1') || '{}').activeTab
-    expect(persisted).not.toBe('olumi')
+    // Workstream D (Paul 8 Oct, "overcomplicated"): the composer no longer carries its own float-out chevron. It
+    // duplicated the Olumi tab's float-out icon one row above; that icon (and `floatOutToWindow`, its round-14 helper)
+    // is the one way out of the dock, and the round-3/round-5 cases above still drive it.
+    await findByTestId('ai-input-bar-strip-textarea')
+    expect(document.querySelector('[data-testid="ai-input-bar-strip-chevron"]')).toBeNull()
+    // CONTROL: the surviving float-out is mounted in the same render.
+    await findByTestId('olumi-tab-float-out')
 
     // Cleanup.
     try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}

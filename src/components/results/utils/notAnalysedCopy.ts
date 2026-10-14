@@ -91,10 +91,18 @@ export const NOT_ANALYSED_NO_RESULT_COPY = 'This run has no result for this opti
  * user's option or as endorsed (AIQ 5887015488, DL 5887510885). Meaning: AIQ.
  */
 export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
+export const OLUMI_RISK_NOT_IN_CHANCE_SUFFIX = 'not in the chance'
 /** `kept_olumi_provisional`'s tag suffix. Not "provisional": that word already means "rests on Olumi's assumptions" (AIQ 5888943993). */
 export const OLUMI_KEPT_TAG_SUFFIX = 'compared for now'
-export const OLUMI_PROPOSED_EXCLUDED_COPY =
-  "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+/**
+ * The Reasoning row's short form (DL 58e392 GO, 8 Oct 2026; Paul: "very punchy … additional helpful context under
+ * progressive disclosure"): the fact at rest, the rest under the row's chevron. `OLUMI_PROPOSED_EXCLUDED_COPY` is the two
+ * joined, so every surface that says it whole says exactly these words.
+ */
+export const OLUMI_PROPOSED_EXCLUDED_SHORT = "Olumi's suggestion, so this run left it out."
+export const OLUMI_PROPOSED_EXCLUDED_DETAIL =
+  "It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+export const OLUMI_PROPOSED_EXCLUDED_COPY = `Olumi suggested this option. ${OLUMI_PROPOSED_EXCLUDED_DETAIL}`
 /**
  * `kept_olumi_provisional`: the comparison kept Olumi's option. WITH ids, because the gate excluded the user's own
  * option(s) — they are named. WITHOUT ids, because the user named fewer than two options: nothing failed, so nothing is
@@ -178,7 +186,19 @@ export const NOT_ANALYSED_IN_LAST_ANALYSIS =
  * "Fix it" — see the module header.
  */
 export function notAnalysedActionLabel(reason: NotAnalysedReason): string | null {
-  return reason === 'no_interventions' ? 'Tell Olumi what it changes' : null
+  return reason === 'no_interventions' ? 'Tell Olumi what it changes'
+    : reason === 'excluded_olumi_proposed' ? INCLUDE_OLUMI_OPTION_LABEL
+      : null
+}
+
+/**
+ * ⭐ RunView PR 1b (DL 8 Oct; probe 94160333): an unadopted Olumi suggestion the Run left out can be brought in. The
+ * press drafts the turn CEE's own adoption door reads (`proposeNewOption`: the suggestion named by its EXACT label in
+ * the user's words → an "Add Olumi's suggestion … with the levels shown" approval card; nothing changes until Yes).
+ */
+export const INCLUDE_OLUMI_OPTION_LABEL = 'Include it'
+export function includeOlumiOptionPrompt(optionLabel: string): string {
+  return `Add Olumi's suggestion "${optionLabel}" to my comparison.`
 }
 
 /**

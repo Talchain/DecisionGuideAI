@@ -252,7 +252,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
             type="button"
             className="w-full px-4 py-2 text-sm font-medium bg-gray-50 text-gray-700 rounded border border-gray-200 hover:bg-gray-100"
           >
-            {summaryCopied ? 'Summary copied' : 'Copy decision summary'}
+            {summaryCopied ? 'Summary copied' : 'Copy scenario summary'}
           </button>
         </div>
 

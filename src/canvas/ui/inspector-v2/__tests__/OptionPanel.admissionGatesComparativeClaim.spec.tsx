@@ -148,12 +148,10 @@ function openInspector(nodeId: string): string {
 beforeEach(() => { document.body.innerHTML = '' })
 
 describe('OptionPanel — the model admission gates the comparative claim', () => {
-  it('PERMITTED TWIN: with comparative_leader, the leader IS named', () => {
-    seedRun('comparative_leader')
-    const text = openInspector(LEADER_ID)
-    expect(text, 'the fixture must produce the claim, or the withheld arm below proves nothing')
-      .toMatch(AHEAD_CLAIM)
-  })
+  // #2747 re-scope 2 (pre-accepted): the PERMITTED TWIN rows and the ABSENCE ARM are deleted — their only subject, the
+  // option inspector's comparative share claims ("supported in N% of simulated scenarios", "Npp less support than…"), is
+  // removed in C on every arm (no win share on any surface, DL ruling (A)). The WITHHELD negatives stay; with no arm able
+  // to produce the claim, their floor is the mounted-dialog precondition, and the census row (option inspector) is the proof.
 
   it.each(REFUSING_MODES)('WITHHELD (%s): the leader is NOT named', mode => {
     seedRun(mode)
@@ -161,12 +159,6 @@ describe('OptionPanel — the model admission gates the comparative claim', () =
     expect(text).not.toMatch(AHEAD_CLAIM)
   })
 
-  it('PERMITTED TWIN: a non-leader IS told how far behind', () => {
-    seedRun('comparative_leader')
-    const text = openInspector(RIVAL_ID)
-    expect(text, 'the fixture must produce a behind-claim, or the withheld arm proves nothing')
-      .toMatch(BEHIND_CLAIM)
-  })
 
   it.each(REFUSING_MODES)('WITHHELD (%s): a non-leader is NOT told how far behind', mode => {
     seedRun(mode)
@@ -174,11 +166,4 @@ describe('OptionPanel — the model admission gates the comparative claim', () =
     expect(text).not.toMatch(BEHIND_CLAIM)
   })
 
-  it('ABSENCE ARM: no admission at all behaves exactly as before (Q1 absent → true)', () => {
-    // An older producer must not be silenced. This is the arm a shared default
-    // would break, and it is the reason Q1 and Q2 keep separate defaults.
-    seedRun(null)
-    const text = openInspector(LEADER_ID)
-    expect(text).toMatch(AHEAD_CLAIM)
-  })
 })

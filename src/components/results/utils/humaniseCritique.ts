@@ -39,6 +39,15 @@ export const GOAL_DIRECTION_UNATTESTED_TITLE =
 /** The goal's target line can set 'at most' (`goalDirectionCorrectableByTarget`): CEE's correction, verbatim. */
 export const GOAL_DIRECTION_CORRECTABLE_TITLE =
   `${GOAL_DIRECTION_ASSUMED} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+export const GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE =
+  'In this model I’ve assumed a higher value is better for your goal.'
+export const GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE =
+  `${GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+
+export interface CritiqueRunContext {
+  hasRankedOptions: boolean
+}
+
 const GOAL_DIRECTION_UNATTESTED_DESCRIPTION =
   'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest in this model was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.'
 
@@ -556,11 +565,13 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // must say the rest still stands, or an honest caveat reads as a broken run.
 
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
+  // Run-4 judge (DL 12 Oct, the class): the run-share clauses ("before a different option is the most supported in this
+  // model", "which option is the most supported in this model") are cut; each sentence keeps its other facts.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'Link margin analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
+      'Link margin analysis was skipped for time. It does not affect the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -578,7 +589,8 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
+      // Run-4 judge (DL 12 Oct, the class): the run-share clause is cut; the sentence keeps its other facts.
+      'How far each factor would have to move wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -1172,6 +1184,7 @@ export function codesRenderingUnresolvedLabel(): readonly string[] {
 export function humaniseCritique(
   item: UncertaintyItem,
   nodeLabels?: ReadonlyMap<string, string>,
+  context?: CritiqueRunContext,
 ): HumanisedCritique {
   const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
@@ -1203,6 +1216,13 @@ export function humaniseCritique(
       ...(item.suggestion ? { suggestion: item.suggestion } : {}),
       factorId,
     }
+  }
+
+  if (item.code === 'GOAL_DIRECTION_UNATTESTED' && context?.hasRankedOptions === false) {
+    const title = item.goalDirectionCorrectable === true
+      ? GOAL_DIRECTION_CORRECTABLE_UNRANKED_TITLE
+      : GOAL_DIRECTION_UNATTESTED_UNRANKED_TITLE
+    return { title, description: '', displayText: title, factorId }
   }
 
   // B′: the one code whose correction depends on the goal, carried on the item by the adapter (never by the producer).

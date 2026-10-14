@@ -348,7 +348,8 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     // before anything below asserts a presence or an absence inside it.
     const strip = screen.getByRole('navigation', { name: 'Outputs sections' })
     expect(strip).toBeInTheDocument()
-    // Compare presented again 30 Sep 2026 (SC-24 v3).
+    // Paul 14 Oct 2026: all five tabs show from the start (supersedes workstream D, 8 Oct) — Compare is listed
+    // although this fixture has no run pair.
     expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Reasoning', 'Compare', 'Model'])
 
     // Absent before any gesture — so the presence below is the gesture's doing.

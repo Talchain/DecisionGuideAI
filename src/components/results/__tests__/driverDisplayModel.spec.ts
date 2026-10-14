@@ -12,6 +12,7 @@ import {
   compareByDisplayModel,
   computeNormalisedInfluences,
   extractPolicyRow,
+  readDriverLevel,
 } from '../driverDisplayModel'
 
 describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage scenario', () => {
@@ -46,13 +47,13 @@ describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage sc
     expect(ranked.map((r) => r.key)).toEqual(['revenue_potential', 'investor_confidence'])
   })
 
-  it('complete coverage → producer influence for all, provenance marked', () => {
+  it('complete producer coverage still uses normalised elasticity for all, provenance marked', () => {
     const model = selectDriverDisplayModel([
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
       { key: 'b', influenceScore: 0.2, rawElasticity: 0.2 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score', importanceBasis: null })
-    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score', importanceBasis: null })
+    expect(model.get('a')).toEqual({ value: 0.5, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 1, provenance: 'normalised_elasticity', importanceBasis: null })
   })
 
   it('a non-finite influence_score does NOT count as coverage (fails closed to normalised)', () => {
@@ -72,6 +73,24 @@ describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage sc
     expect(model.get('a')!.value).toBe(0)
     expect(model.get('b')!.value).toBe(0)
   })
+
+  it.each([undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'omits missing/non-finite rawElasticity (%s) before normalising the surviving rows',
+    (rawElasticity) => {
+      const model = selectDriverDisplayModel([
+        { key: 'unranked', influenceScore: 1, rawElasticity },
+        { key: 'leader', rawElasticity: 0.5 },
+        { key: 'smaller', rawElasticity: 0.25 },
+        { key: 'measured_zero', rawElasticity: 0 },
+      ])
+
+      expect(model.has('unranked')).toBe(false)
+      expect([...model.keys()]).toEqual(['leader', 'smaller', 'measured_zero'])
+      expect(model.get('leader')!.value).toBe(1)
+      expect(model.get('smaller')!.value).toBe(0.5)
+      expect(model.get('measured_zero')!.value).toBe(0)
+    },
+  )
 })
 
 describe('compareByDisplayModel', () => {
@@ -120,5 +139,82 @@ describe('extractPolicyRow — panel-parity field semantics (Lane 2 review fold)
     expect(extractPolicyRow({ elasticity: 0.4 })).toBeNull()
     expect(extractPolicyRow({ factor_id: 'a' })).toBeNull()
     expect(extractPolicyRow(null)).toBeNull()
+  })
+
+  it.each([
+    { elasticity: undefined, expected: Number.NaN },
+    { elasticity: null, expected: Number.NaN },
+    { elasticity: Number.NaN, expected: Number.NaN },
+    { elasticity: Number.POSITIVE_INFINITY, expected: Number.POSITIVE_INFINITY },
+    { elasticity: Number.NEGATIVE_INFINITY, expected: Number.POSITIVE_INFINITY },
+  ])(
+    'keeps missing/non-finite elasticity ($elasticity) invalid, never a manufactured zero',
+    ({ elasticity, expected }) => {
+      const row = extractPolicyRow({ factor_id: 'unranked', influence_score: 1, elasticity })
+      expect(row).not.toBeNull()
+      expect(row!.rawElasticity).toBe(expected)
+      expect(selectDriverDisplayModel([row!]).has('unranked')).toBe(false)
+    },
+  )
+})
+
+describe('factor level — undefined elasticity remains unranked across wire aliases', () => {
+  const levelFields: Array<{ field: string; wire: (level: number) => Record<string, unknown> }> = [
+    { field: 'level', wire: level => ({ level }) },
+    { field: 'baseline', wire: baseline => ({ baseline }) },
+    { field: 'baseline_value', wire: baseline_value => ({ baseline_value }) },
+    { field: 'observed_value', wire: observed_value => ({ observed_value }) },
+    { field: 'observedValue', wire: observedValue => ({ observedValue }) },
+    { field: 'observed_state.value', wire: value => ({ observed_state: { value } }) },
+    { field: 'observedState.value', wire: value => ({ observedState: { value } }) },
+    { field: 'value', wire: value => ({ value }) },
+  ]
+  const invalidLevels = [0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
+
+  it.each(levelFields.flatMap(({ field, wire }) => invalidLevels.map(level => ({ field, wire, level }))))(
+    '$field level $level cannot become the leader even with the largest |elasticity|',
+    ({ wire, level }) => {
+      const raw = { factor_id: 'unranked', elasticity: 10, ...wire(level) }
+      // A supplied graph fallback cannot overwrite an explicit wire level.
+      expect(readDriverLevel(raw)).toBe(level)
+      const row = extractPolicyRow(raw, 5)!
+      expect(row.level).toBe(level)
+      const model = selectDriverDisplayModel([
+        row,
+        extractPolicyRow({ factor_id: 'leader', elasticity: 1, baseline: 2 })!,
+      ])
+
+      expect(model.has('unranked')).toBe(false)
+      expect([...model.keys()]).toEqual(['leader'])
+      expect(model.get('leader')!.value).toBe(1)
+    },
+  )
+
+  it('uses a graph observedLevel only when the wire level is absent', () => {
+    const raw = { factor_id: 'a', elasticity: 10 }
+    expect(readDriverLevel(raw)).toBeUndefined()
+    expect(extractPolicyRow(raw, 5)!.level).toBe(5)
+    expect(extractPolicyRow({ ...raw, baseline: 2 }, 5)!.level).toBe(2)
+  })
+
+  it.each(invalidLevels)('an invalid graph observedLevel (%s) also withholds the largest row', level => {
+    const row = extractPolicyRow({ factor_id: 'unranked', elasticity: 10 }, level)!
+    expect(row.level).toBe(level)
+    const model = selectDriverDisplayModel([
+      row,
+      { key: 'leader', rawElasticity: 1, level: 2 },
+    ])
+    expect(model.has('unranked')).toBe(false)
+    expect(model.get('leader')!.value).toBe(1)
+  })
+
+  it('keeps a valid negative level eligible and accepts legacy rows without a known level', () => {
+    const negative = extractPolicyRow({ factor_id: 'negative', elasticity: -2, baseline: -3 })!
+    const absent = extractPolicyRow({ factor_id: 'unknown_level', elasticity: 1 })!
+    expect(negative.level).toBe(-3)
+    expect(absent).not.toHaveProperty('level')
+    const model = selectDriverDisplayModel([negative, absent])
+    expect(model.get('negative')!.value).toBe(1)
+    expect(model.get('unknown_level')!.value).toBe(0.5)
   })
 })

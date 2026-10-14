@@ -191,7 +191,9 @@ describe('⭐ C1 WITH movement that did not move — the headline case, actually
    * A pair CAN be attributable and show no movement: the producer sends the
    * options with equal prior and current.
    */
-  it('says the change was the only difference AND that the scores held level', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "62%" presence assertion (the level share) is deleted — a movement is a win share
+  // and the line says the direction only in C. The comparability, the movement row and the no-fusion negative stay.
+  it('says the change was the only difference, and never that it did nothing', () => {
     render(<WhatsChanged view={view({
       attribution_case: 'C1_attributable',
       win_probabilities: [{ option_id: 'opt_a', prior: 0.62, current: 0.62, noise_verdict: 'signal' }],
@@ -200,7 +202,6 @@ describe('⭐ C1 WITH movement that did not move — the headline case, actually
       .toMatch(/change to the model/i)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-no-pairs`)).toBeNull()
     const row = screen.getByTestId(`${WHATS_CHANGED_TESTID}-movement`)
-    expect(row.textContent).toMatch(/62%/)
     // ⛔ and the surface still does not fuse the two: an attributable pair with
     // level scores must not be dressed as "your change did nothing".
     expect(row.textContent).not.toMatch(/no effect|did nothing|made no difference/i)

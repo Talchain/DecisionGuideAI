@@ -38,8 +38,11 @@ describe('gap TYPE-3: tiered acts in this pass\'s files are panelBody (12px), ne
     // follows the three tiered acts that remain, and the three icon acts are
     // pinned below as icon buttons, so the lower floor cannot hide one of them
     // regressing to an 11px text act.
+    // ⭐ 8 Oct 2026: the value's "Change" left the pill tier for a text act on the right of its line (Paul: the pill
+    // "looks shoehorned in"), still at panelBody. Two secondary pills remain, and the text act is pinned at 12px.
     const fixed = src.match(/typography\.panelBody\}[^`]*\$\{action\('secondary'\)\}/g) ?? []
-    expect(fixed.length).toBeGreaterThanOrEqual(3)
+    expect(fixed.length).toBeGreaterThanOrEqual(2)
+    expect(src).toMatch(/typography\.panelBody\}[^`]*\$\{action\('text'\)\}[^`]*`\}\s*data-testid=\{`\$\{testId\}-detail-value-edit`\}/)
     for (const id of ['detail-propose', 'detail-focus', 'detail-ask']) {
       expect(src, `${id} is no longer an icon-only act`).toMatch(
         new RegExp('<PanelIconButton[^<]{0,800}?testId=\\{`\\$\\{testId\\}-' + id + '`\\}'),

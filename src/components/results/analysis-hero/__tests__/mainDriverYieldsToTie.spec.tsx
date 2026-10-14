@@ -122,14 +122,14 @@ describe('hero "Main driver" yields to a tie (and only to a tie)', () => {
     it('TIE: the static footer line hedges too (the pill-less path)', () => {
       const unfocusable = TIED.map((d) => ({ ...d, canFocus: false }) as DriverItem)
       expect(modelFor(unfocusable).mainReason).toBe(
-        'Tied for main driver: EU Data Residency Compliance.',
+        'Tied for moving the result most: EU Data Residency Compliance.',
       )
     })
 
     it('TWIN — CLEAR LEADER: the static footer line is unhedged', () => {
       const unfocusable = CLEAR.map((d) => ({ ...d, canFocus: false }) as DriverItem)
       expect(modelFor(unfocusable).mainReason).toBe(
-        'Main driver: EU Data Residency Compliance.',
+        'Moves the result most: EU Data Residency Compliance.',
       )
     })
   })
@@ -211,7 +211,7 @@ describe('hero "Main driver" yields to a tie (and only to a tie)', () => {
       renderPanel(modelFor(TIED), onFocusTarget)
       const pill = screen.getByTestId('hero-quicklink-driver')
       expect(pill.textContent?.trim()).toBe(
-        'Tied for main driver: EU Data Residency Compliance',
+        'Tied for moving the result most: EU Data Residency Compliance',
       )
       // The pill still focuses the factor — hedging the CLAIM, never removing
       // the affordance (no-hiding ruling).
@@ -222,7 +222,7 @@ describe('hero "Main driver" yields to a tie (and only to a tie)', () => {
       const onFocusTarget = vi.fn()
       const { container } = renderPanel(modelFor(CLEAR), onFocusTarget)
       expect(screen.getByTestId('hero-quicklink-driver').textContent?.trim()).toBe(
-        'Main driver: EU Data Residency Compliance',
+        'Moves the result most: EU Data Residency Compliance',
       )
       // ⭐ THE ABSENCE ASSERTION THAT STOPS AN UNCONDITIONAL-HEDGE MUTANT.
       // Without it, a fix that hedges every run passes every other case here.
@@ -245,7 +245,7 @@ describe('hero "Main driver" yields to a tie (and only to a tie)', () => {
         vi.fn(),
       )
       expect(screen.getByTestId('hero-quicklink-combined').textContent?.trim()).toBe(
-        'Tied for main driver, and top flip risk: EU Data Residency Compliance',
+        'Tied for moving the result most, and top flip risk: EU Data Residency Compliance',
       )
     })
 
@@ -265,7 +265,7 @@ describe('hero "Main driver" yields to a tie (and only to a tie)', () => {
         vi.fn(),
       )
       expect(screen.getByTestId('hero-quicklink-combined').textContent?.trim()).toBe(
-        'Main driver and top flip risk: EU Data Residency Compliance',
+        'Moves the result most and top flip risk: EU Data Residency Compliance',
       )
       expect(container.textContent).not.toMatch(/Tied for/i)
     })

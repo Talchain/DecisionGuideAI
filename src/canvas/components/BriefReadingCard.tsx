@@ -148,7 +148,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
       </div>
       <div data-testid="brief-coaching" className="flex flex-col gap-4 border-t border-panel-border bg-panel-hover/60 px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-0.5">
-          <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the decision</h3>
+          <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the question</h3>
           <p className={typo('bodySmall', 'text-text-light m-0')}>
             Research-backed habits. Pick one and Olumi starts there when your draft is ready.
           </p>

@@ -161,7 +161,7 @@
 
 import { Fragment, useCallback, useId, useState } from 'react'
 import { outcomeValuesAreModelScale } from '../../outcomeValuesAreModelScale'
-import { ChevronRight, Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
 import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -173,6 +173,8 @@ import {
   bringIntoComparisonQuestion,
   NOT_ANALYSED_BADGE,
   NOT_COMPUTED_BADGE,
+  OLUMI_PROPOSED_EXCLUDED_DETAIL,
+  OLUMI_PROPOSED_EXCLUDED_SHORT,
 } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 // ⚠ THE GLANCE'S OWN COPY CONSTANT, imported rather than re-typed. `AtAGlance`
@@ -397,6 +399,88 @@ export interface OptionsComparisonProps {
   testId?: string
 }
 
+/** An Olumi suggestion the run left out on purpose: its row says so in its own short line (8 Oct 2026). */
+const isOlumiExcluded = (o: OptionsComparisonSection['rows'][number]): boolean =>
+  o.kind === 'not_analysed' && o.reason === 'excluded_olumi_proposed'
+
+/**
+ * ⭐ AN OLUMI SUGGESTION LEFT OUT, SHORT AT REST (DL 58e392 GO, 8 Oct 2026). The served row said "Olumi suggested this
+ * option" in its reason AND again in the origin line under the chart. Now one short line says whose it is and that the
+ * run left it out; the rest of the sentence and the ask that brings it in open under the chevron.
+ */
+function OlumiExcludedReason({ testId, optionId, onAsk }: { testId: string; optionId: string; onAsk: (() => void) | null }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-0.5" data-testid={`${testId}-not-analysed-reason`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`${typography.panelBody} text-text-light m-0`}>{OLUMI_PROPOSED_EXCLUDED_SHORT}</p>
+        <span className="shrink-0 -my-1">
+          <PanelIconButton
+            Icon={open ? ChevronDown : ChevronRight}
+            label={open ? 'Show less' : 'Show more'}
+            expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            testId={`${testId}-not-analysed-reason-toggle-${optionId}`}
+          />
+        </span>
+      </div>
+      {open ? (
+        <div className="mt-1 space-y-1" data-testid={`${testId}-not-analysed-reason-detail-${optionId}`}>
+          <p className={`${typography.panelBody} text-text-light m-0`}>{OLUMI_PROPOSED_EXCLUDED_DETAIL}</p>
+          {onAsk ? (
+            <button
+              type="button"
+              data-testid={`${testId}-bring-in-${optionId}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onAsk()
+              }}
+              className={`${typography.panelBody} inline-flex items-center ${action('inline')}`}
+            >
+              {BRING_INTO_COMPARISON_LABEL}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * ⭐ THE PRODUCER'S GOAL WITHHOLD, SHORT AT REST (Paul, 8 Oct 2026: the zone was "hard to consume"). One line says
+ * what is missing; the producer's own sentence — the why and its one question — opens beneath it, verbatim apart from
+ * the "Not shown." it would repeat.
+ */
+export const GOAL_WITHHELD_SHORT = 'Chance of meeting your goal: not shown yet.'
+
+function GoalWithheldLine({ message, testId }: { message: string; testId: string }) {
+  const [open, setOpen] = useState(false)
+  const why = message.startsWith('Not shown.') ? message.slice('Not shown.'.length).trim() : message
+  return (
+    <div className="mt-0 mb-2" data-testid={testId}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`${typography.panelBody} text-text-body m-0`} data-testid={`${testId}-short`}>
+          {GOAL_WITHHELD_SHORT}
+        </p>
+        <span className="shrink-0 -my-1">
+          <PanelIconButton
+            Icon={open ? ChevronDown : ChevronRight}
+            label={open ? 'Hide why' : 'Why?'}
+            expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            testId={`${testId}-toggle`}
+          />
+        </span>
+      </div>
+      {open && why !== '' ? (
+        <p className={`${typography.panelBody} text-text-light m-0 mt-1`} data-testid={`${testId}-why`}>
+          {why}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function OptionsComparison({
   options,
   leaderWithholdCause = null,
@@ -578,7 +662,10 @@ export function OptionsComparison({
    */
   // ⭐ 27 Sep 2026 (Paul): offered whenever a lens has something to draw. An arm with
   // nothing to draw is shown LOCKED, with its reason (`LENS_COPY.locked`), as in V2.
-  const offerLensControl = lensAvailability.outcome || lensAvailability.goal
+  // #2747 re-scope 2 (U0): in C the Goal fit lens has nothing to draw on this surface (`comparisonLensAvailability`), so
+  // its locked arm — "Goal fit shows each option's chance of meeting your goal…" — is not offered either: with one lens
+  // there is nothing to choose, and the control returns only when every lens has a view.
+  const offerLensControl = COMPARISON_LENSES.every((arm) => lensAvailability[arm])
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
   /**
@@ -666,6 +753,9 @@ export function OptionsComparison({
    */
   const originIsEveryOption =
     sharedOrigin !== null && options.rows.length > 0 && options.rows.every((o) => o.origin === sharedOrigin)
+  /** Every marked row is an Olumi suggestion the run left out, whose own short line already says whose it is. */
+  const originRowsSayItThemselves =
+    sharedOrigin === 'ai_suggested' && options.rows.filter((o) => o.origin === sharedOrigin).every(isOlumiExcluded)
 
   /**
    * ⭐ V2 FIDELITY (gap 17): THE BODY, SEPARATED FROM ITS SHELL. `bare` (below)
@@ -708,7 +798,7 @@ export function OptionsComparison({
           /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
              grey — this line states the chart's own uncertainty and reads as
              part of the argument, the same ruling as the qualifier below it. */
-          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
+          className={`${typography.panelBody} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
         >
           {COPY.checks.leader_not_assessed.orderingCaveat}
@@ -842,9 +932,7 @@ export function OptionsComparison({
       {/* AIQ #72 5887096626 (served condition on #2300): when the producer withheld every goal figure (PLoT #416),
           its reason is VISIBLE beside the emptied rows, never only in the locked arm's tooltip. */}
       {options.goalWithheldMessage ? (
-        <p className={`${typography.panelMeta} text-text-light mt-0 mb-2`} data-testid={`${testId}-goal-withheld`}>
-          {options.goalWithheldMessage}
-        </p>
+        <GoalWithheldLine message={options.goalWithheldMessage} testId={`${testId}-goal-withheld`} />
       ) : null}
 
       <ul
@@ -1096,7 +1184,7 @@ export function OptionsComparison({
             {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE
                 LEADER'S. Silent unless the claim is warranted; the same copy
                 constant the glance renders. */}
-            {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) ? (
+            {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) && !isOlumiExcluded(o) ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
                 data-testid={`${testId}-option-origin-${o.id}`}
@@ -1121,7 +1209,14 @@ export function OptionsComparison({
                 nothing, where the view model could not license the ground
                 (`reasonCopy: null`: an option added after a run we cannot
                 vouch is current). The badge above still names the state. */}
-            {o.kind === 'not_analysed' && o.reasonCopy !== null ? (
+            {o.kind === 'not_analysed' && o.reasonCopy !== null && isOlumiExcluded(o) ? (
+              <OlumiExcludedReason
+                testId={testId}
+                optionId={o.id}
+                onAsk={onSendMessage ? () => onSendMessage(bringIntoComparisonQuestion(o.label, o.reason)) : null}
+              />
+            ) : null}
+            {o.kind === 'not_analysed' && o.reasonCopy !== null && !isOlumiExcluded(o) ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
                 data-testid={`${testId}-not-analysed-reason`}
@@ -1139,7 +1234,7 @@ export function OptionsComparison({
                 surface may state, and "The analysis returned no result for …"
                 sent as the user's own words would carry the false premise
                 the row just withheld. */}
-            {o.kind === 'not_analysed' && o.reasonCopy !== null && onSendMessage ? (
+            {o.kind === 'not_analysed' && o.reasonCopy !== null && onSendMessage && !isOlumiExcluded(o) ? (
               <button
                 type="button"
                 data-testid={`${testId}-bring-in-${o.id}`}
@@ -1275,7 +1370,7 @@ export function OptionsComparison({
       ) : null}
       {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
           constant the rows used and the glance renders. */}
-      {sharedOrigin !== null && !(notesInQualifier && originIsEveryOption) ? (
+      {sharedOrigin !== null && !(notesInQualifier && originIsEveryOption) && !originRowsSayItThemselves ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1`}
           data-testid={`${testId}-option-origin-legend`}

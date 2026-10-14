@@ -54,6 +54,9 @@ import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeFrameOf, limitCh
  * questions, named apart. What is fixed here is that the second question now
  * has an answer.
  */
+/** The BEFORE side of a strength receipt for a link nobody had sized (CEE `before.sizing: 'placeholder'`). */
+export const STRENGTH_NOT_SET_BEFORE = 'Not set'
+
 export const V5_OPERATION_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
   set_factor_value: 'Updated factor value',
   add_constraint: 'Added constraint',
@@ -467,7 +470,10 @@ export function buildV5PatchReceipt(
         if (ep.from && ep.to) entityLabel = `${ep.from} → ${ep.to}`
       }
 
-      const beforeStrengthScalar = strengthScalar(beforeRaw?.strength)
+      // Placeholder licence (P48 dry walk, 8 Oct): CEE stamps `before.sizing: 'placeholder'` on a link nobody had sized.
+      // Its stored mean is a default prior, never a strength: no band word and no figure for the BEFORE side.
+      const beforeUnsized = (beforeRaw as { sizing?: unknown } | null)?.sizing === 'placeholder'
+      const beforeStrengthScalar = beforeUnsized ? null : strengthScalar(beforeRaw?.strength)
       const afterStrengthScalar = strengthScalar(afterRaw?.strength)
       const beforeStr = formatScalar(beforeStrengthScalar)
       const afterStr = formatScalar(afterStrengthScalar)
@@ -495,7 +501,8 @@ export function buildV5PatchReceipt(
         const afterBand = getStrengthLabel(Math.abs(afterStrengthScalar))
         const beforeBand = beforeStrengthScalar === null ? null : getStrengthLabel(Math.abs(beforeStrengthScalar))
         const negative = afterDir !== null ? afterDir === 'negative' : afterStrengthScalar < 0
-        const bands = beforeBand !== null && beforeBand !== afterBand ? `${beforeBand} → ${afterBand}` : afterBand
+        const bands = beforeUnsized ? `${STRENGTH_NOT_SET_BEFORE} → ${afterBand}`
+          : beforeBand !== null && beforeBand !== afterBand ? `${beforeBand} → ${afterBand}` : afterBand
         changeSummary = `${bands}, ${flipped ? 'now ' : ''}${negative ? 'decreases' : 'increases'}`
       }
       return { actionLabel, entityLabel, changeSummary, ...(technicalSummary ? { technicalSummary } : {}), status }

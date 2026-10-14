@@ -496,8 +496,8 @@ export function buildDeletionMessage(impact: DeletionImpact, elementLabel: strin
   }
   if (impact.removesLastDecision) {
     return {
-      title: 'Cannot remove the only decision',
-      message: 'Every model needs a decision node. Add a different one before removing this.',
+      title: 'Cannot remove the only question',
+      message: 'Every model needs a question. Add a different one before removing this.',
       blocked: true,
     }
   }

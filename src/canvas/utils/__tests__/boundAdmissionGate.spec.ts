@@ -235,7 +235,7 @@ describe('canRunAnalysis — a bound refusal is worded from the most specific so
 
   it('codes alone: a mapped code is named through the one vocabulary', () => {
     const result = gate({ readiness: null, mayRun: false, admissionWording: { requiredInputs: [], structural: null, reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] } })
-    expect(result.reason).toContain('An option is not linked to the decision.')
+    expect(result.reason).toContain('An option is not linked to the question.')
   })
 
   it('an unmapped code falls back to the honest generic line, never the raw code', () => {

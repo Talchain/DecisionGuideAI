@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ AN OPTION'S SHARE SAYS IT IS GOAL-ONLY WHEN THE LIMIT VERDICT WITHHOLDS THE
  * LEADER CLAIM (RC #63 5803875794, P0 #3(c); Paul's staging test 23 Sep).
@@ -37,6 +38,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useCanvasStore } from '../../store'
 import { leaderWithholdCause } from '../../../components/results/analysisNew/analysisNewCopy'
 import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
@@ -46,7 +48,7 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-const candidate = { id: 'candidate', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Grandfather existing customers', type: 'option' } }
+const candidate = { id: 'candidate', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Grandfather existing customers', type: 'option', kind: 'option' } }
 
 const envelope = (leaderClaim: Record<string, unknown>) => ({
   run_state: { kind: 'complete_current', computed_at: '2026-09-23T21:40:00.000Z' },
@@ -59,7 +61,9 @@ const envelope = (leaderClaim: Record<string, unknown>) => ({
 
 const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) => {
   useCanvasStore.setState({
-    nodes: [candidate, { ...candidate, id: 'alternative', data: { label: 'Usage-based for all', type: 'option' } }],
+    nodes: [candidate, { ...candidate, id: 'alternative', data: { label: 'Usage-based for all', type: 'option', kind: 'option' } },
+      { id: 'goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Customers', type: 'goal', goal_threshold_raw: 100, goal_threshold_unit: 'customers' } }],
+    goalThreshold: 100,
     edges: [], ceeAnalysisReady: null, viewMode: 'standard',
     analysisStateV1,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-09-23T21:40:00.000Z' },
@@ -72,21 +76,27 @@ const seed = (analysisStateV1: unknown, permission?: Record<string, unknown>) =>
         alternative: { status: 'computed', win_probability: 0.19 },
       },
       robustness: { near_tie: { is_tie: false, top_option_id: 'candidate' } },
+      // Licensed chance is independent of the support-share/leader-claim controls.
+      inference_warnings: permission?.permitted === false ? [] : [{
+        code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['candidate', 'alternative'],
+        pct_by_option: { candidate: 41, alternative: 12 },
+        target: { comparator: 'at_least', value: 100, unit: 'customers' },
+      }],
       ...(permission ? { producer_leader_permission: permission } : {}),
     } },
   } as never)
 }
 
-const renderCard = () => render(<ReactFlowProvider><OptionNode
+const renderCard = () => {
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
   id={candidate.id} type="option" data={candidate.data as never} selected={false}
   isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
   dragging={false} zIndex={0} deletable selectable draggable
-/></ReactFlowProvider>)
+/></OptionChanceCellProvider></ReactFlowProvider>)
+}
 
-const readout = () => screen.getByTestId('option-win-readout-candidate')
 const qualifier = () => screen.queryByTestId('option-share-goal-only-candidate')
-const shareRow = () => screen.getByTestId('option-analysis-currency-candidate')
-const label = () => shareRow().getAttribute('aria-label') ?? ''
 const tokens = (el: Element) => new Set((el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 const WITHHELD_FOR_LIMITS = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' }
 const slot = () => screen.getByTestId('option-share-slot-candidate')
@@ -168,19 +178,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(tip).toHaveTextContent(EXPLORATORY_REASON_LINE)
   })
 
-  // MOVED TO A PERMITTED RUN: the share's label-in-name and its focus tooltip still hold wherever a
-  // share renders, which after CURRENT-READ row 9 is only a permitted run (no qualifier on it).
-  it('PERMITTED run — the share row still opens its name with the visible line, and its tooltip opens on focus', async () => {
-    seed(envelope({ permitted: true, separation: 'separated' }), { permitted: true })
-    renderCard()
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
-    expect(label().startsWith('Current model · supported by 81% of runs.')).toBe(true)
-    expect(shareRow().getAttribute('tabindex')).toBe('0')
-    act(() => shareRow().focus())
-    expect(document.activeElement).toBe(shareRow())
-    const tip = await screen.findByRole('tooltip')
-    expect(tip).toHaveTextContent('Current model · supported by 81% of runs.')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "PERMITTED run — the chance row still opens its name with the visible line, and
+  // its tooltip opens on focus": its only subject, the canvas card's chance row (its name and focus tooltip), is removed in C.
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS checked on the `Goal only` qualifier; now on the marker.
   it('ED choice 3 — it must not look like endorsement: muted text, no colour channel', () => {
@@ -200,15 +199,17 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     }
   })
 
-  it('CONTRAST — leader permitted: same numbers, no qualifier', () => {
+  // #2747 re-scope 2 (U0): the licensed chance readout is deleted — the canvas card shows no chance in C. The slot is the
+  // same-render control; the three name negatives are re-anchored from the removed chance row onto the card's text.
+  it('CONTRAST — leader permitted: no qualifier', () => {
     seed(envelope({ permitted: true, separation: 'separated' }))
     renderCard()
-    expect(readout().textContent).toBe('81% of runs')
+    expect(slot()).toBeInTheDocument()
     expect(qualifier()).toBeNull()
     expect(notRanked()).toBeNull()
-    expect(label()).not.toContain('goal alone')
-    expect(label()).not.toContain('Goal only')
-    expect(label()).not.toContain('your limits')
+    expect(document.body.textContent).not.toContain('goal alone')
+    expect(document.body.textContent).not.toContain('Goal only')
+    expect(document.body.textContent).not.toContain('your limits')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the share keeps its number, no goal-only qualifier".
@@ -295,7 +296,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the goal-only case keeps `Goal only`". Neither qualifier
   // can appear now: the withheld run says `Not ranked`, the permitted run shows its share.
-  it('CONTRAST — the goal-only case says neither `Goal only` nor `Provisional` (it says `Not ranked`); a permitted leader says neither and is ranked', () => {
+  // #2747 re-scope 2 (U0): "and is ranked" (the permitted leader's chance readout) is deleted — the canvas card shows no chance in C.
+  it('CONTRAST — the goal-only case says neither `Goal only` nor `Provisional` (it says `Not ranked`); a permitted leader says neither', () => {
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
     expect(qualifier()).toBeNull()
@@ -307,13 +309,13 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(provisional()).toBeNull()
     expect(qualifier()).toBeNull()
     expect(notRanked()).toBeNull()
-    expect(readout().textContent).toBe('81% of runs')
   })
 
   it('CONTRAST — no wire state at all: no qualifier (nothing is inferred)', () => {
     seed(null)
     renderCard()
-    expect(readout().textContent).toBe('81% of runs')
+    // #2747 re-scope 2 (U0): WAS the chance readout as the control; the canvas card shows no chance in C — the slot instead.
+    expect(slot()).toBeInTheDocument()
     expect(qualifier()).toBeNull()
   })
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the stamped cause still qualifies the share". The stamp on
@@ -328,8 +330,9 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }))
     renderCard()
     expect(qualifier()).toBeNull()
-    // Row 9 reads the same stamp: no stamp on the result, so the share stays and nothing is withheld.
+    // Row 9 reads the same stamp: no stamp on the result, so nothing is withheld.
     expect(notRanked()).toBeNull()
-    expect(readout().textContent).toBe('81% of runs')
+    // #2747 re-scope 2 (U0): the chance readout is deleted — the canvas card shows no chance in C; the slot is the control.
+    expect(slot()).toBeInTheDocument()
   })
 })

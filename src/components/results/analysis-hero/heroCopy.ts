@@ -97,27 +97,8 @@ export const HERO_COPY = {
      */
     goalWithLimits: (label: string, readout: string) =>
       `In this model, ${label} meets your goal and limits in the most model runs (${readout}).`,
-    /**
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `caption.goalOnly` and
-     * `detail.goalFitJointBasis`. See the block above `noneOnTrack` for the
-     * full producer trace and why all three had to move together.
-     *
-     * The crown is the UNIQUE argmax of the goal probability among rows that
-     * all carry one (UI-SEM-072), clearing the sub-1% floor — so "most likely
-     * to meet" names exactly the quantity the caption below and the row detail
-     * beneath it show. It was `"{label} best fits your goal."`, which asserted
-     * a possessive over a number that, when the user has set constraints, does
-     * not involve the goal at all.
-     */
-    goalOnly: (label: string, readout: string) =>
-      // DELEGATED — this restated `GOAL_ANCHOR_COPY.headline(_, _, true)`
-      // byte-for-byte plus a full stop, which is the second copy of one claim
-      // the re-anchoring exists to remove. `sentence()` is `phrase()` plus a
-      // full stop for the same reason; this is the headline form of the same
-      // relationship, pinned in `__tests__/heroCopyDelegation.spec.ts`.
-      // Principle audit (5 Oct): said in this model, the Reasoning tab's own `implications.goalClaim` words.
-      `In this model, ${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
+    // #2747 re-scope 2 round 2: `goalOnly` (the goal-fit crown headline with the served figure's "about" cut) lost its
+    // last caller when the hero stopped composing goal claims (DL rule C).
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -126,109 +107,25 @@ export const HERO_COPY = {
     // must not print. That branch now takes `noLeader` below. Deleted rather
     // than left dangling: dead copy beside a live selector is an invitation to
     // re-wire it.
-    /**
-     * Leader-claim banding — producer-first (Lane UI-W4, PLoT #200): the
-     * band is PLoT's own decision_brief.headline_banded when present
-     * (clearly_ahead selects this claim), with the UI's win-probability
-     * banding (UI-SEM-060) as the absent-producer fallback only. Either
-     * way the "most likely" claim is grounded in producer win
-     * probabilities (the same quantity the detail's "chance it is the
-     * strongest option overall" line shows) — never in outcome-lens
-     * inference or range overlap. Range overlap alone must never temper or
-     * manufacture a closeness claim; it only appends the overlap advisory
-     * to the state-A subline.
-     */
-    /**
-     * ⭐ RE-ANCHORED 2026-07-31. Was `"{label} is most likely to be strongest
-     * overall."` — a bare superlative over an unnamed basis: a reader could
-     * not tell what it was strongest AT, and it carried no number to argue
-     * with. The claim was always grounded in the COMPARATIVE quantity (see
-     * the block above), so it now says so, with its magnitude.
-     */
-    // Principle audit (5 Oct): every headline arm is a finding about THIS model, never a verdict. The words are the
-    // register's (`COMPARATIVE_COPY.modelLeader*`) and the Reasoning tab's own (`analysisNewCopy.ts`).
-    mostLikelyStrongest: (label: string, readout: string | null) => {
-      const claim = readout ? COMPARATIVE_COPY.modelLeaderClause(readout) : COMPARATIVE_COPY.modelLeaderNoMagnitude
-      return `In this model, ${label} ${claim}.`
-    },
-    /**
-     * Banding state B: ahead on win probability without a strong majority. "Slightly more often" is said only because
-     * this arm is bound to the producer's named separation class (`separation === 'slight'` / `slightly_ahead`).
-     */
-    slightlyAhead: (label: string) => `In this model, slightly more runs supported ${label}.`,
+    // ⭐ RUN-4 JUDGE, DL RULING (12 Oct, the class): `mostLikelyStrongest` ("In this model, X was supported by more runs
+    // than any other option." / "… was supported by N of runs.") and `slightlyAhead` ("… slightly more runs supported X.")
+    // are DELETED. They named the leader from a win share; ruling A and the guiding principle allow no leader claim, and
+    // CEE sends none. Their bands take `noLeader` (SILENCE); no words replace them.
     /** Banding state C: the win probabilities identify no clear leader. */
     noClearLeader: 'In this model, no option is clearly most likely.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string, readout: string) =>
       `In this model, ${label} has the highest expected outcome: ${readout}.`,
-    /**
-     * Goal honesty: every option's goal probability sits below the sub-1%
-     * floor (UI-SEM-057) — crowning any option would be false, so the headline
-     * states the decision-relevant truth instead.
-     * Constraint-aware like every other goal claim: under constraints the
-     * floored figure is the JOINT (goal AND limits) probability, and the
-     * axis/caption already say "goal and limits" — the headline must match.
-     *
-     * ⭐ GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1).
-     * This string, `headline.goalOnly`, `caption.goalOnly` and
-     * `detail.goalFitJointBasis` are ONE claim on four surfaces and must stay
-     * in the same voice. They were changed together because they had drifted
-     * apart in a way the user could see in a single render: the row detail
-     * withheld the possessive while the headline and caption above it asserted
-     * it, about the same number, on every live run.
-     *
-     * WHY (as traced when this wording shipped — ⚠ L65, 2026-08-04: the
-     * every-run part is now history. L62 withholds the substituted joint
-     * figure at the selector, and PLoT #308 suppresses the frame-broken
-     * channel at source, so a number rendered here today is an honest
-     * `goal_probability`. The count/possessive restraint below stays until
-     * the interim-retirement trigger fires). The number every live V5 run
-     * rendered here was `probability_of_joint_goal`. Two live cases produced
-     * it and the UI could not tell them apart:
-     *   A. no user constraints — PLoT synthesises ONE constraint from the goal
-     *      threshold, on the goal node, `>=`, and ISL evaluates it against the
-     *      EXACT goal samples. The figure IS goal attainment, over exactly one
-     *      target, and that target is the user's own. "All targets together"
-     *      over-stated plurality on 100% of live runs.
-     *   B. user constraints present — PLoT SKIPS the synthesis and DISCARDS the
-     *      goal threshold, so the number does not involve the goal at all and
-     *      "your goal" would be false.
-     * The discriminator does not exist in contract: PLoT's attestation
-     * (`_meta.constraint_sources`) is stripped at CEE's transport keep-list,
-     * and the only local signal is an undeclared magic string on another
-     * service's internal constant. Sniffing it would be the hand-maintained
-     * mirror this family exists to remove, so the copy asserts neither a count
-     * nor a possessive and is true in BOTH cases.
-     *
-     * INTERIM: retires when CEE ships the goal verdict with an explicit
-     * measure scope and the copy can be exact.
-     */
-    noneOnTrack: 'No option is currently on track to meet every target this run scored.',
+    // #2747 re-scope 2 round 2: `noneOnTrack` ("No option is currently on track to meet every target this run scored.")
+    // lost its last caller with the hero's own goal claims (DL rule C).
     noneOnTrackWithLimits: 'No option is currently on track to meet your goal and limits.',
     singleOption: (label: string) => `${label} is your only option.`,
     noLeader: 'Here is how your options compare.',
   },
 
   subline: {
-    /**
-     * Persistent divergence subline: whenever the headlined leader is not
-     * the expected-outcome leader (goal basis or not), the tension is
-     * stated in one plain sentence naming the outcome leader.
-     */
-    highestOutcome: (label: string, readout: string) =>
-      // DELEGATED — this and `headline.outcomeLeader` were byte-identical
-      // twins: the same sentence, authored twice, one used as a headline and
-      // one as a subline. Two copies of one claim is how the four goal
-      // surfaces drifted apart in the first place.
-      HERO_COPY.headline.outcomeLeader(label, readout),
-    aligned: (label: string) => `${label}’s expected outcome points the same way, in this model.`,
-    /**
-     * Banding state B subline (producer band or UI-SEM-060 fallback): the
-     * runner-up is named from the SAME rendered outcome ranking the chart
-     * shows, and ONLY when the top-two expected outcomes are genuinely
-     * close — never from range overlap alone.
-     */
-    closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
+    // Run-4 judge (DL 12 Oct, the class): `highestOutcome`, `aligned` and `closeOnOutcome` described the named leader
+    // (and `overlapAdvisory` was appended to its claim). The headline names no leader now, so they are deleted.
     /**
      * Readout-tie subline (UI-SEM-070): the top-two options render the SAME
      * expected-outcome readout, so the chart cannot single one out. A neutral
@@ -238,12 +135,6 @@ export const HERO_COPY = {
     outcomesClose: 'The top options are close on expected outcome.',
     /** Banding state C companion line (no leader claimed, no name risked). */
     compareTop: 'Compare the top options before deciding.',
-    /**
-     * Appended to the state-A subline when the top-two p10-p90 ranges
-     * intersect: overlap is stated as uncertainty about the ranges, without
-     * downgrading the win-probability-grounded leader claim.
-     */
-    overlapAdvisory: 'Realistic ranges overlap, so validate the assumptions before deciding.',
   },
 
   /** Fallback when a label cannot be safely interpolated into generated copy. */
@@ -286,15 +177,7 @@ export const HERO_COPY = {
     // Value-based wording (not "each bar"): the goal lens draws no tracks
     // (prototype v6), so the caption describes the readouts it shows.
     goalWithLimits: 'Each value is the chance that option meets your goal and limits together.',
-    /**
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `headline.goalOnly` /
-     * `headline.noneOnTrack` and `detail.goalFitJointBasis`. See the block
-     * above `noneOnTrack` for the producer trace. It was `"Each value is the
-     * chance that option hits your goal."`, which asserted the possessive the
-     * row detail directly beneath it was written to withhold.
-     */
-    goalOnly: 'Each value is the chance that option meets every target this run scored.',
+    // #2747 re-scope 2 round 2: `goalOnly` (the Goal fit lens caption) lost its only caller (DL rule C / U2).
     /** Base outcome caption — shown when TWO OR MORE rows draw p10-p90 lines. */
     outcome: 'Dots show expected outcome. Lines show the realistic range.',
     /**
@@ -353,31 +236,7 @@ export const HERO_COPY = {
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
     goalFitWithLimits: (readout: string) => `${GOAL_ANCHOR_COPY.readout(readout, false)} and limits, in this model.`,
-    /**
-     * Goal-probability IDENTITY: the voice for a row whose number is
-     * `probability_of_joint_goal` STANDING IN for an absent
-     * `goal_probability`.
-     *
-     * ⚠ CORRECTED BY L65 (2026-08-04): this comment used to add that the
-     * flagging basis (`'joint_goal_substituted'`) "on the live V5 wire, is
-     * EVERY run". True when written; false now. L62 renamed the basis
-     * `'joint_goal_withheld'` and it carries NO number, so this arm renders
-     * on no run today — dead pending the rowed retirement of the
-     * substituted-register surfaces (ROADMAP 2.399(b)); do not delete it
-     * here. When it did render, the number was shown unchanged: a copy
-     * switch, never a value transform.
-     *
-     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
-     * same claim, in the same words, as `headline.goalOnly` /
-     * `headline.noneOnTrack` and `caption.goalOnly`. See the block above
-     * `noneOnTrack` for the producer trace. It was `"...chance of meeting all
-     * targets together."`, which over-stated plurality: on the ordinary run
-     * there is exactly ONE target and it is the user's own goal threshold.
-     * "Every target" is true over a singleton and over a set, so it asserts
-     * no count — and no possessive, which would be false when the user HAS
-     * set constraints and PLoT discards the goal threshold.
-     */
-    goalFitJointBasis: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, true),
+    // #2747 re-scope 2 round 2: `goalFitJointBasis` lost its last caller in this PR (the hero detail says CEE's cell).
   },
 
   /**
@@ -388,9 +247,9 @@ export const HERO_COPY = {
    * pill labelled for both, never two pills pointing at one node.
    */
   pills: {
-    mainDriver: (factor: string) => `Main driver: ${factor}`,
+    mainDriver: (factor: string) => `Moves the result most: ${factor}`,
     topFlipRisk: (factor: string) => `Tipping point: ${factor}`,
-    combined: (factor: string) => `Main driver and top flip risk: ${factor}`,
+    combined: (factor: string) => `Moves the result most and top flip risk: ${factor}`,
     /**
      * ⛔ THE TIE VARIANTS STILL NAME THE FACTOR. "Main driver: X" is a
      * comparative claim and a tie cannot support one — but going quiet would
@@ -404,9 +263,9 @@ export const HERO_COPY = {
      * so the hedge cannot be read as applying to the flip-risk half — which
      * has its own owner (`selectFlipRisk`) and is not in question here.
      */
-    mainDriverTied: (factor: string) => `Tied for main driver: ${factor}`,
+    mainDriverTied: (factor: string) => `Tied for moving the result most: ${factor}`,
     combinedTied: (factor: string) =>
-      `Tied for main driver, and top flip risk: ${factor}`,
+      `Tied for moving the result most, and top flip risk: ${factor}`,
   },
 
   /**
@@ -440,13 +299,13 @@ export const HERO_COPY = {
      * sentence ("the result depends on…") is UI-authored causal prose and
      * stays forbidden until a producer rationale string exists.
      */
-    mainReason: (factor: string) => `Main driver: ${factor}.`,
+    mainReason: (factor: string) => `Moves the result most: ${factor}.`,
     /**
      * The pill-less path's tie variant — same rule and same register as
      * `pills.mainDriverTied`. The factor is still named; only the
      * comparative claim yields.
      */
-    mainReasonTied: (factor: string) => `Tied for main driver: ${factor}.`,
+    mainReasonTied: (factor: string) => `Tied for moving the result most: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
@@ -582,10 +441,9 @@ export const HERO_COPY = {
      */
     // Science d5 (#87 6007969474): a share of runs, never a chance. The withheld caption is for a target-only withhold
     // (the comparison is kept); where the ordering is withheld the probabilities are stripped, so no caption renders.
-    flipRisksNote: (designationsWithheld: boolean) =>
-      designationsWithheld
-        ? 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.'
-        : 'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.',
+    // Run-4 judge (DL 12 Oct, the class): every run takes the withheld wording; "changes the most-supported option" is
+    // run-share wording and is removed.
+    flipRisksNote: 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.',
     /**
      * ROADMAP 2.291 — the flip-threshold sentences and tokens DELEGATE to
      * `utils/flipThresholdDisplay`'s register (one-copy guarantee, same

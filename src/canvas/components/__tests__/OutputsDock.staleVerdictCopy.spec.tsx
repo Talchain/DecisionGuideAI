@@ -33,6 +33,10 @@ import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
+// Readiness awaits the canonical identity seam before dispatching (#2703): a guest session here.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: vi.fn(() => vi.fn()) }
@@ -176,6 +180,8 @@ function seedVerdict({ stale }: { stale: boolean }) {
     error: null,
     stale,
     verdictAtMs: Date.now(),
+    // The seeded verdict belongs to this (guest) session, as a fetched one would (#2703 owner fence).
+    verdictAuthKey: JSON.stringify([null, 'none']),
   })
 }
 

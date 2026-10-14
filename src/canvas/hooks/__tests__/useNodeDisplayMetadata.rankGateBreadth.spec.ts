@@ -119,8 +119,8 @@ describe('useNodeDisplayMetadata — the rank badge claims only what is determin
     setReport(LIVE_TIED_SET)
     const tied = metaOf('fac_b_migration')
     expect(tied.inSensitivityAnalysis).toBe(true)
-    expect(tied.influence).toBe(0.67)
-    expect(tied.influenceProvenance).toBe('influence_score')
+    expect(tied.influence).toBeCloseTo(2.4 / 3.6)
+    expect(tied.influenceProvenance).toBe('normalised_elasticity')
   })
 
   it('OPPOSITE-DIRECTION TWIN: a genuinely determined set still gets all three badges', () => {
@@ -244,9 +244,9 @@ describe('useNodeDisplayMetadata — a manufactured zero is not a measurement', 
     expect(scored.inSensitivityAnalysis).toBe(true)
   })
 
-  it('a genuine producer zero under COMPLETE coverage survives — it is an absolute score, not a sentinel', () => {
-    // Every row carries influence_score, so the basis is the producer's own
-    // absolute scale. A 0.0 there is a real measurement and must be shown.
+  it('a genuine measured zero under COMPLETE producer coverage survives on the elasticity basis', () => {
+    // Every row carries influence_score, but the display uses normalised elasticity.
+    // An explicit elasticity 0 is a real measurement and must be shown.
     setReport([
       { factor_id: 'fac_a_pricing', influence_score: 1.0, elasticity: 3.6 },
       { factor_id: 'fac_b_migration', influence_score: 0.5, elasticity: 1.8 },
@@ -254,6 +254,6 @@ describe('useNodeDisplayMetadata — a manufactured zero is not a measurement', 
     ])
     const inert = metaOf('fac_c_inert')
     expect(inert.influence).toBe(0)
-    expect(inert.influenceProvenance).toBe('influence_score')
+    expect(inert.influenceProvenance).toBe('normalised_elasticity')
   })
 })

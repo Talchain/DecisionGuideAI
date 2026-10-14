@@ -30,6 +30,15 @@
  * an internal construct renamed for cosmetic reasons, which the founder's
  * language ruling forbids. Pinned below so a later tidy cannot do it silently.
  *
+ * ⭐ VOCABULARY, 14 OCT 2026 (Paul, agreed; CLAUDE.md "User-facing vocabulary").
+ * "Decision" now names ONLY the user's own act of choosing — never the thing
+ * the user brings. The alternation this spec pins therefore moved from
+ * "decision or challenge" to "question or situation": a QUESTION carries the
+ * decision case (#1110's control is itself a question), a SITUATION carries
+ * the open challenge. The two properties are unchanged — both kinds are
+ * offered as alternatives, and the decision-shaped kind leads — and a third is
+ * added: no entry surface calls what the user brings a "decision".
+ *
  * Read through the HOOK and the exported map that the composer actually uses,
  * never a retyped copy — `ChatComposer.spec` pins that the map reaches the
  * textarea, and `stagePlaceholder.spec` now imports it rather than mirroring it.
@@ -55,17 +64,18 @@ const firstUseLine = () => renderHook(() => useStageAwarePlaceholder()).result.c
 const heroLine = () => FIRST_USE_PLACEHOLDER
 
 /**
- * The PROPERTY: a decision and a challenge are offered as ALTERNATIVE things the
- * user can bring. The alternation is what a verb cannot satisfy.
+ * The PROPERTY: a question (the decision case) and a situation (the open
+ * challenge) are offered as ALTERNATIVE things the user can bring. The
+ * alternation is what a verb cannot satisfy.
  */
 function admitsBoth(s: string): boolean {
-  return /\bdecision\s+or\s+challenge\b/i.test(s)
+  return /\bquestion\s+or\s+situation\b/i.test(s)
 }
 
-/** Decision must be named, and named FIRST — the testable form of "not demoted". */
-function decisionLeads(s: string): boolean {
+/** The question must be named, and named FIRST — the testable form of "not demoted". */
+function questionLeads(s: string): boolean {
   const l = s.toLowerCase()
-  return l.includes('decision') && l.indexOf('decision') < l.indexOf('challenge')
+  return l.includes('question') && l.indexOf('question') < l.indexOf('situation')
 }
 
 describe('the entry copy invites a challenge as well as a decision', () => {
@@ -110,11 +120,21 @@ describe('the entry copy invites a challenge as well as a decision', () => {
     }
   })
 
-  it('⛔ REGRESSION CONTROL — a decision is still named, and still leads', () => {
-    expect(decisionLeads(STAGE_PLACEHOLDERS.frame)).toBe(true)
-    expect(decisionLeads(tip('goal'))).toBe(true)
-    expect(decisionLeads(firstUseLine())).toBe(true)
-    expect(decisionLeads(heroLine())).toBe(true)
+  it('⛔ REGRESSION CONTROL — the question is still named, and still leads', () => {
+    expect(questionLeads(STAGE_PLACEHOLDERS.frame)).toBe(true)
+    expect(questionLeads(tip('goal'))).toBe(true)
+    expect(questionLeads(firstUseLine())).toBe(true)
+    expect(questionLeads(heroLine())).toBe(true)
+  })
+
+  it('⛔ NO ENTRY SURFACE CALLS WHAT THE USER BRINGS A "DECISION" (Paul, 14 Oct 2026)', () => {
+    for (const s of [STAGE_PLACEHOLDERS.frame, tip('goal'), tip('options'), firstUseLine(), heroLine()]) {
+      expect(/\bdecision\b/i.test(s), `entry copy says "decision": "${s}"`).toBe(false)
+    }
+    // Discrimination: the predicate does fire on the retired wording, and the
+    // alternation guard rejects it.
+    expect(/\bdecision\b/i.test('Describe your decision or challenge…')).toBe(true)
+    expect(admitsBoth('Describe the decision or challenge you’re working through.')).toBe(false)
   })
 
   it('⛔ NEVER DEMANDS OPTIONS FROM A USER WHO HAS NONE', () => {

@@ -52,8 +52,11 @@ export function buildEstimateRows(
       const rawUnwrapped = unwrapInterventionValue(observed.raw_value).value
       const valueUnwrapped = unwrapInterventionValue(observed.value).value
       const cap = unwrapInterventionValue(observed.cap).value ?? null
-      const reviewed = isReviewedByUser(node)
-      const aiSourced = isAiSource(typeof observed.source === 'string' ? observed.source : null)
+      const nodeProvenance = typeof data.provenance === 'string' ? data.provenance : null
+      const nodeClass = classifyNodeProvenance(nodeProvenance)
+      const neutralAuthorship = nodeProvenance != null && (!nodeClass || nodeClass.kind === 'unverified_brief')
+      const reviewed = !neutralAuthorship && isReviewedByUser(node)
+      const aiSourced = !neutralAuthorship && isAiSource(typeof observed.source === 'string' ? observed.source : null)
 
       // ROADMAP 2.638 S2 — WHICH act the reviewed state records.
       //
@@ -63,13 +66,13 @@ export function buildEstimateRows(
       // `provenance` rung, which classifies to 'human': CEE writes `user_set`
       // for a typed value and a confirmation alike, so it is honest about not
       // knowing the act rather than guessing one.
-      const nodeProvenance = typeof data.provenance === 'string' ? data.provenance : null
       // Olumi's figure, ACCEPTED, is told apart only by the whole observed state (52f8cd; AIQ 5921018606).
       const observedClass = classifyObservedValueProvenance(observed)
-      const provenanceKind = (
-        (observedClass?.kind === 'accepted' ? observedClass : null) ??
-        classifyValueProvenance(resolveReviewSource(node)) ??
-        classifyNodeProvenance(nodeProvenance)
+      const provenanceKind = (neutralAuthorship
+        ? nodeClass
+        : (observedClass?.kind === 'accepted' ? observedClass : null) ??
+          classifyValueProvenance(resolveReviewSource(node)) ??
+          nodeClass
       )?.kind
 
       const needsValue =
@@ -91,7 +94,7 @@ export function buildEstimateRows(
         reviewed,
         ...(provenanceKind ? { provenanceKind } : {}),
         aiSourced,
-        attribution: reviewed
+        attribution: neutralAuthorship ? null : reviewed
           ? currentUser ?? { kind: 'person', displayName: 'You' }
           : { kind: 'olumi' },
         displayText,

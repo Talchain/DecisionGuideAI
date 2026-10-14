@@ -15,6 +15,7 @@
  * AIQ's three rows:
  *   1. 4276f3f9 → 0 option percentages and no per-option movement; the reason line once;
  *   2. CONTROL: `{permitted: true}` still shows the share change (Convertible bridge "→ 80%");
+ *      #2747 re-scope 2 (DL ruling (A)): in C no surface shows a share change, so row 2 keeps only the leader and negatives.
  *   3. CONTROL: `separation_unavailable` hides them too, in that cause's own words.
  */
 import { afterEach, describe, expect, it } from 'vitest'
@@ -73,12 +74,11 @@ describe('CURRENT-READ row 9 — What\'s changed (Reasoning tab)', () => {
     expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-highest-scoring`)).toHaveAttribute('data-may-name', 'false')
   })
 
-  it('⭐ ROW 2 — CONTROL: a PERMITTED Run still shows each option\'s share change (→ 80%) and names the leader', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the Convertible movement row's "50% → 80%" share-change assertion (and its lookup) is
+  // deleted — a movement is a win share and no surface shows one in C. The leader naming and the negatives stay.
+  it('⭐ ROW 2 — CONTROL: a PERMITTED Run names the leader and says no reason line', () => {
     seedPaulRun(PERMITTED_STAMP)
     const section = renderSection()
-    const convertible = screen.getAllByTestId(`${WHATS_CHANGED_TESTID}-movement`)
-      .find((el) => el.getAttribute('data-option-id') === CONVERTIBLE)!
-    expect(convertible.textContent).toBe(`${CONVERTIBLE_LABEL}: 50% → 80%`)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-win-shares-withheld`)).toBeNull()
     expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-highest-scoring`).textContent).toContain(CONVERTIBLE_LABEL)
     expect(section.textContent).not.toContain(EXPLORATORY_REASON_LINE)

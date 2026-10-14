@@ -90,7 +90,8 @@ describe('a provisional admission outranks the producer headline', () => {
     )
     const commitment = screen.getByTestId('analysis-new-commitment')
     expect(commitment).not.toHaveTextContent(`${OPT_HEDGE_LABEL} has the highest expected outcome`)
-    expect(commitment).toHaveTextContent('Olumi could not confirm which option most runs supported on this run')
+    // 8 Oct 2026: short at rest ("Which option leads is not confirmed yet."), the standing sentence under its chevron.
+    expect(commitment).toHaveTextContent('Which option leads is not confirmed yet.')
     expect(document.body.textContent ?? '').not.toMatch(/slightly ahead|scored highest/i)
     // The comparison itself stays: both options are still on the first screen.
     expect(commitment).toHaveTextContent(OPT_HEDGE_LABEL)

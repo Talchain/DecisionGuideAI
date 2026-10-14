@@ -52,9 +52,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
+import { isProvenNoWriteConflict } from '../../../v5/provenNoWriteConflict'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import {
@@ -184,9 +185,14 @@ function conflict409(category: string) {
   }
 }
 
-function stub409(category: string) {
-  const body = conflict409(category)
-  const fetchStub = vi.fn(async () => ({
+function stub409(category: string, body: unknown = conflict409(category)) {
+  const fetchStub = vi.fn(async (url: string, _init?: RequestInit) => url.endsWith(`/scenarios/${SCENARIO_ID}/graph`) ? ({
+    ok: true, status: 200, json: async () => ({ schema: 'scenario_graph.v1',
+      scenario_id: SCENARIO_ID, graph_present: true, graph: { nodes: [
+        { id: DELETED_NODE_ID, kind: 'option', label: 'Expand into the EU' },
+        { id: SURVIVING_NODE.id, kind: 'goal', label: 'Grow revenue' },
+      ], edges: [] } }),
+  } as Response) : ({
     ok: false,
     status: 409,
     headers: new Headers({ 'content-type': 'application/json' }),
@@ -202,8 +208,8 @@ function stub409(category: string) {
  * canvas that has ALREADY had the element optimistically removed (which is the
  * real pre-state: the store deletes synchronously and the drain sends after).
  */
-async function driveDelete(category: string) {
-  stub409(category)
+async function driveDelete(category: string, body?: unknown) {
+  const fetchStub = stub409(category, body)
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
     // Post-optimistic-delete state: the option is gone, the goal remains.
@@ -233,6 +239,24 @@ async function driveDelete(category: string) {
       .catch(() => undefined)
   })
 
+  if (isProvenNoWriteConflict(category)) {
+    await waitFor(() => expect(fetchStub.mock.calls.filter(([url]) =>
+      url.endsWith(`/scenarios/${SCENARIO_ID}/graph`))).toHaveLength(1))
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+    expect(fetchStub).toHaveBeenCalledTimes(2)
+    const writes = fetchStub.mock.calls.filter(([url]) => !url.endsWith(`/scenarios/${SCENARIO_ID}/graph`))
+    expect(writes).toHaveLength(1)
+    expect(writes[0][0]).toMatch(/\/v5\/turn$/)
+    expect(writes[0][1]?.method).toBe('POST')
+    expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({
+      kind: 'system_event', scenario_id: SCENARIO_ID, event: { kind: 'structural_delete' },
+    })
+    const read = fetchStub.mock.calls.find(([url]) => url.endsWith(`/scenarios/${SCENARIO_ID}/graph`))!
+    expect(JSON.parse(String(read[1]?.body))).toEqual({})
+  } else {
+    expect(fetchStub).toHaveBeenCalledTimes(1)
+  }
+
   const nodeIds = useCanvasStore.getState().nodes.map((n) => n.id)
   const notices = result.current.messages
     .filter((m) => m.role === 'assistant' && m.synthetic === true)
@@ -255,6 +279,17 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('structural_delete 409 — a guaranteed no-write reverts and says so', () => {
+  it.each([
+    ['top-level code', { code: 'revision_conflict' }],
+    ['details.code', { details: { code: 'revision_conflict' } }],
+    ['conflict_category', conflict409('revision_conflict')],
+  ])('revision_conflict (%s) puts the node back and says nothing was saved', async (_shape, body) => {
+    const { nodeIds, notices } = await driveDelete('revision_conflict', body)
+    expect(nodeIds).toContain(DELETED_NODE_ID)
+    expect(nodeIds).toContain(SURVIVING_NODE.id)
+    expect(notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+  })
+
   it("'rpc_cas_conflict' (the atomic-CAS refusal) puts the element BACK and renders the diverged notice", async () => {
     const { nodeIds, notices } = await driveDelete('rpc_cas_conflict')
 

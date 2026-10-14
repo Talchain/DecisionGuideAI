@@ -60,11 +60,6 @@ export function useGoalConstraints(): Array<CEEGoalConstraint & { probability?: 
   return useCanvasStore(s => selectReport(s)?.goal_constraints ?? undefined)
 }
 
-/** Conditional probabilities (P(B|A) differences) */
-export function useConditionalProbabilities(): ConditionalProbability[] | undefined {
-  return useCanvasStore(s => selectReport(s)?.conditional_probabilities ?? undefined)
-}
-
 /** Option comparison data for advanced editors */
 export function useOptionComparison(): InspectorOptionComparison[] | undefined {
   return useCanvasStore(s => selectReport(s)?.option_comparison)
@@ -101,9 +96,11 @@ export function hasAnyRealProbability(report: InspectorReport | undefined | null
   const options = report.option_comparison
   if (Array.isArray(options) && options.length > 0) {
     // Present-but-non-empty: option-level nulls veto, root is not consulted.
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
     return options.some((opt) => isFiniteNumber(opt?.win_probability))
   }
   // Absent or empty array: fall back to root probability_of_goal.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: a presence check; no number leaves the line
   return isFiniteNumber(report.probability_of_goal)
 }
 

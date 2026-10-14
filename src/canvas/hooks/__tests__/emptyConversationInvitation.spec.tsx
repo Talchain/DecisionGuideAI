@@ -102,7 +102,7 @@ describe('both voices exist for every stage, and they agree about the situation'
       // …and the composer is not saying the empty-canvas thing either, which is
       // what made the old pairing visibly contradictory rather than merely dull.
       const placeholder = renderHook(() => useStageAwarePlaceholder()).result.current
-      expect(placeholder).not.toBe('Describe your decision or challenge…')
+      expect(placeholder).not.toBe('Describe your question or situation…')
     },
   )
 
@@ -112,7 +112,7 @@ describe('both voices exist for every stage, and they agree about the situation'
       FIRST_USE_PLACEHOLDER,
     )
     expect(renderHook(() => useStageAwarePlaceholder()).result.current).toBe(
-      'Describe your decision or challenge…',
+      'Describe your question or situation…',
     )
   })
 

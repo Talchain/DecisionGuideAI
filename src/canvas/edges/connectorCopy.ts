@@ -168,32 +168,17 @@ export const LEGEND_THICKNESS_CAPTION = 'Thicker line: a stronger modelled relat
  * "Small changes here …" while the inspector tooltip on the SAME figure said
  * "changes significantly": one number, two contradictory magnitudes, and
  * neither established (what `switch_probability` measures is still under
- * investigation). The sentence therefore names the change without sizing it,
- * and `EDGE_COPY.flipRiskTooltip` is composed from `fragileEdgeSentence` so the
- * two can never disagree again.
+ * investigation). The sentence therefore names the change without sizing it;
+ * since #2747 re-scope 2 round 2 it is the only words the cue, the hover and the
+ * inspector say about it (no figure).
  */
 export const FRAGILE_CUE_SENTENCE = "If this connection's strength changes, the current model comparison could change"
 
 /**
- * The fragility sentence the cue carries on its name and title, and — since
- * Paul 23 Sep contract feedback point 4 — the hover popover's fragility line
- * too: ONE sentence for one cue, where there used to be three spellings
- * ("Sensitive assumption: …", "Sensitive: NN% flip risk", and the key's
- * "Sensitive: …"). The number is `fragileEdgeSwitchProb`, from
- * `getFragileEdgeSwitchProbability`, stated WITH the noun `fragileEdgeMatch`
- * gives it ("NN% flip risk"). Its meaning is NOT changed here (a parallel
- * investigation is checking what `switch_probability` measures); only the
- * canvas stops calling the connection "Sensitive" and stops printing the
- * figure without its noun.
- *
- * Presence-branched: absent means NOT COMPUTED, and the marginal quantity is
- * never a fallback (`StyledEdge.fragilePresence.spec.tsx`).
+ * #2747 re-scope 2 round 2 (Codex r1 blocking 4; DL: the LensInfoPanel ruling applies everywhere): the cue's name, title
+ * and hover line say `FRAGILE_CUE_SENTENCE` alone. `fragileEdgeSentence` added "(NN% flip risk)" from the Run's
+ * `switch_probability`, a figure CEE serves no wording or Run authority for in C; it lost its last use and is deleted.
  */
-export function fragileEdgeSentence(switchProbability: number | null): string {
-  return switchProbability !== null
-    ? `${FRAGILE_CUE_SENTENCE} (${Math.round(switchProbability * 100)}% flip risk)`
-    : FRAGILE_CUE_SENTENCE
-}
 
 /**
  * The key's row for the cue. Model-relative, and it DISCLOSES the budget, so a

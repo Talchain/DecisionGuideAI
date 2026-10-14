@@ -148,7 +148,7 @@ export interface EstimateRowModel {
   provenanceKind?: ValueProvenanceKind
   /** True when the value's source is AI-supplied (drives the "Olumi estimate" pill). */
   aiSourced: boolean
-  attribution: Attribution
+  attribution: Attribution | null
   /**
    * Display-scale text via the canonical factorDisplayText chain
    * (raw_value + unit > display_value > unitless raw > binary heuristic).

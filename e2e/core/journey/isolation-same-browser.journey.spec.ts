@@ -85,7 +85,7 @@ async function signOut(page: Page): Promise<void> {
 
 /** A fresh scenario drafted from the frozen brief; returns its id and node ids. */
 async function draft(page: Page): Promise<{ S: string; nodes: string[] }> {
-  const start = page.getByRole('button', { name: /start a new decision|new decision/i }).first()
+  const start = page.getByRole('button', { name: /start a new scenario|new scenario/i }).first()
   const composer = page.getByTestId('first-use-input-bar-textarea')
   await expect(start.or(composer).first()).toBeVisible({ timeout: 30_000 })
   if (await start.count()) await start.click()

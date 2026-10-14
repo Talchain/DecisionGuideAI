@@ -45,16 +45,13 @@ describe('edgeValueProvenance — the UI defaults are NOT a source', () => {
   )
 
   it.each(EDGE_PROVENANCED_FIELDS)(
-    'USER_EDGE_DEFAULTS carries a value for %s but no source, so it reads as NOT SET',
+    'USER_EDGE_DEFAULTS never states %s; direction is absent and numeric defaults have no source',
     (field) => {
       const raw = (USER_EDGE_DEFAULTS as Record<string, unknown>)[field]
-      // The value IS present — that is the trap this whole module exists for.
-      // `direction` joined the registry in ROADMAP 2.263 and is an ENUM, not a
-      // number ('positive'), so the assertion is on PRESENCE; the numeric
-      // fields keep their stronger type check.
-      expect(raw).toBeDefined()
+      // Drawing never invents a direction. Numeric display defaults remain
+      // present but must not acquire provenance merely by existing.
       if (field !== 'direction') expect(typeof raw).toBe('number')
-      else expect(raw).toBe('positive')
+      else expect(raw).toBeUndefined()
       expect(isEdgeValueSet(USER_EDGE_DEFAULTS as Record<string, unknown>, field)).toBe(false)
     },
   )

@@ -30,8 +30,11 @@ test.describe('TopBar — one model-name control', () => {
     expect(box!.width).toBeGreaterThan(20)
     expect(box!.height).toBeGreaterThan(10)
 
-    // No element anywhere on screen still says "Untitled decision".
+    // A fresh canvas is named by the default title "Untitled scenario"
+    // (Paul, 14 Oct 2026); neither older default survives anywhere on screen.
+    await expect(page.getByTestId('scenario-name-button')).toHaveText('Untitled scenario')
     await expect(page.getByText('Untitled decision', { exact: false })).toHaveCount(0)
+    await expect(page.getByText('Untitled model', { exact: false })).toHaveCount(0)
   })
 
   test('renames inline in ONE click, Enter commits', async ({ page }) => {

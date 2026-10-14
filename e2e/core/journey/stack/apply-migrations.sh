@@ -2,7 +2,7 @@
 # J1: apply the merged DGAI + CEE migrations to the local Supabase, one file at a
 # time, and report EVERY file's outcome rather than stopping at the first failure.
 #
-#   OK          the file applied as one transaction.
+#   OK          the file applied as one transaction, or a strict non-transactional retry.
 #   PARTIAL     the transaction failed; the file was re-applied statement by statement
 #               (ON_ERROR_STOP=0), so its other statements took effect.
 #   DRIFT-SHIM  a `_j1_drift_` pre-shim (hosted-only object a later migration needs),
@@ -43,7 +43,22 @@ LOG="$(mktemp)"
 for f in $(ls "$DIR"/*.sql | sort); do
   name="$(basename "$f")"
   version="${name%%_*}"
-  if "${PSQL[@]}" -q -X -v ON_ERROR_STOP=1 --single-transaction -f - < "$f" > "$LOG" 2>&1; then
+  applied=0
+  if "${PSQL[@]}" -q -X -v ON_ERROR_STOP=1 -v VERBOSITY=verbose --single-transaction -f - < "$f" > "$LOG" 2>&1; then
+    applied=1
+  elif grep -Eq '^psql:<stdin>:[0-9]+: ERROR:  25001: .*cannot run inside a transaction block$' "$LOG"; then
+    # E.g. CREATE INDEX CONCURRENTLY: the wrapper is illegal, not the migration.
+    # Match PostgreSQL's SQLSTATE + reason, not a filename or a tuple-specific list.
+    cp "$LOG" "$OUT/$name.transaction.log"
+    if "${PSQL[@]}" -q -X -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f - < "$f" > "$LOG" 2>&1; then
+      applied=1
+      echo "[migrations] $name: strict non-transactional retry OK (25001 wrapper refusal)"
+    else
+      echo "[migrations] $name: strict non-transactional retry FAILED"
+      cat "$LOG"; exit 1
+    fi
+  fi
+  if [ "$applied" -eq 1 ]; then
     case "$name" in
       *_j1_drift_*) printf 'DRIFT-SHIM\t%s\n' "$name" >> "$REPORT"; shim=$((shim + 1)); continue ;;
     esac

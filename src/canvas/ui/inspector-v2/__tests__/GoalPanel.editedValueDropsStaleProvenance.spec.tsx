@@ -66,13 +66,13 @@ function seed() {
 
 /** Drive the real edit: find the panel's own number input and blur a new value. */
 function editValueViaUI(next: string) {
-  const { container } = render(
+  render(
     <GoalPanel nodeId={GOAL_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />,
   )
   /**
    * ⛔ BOUND BY IDENTITY, AND THE FIRST CUT WAS NOT. `container.querySelector(
-   * 'input[type="number"]')` picked the GOAL THRESHOLD — this panel renders
-   * two number inputs and the threshold comes first. The positive control
+   * 'input[type="number"]')` picked the old GOAL THRESHOLD — the panel used
+   * to render two number inputs and the threshold came first. The positive control
    * ("an input exists") passed, the blur fired, and the test drove the wrong
    * object. It failed only because a discriminating assertion demanded the
    * CONSTRAINT's value change (trap 19: never a value predicate another object
@@ -84,7 +84,13 @@ function editValueViaUI(next: string) {
   // Canvas ask A (#70 5851087722): an audited limit is shown in the READER's units — the audited 4, never the stored
   // ratio 0.04 the input used to show (typing "5" there wrote 5 into a 0.04-scaled limit: 125× the stored scale).
   expect(input.value, 'bound to the wrong number input, or showing the stored ratio').toBe('4')
-  expect(container.querySelectorAll('input[type="number"]').length, 'the two-input premise no longer holds').toBeGreaterThan(1)
+  // The threshold now uses SuccessTargetLine. Open its surviving control and
+  // prove the constraint binding selects a different input before editing.
+  fireEvent.click(screen.getByTestId('goal-panel-target-edit'))
+  const targetInput = screen.getByTestId('goal-panel-target-input')
+  expect(targetInput).not.toBe(input)
+  expect(screen.getByTestId('goal-panel-target')).toContainElement(targetInput)
+  expect(screen.getByTestId('goal-panel-target')).not.toContainElement(input)
   fireEvent.blur(input, { target: { value: next } })
   return useCanvasStore.getState().goalConstraints as Array<Record<string, unknown>> | null
 }

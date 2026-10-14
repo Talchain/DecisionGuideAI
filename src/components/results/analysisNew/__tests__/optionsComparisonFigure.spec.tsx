@@ -203,17 +203,7 @@ const RANGED_VALUE_RUN = () =>
     fourOptions().map((o) => ({ ...o, outcome: RANGES[o.id] })),
     { ...VERDICT, leaderDesignationPermitted: true },
   )
-const GOALS: Record<string, number> = {
-  opt_segment: 0.5,
-  opt_rudderstack: 0.3,
-  opt_snowflake: 0.004,
-  opt_status_quo: 0,
-}
-const GOAL_VALUE_RUN = () =>
-  dataFor(
-    fourOptions().map((o) => ({ ...o, goalProbability: GOALS[o.id] })),
-    { ...VERDICT, leaderDesignationPermitted: true, goalThreshold: 20000 },
-  )
+// #2747 re-scope 2 (U0): GOALS / GOAL_VALUE_RUN removed with the goal-bar row they served (no Goal fit lens in C).
 
 const NONE_RUN_NUMBERLESS = () =>
   dataFor(fourOptionsNumberless(), { leaderDesignationPermitted: false })
@@ -424,26 +414,8 @@ describe("'value' — the run licenses a magnitude, so the figure is a figure", 
     expect(band('opt_segment').style.left).not.toBe(band('opt_rudderstack').style.left)
   })
 
-  it('a measured ZERO still draws an empty track, and keeps no minimum width', () => {
-    // ⚠ THE FLOOR IS FOR SMALL-BUT-REAL, NEVER FOR ZERO. "Scored highest in 0%
-    // of simulated futures" is a true statement and must look like one; the
-    // 2px minimum exists so a measured tiny share does not render as nothing,
-    // and collapsing the two directions would re-open the defect in the other
-    // direction. Pinned here so this change cannot silently drop it.
-    //
-    // ⚠ V2: asserted on the GOAL figure, the bar this section still draws with
-    // a fill; the win-share fill it used to measure is gone from rest.
-    renderRun(GOAL_VALUE_RUN())
-    const zeroFill = within(row('opt_status_quo')).getByTestId(`${TESTID}-goal-bar`)
-      .firstElementChild as HTMLElement
-    expect(zeroFill.style.width).toBe('0%')
-    expect(zeroFill.style.minWidth).toBe('')
-
-    // CONTRAST CONTROL in the same render: a positive figure DOES carry the floor.
-    const smallFill = within(row('opt_snowflake')).getByTestId(`${TESTID}-goal-bar`)
-      .firstElementChild as HTMLElement
-    expect(smallFill.style.minWidth).toBe('2px')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "a measured ZERO still draws an empty track, and keeps no minimum width": its only
+  // subject is the Goal fit lens's goal bar, and the Reasoning tab draws no Goal fit lens in C (`comparisonLens` goal: false).
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -686,15 +658,15 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     // `COPY.checks.leader_not_assessed.orderingCaveat` would pass against ANY future
     // rewording, including one that dropped the denial — the component and the
     // assertion would simply agree with each other. This is the string a reader
-    // meets, typed out, so a reword REDs here and has to be a decision.
+    // meets, typed out, so a reword REDs here and has to be a decision. (Decided 8 Oct 2026, Paul: shorter.)
     expect(caveat).toHaveTextContent(
-      'A list with no figures beside it is not a finding that the options are level.',
+      'No figures yet. It is not a finding that the options are level.',
     )
 
     // And the owning constant still IS that sentence — so this file cannot rot
     // into asserting a string the product no longer uses.
     expect(COPY.checks.leader_not_assessed.orderingCaveat).toBe(
-      'A list with no figures beside it is not a finding that the options are level.',
+      'No figures yet. It is not a finding that the options are level.',
     )
 
     // ⭐⭐ AND THE OTHER HALF IS SOMEWHERE ELSE, WHICH IS THE POINT OF THE SPLIT.

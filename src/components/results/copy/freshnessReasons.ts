@@ -58,7 +58,7 @@ export const COMPLETENESS_REASON_COPY: Readonly<Record<string, string>> = {
   robustness_unavailable:
     'Robustness assessment is pending for this analysis.',
   decision_review_unavailable:
-    'Decision coaching is still being prepared for this analysis.',
+    'Coaching is still being prepared for this analysis.',
   expected_outcome_missing:
     "Expected outcome values aren't available for one or more options.",
   insufficient_evidence:

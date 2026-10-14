@@ -1,4 +1,9 @@
 /**
+ * ⛔ AI-FIRST SUBTRACT (DL, 12 Oct; friction N4): the elements line, "You had {x} selected when you asked.", is
+ * REMOVED. It showed on every reply in Paul's test (the selection is sticky), so it was noise beside the AI's answer,
+ * and no words replace it. The two unresolved-selection disclosures below stay, unchanged: they are rare and say
+ * something the reply cannot. What follows is the original rationale, kept for the disclosures.
+ *
  * GroundedOnNotice — "this answer was produced using these elements of your
  * model", rendered inside the assistant bubble the claim is about.
  *
@@ -107,51 +112,9 @@
  * · Never anything at all on a turn that carried no sidecar. `null` in ⇒ this
  *   component is not rendered (enforced at the call site in MessageBubble).
  */
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { typo } from '../../styles/typography'
-import { useCanvasStore } from '../store'
-import { resolveElementLabel } from './utils/resolveElementLabel'
 import type { GroundedSelection, GroundedUnresolved } from './groundedSelection'
-
-/** A grounded element this canvas can actually name, bound to its canonical id. */
-export interface NamedGroundedElement {
-  id: string
-  label: string
-}
-
-/**
- * ID-FIRST, FAIL-CLOSED join from the producer's canonical ids to display
- * labels — the same direction and the same failure posture as CEE's own focus
- * join, which is id-first *precisely because* "labels collide".
- *
- * ⭐ NAMING IS DELEGATED, NOT RE-DERIVED. `resolveElementLabel` is this repo's
- * existing, tested authority for "what is this canvas element called" (nodes
- * first, then edges composed from their endpoints, `undefined` when it cannot
- * say). An earlier draft of this function re-implemented that traversal, which
- * would have made a SECOND authority on the name of an element — the trap-21
- * shape this estate has already paid for. Only the id-binding and the
- * fail-closed dropping below belong to this module.
- *
- * ⚠ AN ID THAT MATCHES NOTHING ON THIS CANVAS CONTRIBUTES NOTHING. That is the
- * fail-closed half: a graph can legitimately be out of step with a turn (an
- * element deleted since the answer, or a hydrated transcript read against a
- * different model), and inventing a name — or echoing a raw uuid at the user —
- * would be a fabrication. Order is preserved as received: it is
- * persisted-graph order and matches the order CEE gave the model.
- */
-export function resolveGroundedLabels(
-  elementIds: readonly string[],
-  nodes: Parameters<typeof resolveElementLabel>[1],
-  edges: Parameters<typeof resolveElementLabel>[2],
-): NamedGroundedElement[] {
-  const named: NamedGroundedElement[] = []
-  for (const id of elementIds) {
-    const label = resolveElementLabel(id, nodes, edges)?.trim()
-    if (label === undefined || label.length === 0) continue
-    named.push({ id, label })
-  }
-  return named
-}
 
 /**
  * The disclosure sentence per unresolved state — and the whole reason this is a
@@ -195,21 +158,10 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
 }: {
   groundedSelection: GroundedSelection
 }) {
-  // Single-field selectors: a bare object selector here would be the React #185
-  // landmine `ci:guard:zustand` exists to catch.
-  const nodes = useCanvasStore((s) => s.nodes)
-  const edges = useCanvasStore((s) => s.edges)
-
-  const named = useMemo(
-    () => resolveGroundedLabels(groundedSelection.element_ids, nodes, edges),
-    [groundedSelection.element_ids, nodes, edges],
-  )
-
   const disclosure = DISCLOSURE[groundedSelection.unresolved]
 
-  // Nothing nameable and nothing to disclose ⇒ render nothing. Silence is the
-  // honest output, not an empty container.
-  if (named.length === 0 && disclosure === null) return null
+  // Nothing to disclose ⇒ render nothing. Silence is the honest output, not an empty container.
+  if (disclosure === null) return null
 
   return (
     <div
@@ -217,19 +169,7 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
       data-testid="grounded-on-notice"
       data-unresolved={groundedSelection.unresolved}
     >
-      {named.length > 0 && (
-        <p data-testid="grounded-on-elements">
-          <span>You had </span>
-          {named.map((element, index) => (
-            <span key={element.id} data-testid="grounded-on-element" data-element-id={element.id}>
-              {index > 0 ? ', ' : ''}
-              <span className="text-text-body">{element.label}</span>
-            </span>
-          ))}
-          <span> selected when you asked.</span>
-        </p>
-      )}
-      {disclosure !== null && <p data-testid="grounded-on-unresolved">{disclosure}</p>}
+      <p data-testid="grounded-on-unresolved">{disclosure}</p>
     </div>
   )
 })

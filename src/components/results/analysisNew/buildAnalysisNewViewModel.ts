@@ -106,6 +106,8 @@ import {
   formatConjunctionList,
   goalLabelOf,
   olumiSuppliedFiguresDisclosure,
+  unsizedAssumptionsOf,
+  unsizedAwareCause,
   withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
@@ -2100,6 +2102,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(
     conf.inferenceWarnings,
     inputs.nodeLabels,
+    data.confidence.critiqueRunContext,
   )
     // ⭐ `nodeId` IS WHAT TURNS "Add its current value." FROM AN INSTRUCTION INTO
   //   AN ACT. It is the VALUE-SLOT id, not merely the warning's node: the
@@ -2675,6 +2678,7 @@ function buildAtAGlance(
   // Gated twice: on the leader entitlement AND on scope being establishable.
   const winPct =
     headline && comparisonScope.kind !== 'unresolved'
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
       ? pctOrNull(leader?.winProbability ?? rec.winProbability)
       : null
 
@@ -2687,6 +2691,7 @@ function buildAtAGlance(
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
   const winRaw = leader?.winProbability ?? rec.winProbability
   const winFraction =
     winPct && typeof winRaw === 'number' && Number.isFinite(winRaw)
@@ -3092,6 +3097,7 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    */
   const hasUserTarget = rec.goalThreshold != null
   const goalValue = (o: OptionResult): number | null =>
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     hasUserTarget ? o.goalProbability ?? null : null
 
   const label = (o: OptionResult): string =>
@@ -3357,6 +3363,7 @@ function buildOptionsComparison(
     // BORN. A win probability that is absent, non-finite, or not a number at
     // all yields `null` on BOTH fields together — no readout and no bar — so
     // the renderer has nothing to coalesce into a `0%` or a zero-width bar.
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     const raw = o.winProbability
     const hasWin = typeof raw === 'number' && Number.isFinite(raw)
 
@@ -3384,9 +3391,9 @@ function buildOptionsComparison(
      * branch. It is written because the day it becomes live it is silent by
      * default rather than wrong by default.)
      */
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
     const rawGoal = o.goalProbability
     const goalValue =
-      o.goalFitIsSubstitutedJoint !== true &&
       typeof rawGoal === 'number' &&
       Number.isFinite(rawGoal)
         ? rawGoal
@@ -3873,6 +3880,13 @@ function buildChecks(
      * So the fact gets its own field, from the same gate.
      */
     leaderWithheld: leaderNotPutForward,
+    // Only where the cause stated IS the unsized-path sentence (an estimate refusal can outrank it; see
+    // `withheldLeaderCause`), so the short form never names links the stated cause does not.
+    leaderWithholdAssumptions:
+      withheldCause !== null &&
+      withheldCause === unsizedAwareCause(producerWithholdReason, conf?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+        ? unsizedAssumptionsOf(conf?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+        : null,
     leaderWithholdDetail:
       leaderNotPutForward
         ? (selectWithheldLeaderDisclosureFromWarnings(data.confidence?.inferenceWarnings)?.title ?? null) || null
@@ -4008,6 +4022,7 @@ export function buildAnalysisNewViewModel(
       ? uncertaintyBuild!.sensitivityConvergence
       : null
   return {
+    critiqueRunContext: data.confidence?.critiqueRunContext,
     status: buildStatus(inputs),
     /**
      * ⭐ ONE CALL, QUOTED — never re-derived by a consumer. `=== true` because

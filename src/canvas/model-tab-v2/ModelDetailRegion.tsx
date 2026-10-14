@@ -91,6 +91,7 @@ const NO_AUTHORITY_INTERVENTION =
    what one source is called. */
 const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
+  unverified_brief: 'border-panel-border',
   ai: 'border-warning/30',
   accepted: 'border-warning/30', // Olumi's figure, accepted: Olumi's paint
   confirmed: 'border-success/30',
@@ -108,8 +109,8 @@ const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
  * stays unknown — a default in any direction is an invented provenance, which
  * is the defect one level up from the one this component closes.
  */
-function InterventionProvenanceMark({ source }: { source: string | undefined }) {
-  const cls = classifyInterventionProvenance(source)
+function InterventionProvenanceMark({ source, userMaterialUnverified }: { source: string | undefined; userMaterialUnverified?: boolean }) {
+  const cls = classifyInterventionProvenance(source, { userMaterialUnverified })
   if (cls === null) return null
   return (
     <span
@@ -680,7 +681,7 @@ export function ModelDetailRegion({
                     ⚠ NO STAMP ⇒ NOTHING RENDERS. Unknown stays unknown.
                   */}
                   <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
-                    <InterventionProvenanceMark source={iv.provenanceSource} />
+                    <InterventionProvenanceMark source={iv.provenanceSource} userMaterialUnverified={iv.userMaterialUnverified} />
                   </span>
 
                   {/*
@@ -868,7 +869,7 @@ export function ModelDetailRegion({
       <section data-testid="model-detail-v2-provenance">
         <h4 className={`${typography.panelHeader} text-text-header`}>Where it came from</h4>
         {row.provenanceSource !== undefined && (
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} accepted={row.provenanceAccepted === true} />
+          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} kind={row.provenanceKind} accepted={row.provenanceAccepted === true} />
         )}
         {detail.basis !== null && (
           <p

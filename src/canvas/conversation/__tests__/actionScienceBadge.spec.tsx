@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, renderHook, screen, within } from '@testing-library/react'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { ChatThread } from '../zones/ChatThread'
 import { actionGlyph, ACTION_BAR_FALLBACK_ICON } from '../actionBar/actionBarIcons'
@@ -61,19 +61,7 @@ async function reply(science?: unknown) {
 }
 
 describe('live action science receipt', () => {
-  it('renders the validated triple under its owning reply, even after a later reply', async () => {
-    const answer = await reply(CLAIM)
-    expect(answer).toHaveProperty('actionScience', CLAIM)
-    const badge = screen.getByTestId('chat-action-science')
-    expect(badge).toHaveAttribute('data-dsk-claim-id', CLAIM.claim_id)
-    expect(badge).toHaveAttribute('data-dsk-evidence-strength', 'strong')
-    expect(badge).toHaveAttribute('data-dsk-protocol-id', CLAIM.protocol_id)
-    // Bound by identity, not by prose: the badge's wrapper holds exactly one reply, the first assistant one.
-    const replies = screen.getAllByTestId('chat-message-assistant')
-    expect(badge.parentElement!.contains(replies[0])).toBe(true)
-    expect(badge.parentElement!.contains(replies[replies.length - 1])).toBe(false)
-    expect(within(badge.parentElement!).queryByText('A later reply.')).toBeNull()
-  })
+
   it('CONTROL: absent receipt renders no badge', async () => {
     const answer = await reply()
     expect(answer).not.toHaveProperty('actionScience')

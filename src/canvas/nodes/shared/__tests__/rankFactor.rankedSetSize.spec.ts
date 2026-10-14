@@ -99,14 +99,14 @@ describe('relativeSensitivity — the driver bar is the rank’s own quantity, r
     }
   })
 
-  it('DISCRIMINATING — it is the SORT key (|elasticity|) over rank 1’s, not the displayed influence over the set max', () => {
+  it('DISCRIMINATING — it is the SORT key (|elasticity|) over rank 1’s, not the producer influence_score', () => {
     // SIX_CLEAR: elasticity 3.6 / 2.9 / 2.1 vs influence_score 1.0 / 0.8 / 0.6.
     const rows = ranksOf(SIX_CLEAR)
     const b = rows.find((r) => r.id === 'fac_b')!
     const c = rows.find((r) => r.id === 'fac_c')!
     expect(b.relativeSensitivity).toBeCloseTo(2.9 / 3.6, 10)
     expect(c.relativeSensitivity).toBeCloseTo(2.1 / 3.6, 10)
-    // The influence basis would have said 0.8 and 0.6.
+    // The producer influence_score basis would have said 0.8 and 0.6.
     expect(b.relativeSensitivity).not.toBeCloseTo(0.8, 3)
     expect(c.relativeSensitivity).not.toBeCloseTo(0.6, 3)
   })

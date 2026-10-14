@@ -575,7 +575,6 @@ export const FOOTER_COPY = {
   readySubSuccessUnset: 'First pass will be provisional until success is defined',
   readySubEstimates: 'Checking top estimates usually sharpens the result',
   readySubAllSet: 'Ready when you are',
-  notReady: 'Not ready for analysis yet',
   /**
    * ⚠ Last-resort subline. It must make NO factual claim about the model.
    *

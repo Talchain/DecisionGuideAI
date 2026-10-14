@@ -777,8 +777,8 @@ function proposeFromMenu(
   if (before !== null && before === typedValue) return 'unchanged'
 
   const outcome = writer.propose(typedValue, {
-    onSendSettled: (settlement) => {
-      const word = valueCommitSettlementWord(settlement, before, typedValue, () => fieldSeed(nodeId))
+    onSendSettled: (settlement, detail) => {
+      const word = valueCommitSettlementWord(settlement, before, typedValue, () => fieldSeed(nodeId), detail)
       if (word !== null) showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word))
     },
   })

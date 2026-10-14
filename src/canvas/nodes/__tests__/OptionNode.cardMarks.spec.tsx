@@ -1,26 +1,32 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 const attentionFixture = vi.hoisted(() => ({ active: false }))
 vi.mock('../shared/useNodeAttention', () => ({ useNodeAttention: () => ({ reasons: attentionFixture.active ? [{ kind: 'fragile_link', order: 1, label: 'The comparison depends on a link from here. How sure are you of it?' }] : [], marked: attentionFixture.active, markedCount: 1, candidateCount: 1, fromLastRun: null }) }))
 
 vi.mock('@xyflow/react', async () => ({ ...await vi.importActual('@xyflow/react'), Handle: () => null }))
-const node = { id: 'mark-option', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Try a pilot', type: 'option', provenance: 'ai_inferred' } }
+const node = { id: 'mark-option', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Try a pilot', type: 'option', kind: 'option', provenance: 'ai_inferred' } }
 function seed({ withheld = false, changed = false, leftOut = false, baseline = false, detailed = false, targets = false } = {}) {
   const data = { ...node.data, is_baseline: baseline, ...(targets ? { interventions: { factor: { value: 2, source: 'user_specified' } } } : {}) }
+  const report = { option_probabilities: { ...(!leftOut ? { [node.id]: { status: 'computed', win_probability: .72 } } : {}), other: { status: 'computed', win_probability: .28 } },
+    ...(withheld ? { producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } : {}) }
   useCanvasStore.setState({ nodes: [{ ...node, data }, { ...node, id: 'other' }, ...(targets ? [{ id: 'factor', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Capacity', type: 'factor', observed_state: { value: 1, source: 'user' } } }] : [])], edges: [], ceeAnalysisReady: null,
-    lodRung: 'full', viewMode: detailed ? 'expert' : 'standard', analysisStateV1: null,
+    lodRung: 'full', viewMode: detailed ? 'expert' : 'standard', analysisStateV1: null, goalThreshold: 100,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-10-07T12:00:00Z' },
     analysisFreshnessDirty: changed, importPendingServerRegistration: false, currentScenarioId: 'marks',
     v5AnalysisFact: { scenarioId: 'marks', analysisHash: 'run', hasRunAnalysisFact: true }, hasCompletedFirstRun: true,
-    results: { status: 'complete', hash: 'run', report: { option_probabilities: { ...(!leftOut ? { [node.id]: { status: 'computed', win_probability: .72 } } : {}), other: { status: 'computed', win_probability: .28 } },
-      ...(withheld ? { producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } : {}) } },
+    results: { status: 'complete', hash: 'run', report: !withheld && !leftOut
+      ? withLicensedOptionChances(report, { [node.id]: 41, other: 29 }) : report },
   } as never)
-  return render(<ReactFlowProvider><OptionNode id={node.id} type="option" data={data} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></ReactFlowProvider>)
+  useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()) as never)
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={data} selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 function mark(testId: string, id: string, words: string) {
   const el = screen.getByTestId(testId)
@@ -39,17 +45,11 @@ it('share-withheld: exact words become a bottom glyph; permitted is the contrast
   expect(screen.queryByTestId(`option-win-readout-${node.id}`)).toBeNull()
   cleanup(); seed()
   expect(screen.queryByTestId(`option-not-ranked-${node.id}`)).toBeNull()
-  expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
+  // #2747 re-scope 2 (U0): the permitted contrast's chance readout ("41%") is deleted — the canvas card shows no chance in C.
 })
-it.each([false, true])('last-run status becomes a glyph and the percentage stays (detailed %s); current is the contrast', (detailed) => {
-  seed({ changed: true, detailed })
-  mark(`option-win-anchor-${node.id}`, 'last-run', 'Last run')
-  mark(`option-stale-state-${node.id}`, 'no-new-comparison', 'Last run · no new comparison yet')
-  expect(screen.getByTestId(`option-win-figure-${node.id}`)).toHaveTextContent('72%')
-  cleanup(); seed()
-  expect(screen.getByTestId(`option-win-anchor-${node.id}`)).toHaveTextContent('Current model')
-  expect(screen.queryByTestId(`option-stale-state-${node.id}`)).toBeNull()
-})
+// #2747 re-scope 2 (U0): row deleted — "the visible Last run caption precedes the retained chance": its only subject, the
+// chance-slot caption beside the retained chance, is removed in C (the card shows no chance). The current-run negative
+// (no stale mark) stays pinned in OptionNode.optionStates.spec.tsx row 22c.
 it('not-analysed chip becomes a glyph; computed is the contrast', () => {
   seed({ leftOut: true })
   mark(`option-not-analysed-chip-${node.id}`, 'not-analysed', 'Not analysed')
@@ -79,8 +79,9 @@ it('all information marks are bottom-left, title has full width, Olumi stays in 
   expect(rail).toHaveAttribute('data-rail-placement', 'inset')
   expect(rail).toHaveClass('bottom-[5px]', 'right-[6px]')
   expect(olumi.querySelector('img')).toHaveAttribute('data-icon', 'olumi-brand-mark')
-  expect(olumi.querySelector('img')).toHaveAttribute('width', '15')
-  expect(olumi.querySelector('img')).toHaveAttribute('height', '15')
+  // Paul 14 Oct 2026: the node Olumi mark is the panel's 12px AI glyph (was 15).
+  expect(olumi.querySelector('img')).toHaveAttribute('width', '12')
+  expect(olumi.querySelector('img')).toHaveAttribute('height', '12')
 })
 
 it('baseline with a concrete target has its own shape and exact words', () => {

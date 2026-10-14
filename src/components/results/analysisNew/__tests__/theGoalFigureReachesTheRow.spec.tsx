@@ -43,6 +43,10 @@
  * number, not a second rendering of the share: the fixtures below keep the two
  * quantities apart on every option so a test cannot pass by reading the wrong
  * field (trap 19).
+ *
+ * #2747 re-scope 2 (U0): in C the Reasoning tab draws no goal figure on the row (`comparisonLens` goal: false; chances
+ * are said on the journey path only, in CEE's words). Rows whose only subject was the goal figure or its caveats are
+ * deleted (listed in place); every negative stays (no win share at rest, the four gates' absences, no caveat).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -53,7 +57,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY, GOAL_FIT_FROM_INPUTS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY, GOAL_FIT_FROM_INPUTS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import { genuineDecision } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
@@ -88,21 +92,7 @@ const renderBody = (data: ResultsSectionDataReturn) => {
 const WIN = { opt_a: 0.31, opt_b: 0.69 }
 const GOAL = { opt_a: 0.82, opt_b: 0.44 }
 
-/**
- * ⚠ THE FIXTURE IS THE SOURCE AND THE EXPECTATION IS DERIVED FROM IT — never a
- * second hand-written copy of the same numbers. A literal expectation beside a
- * literal fixture is two mirrors of one fact, and the day one moves the other
- * says nothing (trap 12). `withGoals` writes both maps onto the options below,
- * so these are the only four numbers in the file.
- *
- * ⚠ This local formatter is NOT a second display authority. It is the
- * arithmetic the assertion needs, and it is deliberately trivial: if it ever
- * diverges from the estate's formatter for these values the test fails loud,
- * which is the correct outcome — a rounding difference between the fixture's
- * expectation and the product's render is exactly what this should catch.
- */
-const pct = (v: number) => `${Math.round(v * 100)}%`
-const width = (v: number) => `${v * 100}%`
+// #2747 re-scope 2 (U0): the local `pct` / `width` expectation helpers went with the goal-figure presence rows they served.
 
 type Opts = {
   target?: number | null
@@ -152,31 +142,22 @@ const barWidths = (testId: string) =>
 afterEach(cleanup)
 
 describe('the goal figure reaches the option row', () => {
-  it('⭐ WITH A TARGET — every analysed row draws the goal figure, and it is the GOAL number', () => {
+  // #2747 re-scope 2 (U0): the goal readouts (82% / 44%) and the goal-bar widths are deleted — no goal figure on the
+  // Reasoning tab row in C. The win-share negatives stay.
+  it('⭐ WITH A TARGET — no win-share readout or track on the row at rest', () => {
     renderBody(withGoals())
 
-    expect(goalReadouts(), 'one goal readout per analysed option').toEqual([
-      pct(GOAL.opt_a),
-      pct(GOAL.opt_b),
-    ])
-    // The discriminator: reading `winProbability` here would give 31% / 69%.
     // ⚠ V2 (24 Sep 2026): the win share is no longer printed or drawn at rest
     // (it moves to "About this analysis"), so the goal figure is the only
     // per-option figure on the row, and the share's readout and track are gone.
     expect(winReadouts(), 'V2: no win-share readout at rest').toEqual([])
-
-    // The goal bar's geometry is the goal fraction — not the share's, and not
-    // a segment of it.
-    expect(barWidths('analysis-new-options-goal-bar')).toEqual([
-      width(GOAL.opt_a),
-      width(GOAL.opt_b),
-    ])
     expect(barWidths('analysis-new-options-bar'), 'V2: no win-share track at rest').toEqual([])
   })
 
-  it('⭐ THE LABELS ARRIVE WITH THE SECOND FIGURE, NOT BEFORE IT', () => {
+  // #2747 re-scope 2 (U0): the goal-label presence (two goal labels) is deleted — no goal figure on the row in C. The
+  // win-share label negative stays.
+  it('⭐ no win-share label at rest', () => {
     renderBody(withGoals())
-    expect(screen.getAllByTestId('analysis-new-options-goal-label')).toHaveLength(2)
     // ⚠ V2: the share's label went with the share. One figure per row now,
     // and it keeps its name.
     expect(
@@ -221,24 +202,13 @@ describe('the goal figure reaches the option row', () => {
     ).toEqual([])
   })
 
-  it('⭐ THE MODELLED-BASIS CAVEAT RENDERS BESIDE THE NUMBER IT QUALIFIES', () => {
-    renderBody(withGoals({ modelledBasis: true }))
-    const caveats = screen.getAllByTestId('analysis-new-options-goal-basis-caveat')
-    expect(caveats).toHaveLength(2)
-    expect(
-      caveats[0].textContent,
-      'the shared constant, never a re-wording of it',
-    ).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
-  })
+  // #2747 re-scope 2 (U0): row deleted — "⭐ THE MODELLED-BASIS CAVEAT RENDERS BESIDE THE NUMBER IT QUALIFIES": its only
+  // subject, the caveat beside the row's goal figure, is removed with the figure in C.
 
+  // #2747 re-scope 2 (U0): the "the figures ARE on screen" goal-readout precondition is deleted — no goal figure on the
+  // row in C. The no-caveat negative stays.
   it('⭐ OPPOSITE-DIRECTION TWIN — no caveat when the basis is not modelled', () => {
-    // Without this the assertion above is indistinguishable from a caveat that
-    // always renders.
     renderBody(withGoals({ modelledBasis: false }))
-    expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([
-      pct(GOAL.opt_a),
-      pct(GOAL.opt_b),
-    ])
     expect(screen.queryAllByTestId('analysis-new-options-goal-basis-caveat')).toHaveLength(0)
   })
 
@@ -256,27 +226,16 @@ describe('the goal figure reaches the option row', () => {
     )
   })
 
-  it.each([
-    ['olumi_estimate', "Measured from Olumi's estimate of where your goal stands today, not a figure you gave."],
-    ['from_inputs', 'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.'],
-  ] as const)('⭐ A %s GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE NUMBER', (baseCaveat, copy) => {
-    renderBody(withGoals({ baseCaveat }))
-    expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
-    const caveats = screen.getAllByTestId('analysis-new-options-goal-estimate-caveat')
-    expect(caveats).toHaveLength(2)
-    expect(caveats[0].textContent, 'the shared constant, never a re-wording of it').toBe(copy)
-  })
+  // #2747 re-scope 2 (U0): row deleted (both cases) — "⭐ A %s GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE
+  // NUMBER": its only subject, the base caveat beside the row's goal figure, is removed with the figure in C. The two
+  // sentences stay pinned literally above.
+  // #2747 re-scope 2 (U0): row deleted — "⛔ THE CARRIER DROPPED (author unattested) — the caveat renders, and never says
+  // "Olumi's"": its presence half and its negative are both bound to the row's base caveat, removed with the figure in C.
 
-  it("⛔ THE CARRIER DROPPED (author unattested) — the caveat renders, and never says \"Olumi's\"", () => {
-    renderBody(withGoals({ baseCaveat: 'from_inputs' }))
-    for (const c of screen.getAllByTestId('analysis-new-options-goal-estimate-caveat')) {
-      expect(c.textContent).not.toMatch(/Olumi/)
-    }
-  })
-
+  // #2747 re-scope 2 (U0): the "the figures ARE on screen" goal-readout precondition is deleted — no goal figure on the
+  // row in C. The no-base-caveat negative stays.
   it("⭐ OPPOSITE-DIRECTION TWIN — no base caveat when the base is the user's", () => {
     renderBody(withGoals({ baseCaveat: null }))
-    expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
     expect(screen.queryAllByTestId('analysis-new-options-goal-estimate-caveat')).toHaveLength(0)
   })
 })

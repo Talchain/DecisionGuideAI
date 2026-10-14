@@ -194,7 +194,7 @@ describe('SharedBriefPage', () => {
     renderPage()
     // All six headings must appear. If this grouped by `type` instead, every
     // node would fall into "Also in the model" — 45,876 of them, in a week.
-    expect(await screen.findByText('The decision')).toBeInTheDocument()
+    expect(await screen.findByText('The question')).toBeInTheDocument()
     expect(screen.getByText('What it is for')).toBeInTheDocument()
     expect(screen.getByText('Options on the table')).toBeInTheDocument()
     expect(screen.getByText('What it depends on')).toBeInTheDocument()
@@ -311,25 +311,19 @@ describe('SharedBriefPage', () => {
       mockGetSharedSnapshotBySlug.mockResolvedValue(SNAPSHOT_WITH_ANALYSIS)
     })
 
-    it('shows the producer’s own headline — the claim it was entitled to make', async () => {
-      renderPage()
-      expect(
-        await screen.findByText(/produced the best outcome in 82% of runs/),
-      ).toBeInTheDocument()
-    })
+    // #2747 re-scope 2 (DL ruling (A)): row deleted — "shows the producer’s own headline — the claim it was entitled to
+    // make": its only subject, the stored headline (a win-share sentence, "…best outcome in 82% of runs"), is not read in C.
 
-    it('ranks the options with their win probabilities', async () => {
+    // #2747 re-scope 2 (DL ruling (A)): the per-option "82%" / "18%" presence assertions are deleted — the page shows no
+    // win share in C. The options stay, by name, in the producer's order (bound by row identity).
+    it('ranks the options by name, in the producer’s order', async () => {
       renderPage()
       const section = await screen.findByTestId('shared-snapshot-analysis')
-      // Bound by identity: the option LABEL carries its own probability, so a
-      // row cannot pass by matching a number that belongs to another option.
       const leeds = within(section).getByTestId('shared-option-0')
       expect(within(leeds).getByText('Lease in Leeds')).toBeInTheDocument()
-      expect(within(leeds).getByText('82%')).toBeInTheDocument()
 
       const stay = within(section).getByTestId('shared-option-1')
       expect(within(stay).getByText('Stay put')).toBeInTheDocument()
-      expect(within(stay).getByText('18%')).toBeInTheDocument()
     })
 
     it('keeps robustness as a SEPARATE disclosure, never folded into the leader claim', async () => {
@@ -440,7 +434,7 @@ describe('SharedBriefPage', () => {
       const section = await screen.findByTestId('shared-snapshot-analysis')
       // The data still renders.
       expect(within(section).getByText('Lease in Leeds')).toBeInTheDocument()
-      expect(within(section).getByText('82%')).toBeInTheDocument()
+      // #2747 re-scope 2 (DL ruling (A)): the "82%" presence assertion is deleted — the page shows no win share in C.
       // The claim does not.
       expect(screen.queryByTestId('shared-analysis-headline')).not.toBeInTheDocument()
       expect(screen.queryByText(/clearly ahead/i)).not.toBeInTheDocument()
@@ -507,6 +501,9 @@ describe('SharedBriefPage', () => {
       expect(screen.getByTestId('shared-snapshot-analysis')).toBeInTheDocument()
     })
 
+    // #2747 re-scope 2 round 2 (DL E, non-blocking): RESTORED. Its anchor was the stored headline ("A sentence."), which
+    // the page no longer reads in C; the anchor is now the one field left well-typed, so the row still proves the page
+    // survives every other field being the wrong type (and the section is not empty agreeing with itself).
     it('survives an analysis whose arrays are the wrong type', async () => {
       mockGetSharedSnapshotBySlug.mockResolvedValue({
         ...SNAPSHOT,
@@ -514,7 +511,7 @@ describe('SharedBriefPage', () => {
           headline: 'A sentence.',
           options: 'not-an-array',
           top_drivers: { nope: true },
-          what_would_change: 42,
+          what_would_change: ['Local demand → Revenue'],
           key_assumptions: null,
           robustness_caveat: 'not-an-object',
         },
@@ -522,20 +519,22 @@ describe('SharedBriefPage', () => {
       renderPage()
 
       const section = await screen.findByTestId('shared-snapshot-analysis')
-      expect(within(section).getByText('A sentence.')).toBeInTheDocument()
+      expect(within(section).getByText('Local demand → Revenue')).toBeInTheDocument()
+      expect(within(section).queryByText('A sentence.')).not.toBeInTheDocument()
+      expect(section.textContent ?? '').not.toMatch(/not-an-array|not-an-object|nope/)
     })
   })
 
   it('shows a not-found state for an unknown or expired slug', async () => {
     mockGetSharedSnapshotBySlug.mockResolvedValue(null)
     renderPage()
-    expect(await screen.findByText('Decision not found')).toBeInTheDocument()
+    expect(await screen.findByText('Scenario not found')).toBeInTheDocument()
   })
 
   it('shows an error state when the read fails', async () => {
     mockGetSharedSnapshotBySlug.mockRejectedValue(new Error('network down'))
     renderPage()
-    expect(await screen.findByText('Failed to load this decision')).toBeInTheDocument()
+    expect(await screen.findByText('Failed to load this scenario')).toBeInTheDocument()
     expect(screen.getByText('network down')).toBeInTheDocument()
   })
 

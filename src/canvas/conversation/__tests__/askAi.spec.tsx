@@ -1,6 +1,9 @@
 // Batch 1 regression rows authored before implementation; Vitest execution prohibited by brief.
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { askAi, buildAskAiQuestion } from '../askAi'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { askAi, askAiStage, buildAskAiQuestion } from '../askAi'
+import { runViewOf } from '../../runView/runView'
+import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { buildChipMeta } from '../chipMeta'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -214,6 +217,43 @@ describe('the draft’s UNREQUESTED automatic Run asks the drafted question (DL 
   })
 })
 
+describe('S1 PR-2b: ask stage reads the RunView licence for every analysed option', () => {
+  const licence = {
+    code: 'GOAL_CHANCE_LICENSED', form: 'each',
+    target: { unit: '£/month', value: 20000, comparator: 'at_least' },
+    option_ids: ['x', 'y'], pct_by_option: { x: 0, y: 73 },
+  }
+  const probabilities = { x: { goal_probability: 0 }, y: { goal_probability: 0.73 } }
+  /** #2747 chance authority gate: the Run's canonical view, matching and current unless `stale`, licensing x and y. */
+  const canonicalOf = (stale: boolean) => parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: 'run-ask', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: [{ option_id: 'x', cell: { kind: 'figure', display: 'less than 1%' }, main_driver: { kind: 'not_recorded' } },
+      { option_id: 'y', cell: { kind: 'figure', display: 'about 73%' }, main_driver: { kind: 'not_recorded' } }],
+  })
+  afterEach(() => useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }))
+  it.each([
+    ['Q1: licensed figures for every option', [licence], probabilities, ['figure', 'figure'], 'ran-current', false],
+    ['Q1 CONTRAST (the gate): the same licence, its canonical Run not known to be current', [licence], probabilities, ['none', 'none'], 'withheld', true],
+    ['Q2: one raw figure has no licence', [{ ...licence, option_ids: ['x', 'z'], pct_by_option: { x: 0, z: 73 } }], probabilities, ['figure', 'none'], 'withheld', false],
+    ['Q2: raw figures without any licence', [], probabilities, ['withheld', 'withheld'], 'withheld', false],
+    ['Q3: no goal figures at all', [], { x: { win_probability: 0.4 }, y: { win_probability: 0.6 } }, ['none', 'none'], 'withheld', false],
+  ] as const)('%s', (_row, inference_warnings, option_probabilities, kinds, stage, stale) => {
+    const report = { run_id: 'run-ask', inference_warnings, option_probabilities }
+    const canonical = canonicalOf(stale)
+    vi.mocked(selectRunAffirmedCurrent).mockReturnValue(true)
+    useCanvasStore.setState({ hasCompletedFirstRun: true, currentScenarioId: 'scn-ask', results: { status: 'complete', report } } as never)
+    useCanonicalAnalysisViewStore.getState().adopt('scn-ask', canonical)
+    expect(Object.keys(option_probabilities).map(id => runViewOf(report, canonical).chanceOf(id).kind)).toEqual(kinds)
+    expect(askAiStage()).toBe(stage)
+    expect(buildAskAiQuestion({ intent: 'explain', nodeIds: ['a'] }).question).toBe(stage === 'ran-current'
+      ? 'How much does ‘Capacity’ matter to the options’ chances of meeting the goal, and why?'
+      : 'What does Olumi still need about ‘Capacity’ before it can say how likely each option is to meet the goal?')
+  })
+})
+
 it('range-only chances use the withheld wording, without reading a model figure into the question', () => {
   vi.mocked(selectRunAffirmedCurrent).mockReturnValue(true)
   useCanvasStore.setState({ hasCompletedFirstRun: true, results: { status: 'complete', report: { option_probabilities: { x: { goal_probability: null } } } } } as never)
@@ -262,7 +302,9 @@ it.each([
   ['goal_target_realistic', 'goal', 'Is the target for ‘Capacity’ realistic, and what evidence would help me judge it?'],
   ['risk_what_reduces', 'risk', 'What could reduce ‘Capacity’, and what would need to change in this model?'],
   ['risk_add_mitigation', 'risk', 'What factors or actions could reduce ‘Capacity’?'],
-  ['option_what_would_change', 'option', 'What would need to change for another option to be better supported than Capacity?'],
+  // Run-4 judge (DL 12 Oct, the class): option_what_would_change ("… better supported than …") is removed; nothing
+  // replaces it. The row is rebound to the surviving close-call chip; the removed ids are pinned absent below.
+  ['option_what_would_change_close_call', 'option', 'What would need to be true for Capacity to be the better choice?'],
   ['decision_compare_options', 'decision', 'How do the options compare in what they gain, give up and depend on?'],
   ['option_risks_of_inaction', 'option', 'What risks does keeping ‘Capacity’ as it is carry, and what could make them worse?'],
 ] as const)('%s sends the question promised by its own label', (chipId, kind, expected) => {
@@ -273,6 +315,14 @@ it.each([
   expect(dispatch).toHaveBeenCalledTimes(1)
   expect(dispatch.mock.calls[0][0].message).toBe(expected)
   expect(takeAskTargetBinding(expected)?.nodeIds).toEqual(new Set(['a']))
+})
+it('the removed run-share chips map to no Ask intent, so no "better supported" question can be sent', () => {
+  // Run-4 judge (DL 12 Oct, the class): option_what_would_change and option_what_would_make_lead are removed; nothing
+  // replaces them.
+  expect(COACHING_ASK_INTENTS).not.toHaveProperty('option_what_would_change')
+  expect(COACHING_ASK_INTENTS).not.toHaveProperty('option_what_would_make_lead')
+  // Contrast control: the surviving option chips still map.
+  expect(COACHING_ASK_INTENTS).toMatchObject({ option_what_would_change_close_call: 'close-call', option_counter_case: 'counter-case', option_why_lead: 'option' })
 })
 it('a stale non-option challenge omits the misplaced suffix and keeps risk/outcome wording', () => {
   useCanvasStore.setState({ hasCompletedFirstRun: true } as never)

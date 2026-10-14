@@ -38,7 +38,7 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import {
-  canCaptureGoalTarget, goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget,
+  canCaptureGoalTarget, goalHeldComparatorOf, goalQuantityFrameOf, goalTargetChangeFrameOf, goalTargetMeaningUnread, resolveGoalTarget,
   statedGoalTargetRaw, statedTargetNumber, type GoalHeldComparator, type GoalTargetSource, type ResolvedGoalTarget,
 } from './goalTarget'
 
@@ -100,7 +100,25 @@ export function goalStatedLimits<C extends CEEGoalConstraint>(
   statedTarget: StatedGoalTargetFigure | null | undefined,
 ): C[] | null {
   if (!constraints) return null
-  return constraints.filter((c) => !constraintRestatesGoalTarget(c, goalId, statedTarget))
+  return constraints.filter((c) => !isGoalTargetRow(c) && !constraintRestatesGoalTarget(c, goalId, statedTarget))
+}
+
+/** Recovery Batch C: a `goal_constraints` row that is one of the goal's TARGETS (CEE `role: 'goal_target'`), never a limit. */
+export function isGoalTargetRow(c: Pick<CEEGoalConstraint, 'role'> | null | undefined): boolean {
+  return c?.role === 'goal_target'
+}
+
+/**
+ * Recovery Batch C: the goal's targets the card states besides the one it already prints as "Target: …" (the row that
+ * restates it is left out, exactly as `goalStatedLimits` leaves it out of the limits). The caller's own objects.
+ */
+export function goalStatedTargets<C extends CEEGoalConstraint>(
+  constraints: readonly C[] | null | undefined,
+  goalId: string,
+  statedTarget: StatedGoalTargetFigure | null | undefined,
+): C[] {
+  if (!constraints) return []
+  return constraints.filter((c) => isGoalTargetRow(c) && !constraintRestatesGoalTarget(c, goalId, statedTarget))
 }
 
 /**
@@ -216,7 +234,7 @@ export function resolveGoalTargetWithOwnRow(
     const bound = heldTargetBoundWords(data)
     return bound === null ? fromNode : { ...fromNode, bound }
   }
-  if (goalTargetFrameIsUnread(data?.goal_threshold_frame)) return null
+  if (goalTargetMeaningUnread(data)) return null
   const row = goalOwnLimitRow(constraints, goalId)
   if (row === null) return null
   const comparator = statedOperatorOf(row as { operator?: unknown; operator_as_stated?: unknown })
@@ -228,7 +246,8 @@ export function resolveGoalTargetWithOwnRow(
     unit: typeof row.unit === 'string' ? row.unit : undefined,
     // The row says nothing about who set it in the attestation sense `source` licenses ("Set by you").
     source: 'unrecorded',
-    ...(changeFrame === null ? {} : { frame: changeFrame }),
+    ...(changeFrame === null ? {} : { frame: changeFrame,
+      ...(goalQuantityFrameOf(data?.quantity_frame) === null ? {} : { quantityFrame: goalQuantityFrameOf(data?.quantity_frame)! }) }),
     bound,
   }
 }

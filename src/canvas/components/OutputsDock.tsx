@@ -33,6 +33,8 @@ import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useAnalyseAfterCommittedChange } from '../analysis/useAnalyseAfterCommittedChange'
+import { useEditDeliveryHeld } from '../registration/editDeliveryHold'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
@@ -874,6 +876,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // non-click paths (programmatic setActiveOutputTab, persisted state on
   // page load) we add a guard effect below so the duplicate-readable-
   // surface invariant ("never both at once") still holds.
+  // Paul 14 Oct 2026: all five tabs shown from the start. Compare is no longer held back until a run pair
+  // exists (supersedes workstream D, 8 Oct); before then its body shows its own "No comparison yet" state.
   const effectiveActiveTab = state.activeTab
 
   /**
@@ -1789,6 +1793,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  // Paul 14 Oct (#94 6166259456): every committed change (an edit, Olumi's approved change, Undo, Redo) is analysed
+  // through this same runner once nothing else is in flight; the rerun surfaces compare it with the preceding Run.
+  const editDeliveryHeld = useEditDeliveryHeld()
+  useAnalyseAfterCommittedChange({
+    run: runCanonicalAnalysis,
+    idle: !isRunning && !conversationIsThinking && !editDeliveryHeld,
+    hasRunOnRecord: rerunInputs.hasRunOnRecord,
+  })
 
   const handleRunAnalysis = useCallback(async () => {
     const outcome = await runCanonicalAnalysis()
@@ -3190,12 +3203,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             // omitting it here left a never-run model showing a freshness glyph
             // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
             hasCompletedFirstRun={hasCompletedFirstRun}
-            // The ⓘ "Inspect this analysis": front Reasoning like a tab click,
-            // then ask its About section to open (the consumer clears it).
-            onInspectAnalysis={() => {
-              handleTabClick('analysisNew')
-              useUIStore.getState().requestReasoningAbout(true)
-            }}
+            // No `onInspectAnalysis`: the ⓘ "Inspect this analysis" is off the golden journey (workstream D,
+            // 8 Oct). Reasoning's own "About this analysis" section stays one scroll away on that tab.
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
@@ -3500,7 +3509,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
                   const isComplexGraph = nodes.length > 15
                   if (isCeeTimeout && isComplexGraph) {
-                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                    friendlyError.explanation = 'Your model has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
                   }
 
                   return (
@@ -3661,7 +3670,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                       data-testid="outputs-analysis-empty-describe"
                     >
-                      Describe your decision to Olumi
+                      Describe your situation to Olumi
                     </button>
                   </div>
                 )}

@@ -304,7 +304,7 @@ export function DraftChat() {
 
     if (hasExistingGraph) {
       const confirmed = window.confirm(
-        'Drafting a new decision will clear your current decision model from the canvas. Start a new draft?'
+        'Drafting a new model will clear your current model from the canvas. Start a new draft?'
       )
 
       if (!confirmed) {
@@ -1165,7 +1165,7 @@ export function DraftChat() {
                   overflow: 'hidden'
                 }}
                 rows={1}
-                aria-label={hasGraph ? 'Describe changes to your model' : 'Describe your decision'}
+                aria-label={hasGraph ? 'Describe changes to your model' : 'Write your brief'}
               />
               {/* Submit button inside textarea area - anchored to bottom right */}
               <button
@@ -1545,7 +1545,7 @@ export function DraftChat() {
                   }}
                   placeholder={hasGraph
                     ? 'Describe the changes you want... e.g., Rebuild this model with fewer factors, clearer options, and stronger evidence for market size.'
-                    : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
+                    : "Write your brief... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-md border border-sand-200
                     focus:border-sand-200 focus:outline-none focus-visible:ring-0 focus:shadow-none

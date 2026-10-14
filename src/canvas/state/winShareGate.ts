@@ -86,6 +86,13 @@ export function winShareWithheldReason(
 
 type WithReport = { results: { report?: unknown } | null | undefined }
 
+/** Raw runs share for existing comparison details; this is never an option's goal chance. */
+export function optionWinShareOf(report: unknown, optionId: string): number | undefined {
+  const source = report as { option_probabilities?: Record<string, { win_probability?: number }> } | null | undefined
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: the win-share gate's own reader
+  return source?.option_probabilities?.[optionId]?.win_probability
+}
+
 /** `results: null` is a real store state (a reset, the Reasoning tab's harness): it reads as "not withheld". */
 function permissionOf(s: WithReport): ProducerLeaderPermission | null {
   const report = s.results?.report as { producer_leader_permission?: ProducerLeaderPermission } | null | undefined

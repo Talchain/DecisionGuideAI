@@ -98,7 +98,10 @@ export function comparisonLensAvailability(
 ): ComparisonLensAvailability {
   return {
     outcome: outcomeRangeScale(section.rows) !== null,
-    goal: goalFitAvailable(section.rows),
+    // #2747 re-scope 2 (U0): no chance off the journey path in C, so the Reasoning tab's options comparison draws no Goal
+    // fit lens (its bars and its "chance of meeting your goal" note). Interim limit; the restore trigger is the chance's
+    // own served string and Run licence on this surface (post-C). The chances are on the Analysis tab, in CEE's words.
+    goal: false,
   }
 }
 

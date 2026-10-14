@@ -1,3 +1,6 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { CanvasOptionChanceContext } from '../shared/OptionChanceCellProvider'
+import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
 /**
  * THE CANVAS ASKS *WHETHER ANYONE LEADS* AND NEVER *WHETHER IT MAY SAY SO*.
  *
@@ -107,6 +110,7 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const BASELINE_ID = 'opt_status_quo'
+const chanceCells = optionChanceFixture({ [LEADER_ID]: 41, [RUNNER_UP_ID]: 29, [BASELINE_ID]: 12 })
 
 /**
  * The third option is `is_baseline` so its "Held back by:" reason ("no changes from
@@ -204,7 +208,9 @@ const baseProps = {
 function renderOption(id: string, label: string) {
   return render(
     <ReactFlowProvider>
+      <CanvasOptionChanceContext.Provider value={chanceCells}>
       <OptionNode {...(baseProps as any)} id={id} data={{ label, type: 'option' }} />
+      </CanvasOptionChanceContext.Provider>
     </ReactFlowProvider>,
   )
 }
@@ -230,11 +236,16 @@ const crownFor = (id: string) => screen.queryByTestId(`leading-option-pill-${id}
  * recommendation."): the crown is retired from the card in EVERY admission
  * arm. Asserted by identity (pill + the grade that rode beside it) and by the
  * text a user reads, after a same-render CONTRAST CONTROL — the card's label
- * and its own "N% of runs" result row — so a dead render cannot pass.
+ * and its own Results chance cell — so a dead render cannot pass.
  */
-function expectNoCrown(container: HTMLElement, id: string, label: string, share: string) {
+function expectNoCrown(container: HTMLElement, id: string, label: string) {
   expect(screen.getByText(label)).toBeDefined()
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} of runs`)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(chanceCells(id).text)
+  const face = screen.getByTestId(`option-win-readout-${id}`)
+  expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+  expect(face.textContent).not.toMatch(/\d+%/)
+  expect(face.textContent).not.toContain('Why?')
+  expect(container.textContent ?? '').not.toContain('of runs')
   expect(crownFor(id)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
@@ -309,13 +320,13 @@ describe('OptionNode crown — retired (ED #63 5799353114 decision 1) in every Q
     // control inside `expectNoCrown`.
     withStore(undefined)
     const { container } = renderOption(LEADER_ID, LEADER_LABEL)
-    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL)
   })
 
   it('ARM B — permitted (the STRONGEST case): the leader card still names no leader', () => {
     withStore(ADMISSION_PERMITTED)
     const { container } = renderOption(LEADER_ID, LEADER_LABEL)
-    expectNoCrown(container, LEADER_ID, LEADER_LABEL, `${Math.round(WIN_LEADER * 100)}%`)
+    expectNoCrown(container, LEADER_ID, LEADER_LABEL)
   })
 
   it('⭐ ARM C — refused (`none`): the leader is NOT crowned', () => {
@@ -359,11 +370,14 @@ describe('OptionNode crown — retired (ED #63 5799353114 decision 1) in every Q
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('OptionNode "Held back by:" — a leader claim in inverse form', () => {
-  it('ARM B — permitted: the runner-up keeps its reason (over-suppression control)', () => {
+  it('ARM B — permitted: the runner-up carries no "Held back by:" line either (the line is removed)', () => {
+    // Run-4 judge (DL 12 Oct, the class): the Detailed "Held back by:" line is removed; nothing replaces it.
     withStore(ADMISSION_PERMITTED)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(WIN_RUNNER_UP))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Held back by:/)).toBeDefined()
+    // The card itself renders (its label), so the absence is not an empty render.
+    expect(screen.getByText(RUNNER_UP_LABEL)).toBeDefined()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   it('⭐ ARM C — refused: the runner-up carries no "Held back by:" line', () => {
@@ -404,11 +418,15 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
   }
   const CLOSE_NODES = [OPTION_NODES[0], OPTION_NODES[1]]
 
-  it('ARM B — permitted: the close-call line renders (over-suppression control)', () => {
+  // Run-4 judge (DL 12 Oct, the class): the close-call line is removed; nothing replaces it. The gap is still computed and
+  // still offers the close-call question chip, so the over-suppression control binds to that chip instead.
+  it('ARM B — permitted: no close-call line, but the close-call chip renders (over-suppression control)', () => {
     withStore(ADMISSION_PERMITTED, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Close to the option most runs supported/)).toBeDefined()
+    expect(screen.queryByText(/Close to the option most runs supported/)).toBeNull()
+    expect(screen.queryByText(/most runs supported/i)).toBeNull()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
   })
 
   it('⭐ ARM C — refused: no close-call line', () => {
@@ -416,6 +434,8 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
     expect(screen.queryByText(/Close to the option most runs supported/)).toBeNull()
+    // Twin of ARM B: the gap is not computed on a refused run, so no close-call chip either.
+    expect(screen.queryByText('What would need to be true for this?')).toBeNull()
   })
 })
 

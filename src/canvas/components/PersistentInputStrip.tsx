@@ -154,7 +154,6 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
       <AIInputBar
         ref={inputBarRef}
         variant="strip"
-        onChevronClick={onOpenFloating}
         analysisAction={analysisAction}
       />
     </div>

@@ -1,15 +1,12 @@
 import {
-  edgeValueSource,
   resolveEdgeDirectionDisplay,
   type EdgeValueDisplay,
 } from '../../domain/edgeValueProvenance'
-import { NaturalEffectSchema, naturalEffectStrengthIsCurrent } from '../../domain/naturalEffect'
 import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
-import { isStrengthStated } from '../../domain/strengthStated'
 import { getStrengthLabel } from '../../domain/vocabulary'
+import { EDGE_PROVENANCE, edgeProvenance } from '../../domain/edgeProvenance'
 import { readContestedState } from '../../edges/edgePresentation'
-import { edgeSizePhrase } from '../../edges/edgeSizePhrase'
 import { EDGE_LINK_NOTICES, resolveEdgeLinkTemplate } from './inspectorStrings'
 import type { ProvenanceKind } from './shared/ProvenanceChip'
 
@@ -52,33 +49,17 @@ export function buildEdgeInspectorSentence(input: EdgeInspectorSentenceInput): E
     sentence = direction.show
       ? `As ${source} increases, ${target} ${direction.direction === 'positive' ? 'increases' : 'decreases'}. This link isn't sized in the model yet. How strong do you think it is?`
       : `${source} affects ${target}, but this link isn't sized in the model yet. How strong do you think it is?`
-    chip = 'unsized'
+    chip = EDGE_PROVENANCE.placeholder.chip
   } else {
     const band = getStrengthLabel(Math.abs(strengthDisplay.value)).toLowerCase()
     sentence = direction.show
       ? `As ${source} increases, ${target} ${direction.direction === 'positive' ? 'increases' : 'decreases'}: ${band}.`
       : `${source} has a ${band} effect on ${target}; the direction isn't stated.`
 
-    // A direct user setting takes precedence over retained producer metadata.
-    // Example attribution asks the same live predicate as Examine's why-line.
-    const strengthSource = edgeValueSource(data, 'weight')
-    const size = edgeSizePhrase(data)
-    const natural = NaturalEffectSchema.safeParse(data?.naturalEffect)
-    const currentNatural = natural.success &&
-      naturalEffectStrengthIsCurrent(strengthDisplay.value, natural.data.strengthMean)
-      ? natural.data
-      : null
-    chip = strengthSource === 'user'
-      ? 'user'
-      : strengthSource === 'template' || size?.exampleFigure === true
-        ? 'example'
-        : currentNatural?.author === 'user'
-          ? currentNatural.userOrigin === 'brief' ? 'brief' : 'user'
-          : isStrengthStated(data)
-            ? 'user'
-            : strengthSource === 'cee' || currentNatural?.author === 'olumi_estimate'
-              ? 'olumi'
-              : null
+    // Data layer Phase 1: the ONE edge provenance classifier decides the chip (`edgeProvenance.ts`), so the inspector,
+    // the canvas icon and the Model tab say the same thing about whose this strength is.
+    const provenance = edgeProvenance(data, strengthDisplay)
+    chip = provenance === null ? null : EDGE_PROVENANCE[provenance.kind].chip
   }
 
   if (readContestedState(data?.validation).directionDisputed) {

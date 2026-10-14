@@ -1,7 +1,7 @@
 /**
  * KebabMenu — restructured "More" dropdown menu for the top bar.
  *
- * Groups: Model (Rename, Export, Import, Snapshots, Start new model) |
+ * Groups: Model (Rename, Export, Import, Snapshots, Start new scenario) |
  * View (Fullscreen) | Help (Keyboard shortcuts, How influence works) |
  * Canvas settings (flattened toggles).
  *
@@ -194,7 +194,7 @@ export function KebabMenu({
               data-testid="kebab-start-new-model"
             >
               <FilePlus size={14} aria-hidden="true" />
-              <span>Start new model</span>
+              <span>Start new scenario</span>
             </button>
 
             <hr className={styles.dropdownMenuDivider} />
@@ -339,9 +339,9 @@ export function KebabMenu({
           Do not restore a recovery promise here unless one exists. */}
       {showResetConfirm && (
         <ConfirmDialog
-          title="Start a new model?"
+          title="Start a new scenario?"
           message="This clears the current model: every node and connection, any analysis results, and the AI assistant conversation. It cannot be undone — to keep a copy, cancel and choose Export first."
-          confirmLabel="Start new model"
+          confirmLabel="Start new scenario"
           cancelLabel="Cancel"
           onConfirm={handleConfirmReset}
           onCancel={() => setShowResetConfirm(false)}

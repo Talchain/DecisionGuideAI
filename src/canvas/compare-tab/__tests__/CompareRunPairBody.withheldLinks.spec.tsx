@@ -1,12 +1,13 @@
 /**
  * Compare's "not shown" line names the unsized links and says "Set them" (Paul on prod, 7 Oct: the tab gave no way to).
- * Each link it names is one click to that link's own inspector (DL 7 Oct, interim before the goal-chance Compare).
+ * Each link it names is one checklist row, one click to that link's own inspector, ticked when the user has set it
+ * (Paul's 8 Oct test, DL GO "A": the line alone was a dead end; it was inline presses, 7 Oct).
  *
  * Bound by IDENTITY: the sentence under test is the shared one (`goalPathUnsizedCause`), never retyped here, and each
  * pressable phrase is checked against the link ends it opens. Every "pressable" row has a control that is not.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
@@ -15,7 +16,7 @@ import { EXPLORATORY_REASON_LINE } from '../../state/winShareGate'
 import { openLinkInspector } from '../../utils/openEdgeStrengthEditor'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { withheldReasonSegments } from '../withheldReasonSegments'
-import { GraphLink } from '../../../components/results/GraphLink'
+import { SIZING_ACCEPTED_TEXT, SIZING_ALL_SET_TEXT, SIZING_NEXT_TEXT, SIZING_NOT_SET_TEXT, SIZING_SET_TEXT } from '../CompareSizingChecklist'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../utils/openEdgeStrengthEditor', async (importOriginal) => ({
@@ -68,7 +69,9 @@ describe('withheldReasonSegments: the shared sentence, cut at the links it names
   })
 })
 
-function seed(permission: { permitted: boolean; producer_cause?: string }, links = FOUR.slice(0, 2)): string {
+type EdgeSeed = { from: string; to: string; data?: Record<string, unknown> }
+/** `links` = the Run's warning list; `edges` = the canvas now (default: those links, no sizing recorded). */
+function seed(permission: { permitted: boolean; producer_cause?: string }, links = FOUR.slice(0, 2), edges: EdgeSeed[] = links): string {
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.1, opt_49: 0.9 } })
   report.producer_leader_permission = permission
@@ -77,7 +80,7 @@ function seed(permission: { permitted: boolean; producer_cause?: string }, links
   const labels = new Map([...RUN_CHANGE_LABELS, ...LINK_LABELS])
   useCanvasStore.setState({ currentScenarioId: 'scn-1',
     nodes: [...labels.keys()].map((id) => ({ id, type: id.startsWith('opt') ? 'option' : 'factor', position: { x: 0, y: 0 }, data: { label: labels.get(id) } })),
-    edges: links.map((l) => ({ id: `e_${l.from}_${l.to}`, source: l.from, target: l.to })),
+    edges: edges.map((l) => ({ id: `e_${l.from}_${l.to}`, source: l.from, target: l.to, ...(l.data ? { data: l.data } : {}) })),
     results: { status: 'complete', progress: 100, report, hash },
     runDelta: { delta: runChangeDelta(), analysisHash: hash, scenarioId: 'scn-1' },
     analysisStateV1: AnalysisStateV1Schema.parse({
@@ -93,48 +96,110 @@ function seed(permission: { permitted: boolean; producer_cause?: string }, links
 beforeEach(() => { useCanvasStore.setState(original, true); vi.mocked(openLinkInspector).mockClear() })
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true) })
 
+const USER_SET = { weight: 0.6, weightSource: 'user' }
+/** The control for USER_SET: the same number, but CEE's. A value predicate would tick it; provenance must not. */
+const CEE_SAME_VALUE = { weight: 0.6, weightSource: 'cee' }
+const PLACEHOLDER = { weight: 0.5, weightSource: 'cee', strengthPlaceholder: 0.5 }
+const STATED = { weight: 0.6, weightSource: 'cee', strengthStated: 0.6 }
+/** Olumi's estimate the user accepted (CEE `olumi_accepted`): sized for the goal licence, still Olumi's. */
+const ACCEPTED = { weight: 0.6, weightSource: 'cee', strengthAccepted: 0.6 }
+const UNSIZED = { permitted: false, producer_cause: 'goal_path_unsized' }
+const rowsOf = () => screen.queryAllByTestId('compare-sizing-row')
+const endsOf = (rows: HTMLElement[]) => rows.map((r) => `${r.dataset.from}->${r.dataset.to}`)
+
 describe('Compare: "Set them" comes with a way to', () => {
-  it('each named link in the not-shown line opens THAT link\'s inspector; the words are the shared sentence', () => {
-    render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'goal_path_unsized' })} />)
+  it('each named link is a row whose press opens THAT link\'s inspector; the line is the shared sentence, with no press of its own', () => {
+    render(<CompareRunPairBody responseHash={seed(UNSIZED)} />)
     const line = screen.getByTestId('compare-withheld-reason')
     expect(line.textContent).toBe(goalPathUnsizedCause(placeholderWarning(FOUR.slice(0, 2)), labelOf))
-    const buttons = within(line).getAllByRole('button')
-    expect(buttons.map((b) => b.textContent)).toEqual([
-      'from ‘Feature Delivery Capacity’ to ‘meet our next feature-launch deadline’',
-      'from ‘New-hire Onboarding Disruption’ to ‘Feature Delivery Capacity’',
+    expect(within(line).queryAllByRole('button')).toHaveLength(0)
+    const presses = rowsOf().map((r) => within(r).getByRole('button'))
+    expect(presses.map((b) => b.textContent)).toEqual([
+      'Set strength: from ‘Feature Delivery Capacity’ to ‘meet our next feature-launch deadline’',
+      'Set strength: from ‘New-hire Onboarding Disruption’ to ‘Feature Delivery Capacity’',
     ])
-    fireEvent.click(buttons[1])
+    fireEvent.click(presses[1])
     expect(vi.mocked(openLinkInspector)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(openLinkInspector)).toHaveBeenCalledWith('f_onb', 'f_cap')
   })
 
-  it('a not-shown line that names no link has no button (control: the unsized cause on the same pair has two)', () => {
+  it('a not-shown line that names no link has no checklist (control: the unsized cause on the same pair has two rows)', () => {
     render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'constraint_verdict_withheld' })} />)
     const line = screen.getByTestId('compare-withheld-reason')
     expect(line.textContent).toBe(EXPLORATORY_REASON_LINE)
     expect(within(line).queryAllByRole('button')).toHaveLength(0)
+    expect(screen.queryByTestId('compare-sizing')).toBeNull()
     cleanup()
-    render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'goal_path_unsized' })} />)
-    expect(within(screen.getByTestId('compare-withheld-reason')).getAllByRole('button')).toHaveLength(2)
+    render(<CompareRunPairBody responseHash={seed(UNSIZED)} />)
+    expect(rowsOf()).toHaveLength(2)
   })
 
-  it('each named link is INLINE text that wraps with the sentence and still works by keyboard (control: GraphLink\'s default is a box <button>)', () => {
-    render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'goal_path_unsized' })} />)
-    const links = within(screen.getByTestId('compare-withheld-reason')).getAllByRole('button')
-    // A <button> is always an atomic inline-block (staging witness 7 Oct: the commas between links stood alone on their lines).
-    expect(links.map((l) => l.tagName)).toEqual(['SPAN', 'SPAN'])
-    expect(links.every((l) => l.getAttribute('tabindex') === '0')).toBe(true)
-    fireEvent.keyDown(links[0], { key: 'Enter' })
-    fireEvent.keyDown(links[1], { key: ' ' })
-    fireEvent.keyDown(links[1], { key: 'a' })
-    expect(vi.mocked(openLinkInspector).mock.calls).toEqual([['f_cap', 'g_launch'], ['f_onb', 'f_cap']])
+  it('a placeholder link CEE did not name gets no row (control: the same link in the warning gets one)', () => {
+    const named = FOUR.slice(0, 2)
+    const extra = { ...FOUR[3], data: PLACEHOLDER }
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, named, [...named, extra])} />)
+    expect(endsOf(rowsOf())).toEqual(['f_cap->g_launch', 'f_onb->f_cap'])
     cleanup()
-    render(<GraphLink edgeRef={{ fromId: 'f_cap', toId: 'g_launch' }} label="Size it" opensInspector />)
-    expect(screen.getByRole('button').tagName).toBe('BUTTON')
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [...named, FOUR[3]], [...named, extra])} />)
+    expect(endsOf(rowsOf())).toEqual(['f_cap->g_launch', 'f_onb->f_cap', 'f_cost->g_launch'])
   })
 
-  it('a permitted pair shows no not-shown line at all (control: withheld shows it)', () => {
+  it('the tick is the stored provenance: the user\'s own strength or their stated figure (control: the same number, CEE\'s, stays unset)', () => {
+    const [a, b] = FOUR
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [{ ...a, data: USER_SET }, { ...b, data: CEE_SAME_VALUE }])} />)
+    expect(rowsOf().map((r) => r.dataset.state)).toEqual(['set', 'not_set'])
+    expect(rowsOf().map((r) => within(r).getByTestId('compare-sizing-state').textContent)).toEqual([SIZING_SET_TEXT, SIZING_NOT_SET_TEXT])
+    expect(screen.getByTestId('compare-sizing-count').textContent).toBe('1 of 2 set')
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [{ ...a, data: STATED }, { ...b, data: PLACEHOLDER }])} />)
+    expect(rowsOf().map((r) => r.dataset.state)).toEqual(['set', 'not_set'])
+  })
+
+  it('an accepted Olumi estimate ticks as accepted, never "you set" (control: Olumi\'s unaccepted estimate stays unset)', () => {
+    const [a, b] = FOUR
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [{ ...a, data: ACCEPTED }, { ...b, data: CEE_SAME_VALUE }])} />)
+    expect(rowsOf().map((r) => r.dataset.state)).toEqual(['accepted', 'not_set'])
+    expect(within(rowsOf()[0]).getByTestId('compare-sizing-state').textContent).toBe(SIZING_ACCEPTED_TEXT)
+    expect(within(rowsOf()[0]).getByRole('button').textContent).toMatch(/^Change: /)
+    expect(within(rowsOf()[1]).getByRole('button').textContent).toMatch(/^Set strength: /)
+    expect(screen.getByTestId('compare-sizing-count').textContent).toBe('1 of 2 set')
+  })
+
+  it('a sizing edit after the Run ticks its row; when every listed link is set it says to re-run', () => {
+    const [a, b] = FOUR
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b])} />)
+    expect(screen.queryByTestId('compare-sizing-all-set')).toBeNull()
+    act(() => { useCanvasStore.setState({ edges: [a, b].map((l) => ({ id: `e_${l.from}_${l.to}`, source: l.from, target: l.to, data: USER_SET })) } as never) })
+    expect(rowsOf().map((r) => r.dataset.state)).toEqual(['set', 'set'])
+    expect(screen.getByTestId('compare-sizing-all-set').textContent).toBe(SIZING_ALL_SET_TEXT)
+  })
+
+  it('a link the sentence only counts is counted, not listed: "All set" waits for it (control: set it too)', () => {
+    // Four listed, three named, "and 1 more" (Science's cap): the fourth has no row but is in the count.
+    const sized = (data: Record<string, unknown> | undefined) => FOUR.map((l, i) => ({ ...l, data: i < 3 ? USER_SET : data }))
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, FOUR, sized(undefined))} />)
+    expect(endsOf(rowsOf())).toEqual(['f_cap->g_launch', 'f_onb->f_cap', 'f_hires->f_onb'])
+    expect(screen.getByTestId('compare-sizing-count').textContent).toBe('3 of 4 set')
+    expect(screen.queryByTestId('compare-sizing-all-set')).toBeNull()
+    expect(screen.getByTestId('compare-sizing-next').textContent).toBe(SIZING_NEXT_TEXT)
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, FOUR, sized(USER_SET))} />)
+    expect(screen.getByTestId('compare-sizing-count').textContent).toBe('4 of 4 set')
+    expect(screen.getByTestId('compare-sizing-all-set').textContent).toBe(SIZING_ALL_SET_TEXT)
+  })
+
+  it('a named link no longer on the canvas says so and has no press (control: the one still there has one)', () => {
+    const [a, b] = FOUR
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [a])} />)
+    const [here, gone] = rowsOf()
+    expect(gone.dataset.state).toBe('off_canvas')
+    expect(within(gone).queryByRole('button')).toBeNull()
+    expect(within(here).getByRole('button')).toBeTruthy()
+  })
+
+  it('a permitted pair shows no not-shown line and no checklist (control: withheld shows both)', () => {
     render(<CompareRunPairBody responseHash={seed({ permitted: true })} />)
     expect(screen.queryByTestId('compare-withheld-reason')).toBeNull()
+    expect(screen.queryByTestId('compare-sizing')).toBeNull()
   })
 })

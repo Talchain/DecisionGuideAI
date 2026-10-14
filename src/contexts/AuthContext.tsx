@@ -761,9 +761,18 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     signUp: legacyNoOp,
 
     signOut: async () => {
-      // No real session: there is genuinely nothing to sign out of, and
-      // pretending otherwise would send a request that cannot succeed.
-      if (!session) return { error: null };
+      // No real session: there is nothing to sign out of at Supabase, and
+      // pretending otherwise would send a request that cannot succeed. A
+      // GUEST's explicit Sign out is still an identity boundary (P48 E, 8 Oct):
+      // the next person on this browser must find nothing of theirs. Witnessed
+      // on staging: A's transcript and guest-work ledger survived A's Sign out.
+      // The one boundary sweeps every user-scoped key and prefix. Never on
+      // "Continue without an account": a browser cannot tell a returning guest
+      // from a new one (DL ruling).
+      if (!session) {
+        clearUserScopedState(null);
+        return { error: null };
+      }
       authLogger.debug('SIGN_OUT', 'Sign out attempt (optional-auth posture)');
       try {
         clearAuthStates();

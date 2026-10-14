@@ -15,6 +15,7 @@ import { AlertTriangle, ArrowRight, Info } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { UIInterventionValue } from '../../types/options'
+import { classifyInterventionProvenance, UNVERIFIED_BRIEF_LABEL } from '../domain/valueProvenance'
 
 // ============================================================================
 // Types
@@ -80,6 +81,12 @@ function formatValue(value: number, unit?: string): string {
   }
 }
 
+function isUnverified(iv: Pick<UIInterventionValue, 'source' | 'user_material_unverified'>): boolean {
+  return classifyInterventionProvenance(iv.source ?? null, {
+    userMaterialUnverified: iv.user_material_unverified === true,
+  })?.kind === 'unverified_brief'
+}
+
 /**
  * Format the source of an intervention value.
  *
@@ -98,9 +105,15 @@ function formatValue(value: number, unit?: string): string {
  * changes rendered text on a live surface and owes a human look. ROWED as a
  * follow-up rather than smuggled into a truth fix. What is fixed here is only
  * the part that was LYING: the absent case.
+ *
+ * The producer's `user_material_unverified` stamp (the AI claimed the user as
+ * the source; the host could not verify it) is classified by that same
+ * authority and says the existing "Not confirmed from your brief", never
+ * "inferred" (Olumi's) and never "you set this".
  */
-function formatSource(source: UIInterventionValue['source']): string | null {
-  switch (source) {
+function formatSource(iv: Pick<UIInterventionValue, 'source' | 'user_material_unverified'>): string | null {
+  if (isUnverified(iv)) return UNVERIFIED_BRIEF_LABEL
+  switch (iv.source) {
     case 'brief_extraction':
       return 'from brief'
     case 'user_specified':
@@ -116,8 +129,9 @@ function formatSource(source: UIInterventionValue['source']): string | null {
  * Get CSS class for source badge. Only ever called for a source that
  * `formatSource` resolved to a label — the absent case renders no badge at all.
  */
-function getSourceClass(source: UIInterventionValue['source']): string {
-  switch (source) {
+function getSourceClass(iv: Pick<UIInterventionValue, 'source' | 'user_material_unverified'>): string {
+  // An unverified setting takes the neutral default arm, never a source colour.
+  switch (isUnverified(iv) ? undefined : iv.source) {
     case 'brief_extraction':
       return 'bg-sky-100 text-sky-700'
     case 'user_specified':
@@ -181,7 +195,7 @@ export function InterventionDisplay({
               // parenthesised "(undefined)" or an invented word.
               title={
                 `${label} → ${formatValue(intervention.value, unit)}` +
-                (formatSource(intervention.source) ? ` (${formatSource(intervention.source)})` : '')
+                (formatSource(intervention) ? ` (${formatSource(intervention)})` : '')
               }
             >
               <span className="text-ink-600 truncate max-w-[80px]">{label}</span>
@@ -239,13 +253,11 @@ export function InterventionDisplay({
                 {/* No badge at all when the record does not say who chose this
                     number — see formatSource. A neutral pill would still be a
                     statement, and the thing being fixed here is a statement. */}
-                {formatSource(intervention.source) && (
+                {formatSource(intervention) && (
                   <span
-                    className={`${typography.caption} px-1.5 py-0.5 rounded ${getSourceClass(
-                      intervention.source
-                    )}`}
+                    className={`${typography.caption} px-1.5 py-0.5 rounded ${getSourceClass(intervention)}`}
                   >
-                    {formatSource(intervention.source)}
+                    {formatSource(intervention)}
                   </span>
                 )}
                 {intervention.value_confidence === 'low' && (

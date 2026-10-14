@@ -67,9 +67,9 @@ import { typography } from '../../styles/typography'
  * user would otherwise have seen.
  */
 export const NARRATION_STAGES = [
-  { afterSeconds: 0, message: 'Analysing your decision…' },
-  { afterSeconds: 20, message: 'Still analysing your decision…' },
-  { afterSeconds: 40, message: 'Still analysing — complex decisions can take a while…' },
+  { afterSeconds: 0, message: 'Analysing your model…' },
+  { afterSeconds: 20, message: 'Still analysing your model…' },
+  { afterSeconds: 40, message: 'Still analysing — complex models can take a while…' },
 ] as const
 
 /** Resolve the narration message for a given elapsed time (seconds). */

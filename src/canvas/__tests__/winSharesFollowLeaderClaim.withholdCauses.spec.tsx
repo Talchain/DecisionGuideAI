@@ -13,14 +13,11 @@
  * Outcome panels, and the chat's comparison block.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { useCanvasStore } from '../store'
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
-import { DecisionPanel } from '../ui/inspector-v2/panels/DecisionPanel'
-import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
-import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { runChangesSummaryLines } from '../graphChanges/runChangesSummaryLines'
 import { WITHHELD_REASON_FALLBACK, selectWinShareWithheldReason, winShareWithheldReason } from '../state/winShareGate'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
@@ -107,21 +104,9 @@ describe.each(CASES)('%s', (_name, cause, warnings, words) => {
     expect(runChangesSummaryLines(view, true, selectWinShareWithheldReason(useCanvasStore.getState() as never)).movedNote).toBe(words)
   })
 
-  it('the inspector\'s Decision and Outcome panels', () => {
-    seed(cause, warnings)
-    const decision = render(<DecisionPanel nodeId="decision_securing_funding" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
-    expect(decision.getByTestId('decision-panel-not-ranked').textContent).toBe(words)
-    decision.unmount()
-    const outcome = render(<OutcomePanel nodeId="investment_firm_meetings" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
-    expect(outcome.getByTestId('outcome-panel-not-ranked').textContent).toBe(words)
-  })
-
-  it('the chat\'s comparison block', () => {
-    seed(cause, warnings)
-    const block = { type: 'comparison', narrative: '', options: [{ option_id: '10979ab0', label: 'Convertible bridge from existing supporters', win_probability: 0.7966 }] }
-    const { getByTestId } = render(<V5ComparisonBlock block={block as never} />)
-    expect(getByTestId('v5-comparison-not-ranked').textContent).toBe(words)
-  })
+  // #2747 re-scope 2 (DL ruling (A)): rows deleted — "the inspector's Decision and Outcome panels" and "the chat's
+  // comparison block": their only subject, the withheld-share reason line on those surfaces (`decision-panel-not-ranked`,
+  // `outcome-panel-not-ranked`, `v5-comparison-not-ranked`), is removed in C with the shares it explained.
 })
 
 describe('goal_product_not_read never guesses the goal', () => {
@@ -244,9 +229,9 @@ describe('every store-reading surface takes the reason from the ONE selector', (
   it.each([
     'src/canvas/compare-tab/CompareRunPairBody.tsx',
     'src/canvas/components/RunChangesSummary.tsx',
-    'src/canvas/ui/inspector-v2/panels/OptionPanel.tsx',
+    // #2747 re-scope 2 (DL ruling (A)): OptionPanel.tsx and V5ComparisonBlock.tsx deleted from this list — neither says a
+    // withheld-share reason in C (no share, no reason line), so neither reads the selector.
     'src/canvas/nodes/OptionNode.tsx',
-    'src/v5/blocks/V5ComparisonBlock.tsx',
   ])('%s reads selectWinShareWithheldReason', (path) => {
     const src = readFileSync(resolve(process.cwd(), path), 'utf8')
     expect(src).toMatch(/useCanvasStore\(selectWinShareWithheldReason\)/)

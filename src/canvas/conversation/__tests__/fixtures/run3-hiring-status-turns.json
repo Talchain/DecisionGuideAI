@@ -1,0 +1,66 @@
+{
+ "_capture": {
+  "run": "live/runs/2026-10-12T153555Z",
+  "turns": "hiring/turns/03.json, 04.json, 07.json (response_body)",
+  "ui": "a9a5c26f",
+  "cee": "3fdf0f38",
+  "note": "each turn: _answer_shape, assistant_text, graph_hash and analysis_state.run_state only"
+ },
+ "turns": [
+  {
+   "turn": "03",
+   "graph_hash": "115f61211a09e767",
+   "analysis_state": {
+    "run_state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-12T15:37:51.321Z"
+    }
+   },
+   "_answer_shape": {
+    "headline": "Not shown: some relationships aren't sized yet",
+    "bullets": [
+     "Olumi's estimates: 11, see Check estimates."
+    ],
+    "detail": "Your results are ready. You can view them now or ask me to explain them.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess."
+   },
+   "assistant_text": "Not shown: some relationships aren't sized yet\n\n• Olumi's estimates: 11, see Check estimates.\n\nYour results are ready. You can view them now or ask me to explain them.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess."
+  },
+  {
+   "turn": "04",
+   "graph_hash": "115f61211a09e767",
+   "analysis_state": {
+    "run_state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-12T15:37:51.321Z"
+    }
+   },
+   "_answer_shape": {
+    "headline": "Not shown: some relationships aren't sized yet",
+    "bullets": [
+     "Olumi's estimates: 11, see Check estimates.",
+     "What’s each option’s likely range for ‘Hiring cost’?"
+    ],
+    "detail": "The analysis cannot distinguish the hiring options yet.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess.\n\n- Your three-month deadline is not represented.\n\nFor ‘Hire a Tech lead’ and ‘Hire two developers’ it isn’t shown: it uses a single Olumi figure for ‘Hiring cost’.\n\nThis comparison turns on the links from ‘Code quality degradation’ to ‘productivity’, from ‘Tech leads hired’ to ‘Leadership capacity’ and from ‘Developers hired’ to ‘Code quality degradation’, whose strengths aren't sized in the model yet. Set them to see how much they matter.\n\n<details>\n<summary>Why?</summary>\n\nAssumption-based planning: name the load-bearing assumption, test it, and replace a guessed number with the decision-maker's own judgement where the choice depends on it.\n\n</details>"
+   },
+   "assistant_text": "Not shown: some relationships aren't sized yet\n\n• Olumi's estimates: 11, see Check estimates.\n• What’s each option’s likely range for ‘Hiring cost’?\n\nThe analysis cannot distinguish the hiring options yet.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess.\n\n- Your three-month deadline is not represented.\n\nFor ‘Hire a Tech lead’ and ‘Hire two developers’ it isn’t shown: it uses a single Olumi figure for ‘Hiring cost’.\n\nThis comparison turns on the links from ‘Code quality degradation’ to ‘productivity’, from ‘Tech leads hired’ to ‘Leadership capacity’ and from ‘Developers hired’ to ‘Code quality degradation’, whose strengths aren't sized in the model yet. Set them to see how much they matter.\n\n<details>\n<summary>Why?</summary>\n\nAssumption-based planning: name the load-bearing assumption, test it, and replace a guessed number with the decision-maker's own judgement where the choice depends on it.\n\n</details>"
+  },
+  {
+   "turn": "07",
+   "graph_hash": "9673b6fc2adfbee3",
+   "analysis_state": {
+    "run_state": {
+     "kind": "complete_current",
+     "computed_at": "2026-10-12T15:40:48.373Z"
+    }
+   },
+   "_answer_shape": {
+    "headline": "Not shown: some relationships aren't sized yet",
+    "bullets": [
+     "Olumi's estimates: 11, see Check estimates."
+    ],
+    "detail": "Your results are ready. You can view them now or ask me to explain them.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess."
+   },
+   "assistant_text": "Not shown: some relationships aren't sized yet\n\n• Olumi's estimates: 11, see Check estimates.\n\nYour results are ready. You can view them now or ask me to explain them.\n\nThe chance isn't shown yet: the model doesn't yet say how strongly ‘Tech leads hired’ affects ‘Leadership capacity’, so any figure would be a guess."
+  }
+ ]
+}

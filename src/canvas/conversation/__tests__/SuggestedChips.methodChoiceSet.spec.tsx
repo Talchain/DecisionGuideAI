@@ -1,14 +1,4 @@
-/**
- * ⭐ M3: AN ASKED PRE-MORTEM WITH NO PLAN OFFERS EVERY PLAN (CEE #2480 `method-turn.ts` `choosePlan`; DL 380e54 M3 row).
- *
- * A generic "Run a pre-mortem" press with no plan answers with RC's choose_plan turn: ONE button per own option
- * (`agent-premortem-plan:<12 hex>`, label ‘<option>’) and then "Talk it through". D1 has four options, so that is four
- * or five chips, and the row's 0-3 rule (D-K) cut it to three: the last plan or "Talk it through" was silently lost.
- * A choice of plans is the method's own question, not a suggestion, so a turn that carries one keeps its whole set.
- * Every other turn keeps the 0-3 rule.
- *
- * Bound by chip IDENTITY (the `agent-premortem-plan:` id prefix), never by label or message text.
- */
+/** U17: all producer offers survive, including ordinary, method-choice and earlier-reply chips. */
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
@@ -63,8 +53,8 @@ describe('SuggestedChips: a choose_plan turn keeps every plan and "Talk it throu
     expect(screen.getByTestId('suggested-chip-agent-talk-it-through').textContent).toBe('Talk it through')
   })
 
-  it('control: an ordinary turn still shows at most three (D-K unchanged)', () => {
-    expect(shownIds(ORDINARY)).toEqual(ORDINARY.slice(0, 3).map((c) => c.id))
+  it('U17: an ordinary turn keeps every offered chip', () => {
+    expect(shownIds(ORDINARY)).toEqual(ORDINARY.map((c) => c.id))
   })
 
   it('control: a run turn (consent + Talk it through) is under the cap and unchanged', () => {
@@ -72,12 +62,12 @@ describe('SuggestedChips: a choose_plan turn keeps every plan and "Talk it throu
     expect(shownIds([consent, TALK])).toEqual([consent.id, TALK.id])
   })
 
-  it('⛔ identity, not words: a plan-worded label or a mid-id prefix does not lift the cap', () => {
+  it('⛔ identity, not words: a plan-worded label or a mid-id prefix does not change which offers render', () => {
     const wordedOnly = ORDINARY.map((c, i) => ({ ...c, label: `‘Plan ${i}’`, message: `Run a pre-mortem on ‘Plan ${i}’.` }))
-    expect(shownIds(wordedOnly)).toHaveLength(3)
+    expect(shownIds(wordedOnly)).toHaveLength(ORDINARY.length)
     cleanup()
     const midId = ORDINARY.map((c, i) => ({ ...c, id: `x-agent-premortem-plan:${i}` }))
-    expect(shownIds(midId)).toHaveLength(3)
+    expect(shownIds(midId)).toHaveLength(ORDINARY.length)
   })
 })
 
@@ -105,12 +95,12 @@ describe('SuggestedChips: a widening turn keeps every Add and "Something else" (
     expect(shownIds([RISK_ADDS[0]!, SOMETHING_ELSE])).toEqual([RISK_ADDS[0]!.id, SOMETHING_ELSE.id])
   })
 
-  it('⛔ identity, not words: an Add-worded label or a mid-id prefix does not lift the cap', () => {
+  it('⛔ identity, not words: an Add-worded label or a mid-id prefix does not change which offers render', () => {
     const wordedOnly = ORDINARY.map((c, i) => ({ ...c, label: `Add ‘Risk ${i}’`, message: `Add the risk ‘Risk ${i}’.` }))
-    expect(shownIds(wordedOnly)).toHaveLength(3)
+    expect(shownIds(wordedOnly)).toHaveLength(ORDINARY.length)
     cleanup()
     const midId = ORDINARY.map((c, i) => ({ ...c, id: `x-agent-widen-add:${i}` }))
-    expect(shownIds(midId)).toHaveLength(3)
+    expect(shownIds(midId)).toHaveLength(ORDINARY.length)
   })
 })
 
@@ -132,8 +122,8 @@ describe('ChatThread: the method set rides the latest reply only', () => {
     for (const c of [...D1_PLANS, TALK]) expect(screen.getByTestId(`suggested-chip-${c.id}`)).toBeTruthy()
   })
 
-  it('control: once a later reply lands, the earlier plan set is not offered again', () => {
+  it('U17: a later reply leaves the earlier plan set under its owning reply', () => {
     thread([msg('u1', 'user', 'Run a pre-mortem'), CHOOSE, msg('u2', 'user', 'Let’s talk it through.'), msg('a2', 'assistant', 'Sure.')])
-    for (const c of [...D1_PLANS, TALK]) expect(screen.queryByTestId(`suggested-chip-${c.id}`)).toBeNull()
+    for (const c of [...D1_PLANS, TALK]) expect(screen.getByTestId(`suggested-chip-${c.id}`)).toBeInTheDocument()
   })
 })

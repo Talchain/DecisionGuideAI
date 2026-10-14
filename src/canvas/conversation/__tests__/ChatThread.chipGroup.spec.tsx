@@ -123,7 +123,7 @@ describe('ChatThread: chip grouping', () => {
   // a single assistant message, so first-of-role and last-of-role are
   // indistinguishable there — a mutation taking the FIRST assistant message
   // passed them both. This fixture separates the two.
-  it('takes chips from the LAST assistant message, not the first', () => {
+  it("keeps each reply's own chips", () => {
     const messages = [
       makeMsg({ content: 'older reply', actionChips: [{ ...chip, id: 'stale', label: 'Stale chip' }] }),
       makeMsg({ role: 'user', content: 'follow-up question' }),
@@ -145,13 +145,12 @@ describe('ChatThread: chip grouping', () => {
       />,
     )
 
-    const chips = screen.getByTestId('suggested-chips')
-    expect(chips.textContent).toContain('Fresh chip')
-    expect(chips.textContent).not.toContain('Stale chip')
+    const groups = screen.getAllByTestId('response-chip-group')
+    expect(groups).toHaveLength(2)
+    expect(groups[0].textContent).toContain('older reply')
+    expect(groups[0].textContent).toContain('Stale chip')
+    expect(groups[1].textContent).toContain('newest reply')
+    expect(groups[1].textContent).toContain('Fresh chip')
 
-    // ...and the group wraps the NEWEST assistant message, not the older one.
-    const group = screen.getByTestId('response-chip-group')
-    expect(group.textContent).toContain('newest reply')
-    expect(group.textContent).not.toContain('older reply')
   })
 })

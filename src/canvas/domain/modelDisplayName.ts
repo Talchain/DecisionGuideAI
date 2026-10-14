@@ -34,7 +34,7 @@
  */
 
 /** Shown when a model has neither a name nor a goal to be named after. */
-export const UNNAMED_MODEL_FALLBACK = 'Untitled model'
+export const UNNAMED_MODEL_FALLBACK = 'Untitled scenario'
 
 /** Longest derived name before it is elided. */
 export const DERIVED_NAME_MAX = 60

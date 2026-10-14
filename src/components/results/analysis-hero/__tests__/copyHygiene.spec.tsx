@@ -53,26 +53,21 @@ const UI_COPY: string[] = [
   HERO_COPY.fixtureBanner,
   HERO_COPY.ghostLegend,
   HERO_COPY.headline.goalWithLimits(L, N),
-  HERO_COPY.headline.goalOnly(L, N),
-  HERO_COPY.headline.mostLikelyStrongest(L, N),
-  HERO_COPY.headline.slightlyAhead(L),
+  // #2747 re-scope 2 round 2: headline.goalOnly / headline.noneOnTrack / caption.goalOnly / detail.goalFitJointBasis are
+  // deleted (the UI's own goal-chance sentences; rule C), so they leave this corpus.
+  // Run-4 judge (DL 12 Oct, the class): headline.mostLikelyStrongest / slightlyAhead and subline.highestOutcome / aligned /
+  // closeOnOutcome / overlapAdvisory are deleted (leader claims from a win share), so they leave this corpus.
   HERO_COPY.headline.noClearLeader,
   HERO_COPY.headline.outcomeLeader(L, V),
-  HERO_COPY.headline.noneOnTrack,
   HERO_COPY.headline.noneOnTrackWithLimits,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
-  HERO_COPY.subline.highestOutcome(L, V),
-  HERO_COPY.subline.aligned(L),
-  HERO_COPY.subline.closeOnOutcome(L),
   HERO_COPY.subline.outcomesClose,
   HERO_COPY.subline.compareTop,
-  HERO_COPY.subline.overlapAdvisory,
   HERO_COPY.labelFallback,
   HERO_COPY.factorFallback,
   ...Object.values(HERO_COPY.axis).flatMap((a) => [a.left, a.mid, a.right]),
   HERO_COPY.caption.goalWithLimits,
-  HERO_COPY.caption.goalOnly,
   HERO_COPY.caption.outcome,
   HERO_COPY.caption.outcomeOverlap,
   HERO_COPY.caption.outcomeSingleRange,
@@ -92,7 +87,6 @@ const UI_COPY: string[] = [
   HERO_COPY.detail.range('54', '82'),
   HERO_COPY.detail.goalFit('34%'),
   HERO_COPY.detail.goalFitWithLimits('34%'),
-  HERO_COPY.detail.goalFitJointBasis('34%'),
   HERO_COPY.footer.mainReason('Team capacity'),
   // BOTH BRANCHES of the main-driver claim are swept, on the same rule the
   // flip-risk pair below already follows: a tie-hedged sentence is user-facing
@@ -117,12 +111,11 @@ const UI_COPY: string[] = [
   HERO_COPY.evidence.heading,
   HERO_COPY.evidence.subtitle,
   HERO_COPY.evidence.driversNote,
-  // ROADMAP 1.267: the three flip-risk strings are now verdict-dependent, so
-  // BOTH branches are swept. A withheld-run sentence is user-facing copy and
-  // is held to the identical hygiene rules — listing only the permitted branch
-  // would leave half the shipped strings unchecked.
-  HERO_COPY.evidence.flipRisksNote(false),
-  HERO_COPY.evidence.flipRisksNote(true),
+  // ROADMAP 1.267: the three flip-risk strings were verdict-dependent, so BOTH
+  // branches were swept. Run-4 judge (DL 12 Oct, the class): the permitted
+  // branch ("… the most-supported option …") is removed and every run takes the
+  // withheld wording, so each string now has ONE shipped form and is swept once.
+  HERO_COPY.evidence.flipRisksNote,
   HERO_COPY.evidence.switchMeta('48%'),
   HERO_COPY.evidence.driversTab,
   HERO_COPY.evidence.flipRisksTab,
@@ -132,12 +125,9 @@ const UI_COPY: string[] = [
   // The `est.` provenance tag and its accessible name (ported from V7).
   HERO_COPY.evidence.estimateTag,
   HERO_COPY.evidence.estimateTagAria,
-  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', false),
-  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', true),
-  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', false),
-  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', true),
-  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', false),
-  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', true),
+  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers'),
+  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000'),
+  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%'),
   HERO_COPY.evidence.tradeOffGain,
   HERO_COPY.evidence.tradeOffGiveUp,
   HERO_COPY.evidence.tradeOffDependsOn,

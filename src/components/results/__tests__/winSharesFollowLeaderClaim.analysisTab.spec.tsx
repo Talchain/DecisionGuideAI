@@ -19,16 +19,19 @@
  *   1. 4276f3f9 → 0 option percentages, and the reason line;
  *   2. CONTROL: `{permitted: true}` still shows the shares (Convertible bridge "80%");
  *   3. CONTROL: another cause (`separation_unavailable`) also hides them, in that cause's own words.
+ *
+ * #2747 re-scope 2 (U0, DL ruling (A)): WinGauge is deleted and NO win share is shown in C, permitted or not. The panel
+ * is now OptionCards alone (as `ResultsBody` mounts it); its permitted-Run controls pin the ABSENCE of any share; the
+ * gauge's own assertions (legend, heading, its reason-line slot) are deleted with it; ConditionalWinnerCards' bucket
+ * share assertion is deleted (off U0). The hook's gate rows are unchanged.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
-import { WinGauge } from '../WinGauge'
 import { OptionCards } from '../OptionCards'
 import { ConditionalWinnerCards } from '../ConditionalWinnerCards'
 import { leaderDesignationPermitted } from '../leaderDesignation'
 import { leaderClaimWithheld } from '../analysisClaimPolicy'
-import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { leaderWithholdCause } from '../analysisNew/analysisNewCopy'
 import { EXPLORATORY_REASON_LINE } from '../../../canvas/state/winShareGate'
 import type { ConditionalWinner } from '../types'
@@ -52,24 +55,15 @@ function hookData() {
   return renderHook(() => useResultsSectionData()).result.current
 }
 
-/** The options panel exactly as `ResultsBody.tsx` mounts it (WinGauge then OptionCards). */
+/**
+ * The options panel exactly as `ResultsBody.tsx` mounts it. #2747 re-scope 2 (U0, DL ruling (A)): WinGauge no longer sits
+ * above the cards (deleted in C), so the panel is OptionCards alone.
+ */
 function renderOptionsPanel() {
   const data = hookData()
   const rec = data.recommendation
   render(
     <div data-testid={PANEL}>
-      <WinGauge
-        shares={rec.allOptions
-          .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
-          .map((o) => ({
-            id: o.id, label: o.label, winProbability: o.winProbability, isWinner: o.isRecommended,
-            goalProbability: o.goalProbability, nValidSamples: o.nValidSamples,
-            goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint, goalFitWithheld: o.goalFitWithheld,
-          }))}
-        designationsWithheld={leaderDesignationPermitted(rec) === false}
-        goalThreshold={rec.goalThreshold}
-        comparisonScope={deriveComparisonScope(rec.allOptions)}
-      />
       <OptionCards
         options={rec.allOptions}
         winnerId={rec.recommendedOption?.id}
@@ -127,8 +121,9 @@ describe('useResultsSectionData publishes the gate (read by the hero)', () => {
   })
 })
 
-describe('CURRENT-READ row 9 — the options panel (WinGauge + OptionCards)', () => {
-  it('⭐ ROW 1 (Paul\'s 4276f3f9): 0 option percentages anywhere on the panel, and the exploratory reason line once', () => {
+describe('CURRENT-READ row 9 — the options panel (OptionCards; WinGauge deleted in #2747 re-scope 2)', () => {
+  // #2747 re-scope 2 (DL ruling (A)): title lost ', and the exploratory reason line once' — that line sat in the gauge's slot.
+  it('⭐ ROW 1 (Paul\'s 4276f3f9): 0 option percentages anywhere on the panel', () => {
     seedPaulRun(SERVED_STAMP)
     const { panel } = renderOptionsPanel()
     expect(perceivable(panel).match(PERCENT)).toBeNull()
@@ -138,27 +133,30 @@ describe('CURRENT-READ row 9 — the options panel (WinGauge + OptionCards)', ()
       expect(screen.queryByTestId(`win-pct-${o.id}`)).toBeNull()
     }
     expect(screen.queryByTestId('win-gauge-comparative-heading')).toBeNull()
-    // The reason line, once for the panel, in the gauge's comparative slot.
-    expect(screen.getByTestId('win-gauge-win-shares-withheld').textContent).toBe(EXPLORATORY_REASON_LINE)
-    expect(countOf(panel.textContent ?? '', EXPLORATORY_REASON_LINE)).toBe(1)
+    // #2747 re-scope 2 (DL ruling (A)): the reason-line assertions (the gauge's comparative slot, once for the panel)
+    // deleted — their only subject, WinGauge, was removed in C.
   })
 
-  it('⭐ ROW 2 — CONTROL: a PERMITTED Run still shows its shares (Convertible bridge 80%) and no reason line', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was '⭐ ROW 2 — CONTROL: a PERMITTED Run still shows its shares (Convertible bridge
+  // 80%) and no reason line'. In C no share is shown even on a permitted Run; the legend/heading assertions went with WinGauge.
+  it('⭐ ROW 2 — a PERMITTED Run shows NO share in C either (no Convertible bridge 80%), and no reason line', () => {
     seedPaulRun(PERMITTED_STAMP)
     const { panel } = renderOptionsPanel()
-    expect(screen.getByTestId(`legend-pct-${CONVERTIBLE}`).textContent).toBe('80%')
-    expect(screen.getByTestId(`win-pct-${CONVERTIBLE}`).textContent).toBe('80%')
-    expect(screen.getByTestId('win-gauge-comparative-heading')).toBeTruthy()
+    expect(screen.getByTestId(`option-card-${CONVERTIBLE}`)).toBeTruthy()
+    expect(screen.queryByTestId(`win-pct-${CONVERTIBLE}`)).toBeNull()
+    expect(perceivable(panel)).not.toContain('80%')
+    expect(perceivable(panel).match(PERCENT)).toBeNull()
     expect(screen.queryByTestId('win-gauge-win-shares-withheld')).toBeNull()
     expect(panel.textContent).not.toContain(EXPLORATORY_REASON_LINE)
   })
 
-  it('⭐ ROW 3 — CONTROL: a Run withheld for ANOTHER reason hides every share too, in that reason\'s own words', () => {
+  // #2747 re-scope 2 (DL ruling (A)): title lost ', in that reason's own words' — those words sat in the gauge's slot.
+  it('⭐ ROW 3 — CONTROL: a Run withheld for ANOTHER reason hides every share too', () => {
     seedPaulRun(OTHER_CAUSE_STAMP)
     const { panel } = renderOptionsPanel()
     expect(perceivable(panel).match(PERCENT)).toBeNull()
     expect(screen.queryByTestId(`win-pct-${CONVERTIBLE}`)).toBeNull()
-    expect(screen.getByTestId('win-gauge-win-shares-withheld').textContent).toBe(OTHER_CAUSE_WORDS)
+    // #2747 re-scope 2 (DL ruling (A)): the gauge-slot reason-line assertion deleted with WinGauge.
     expect(panel.textContent).not.toContain(EXPLORATORY_REASON_LINE)
   })
 })
@@ -188,12 +186,19 @@ describe('CURRENT-READ row 9 — OptionCards on its own (no gauge above it)', ()
     expect(cards.textContent).not.toMatch(/supported in/i)
   })
 
-  it('ROW 2 CONTROL: permitted keeps the header %, the fill bar and the leader sentence', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'ROW 2 CONTROL: permitted keeps the header %, the fill bar and the leader
+  // sentence'. In C a permitted card keeps the leader sentence, with no magnitude, and shows no header % and no fill bar.
+  // Run-4 judge, BLOCKING (DL 12 Oct): a permitted card makes no win-share leader sentence either; the control is that the
+  // permitted card still renders (the cards are not blanked), with no header %, no fill bar and no "than any other option".
+  it('ROW 2 CONTROL: permitted renders the cards with no leader sentence; no header %, no fill bar', () => {
     seedPaulRun(PERMITTED_STAMP)
     const cards = renderCards()
-    expect(screen.getByTestId(`win-pct-${CONVERTIBLE}`).textContent).toBe('80%')
-    expect(cards.querySelector(`[title*="80%"]`)).not.toBeNull()
-    expect(cards.textContent).toMatch(/supported in 80% of simulated scenarios/i)
+    expect(screen.queryByTestId(`win-pct-${CONVERTIBLE}`)).toBeNull()
+    expect(cards.querySelector(`[title*="80%"]`)).toBeNull()
+    expect(screen.getByTestId(`option-card-${CONVERTIBLE}`)).toBeDefined()
+    expect(cards.textContent).not.toMatch(/than any other option/i)
+    expect(cards.textContent).not.toMatch(/supported in 80% of simulated scenarios/i)
+    expect(perceivable(cards).match(PERCENT)).toBeNull()
   })
 
   it('ROW 3 CONTROL: another cause hides them too', () => {
@@ -234,10 +239,11 @@ describe('CURRENT-READ row 9 — ConditionalWinnerCards', () => {
     expect(cw.textContent).toContain('Existing supporter outreach')
   })
 
-  it('ROW 2 CONTROL: permitted keeps the bucket shares', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the 'Above: 80%' bucket-share assertion deleted — no bucket win share is said in C
+  // (ConditionalWinnerCards is off U0). The permitted Run's no-reason-line assertion stays.
+  it('ROW 2 CONTROL: permitted says no reason line', () => {
     seedPaulRun(PERMITTED_STAMP)
     const cw = renderCw()
-    expect(cw.textContent).toContain('Above: 80%')
     expect(cw.textContent).not.toContain(EXPLORATORY_REASON_LINE)
   })
 

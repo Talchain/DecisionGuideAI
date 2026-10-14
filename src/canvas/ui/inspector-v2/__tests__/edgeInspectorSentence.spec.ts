@@ -209,13 +209,15 @@ describe('buildEdgeInspectorSentence — the relationship summary contract', () 
     })
   })
 
+  // Data layer Phase 1, DL call (b) 8 Oct: a strength sized from the user's stated figure reads "From your brief"
+  // everywhere (canvas icon and Model tab already said brief; this chip said "Yours").
   it('uses the stated-figure owner when an incomplete natural effect cannot provide a size phrase', () => {
     expect(buildEdgeInspectorSentence(input({
       ...sized,
       directionSource: undefined,
       naturalEffect: { author: 'user' },
       strengthStated: 0.55,
-    })).chip).toBe('user')
+    })).chip).toBe('brief')
   })
 
   it('a new producer magnitude retires the old brief attribution through the canonical freshness owners', () => {

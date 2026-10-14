@@ -92,6 +92,8 @@ export interface V5CallOptions {
   headers?: Record<string, string>;
   /** Called only at the fetch boundary, after request construction succeeds. */
   onRequestStarted?: () => void;
+  /** HTTP response headers arrived, even if reading/parsing the body later fails. */
+  onResponseReceived?: () => void;
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -213,6 +215,7 @@ export async function callV5Turn(
     };
   }
 
+  opts.onResponseReceived?.();
   const parsed = await parseV5Response(res);
 
   // Build a trace-safe diagnostic body.

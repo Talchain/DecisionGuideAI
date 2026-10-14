@@ -1,3 +1,4 @@
+import type { OptionChanceCell } from '../runView/runView'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 /**
  * Base node component
@@ -137,6 +138,8 @@ const NODE_TITLE_WEIGHT = 610
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
+  /** Results chance cell, resolved by the option owner through RunView. */
+  optionChanceCell?: OptionChanceCell
   icon: LucideIcon
   children?: ReactNode
   /** D2: keep this node's title readable at level-of-detail zoom even though
@@ -384,7 +387,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
   const anchorBandHasMarks = useBottomBandHasMarks()
@@ -770,10 +773,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
+      optionChanceCell,
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
       optionTakenOutLine: optionTakenOutLine(data),
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, optionChanceCell, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

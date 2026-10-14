@@ -121,7 +121,7 @@ describe('formatDecisionSummary', () => {
       lastRun: run,
     })
 
-    expect(summary).toContain('Decision: Choose pricing strategy')
+    expect(summary).toContain('Scenario: Choose pricing strategy')
     expect(summary).toContain('Goal: Maximise revenue while maintaining market share')
     expect(summary).toContain('Time horizon: Next 2 quarters')
 
@@ -170,8 +170,8 @@ describe('formatDecisionSummary', () => {
       lastRun: null,
     })
 
-    expect(summary).toContain('Decision: Launch new product')
-    expect(summary).toContain('This decision has not yet been analysed.')
+    expect(summary).toContain('Scenario: Launch new product')
+    expect(summary).toContain('This scenario has not yet been analysed.')
   })
 
   it('handles fully missing context by stating that the decision has not been framed or analysed', () => {
@@ -183,7 +183,7 @@ describe('formatDecisionSummary', () => {
       lastRun: null,
     })
 
-    expect(summary).toBe('This decision has not yet been framed or analysed.')
+    expect(summary).toBe('This scenario has not yet been framed or analysed.')
   })
 
   it('uses placeholders for null canonical bands and avoids fabricating values', () => {

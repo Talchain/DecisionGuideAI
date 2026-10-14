@@ -25,7 +25,8 @@ describe('getStabilityClassification', () => {
     expect(c.badgeLabel).toBe('Robust')
     expect(c.colorClass).toBe('text-success')
     expect(c.borderClass).toBe('border-success/30')
-    expect(c.coaching).toBeNull()
+    // Run-4 judge (DL 12 Oct, the class): the never-rendered `coaching` field is deleted, so this row's null check goes.
+    expect('coaching' in c).toBe(false)
   })
 
   it('classifies 0.70–0.84 as moderate / "Mostly stable ranking"', () => {

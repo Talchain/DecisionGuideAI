@@ -48,6 +48,7 @@ export function generateGraphHash(nodes: Node[], edges: Edge[]): string {
   // Include node data that affects analysis
   const nodeData = nodes.map(n => {
     const data = n.data as Record<string, unknown> | undefined
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a node's probability field, hashed into the graph identity), not an analysis result
     return `${n.id}:${n.type || ''}:${data?.label || ''}:${data?.probability ?? ''}:${data?.confidence ?? ''}`
   }).sort().join('|')
 

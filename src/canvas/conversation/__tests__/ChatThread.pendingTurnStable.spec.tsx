@@ -188,13 +188,19 @@ describe('ChatThread: the dialogue is stable while a turn is in flight', () => {
     expect(thread.scrollTop).toBe(140)
   })
 
-  it('the chip group still wraps ONLY the latest reply after the reply lands (existing contract kept)', () => {
+  it('U17: each reply keeps its own chip group when the next reply lands', () => {
     const { rerender } = render(<ChatThread {...props([reply1, ask1], true)} />)
+    const originalGroup = screen.getByTestId('response-chip-group')
+    const originalChip = screen.getByTestId(`suggested-chip-${chip.id}`)
     rerender(<ChatThread {...props([reply1, ask1, reply2], false)} />)
     const groups = screen.getAllByTestId('response-chip-group')
-    expect(groups).toHaveLength(1)
-    expect(groups[0].contains(messageNode('a2'))).toBe(true)
-    expect(groups[0].contains(messageNode('a1'))).toBe(false)
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toBe(originalGroup)
+    expect(groups[0].contains(originalChip)).toBe(true)
+    expect(groups[0].contains(messageNode('a1'))).toBe(true)
+    expect(groups[0].contains(messageNode('a2'))).toBe(false)
+    expect(groups[1].contains(messageNode('a2'))).toBe(true)
+    expect(groups[1].contains(messageNode('a1'))).toBe(false)
   })
 
   it('a reader scrolled up to read is not moved, and is not told "New messages", while only the waiting line changes', async () => {

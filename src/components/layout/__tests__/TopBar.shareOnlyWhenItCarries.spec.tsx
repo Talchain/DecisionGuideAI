@@ -65,7 +65,7 @@ describe('TopBar share control', () => {
    * WHOLE POINT — MEASURED, NOT ASSUMED. The first version of this file
    * queried `getByRole('button', { name: /share/i })`. A discriminating mutant
    * (render the button unconditionally) left it fully GREEN: the control's
-   * accessible name is now "Copy link to decision brief", which contains no
+   * accessible name is now "Copy link to summary", which contains no
    * "share", so the absence assertion could never have observed the button it
    * was written to exclude. It was a guard agreeing with itself, and only the
    * mutant pair showed it. Binding by identity is what makes the mutant bite.
@@ -91,14 +91,15 @@ describe('TopBar share control', () => {
   /**
    * The accessible name must say WHAT THE LINK CARRIES. "Share decision" was
    * true of both outcomes above and therefore distinguished neither; the point
-   * of the label is that a recipient gets the decision, not the sender's
-   * device state.
+   * of the label is that a recipient gets the summary (the shared snapshot of
+   * the model and its analysis), not the sender's device state. "Decision
+   * brief" became "Summary" under Paul's agreed vocabulary (14 Oct 2026).
    */
   it('names what the link carries, and does not promise the canvas', () => {
     renderBar({ shareScenarioId: 'scn_abc123' })
     const btn = screen.getByTestId('topbar-share')
     const name = (btn.getAttribute('aria-label') ?? '').toLowerCase()
-    expect(name).toMatch(/brief/)
+    expect(name).toMatch(/\bsummary\b/)
     // POSITIVE CONTROL for the probe: it must be able to read a non-empty name
     // at all, or the assertion above would pass on an unlabelled button.
     expect(name.length).toBeGreaterThan(0)

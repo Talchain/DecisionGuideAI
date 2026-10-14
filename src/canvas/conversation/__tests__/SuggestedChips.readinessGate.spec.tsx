@@ -216,8 +216,8 @@ describe('SuggestedChips readiness gate', () => {
   })
 })
 
-// The aiPanelV2 'relabel-rerun' polish bypasses the readiness gate so a stale /
-// cannot-confirm analysis can still offer "Rerun". A completed analysis with NO
+// The aiPanelV2 'allow-rerun' verdict bypasses the readiness gate so a stale /
+// cannot-confirm analysis can still offer Rerun. A completed analysis with NO
 // freshness verdict must NOT get that bypass (there is no rerunnable analysis —
 // a click would fall back to a conversation turn), while a real cannot-confirm
 // verdict (rerun-after-edit) still must.

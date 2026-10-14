@@ -296,9 +296,6 @@ export function AnalysisHeroPanel({
   const lens: HeroLens = lensState ?? model.defaultLens
   const lensAvailable = model.lenses.includes(lens)
 
-  // Constraint presence picks the goal-lens copy variant once (the caption
-  // key structure in HERO_COPY).
-  const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
   // Axis labels per lens: the goal lens draws NO tracks (prototype v6
   // readout-only table), so no axis is drawn for it; Stability rows carry
   // the producer's own readout labels; What changed compares the same
@@ -312,9 +309,12 @@ export function AnalysisHeroPanel({
   // overlap); two-plus → the full wording. What changed adds the
   // ghost-mark legend; Stability needs no caption (the readouts are the
   // producer's own labels).
+  // #2747 re-scope 2 round 2 (DL rule C / U2): the Goal fit lens has no caption. Its caption was the UI's own words for
+  // what the chances are OF ("Each value is the chance that option meets every target this run scored."), a joint register
+  // beside CEE's cells, which say what each chance is of in CEE's words.
   const caption =
     lens === 'goal'
-      ? HERO_COPY.caption[goalKey]
+      ? null
       : lens === 'whatChanged'
         ? HERO_COPY.ghostLegend
         : lens === 'stability'
@@ -328,17 +328,22 @@ export function AnalysisHeroPanel({
   // Honest unavailable-lens body: why it is empty + what unlocks it. The
   // goal lens distinguishes the user-actionable no-target case from a
   // producer gap.
+  // C5 (run-3 judge): CEE's served reason, when it serves one for every option, outranks the UI's own goal-lens copy.
   const unavailableBody = !lensAvailable && !suppressGoalWithholdingBox(model, lens)
     ? lens === 'goal'
-      ? model.showGoalHint
-        ? HERO_COPY.lensUnavailable.goalNoTarget
-        : HERO_COPY.lensUnavailable.goalProducerGap
+      ? model.servedWithheldWhy
+        ?? (model.showGoalHint
+          ? HERO_COPY.lensUnavailable.goalNoTarget
+          : HERO_COPY.lensUnavailable.goalProducerGap)
       : lens === 'outcome'
         ? (model.outcomeWithheldBody ?? HERO_COPY.lensUnavailable.outcome)
         : HERO_COPY.lensUnavailable[lens]
     : null
 
   const leaderId = model.leaders[lens]
+  // C5: when two or more rows carry the same served reason, it is said once beneath them, not once per row.
+  const rowWhys = model.rows.map(row => row.goal.why).filter((why): why is string => typeof why === 'string' && why !== '')
+  const sharedRowWhy = rowWhys.length >= 2 && rowWhys.every(why => why === rowWhys[0]) ? rowWhys[0] : null
 
   // §6.5 quick-evidence pills: outlined pills in the summary row between
   // the lens body and the evidence disclosure (prototype 1d .hero-summary).
@@ -389,10 +394,28 @@ export function AnalysisHeroPanel({
             </span>
           )}
         </div>
-        {model.subline && (
+        {model.goalChanceLeadLines ? (
+          <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-subline">
+            {model.goalChanceLeadLines.map((line, index) => (
+              <div key={`${line.id ?? 'run'}-${line.kind ?? index}`} data-option-id={line.id} data-line-kind={line.kind}>
+                <p><span>{line.text}</span></p>
+                {/* C5 (run-3 judge): CEE's reason is said, verbatim, not folded under "Why?". */}
+                {line.why && <p data-testid="hero-lead-why">{line.why}</p>}
+              </div>
+            ))}
+          </div>
+        ) : model.subline && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-subline">
             {model.subline}
           </p>
+        )}
+        {/* Recovery Batch C: the Run's goal-chance detail, CEE's words in CEE's order, said once beside the chances. */}
+        {model.goalChanceDetailLines && (
+          <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-goal-chance-detail">
+            {model.goalChanceDetailLines.map((line, index) => (
+              <p key={`${line.kind}-${index}`} data-line-kind={line.kind}>{dashSafe(line.text)}</p>
+            ))}
+          </div>
         )}
         {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence.
             Present only on a withheld run that supplied one; null renders
@@ -476,7 +499,7 @@ export function AnalysisHeroPanel({
               <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
               <span>
                 {unavailableBody}
-                {lens === 'goal' && model.showGoalHint && onDefineSuccess && (
+                {lens === 'goal' && model.showGoalHint && !model.servedWithheldWhy && onDefineSuccess && (
                   <>
                     {' '}
                     <button
@@ -519,6 +542,7 @@ export function AnalysisHeroPanel({
               >
                 {model.rows.map((row) => (
                   <HeroOptionRow
+                    showWhy={sharedRowWhy === null}
                     key={row.id}
                     row={row}
                     lens={lens}
@@ -535,6 +559,11 @@ export function AnalysisHeroPanel({
                   />
                 ))}
               </div>
+              {lens === 'goal' && sharedRowWhy !== null && (
+                <p data-testid="hero-option-why-shared" className={`${typography.panelMeta} text-text-light pl-10 pr-2`}>
+                  {sharedRowWhy}
+                </p>
+              )}
             </>
           )}
         </div>

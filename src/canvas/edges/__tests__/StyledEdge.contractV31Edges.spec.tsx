@@ -39,7 +39,7 @@ import {
 } from '../StyledEdge'
 import { STRUCTURAL_EDGE_COLOUR, DIRECTION_DISPUTED_STROKE } from '../edgePresentation'
 import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
-import { fragileEdgeSentence } from '../connectorCopy'
+import { FRAGILE_CUE_SENTENCE } from '../connectorCopy'
 import { weightMagnitudeToStrokeWidth } from '../../utils/graphDisplayCalculations'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../../nodes/shared/canvasGlyphScale'
 
@@ -377,7 +377,7 @@ describe('E10 — a cue-only chip is the contract\'s focusable 16px disc', () =>
     const chip = byTestId(container, 'edge-influence-label')!
     expect(chip.getAttribute('role')).toBe('button')
     expect(chip.getAttribute('tabindex')).toBe('0')
-    expect(chip.getAttribute('aria-label')).toBe(fragileEdgeSentence(0.42))
+    expect(chip.getAttribute('aria-label')).toBe(FRAGILE_CUE_SENTENCE) // #2747 r2: the Run's switch figure is not shown in C
     expect(chip.className).toContain('focus-visible:ring-info')
   })
 

@@ -87,7 +87,7 @@
  */
 import type { NodeType } from './nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
-import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from './valueProvenance'
+import { UNVERIFIED_BRIEF_LABEL, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from './valueProvenance'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   goalLabelIsUnconfirmedBriefExtract,
@@ -113,6 +113,7 @@ export const STRUCTURAL_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, s
   Object.freeze({
     /** Olumi read it out of the user's own document. */
     brief: GOAL_LABEL_FROM_BRIEF_COPY.pill,
+    unverified_brief: UNVERIFIED_BRIEF_LABEL,
     /** Olumi put this element on the board. The founder's actual question. */
     ai: 'Olumi suggested this',
     accepted: 'Olumi suggested this', // the element's origin is Olumi's; the user accepted its figure

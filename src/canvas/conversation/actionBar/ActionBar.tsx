@@ -5,12 +5,15 @@
  * tab, and a press must genuinely work. This is the one renderer of CEE's
  * `action_bar` (`actionBarContract.ts`); a surface chooses only its type tokens.
  *
- *   [pill] [pill]   [icon] [icon] [icon] [icon]   [⋯]
+ *   [slot] [slot] [slot] [slot] [slot] [slot]                    [⋯]
  *
- *  · Pills: at most two, the reason this state is worth acting on. Narrow: one.
- *  · Icons: CEE's fixed-position standards, so a reader learns their places.
- *    Narrow: three inline, the rest in ⋯.
- *  · ⋯: everything else that is relevant, grouped, each with why it is offered.
+ *  · ICONS ONLY, evenly spaced (Paul, 14 Oct: "just icons there, no words"). Every control's name is its
+ *    aria-label and tooltip; only the ⋯ menu's rows carry words.
+ *  · SIX slots, wide or narrow, filled in this order: live priority offers → ENABLED standards (CEE's fixed
+ *    order) → bias icons → the top ENABLED `more` offers (CEE's rank) → only then DISABLED standards.
+ *  · Bias: one icon per `bias_risk` item; a press asks Olumi to explain it here and how to counter it. It has no
+ *    menu row, so its slots are always kept.
+ *  · ⋯ at the far right: everything else (hidden priority, disabled and unplaced offers), grouped, each with why.
  * That layout is the MAXIMUM (DL §E): only what CEE sends is drawn.
  *
  * ⚠ NOTHING HERE KNOWS AN ACTION. Label, icon name, press id and the reason all
@@ -21,7 +24,7 @@
  * line of a menu row is the host's label token.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MoreHorizontal, X } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 import Tooltip from '../../../components/Tooltip'
 import { ACTION_FOCUS, icon } from '../../../components/results/analysisNew/panelSurfaces'
@@ -30,21 +33,21 @@ import { useMeasuredPanelWidth } from '../../components/workspaceShell/usePanelW
 import { actionGlyph, type ActionGlyph } from './actionBarIcons'
 import type { ActionBarV1, ActionOffer } from './actionBarContract'
 import { useActionBarStore } from './actionBarStore'
-import { BiasRiskRow } from './BiasRiskRow'
+import { BiasRiskIcons } from './BiasRiskRow'
 import { pressOffer } from './pressOffer'
 
 export type ActionBarSurface = 'chat' | 'reasoning'
 
-/** Below this many pixels the bar shows one pill and three icons (Paul's approved narrow layout). */
+/** Below this many pixels the bar tightens its gap (the slot count is the same). */
 export const ACTION_BAR_COMPACT_BELOW = 380
-const COMPACT_ICONS = 3
+/** Paul 14 Oct 2026: six icon slots (priority → enabled standard → bias → top of More), '…' on the right. */
+export const ACTION_BAR_SLOTS = 6
 
 export const ACTION_BAR_COPY = {
   group: 'What you can do next',
   more: 'More actions',
   menu: 'More actions',
   groups: { gap: 'Gaps', method: 'Methods', review: 'Review' },
-  hide: (label: string) => `Hide ‘${label}’ for now`,
   noConversation: 'Open the Olumi tab to use this.',
 } as const
 
@@ -64,6 +67,13 @@ function offerReason(offer: ActionOffer): string {
 function offerName(offer: ActionOffer): string {
   const reason = offerReason(offer)
   return reason ? `${offer.label} — ${reason}` : offer.label
+}
+
+/** Paul 14 Oct 2026: icon-only row; bias is an icon that asks Olumi to explain and counter it. One look for every icon. */
+function iconButtonClass(enabled: boolean): string {
+  return `relative inline-flex size-7 min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-full ${
+    enabled ? 'text-text-light' : 'text-text-light opacity-40'
+  } hover:ring-1 hover:ring-inset hover:ring-border-emphasis [@media(pointer:coarse)]:size-11 ${ACTION_FOCUS}`
 }
 
 /** A control the HOST adds to the ⋯ menu: it is the surface's own, never one of CEE's actions. */
@@ -101,23 +111,34 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   const { width } = useMeasuredPanelWidth(rootRef)
   const compact = compactProp ?? width < ACTION_BAR_COMPACT_BELOW
   const dismissed = useActionBarStore((s) => s.dismissed)
-  const dismiss = useActionBarStore((s) => s.dismiss)
   const [open, setOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const type = typeScale ?? CHAT_TYPE
 
-  const { pills, icons, menu } = useMemo(() => {
+  const { pills, icons, trailing, menu } = useMemo(() => {
     const live = bar.priority.filter((offer) => !dismissed.includes(offer.offer_key))
     const hidden = bar.priority.filter((offer) => dismissed.includes(offer.offer_key))
-    const pillCount = compact ? 1 : 2
-    const iconCount = compact ? COMPACT_ICONS : bar.standard.length
-    return {
-      pills: live.slice(0, pillCount),
-      icons: bar.standard.slice(0, iconCount),
-      // Nothing CEE offered is lost to the layout: what does not fit, or was hidden, is in the menu.
-      menu: [...live.slice(pillCount), ...hidden, ...bar.standard.slice(iconCount), ...bar.more],
+    // Bias icons have no menu row, so their slots are reserved; offers fill the rest in the slot order.
+    let room = Math.max(0, ACTION_BAR_SLOTS - (bar.bias_risk?.items.length ?? 0))
+    const take = (offers: readonly ActionOffer[]) => {
+      const placed = offers.slice(0, room)
+      room -= placed.length
+      return placed
     }
-  }, [bar, compact, dismissed])
+    const pills = take(live)
+    const icons = take(bar.standard.filter((offer) => offer.enabled))
+    const topMore = take(bar.more.filter((offer) => offer.enabled))
+    const disabledStandard = take(bar.standard.filter((offer) => !offer.enabled))
+    const placed = new Set([...pills, ...icons, ...topMore, ...disabledStandard])
+    const rest = (offers: readonly ActionOffer[]) => offers.filter((offer) => !placed.has(offer))
+    return {
+      pills,
+      icons,
+      trailing: [...topMore, ...disabledStandard],
+      // Nothing CEE offered is lost to the layout: what does not fit, or was hidden, is in the menu.
+      menu: [...rest(live), ...hidden, ...rest(bar.standard), ...rest(bar.more)],
+    }
+  }, [bar, dismissed])
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -172,7 +193,25 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
   }
 
   const hostGroups = (hostMenu ?? []).filter((group) => group.items.length > 0)
-  if (pills.length === 0 && icons.length === 0 && menu.length === 0 && hostGroups.length === 0) return null
+  if (pills.length === 0 && icons.length === 0 && trailing.length === 0 && menu.length === 0 && hostGroups.length === 0) return null
+
+  const iconButton = (offer: ActionOffer) => {
+    const Glyph = actionGlyph(offer.icon)
+    return (
+      <Tooltip key={offer.offer_key} asChild content={offerName(offer)}>
+        <button
+          type="button"
+          aria-label={offerName(offer)}
+          aria-disabled={offer.enabled ? undefined : 'true'}
+          onClick={() => press(offer)}
+          data-testid={`${testId}-icon-${offer.action_id}`}
+          className={iconButtonClass(offer.enabled)}
+        >
+          <Glyph className={icon('section')} aria-hidden={true} />
+        </button>
+      </Tooltip>
+    )
+  }
 
   return (
     <div
@@ -185,15 +224,11 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
       data-state-key={bar.state_key}
       className="min-w-0"
     >
-      <div className={`flex min-w-0 items-center ${compact ? 'gap-1' : 'gap-2'}`}>
+      <div className={`flex min-w-0 items-center ${compact ? 'gap-2' : 'gap-3'}`}>
         {pills.map((offer) => {
           const Glyph = actionGlyph(offer.icon)
           return (
-            <span
-              key={offer.offer_key}
-              className="inline-flex min-w-0 shrink items-stretch rounded-full border border-field bg-panel"
-              data-testid={`${testId}-pill-${offer.action_id}`}
-            >
+            <span key={offer.offer_key} className="inline-flex shrink-0" data-testid={`${testId}-pill-${offer.action_id}`}>
               <Tooltip asChild content={offerName(offer)}>
                 <button
                   type="button"
@@ -201,45 +236,23 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                   aria-disabled={offer.enabled ? undefined : 'true'}
                   onClick={() => press(offer)}
                   data-testid={`${testId}-pill-${offer.action_id}-press`}
-                  className={`inline-flex h-6 min-w-0 items-center gap-1 whitespace-nowrap rounded-l-full pl-2 pr-1 ${type.body} ${
-                    offer.enabled ? 'text-text-body' : 'text-text-light'
-                  } hover:bg-panel-hover [@media(pointer:coarse)]:h-11 ${ACTION_FOCUS}`}
+                  className={iconButtonClass(offer.enabled)}
                 >
-                  <Glyph className={`${icon('row')} shrink-0`} aria-hidden={true} />
-                  <span className="truncate">{offer.label}</span>
+                  <Glyph className={icon('section')} aria-hidden={true} />
                 </button>
               </Tooltip>
-              <button
-                type="button"
-                aria-label={ACTION_BAR_COPY.hide(offer.label)}
-                onClick={() => dismiss(offer.offer_key)}
-                data-testid={`${testId}-pill-${offer.action_id}-hide`}
-                className={`inline-flex h-6 w-5 shrink-0 items-center justify-center rounded-r-full text-text-light hover:bg-panel-hover hover:text-text-body [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-9 ${ACTION_FOCUS}`}
-              >
-                <X className={icon('inline')} aria-hidden={true} />
-              </button>
             </span>
           )
         })}
-        {icons.map((offer) => {
-          const Glyph = actionGlyph(offer.icon)
-          return (
-            <Tooltip key={offer.offer_key} asChild content={offerName(offer)}>
-              <button
-                type="button"
-                aria-label={offerName(offer)}
-                aria-disabled={offer.enabled ? undefined : 'true'}
-                onClick={() => press(offer)}
-                data-testid={`${testId}-icon-${offer.action_id}`}
-                className={`relative inline-flex size-7 min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-full ${
-                  offer.enabled ? 'text-text-light' : 'text-text-light opacity-40'
-                } hover:ring-1 hover:ring-inset hover:ring-border-emphasis [@media(pointer:coarse)]:size-11 ${ACTION_FOCUS}`}
-              >
-                <Glyph className={icon('section')} aria-hidden={true} />
-              </button>
-            </Tooltip>
-          )
-        })}
+        {icons.map(iconButton)}
+        {bar.bias_risk ? (
+          <BiasRiskIcons
+            view={bar.bias_risk}
+            className={iconButtonClass(true)}
+            onResult={(result) => setNotice(result === 'none' ? ACTION_BAR_COPY.noConversation : null)}
+          />
+        ) : null}
+        {trailing.map(iconButton)}
         {menu.length > 0 || hostGroups.length > 0 ? (
           <div ref={overflowRef} className="relative ml-auto shrink-0">
             <Tooltip asChild content={ACTION_BAR_COPY.more}>
@@ -323,7 +336,6 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
           </div>
         ) : null}
       </div>
-      {bar.bias_risk ? <BiasRiskRow view={bar.bias_risk} revision={bar.revision} type={type} /> : null}
       {/* Always mounted, so a screen reader hears the reason the moment it appears. */}
       <p role="status" aria-live="polite" data-testid={`${testId}-notice`} className={notice ? `${type.meta} mt-1 text-text-light` : 'sr-only'}>
         {notice ?? ''}

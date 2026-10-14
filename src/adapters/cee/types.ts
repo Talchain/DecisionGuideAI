@@ -47,7 +47,7 @@ export interface CEEv2Node {
   description?: string
   uncertainty?: number
   observed_state?: ObservedState
-  /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. Optional; UI never invents. */
+  /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'. Optional; UI never invents. */
   provenance?: CEEProvenance
 }
 
@@ -68,7 +68,7 @@ export interface CEEv2Edge {
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
   /**
-   * Display provenance label: 'from_brief' | 'ai_inferred' | 'user_set'.
+   * Display provenance label: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'.
    * Distinct from `provenance` (structural source object). UI uses this for pills only.
    */
   provenance_display?: CEEProvenance
@@ -116,8 +116,8 @@ export interface CEEDraftResponse {
     label: string
     type: string
     uncertainty: number // 0-1, higher = less certain
-    /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. */
-    provenance?: 'from_brief' | 'ai_inferred' | 'user_set'
+    /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'. */
+    provenance?: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
     /** Allow passthrough of unknown/additive CEE node fields */
     [key: string]: unknown
   }>
@@ -132,7 +132,7 @@ export interface CEEDraftResponse {
       | string
     provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
     /** Display provenance label for edges (distinct from structural `provenance`). */
-    provenance_display?: 'from_brief' | 'ai_inferred' | 'user_set'
+    provenance_display?: 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
     /** Allow passthrough of unknown/additive CEE edge fields */
     [key: string]: unknown
   }>
@@ -313,6 +313,11 @@ export interface CEEGoalConstraint {
   /** Verbatim span from the brief that produced this constraint. */
   source_quote?: string
   /**
+   * Recovery Batch C (schemas 0.83.0; CEE `GOAL_TARGET_ROLE`): `'goal_target'` marks one of the goal's TARGETS (with several
+   * targets, each is a row); absent is a limit, as before. A target row is never shown as a limit (`isGoalTargetRow`).
+   */
+  role?: string
+  /**
    * ⭐⭐ THE AUDIT TRAIL FOR CEE'S PERCENT→FRACTION REWRITE — the field that
    * makes this layer thin instead of guessing.
    *
@@ -360,7 +365,14 @@ export interface CEEGoalConstraint {
  */
 export interface CEEInterventionV3 {
   value: number
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  /**
+   * HOW THIS VALUE WAS DETERMINED. ABSENT MEANS THE RECORD DOES NOT SAY, which is a
+   * legitimate state and is never defaulted: a reader renders silence for it and
+   * must not call it Olumi's estimate or the user's own (`UIInterventionValue.source`,
+   * `classifyInterventionProvenance(undefined) === null`). Optional so a producer
+   * that cannot attribute a figure is not forced to invent an attribution.
+   */
+  source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'
@@ -733,7 +745,7 @@ export interface CEEDraftCoaching {
 }
 
 /** Provenance enum used on draft-graph nodes (provenance) and edges (provenance_display). */
-export type CEEProvenance = 'from_brief' | 'ai_inferred' | 'user_set'
+export type CEEProvenance = 'from_brief' | 'ai_inferred' | 'user_set' | 'unverified_brief'
 
 /**
  * CEE v2.2 Response with optional analysis_ready (V3 extension).

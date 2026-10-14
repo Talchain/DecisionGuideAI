@@ -96,15 +96,15 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
    */
   const report = useCanvasStore((s) => s.results?.report ?? null)
   const driverLeader = useMemo(() => {
-    const feed = selectDriverPolicyFeed(report as unknown as ResultsReport | null)
+    const feed = selectDriverPolicyFeed(report as unknown as ResultsReport | null, nodes)
     return feed.policyRows.length > 0
       ? sensitivityLeader(feed.policyRows, feed.displayModel)
       : undefined
-  }, [report])
+  }, [report, nodes])
 
   // The one "no value yet" rule (`noValueDriverIds`), off the same report and nodes.
   const noValueIds = useMemo(
-    () => noValueDriverIds(report === null ? null : selectDriverPolicyFeed(report as unknown as ResultsReport), nodes),
+    () => noValueDriverIds(report === null ? null : selectDriverPolicyFeed(report as unknown as ResultsReport, nodes), nodes),
     [report, nodes],
   )
 

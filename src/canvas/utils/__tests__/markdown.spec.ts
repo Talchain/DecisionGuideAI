@@ -77,13 +77,13 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('<span class="md-gap" aria-hidden="true"></span>')
     })
 
-    it('renders headings as <strong> (graceful degradation)', () => {
+    it('renders heading words as bold without raw markers', () => {
       // Note: mid-identifier digits (e.g. "H1") are NOT wrapped in md-number
       // — the lookbehind in convertInline excludes identifier-adjacent digits
       // so "opt_raise_59" and similar codes stay intact.
-      expect(sanitizeMarkdown('# Heading')).toContain('<strong>Heading</strong>')
-      expect(sanitizeMarkdown('## Subheading')).toContain('<strong>Subheading</strong>')
-      expect(sanitizeMarkdown('### Deep section')).toContain('<strong>Deep section</strong>')
+      expect(sanitizeMarkdown('# Heading')).toBe('<strong>Heading</strong>')
+      expect(sanitizeMarkdown('## Subheading')).toBe('<strong>Subheading</strong>')
+      expect(sanitizeMarkdown('### Deep section')).toBe('<strong>Deep section</strong>')
     })
 
     it('wraps standalone integers in <span class="md-number"> for tabular styling', () => {
@@ -243,6 +243,20 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
     })
   })
 
+  describe('readable tables retain the whole reply', () => {
+    it.each([
+      ['| A | B | C |\n|---|---|---|\n| one | | three |', 'A: one, B: , C: three'],
+      ['| A | B |\n|---|---|', 'A, B'],
+      ['| A | B |\n|---|---|\n| one |', 'A: one, B: '],
+      ['| A | B |\n|---|---|\n| one | two | extra |', 'A: one, B: two, extra'],
+    ])('keeps all column meanings: %s', (input, expected) => {
+      const rendered = document.createElement('div')
+      rendered.innerHTML = sanitizeMarkdown(input)
+      expect(rendered.textContent).toBe(expected)
+      expect(rendered.textContent).not.toContain('|')
+    })
+  })
+
   describe('Edge cases', () => {
     it('returns empty string for empty input', () => {
       expect(sanitizeMarkdown('')).toBe('')
@@ -274,20 +288,21 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('&amp;')
     })
 
+    it('U9: preserves producer emoji and dashes without changing numeric text', () => {
+      const result = sanitizeMarkdown('🙂 Assumption — range 12–18%; estimate 0.25')
+      expect(result).toContain('🙂')
+      expect(result).toContain('—')
+      const rendered = document.createElement('div')
+      rendered.innerHTML = result
+      expect(rendered.textContent).toContain('12–18%')
+      expect(result).toContain('0.25')
+    })
+
     it('preserves unicode characters including CJK and emoji-adjacent symbols', () => {
       const result = sanitizeMarkdown('Unicode: 你好 café')
       expect(result).toContain('Unicode')
       expect(result).toContain('你好')
       expect(result).toContain('café')
-    })
-
-    it('strips emoji per conservative allowlist (policy from safeRichText)', () => {
-      // Note: safeRichText strips emoji intentionally (see EMOJI_RE). This is
-      // the contract change vs. the legacy renderer — documented here.
-      const result = sanitizeMarkdown('hello 🎉 world')
-      expect(result).toContain('hello')
-      expect(result).toContain('world')
-      expect(result).not.toContain('🎉')
     })
 
     it('handles malformed markdown without throwing', () => {

@@ -5,6 +5,7 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
+import type { OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import type { ProvisionalView } from './provisionalView'
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
@@ -23,6 +24,8 @@ export interface ConversationMessage {
   content: string
   blocks?: ConversationBlock[]
   actionChips?: ActionChip[]
+  /** Validated server refusal; controls retry affordances on this message. */
+  ownershipRefusal?: OwnershipRefusalReason
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
@@ -117,6 +120,12 @@ export interface ConversationMessage {
    * until the agent lane began emitting it on every Run turn.)
    */
   answerShape?: AnswerShape
+  /**
+   * Run-3 judge U2: the model state this answer was given in (`answerStateKeyOf`: graph hash + the run it described).
+   * Replies sharing it draw CEE's repeated status headline and bullets once (`statusDrawnBefore`). Persisted with
+   * `answerShape`; absent ⇒ nothing about this answer is folded.
+   */
+  answerStateKey?: string
   /**
    * CEE hop 4b: WHICH model elements this turn's answer was grounded on —
    * `_grounded_selection` on the V5 body, parsed + fail-closed by
@@ -271,6 +280,17 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * The wire block's graph hash at its Run (CEE `computed_against_hash`): how the card's Run is matched to the scenario's
+   * canonical view by the chance authority gate (#2747). Absent on cards stored before it was kept: they quote no chance.
+   */
+  computed_against_hash?: string
+  /**
+   * #2747 r2: the Run's id, stamped from the SAME turn's canonical view when its graph hash is this card's
+   * (`turnCanonicalRunOf`). The gate binds the card to the current canonical Run by run id AND graph hash; a card
+   * without it (stored before, or from a turn whose canonical view named another Run) quotes no chance.
+   */
+  run_id?: string
   /**
    * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
    * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis

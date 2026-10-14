@@ -40,6 +40,11 @@
  * `comparative_leader` twin asserting the sentence still appears verbatim, and
  * a DATA-SURVIVES arm asserting the finding itself is untouched —
  * over-suppression is a worse product than the contradiction.
+ *
+ * Run-4 judge (DL 12 Oct, the class): the naming arm ("the most-supported
+ * option could change") is removed on EVERY run and nothing replaces it, so the
+ * `comparative_leader` twin now asserts the neutral sentence verbatim (and the
+ * absence of the naming clause) on the licensed run too.
  */
 import { describe, expect, it } from 'vitest'
 import { rankActOnItRows } from '../rankActOnItRows'
@@ -62,10 +67,12 @@ function fragileRowReason(data: ResultsSectionDataReturn): string {
 }
 
 describe('SURFACE A — the act-on-it fragile row honours the leader claim policy', () => {
-  it('ANTI-VACUITY: the PERMITTED run emits the witnessed sentence verbatim', () => {
-    expect(fragileRowReason(PERMITTED())).toBe(
-      `If the estimate changes for ${FACTOR_LABEL}, the most-supported option could change.`,
-    )
+  it('the PERMITTED run emits the neutral sentence verbatim — the naming clause is gone', () => {
+    const reason = fragileRowReason(PERMITTED())
+    // Run-4 judge (DL 12 Oct, the class): "… the most-supported option could change." is removed; nothing replaces it.
+    expect(reason).not.toContain('the most-supported option could change')
+    expect(reason).not.toMatch(LEADER_CLAIM_RE)
+    expect(reason).toBe(`If the estimate changes for ${FACTOR_LABEL}, the result could change.`)
   })
 
   it('WITHHELD: the row names no leader', () => {
@@ -80,7 +87,7 @@ describe('SURFACE A — the act-on-it fragile row honours the leader claim polic
     expect(reason).toContain('could change')
   })
 
-  it('the row itself is built on BOTH arms — only its copy differs', () => {
+  it('the row itself is built on BOTH arms', () => {
     // Binds the two arms to the same object by key, so a suppression that
     // silently dropped the row could not pass the absence assertion above.
     const key = `risk-${FACTOR_ID}`

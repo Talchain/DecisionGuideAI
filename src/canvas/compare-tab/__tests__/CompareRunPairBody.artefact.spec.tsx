@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { AnalysisResultBlockSchema, AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
@@ -62,7 +62,7 @@ afterEach(() => {
 })
 
 describe('the artefact mounted in the existing Compare body', () => {
-  it('shows business edits and the pair limit, with science figures disclosed in result details', () => {
+  it('shows business edits and the pair limit, and no science share figures', () => {
     const hash = seed()
     expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
     expect(selectWinSharesWithheld(useCanvasStore.getState())).toBe(false)
@@ -77,10 +77,8 @@ describe('the artefact mounted in the existing Compare body', () => {
     // Reasoning's shared row; the wire fields it renders are named once, on its section.
     expect(row.closest('[data-wire-fields]')).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
     expect(screen.queryByText('Raise to £60: supported by 41% → 44% of runs.')).toBeNull()
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toHaveAttribute(
-      'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
-    )
+    // #2747 re-scope 2 (DL ruling (A)): the Result details disclosure and its "supported by 41% → 44% of runs" presence
+    // (with its wire-field binding) are deleted — Compare has no Result details section and no share figures in C.
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(artefact).not.toHaveTextContent('Price is an influential input on this run.')
     expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()

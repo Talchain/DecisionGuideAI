@@ -68,11 +68,6 @@ vi.mock('@xyflow/react', async () => {
 const BARE_ZERO_PERCENT = /(?<![\d.])0%/
 
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
-/** Locked Canvas design (23 Sep 2026): the Chance row's figure and its sentence. */
-const achievementRow = () => {
-  const row = screen.getByTestId(ACHIEVEMENT_ROW)
-  return { visible: row.textContent ?? '', name: row.getAttribute('aria-label') ?? '' }
-}
 /** Visible text plus every accessible name — what any reader of the card can get. */
 const everythingReadable = (): string =>
   [
@@ -150,34 +145,27 @@ describe('GoalNode — the exact-zero goal readout', () => {
     expect(selectGoalProbability({ probability_of_goal: 0 }).basis).toBe('goal_probability')
   })
 
-  it('positive control: a mid-range probability renders its own percentage', () => {
+  it('a mid-range raw probability without a licence renders no percentage', () => {
     renderGoalNodeWith(0.55)
-    // Locked Canvas design (23 Sep 2026): read off the Chance row (ED 11:52Z point 2).
-    const { visible, name } = achievementRow()
-    expect(visible).toContain('55%')
-    expect(name).toMatch(/About 55% chance of meeting your goal/)
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(everythingReadable()).not.toContain('55%')
   })
 
-  it('renders an EXACT ZERO as the goal register floor, NOT "0%"', () => {
+  it('an EXACT ZERO without a licence renders neither a floor figure nor "0%"', () => {
     // The divergence itself: the canvas said "0% chance of reaching target"
     // where every dock surface said "< 1%" for the same number.
     renderGoalNodeWith(0)
-    // Locked Canvas design (23 Sep 2026): the figure is the Chance row's; its
-    // sentence is the row's accessible name (ED 11:52Z point 2).
-    const { visible, name } = achievementRow()
-    expect(visible).toContain('< 1%')
-    expect(name).toContain('Less than 1% chance of meeting your goal.')
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(everythingReadable()).not.toMatch(/< 1%|Less than 1%/)
     expect(everythingReadable()).not.toMatch(BARE_ZERO_PERCENT)
   })
 
-  it('keeps rendering a sub-1% NON-ZERO probability as the floor readout', () => {
+  it('a sub-1% NON-ZERO raw probability without a licence renders no floor figure', () => {
     // The half that was already correct — pinned so the fix to the zero arm
     // cannot regress it.
     renderGoalNodeWith(0.0007)
-    // Locked Canvas design (23 Sep 2026): read off the Chance row.
-    const { visible, name } = achievementRow()
-    expect(visible).toContain('< 1%')
-    expect(name).toContain('Less than 1% chance of meeting your goal.')
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(everythingReadable()).not.toMatch(/< 1%|Less than 1%/)
   })
 })
 

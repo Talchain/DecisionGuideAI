@@ -38,7 +38,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { MessageBubble } from '../MessageBubble'
+import { render, screen, cleanup, renderHook, act } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -137,6 +139,7 @@ function seedCanvasPostAdd(extra: Record<string, unknown> = {}) {
       { intent: addIntent(), scenarioId: SCENARIO_ID, status: 'in_flight' },
     ],
     pendingStructuralAdds: [],
+    pendingStructuralAddEdges: [],
     nodes: [
       {
         id: NEW_NODE_ID,
@@ -179,7 +182,12 @@ function stub409(category: string) {
   }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
+    vi.fn(async (url: string) => url.endsWith(`/scenarios/${SCENARIO_ID}/graph`) ? ({
+      ok: true, status: 200, json: async () => ({ schema: 'scenario_graph.v1',
+        scenario_id: SCENARIO_ID, graph_present: true, graph: { nodes: [
+          { id: SIBLING_ID, kind: 'factor', label: NEW_LABEL },
+        ], edges: [] } }),
+    } as Response) : ({
       ok: false,
       status: 409,
       headers: new Headers({ 'content-type': 'application/json' }),
@@ -254,10 +262,14 @@ async function driveAdd(seedExtra: Record<string, unknown> = {}) {
       .catch(() => undefined)
   })
 
+  // Include recovery settlement in the observation, not just the synchronous rollback.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
   const state = useCanvasStore.getState()
   return {
     hasNode: (id: string) => state.nodes.some((n) => n.id === id),
     lifecycle: state.structuralAddLifecycle[0]?.status,
+    messages: result.current.messages,
+    edges: state.edges,
     notices: result.current.messages
       .filter((m) => m.role === 'assistant' && m.synthetic === true)
       .map((m) => m.content),
@@ -268,6 +280,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
@@ -436,6 +449,23 @@ describe('structural_add — a 409 GRAPH_DIVERGED', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('structural_add — refused, but the removal must stand down', () => {
+  it('revision refusal protects the newer link and renders only the exact notice', async () => {
+    stub409('revision_conflict')
+    const r = await driveAdd({
+      // A newer connection is still queued, as in the real draw-link carrier.
+      edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }],
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
+    })
+    expect(r.hasNode(NEW_NODE_ID)).toBe(true)
+    expect(r.hasNode(SIBLING_ID)).toBe(true)
+    expect(r.edges.map(e => e.id)).toEqual(['e1'])
+    expect(r.lifecycle).toBe('refused')
+    expect(r.notices).toEqual(['The scenario changed while I was saving, so nothing was saved. Try again.'])
+    render(createElement(MessageBubble, { message: r.messages.at(-1)!, onChipClick: async () => {} }))
+    expect(screen.getByTestId('message-body-text').textContent).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+    expect(screen.queryByText(STRUCTURAL_ADD_NOTICE.refused_left_on_canvas)).toBeNull()
+  })
   it('⭐⭐ a CONNECTED node is LEFT on the canvas, and the copy names that exact state', async () => {
     // The add was refused, but the user has drawn an edge to it since. Removing
     // the node would destroy a link THIS GESTURE DID NOT CREATE — the data-loss
@@ -445,6 +475,8 @@ describe('structural_add — refused, but the removal must stand down', () => {
     stub200({ carriesNode: false, graphHash: BASE_GRAPH_HASH, assistantText: '' })
     const { hasNode, notices } = await driveAdd({
       edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] as never,
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
     })
 
     expect(hasNode(NEW_NODE_ID)).toBe(true)
@@ -458,6 +490,8 @@ describe('structural_add — refused, but the removal must stand down', () => {
     stub409('turn_fence_stopped')
     const { hasNode, notices } = await driveAdd({
       edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] as never,
+      pendingStructuralAddEdges: [{ id: 'newer-link', edgeId: 'e1', from: NEW_NODE_ID, to: SIBLING_ID,
+        magnitude: 0.4, direction: 'positive', baseGraphHash: BASE_GRAPH_HASH }],
     })
 
     expect(hasNode(NEW_NODE_ID)).toBe(true)

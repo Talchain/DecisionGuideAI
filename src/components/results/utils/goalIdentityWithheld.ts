@@ -57,6 +57,21 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
 export const GOAL_IDENTITY_WITHHELD_FALLBACK =
   "Not shown. Olumi can't give each option's figures for this goal from this run."
 
+/**
+ * Run-3 judge C5: CEE's one served reason, verbatim, when every option it serves a cell for (a current canonical view)
+ * is withheld with the same `why`. null when any option has a figure or range, when a withheld cell carries no why, or
+ * when the reasons differ (each option's row then says its own).
+ */
+export function sharedServedWithheldWhy(
+  cells: ReadonlyArray<{ readonly kind: string; readonly why?: string } | null>,
+): string | null {
+  const served = cells.filter((c): c is { readonly kind: string; readonly why?: string } => c !== null && c.kind !== 'none')
+  if (served.length === 0 || served.some(c => c.kind !== 'withheld')) return null
+  const first = served[0].why
+  if (typeof first !== 'string' || first.trim() === '') return null
+  return served.every(c => c.why === first) ? first : null
+}
+
 export interface GoalIdentityWithheld {
   nodeIds: string[]
   message: string
@@ -83,7 +98,10 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
   // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
-  const allSafe = words.every((raw) => raw.startsWith('Not shown.') && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
+  // ⭐ Recovery Batch E (DL 12 Oct): a reason CEE licenses is said verbatim WHATEVER ITS OPENING. Ruling 12's period-end
+  // sentence ("The chance of reaching … isn’t shown: …") says "isn’t shown" itself and is never prefixed "Not shown.",
+  // and an opening rule here sent it to the generic box. Display safety still decides; the per-option reader is unchanged.
+  const allSafe = words.every((raw) => raw.length > 0 && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
 }
 

@@ -24,11 +24,12 @@ import {
 } from '../provenNoWriteConflict'
 
 describe('the set is exactly these members', () => {
-  it('holds the five categories whose producer states a no-write guarantee', () => {
+  it('holds the six categories whose producer states a no-write guarantee', () => {
     // Exact, not superset: a member added without its producer line would be a
     // revert this estate cannot justify, and this is where that shows up.
     expect([...PROVEN_NO_WRITE_CONFLICT_CATEGORIES].sort()).toEqual([
       'BASE_HASH_DIVERGED',
+      'revision_conflict',
       'rpc_cas_conflict',
       'stale_base_graph_hash',
       'turn_fence_stopped',

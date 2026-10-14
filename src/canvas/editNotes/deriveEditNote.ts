@@ -1,4 +1,4 @@
-import { readGoalChanceLicence, type GoalChanceDriver } from '../../components/results/utils/goalChanceLicence'
+import type { GoalChanceDriver } from '../../components/results/utils/goalChanceLicence'
 import { formatFlipValue } from '../../components/results/utils/flipThresholdDisplay'
 import { resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { unwrapInterventionValue } from '../utils/labelUtils'
@@ -22,8 +22,9 @@ export interface GoalConstraint { constraint_id?: string; node_id?: string; oper
 export interface LastRunSnapshot {
   visible: boolean
   runId: string
-  /** The reporter may pass the displayed report; the licence is always decoded by its canonical reader. */
+  /** The reporter may pass the displayed report. */
   report?: unknown
+  /** #2747 r2: the GATED canonical drivers (`gatedDriversOf`), the only driver source a note reads. */
   drivers?: Readonly<Record<string, GoalChanceDriver>>
   fragileEdges?: readonly FragileEdgeCandidate[]
   turningPoints?: ReadonlyMap<string, FactorTurningPoint>
@@ -75,7 +76,8 @@ const profile = (node: EditNode, graph: EditGraph) => {
   // Unknown settings cannot prove two complete profiles are identical.
   return entries.length && entries.every(([, value]) => value !== null) ? JSON.stringify(entries) : null
 }
-const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? readGoalChanceLicence((run?.report as { inference_warnings?: unknown } | undefined)?.inference_warnings)?.driverByOption ?? {}
+// #2747 r2: only the drivers the reporter passed from the GATED canonical view (`gatedDriversOf`); never the licence's own.
+const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? {}
 const turningPointOf = (run: LastRunSnapshot, id: string): FactorTurningPoint | undefined => run.turningPoints?.get(id)
 
 /** Pure deterministic checks over the committed edit, in tier order. No store reads. */

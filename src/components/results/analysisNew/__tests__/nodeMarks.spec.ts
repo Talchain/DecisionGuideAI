@@ -9,7 +9,8 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { MARK_KINDS, MARK_SHAPE_KEYS, MARK_COLOUR, markKindForTarget } from '../nodeMarks'
+import { MARK_KINDS, MARK_SHAPE_KEYS, MARK_COLOUR, SUBJECT_MARK_KINDS, markKindForTarget } from '../nodeMarks'
+import { nodeColors } from '../../../../canvas/nodes/colors'
 
 const nodes: Array<{ id: string; type?: string; data?: unknown }> = []
 
@@ -23,11 +24,11 @@ beforeEach(() => {
 
 describe('the vocabulary is complete in both halves', () => {
   it('every drawn kind has a shape', () => {
-    expect([...MARK_SHAPE_KEYS].sort()).toEqual([...MARK_KINDS].sort())
+    expect([...MARK_SHAPE_KEYS].sort()).toEqual([...MARK_KINDS, ...SUBJECT_MARK_KINDS].sort())
   })
 
   it('every drawn kind has a colour, and none is empty', () => {
-    for (const kind of MARK_KINDS) {
+    for (const kind of [...MARK_KINDS, ...SUBJECT_MARK_KINDS]) {
       expect(MARK_COLOUR[kind], `${kind} has no colour`).toBeTruthy()
     }
   })
@@ -38,8 +39,15 @@ describe('the vocabulary is complete in both halves', () => {
    * vocabulary would still be "complete" and would say nothing.
    */
   it('the colours discriminate between kinds', () => {
-    const used = MARK_KINDS.map((k) => MARK_COLOUR[k])
-    expect(new Set(used).size).toBe(MARK_KINDS.length)
+    const all = [...MARK_KINDS, ...SUBJECT_MARK_KINDS]
+    const used = all.map((k) => MARK_COLOUR[k])
+    expect(new Set(used).size).toBe(all.length)
+  })
+
+  /** Paul 14 Oct 2026: the Brief and Goal rows use the canvas's own decision/goal colour, never a new one. */
+  it('the Brief and Goal marks take the canvas decision and goal tokens', () => {
+    expect(MARK_COLOUR.decision).toBe(nodeColors.decision.text)
+    expect(MARK_COLOUR.goal).toBe(nodeColors.goal.text)
   })
 })
 

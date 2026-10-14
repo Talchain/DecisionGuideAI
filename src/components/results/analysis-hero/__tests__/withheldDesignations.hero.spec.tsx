@@ -35,6 +35,7 @@ import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
 import type { OptionResult } from '../../types'
 import {
   CANONICAL_IDS,
@@ -58,10 +59,9 @@ import {
 
 function heroModel(
   verdict: typeof WITHHELD_VERDICT,
-  overrides: { options?: OptionResult[]; recommendation?: Record<string, unknown> } = {},
+  overrides: { options?: OptionResult[]; recommendation?: Record<string, unknown>; goalCells?: boolean } = {},
 ): HeroChartModel {
-  return buildHeroModel(
-    makeHeroData({
+  const data = makeHeroData({
       options: overrides.options ?? options(),
       recommendation: {
         verdict,
@@ -82,8 +82,8 @@ function heroModel(
         storyHeadlines: {},
         ...overrides.recommendation,
       } as never,
-    }),
-  ) as HeroChartModel
+    })
+  return buildHeroModel(overrides.goalCells ? withGoalChanceReport(data) : data) as HeroChartModel
 }
 
 function renderHero(verdict: typeof WITHHELD_VERDICT) {
@@ -320,33 +320,42 @@ describe('analysis hero — WITHHELD: the prose may not designate either', () =>
 // quietly by suppressing everything.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Run-4 judge (DL 12 Oct, the class): a PERMITTED run no longer renders a leader claim ("In this model, Hire two
+// developers was supported by more runs than any other option." and its "has the highest expected outcome … Realistic
+// ranges overlap" subline). It takes the neutral headline and subline; nothing replaces the claim. The over-suppression
+// half stays: a permitted run keeps its designations (`designationsWithheld` false), so ordering and identity survive.
+const PERMITTED_HEADLINE = 'Here is how your options compare.'
+const PERMITTED_SUBLINE = 'Compare the top options before deciding.'
+
 describe('analysis hero — PERMITTED prose (over-suppression controls)', () => {
-  it('goal-fit crown: headline and subline unchanged, byte-for-byte', () => {
-    const model = heroModel(PERMITTED_VERDICT)
+  // #2747 re-scope 2 round 2 (rule C): the goal-fit crown headline is deleted (the UI's own leader goal-chance sentence), so
+  // this control now pins what a PERMITTED run with goal cells renders instead, byte-for-byte: the leader claim, by name.
+  it('goal-fit crown run: the neutral headline and subline render byte-for-byte, with designations kept (run-4 judge)', () => {
+    // C-AVAIL: the numeric goal control supplies the report that licenses its displayed cells.
+    const model = heroModel(PERMITTED_VERDICT, { goalCells: true })
     expect(model.designationsWithheld).toBe(false)
-    expect(model.headline).toBe(
-      'In this model, Hire two developers meets every target this run scored in the most model runs (80%).',
-    )
-    expect(model.subline).toBe('Hire two developers’s expected outcome points the same way, in this model.')
+    expect(model.headline).toBe(PERMITTED_HEADLINE)
+    expect(model.subline).toBe(PERMITTED_SUBLINE)
   })
 
-  it('no option on track: headline and subline unchanged, byte-for-byte', () => {
-    const model = heroModel(PERMITTED_VERDICT, { options: flooredGoalFixtureOptions() })
+  // #2747 re-scope 2 round 2 (rule C): headline.noneOnTrack is deleted; a PERMITTED below-floor run renders the leader claim.
+  it('below-floor run: the neutral headline and subline render byte-for-byte, with designations kept (run-4 judge)', () => {
+    // C-AVAIL: the sub-1% control is scored through the same report/cell path.
+    const model = heroModel(PERMITTED_VERDICT, { options: flooredGoalFixtureOptions(), goalCells: true })
     expect(model.designationsWithheld).toBe(false)
-    expect(model.headline).toBe(
-      'No option is currently on track to meet every target this run scored.',
-    )
-    expect(model.subline).toBe('In this model, Hire two developers has the highest expected outcome: 70.')
+    expect(model.headline).toBe(PERMITTED_HEADLINE)
+    expect(model.subline).toBe(PERMITTED_SUBLINE)
   })
 
-  it('producer band: still bands the recommended option by name', () => {
+  it('producer band: no longer bands the recommended option by name (run-4 judge, the class)', () => {
     const model = heroModel(PERMITTED_VERDICT, {
       options: misalignedBandFixtureOptions(),
       recommendation: { headlineBanded: MISALIGNED_BAND },
     })
     expect(model.designationsWithheld).toBe(false)
-    expect(model.headline).toContain(MID_LABEL)
-    expect(model.headline).toMatch(HERO_CLAIM_RE)
+    expect(model.headline).toBe(PERMITTED_HEADLINE)
+    expect(model.headline).not.toContain(MID_LABEL)
+    expect(model.headline).not.toMatch(HERO_CLAIM_RE)
   })
 
   it('no recommended option: still headlines the outcome leader by name', () => {

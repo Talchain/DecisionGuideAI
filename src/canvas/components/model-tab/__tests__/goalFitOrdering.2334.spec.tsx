@@ -1,3 +1,4 @@
+import { CHANCE_NOT_SHOWN_YET } from '../../../runView/runView'
 /**
  * PC4 — THE MODEL TAB'S GOAL ROWS PRINTED THE SAME STRING FIVE TIMES
  * (ROADMAP 2.334).
@@ -85,14 +86,18 @@ function walkReport(nValid: number | null = WALK_N) {
  */
 
 describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', () => {
-  it('positive control: the builder resolves the walk fixture to five complete rows', () => {
-    // The builder is complete-field gated — it returns null unless EVERY
-    // option carries an admissible figure. If the fixture stopped reaching
-    // that branch, the assertions below would run against `null`.
+  it('the walk fixture has no licence: five withheld rows carry no raw goal figures', () => {
     const rows = buildGoalFitRows(optionNodes(5), walkReport())
     expect(rows).not.toBeNull()
     expect(rows).toHaveLength(5)
-    expect(rows?.map((r) => r.probability)).toEqual([...WALK_QUINTET])
+    expect(rows?.map((r) => r.probability)).toEqual([null, null, null, null, null])
+    expect(rows?.map((r) => r.chanceCell)).toEqual(WALK_QUINTET.map(() => ({
+      kind: 'withheld', text: CHANCE_NOT_SHOWN_YET,
+    })))
+    for (const row of rows!) {
+      expect(row.chanceCell.text).not.toMatch(/\d+%/)
+      expect(row.chanceCell.text).not.toContain('Why?')
+    }
   })
 
   it('reads n_valid_samples off the producer entry onto every row', () => {

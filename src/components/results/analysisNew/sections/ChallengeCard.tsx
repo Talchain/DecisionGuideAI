@@ -4,12 +4,12 @@
  * a reader meets without opening anything.
  *
  * ⭐ V2 PROTOTYPE (design audit B7, 25 Sep 2026 — `challengeHTML` and the
- * `question-options` popover). The section title carries ⓘ "Why this method
- * here?", which opens the method basis; under the title sits ONLY the
- * question (no kicker); then ✎ Respond, ✦ and ⋯ "Question options", whose
- * menu is "Why this question?", "Not useful right now", a separator and every
- * method with its icon; Respond's label is the item's exercise and its send is
- * "Send to Olumi" beside a round ➤.
+ * `question-options` popover). ✎ Respond, ✦ and ⋯ "Question options" are icons
+ * at the far end of the title row; under the title sits ONLY the question (no
+ * kicker). The ⋯ menu is "Why this question?" (which opens the basis),
+ * "Not useful right now", a separator and every method with its icon;
+ * Respond's label is the item's exercise and its send is "Send to Olumi"
+ * beside a round ➤.
  *
  * ⭐ PRECEDENCE, AND WHY IT IS THIS WAY ROUND. A method the reader picked in
  * the method strip wins, because it is what they just asked for — EXCEPT when
@@ -118,9 +118,9 @@ export interface ChallengeCardProps {
    */
   onSetAsideMethod?: () => void
   /**
-   * The section title ("Challenge the thinking"). When given, the card renders
-   * it as an h3 beside the ⓘ that opens the basis; absent, the card renders no
-   * title (and nothing at all when it has nothing to show).
+   * The section title ("Challenge Your Thinking"). When given, the card renders
+   * it as an h3 with the card's icon acts at the row's far end; absent, the acts
+   * sit alone on that row (and nothing renders when there is nothing to show).
    */
   title?: string
   titleTestId?: string
@@ -209,7 +209,7 @@ export function ChallengeCard({
 
   const menuRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const respondRef = useRef<HTMLButtonElement>(null)
+  const actsRef = useRef<HTMLDivElement>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
@@ -222,6 +222,8 @@ export function ChallengeCard({
   const closeRespond = () => setRespond(null)
   const focusTrigger = () =>
     menuRef.current?.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')?.focus()
+  const focusRespond = () =>
+    actsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="${testId}-respond"]`)?.focus()
 
   const sendRespond = () => {
     const text = respondText
@@ -320,36 +322,32 @@ export function ChallengeCard({
     setBasisFor(basisOpen ? null : shown.key)
   }
 
-  /* ⭐ V2 `.section-title`: the h3 and its ⓘ on one row, the ⓘ at the far end.
-     The ⓘ is the h3's SIBLING, not its child, so the heading's accessible name
-     stays exactly the title. 28px tall whether or not the ⓘ renders. */
-  const titleRow = title ? (
-    <div className="flex min-h-7 items-center justify-between gap-3">
-      <h3 className={`${typography.panelHeader} text-text-header m-0`} data-testid={titleTestId}>
-        {title}
-      </h3>
-      {shown ? (
-        <PanelIconButton
-          Icon={Info}
-          /* Names a METHOD only when the card shows one (#2066 review
-             note): a finding that names no technique has no method to
-             explain, and its basis panel has no protocol line. */
-          label={shown.method ? ZONE.whyMethodHere : ZONE.whyThis}
-          onClick={toggleBasis}
-          expanded={basisOpen}
-          testId={`${testId}-why-method`}
-        />
-      ) : null}
-    </div>
-  ) : null
-  const withTitle = (inner: ReactNode) =>
-    titleRow ? (
+  /* ⭐ V2 `.section-title`: the h3 and the card's acts on one row, the acts at
+     the far end. They are the h3's SIBLINGS, not its children, so the heading's
+     accessible name stays exactly the title. 28px tall whether or not they render.
+     Paul 14 Oct 2026: title 'Challenge Your Thinking'; actions are icons in the header; info tooltip removed. */
+  const headerRow = (acts: ReactNode) =>
+    title || acts ? (
+      <div className="flex min-h-7 items-center justify-between gap-3">
+        {title ? (
+          <h3 className={`${typography.panelHeader} text-text-header m-0`} data-testid={titleTestId}>
+            {title}
+          </h3>
+        ) : null}
+        {acts}
+      </div>
+    ) : null
+  const withTitle = (inner: ReactNode, acts: ReactNode = null) =>
+    title ? (
       <div data-testid={`${testId}-section`}>
-        {titleRow}
+        {headerRow(acts)}
         {inner}
       </div>
     ) : (
-      inner
+      <>
+        {headerRow(acts)}
+        {inner}
+      </>
     )
 
   // ⭐ NOTHING TO CHALLENGE, NOTHING PICKED: the title would stand over nothing
@@ -395,6 +393,85 @@ export function ChallengeCard({
     onSetAsideMethod?.()
   }
   const bullet = `${typography.panelBody} relative pl-3 text-text-body before:absolute before:left-px before:content-['·']`
+  const acts = (
+    <div ref={actsRef} className="ml-auto flex shrink-0 items-center gap-1">
+      <PanelIconButton
+        Icon={Pencil}
+        label={ZONE.respond}
+        onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
+        expanded={respondOpen}
+        testId={`${testId}-respond`}
+      />
+      <PanelIconButton
+        ai
+        label={aiLabel}
+        onClick={run}
+        testId={`${testId}-work-through`}
+      />
+      <div className="relative" ref={menuRef}>
+        <PanelIconButton
+          Icon={MoreHorizontal}
+          label={ZONE.moreOptions}
+          onClick={() => setMenuFor(menuOpen ? null : shown.key)}
+          hasPopup="menu"
+          expanded={menuOpen}
+          testId={`${testId}-more`}
+        />
+        {menuOpen ? (
+          <div
+            ref={listRef}
+            role="menu"
+            aria-label={ZONE.moreOptions}
+            className={METHOD_MENU_POPOVER_CLASS}
+            data-testid={`${testId}-menu`}
+          >
+            <MenuRow
+              Glyph={Info}
+              label={ZONE.whyThis}
+              onClick={() => {
+                toggleBasis()
+                setMenuFor(null)
+              }}
+              testId={`${testId}-why`}
+            />
+            {canSetAside ? (
+              <MenuRow Glyph={Clock} label={ZONE.notUseful} onClick={setAside} testId={`${testId}-not-useful`} />
+            ) : null}
+            {shown.kind === 'intervention' && onDisagree ? (
+              <MenuRow
+                Glyph={MessageSquareX}
+                label={REVIEW_TOOL_COPY.disagree}
+                onClick={() => {
+                  setMenuFor(null)
+                  onDisagree(shown.rec)
+                }}
+                testId={`${testId}-disagree`}
+              />
+            ) : null}
+            {onSelectMethod ? (
+              <>
+                <div role="separator" className={METHOD_MENU_SEPARATOR_CLASS} data-testid={`${testId}-menu-separator`} />
+                {methodsInMenuOrder().map((m) => (
+                  <MenuRow
+                    key={m.id}
+                    Glyph={methodIcon(m.id)}
+                    label={m.title}
+                    current={shownMethod?.id === m.id}
+                    onClick={() => {
+                      setMenuFor(null)
+                      focusTrigger()
+                      onSelectMethod(m.id)
+                    }}
+                    testId={`${testId}-menu-method-${m.id}`}
+                  />
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 
   return withTitle(
     <div
@@ -406,10 +483,9 @@ export function ChallengeCard({
       {notice}
       {/* ⭐ V2 prototype (`.challenge-question` + `.challenge-footer`): the item
           is the zone's QUESTION on its own line — 14px/500 with a quiet leading
-          dot — and the acts sit on the row BELOW it: "✎ Respond" as an
-          icon-led info text-button on the left, the AI and "…" icons on the
-          right. Still `.title` verbatim (ruling §3). No kicker above it: the
-          method is carried by the strip's active marker and by the basis. */}
+          dot. Its acts are icons on the title row (Paul, 14 Oct 2026). Still
+          `.title` verbatim (ruling §3). No kicker above it: the method is
+          carried by the strip's active marker and by the basis. */}
       <p className={`${ITEM_TEXT} text-text-header m-0 mt-2 mb-1 min-w-0 flex gap-2`}>
         <span className="text-text-light" aria-hidden={true}>·</span>
         <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
@@ -449,91 +525,8 @@ export function ChallengeCard({
           ) : null}
         </>
       ) : null}
-      <div className="flex items-center justify-between gap-3 mt-1 min-h-[27px]">
-        <button
-          ref={respondRef}
-          type="button"
-          onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
-          aria-expanded={respondOpen}
-          className={`${typography.panelBody} ${action('text')}`}
-          data-testid={`${testId}-respond`}
-        >
-          <Pencil className={`${icon('row')} shrink-0`} aria-hidden={true} />
-          {ZONE.respond}
-        </button>
-        <div className="flex shrink-0 items-center gap-1">
-          <PanelIconButton
-            ai
-            label={aiLabel}
-            onClick={run}
-            testId={`${testId}-work-through`}
-          />
-          <div className="relative" ref={menuRef}>
-            <PanelIconButton
-              Icon={MoreHorizontal}
-              label={ZONE.moreOptions}
-              onClick={() => setMenuFor(menuOpen ? null : shown.key)}
-              hasPopup="menu"
-              expanded={menuOpen}
-              testId={`${testId}-more`}
-            />
-            {menuOpen ? (
-              <div
-                ref={listRef}
-                role="menu"
-                aria-label={ZONE.moreOptions}
-                className={METHOD_MENU_POPOVER_CLASS}
-                data-testid={`${testId}-menu`}
-              >
-                <MenuRow
-                  Glyph={Info}
-                  label={ZONE.whyThis}
-                  onClick={() => {
-                    toggleBasis()
-                    setMenuFor(null)
-                  }}
-                  testId={`${testId}-why`}
-                />
-                {canSetAside ? (
-                  <MenuRow Glyph={Clock} label={ZONE.notUseful} onClick={setAside} testId={`${testId}-not-useful`} />
-                ) : null}
-                {shown.kind === 'intervention' && onDisagree ? (
-                  <MenuRow
-                    Glyph={MessageSquareX}
-                    label={REVIEW_TOOL_COPY.disagree}
-                    onClick={() => {
-                      setMenuFor(null)
-                      onDisagree(shown.rec)
-                    }}
-                    testId={`${testId}-disagree`}
-                  />
-                ) : null}
-                {onSelectMethod ? (
-                  <>
-                    <div role="separator" className={METHOD_MENU_SEPARATOR_CLASS} data-testid={`${testId}-menu-separator`} />
-                    {methodsInMenuOrder().map((m) => (
-                      <MenuRow
-                        key={m.id}
-                        Glyph={methodIcon(m.id)}
-                        label={m.title}
-                        current={shownMethod?.id === m.id}
-                        onClick={() => {
-                          setMenuFor(null)
-                          focusTrigger()
-                          onSelectMethod(m.id)
-                        }}
-                        testId={`${testId}-menu-method-${m.id}`}
-                      />
-                    ))}
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
       {/* V2 `.method-basis`: the basis, then the protocol line — after the
-          footer, before the Respond form. */}
+          question, before the Respond form. */}
       {basisOpen ? (
         <div
           id={basisId}
@@ -591,7 +584,7 @@ export function ChallengeCard({
                 e.preventDefault()
                 closeRespond()
                 // Back to the trigger, as the menu's Escape does.
-                respondRef.current?.focus()
+                focusRespond()
               }}
               placeholder={ZONE.respondPlaceholder}
               rows={2}
@@ -626,5 +619,6 @@ export function ChallengeCard({
         </form>
       ) : null}
     </div>,
+    acts,
   )
 }

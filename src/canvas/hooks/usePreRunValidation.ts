@@ -350,7 +350,7 @@ function validateOverallStatus(
     if (disposition === 'hard_block_brief') {
       blockers.push({
         code: 'ANALYSIS_NOT_READY',
-        message: 'Your decision brief needs changes before analysis can run.',
+        message: 'Your brief needs changes before analysis can run.',
         action: { type: 'retry_draft', label: 'Edit brief' },
       })
       if (ceeAnalysisReady.user_questions?.length) {
