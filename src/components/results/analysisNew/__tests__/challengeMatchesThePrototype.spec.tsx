@@ -4,14 +4,16 @@
  * and the `question-options` popover).
  *
  * The prototype, element by element, and what each is bound to here:
- *   · the title carries ⓘ "Why this method here?", which opens the method-basis
- *     disclosure: the basis, then "<Protocol>: a reasoning aid, not a
- *     prediction or diagnosis.";
+ *   · the title row carries ✎ Respond, ✦ "Ask Olumi to guide this method" and
+ *     ⋯ "Question options" as icons at its far end, and no ⓘ (Paul, 14 Oct
+ *     2026: title "Challenge Your Thinking", the acts moved up from the row
+ *     under the question, the title's ⓘ removed);
  *   · under it, ONLY the question — no kicker ("Method you chose" is not a
  *     prototype string, nor is a method name above the question);
- *   · ✎ Respond, ✦ "Ask Olumi to guide this method", ⋯ "Question options";
- *   · the ⋯ menu: ⓘ "Why this question?", 🕐 "Not useful right now", a
- *     separator, then the methods, each with its icon, the current one marked;
+ *   · the ⋯ menu: ⓘ "Why this question?" (the one route to the method-basis
+ *     disclosure: the basis, then "<Protocol>: a reasoning aid, not a
+ *     prediction or diagnosis."), 🕐 "Not useful right now", a separator, then
+ *     the methods, each with its icon, the current one marked;
  *   · the Respond form's label is the method's EXERCISE, and its send is
  *     "Send to Olumi" beside a round ➤ button.
  *
@@ -43,7 +45,7 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 
 const TID = 'analysis-new-challenge'
-const TITLE = 'Challenge the thinking'
+const TITLE = 'Challenge Your Thinking'
 const TITLE_TID = 'analysis-new-zone-also'
 const method = (id: string) => METHOD_CATALOGUE.find((m) => m.id === id)!
 
@@ -107,6 +109,12 @@ const draw = (props: Partial<Parameters<typeof ChallengeCard>[0]> = {}) => {
   return { ...r, ...handlers }
 }
 
+/** The basis's one route since the title's ⓘ left (14 Oct 2026): ⋯ → "Why this question?". */
+const openBasis = () => {
+  fireEvent.click(screen.getByTestId(`${TID}-more`))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Why this question?' }))
+}
+
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   useCanvasStore.setState({ currentScenarioId: 'challenge-proto' })
@@ -114,17 +122,38 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('the title and its ⓘ "Why this method here?"', () => {
-  it('the title stays an h3 named exactly "Challenge the thinking"; the ⓘ is its sibling, not inside it', () => {
+describe('the title and its icon acts (Paul, 14 Oct 2026)', () => {
+  it('the title stays an h3 named exactly "Challenge Your Thinking"; Respond, ✦ and ⋯ are its siblings on its row, in that order', () => {
     draw({ intervention: viaVm(FLIP) })
     const h3 = screen.getByTestId(TITLE_TID)
     expect(h3.tagName).toBe('H3')
     expect(screen.getByRole('heading', { name: TITLE })).toBe(h3)
-    const info = screen.getByRole('button', { name: 'Why this method here?' })
-    expect(h3.contains(info)).toBe(false)
-    // …but on the title's own row, beside it.
-    expect(h3.parentElement?.contains(info)).toBe(true)
-    expect(info).toHaveAttribute('aria-expanded', 'false')
+    const acts = [`${TID}-respond`, `${TID}-work-through`, `${TID}-more`].map((id) => screen.getByTestId(id))
+    for (const el of acts) {
+      expect(h3.contains(el)).toBe(false)
+      // …on the title's own row, beside it — no longer on a row under the question.
+      expect(h3.parentElement?.contains(el)).toBe(true)
+      expect(screen.getByTestId(TID).contains(el)).toBe(false)
+    }
+    expect(acts[0].compareDocumentPosition(acts[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(acts[1].compareDocumentPosition(acts[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Respond is an icon like the other two: named "Respond", no visible words.
+    expect(acts[0]).toHaveAttribute('aria-label', 'Respond')
+    expect(acts[0].textContent).toBe('')
+    expect(acts[0].querySelector('svg')?.getAttribute('class') ?? '').toContain('lucide-pencil')
+    expect(acts[0]).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('⛔ the title\'s ⓘ is gone — for a method, and for a finding with none', () => {
+    draw({ intervention: viaVm(FLIP) })
+    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Why this question?' })).toBeNull()
+    cleanup()
+    draw({ intervention: viaVm(UNMAPPED) })
+    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Why this question?' })).toBeNull()
+    // CONTRAST: the same render still has its acts.
+    expect(screen.getByTestId(`${TID}-more`)).toBeInTheDocument()
   })
 
   it('⭐ the finding\'s own why-line is AT REST (slice D-4); the method basis opens "<method>: a reasoning aid, not a prediction or diagnosis."', () => {
@@ -132,8 +161,7 @@ describe('the title and its ⓘ "Why this method here?"', () => {
     draw({ intervention: r })
     expect(screen.queryByTestId(`${TID}-basis`)).toBeNull()
     expect(screen.getByTestId(`${TID}-body`).textContent).toBe(strengthenWhyLine(r.signal, r.whyNow))
-    fireEvent.click(screen.getByRole('button', { name: 'Why this method here?' }))
-    expect(screen.getByRole('button', { name: 'Why this method here?' })).toHaveAttribute('aria-expanded', 'true')
+    openBasis()
     const items = within(screen.getByTestId(`${TID}-basis`)).getAllByRole('listitem')
     // Said once: the why-line left the basis for the card's rest state.
     expect(items.map((li) => li.textContent)).toEqual([
@@ -143,7 +171,7 @@ describe('the title and its ⓘ "Why this method here?"', () => {
 
   it('the protocol line names the method found by CLAIM ID (dskClaimId is passed) — outside view, not nothing', () => {
     draw({ intervention: viaVm(CALIBRATION) })
-    fireEvent.click(screen.getByRole('button', { name: 'Why this method here?' }))
+    openBasis()
     expect(screen.getByTestId(`${TID}-basis-protocol`).textContent).toBe(
       `${method('outside_view').title}: a reasoning aid, not a prediction or diagnosis.`,
     )
@@ -151,12 +179,10 @@ describe('the title and its ⓘ "Why this method here?"', () => {
 
   it('⛔ CONTRAST — a finding with no technique gets its why-line and NO protocol line', () => {
     draw({ intervention: viaVm(UNMAPPED) })
-    // A finding that names no technique asks "Why this question?" — there is
-    // no method to explain (#2066 review note).
-    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
     // Slice D-4: its why-line is at rest, and the basis repeats neither it nor a protocol.
     expect(screen.getByTestId(`${TID}-body`)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Why this question?' }))
+    openBasis()
+    expect(screen.getByTestId(`${TID}-basis`)).toBeInTheDocument()
     expect(screen.queryByTestId(`${TID}-basis-why`)).toBeNull()
     expect(screen.queryByTestId(`${TID}-basis-protocol`)).toBeNull()
   })
@@ -164,7 +190,7 @@ describe('the title and its ⓘ "Why this method here?"', () => {
   it('a picked method\'s basis is the catalogue\'s own description plus its protocol line', () => {
     const m = method('pre_mortem')
     draw({ intervention: viaVm(FLIP), methodId: m.id })
-    fireEvent.click(screen.getByRole('button', { name: 'Why this method here?' }))
+    openBasis()
     const items = within(screen.getByTestId(`${TID}-basis`)).getAllByRole('listitem')
     expect(items.map((li) => li.textContent)).toEqual([
       m.description,
@@ -172,10 +198,12 @@ describe('the title and its ⓘ "Why this method here?"', () => {
     ])
   })
 
-  it('with nothing to show, the title still renders, with no ⓘ (and without a title prop, nothing renders)', () => {
+  it('with nothing to show, the title still renders, with no acts beside it', () => {
     draw()
     expect(screen.getByTestId(TITLE_TID)).toHaveTextContent(TITLE)
-    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    expect(screen.queryByTestId(`${TID}-respond`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-work-through`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-more`)).toBeNull()
   })
 })
 
@@ -210,7 +238,7 @@ describe('only the question at rest — no kicker', () => {
   })
 })
 
-describe('the footer acts', () => {
+describe('the title-row acts', () => {
   it('✦ is "Ask Olumi to guide this method" when a method is attached; CONTRAST: the unmapped finding is named by its own act (slice D-4)', () => {
     draw({ intervention: viaVm(FLIP) })
     expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Ask Olumi to guide this method')
@@ -270,12 +298,13 @@ describe('the ⋯ "Question options" menu', () => {
     expect(screen.queryByTestId(`${TID}-menu`)).toBeNull()
   })
 
-  it('"Why this question?" opens the same basis the ⓘ opens', () => {
+  it('"Why this question?" opens the basis, and pressing it again closes it', () => {
     draw({ intervention: viaVm(FLIP) })
-    fireEvent.click(screen.getByTestId(`${TID}-more`))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Why this question?' }))
+    expect(screen.queryByTestId(`${TID}-basis`)).toBeNull()
+    openBasis()
     expect(screen.getByTestId(`${TID}-basis`)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Why this method here?' })).toHaveAttribute('aria-expanded', 'true')
+    openBasis()
+    expect(screen.queryByTestId(`${TID}-basis`)).toBeNull()
   })
 
   it('on a picked method, "Not useful right now" sets the pick aside through the host — never the Strengthen store', () => {

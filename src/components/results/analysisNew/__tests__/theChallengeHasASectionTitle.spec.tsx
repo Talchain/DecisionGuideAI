@@ -39,14 +39,14 @@ const rec = {
   priority: 1,
 } as unknown as Recommendation
 
-describe('"Challenge the thinking" is a section title over its question', () => {
+describe('"Challenge Your Thinking" is a section title over its question', () => {
   it('the zone name is a 14px medium h3, like "Move towards commitment" (panelHeader, 14/500 since 30 Sep 2026)', () => {
     render(<AnalysisNewTabBody resultsSectionData={genuineDecision()} isPreRun={false} isRunning={false} isStale={false} responseHash="h" />)
     const title = screen.getByTestId('analysis-new-zone-also')
     expect(title.tagName).toBe('H3')
     expect(title.className).toContain('text-sm')
     expect(title.className).toContain('font-medium')
-    expect(title).toHaveTextContent('Challenge the thinking')
+    expect(title).toHaveTextContent('Challenge Your Thinking')
   })
 
   it('the finding is the 14px-medium question under it, not a second h3, and still the title verbatim', () => {

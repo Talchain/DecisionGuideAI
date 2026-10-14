@@ -149,16 +149,21 @@ describe('one method is active at rest — when the run names one', () => {
     expect(screen.getByTestId(`${STRIP}-method-pre_mortem-mark`)).toBeInTheDocument()
   })
 
-  it('the title\'s ⓘ names a METHOD only when the card shows one; CONTRAST: an unmapped finding asks "Why this question?"', () => {
+  it('the title carries no ⓘ (Paul 14 Oct 2026); "Why this question?" is the ⋯ menu\'s, for an unmapped finding too', () => {
     drawBody(genuineDecision())
     expect(screen.getByTestId(CARD), 'PRECONDITION: no method named').not.toHaveAttribute('data-method-id')
-    expect(screen.getByRole('button', { name: 'Why this question?' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Why this question?' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    fireEvent.click(screen.getByTestId(`${CARD}-more`))
+    expect(screen.getByRole('menuitem', { name: 'Why this question?' })).toBeInTheDocument()
   })
 
-  it('the tab\'s "Challenge the thinking" title carries the ⓘ', () => {
+  it('the tab\'s "Challenge Your Thinking" title carries the card\'s icon acts on its row, and no ⓘ', () => {
     drawBody(raisedDecision())
-    expect(screen.getByRole('heading', { name: 'Challenge the thinking' })).toBe(screen.getByTestId('analysis-new-zone-also'))
-    expect(screen.getByRole('button', { name: 'Why this method here?' })).toBeInTheDocument()
+    const h3 = screen.getByRole('heading', { name: 'Challenge Your Thinking' })
+    expect(h3).toBe(screen.getByTestId('analysis-new-zone-also'))
+    for (const id of [`${CARD}-respond`, `${CARD}-work-through`, `${CARD}-more`])
+      expect(h3.parentElement?.contains(screen.getByTestId(id)), `${id} on the title row`).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
   })
 })
