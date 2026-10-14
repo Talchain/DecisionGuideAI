@@ -22,6 +22,7 @@ import { useCanvasStore } from '../../store'
 import { scrollToField } from '../../conversation/utils/scrollToField'
 import { beginInteractionChain } from '../../../lib/debug-state'
 import { focusExistingTarget } from '../../utils/focusHelpers'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../conversation/chipMeta'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -192,7 +193,7 @@ interface InspectorGuidanceSectionProps {
   /** The ID of the selected node or edge */
   elementId: string
   /** Send a message to the conversation panel */
-  onSendMessage?: (text: string) => void
+  onSendMessage?: OlumiTextSend
   /** Open inspector for a different node */
   onOpenInspector?: (nodeId: string) => void
   /** Scroll to a patch block in the conversation */
@@ -254,10 +255,11 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
           stagePill: useCanvasStore.getState().currentStage ?? null,
           setPending: true,
         })
-        sendMsg?.(action.prompt)
+        // T1H: Olumi's text — a chip, never the user's typed words.
+        sendMsg?.(action.prompt, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.guidanceDiscuss } })
         break
       case 'run_exercise':
-        sendMsg?.(`/exercise ${action.exercise}`)
+        sendMsg?.(`/exercise ${action.exercise}`, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.guidanceExercise } })
         break
       case 'open_inspector':
         // Task 3: Store deep-link field target before opening inspector

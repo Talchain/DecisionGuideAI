@@ -126,6 +126,7 @@ import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { buildCommitmentQualifier } from './commitmentQualifier'
 import { allOptionsOriginSentence } from './optionOriginDisclosure'
 import { useIsViewer } from '../../../lib/viewerMode'
+import type { OlumiTextSend } from '../../../canvas/conversation/chipMeta'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -332,7 +333,8 @@ export interface AnalysisNewTabBodyProps {
    * and simply offers no button (the fail-closed pre-gate this panel uses for
    * focus targets too).
    */
-  onSendMessage?: (message: string) => void
+  /** Forwards `opts` so Olumi's text can travel as a chip (T1H). */
+  onSendMessage?: OlumiTextSend
 }
 
 /**

@@ -176,7 +176,8 @@ describe('GuidanceStrip — action button behaviour', () => {
     const props = makeProps()
     render(<GuidanceStrip {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /try it/i }))
-    expect(props.onSendMessage).toHaveBeenCalledWith('/exercise pre_mortem')
+    // T1H: Olumi's text travels as a chip with this surface's identity.
+    expect(props.onSendMessage).toHaveBeenCalledWith('/exercise pre_mortem', { chipMeta: { id: 'guidance_exercise' } })
   })
 
   it('approve_patch action calls onScrollToPatch', () => {

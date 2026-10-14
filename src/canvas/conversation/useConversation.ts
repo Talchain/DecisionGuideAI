@@ -4593,7 +4593,10 @@ export function useConversation(): UseConversationReturn {
           },
         })
         lastUserInputRef.current = { message, clientTurnId: turnClientId,
-          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source, proposalEdits: opts.proposalEdits } : {}) }
+          // T1H: a `sendMessage` carrying `chipMeta` (Olumi's text, e.g. the starter brief or a guidance prompt)
+          // went out as a chip — buildV5Payload derives 'chip' from chipMeta whatever the debug source — so it
+          // retries as that chip, never as chip-less free text.
+          ...(chipMeta ? { chipMeta, chipSource: source === 'chip_click' ? 'chip_click' as const : 'chip' as const, proposalEdits: opts.proposalEdits } : {}) }
         setLastSendFailure(null)
       } else if (hidden && source === 'right_panel_action') {
         recordUserAction({

@@ -211,6 +211,10 @@ import {
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from '../../utils/goalIdentityWithheld'
 import { UnsizedLinkActions } from './UnsizedLinkActions'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../../../canvas/conversation/chipMeta'
+
+/** T1H: the bring-in question is OLUMI's text — it travels as a chip, never as the user's typed words. */
+const BRING_IN_CHIP = { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.optionsComparisonBringIn } }
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -335,7 +339,7 @@ export interface OptionsComparisonProps {
    * `OutputsDock.tsx:3899`), so this section joins the writer the product has
    * rather than minting a second one with its own validation and policy.
    */
-  onSendMessage?: (message: string) => void
+  onSendMessage?: OlumiTextSend
   /**
    * ⭐⭐ OPEN ON MOUNT — AND THE CALLER DECIDES, BECAUSE THE CALLER IS THE ONLY
    * ONE WHO CAN SEE THE QUESTION.
@@ -1213,7 +1217,7 @@ export function OptionsComparison({
               <OlumiExcludedReason
                 testId={testId}
                 optionId={o.id}
-                onAsk={onSendMessage ? () => onSendMessage(bringIntoComparisonQuestion(o.label, o.reason)) : null}
+                onAsk={onSendMessage ? () => onSendMessage(bringIntoComparisonQuestion(o.label, o.reason), BRING_IN_CHIP) : null}
               />
             ) : null}
             {o.kind === 'not_analysed' && o.reasonCopy !== null && !isOlumiExcluded(o) ? (
@@ -1241,7 +1245,7 @@ export function OptionsComparison({
                 onClick={(e) => {
                   e.stopPropagation()
                   // BOUND BY IDENTITY: this row's own label and ground.
-                  onSendMessage(bringIntoComparisonQuestion(o.label, o.reason))
+                  onSendMessage(bringIntoComparisonQuestion(o.label, o.reason), BRING_IN_CHIP)
                 }}
                 className={`${typography.panelMeta} mt-1 inline-flex items-center ${action('inline')}`}
               >

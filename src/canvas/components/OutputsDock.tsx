@@ -124,6 +124,7 @@ import {
 // Lazy: flag-off users never pay the v3 bundle cost.
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation, type UseConversationReturn } from '../conversation/useConversation'
+import type { ChipMeta } from '../conversation/chipMeta'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
@@ -546,7 +547,8 @@ function OutputsDockLegacyHost() {
 }
 
 interface OutputsDockBodyProps {
-  sendMessage: (text: string) => Promise<void> | void
+  /** Forwards `opts` so Olumi's text can travel as a chip (T1H). */
+  sendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string; chipMeta?: ChipMeta }) => Promise<void> | void
   dispatchAction: UseConversationReturn['dispatchAction']
 }
 

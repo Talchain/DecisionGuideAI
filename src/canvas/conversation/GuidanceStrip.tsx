@@ -18,6 +18,7 @@ import { focusExistingTarget } from '../utils/focusHelpers'
 import { scrollToField } from './utils/scrollToField'
 import { beginInteractionChain } from '../../lib/debug-state'
 import { ICON_STATUS } from './panelIcons'
+import { OLUMI_TEXT_CHIP_IDS, type ChipMeta } from './chipMeta'
 
 const FOCUS_DEBOUNCE_MS = 150
 
@@ -111,7 +112,7 @@ function coachingItemType(cat: GuidanceItem['category']): GuidanceEventPayload['
 
 interface GuidanceStripProps {
   /** Send a message to the conversation */
-  onSendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string }) => void
+  onSendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string; chipMeta?: ChipMeta }) => void
   /** Set active guidance item ID for cross-surface focus */
   onSetActive: (id: string | null) => void
   /** Scroll conversation list to a GraphPatchBlock by patch_id */
@@ -272,12 +273,13 @@ export const GuidanceStrip = memo(function GuidanceStrip({
           stagePill: state.currentStage ?? null,
           setPending: true,
         })
-        onSendMessage(action.prompt, { hidden: true, debugSource: 'guidance_discuss' })
+        // T1H: the prompt is OLUMI's text — it travels as a chip, never as the user's typed words.
+        onSendMessage(action.prompt, { hidden: true, debugSource: 'guidance_discuss', chipMeta: { id: OLUMI_TEXT_CHIP_IDS.guidanceDiscuss } })
         // Dismiss the chip after sending
         useGuidanceStore.getState().dismissItem(topItem.item_id)
         break
       case 'run_exercise':
-        onSendMessage(`/exercise ${action.exercise}`)
+        onSendMessage(`/exercise ${action.exercise}`, { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.guidanceExercise } })
         break
       case 'approve_patch': {
         // Scroll to matching GraphPatchBlock in conversation

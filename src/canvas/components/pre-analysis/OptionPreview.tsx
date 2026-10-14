@@ -18,6 +18,7 @@ import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'
 import { qualitativeLabel } from '../../utils/formatValueWithUnit'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
+import { OLUMI_TEXT_CHIP_IDS, type OlumiTextSend } from '../../conversation/chipMeta'
 
 /**
  * Visible header text for the option quality card. Exported so other surfaces
@@ -55,7 +56,7 @@ interface OptionPreviewProps {
   onFocusNode?: (nodeId: string) => void
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
-  onSendMessage?: (text: string) => void
+  onSendMessage?: OlumiTextSend
   /** When true, shows a structural similarity coaching line below the option list */
   hasSameLeversCheck?: boolean
   /**
@@ -501,7 +502,8 @@ export function OptionPreview({
           {onSendMessage && (
             <button
               type="button"
-              onClick={() => onSendMessage("What other strategies should I consider for this decision?")}
+              // T1H: Olumi's text — a chip, never the user's typed words.
+              onClick={() => onSendMessage("What other strategies should I consider for this decision?", { chipMeta: { id: OLUMI_TEXT_CHIP_IDS.optionPreviewExploreStrategies } })}
               className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
               data-testid="option-preview-explore-strategies"
             >

@@ -89,6 +89,7 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 import { ICON_DENSE } from '../../conversation/panelIcons'
+import type { OlumiTextSend } from '../../conversation/chipMeta'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
@@ -397,7 +398,8 @@ interface PreAnalysisPanelProps {
   /** Shared blocked reason for the Analyse CTA */
   blockedReason?: string
   /** Callback to send a message in the conversation panel */
-  onSendMessage?: (text: string) => void
+  /** Forwards `opts` so Olumi's text can travel as a chip (T1H). */
+  onSendMessage?: OlumiTextSend
   /**
    * Expert mode toggle from OutputsDock (`</>` button in the tab bar).
    * When true, developer-facing diagnostics (correlation IDs, copy-diagnostics
