@@ -32,6 +32,8 @@ import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { useUndoJournalStore } from '../captureUndoReceipt'
 import { EMPTY_UNDO_JOURNAL, recordBarrier, recordEditReceipt, type UndoJournalState } from '../undoJournal'
 import { runCanvasUndo, UNDO_NOTICE } from '../undoCommand'
+import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
+import { report } from '../../../components/results/__tests__/helpers/paulRun4276f3f9'
 
 const S = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const h = (c: string) => c.repeat(64)
@@ -153,6 +155,42 @@ describe('the restored model gets its own fresh analysis (Paul 14 Oct)', () => {
     })
     await act(async () => { await runCanvasUndo('redo') })
     expect(run).toHaveBeenCalledTimes(2)
+    cleanup()
+  })
+
+  // ⛔ STALE RESULT SHOWN AS CURRENT (J5a investigation, 14 Oct). An Undo pressed while a Run is in flight: that Run
+  // was dispatched on the edited model, and CEE composes its verdict against the graph it loaded at turn start
+  // (turn-executor.ts currentAnalysisGraphHashForTurn), so its own turn says "current" about the model the Undo just
+  // replaced. Its writers clear the restore's dirty mark, and the deliver check then accepted that Run as current for
+  // the restored model: no Run, and "Analysis reflects the current model." over a model it never analysed.
+  it('an Undo that lands while a Run is in flight: that Run is never presented as current for the restored model, and the restored model is run', async () => {
+    const run = vi.fn(async () => ({ status: 'dispatched' as const }))
+    function Host({ idle }: { idle: boolean }) {
+      useAnalyseAfterCommittedChange({ run, idle, hasRunOnRecord: true })
+      return null
+    }
+    const view = render(createElement(Host, { idle: false }))
+    restoreModelVersion.mockResolvedValue(restored(h('0')))
+    await act(async () => { await runCanvasUndo('undo') })
+    expect(useCanvasStore.getState().analysisFreshnessDirty, 'the restore marks the model changed').toBe(true)
+    // The in-flight Run's own turn lands, through the store's real writers (as applyV5State calls them): ITS result,
+    // with CEE's "fresh" verdict about the graph that Run loaded before the Undo.
+    const IN_FLIGHT_RUN = 'run-on-the-edited-model'
+    await act(async () => {
+      useCanvasStore.setState({
+        results: { status: 'complete', hash: IN_FLIGHT_RUN, report },
+        v5AnalysisFact: { scenarioId: S, analysisHash: IN_FLIGHT_RUN, hasRunAnalysisFact: true },
+        hasCompletedFirstRun: true, analysisStateV1: null, importPendingServerRegistration: false,
+      } as never)
+      useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match', computed_at: '2026-10-14T12:00:00.000Z' })
+      useCanvasStore.getState().clearAnalysisFreshnessDirty()
+    })
+    await act(async () => { view.rerender(createElement(Host, { idle: true })) })
+    // By identity: the Run on screen is still the in-flight one, and it is NOT affirmed current for the restored model.
+    expect(useCanvasStore.getState().results?.hash).toBe(IN_FLIGHT_RUN)
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState()), `${IN_FLIGHT_RUN} is presented as current for the restored model`).toBe(false)
+    expect(run, 'the restored model got no Run of its own').toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledWith({ source: ANALYSE_AFTER_CHANGE_SOURCE })
     cleanup()
   })
 
