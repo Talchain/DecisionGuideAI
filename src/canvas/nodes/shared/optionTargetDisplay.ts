@@ -36,7 +36,7 @@ import { qualitativeTierLabel } from '../../utils/labelUtils'
 import { readoutIsBareModelFigure } from './bareModelFigure'
 import { resolveOptionTargetDisplayFrame } from '../../ui/inspector-v2/shared/optionTargetEntry'
 
-type ResolvedOptionTarget = OptionTargetLike & { raw_value?: unknown; unit?: unknown; userMaterialUnverified?: boolean }
+type ResolvedOptionTarget = OptionTargetLike & { raw_value?: unknown; unit?: unknown }
 
 /** The slice of `ceeAnalysisReady.options[]` these readers use. */
 export interface CeeOptionTargetsLike {

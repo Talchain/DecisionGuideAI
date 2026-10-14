@@ -181,7 +181,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
 import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
-import { unwrapInterventionValue } from '../utils/labelUtils'
+import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 // ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
 // the reduced low-zoom line already share. See `recordedRangeText` below.
@@ -1413,6 +1413,7 @@ function buildOptionInterventions(
          * that forgets to is the one that renders a guess. Absent is the fact.
          */
         ...(source === null ? {} : { provenanceSource: source }),
+        ...(interventionIsUserMaterialUnverified(rawValue) ? { userMaterialUnverified: true as const } : {}),
       },
     ]
   })

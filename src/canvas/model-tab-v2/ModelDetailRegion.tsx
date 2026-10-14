@@ -109,8 +109,8 @@ const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
  * stays unknown — a default in any direction is an invented provenance, which
  * is the defect one level up from the one this component closes.
  */
-function InterventionProvenanceMark({ source }: { source: string | undefined }) {
-  const cls = classifyInterventionProvenance(source)
+function InterventionProvenanceMark({ source, userMaterialUnverified }: { source: string | undefined; userMaterialUnverified?: boolean }) {
+  const cls = classifyInterventionProvenance(source, { userMaterialUnverified })
   if (cls === null) return null
   return (
     <span
@@ -681,7 +681,7 @@ export function ModelDetailRegion({
                     ⚠ NO STAMP ⇒ NOTHING RENDERS. Unknown stays unknown.
                   */}
                   <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
-                    <InterventionProvenanceMark source={iv.provenanceSource} />
+                    <InterventionProvenanceMark source={iv.provenanceSource} userMaterialUnverified={iv.userMaterialUnverified} />
                   </span>
 
                   {/*
