@@ -250,6 +250,40 @@ function turnVerdictIsCurrentForThisDraft(
 }
 
 /**
+ * The goal target THIS TURN's readiness states, re-synced after the graph
+ * replacement above cleared it — in the order the cold reopen uses (graph
+ * installed first, then `setCeeAnalysisReady`'s sync), so the live view and
+ * the reopened view read the same field the same way.
+ *
+ * ⚠ THE LOSS THIS CLOSES (capacity brief, turn 1, 14 Oct 2026): the turn's
+ * `analysis_ready` was `needs_user_input`, so the strict attach contract kept it
+ * off the inline draft and the `hasAnalysisReady` arm never ran. Its readiness
+ * — and the 100 it states — was written by `applyV5State` step 4 BEFORE this
+ * function, whose `goalThreshold: null` then erased it. The goal read "Needs
+ * input" until a reopen restored the same readiness and synced 100.
+ *
+ * Bound to this turn: the response must carry a readiness (`turnVerdict`), the
+ * store's readiness must name the same goal, and that goal must be on the graph
+ * just applied. A store readiness left by an earlier turn, or a draft applied
+ * with no turn readiness (streamed preview, DB re-fetch), syncs nothing.
+ * Provenance is untouched: this writes the scalar only, never the node's
+ * `threshold_source`.
+ */
+function resyncThisTurnsGoalTarget(
+  goalNodes: ReadonlyArray<{ id: string }>,
+  turnVerdict: { analysisReady?: unknown } | undefined,
+): void {
+  const turnGoalId = (turnVerdict?.analysisReady as { goal_node_id?: unknown } | null | undefined)
+    ?.goal_node_id
+  if (typeof turnGoalId !== 'string' || turnGoalId.length === 0) return
+  const state = useCanvasStore.getState()
+  const stored = state.ceeAnalysisReady
+  if (!stored || stored.goal_node_id !== turnGoalId) return
+  if (!goalNodes.some((n) => n.id === turnGoalId)) return
+  state.syncGoalThresholdFromCeeReadiness?.(stored)
+}
+
+/**
  * Apply a CEE draft response to the canvas, replacing the current graph.
  *
  * This function replaces all existing nodes/edges, pushes history, triggers
@@ -330,7 +364,9 @@ export function applyDraftResult(
     // setCeeAnalysisReady below only syncs the DRAFT's own goal_threshold
     // when the store value is null, so a stale non-null value both dropped
     // the draft's target AND rode the replacement. The goal node is
-    // auto-selected just below for the single-goal case.
+    // auto-selected just below for the single-goal case. A readiness the turn
+    // already wrote (non-'ready', so not on the draft) is re-synced below by
+    // `resyncThisTurnsGoalTarget`.
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
@@ -507,6 +543,8 @@ export function applyDraftResult(
     // Backfill goal_threshold_raw/unit/cap from analysis_ready onto the goal node.
     // CEE sends these on analysis_ready, but the GoalNode component reads from node.data.
     backfillGoalThresholdOntoGoalNode(analysisReadyWithCoaching)
+  } else {
+    resyncThisTurnsGoalTarget(goalNodes, opts.turnVerdict)
   }
 
   // Store goal_constraints off whatever draft object we were handed.
