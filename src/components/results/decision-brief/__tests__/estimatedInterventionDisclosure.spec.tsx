@@ -112,6 +112,33 @@ describe('selectEstimatedInterventions — the model-chosen values', () => {
   })
 
   /**
+   * #2761 follow-up (principle review D): a figure the AI said came from the brief but the host could not confirm
+   * (`user_material_unverified` → `unverified_brief`) is KEPT, with the Inspector's words, never the estimate note.
+   * Words written literally so a change of voice REDs.
+   */
+  it('T-KEEP-UNVERIFIED: an unverified_brief value is kept with "Not confirmed from your brief", bound by identity', () => {
+    const OTHER_ID = 'fac_cost'
+    const rows = selectEstimatedInterventions([
+      optionNode({
+        [FACTOR_ID]: { ...invented(), user_material_unverified: true },
+        [OTHER_ID]: invented(),
+      }),
+      factorNode(FACTOR_ID, FACTOR_LABEL),
+      factorNode(OTHER_ID, 'Running cost'),
+    ])
+    expect(rows.map(r => [r.optionId, r.factorId])).toEqual([[OPTION_ID, FACTOR_ID], [OPTION_ID, OTHER_ID]])
+    expect(rows[0].note).toBe('Not confirmed from your brief: the effect of "Build in-house" on "Time to market".')
+    expect(rows[0].note).not.toContain(ESTIMATED_INTERVENTION_MARK)
+    // CONTRAST: the unflagged hypothesis on the same option keeps the estimate note.
+    expect(rows[1].note).toBe(formatEstimatedInterventionNote(OPTION_LABEL, 'Running cost'))
+    // CONTRAST: a value the user set stays theirs, flag or no flag.
+    expect(selectEstimatedInterventions([
+      optionNode({ [FACTOR_ID]: { ...userSet(), user_material_unverified: true } }),
+      factorNode(FACTOR_ID, FACTOR_LABEL),
+    ])).toEqual([])
+  })
+
+  /**
    * The bare flattened form CEE sends on `analysis_ready` carries no provenance,
    * and `normaliseOptionFromCEE` no longer invents one. An unstamped record is
    * therefore silent — the honest answer, not a convenient one.

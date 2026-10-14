@@ -2292,12 +2292,12 @@ export function AnalysisNewTabBody({
               className={`${typography.panelBody} ${action('secondary')}`}
               data-testid="analysis-review-decision"
               onClick={() => sendScienceChip(
-                'Review this decision',
-                'Review this decision',
+                'Review this model',
+                'Review this model',
                 { id: ACTION_REGISTRY.review.handler.press_id },
               )}
             >
-              Review this decision
+              Review this model
             </button>
             <button
               type="button"

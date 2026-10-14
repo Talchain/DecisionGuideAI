@@ -66,7 +66,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="run-4276" />)
     expect(screen.getByTestId('decision-matrix-toggle')).toHaveAttribute('aria-expanded', 'false')
     open()
-    expect(screen.getByRole('table', { name: 'Decision matrix' })).toBeVisible()
+    expect(screen.getByRole('table', { name: 'Options side by side' })).toBeVisible()
   })
 
   it('rows follow CEE’s option order; every quoted chance is the exact hero statement, bound by id', () => {
@@ -174,7 +174,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     open()
     expect(screen.getByRole('table')).toBeVisible()
     view.rerender(<DecisionMatrix {...props} isStale />)
-    expect(screen.getByRole('status')).toHaveTextContent('This Run is stale.')
+    expect(screen.getByRole('status')).toHaveTextContent('Options side by side: This Run is stale. Run the analysis again to see the options side by side.')
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByRole('spinbutton')).toBeNull()
     expect(screen.queryByTestId('decision-matrix-stamp')).toBeNull()
@@ -234,5 +234,19 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     fireEvent.click(screen.getByTestId('decision-matrix-outcomes-toggle'))
     expect(screen.getByTestId(`decision-matrix-outcome-${CONVERTIBLE}`)).toBeVisible()
     expect(table.querySelector('[data-testid^="decision-matrix-outcome-"]')).toBeNull()
+  })
+
+  it('an option with no modelled outcome says so in words; ⛔ CONTRAST: an option with one keeps its readout', () => {
+    const props = propsFor(seedChance())
+    // Only current_outreach loses its comparison row, so only it has no modelled outcome.
+    const comparison = { ...props.comparison, rows: props.comparison.rows.filter((r) => r.id !== 'current_outreach') }
+    render(<DecisionMatrix {...props} comparison={comparison} />)
+    open()
+    fireEvent.click(screen.getByTestId('decision-matrix-outcomes-toggle'))
+    const label = screen.getByTestId('decision-matrix-row-current_outreach').querySelector('th')!.textContent
+    expect(screen.getByTestId('decision-matrix-outcome-current_outreach').textContent)
+      .toBe(`${label}: No modelled outcome for this option.`)
+    expect(screen.getByTestId(`decision-matrix-outcome-${CONVERTIBLE}`).textContent).not.toContain('No modelled outcome')
+    expect(screen.queryByText(/Not shown\./)).toBeNull()
   })
 })

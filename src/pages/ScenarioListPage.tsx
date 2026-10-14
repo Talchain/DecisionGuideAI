@@ -487,7 +487,7 @@ export default function ScenarioListPage() {
         <div className="text-center max-w-md" data-testid="session-restore-failed">
           <h1 className={`${typography.h3} text-text-header`}>You’ve been signed out</h1>
           <p className={`${typography.body} text-text-body mt-4`}>
-            We couldn’t restore your session — it may have expired. Sign in again to get back to your models.
+            We couldn’t restore your session — it may have expired. Sign in again to get back to your scenarios.
           </p>
           {/* ⚠ NO REASSURANCE ABOUT WHERE THE WORK IS. The sentence that wants
               to be written here — "nothing is lost, your models are on our

@@ -11,8 +11,9 @@
  *
  *   · the option CARD's change-row mark (`interventionTargetSourceMark`)
  *   · the Model tab's detail region (`InterventionProvenanceMark`)
- *   · the decision brief's "What Olumi assumed" (`selectEstimatedInterventions`),
- *     which is a LIST and a "+N more" COUNT of Olumi's own estimates
+ *   · the decision brief's "What Olumi assumed" (`selectEstimatedInterventions`): ⛔ EXPECTATION CHANGED
+ *     (principle review D, #2761 follow-up): the flagged setting is KEPT there with "Not confirmed from your
+ *     brief", never the estimate note, so the Summary does not silently drop a figure the analysis used
  *   · `InterventionDisplay`'s source badge
  *
  * The words are the existing ones (`UNVERIFIED_BRIEF_LABEL`), written LITERALLY
@@ -127,12 +128,16 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     expect(within(mark(F_USER)).queryByText(UNVERIFIED)).toBeNull()
   })
 
-  it('⭐⭐ T-BRIEF-COUNT the flagged setting is neither listed nor counted as Olumi’s in "What Olumi assumed"', () => {
-    // Selector: only the unflagged hypothesis is Olumi's.
+  it('⭐⭐ T-BRIEF-COUNT the flagged setting is kept in "What Olumi assumed" as "Not confirmed from your brief", never as Olumi’s estimate', () => {
+    // Selector: the flagged setting is kept with the unverified words; the unflagged hypothesis keeps the estimate note;
+    // the user's own target is not listed.
     const rows = selectEstimatedInterventions(NODES() as never)
-    expect(rows.map(r => r.factorId)).toEqual([F_PLAIN])
+    expect(rows.map(r => r.factorId)).toEqual([F_FLAGGED, F_PLAIN])
+    expect(rows[0].note).toBe(`${UNVERIFIED}: the effect of "${OPT_LABEL}" on "${FLAGGED_LABEL}".`)
+    expect(rows[0].note).not.toContain('Estimated by Olumi')
+    expect(rows[1].note).toBe(`Estimated by Olumi: the effect of "${OPT_LABEL}" on "${PLAIN_LABEL}". No figure for this was stated in your brief.`)
 
-    // Mounted: the section's count. Two Olumi estimates would read "+1 more".
+    // Mounted: the section previews the first row and counts the rest; the user's target adds nothing.
     useCanvasStore.setState({
       nodes: NODES(), edges: [],
       results: { status: 'complete', report: { decision_brief: {
@@ -143,9 +148,10 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     } as never)
     render(<DecisionBriefSectionContainer leaderClaimPermitted hasOptionResult />)
     const group = screen.getByTestId('decision-brief-defaulted')
-    expect(group).toHaveTextContent(PLAIN_LABEL)
-    expect(group).not.toHaveTextContent(FLAGGED_LABEL)
-    expect(group).not.toHaveTextContent('more')
+    expect(group).toHaveTextContent(`${UNVERIFIED}: the effect of "${OPT_LABEL}" on "${FLAGGED_LABEL}".`)
+    expect(group).not.toHaveTextContent(`Estimated by Olumi: the effect of "${OPT_LABEL}" on "${FLAGGED_LABEL}"`)
+    expect(group).toHaveTextContent('+1 more')
+    expect(group).not.toHaveTextContent(USER_LABEL)
   })
 
   it('⭐⭐ T-INTERVENTION-DISPLAY the source badge says "Not confirmed from your brief", not "inferred"', () => {
