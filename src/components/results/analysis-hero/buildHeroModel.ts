@@ -1357,6 +1357,8 @@ export function buildHeroModel(
     subline,
     goalChanceHorizonLine,
     goalChanceLeadLines,
+    // CEE #3059: said beside the chances only when the arm says them (the licence the hero speaks from).
+    ...(goalChanceArmSpeaks && goalChanceLicence?.goalReading ? { goalReading: goalChanceLicence.goalReading } : {}),
     ...(goalChanceDetailLinesOut !== undefined && goalChanceDetailLinesOut.length > 0 ? { goalChanceDetailLines: goalChanceDetailLinesOut } : {}),
     designationWithheldReason,
     goalHorizonUntested,

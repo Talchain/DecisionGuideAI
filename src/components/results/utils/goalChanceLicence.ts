@@ -124,6 +124,24 @@ export interface GoalChanceLicence {
    * the Run, as in CEE. The card says CEE's string verbatim and never formats a downside figure itself.
    */
   readonly shortfallNoteByOption?: Readonly<Record<string, string>>
+  /**
+   * CEE #3059 (`goal_reading`): the chance rests on Olumi's OWN, unconfirmed reading of the goal — its direction, today's
+   * level, or an inferred product this Run evaluated. Each reading names the node it is held on and CEE's words for it
+   * (the Run reply's own sentences), said verbatim and attributed to Olumi, never the user. Absent when CEE wrote none.
+   */
+  readonly goalReading?: GoalChanceGoalReading
+}
+
+/** One of Olumi's readings the goal chance rests on. `kind` is CEE's (`direction` | `level` | `product`); an unknown kind is kept. */
+export interface GoalChanceReading {
+  readonly kind: string | null
+  readonly nodeId: string
+  readonly words: string
+}
+
+export interface GoalChanceGoalReading {
+  readonly origin: 'olumi'
+  readonly readings: readonly GoalChanceReading[]
 }
 
 /**
@@ -245,7 +263,21 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     horizonLine: readGoalChanceHorizonLine(r),
     spreadNoteByOption: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
     shortfallNoteByOption: shortfallNotesOf(r.shortfall_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
+    ...goalReadingOf(r.goal_reading),
   }
+}
+
+/**
+ * CEE #3059's `goal_reading`, tolerant like its siblings: only Olumi's origin is read; a reading without a node or words is
+ * left out (the rest still speak); an unknown `kind` keeps its words. Nothing readable ⇒ no key (nothing is said).
+ */
+function goalReadingOf(v: unknown): { goalReading?: GoalChanceGoalReading } {
+  if (!isRec(v) || v.origin !== 'olumi' || !Array.isArray(v.readings)) return {}
+  const readings = v.readings.flatMap((x): GoalChanceReading[] => {
+    if (!isRec(x) || !nonEmpty(x.node_id) || typeof x.words !== 'string' || x.words.trim() === '') return []
+    return [{ kind: typeof x.kind === 'string' ? x.kind : null, nodeId: x.node_id, words: x.words.trim() }]
+  })
+  return readings.length === 0 ? {} : { goalReading: { origin: 'olumi', readings } }
 }
 
 const AUTHORS: ReadonlySet<string> = new Set(['user', 'olumi', 'unattributed'])

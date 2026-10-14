@@ -18,6 +18,7 @@ import type { AssumedStrengthDecision } from '../strengthElicitation/selectAssum
 // that consumes it rather than restated here — a second copy of a structural
 // subset is the hand-maintained mirror this estate keeps paying for.
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
+import type { GoalChanceGoalReading } from '../utils/goalChanceLicence'
 
 /**
  * The four prototype lenses. Goal fit and Likely outcome are the LIVE
@@ -405,6 +406,8 @@ export interface HeroChartModel {
   goalChanceDetailLines?: ReadonlyArray<{ kind: 'joint_withheld' | 'joint_bound' | 'target' | 'status_quo' | 'note'; text: string }>
   /** The licence's clause actually appended to the subline; prevents a second range clause. */
   goalChanceHorizonLine?: string | null
+  /** CEE #3059: Olumi's unconfirmed reading(s) of the goal the shown chances rest on; only while the goal-chance arm speaks. */
+  goalReading?: GoalChanceGoalReading | null
   /**
    * WHY no leader was named — CEE's own sentence.
    *

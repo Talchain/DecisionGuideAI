@@ -49,6 +49,7 @@ import { ActOnItSection } from './actOnIt/ActOnItSection'
 import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
 import { ComparisonScopeNote } from '../ComparisonScopeNote'
+import { GoalReadingLine } from '../GoalReadingLine'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
 export interface AnalysisHeroPanelProps {
@@ -409,6 +410,8 @@ export function AnalysisHeroPanel({
             {model.subline}
           </p>
         )}
+        {/* CEE #3059: the chances rest on Olumi's unconfirmed reading of the goal; said, attributed and correctable. */}
+        <GoalReadingLine reading={model.goalReading} testId="hero-goal-reading" />
         {/* Recovery Batch C: the Run's goal-chance detail, CEE's words in CEE's order, said once beside the chances. */}
         {model.goalChanceDetailLines && (
           <div className={`${typography.panelBody} text-text-light space-y-1`} data-testid="hero-goal-chance-detail">
