@@ -29,6 +29,7 @@ import {
 } from './undoJournal'
 import { isModelChangingSystemEvent } from '../conversation/types'
 import { captureAgentTurnForUndo, readAgentTurnReceipts } from './captureAgentTurnForUndo'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 
 export const useUndoJournalStore = create<{ journal: UndoJournalState }>(() => ({
   journal: EMPTY_UNDO_JOURNAL,
@@ -115,6 +116,12 @@ export function captureTurnForUndo(input: {
       gestureId: input.undoGestureId ?? input.turnId,
       label: undoLabelFor(event),
     })
+    // A direct canvas edit CEE saved (a replayed receipt is not a new commit): analysed after it settles.
+    if (next !== journal && next.head?.versionId === receipt.versionId) {
+      useUndoJournalStore.setState({ journal: next })
+      noteCanvasLocalCommit(receipt.versionId)
+      return
+    }
   } else if (event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)) {
     next = recordBarrier(journal, { scenarioId: input.scenarioId, reason: 'not_undoable' })
   } else if (receipt !== null) {
