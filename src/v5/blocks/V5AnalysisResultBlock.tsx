@@ -414,10 +414,12 @@ function V5AnalysisResultBlockImpl({
     // shortfall sentence verbatim, only when it names THIS option's label (identity, not position). No UI words.
     const spread = goalChanceLicence?.spreadNoteByOption?.[id]
     const shortfall = goalChanceLicence?.shortfallNoteByOption?.[id]
+    // CEE's face already carries the notes it was built with (chance and notes are one unit, `goal-chance-screen-lines.ts`):
+    // a note the face says is not said again (capacity witness, CEE 351eeda0: the shortfall sentence twice in a row).
     const notes = [
       ...(spread !== undefined && spread === CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE ? [spread] : []),
       ...(shortfall !== undefined && label !== null && shortfallNoteLabel(shortfall) === label ? [shortfall] : []),
-    ]
+    ].filter(note => !cell.text.includes(note))
     const after = notes.length > 0 ? ` ${notes.join(' ')}` : ''
     if (cell.text.startsWith('‘')) return `${cell.text}${after}`
     return label === null || label.trim() === '' ? null : `‘${label}’: ${cell.text}${after}`

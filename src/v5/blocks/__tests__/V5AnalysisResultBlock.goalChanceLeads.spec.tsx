@@ -60,7 +60,7 @@ const initialState = useCanvasStore.getState()
  * #2747 r2: CEE's served cells carry each option's sentence as their face (`goal-chance-screen-lines.ts`: the label, the
  * displayed figure, then "chance of meeting your goal, in this model."); the card says it verbatim.
  */
-function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<string, number> }) {
+function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<string, number> }, faceTail: Record<string, string> = {}) {
   const labelOf = (id: string) => OPTIONS.find(([optionId]) => optionId === id)?.[1]
   useCanonicalAnalysisViewStore.getState().adopt('scn-d1w5', parseCanonicalAnalysisView({
     schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
@@ -69,7 +69,7 @@ function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<st
       limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
     options: licence.option_ids.map(option_id => ({ option_id, main_driver: { kind: 'not_recorded' },
       cell: { kind: 'figure', display: goalProbabilityWords(`${licence.pct_by_option[option_id]}%`),
-        face: `‘${labelOf(option_id)}’: ${goalProbabilityWords(`${licence.pct_by_option[option_id]}%`)} chance of meeting your goal, in this model.` } })),
+        face: `‘${labelOf(option_id)}’: ${goalProbabilityWords(`${licence.pct_by_option[option_id]}%`)} chance of meeting your goal, in this model.${faceTail[option_id] ?? ''}` } })),
   }))
 }
 
@@ -148,5 +148,29 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
       'Launch starter tier',
       'Offer annual contracts',
     ])
+  })
+})
+
+/**
+ * Capacity witness (CEE 351eeda0, `JUDGE-capacity-post2996-codex.md` row 4): CEE's served face already ended with the
+ * option's shortfall sentence (chance and notes are one unit), and the card appended the same sentence again. The sentence
+ * is CEE's served template, with this card's option and unit.
+ */
+describe('V5AnalysisResultBlock says a shortfall sentence once', () => {
+  const SHORTFALL = 'In its worst 1 in 20 runs of this model, ‘Launch starter tier’ falls short of your target by 300 customers or more.'
+  const withShortfall = { ...LICENCE, shortfall_note_by_option: { launch: SHORTFALL } }
+  const launchLine = (): string | null => within(screen.getByTestId('v5-analysis-result-goal-chances')).getAllByRole('listitem')
+    .find((line) => line.dataset.optionId === 'launch')?.textContent ?? null
+
+  it('R4: a face that already ends with its shortfall sentence says it once', () => {
+    hold(withShortfall, { launch: ` ${SHORTFALL}` })
+    render(<V5AnalysisResultBlock block={d1w5Block(withShortfall)} />)
+    expect(launchLine()).toBe(`‘Launch starter tier’: about 52% chance of meeting your goal, in this model. ${SHORTFALL}`)
+  })
+
+  it('R4 CONTRAST: a face without it still has CEE\'s shortfall sentence after it, once', () => {
+    hold(withShortfall)
+    render(<V5AnalysisResultBlock block={d1w5Block(withShortfall)} />)
+    expect(launchLine()).toBe(`‘Launch starter tier’: about 52% chance of meeting your goal, in this model. ${SHORTFALL}`)
   })
 })
