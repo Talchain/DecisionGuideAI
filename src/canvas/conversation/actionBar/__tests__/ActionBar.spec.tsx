@@ -65,7 +65,10 @@ describe('what is drawn', () => {
     expect(screen.getByTestId('action-bar-icon-review')).toHaveAccessibleName('Review — Check what to confirm before relying on this analysis.')
     expect(screen.getByTestId('action-bar-icon-what_changes')).toHaveAccessibleName('What changes — Run the analysis first: there is no result to test yet.')
     expect(screen.getByTestId('action-bar-pill-set_target-press')).toHaveAccessibleName('Set target — The goal has no target, so no chance can be worked out.')
-    expect(screen.getByTestId('action-bar-pill-set_target-press')).toHaveTextContent('Set target')
+    // ⛔ EXPECTATION CHANGED (Paul, 14 Oct: "just icons there, no words"): old visible label 'Set target' → new icon only;
+    // its name stays its aria-label (above) and tooltip.
+    expect(screen.getByTestId('action-bar-pill-set_target-press')).toHaveTextContent('')
+    expect(screen.getByTestId('action-bar-pill-set_target')).toHaveTextContent('')
   })
 
   it('the menu groups its rows, and each row says why it is offered', () => {
@@ -111,11 +114,28 @@ describe('what is drawn', () => {
   })
 
   it('the host chooses the type tokens and nothing else: body-size labels on both (the Reasoning tab passes its own)', () => {
+    // ⛔ INPUT CHANGE (icons only, 14 Oct): the only words left are the ⋯ menu's rows, so the token is read there.
+    const label = () => screen.getByTestId('action-bar-menu-test_link').querySelector('span > span')!
     const { unmount } = render(<ActionBar bar={bar()} surface="chat" />)
-    expect(screen.getByTestId('action-bar-pill-set_target-press').className).toContain('text-[13px]')
+    fireEvent.click(screen.getByTestId('action-bar-more'))
+    expect(label().className).toContain('text-[13px]')
     unmount()
     render(<ActionBar bar={bar()} surface="reasoning" typeScale={REASONING_TYPE} />)
-    expect(screen.getByTestId('action-bar-pill-set_target-press').className).toContain('text-xs')
+    fireEvent.click(screen.getByTestId('action-bar-more'))
+    expect(label().className).toContain('text-xs')
+  })
+
+  it('ICONS ONLY, evenly spaced (Paul, 14 Oct): no visible word outside the ⋯ menu, one gap between every control', () => {
+    render(<ActionBar bar={bar()} surface="chat" compact={false} />)
+    const row = screen.getByTestId('action-bar').firstElementChild as HTMLElement
+    expect(row.className).toContain('gap-3')
+    // Every control in the row is named for a screen reader, and none shows a word.
+    for (const control of Array.from(row.querySelectorAll('button'))) {
+      expect(control.textContent).toBe('')
+      expect(control.getAttribute('aria-label') ?? '').not.toBe('')
+    }
+    // The ⋯ control is spaced like the rest, never pushed apart.
+    expect((screen.getByTestId('action-bar-more').parentElement as HTMLElement).className).not.toContain('ml-auto')
   })
 })
 

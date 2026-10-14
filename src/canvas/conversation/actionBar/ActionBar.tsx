@@ -5,9 +5,11 @@
  * tab, and a press must genuinely work. This is the one renderer of CEE's
  * `action_bar` (`actionBarContract.ts`); a surface chooses only its type tokens.
  *
- *   [pill] [pill]   [icon] [icon] [icon] [icon]   [⋯]
+ *   [pill] [pill] [icon] [icon] [icon] [icon] [⋯]
  *
- *  · Pills: at most two, the reason this state is worth acting on. Narrow: one.
+ *  · ICONS ONLY, evenly spaced (Paul, 14 Oct: "just icons there, no words"). Every control's name is its
+ *    aria-label and tooltip; only the ⋯ menu's rows carry words.
+ *  · Pills: at most two, the reason this state is worth acting on, an icon in a ring with its hide control. Narrow: one.
  *  · Icons: CEE's fixed-position standards, so a reader learns their places.
  *    Narrow: three inline, the rest in ⋯.
  *  · ⋯: everything else that is relevant, grouped, each with why it is offered.
@@ -185,13 +187,13 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
       data-state-key={bar.state_key}
       className="min-w-0"
     >
-      <div className={`flex min-w-0 items-center ${compact ? 'gap-1' : 'gap-2'}`}>
+      <div className={`flex min-w-0 items-center ${compact ? 'gap-2' : 'gap-3'}`}>
         {pills.map((offer) => {
           const Glyph = actionGlyph(offer.icon)
           return (
             <span
               key={offer.offer_key}
-              className="inline-flex min-w-0 shrink items-stretch rounded-full border border-field bg-panel"
+              className="inline-flex shrink-0 items-stretch rounded-full border border-field bg-panel"
               data-testid={`${testId}-pill-${offer.action_id}`}
             >
               <Tooltip asChild content={offerName(offer)}>
@@ -201,12 +203,11 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                   aria-disabled={offer.enabled ? undefined : 'true'}
                   onClick={() => press(offer)}
                   data-testid={`${testId}-pill-${offer.action_id}-press`}
-                  className={`inline-flex h-6 min-w-0 items-center gap-1 whitespace-nowrap rounded-l-full pl-2 pr-1 ${type.body} ${
+                  className={`inline-flex h-6 w-7 items-center justify-center rounded-l-full pl-1 ${
                     offer.enabled ? 'text-text-body' : 'text-text-light'
-                  } hover:bg-panel-hover [@media(pointer:coarse)]:h-11 ${ACTION_FOCUS}`}
+                  } hover:bg-panel-hover [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 ${ACTION_FOCUS}`}
                 >
                   <Glyph className={`${icon('row')} shrink-0`} aria-hidden={true} />
-                  <span className="truncate">{offer.label}</span>
                 </button>
               </Tooltip>
               <button
@@ -241,7 +242,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
           )
         })}
         {menu.length > 0 || hostGroups.length > 0 ? (
-          <div ref={overflowRef} className="relative ml-auto shrink-0">
+          <div ref={overflowRef} className="relative shrink-0">
             <Tooltip asChild content={ACTION_BAR_COPY.more}>
               <button
                 ref={moreRef}
