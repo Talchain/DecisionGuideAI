@@ -404,7 +404,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
                 level onto "…at 12 months"), so it is named as today's — a bare figure reads as the outcome's own result. */}
             <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
             {recordedValueMark && (
-              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
+              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} olumiGroupNoun="value" />
             )}
           </div>
         ) : showUnquantified ? (

@@ -2,6 +2,7 @@ import { cardMark, type CardMarkId } from './cardMarks'
 import { BottomCardMark } from './CardMark'
 import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
+import { OlumiMergedMark, useOlumiMarkSlot } from './olumiMarkGroup'
 import {
   classifyInterventionProvenance,
   classifyNodeProvenance,
@@ -310,6 +311,7 @@ export function ValueSourceMark({
   title,
   subject,
   onOpenSource,
+  olumiGroupNoun,
 }: {
   mark: FactorValueSourceMark
   testId?: string
@@ -319,10 +321,20 @@ export function ValueSourceMark({
   subject?: string
   /** The card's route to its source detail (v3.1 pt 1). Absent → a static mark. */
   onOpenSource?: () => void
+  /**
+   * ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026; `olumiMarkGroup.tsx`): the singular noun this value is counted
+   * as ("target value") when an Olumi mark joins the card's one merged sparkle. Absent → this mark never merges.
+   */
+  olumiGroupNoun?: string
 }) {
   const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
   const definition = cardMark(`source-${mark.kind}` as CardMarkId)
   const Icon = definition.Icon
+  const slot = useOlumiMarkSlot(mark.kind === 'olumi' && olumiGroupNoun
+    ? { role: 'estimate', text: olumiGroupNoun, accepted: mark.label === VALUE_PROVENANCE_LABEL.accepted, onOpen: onOpenSource }
+    : null)
+  if (slot.render === 'none') return null
+  if (slot.render === 'merged') return <BottomCardMark><OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} /></BottomCardMark>
   return (
     <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
       <span role="img" aria-label={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>

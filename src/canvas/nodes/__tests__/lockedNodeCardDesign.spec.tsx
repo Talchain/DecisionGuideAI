@@ -533,10 +533,13 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })
 
-  it('an Olumi-chosen target stays marked est.; a user-set one is not — each row on the face keeps its own mark', () => {
+  it('Olumi-chosen targets stay marked (ONE sparkle counting them, Paul 14 Oct); a user-set one is not — the brief row keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): one merged sparkle names both, no per-row copies.
+    const raiseBand = within(screen.getByTestId('option-bottom-marks-opt-raise'))
+    expect(raiseBand.getByTestId('node-olumi-mark').getAttribute('aria-label')).toBe('2 target values are Olumi estimates')
+    expect(raiseBand.queryByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeNull()
     // Truth stays on the card: the price row carries its own `brief` mark.
     expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
     cleanup()

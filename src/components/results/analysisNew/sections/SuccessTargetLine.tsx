@@ -1122,7 +1122,7 @@ function ReasoningSuccessRow({
 /** The Goal row's state when no target is stated. */
 const NEEDS_TARGET = 'needs a target'
 /** The Goal row's state when Olumi inferred the goal (`strip.provisionalGoalLabel`). */
-const PROVISIONAL_STATE = 'provisional'
+const PROVISIONAL_STATE = 'provisional, inferred by Olumi'
 
 /**
  * Paul 14 Oct 2026: one checklist — Decision, Goal, then the census; every row marker · name · state · ✎ ✦.

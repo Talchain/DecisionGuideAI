@@ -411,6 +411,7 @@ describe('the checklist Goal row', () => {
     const goal = screen.getByTestId(`${TID}-goal`)
     expect(goal).toHaveTextContent('Grow quarterly revenue')
     expect(goal).toHaveClass('italic')
+    expect(screen.getByTestId(`${TID}-none`)).toHaveTextContent(/^· provisional, inferred by Olumi$/)
   })
 
   it('keeps the goal words upright when the goal is not provisional', () => {
@@ -418,5 +419,6 @@ describe('the checklist Goal row', () => {
     const goal = screen.getByTestId(`${TID}-goal`)
     expect(goal).toHaveTextContent('Grow quarterly revenue')
     expect(goal).not.toHaveClass('italic')
+    expect(screen.getByTestId(TID)).not.toHaveTextContent('inferred by Olumi')
   })
 })

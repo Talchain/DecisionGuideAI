@@ -14,6 +14,7 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { useCanvasStore } from '../../store'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { factorValueSourceMark } from './valueSourceMark'
+import { OlumiMergedMark, useOlumiMarkSlot } from './olumiMarkGroup'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -160,7 +161,6 @@ export interface NodeProvenanceMarkProps {
 
 export function NodeProvenanceMark({ nodeType, data, hideKind = null }: NodeProvenanceMarkProps) {
   const marks = resolveProvenanceMarks(nodeType, data)
-  if (marks.length === 0) return null
   // ⭐ MODEL-LEVEL DEFAULT + LOCAL EXCEPTIONS (locked spec §6; ED 11:52Z point 8:
   // "do not repeat noisy provenance text everywhere; model-level default + local
   // exceptions is preferred"). At rest the caller passes the board's default
@@ -168,14 +168,36 @@ export function NodeProvenanceMark({ nodeType, data, hideKind = null }: NodeProv
   // same AI mark on every card conveys nothing. Any mark that differs (a user
   // value on an AI board, a disagreement pair) renders in full. Detailed and
   // the inspector always show every mark.
-  if (hideKind !== null && marks.every(m => m.kind === hideKind)) return null
+  const hidden = marks.length === 0 || (hideKind !== null && marks.every(m => m.kind === hideKind))
+  // ⭐ ONE OLUMI SPARKLE PER CARD (Paul, 14 Oct 2026; `olumiMarkGroup.tsx`): the card's Olumi-authorship mark joins
+  // the card's Olumi value marks; where there are two or more, it renders the ONE merged sparkle naming them all.
+  // Only the Olumi glyph joins — "From your brief" and every other kind keep their own mark.
+  const olumiMark = hidden ? undefined : marks.find(m => sourceCardMarkId(m.kind) === 'source-olumi')
+  const slot = useOlumiMarkSlot(olumiMark ? { role: 'authorship', text: olumiAuthorshipClause(olumiMark, nodeType) } : null)
+  if (hidden) return null
   return (
     <>
       {marks.map(m => (
-        <Fragment key={`${m.claim}-${m.kind}`}>{renderMark(m.claim, m.kind)}</Fragment>
+        <Fragment key={`${m.claim}-${m.kind}`}>
+          {m !== olumiMark || slot.render === 'self'
+            ? renderMark(m.claim, m.kind)
+            : slot.render === 'merged'
+              ? <OlumiMergedMark label={slot.label} estimateCount={slot.estimateCount} onOpen={slot.onOpen} provenance={{ kind: m.kind, claim: m.claim }} />
+              : null}
+        </Fragment>
       ))}
     </>
   )
+}
+
+/** The kinds whose card noun reads naturally after "Olumi suggested this" in the merged name. */
+const AUTHORSHIP_NOUN: Partial<Record<NodeType, string>> = { option: 'option', factor: 'factor', risk: 'risk', outcome: 'outcome' }
+
+/** The authorship clause inside a merged name: "Olumi suggested this option". Alone, the mark keeps its own words. */
+function olumiAuthorshipClause(mark: ResolvedProvenanceMark, nodeType: NodeType): string {
+  const label = provenanceClaimLabel(mark.claim, mark.kind)
+  const noun = AUTHORSHIP_NOUN[nodeType]
+  return mark.claim === 'structural' && noun && label === 'Olumi suggested this' ? `${label} ${noun}` : label
 }
 
 export interface ResolvedProvenanceMark {

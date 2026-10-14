@@ -526,7 +526,7 @@ export const RiskNode = memo((props: NodeProps) => {
     >
       <span className="shrink-0" data-testid="risk-recorded-readout">{recordedValue}</span>
       {recordedValueMark && (
-        <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
+        <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} olumiGroupNoun="value" />
       )}
       {!isDetailed && !eventRisk && (
         <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
