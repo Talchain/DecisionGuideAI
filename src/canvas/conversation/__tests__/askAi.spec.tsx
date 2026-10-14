@@ -4,7 +4,6 @@ import { askAi, askAiStage, buildAskAiQuestion } from '../askAi'
 import { runViewOf } from '../../runView/runView'
 import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
-import { buildChipMeta } from '../chipMeta'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
@@ -340,31 +339,29 @@ it('baseline status uses the shared resolver, including CEE flags and explicit f
   expect(buildAskAiQuestion({ intent: 'option', nodeIds: ['a'] }).question).toBe('What does ‘Keep things as they are’’s chance of meeting the goal rest on, and what would change it?')
 })
 
-it('user responses carry block and method parameters through the schema-supported typed chip wire', () => {
-  const message = 'On ‘A finding’:\n  My own words  '
-  const parameters = { block_id: 'blk_finding', method_id: 'pre_mortem' }
-  expect(askAi({ userWords: message, parameters, nodeIds: ['a'], edgeIds: [] })).toBe('sent')
-  expect(dispatch).toHaveBeenCalledTimes(1)
-  expect(dispatch).toHaveBeenCalledWith({ label: message, message, parameters, source: 'chip' })
-  const sent = dispatch.mock.calls[0][0]
-  const wire = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'clarify', mode: 'user', source: sent.source, message: sent.message, chipMeta: buildChipMeta(sent) })
+it('T1H-3: a user response goes out as the person\'s own words — chipless composer, target typed in selected_elements', () => {
+  const words = '  My own words: 17 is closer.  '
+  expect(askAi({ userWords: words, nodeIds: ['a'], edgeIds: [] })).toBe('sent')
+  const send = vi.mocked(useGuidanceStore.getState()._sendMessage!)
+  expect(send).toHaveBeenCalledTimes(1)
+  expect(send.mock.calls[0]).toEqual([words])
+  expect(dispatch).not.toHaveBeenCalled()
+  const wire = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'clarify', mode: 'user', message: words })
   expect(wire.ok).toBe(true)
   if (wire.ok) {
-    expect(wire.payload).toMatchObject({ source: 'chip', message, chip: { parameters }, selected_elements: [{ id: 'a', kind: 'factor', label: 'Capacity' }] })
+    expect(wire.payload).toMatchObject({ source: 'composer', message: words, selected_elements: [{ id: 'a', kind: 'factor', label: 'Capacity' }] })
+    expect(wire.payload).not.toHaveProperty('chip')
     expect(() => OrchestratorTurnPayloadSchema.parse(wire.payload)).not.toThrow()
   }
-  expect(dispatch.mock.calls[0][0].message).not.toContain('blk_finding')
-  expect(dispatch.mock.calls[0][0].message).not.toContain('method_id')
-  expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
 })
-it('a parameterised response requires its typed carrier and does not fall back to a text-only send', () => {
-  useGuidanceStore.setState({ _dispatchAction: null })
-  expect(askAi({ userWords: 'My response', parameters: { block_id: 'blk_finding' } })).toBe('none')
-  expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+it('T1H-3: user words never fall back to the chip carrier when the composer seam is missing', () => {
+  useGuidanceStore.setState({ _sendMessage: null })
+  expect(askAi({ userWords: 'My response' })).toBe('none')
+  expect(dispatch).not.toHaveBeenCalled()
 })
-it('response refire identity includes its typed parameters', () => {
-  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'a' } })).toBe('sent')
-  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'b' } })).toBe('sent')
-  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'b' } })).toBe('refire')
-  expect(dispatch).toHaveBeenCalledTimes(2)
+it('response refire identity is the words and the target', () => {
+  expect(askAi({ userWords: 'Same words', nodeIds: ['a'] })).toBe('sent')
+  expect(askAi({ userWords: 'Same words', nodeIds: ['b'] })).toBe('sent')
+  expect(askAi({ userWords: 'Same words', nodeIds: ['b'] })).toBe('refire')
+  expect(useGuidanceStore.getState()._sendMessage).toHaveBeenCalledTimes(2)
 })

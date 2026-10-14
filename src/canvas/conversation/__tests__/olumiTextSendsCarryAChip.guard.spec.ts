@@ -30,6 +30,17 @@
  * LIMIT, stated: a send function passed under a prop name outside both families
  * (e.g. `onSendFollowUp`, `onArtefactMessage`) is not followed; on 14 Oct every
  * such prop was fed by ConversationPanel's chip handler.
+ *
+ * ⇄ SYMMETRIC (T1H-3, 14 Oct): the OPPOSITE misattribution is closed here too — a
+ * send whose MESSAGE comes from user input must never be a chip, because CEE
+ * credits a turn's words to the user only when it is chipless `composer`
+ * (CEE `stated-by-user.ts` `typedByUser`; `turn-executor.ts` runs its typed-
+ * constraint door only off chip sources). User-input PROVENANCE, derived per file:
+ * a `useState` value whose setter is called with an input's `.target.value`
+ * (onChange state), `consumeBrief()`, a `.userWords` read, a direct
+ * `.target.value`, or a local `const` whose initialiser reaches one of these.
+ * SuccessTarget's typed constraint and the Respond door (`askAi` userWords with
+ * parameters) were chips until T1H-3.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -55,12 +66,12 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
     reason: 'the DraftChat textarea — the brief the person typed.' },
   'canvas/components/FirstUseComposer.tsx::sendMessage(composedBrief)': { count: 1,
     reason: 'the first-use structured fields — the person\'s own typed words joined under field labels.' },
-  "canvas/components/pre-analysis/SuccessTarget.tsx::onSendMessage(`I'd like to add a constraint: ${trimmed}`)": { count: 1,
-    reason: 'the constraint the person typed; on `composer` CEE parses it as user_explicit (explicit-constraint-edit.ts), a chip would demote their own figure.' },
+  'canvas/components/pre-analysis/SuccessTarget.tsx::send(trimmed)': { count: 1,
+    reason: 'the constraint the person typed, alone (T1H-3: was an add_constraint chip); on chipless `composer` CEE\'s typed-constraint door saves it as user_explicit (explicit-constraint-edit.ts), a chip or a frame defeats it.' },
   'canvas/conversation/ConversationPanel.tsx::sendMessage(brief)': { count: 1,
     reason: 'Generate model sends `consumeBrief()` — the composer text the person typed.' },
-  'canvas/conversation/askAi.ts::state._sendMessage(text)': { count: 1,
-    reason: 'only when `req.userWords` is set — the person\'s own typed words.' },
+  'canvas/conversation/askAi.ts::state._sendMessage(req.userWords)': { count: 1,
+    reason: '`req.userWords` — the person\'s own typed words, every one (T1H-3: the Respond door\'s typed-parameter chip is gone).' },
   'canvas/conversation/hooks/useComposerState.ts::onSend(value.trim())': { count: 1,
     reason: 'the composer\'s own submit — the words the person typed.' },
   'canvas/conversation/zones/ChatComposer.tsx::sendMessage(text)': { count: 1,
@@ -69,7 +80,17 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
     reason: 'the drawer\'s editable textarea — what the person typed or edited and chose to send (recordsUserWords spec).' },
 }
 
-export interface SendSite { key: string; family: 'send' | 'dispatch'; chip: boolean; line: number }
+/**
+ * USER-INPUT sends that still carry a chip — the baseline found when this check was written (T1H-3, 14 Oct). Shrink-
+ * only, like `ALLOWED`: a count may only fall, a new key fails. Each entry is a KNOWN demotion of the person's words,
+ * not an endorsement.
+ */
+const USER_INPUT_CHIP_ALLOWED: Record<string, { count: number; reason: string }> = {
+  "components/results/coaching/AskOlumiDrawer.tsx::dispatchAction({ action_type: 'discuss', ...(intent ? { intent } : {}), parameters, label: text, message: text, source, })": { count: 1,
+    reason: 'KNOWN, open: the drawer\'s textarea is prefilled with Olumi\'s prompt and editable; its chip carries the `intent` that makes CEE run a coaching method (only on chip turns), so the person\'s edits travel demoted. Needs a ruling on mixed authorship — not fixed here.' },
+}
+
+export interface SendSite { key: string; family: 'send' | 'dispatch'; chip: boolean; userInput: boolean; line: number }
 
 function calleeName(expr: ts.Expression): string | null {
   let c = expr
@@ -130,6 +151,80 @@ function dispatchCarriesChip(obj: ts.ObjectLiteralExpression): boolean {
   return !!src && ts.isStringLiteral(src) && (src.text === 'chip' || src.text === 'chip_click')
 }
 
+/** Direct user-input sources: an input's `.target.value`, `consumeBrief()`, a `.userWords` read. */
+function isDirectUserInput(n: ts.Node): boolean {
+  if (ts.isPropertyAccessExpression(n)) {
+    if (n.name.text === 'userWords') return true
+    if (n.name.text === 'value' && ts.isPropertyAccessExpression(n.expression)
+      && ['target', 'currentTarget'].includes(n.expression.name.text)) return true
+  }
+  return ts.isCallExpression(n) && calleeName(n.expression) === 'consumeBrief'
+}
+/** True when `expr` reaches user input: a direct source, or an identifier in `tainted` (not a property name). */
+function reachesUserInput(expr: ts.Node, tainted: Set<string>): boolean {
+  let hit = false
+  const visit = (n: ts.Node) => {
+    if (hit) return
+    if (isDirectUserInput(n)) { hit = true; return }
+    // A test ON user input is not its value: skip a conditional's condition, a comparison, `typeof`, and `&&`'s guard.
+    if (ts.isConditionalExpression(n)) { visit(n.whenTrue); visit(n.whenFalse); return }
+    if (ts.isTypeOfExpression(n)) return
+    if (ts.isBinaryExpression(n)) {
+      const op = n.operatorToken.kind
+      if ([ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken,
+        ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.LessThanToken, ts.SyntaxKind.GreaterThanToken,
+        ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanEqualsToken].includes(op)) return
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) { visit(n.right); return }
+    }
+    if (ts.isPropertyAccessExpression(n) && tainted.has(n.getText().replace(/\?\./g, '.'))) { hit = true; return }
+    if (ts.isIdentifier(n) && tainted.has(n.text)
+      && !(ts.isPropertyAccessExpression(n.parent) && n.parent.name === n)
+      && !(ts.isPropertyAssignment(n.parent) && n.parent.name === n)) { hit = true; return }
+    ts.forEachChild(n, visit)
+  }
+  visit(expr)
+  return hit
+}
+/**
+ * Per-file names (or `a.b` paths) whose value is user input: a `useState` value — or any `x` beside a `setX` — whose
+ * setter is fed an input's `.target.value`; a controlled input's `value={…}` (an element with `onChange`); then any
+ * `const` initialised from one (fixpoint).
+ */
+function userInputNames(sf: ts.SourceFile): Set<string> {
+  const setterOf = new Map<string, string>()
+  const fed = new Set<string>()
+  const tainted = new Set<string>()
+  const scan = (n: ts.Node) => {
+    if (ts.isJsxAttributes(n) && n.properties.some(a => ts.isJsxAttribute(a) && a.name.getText(sf) === 'onChange')) {
+      const v = n.properties.find(a => ts.isJsxAttribute(a) && a.name.getText(sf) === 'value')
+      const e = v && ts.isJsxAttribute(v) && v.initializer && ts.isJsxExpression(v.initializer) ? v.initializer.expression : undefined
+      if (e && (ts.isIdentifier(e) || ts.isPropertyAccessExpression(e))) tainted.add(e.getText(sf).replace(/\?\./g, '.'))
+    }
+    if (ts.isVariableDeclaration(n) && ts.isArrayBindingPattern(n.name) && n.initializer && ts.isCallExpression(n.initializer)
+      && calleeName(n.initializer.expression) === 'useState') {
+      const [value, setter] = n.name.elements
+      if (value && setter && ts.isBindingElement(value) && ts.isBindingElement(setter) && ts.isIdentifier(value.name) && ts.isIdentifier(setter.name))
+        setterOf.set(setter.name.text, value.name.text)
+    }
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.arguments.some(a => reachesUserInput(a, new Set())))
+      fed.add(n.expression.text)
+    ts.forEachChild(n, scan)
+  }
+  scan(sf)
+  for (const [setter, value] of setterOf) if (fed.has(setter)) tainted.add(value)
+  for (const setter of fed) if (/^set[A-Z]/.test(setter)) tainted.add(setter[3].toLowerCase() + setter.slice(4))
+  for (let grew = true; grew;) {
+    grew = false
+    const visit = (n: ts.Node) => {
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer && !tainted.has(n.name.text)
+        && !ts.isFunctionLike(n.initializer) && reachesUserInput(n.initializer, tainted)) { tainted.add(n.name.text); grew = true }
+      ts.forEachChild(n, visit)
+    }
+    visit(sf)
+  }
+  return tainted
+}
+
 export function scanSource(rel: string, text: string): SendSite[] {
   if (!PREFILTER.test(text)) return []
   const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
@@ -152,23 +247,28 @@ export function scanSource(rel: string, text: string): SendSite[] {
     }
     visit(sf)
   }
+  const tainted = userInputNames(sf)
   const sites: SendSite[] = []
   const visit = (n: ts.Node) => {
     if (ts.isCallExpression(n)) {
       const name = calleeName(n.expression)
       const family = name && send.has(name) ? 'send' : name && dispatch.has(name) ? 'dispatch' : null
       const callee = n.expression.getText(sf).replace(/\s+/g, '').replace(/!/g, '').replace(/\?\./g, '.')
-      const first = n.arguments[0]?.getText(sf).replace(/\s+/g, ' ')
+      const first = n.arguments[0]?.getText(sf).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ')
       const key = `${rel}::${callee}(${first ?? ''})`
       const line = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
       if (family === 'send' && n.arguments.length > 0) {
         const opts = n.arguments[1]
         const resolved = opts ? resolveObject(opts, sf) : null
         const firstIsParam = ts.isIdentifier(n.arguments[0]) && isEnclosingParam(n.arguments[0]) && resolved === 'param'
-        if (!firstIsParam) sites.push({ key, family, line, chip: resolved !== null && resolved !== 'param' && !!prop(resolved, 'chipMeta') })
+        if (!firstIsParam) sites.push({ key, family, line, userInput: reachesUserInput(n.arguments[0], tainted),
+          chip: resolved !== null && resolved !== 'param' && !!prop(resolved, 'chipMeta') })
       } else if (family === 'dispatch' && n.arguments.length === 1) {
         const resolved = resolveObject(n.arguments[0], sf)
-        if (resolved !== 'param') sites.push({ key, family, line, chip: resolved !== null && dispatchCarriesChip(resolved) })
+        const m = resolved !== null && resolved !== 'param' ? prop(resolved, 'message') : undefined
+        const message = m && ts.isPropertyAssignment(m) ? m.initializer : m && ts.isShorthandPropertyAssignment(m) ? m.name : undefined
+        if (resolved !== 'param') sites.push({ key, family, line, chip: resolved !== null && dispatchCarriesChip(resolved),
+          userInput: !!message && reachesUserInput(message, tainted) })
       }
     }
     ts.forEachChild(n, visit)
@@ -229,5 +329,50 @@ describe('Olumi\'s text never reaches CEE as the user\'s typed words (shrink-onl
     ].join('\n')
     const sites = scanSource('fixture.ts', fixture)
     expect(sites.map(s => [s.family, s.chip])).toEqual([['send', false], ['send', true], ['dispatch', false], ['dispatch', true]])
+  })
+})
+
+describe('⇄ SYMMETRIC — the person\'s own words never reach CEE as a chip (shrink-only)', () => {
+  it('no send whose message comes from user input carries a chip, beyond the recorded baseline', () => {
+    const counts = new Map<string, number>()
+    for (const s of scanTree()) if (s.userInput && s.chip) counts.set(s.key, (counts.get(s.key) ?? 0) + 1)
+    const over = [...counts].filter(([k, n]) => n > (USER_INPUT_CHIP_ALLOWED[k]?.count ?? 0)).map(([k, n]) => `${k}: ${n}`)
+    const stale = Object.entries(USER_INPUT_CHIP_ALLOWED).filter(([k, v]) => (counts.get(k) ?? 0) < v.count).map(([k]) => `${k} — lower it`)
+    expect(over).toEqual([])
+    expect(stale).toEqual([])
+  }, 60_000)
+
+  it('CONTRAST: the provenance scan sees the known user-input sends (typed constraint, Respond/askAi words, Generate brief, composer)', () => {
+    const typed = scanTree().filter(s => s.userInput)
+    const has = (key: string) => typed.some(s => s.key === key)
+    expect(has('canvas/components/pre-analysis/SuccessTarget.tsx::send(trimmed)')).toBe(true)
+    expect(has('canvas/conversation/askAi.ts::state._sendMessage(req.userWords)')).toBe(true)
+    expect(has('canvas/conversation/ConversationPanel.tsx::sendMessage(brief)')).toBe(true)
+    // Magnitude: most allow-listed typed-composer sources are seen as user input by provenance, not by the list.
+    expect(Object.keys(ALLOWED).filter(has).length).toBeGreaterThanOrEqual(7)
+    // …and Olumi-text chip sites are NOT (the predicate does not answer yes for everything).
+    expect(typed.some(s => /GuidanceStrip\.tsx::onSendMessage\(action\.prompt\)$/.test(s.key))).toBe(false)
+    expect(scanTree().filter(s => s.chip && !s.userInput).length).toBeGreaterThanOrEqual(30)
+  }, 60_000)
+
+  it('POSITIVE CONTROL: a synthetic user-input send or dispatch with a chip is flagged; its chipless twin and an Olumi-text chip are not', () => {
+    const fixture = [
+      "const [draft, setDraft] = useState('')",
+      "const typed = <input onChange={(e) => setDraft(e.target.value)} />",
+      "const words = draft.trim()",
+      "const dispatch = useGuidanceStore.getState()._dispatchAction",
+      "sendMessage(words, { chipMeta: { id: 'x' } })",
+      "dispatch({ label: 'Add', message: `Add: ${words}`, source: 'chip' })",
+      "sendMessage(words)",
+      "sendMessage('Olumi asks: is 20% realistic?', { chipMeta: { id: 'y' } })",
+      "const brief = composerRef.current?.consumeBrief()",
+      "sendMessage(brief, { chipMeta: { id: 'z' } })",
+      "askAi({ userWords: 'x' }); state._sendMessage(req.userWords, { chipMeta: { id: 'w' } })",
+    ].join('\n')
+    const sites = scanSource('fixture.tsx', fixture)
+    expect(sites.map(s => [s.family, s.userInput, s.chip])).toEqual([
+      ['send', true, true], ['dispatch', true, true], ['send', true, false], ['send', false, true],
+      ['send', true, true], ['send', true, true],
+    ])
   })
 })

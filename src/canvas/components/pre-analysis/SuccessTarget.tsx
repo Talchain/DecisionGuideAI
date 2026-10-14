@@ -159,18 +159,12 @@ export function SuccessTarget({
   const handleAddConstraint = useCallback(() => {
     const trimmed = constraintInput.trim()
     if (!trimmed) return
-    const dispatch = useGuidanceStore.getState()._dispatchAction
-    if (dispatch) {
-      dispatch({
-        action_type: 'add_constraint',
-        parameters: { description: trimmed },
-        label: 'Add constraint',
-        message: `I'd like to add a constraint: ${trimmed}`,
-        source: 'pre_analysis',
-      })
-    } else {
-      onSendMessage?.(`I'd like to add a constraint: ${trimmed}`)
-    }
+    // The person's own words, alone and chipless (`composer`): CEE's typed-constraint door reads only non-chip turns and
+    // only a message that IS the complete statement (`explicit-constraint-edit.ts` `direct`), then saves the figure as
+    // `user_explicit`. A chip (`add_constraint` + `{ description }`) failed CEE's typed-chip schema and demoted the words;
+    // an "I'd like to add a constraint:" frame made the statement partial, so the door never fired.
+    const send = useGuidanceStore.getState()._sendMessage ?? onSendMessage
+    send?.(trimmed)
     setConstraintInput('')
     setShowConstraintInput(false)
   }, [constraintInput, onSendMessage])

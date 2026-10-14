@@ -25,10 +25,13 @@ export interface AskAiRequest {
   nodeIds?: Iterable<string>
   edgeIds?: Iterable<string>
   pressId?: string
-  /** Only words the person typed may enter the composer wire. */
+  /**
+   * Words the person typed. They go out ONLY as the person's own: a chipless composer send, never a chip and never
+   * with typed parameters (the contract permits `chip.parameters` only on chip sources, and CEE credits a turn's words
+   * to the user only when it is chipless `composer` — `stated-by-user.ts` `typedByUser`, `turn-executor.ts` explicit-
+   * constraint door). Olumi's own text never joins them here.
+   */
   userWords?: string
-  /** Typed finding or method context for the person's own response. */
-  parameters?: Record<string, unknown>
   node?: { type?: string; data?: unknown }
 }
 export type AskAiResult = 'sent' | 'busy' | 'refire' | 'none'
@@ -141,8 +144,7 @@ const lastSends = new WeakMap<object, Map<string, number>>()
 export function askAi(req: AskAiRequest): AskAiResult {
   if (req.userWords === undefined && !req.intent && !req.pressId) return 'none'
   const state = useGuidanceStore.getState()
-  const hasParameters = req.parameters !== undefined
-  const send = req.userWords !== undefined && !hasParameters ? state._sendMessage : state._dispatchAction
+  const send = req.userWords !== undefined ? state._sendMessage : state._dispatchAction
   if (!send || (req.userWords !== undefined && !req.userWords.trim())) return 'none'
   const canvas = useCanvasStore.getState?.()
   const request = req.userWords !== undefined && req.nodeIds === undefined && req.edgeIds === undefined
@@ -150,7 +152,7 @@ export function askAi(req: AskAiRequest): AskAiResult {
   const built = buildAskAiQuestion(request)
   const text = req.userWords ?? built.question
   const key = JSON.stringify([req.intent ?? built.id, built.nodeIds, built.edgeIds,
-    req.userWords === undefined ? null : text, req.parameters])
+    req.userWords === undefined ? null : text])
   const owner = send
   const previous = lastSends.get(owner)?.get(key)
   if (previous !== undefined && Date.now() - previous < 500) return 'refire'
@@ -167,11 +169,9 @@ export function askAi(req: AskAiRequest): AskAiResult {
   lastSends.set(owner, clocks)
   bindAskTarget(text, built.nodeIds, built.edgeIds, true)
   try {
-    if (req.userWords !== undefined) {
-      // The published schema permits typed parameters only on chip sources.
-      if (hasParameters) state._dispatchAction!({ label: text, message: text, parameters: req.parameters, source: 'chip' })
-      else state._sendMessage!(text)
-    } else state._dispatchAction!({ id: built.id, label: text, message: text, source: 'chip' })
+    // The person's words: chipless composer. Olumi's question: a chip carrying its press id.
+    if (req.userWords !== undefined) state._sendMessage!(req.userWords)
+    else state._dispatchAction!({ id: built.id, label: built.question, message: built.question, source: 'chip' })
   } catch (error) {
     clearAskTargetBinding(); clocks.delete(key); throw error
   }

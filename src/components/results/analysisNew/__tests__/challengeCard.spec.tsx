@@ -460,9 +460,12 @@ describe('"I disagree" on the promoted finding records the objection', () => {
  * sent through the SAME existing ask route the AI icon already uses. It is a
  * SECOND act beside that icon, never a replacement for it (ruling
  * `c5806258826.md` §3: "primary AI act = Olumi AI icon / existing ask
- * route"), and it must not compose a question the producer never sent — the
- * message keeps the heading plus the reader's exact words. Finding and method
- * identity travel in parameters, targets through typed binding; busy sends retain the response.
+ * route"), and it must not compose a question the producer never sent.
+ * T1H-3 (14 Oct): the message is the reader's exact words ALONE — chipless
+ * composer, so CEE credits them to the user. The card heading (Olumi's copy)
+ * and typed parameters (which force a chip; no CEE reader consumed them) no
+ * longer travel; the target still does, through typed binding. Busy sends
+ * retain the response.
  */
 describe('Respond — the reader\'s own thinking, through the existing ask route', () => {
   it('is offered beside the AI icon, closed at rest, for a grounded intervention', () => {
@@ -501,7 +504,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.change(screen.getByTestId('cc-respond-note'), { target: { value: text } })
     vi.mocked(askAi).mockReturnValue('busy')
     fireEvent.click(screen.getByTestId('cc-respond-send'))
-    expect(askAi).toHaveBeenCalledWith(expect.objectContaining({ userWords: `On ‘${FLIP.title}’:\n${text}` }))
+    expect(askAi).toHaveBeenCalledWith(expect.objectContaining({ userWords: text }))
     expect(screen.getByTestId('cc-respond-note')).toHaveValue(text)
   })
 
@@ -529,7 +532,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
 
     expect(askAi).toHaveBeenCalledTimes(1)
-    expect(askAi).toHaveBeenCalledWith({ userWords: 'On ‘Test the assumption about Price elasticity’:\nI think the price elasticity is overstated', parameters: { block_id: 'blk_resp', method_id: 'pre_mortem' }, nodeIds: ['opt_a'], edgeIds: [] })
+    expect(askAi).toHaveBeenCalledWith({ userWords: 'I think the price elasticity is overstated', nodeIds: ['opt_a'], edgeIds: [] })
     // The AI icon's own route is untouched — Respond is an ADDITIONAL door.
     expect(onRunIntervention).not.toHaveBeenCalled()
     expect(onRunMethod).not.toHaveBeenCalled()
@@ -547,7 +550,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
 
     expect(askAi).toHaveBeenCalledTimes(1)
     const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual({ userWords: 'On ‘Run a pre-mortem’:\nWorth checking the downside case', parameters: { method_id: 'pre_mortem' } })
+    expect(payload).toEqual({ userWords: 'Worth checking the downside case' })
   })
 
   /**
@@ -582,7 +585,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'About B' } })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
     const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual({ userWords: `On ‘${b.title}’:\nAbout B`, parameters: { method_id: b.id } })
+    expect(payload).toEqual({ userWords: 'About B' })
     expect(payload.userWords).not.toContain('METHOD A')
   })
 
@@ -602,7 +605,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     expect(screen.getByTestId('analysis-new-challenge-respond-note')).toHaveValue('')
   })
 
-  it('carries no parameters when the rec holds none — never fabricating a block id', () => {
+  it('carries no parameters when the rec holds none — never fabricating a block id (T1H-3: none ever, the words go alone)', () => {
     const r = viaVm(rec({ id: 'strengthen:flip:edge_noparam' }))
     expect(r.action.parameters, 'PRECONDITION: this fixture must hold no parameters').toBeUndefined()
     renderCard({ intervention: r })
@@ -610,6 +613,6 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'A note' } })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
     const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual({ userWords: 'On ‘Test the assumption about Price elasticity’:\nA note', nodeIds: [], edgeIds: [] })
+    expect(payload).toEqual({ userWords: 'A note', nodeIds: [], edgeIds: [] })
   })
 })
