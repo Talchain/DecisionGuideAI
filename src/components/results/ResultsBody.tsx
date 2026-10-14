@@ -11,8 +11,6 @@
 
 import { useOptionCoverage } from '../../v5/blocks/useOptionCoverage'
 import { leaderDesignationPermitted } from './leaderDesignation'
-import { analysisClaimPolicy } from './analysisClaimPolicy'
-import { rankingWasWithheld } from './leaderDesignation'
 import { buildCoverageDisclosure } from './utils/optionCoverage'
 import { useCanvasNodeLabels } from '../../v5/blocks/useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
@@ -59,6 +57,13 @@ export interface StrengthCorrectionDisplay {
 
 export interface ResultsBodyProps {
   resultsSectionData: ResultsSectionDataReturn
+  /**
+   * May this run's ranking stability be stated — computed ONCE by the caller
+   * (OutputsDock's `footerStabilityLicensed`: `mayStateStability` and the leader
+   * not withheld) so the footer and the receipts row read one value. FAIL-CLOSED:
+   * absent renders "Robustness not established".
+   */
+  stabilityLicensed?: boolean
   tornadoData: { rows: TornadoRow[]; expectedOutcome: number | null }
   highlightedDriverId?: string | null
   registerDriverRef?: (factorKey: string, el: HTMLDivElement | null) => void
@@ -102,6 +107,7 @@ export interface ResultsBodyProps {
 
 export const ResultsBody = memo(function ResultsBody({
   resultsSectionData,
+  stabilityLicensed,
   tornadoData,
   highlightedDriverId,
   registerDriverRef,
@@ -953,10 +959,7 @@ export const ResultsBody = memo(function ResultsBody({
         <AdvancedSection
           context={resultsSectionData.confidence.critiqueRunContext}
           robustnessVerdict={resultsSectionData.recommendation.robustnessVerdict}
-          stabilityLicensed={
-            analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability &&
-            !rankingWasWithheld(resultsSectionData.recommendation)
-          }
+          stabilityLicensed={stabilityLicensed === true}
           freshnessReason={freshnessReason}
           responseHashIsLocal={responseHashIsLocal}
           nSamples={nSamples}

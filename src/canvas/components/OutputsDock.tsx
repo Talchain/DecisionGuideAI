@@ -3992,6 +3992,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       factor transaction remains available in Model. */}
                   <ResultsBody
                     resultsSectionData={resultsSectionData}
+                    stabilityLicensed={footerStabilityLicensed}
                     tornadoData={tornadoData}
                     highlightedDriverId={highlightedDriverId}
                     registerDriverRef={registerDriverRef}
