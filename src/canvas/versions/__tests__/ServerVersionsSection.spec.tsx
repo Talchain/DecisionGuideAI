@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 
 const SCENARIO = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const USER = '0f8a1b2c-3d4e-4f50-9a6b-7c8d9e0f1a2b'
@@ -138,7 +138,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  useCanvasStore.setState({ currentScenarioId: null } as never)
+  useCanvasStore.setState({ currentScenarioId: null, lastServerGraphHash: null } as never)
 })
 
 describe('ServerVersionsSection — list', () => {
@@ -163,6 +163,30 @@ describe('ServerVersionsSection — list', () => {
     const { container } = render(<ServerVersionsSection />)
     expect(container).toBeEmptyDOMElement()
     expect(listModelVersions).not.toHaveBeenCalled()
+  })
+})
+
+describe('ServerVersionsSection — an open panel follows the shared model (#1943)', () => {
+  it('a new served graph hash reads the list again: the open panel shows the new version number', async () => {
+    useCanvasStore.setState({ lastServerGraphHash: HASH_HEAD } as never)
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')[0]).toHaveTextContent('v2'))
+    const reads = listModelVersions.mock.calls.length
+    const HASH_TURN = 'd'.repeat(64)
+    listModelVersions.mockResolvedValue({
+      status: 'list',
+      versions: [serverVersion({ id: 'dddddddd-4444-4444-8444-dddddddddddd', versionNumber: 3, label: null,
+        provenance: 'committed_mutation', graphIdentityHash: HASH_TURN }), ...TWO_VERSIONS],
+      currentVersionId: 'dddddddd-4444-4444-8444-dddddddddddd',
+      requestId: 'req-2',
+    })
+    // Contrast: the same hash again is not a change, and reads nothing.
+    act(() => { useCanvasStore.setState({ lastServerGraphHash: HASH_HEAD } as never) })
+    expect(listModelVersions).toHaveBeenCalledTimes(reads)
+    act(() => { useCanvasStore.setState({ lastServerGraphHash: HASH_TURN } as never) })
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')[0]).toHaveTextContent('v3'))
+    expect(screen.getAllByTestId('server-version-row')[0]).toHaveTextContent(/current/i)
+    expect(listModelVersions).toHaveBeenCalledTimes(reads + 1)
   })
 })
 

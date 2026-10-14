@@ -452,15 +452,19 @@ export function ServerVersionsSection() {
     setComparison({ kind: 'idle' })
   }, [scenarioId])
 
+  /** The latest list read: an older read that answers late never replaces a newer list. */
+  const listSeqRef = useRef(0)
+
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
+    const seq = ++listSeqRef.current
     // Both fields from ONE read — see the note on `handleSave` below.
     const identity = await getSessionIdentity()
     const result = await listModelVersions(scenarioId, {
       userId: identity.userId,
       accessToken: identity.accessToken,
     })
-    if (!mountedRef.current) return
+    if (!mountedRef.current || seq !== listSeqRef.current) return
     if (result.status === 'list') {
       setPhase({
         kind: 'ready',
@@ -491,6 +495,19 @@ export function ServerVersionsSection() {
       void refresh()
     }
   }, [addressable, signedIn, refresh])
+
+  /**
+   * ⭐ #1943: AN OPEN PANEL FOLLOWS THE SHARED MODEL. The panel stays mounted while it is open, so a turn, an edit or
+   * another writer that moves the graph hash CEE served would leave the old version number on screen. A new served hash
+   * reads the list again, in place (no loading state).
+   */
+  const servedGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
+  const seenGraphHashRef = useRef(servedGraphHash)
+  useEffect(() => {
+    if (seenGraphHashRef.current === servedGraphHash) return
+    seenGraphHashRef.current = servedGraphHash
+    if (addressable && signedIn && servedGraphHash !== null) void refresh()
+  }, [servedGraphHash, addressable, signedIn, refresh])
 
   // No server-addressable scenario ⇒ nothing to offer; the local history
   // above is the whole story. Rendering a dead section would be an
