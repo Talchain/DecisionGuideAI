@@ -71,7 +71,6 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
-import { typography } from '../../../../styles/typography'
 import { conclusionLabel, panelHasConclusion } from '../panelLead'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
@@ -112,6 +111,17 @@ function firstNonWhitespaceTextNode(root: HTMLElement): Text | null {
   let node: Node | null
   while ((node = walker.nextNode())) {
     if (node.textContent && node.textContent.trim().length > 0) return node as Text
+  }
+  return null
+}
+
+/** The n-th (1-based) non-whitespace text node, in the same document order. */
+function nthNonWhitespaceTextNode(root: HTMLElement, n: number): Text | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+  let seen = 0
+  while ((node = walker.nextNode())) {
+    if (node.textContent && node.textContent.trim().length > 0 && ++seen === n) return node as Text
   }
   return null
 }
@@ -173,7 +183,11 @@ describe('the panel leads with the decision being made', () => {
   it('PRECONDITION: the strip is reachable — a census needs a surface', () => {
     renderBody(genuineDecision())
     expect(screen.getByTestId('analysis-new-model-strip-lead')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-model-strip-goal')).toBeInTheDocument()
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The goal is the Goal row, not a sub-label.
+    const goalRow = screen.getByTestId('analysis-new-model-strip-target')
+    expect(goalRow).toHaveAttribute('data-kind', 'goal')
+    expect(screen.getByTestId('analysis-new-model-strip-target-text')).toHaveTextContent('Sustained margin')
+    expect(screen.queryByTestId('analysis-new-model-strip-goal'), 'the open strip has no separate goal sub-label').toBeNull()
   })
 
   it.each([
@@ -190,16 +204,28 @@ describe('the panel leads with the decision being made', () => {
     const firstText = firstNonWhitespaceTextNode(container)
     expect(firstText, 'PRECONDITION: the panel body must render some text').not.toBeNull()
     const lead = screen.getByTestId('analysis-new-model-strip-lead')
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The first row's own name precedes the lead,
+    // so the first text is that row's, and the lead is the very next text the panel says.
+    const decisionRow = screen.getByTestId('analysis-new-model-strip-decision')
     expect(
-      lead.contains(firstText!.parentElement),
-      'the decision line must be the first thing the panel says',
+      decisionRow.contains(firstText!.parentElement),
+      'the decision row must be the first thing the panel says',
+    ).toBe(true)
+    const secondText = nthNonWhitespaceTextNode(container, 2)
+    expect(
+      secondText !== null && lead.contains(secondText.parentElement),
+      'the decision line must follow only its own row name',
     ).toBe(true)
   })
 
   it('⭐ the DECISION leads even on a run that reached a conclusion', () => {
     renderBody(genuineDecision())
     const lead = screen.getByTestId('analysis-new-model-strip-lead')
-    expect(lead.className, 'the lead carries the panel ceiling, panelHeader').toContain(typography.panelHeader.split(' ')[0]!)
+    // Paul 14 Oct 2026: one checklist — Brief/Decision, Goal, census. The decision shows again, as the first row's
+    // text (one clipped line), and still names the region (never aria-hidden).
+    expect(lead, 'the decision is displayed, not visually hidden').not.toHaveClass('sr-only')
+    expect(screen.getByTestId('analysis-new-model-strip-lead-text')).toHaveTextContent('Which data platform to adopt')
+    expect(lead.closest('[aria-hidden="true"]'), 'never hidden from assistive tech').toBeNull()
 
     /**
      * ⛔⛔ AND THERE IS NO CONCLUSION AT ALL — DELETED, NOT DEMOTED.

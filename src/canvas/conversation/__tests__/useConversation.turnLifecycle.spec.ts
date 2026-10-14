@@ -80,6 +80,7 @@ vi.mock('../../../flags', async (importOriginal) => ({
 
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { edgePairKey } from '../../utils/graphIdentity'
 import { useDraftStore } from '../../stores/draftStore'
 import {
   setPersistenceSessionActive,
@@ -223,7 +224,7 @@ describe('the turn lifecycle', () => {
     // The live turn's own 175 s wait still fires.
     await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
     expect(result.current.isThinking, 'the live turn lost its wait timer and spins forever').toBe(false)
-    expect(captured.map((c) => c.message)).toContain('Chat turn failed: timeout')
+    expect(captured.map((c) => c.message)).toContain('Chat turn failed: delivery_unknown')
   })
 
   it('(6) buddy r2 P1-3: a retry reusing the client turn id is not ended by the old attempt\'s late exit', async () => {
@@ -247,4 +248,127 @@ describe('the turn lifecycle', () => {
     expect(result.current.isThinking, 'the old attempt ended the live retry').toBe(true)
     expect(captured.map((c) => c.message), 'a superseded attempt is not this turn\'s failure').not.toContain('Chat turn failed: session_timeout')
   })
+})
+
+
+// Recovery Batch B amendment (PL, accepted by the DL, 12 Oct): three outcomes, decided by dispatch evidence.
+// A request that was dispatched but never answered may still have been received and applied by the server.
+const NOT_DELIVERED = "Your message wasn't sent. Check your connection and try again."
+const DELIVERY_UNKNOWN = "We couldn't confirm your message arrived. Check the conversation before sending it again."
+
+/** The transport reached its own dispatch boundary (`onRequestStarted`, just before `fetch`), then `then` settles it. */
+const afterDispatch = (then: () => Promise<unknown>) =>
+  (_p: unknown, o?: { onRequestStarted?: () => void }) => { o?.onRequestStarted?.(); return then() }
+
+describe('send failure labels follow delivery evidence (three outcomes)', () => {
+  const sendAndRead = async () => {
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+    return result
+  }
+
+  it.each([
+    ['offline before dispatch (the transport proves no fetch started)',
+      () => mockCallV5Turn.mockResolvedValueOnce({ kind: 'parse_error', reason: 'offline before dispatch', requestNotStarted: true })],
+    ['a failure before the fetch started',
+      () => mockCallV5Turn.mockRejectedValueOnce(new Error('request construction failed'))],
+  ])('(a) %s: confirmed not sent', async (_name, arrange) => {
+    arrange()
+    const result = await sendAndRead()
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['not_sent'])
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('failed')
+    expect(result.current.messages.at(-1)?.content).toBe(NOT_DELIVERED)
+    expect(result.current.lastSendFailure?.kind).toBe('not_sent')
+  })
+
+  it.each([
+    ['a network error after dispatch', afterDispatch(async () => ({ kind: 'parse_error', reason: 'network error: Failed to fetch' }))],
+    ['an abort mid-flight', afterDispatch(async () => { throw new DOMException('The operation was aborted', 'AbortError') })],
+    // No dispatch callback and no proof either way: never claimed as not sent (fail toward unknown).
+    ['a network error with no proof that the fetch never started', async () => ({ kind: 'parse_error', reason: 'network error: Failed to fetch' })],
+  ])('(b) %s: delivery unknown, never "not delivered"', async (_name, impl) => {
+    mockCallV5Turn.mockImplementationOnce(impl)
+    const result = await sendAndRead()
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['delivery_unknown'])
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('unconfirmed')
+    expect(result.current.messages.at(-1)?.content).toBe(DELIVERY_UNKNOWN)
+    expect(result.current.messages.some(m => m.content === NOT_DELIVERED)).toBe(false)
+    expect(result.current.lastSendFailure?.kind).toBe('delivery_unknown')
+  })
+
+  it('(b) a timeout with no response: delivery unknown', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    mockCallV5Turn.mockImplementationOnce(afterDispatch(() => new Promise(() => {})))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { void result.current.sendMessage('hello'); await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['delivery_unknown'])
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('unconfirmed')
+    expect(result.current.messages.at(-1)?.content).toBe(DELIVERY_UNKNOWN)
+    expect(result.current.lastSendFailure?.kind).toBe('delivery_unknown')
+  })
+
+  it('(c) an actual HTTP 503 is a server failure', async () => {
+    mockCallV5Turn.mockImplementationOnce(afterDispatch(async () => ({ kind: 'parse_error', reason: 'unavailable', http_status: 503, raw: 'Unavailable' })))
+    const result = await sendAndRead()
+    expect(captured.map(c => c.tags.turn_failure)).toEqual(['server'])
+    expect(result.current.lastSendFailure?.kind).toBe('server')
+  })
+
+  it('(b) Try again re-sends under the SAME turn id, the key CEE deduplicates on', async () => {
+    mockCallV5Turn
+      .mockImplementationOnce(afterDispatch(async () => ({ kind: 'parse_error', reason: 'network error: Failed to fetch' })))
+      .mockResolvedValueOnce(ok('answered'))
+    const result = await sendAndRead()
+    expect(result.current.messages.at(-1)?.actionChips?.map(c => c.id)).toEqual(['retry'])
+    await act(async () => { await result.current.retryLast() })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    const [first, second] = mockCallV5Turn.mock.calls.map(c => (c[0] as { turn_id?: unknown }).turn_id)
+    expect(typeof first === 'string' && first.length > 0).toBe(true)
+    expect(second).toBe(first)
+    expect(result.current.messages.filter(m => m.role === 'user')).toHaveLength(1)
+    expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('sent')
+  })
+})
+
+
+it('drops an older positive add queued before the negative review reached the model', async () => {
+  const first = controllable()
+  let persistedMean = -0.55
+  mockCallV5Turn.mockImplementationOnce(() => first.promise).mockImplementationOnce(payload => {
+    // Simulate the stale write actually landing, not merely a failed attempt.
+    const event = payload.event
+    persistedMean = event.effect_direction === 'negative' ? -event.magnitude : event.magnitude
+    return ok('Older add applied')
+  })
+  const { result } = renderHook(() => useConversation())
+  let sending: Promise<unknown>
+  await act(async () => { sending = result.current.sendMessage('review this link'); await new Promise(r => setTimeout(r, 0)) })
+  await act(async () => { await result.current.sendSystemEvent({ type: 'structural_add_edge', payload: {
+    from: 'marketing', to: 'revenue', magnitude: 0.55, effect_direction: 'positive', base_graph_hash: 'old',
+  } }) })
+  expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  await act(async () => {
+    useCanvasStore.setState({ lastAuthoritativeGraph: { nodeIds: ['marketing', 'revenue'], edgePairs: [edgePairKey('marketing', 'revenue')] },
+      edges: [{ id: 'reviewed', source: 'marketing', target: 'revenue', data: { weight: 0.55, direction: 'negative', directionSource: 'user', serverStrength: { mean: -0.55, effect_direction: 'negative' } } }] } as never)
+    first.resolve(ok('Reviewed: hurts, strong'))
+    await sending!
+    await new Promise(r => setTimeout(r, 0))
+  })
+  expect(persistedMean).toBe(-0.55)
+  expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  expect(useCanvasStore.getState().edges[0].data).toMatchObject({ direction: 'negative', directionSource: 'user' })
+})
+
+it('a timeout after HTTP acknowledgement keeps delivery uncertain', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  mockCallV5Turn.mockImplementation((_payload, opts) => {
+    opts.onResponseReceived?.()
+    return new Promise(() => {})
+  })
+  const { result } = renderHook(() => useConversation())
+  await act(async () => { void result.current.sendMessage('hello'); await vi.advanceTimersByTimeAsync(0) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
+  expect(captured.map(c => c.tags.turn_failure)).toEqual(['timeout'])
+  expect(result.current.messages.find(m => m.role === 'user')?.deliveryState).toBe('unconfirmed')
 })

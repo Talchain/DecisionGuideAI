@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '@/components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐⭐ ONE NOUN PER IDEA — ASSERTED ACROSS TWO CARDS, FROM ONE REPORT.
  *
@@ -53,6 +54,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { RETIRED_METRIC_NOUNS, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 import {
   LEADER_ID,
@@ -86,24 +88,28 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const NODES = [
   { id: 'decision-1', type: 'decision', data: { type: 'decision' } },
-  { id: LEADER_ID, type: 'option', data: { type: 'option', label: LEADER_LABEL } },
-  { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', label: RUNNER_UP_LABEL } },
+  { id: LEADER_ID, type: 'option', data: { type: 'option', kind: 'option', label: LEADER_LABEL } },
+  { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', kind: 'option', label: RUNNER_UP_LABEL } },
 ]
+
+const CHANCE_REPORT = withLicensedOptionChances(PERMITTED_REPORT, { [LEADER_ID]: 41, [RUNNER_UP_ID]: 29 })
 
 const storeState = {
   nodes: NODES,
   edges: [],
   hoveredOptionId: null,
   ceeAnalysisReady: null,
-  results: { status: 'complete', report: PERMITTED_REPORT },
+  results: { status: 'complete', report: CHANCE_REPORT },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set(),
   dimmedNodeIds: new Set(),
   lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   setHoveredOption: vi.fn(),
   viewMode: 'expert',
@@ -134,11 +140,12 @@ const baseProps = {
 }
 
 /** Both cards, one report, one render — as a user meets them on the board. */
-function renderBoard() {
+function renderBoard(withView = false) {
+  const state = withView ? installCanonicalFixtureState(storeState) : storeState
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...METADATA } as any)
-  vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(storeState as any))
+  vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(state as any))
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <DecisionNode
         {...(baseProps as any)}
         id="decision-1"
@@ -151,7 +158,7 @@ function renderBoard() {
         type="option"
         data={{ label: LEADER_LABEL, type: 'option' }}
       />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -201,46 +208,20 @@ describe('one noun per idea — the option card speaks the register', () => {
    * cards. What still can drift is the option card drifting from the REGISTER,
    * and that is what survives below.
    */
-  it('the option card uses no retired synonym for the shared quantity', () => {
-    renderBoard()
-    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
-    const spoken = `${optionRow.getAttribute('aria-label') ?? ''} ${optionRow.textContent ?? ''}`
-    for (const retired of RETIRED_METRIC_NOUNS) {
-      expect(spoken, `the option card spoke the retired noun "${retired}"`)
-        .not.toMatch(new RegExp(`\\b${retired}\\b`, 'i'))
-    }
-    // …and it DOES speak the register's own word, so the arm cannot pass on a
-    // card that says nothing at all.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — "Do not use
-    // `Support` as the result label. It reads as endorsement. Any result shown at
-    // rest must be explicitly model-relative, e.g. `Current model · 55% of runs`."
-    // The register's words for this quantity are now `OPTION_RESULT_COPY`: a
-    // currency caption + "N% of runs". Positive half bound to the row's own
-    // anchor/readout by test id. "Support" as the result LABEL is asserted ABSENT
-    // below; the verb "supported" is the ruled run-share verb (DL #87 6004906342,
-    // which supersedes the broader reading of ED 11:52Z).
-    const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
-    expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). The prefix is its own
-    // leaf before the readout (figure + unit); the row's name speaks them as the register's one `share()` string.
-    const prefix = screen.getByTestId(`option-win-prefix-${LEADER_ID}`).textContent ?? ''
-    expect(prefix).toBe(OPTION_RESULT_COPY.sharePrefix)
-    const readout = screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent ?? ''
-    expect(readout).toBe(`${Math.round(WIN_LEADER * 100)}% ${OPTION_RESULT_COPY.shareUnit}`)
-    expect(`${prefix} ${readout}`).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
-    expect(spoken).toContain(`${anchor} · ${prefix} ${readout}`)
-    // ED 11:52Z point 4 retired "Support" as the result LABEL. The caption is never it, and no "Support N%" /
-    // "Support:" label form is spoken. Discriminating pair first, so the narrowed pattern cannot pass vacuously.
+  // #2747 re-scope 2 (U0): the card-side assertions are deleted — they read the noun the option card speaks for the shared
+  // quantity from its chance row (caption, readout, accessible name, "of runs", "Support"), and the canvas card shows no
+  // chance or share in C. The register-side assertions (the "Support" label pair, "Leads" retired) stay.
+  it('the register keeps the shared quantity\'s retired synonyms retired', () => {
+    // ED 11:52Z point 4 retired "Support" as the result LABEL: no "Support N%" / "Support:" label form.
+    // Discriminating pair first, so the narrowed pattern cannot pass vacuously.
     const SUPPORT_LABEL = /\bSupport(?![a-z])/
     expect('Support 66% of runs').toMatch(SUPPORT_LABEL)
     expect(OPTION_RESULT_COPY.share('66%')).not.toMatch(SUPPORT_LABEL)
-    expect(anchor).not.toMatch(/support/i)
-    expect(spoken, 'the option card still labels the result "Support"').not.toMatch(SUPPORT_LABEL)
     // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
 
-  it('⭐ REHOMED A11Y: the comparative claim reaches assistive tech EXACTLY ONCE', () => {
+  it('⭐ REHOMED A11Y: the comparative claim never reaches assistive tech twice', () => {
     // ⚠ THIS PROPERTY CAME FROM `decisionCardOneVocabulary.spec.tsx`, WHICH IS
     // RETIRED. That file's whole subject was the decision card's sentence and
     // bar speaking one vocabulary; both are gone. This one arm was never about
@@ -253,17 +234,8 @@ describe('one noun per idea — the option card speaks the register', () => {
     // `role="img"`, and any future visible restatement beside it would double
     // the announcement without changing a single rendered word.
     renderBoard()
-    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
-    // `getByRole` THROWS on more than one match, so this is the "exactly once"
-    // assertion — and binding the result to the row by identity is what makes
-    // it about THIS surface rather than whichever element matched first.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — the comparative
-    // claim is now the model-relative `OPTION_RESULT_COPY.sentence` ("In this
-    // model, N% of runs supported this option."; DL #87 6004906342),
-    // never "supported in …". Same carrier (`role="img"` + aria-label), same
-    // exactly-once property; the retired wording is asserted gone.
-    const claim = OPTION_RESULT_COPY.sentence(`${Math.round(WIN_LEADER * 100)}%`)
-    expect(screen.getByRole('img', { name: (name) => name.includes(claim) })).toBe(optionRow)
+    // #2747 re-scope 2 (U0): "the chance remains on exactly one accessible carrier (the option card's chance row)" is
+    // deleted — the canvas card shows no chance in C. The no-duplicate-decision-claim negative stays.
     expect(screen.queryByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBeNull()
   })
 
@@ -277,4 +249,11 @@ describe('one noun per idea — the option card speaks the register', () => {
     expect(src).not.toContain('Supported by')
     expect(src).not.toMatch(/label=["']Leads["']/)
   })
+})
+
+// #2747 re-scope 2 (U0): the server figure's readout and its one accessible carrier on the option card are deleted — the
+// canvas card shows no chance in C. The no-duplicate-decision-claim negative stays.
+it('view-bearing control: no duplicate decision claim', () => {
+  renderBoard(true)
+  expect(screen.queryByTestId(DECISION_ROW)).toBeNull()
 })

@@ -90,6 +90,7 @@ import type { Edge, Node } from '@xyflow/react'
 
 import type { EdgeData } from '../domain/edges'
 import { canvasEdgePairKey, edgePairKey } from '../utils/graphIdentity'
+import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
 
 /**
  * A canonical GraphV3 edge reference — the endpoint pair IS the edge's identity.
@@ -523,7 +524,7 @@ export { PROVEN_NO_WRITE_CONFLICT_CATEGORIES as STRUCTURAL_DELETE_NO_WRITE_CONFL
 // (editDeliveryHold: the lifecycle is not persisted; the boot merge shows CEE's
 // graph), named second so nobody is told to reload who did not need to.
 export const STRUCTURAL_DELETE_UNCONFIRMED_REMEDY =
-  'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this decision to see the saved model.'
+  'Would you like to ask Olumi to remove it? If Olumi finds it already gone, reload this scenario to see the saved model.'
 
 /**
  * The one honest sentence for a delete that WAS SENT, keyed by OUTCOME rather
@@ -569,7 +570,9 @@ export const STRUCTURAL_DELETE_NOTICE = {
    * reload at all.
    */
   base_hash_diverged:
-    "The saved model changed since you deleted that, so nothing was removed — I've put it back on the canvas rather than show you a deletion that never happened. Ask me anything about this decision and I'll re-sync with the saved model, then delete it again.",
+    "The saved model changed since you deleted that, so nothing was removed — I've put it back on the canvas rather than show you a deletion that never happened. Ask me anything about this scenario and I'll re-sync with the saved model, then delete it again.",
+  // CEE OLRV1 atomic rollback proves that nothing was written.
+  revision_conflict: REVISION_CONFLICT_NOTICE,
   /**
    * Any other server-side failure. The turn reached the server and failed; we
    * hold no committed bytes, so we know neither that it landed nor that it did
@@ -659,6 +662,6 @@ export const STRUCTURAL_DELETE_NOTICE = {
  * #1024 for. The gesture stays with the user.
  */
 export const STRUCTURAL_DELETE_STOOD_DOWN_NOTICE =
-  "Nothing was removed — I haven't confirmed the saved model's current state in this session, so I can't address a deletion to it. Ask me anything about this decision and I'll re-sync, then delete it again."
+  "Nothing was removed — I haven't confirmed the saved model's current state in this session, so I can't address a deletion to it. Ask me anything about this scenario and I'll re-sync, then delete it again."
 
 export type StructuralDeleteNoticeKey = keyof typeof STRUCTURAL_DELETE_NOTICE

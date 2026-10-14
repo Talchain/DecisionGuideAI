@@ -41,7 +41,7 @@
 
 import { classifyInterventionProvenance } from '@/canvas/domain/valueProvenance'
 import { resolveNodeTypeLiteral } from '@/canvas/domain/nodes'
-import { unwrapInterventionValue } from '@/canvas/utils/labelUtils'
+import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '@/canvas/utils/labelUtils'
 import { containsRawIdentifier } from './decisionBriefViewModel'
 
 /**
@@ -184,7 +184,13 @@ export function selectEstimatedInterventions(
       const { value, source } = unwrapInterventionValue(rawValue)
       if (value == null) continue
 
-      const provenance = classifyInterventionProvenance(source)
+      // A setting the host could not verify as the user's (`user_material_unverified`)
+      // classifies as `unverified_brief`, so it is not Olumi's estimate and is
+      // neither listed nor counted here: this note says "No figure for this was
+      // stated in your brief", which that stamp does not support.
+      const provenance = classifyInterventionProvenance(source, {
+        userMaterialUnverified: interventionIsUserMaterialUnverified(rawValue),
+      })
       if (provenance?.kind !== 'ai') continue
 
       const factorLabel = labelById.get(factorId)

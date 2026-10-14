@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * THE CANVAS CARD CARRIES NEITHER THE LEADER CLAIM NOR ITS ROBUSTNESS GRADE.
  *
@@ -24,6 +25,8 @@
  *
  * ⭐ THE DATA IS NOT THE CLAIM. The win share is still printed on a fragile run
  * — that half of the old suite is kept verbatim.
+ * (#2747 re-scope 2 (U0): no longer — the canvas card shows no chance or share in C, so that TWIN row is deleted and
+ * the card's label is the contrast control.)
  *
  * ⭐ EXCEPT WHEN THE PRODUCER WITHHOLDS THE LEADER — CURRENT-READ row 9 (AIQ
  * 5912710392): a per-option share names the leader in numbers, so a withheld
@@ -46,6 +49,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
@@ -61,6 +65,7 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -90,12 +95,13 @@ function reportWithRobustness(robustness: Record<string, unknown>) {
 const makeStoreState = (report: unknown) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: { status: 'complete', report },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   optionNumbering: { [NODE_ID]: 1, [SIBLING_ID]: 2 },
@@ -103,7 +109,7 @@ const makeStoreState = (report: unknown) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -126,14 +132,16 @@ const baseProps = {
   draggable: true,
 }
 
-function renderOption(report: unknown) {
+function renderOption(report: unknown, licensedChance = true) {
+  const chanceReport = licensedChance ? withLicensedOptionChances(report as object, { [NODE_ID]: 41, [SIBLING_ID]: 29 }) : report
+  const state = installCanonicalFixtureState(makeStoreState(chanceReport))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire a Tech Lead', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -144,14 +152,13 @@ beforeEach(() => {
 /**
  * ED #63 5799353114 decision 1 — absence of the claim AND of its qualifier,
  * each read from the SAME render as a contrast control that is present: the
- * card's label and its "N% of runs" result row. A blank render cannot pass.
+ * card's label (and, on a withheld run, its `Not ranked` marker). A blank render cannot pass.
  */
 function expectNoClaimNoGrade(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
   // CONTRAST CONTROL FIRST.
   expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
-  if (contrast === 'share') {
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
-  } else {
+  // #2747 re-scope 2 (U0): the 'share' arm's chance readout ("41%") is deleted — the canvas card shows no chance in C.
+  if (contrast !== 'share') {
     // CURRENT-READ row 9 (AIQ 5912710392): a withheld run's result slot holds `Not ranked` + the reason.
     const slot = screen.getByTestId(`option-share-slot-${NODE_ID}`)
     expect(slot.textContent).not.toMatch(/\d\s*%/)
@@ -198,20 +205,15 @@ describe('OptionNode — no leader pill and no robustness grade on the card (ED 
     expectNoClaimNoGrade(container)
   })
 
-  it('TWIN — the win probability is never suppressed on a fragile run', () => {
-    // ⚠ BOUND BY IDENTITY, and the first cut of this test was not: `getByText(/53%/)`
-    // matched several elements and threw. A value predicate another element can
-    // satisfy is trap 19, in the suite whose own header warns about it.
-    renderOption(reportWithRobustness({ level: 'very_low' }))
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53%')
-  })
+  // #2747 re-scope 2 (U0): row deleted — "TWIN — a licensed chance is never suppressed on a fragile run": its only subject,
+  // the chance readout on the canvas card, is removed in C.
 
   it('withheld crown on a fragile run: still neither — and the share is withheld too (CURRENT-READ row 9)', () => {
     const withheld = {
       ...reportWithRobustness({ level: 'very_low' }),
       producer_leader_permission: { permitted: false, withheld_reason: 'separation_unavailable' },
     }
-    const { container } = renderOption(withheld)
+    const { container } = renderOption(withheld, false)
     // CURRENT-READ row 9 (AIQ 5912710392): WAS contrasted against the share ("53% of runs"). A withheld
     // leader now withholds the share, so the contrast control is `Not ranked`. This stamp carries no
     // `producer_cause` (only `withheld_reason`), so the reason said is the fallback.

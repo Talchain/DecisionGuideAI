@@ -89,7 +89,8 @@ describe('gap TYPE-1: reasoningLead is retired, not demoted', () => {
 
   // ⭐ 8 Oct 2026 (Paul: the goal line was "too dominating and loud"): the lead steps down to `panelQuestion` — the
   // same 14px as the section titles, one weight lighter — and still never a raw size above the ceiling.
-  it('⭐⭐ the -lead element carries panelQuestion\'s own class, never a raw text-lg', () => {
+  // Paul 14 Oct 2026: the decision text no longer displays at the top of the Reasoning panel.
+  it('⭐⭐ the -lead element is sr-only (visually hidden, still in the accessibility tree), never a raw text-lg', () => {
     setNodes([
       { id: 'd1', type: 'decision', data: { label: 'Which data platform to adopt' } },
       { id: 'g1', type: 'goal', data: { label: 'Sustained margin' } },
@@ -97,9 +98,9 @@ describe('gap TYPE-1: reasoningLead is retired, not demoted', () => {
     ])
     render(<ModelStrip isPreRun={false} />)
     const lead = screen.getByTestId(`${TID}-lead`)
-    for (const cls of typography.panelQuestion.split(' ')) {
-      expect(lead.className).toContain(cls)
-    }
+    expect(lead).toHaveClass('sr-only')
+    expect(lead.closest('[aria-hidden="true"]'), 'hidden visually, never from assistive tech').toBeNull()
+    expect(screen.getByTestId(`${TID}-goal`)).toHaveClass('sr-only')
     expect(lead.className).not.toMatch(/\btext-lg\b/)
     expect(lead.className, 'one weight under the section titles').not.toContain('font-medium')
   })

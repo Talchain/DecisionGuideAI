@@ -11,6 +11,7 @@
  */
 
 import { memo } from 'react'
+import { UNVERIFIED_BRIEF_LABEL } from '../../../domain/valueProvenance'
 import { Check, Plus, Pencil, Sparkles } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
@@ -51,7 +52,9 @@ function reviewedPillCopy(kind: EstimateRowModel['provenanceKind']): string {
 }
 
 export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle, onAsk }: EstimateRowProps) {
-  const pill = row.reviewed ? (
+  const pill = row.provenanceKind === 'unverified_brief' ? (
+    <Pill variant="default" size="small">{UNVERIFIED_BRIEF_LABEL}</Pill>
+  ) : row.reviewed ? (
     <Pill variant="success" size="small">{reviewedPillCopy(row.provenanceKind)}</Pill>
   ) : row.needsValue ? (
     <Pill variant="warning" size="small">{ATTRIBUTION_COPY.needsValue}</Pill>

@@ -1,0 +1,109 @@
+import '@testing-library/jest-dom/vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { OptionNode } from '../../../../canvas/nodes/OptionNode'
+import { OptionChanceCellProvider } from '../../../../canvas/nodes/shared/OptionChanceCellProvider'
+import { useCanvasStore } from '../../../../canvas/store'
+import { buildRunView, CHANCE_NOT_SHOWN_YET } from '../../../../canvas/runView/runView'
+const TEST_WITHHELD_FACE = 'Olumi can’t yet say its chance of meeting your goal, in this model.'
+
+import { chanceCellOf, withChanceReport } from './helpers/chanceCellOf'
+import { useResultsSectionData } from '../../useResultsSectionData'
+import { buildHeroModel } from '../buildHeroModel'
+import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
+import { HERO_COPY } from '../heroCopy'
+import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
+import { fx, seedPaulRun, resetPaulRun, SERVED_STAMP } from '../../__tests__/helpers/paulRun4276f3f9'
+
+
+vi.mock('@xyflow/react', async () => ({ ...await vi.importActual<Record<string, unknown>>('@xyflow/react'), Handle: () => null }))
+const X = 'angel_bridge'
+const IDS = fx.draft.nodes.filter(n => n.kind === 'option').map(n => n.id)
+// Report side uses the captured Paul Run and the range/licence variants the decision matrix used (removed in C).
+function seed(kind: 'figure' | 'range' | 'withheld' | 'no-licence') {
+  seedPaulRun(SERVED_STAMP)
+  const s = useCanvasStore.getState()
+  const link = fx.draft.edges[0]
+  const licence = { code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each', option_ids: IDS, target: { comparator: 'at_least', value: 1200000, unit: '£' },
+    pct_by_option: Object.fromEntries(IDS.filter(id => kind === 'figure' || id !== X).map(id => [id, 41])),
+    withheld_option_ids: kind === 'figure' ? [] : [X] }
+  const range = { code: 'GOAL_CHANCE_RANGE', severity: 'info', message: 'range', option_ids: [X], range_by_option: { [X]: {
+    low_pct: 0, high_pct: 40, low_rounding: 'whole', high_rounding: 'nearest_5',
+    kind: 'link_strength', from: link.from, to: link.to, among: 'all',
+  } } }
+  useCanvasStore.setState({ results: { ...s.results, report: { ...s.results.report,
+    run_id: 'run-ws5', computed_against_hash: 'hash-ws5',
+    option_probabilities: Object.fromEntries(IDS.map(id => [id, { win_probability: 0.3, ...(kind === 'no-licence' ? { goal_probability: 0.41 } : {}) }])),
+    inference_warnings: kind === 'no-licence' ? [] : [licence, ...(kind === 'range' ? [range] : [])],
+  } }, ceeAnalysisReady: { ...s.ceeAnalysisReady, goal_threshold_raw: 1200000, goal_threshold_unit: '£' } } as never)
+  const data = renderHook(() => useResultsSectionData()).result.current
+  // This no-licence control deliberately has no canonical authority.
+  return kind === 'no-licence' ? data : withChanceReport(data, useCanvasStore.getState().results.report)
+}
+const ctx = (data: ReturnType<typeof seed>) => ({ hasGoalTarget: data.recommendation.hasGoalTarget ?? data.recommendation.goalThreshold != null, goalChanceHeroSays: goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, data.goalChanceLicence ?? null),
+  labelOf: (id: string) => data.recommendation.allOptions.find(o => o.id === id)?.label ?? null,
+  rangeLabelOf: data.goalChanceDriverNames!.labelOf })
+function parity(data: ReturnType<typeof seed>, expected?: string) {
+  const m = buildHeroModel(data)
+  expect(m.kind).toBe('chart')
+  if (m.kind !== 'chart') throw new Error('chart required')
+  const hasCells = data.recommendation.allOptions.some(option => chanceCellOf(data, option.id).kind !== 'none')
+  expect(m.lenses.includes('goal')).toBe(hasCells)
+  // #2747 re-scope 2 (U0): the Reasoning tab's decision matrix is removed in C; the hero is held to the RunView cell.
+  render(<AnalysisHeroPanel model={m} rerunDisabled={false} />)
+  for (const row of m.rows) {
+    const cell = data.runView!.chanceCellOf(row.id, ctx(data))
+    expect(row.goal.readout).toBe(cell.text ?? HERO_COPY.readout.missing)
+    if (hasCells) {
+      const heroText = screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent
+      expect(heroText).toBe(cell.text ?? HERO_COPY.readout.missing)
+    }
+  }
+  if (hasCells) expect(screen.queryByText(HERO_COPY.lensUnavailable.goalProducerGap)).toBeNull()
+  if (expected) expect(m.rows.find(r => r.id === X)!.goal.readout).toBe(expected)
+  return m
+}
+const STORE_MODULE = '../../../../canvas/stores/canonicalAnalysisViewStore'
+afterEach(async () => {
+  cleanup(); resetPaulRun()
+  const module = await import(STORE_MODULE).catch(() => null)
+  module?.useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
+})
+describe('WS5 hero chance truth', () => {
+  it('H1 range-only goal lens is available; H3 range parity', () => parity(seed('range')))
+  it('H2 licence-withheld goal row is available; H3 withheld parity', () => {
+    const m = parity(seed('withheld'))
+    expect(m.rows.find(r => r.id === X)!.goal.readout).toContain(TEST_WITHHELD_FACE)
+  })
+  it('H3 figure parity', () => parity(seed('figure')))
+  it('goal figures without a licence keep the lens available with the static absence face on the hero (none on the card in C)', () => {
+    const data = seed('no-licence')
+    const m = parity(data)
+    for (const row of m.rows) {
+      const cardCell = chanceCellOf(data, row.id)
+      expect(cardCell).toEqual({ kind: 'withheld', text: CHANCE_NOT_SHOWN_YET })
+      expect(row.goal.readout).toBe(CHANCE_NOT_SHOWN_YET)
+      const node = useCanvasStore.getState().nodes.find(n => n.id === row.id)!
+      const card = render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode id={node.id} type="option" data={node.data as never}
+        selected={false} isConnectable positionAbsoluteX={0} positionAbsoluteY={0} dragging={false} zIndex={0} deletable selectable draggable />
+      </OptionChanceCellProvider></ReactFlowProvider>)
+      // #2747 re-scope 2 (U0): the canvas card shows no chance in C, not even the absence face; the hero says it.
+      expect(screen.queryByTestId(`option-win-readout-${row.id}`)).toBeNull()
+      card.unmount()
+    }
+  })
+  it('H4 no target preserves the goalNoTarget body', () => {
+    const data = seed('figure')
+    data.goalChanceLicence = null
+    data.goalChanceRange = null
+    data.runView = buildRunView(null)
+    data.recommendation = { ...data.recommendation, goalThreshold: null }
+    const m = buildHeroModel(data)
+    expect(m.kind).toBe('chart')
+    if (m.kind !== 'chart') throw new Error('chart required')
+    render(<AnalysisHeroPanel model={m} rerunDisabled={false} />)
+    fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
+    expect(screen.getByText(HERO_COPY.lensUnavailable.goalNoTarget)).toBeInTheDocument()
+  })
+})

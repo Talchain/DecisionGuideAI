@@ -2219,3 +2219,8 @@
 .coachingLineBody {
   padding-top: 4px;
 }
+
+/* The reply includes producer list markers as text, so do not add a second marker. */
+.markdownContent :global(.md-verbatim-markers) {
+  list-style-type: none;
+}

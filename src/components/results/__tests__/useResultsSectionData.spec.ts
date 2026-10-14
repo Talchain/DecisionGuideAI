@@ -262,13 +262,13 @@ describe('normaliseLabel', () => {
 // =============================================================================
 
 describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, shared by panel + graph)', () => {
-  it('adopts producer influence only when EVERY factor carries one', () => {
+  it('uses normalised elasticity even when EVERY factor carries a producer influence', () => {
     const model = selectDriverDisplayModel([
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
       { key: 'b', influenceScore: 0.2, rawElasticity: 2.0 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score', importanceBasis: null })
-    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score', importanceBasis: null })
+    expect(model.get('a')).toEqual({ value: 0.05, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 1, provenance: 'normalised_elasticity', importanceBasis: null })
   })
 
   it('partial coverage: EVERY factor falls back to normalised elasticity — a producer 0.9 must not outrank the elasticity-dominant factor it cannot be compared with', () => {

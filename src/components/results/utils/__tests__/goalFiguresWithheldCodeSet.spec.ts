@@ -61,6 +61,24 @@ describe('the one reader matches every typed reason for withholding the goal fig
     expect(readGoalIdentityWithheld({ inference_warnings: [{ ...identical, code: 'GOAL_FIGURES_OPTIONS_IDENTICAL_X' }] })).toBeNull()
   })
 
+  /**
+   * ⭐ Recovery Batch E (AIE #94 6128697025, DL 12 Oct): ruling 12's period-end withhold. CEE serves it under
+   * GOAL_FIGURES_TARGET_NOT_TESTABLE in the AIE's exact words, and the sentence says "isn't shown" itself, so CEE never
+   * prefixes "Not shown.". The string is CEE's own expected one (wip/batchE-cee 3c7d1a71,
+   * batch-d-period-end-withhold.test.ts SENTENCE), on the served run-3 hiring goal.
+   */
+  it('⭐ a CEE withhold reason that does not open "Not shown." is still said verbatim (Batch E\'s period-end sentence)', () => {
+    const SENTENCE = 'The chance of reaching your target for ‘productivity’ (up at least 10% from today) by month three isn’t shown: '
+      + 'the model has not established how much of these effects would be in place by then.'
+    const periodEnd = { code: 'GOAL_FIGURES_TARGET_NOT_TESTABLE', severity: 'warning', node_ids: ['productivity'],
+      option_ids: ['hire_a_tech_lead', 'hire_two_developers'], message: SENTENCE, detail: { reason: 'effects_at_period_end_unstated' } }
+    expect(readGoalIdentityWithheld({ inference_warnings: [periodEnd] })).toEqual({ nodeIds: ['productivity'], message: SENTENCE })
+    // Display safety still decides: empty or unsafe words fall back, whatever their opening.
+    expect(readGoalIdentityWithheld({ inference_warnings: [{ ...periodEnd, message: '' }] })?.message).toBe(GOAL_IDENTITY_WITHHELD_FALLBACK)
+    expect(readGoalIdentityWithheld({ inference_warnings: [{ ...periodEnd, message: 'The chance for hire_a_tech_lead isn’t shown.' }] })?.message)
+      .toBe(GOAL_IDENTITY_WITHHELD_FALLBACK)
+  })
+
   it('CONTRAST — the disclosure-only code withholds nothing', () => {
     expect(readGoalIdentityWithheld({ inference_warnings: [DISCLOSED] })).toBeNull()
   })

@@ -16,6 +16,7 @@ const storeSpies = vi.hoisted(() => ({
 
 vi.mock('../../ToastContext', () => ({
   useShowToast: () => vi.fn(),
+  useShowToastSafe: () => vi.fn(),
 }))
 
 vi.mock('../../store', () => {

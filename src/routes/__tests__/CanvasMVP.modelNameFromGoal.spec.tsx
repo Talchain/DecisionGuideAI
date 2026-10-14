@@ -92,7 +92,7 @@ describe('CanvasMVP names a model after what it is about — at the CALL SITE', 
     expect(derived).not.toBe(UNNAMED_MODEL_FALLBACK)
   })
 
-  it('⛔ a stored model with no title is named after its goal, NOT "Untitled model"', () => {
+  it('⛔ a stored model with no title is named after its goal, NOT "Untitled scenario"', () => {
     useCanvasStore.setState({
       currentScenarioId: null,
       currentScenarioFraming: { title: undefined, goal: GOAL } as never,

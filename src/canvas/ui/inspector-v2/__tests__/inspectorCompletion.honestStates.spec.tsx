@@ -207,7 +207,7 @@ describe('L-40 · DecisionPanel does not claim "no connections" while its option
     setDecisionStore()
     render(<DecisionPanel {...decisionProps} />)
     const el = screen.getByTestId('inspector-summary-sentence')
-    expect(el.textContent).toBe('This decision has 2 options.')
+    expect(el.textContent).toBe('This question has 2 options.')
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 
@@ -257,7 +257,10 @@ describe('L-24 · OptionPanel Impact group is derived per node, not from global 
     expect(impact?.textContent).not.toContain(OPTION_STRINGS.impactUnavailable)
   })
 
-  it('keeps the honest generic fallback for a node the run DID cover but returned nothing for', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the impactUnavailable presence assertion is deleted — "covered but returned nothing"
+  // meant "no win share", and OptionPanel says no share in C (a covered option gets "Compare all options"). The per-node
+  // negative (no "added since the run" line for a covered node) stays.
+  it('a node the run DID cover is never told it was added since the run', () => {
     setStore({
       nodes: [
         { id: 'optA', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Covered option' } },
@@ -267,9 +270,7 @@ describe('L-24 · OptionPanel Impact group is derived per node, not from global 
       results: { status: 'complete', report: { option_comparison: [{ option_id: 'optA', label: 'Covered option' }] } },
     })
     mockDisplayMetadata.mockReturnValue({ ...baseMetadata, winRate: null })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact?.textContent).toContain(OPTION_STRINGS.impactUnavailable)
+    render(<OptionPanel {...optionProps} />)
     expect(screen.queryByTestId('option-impact-not-in-run')).toBeNull()
   })
 

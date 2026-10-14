@@ -1,3 +1,5 @@
+import { canonicalTestCellsOf, installCanonicalFixtureState, withCanonicalTestCells } from './helpers/canonicalTestCells'
+import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, renderHook, screen } from '@testing-library/react'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -5,6 +7,7 @@ import { useResultsSectionData } from '../../useResultsSectionData'
 import { CONVERTIBLE, SERVED_STAMP, fx, resetPaulRun, seedPaulRun } from '../../__tests__/helpers/paulRun4276f3f9'
 import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import { readGoalChanceRange } from '../../utils/goalChanceRange'
+import { runViewFromParts } from '../../../../canvas/runView/runView'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { GoalChanceRangeLines } from '../GoalChanceRangeLines'
@@ -48,12 +51,45 @@ function data(form: string, fields: Record<string, unknown> = {}) {
 }
 
 function chart(d: ReturnType<typeof data>): HeroChartModel {
+  Object.assign(d, withCanonicalTestCells(d))
   const m = buildHeroModel(d)
   expect(m.kind).toBe('chart')
   return m as HeroChartModel
 }
 
+/**
+ * #2747 re-scope 2 (U0): what a chance rests on most is CEE's own sentence (`main_driver.detail`), said verbatim. The
+ * same canonical fixture as `chart`, with a served `detail` on the named options' drivers. SELF-AUTHORED stand-ins for
+ * CEE's sentence: each is distinct per option and is NOT the UI's old composed wording, so a row binds the line to its
+ * own option's served sentence by identity.
+ */
+const DETAIL: Record<string, string> = {
+  other: 'Served for Explore partnerships: the capacity-to-output link matters most here.',
+  leader: 'Served for Hire: the retention-to-output link matters most here.',
+  next: 'Served for Train: the capacity-to-output link matters most here.',
+}
+function chartWithDetails(d: ReturnType<typeof data>, details: Record<string, string>): HeroChartModel {
+  const canonical = canonicalTestCellsOf(d)
+  const view = runViewFromParts({ run_id: 'synthetic-ui-fixture' }, d.goalChanceLicence ?? null, d.goalChanceRange ?? null, {
+    ...canonical,
+    options: canonical.options.map(o => o.main_driver.kind === 'available' && details[o.option_id] !== undefined
+      ? { ...o, main_driver: { ...o.main_driver, detail: details[o.option_id] } } : o),
+  })
+  Object.assign(d, { runView: view, goalChanceRange: view.goalChanceRange })
+  const m = buildHeroModel(d)
+  expect(m.kind).toBe('chart')
+  return m as HeroChartModel
+}
+/** The UI's deleted driver composer ("It rests most on … the chance falls"): never said by the hero itself. */
+const UI_DRIVER_WORDS = /It rests most on|the chance falls/
+
 afterEach(() => resetPaulRun())
+
+/** The range line's face, as the container reads it: CEE's served range cell (`RunView.servedCellOf`), verbatim. */
+const rangeFaceOf = (d: { runView?: { servedCellOf: (id: string) => { kind: string; face?: string } | null } | null }) => (id: string) => {
+  const cell = d.runView?.servedCellOf(id) ?? null
+  return cell?.kind === 'range' ? cell.face ?? null : null
+}
 
 describe('PR-S3: goal-chance lines under a leader and the deadline’s one home', () => {
   it('reads the range from the hook’s own report and resolves labels from the same canvas (RED on base)', () => {
@@ -68,49 +104,76 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     useCanvasStore.setState({ results: {
       ...state.results, report: { ...state.results?.report, inference_warnings: [record] },
     } } as never)
+    // #2747 chance authority gate: the Run is held with its current canonical view (a range cell for the ranged option).
+    useCanvasStore.setState(installCanonicalFixtureState(useCanvasStore.getState()))
     const live = renderHook(() => useResultsSectionData()).result.current
     expect(live.goalChanceRange).toEqual(readGoalChanceRange([record]))
     const entry = live.goalChanceRange?.rangeByOption[CONVERTIBLE]
     expect(entry).toMatchObject({ from: link.from, to: link.to })
-    render(<GoalChanceRangeLines range={live.goalChanceRange ?? null} labelOf={live.goalChanceDriverNames!.labelOf} />)
+    render(<GoalChanceRangeLines range={live.goalChanceRange ?? null} faceOf={rangeFaceOf(live)} />)
     expect(screen.getByTestId('goal-chance-range-line').getAttribute('data-option-id')).toBe(CONVERTIBLE)
     expect(screen.getByTestId('goal-chance-range-horizon').textContent).toBe(HORIZON)
   })
 
-  it.each(['highest', 'highest_all_likely_to_miss'])('%s keeps unquoted chances and all drivers in model order without repeating quoted figures (RED on base)', (form) => {
-    const m = chart(data(form, { driver_by_option: {
+  it.each(['highest', 'highest_all_likely_to_miss'])('%s keeps every labelled own cell in model order', (form) => {
+    const m = chartWithDetails(data(form, { driver_by_option: {
       other: STRENGTH, leader: { ...STRENGTH, from: 'retention' }, next: STRENGTH,
-    } }))
+    } }), DETAIL)
     const text = m.subline ?? ''
-    expect(text).toContain('‘Explore partnerships’: about 20% chance of meeting your goal, in this model. It rests most on how strongly ‘Capacity’ affects ‘Output’')
-    expect(text).toContain('‘Hire’: It rests most on how strongly ‘Retention’ affects ‘Output’')
-    expect(text).toContain('‘Train’: It rests most on how strongly ‘Capacity’ affects ‘Output’')
+    // C-LOST restored: drivers follow their own cells; quoted cells remain labelled.
+    expect(text).toContain('‘Explore partnerships’: about 20% chance of meeting your goal, in this model.')
+    expect(text).toContain('‘Hire’: about 62% chance of meeting your goal, in this model.')
+    expect(text).toContain('‘Train’: about 41% chance of meeting your goal, in this model.')
     expect(text).toContain('‘Wait’: about 5% chance of meeting your goal, in this model.')
-    expect(text).not.toContain('‘Hire’: about 62%')
-    expect(text).not.toContain('‘Train’: about 41%')
+    // #2747 re-scope 2 (U0): each driver line is CEE's own `main_driver.detail` for THAT option, verbatim, after its cell.
+    for (const id of ['other', 'leader', 'next']) {
+      const index = m.goalChanceLeadLines!.findIndex(line => line.id === id && line.kind === 'driver')
+      expect(m.goalChanceLeadLines![index].text).toBe(DETAIL[id])
+      expect(m.goalChanceLeadLines![index - 1]).toMatchObject({ id, kind: 'cell' })
+      expect(m.goalChanceLeadLines![index - 1].text).not.toContain(DETAIL[id])
+    }
+    expect(m.goalChanceLeadLines!.filter(line => line.kind === 'driver').map(line => line.id)).toEqual(['other', 'leader', 'next'])
+    expect(text).not.toMatch(UI_DRIVER_WORDS)
+    expect(m.goalChanceLeadLines!.filter(line => line.kind === 'cell').map(line => line.id)).toEqual(ORDER)
     expect(ORDER.map((id) => text.indexOf(`‘${LABELS[id]}’:`))).toEqual(
       [...ORDER.map((id) => text.indexOf(`‘${LABELS[id]}’:`))].sort((a, b) => a - b),
     )
   })
 
-  it('each is unchanged: every chance line with its own driver, in model order', () => {
-    const m = chart(data('each', { driver_by_option: { leader: STRENGTH } }))
+  it('each: every own chance cell followed by its separate own driver', () => {
+    // #2747 re-scope 2 (U0): the driver line is CEE's served `main_driver.detail`, verbatim (was the UI's composed sentence).
+    const m = chartWithDetails(data('each', { driver_by_option: { leader: STRENGTH } }), { leader: DETAIL.leader })
     expect(m.subline).toBe(
       '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. '
       + '‘Hire’: about 62% chance of meeting your goal, in this model. '
-      + 'It rests most on how strongly ‘Capacity’ affects ‘Output’: if that effect is weaker than this model assumes, the chance falls. '
+      + `${DETAIL.leader} `
       + '‘Wait’: about 5% chance of meeting your goal, in this model. '
       + '‘Train’: about 41% chance of meeting your goal, in this model.',
     )
+    // C-LOST restored: own driver is adjacent and separately identified.
+    expect(m.goalChanceLeadLines![1]).toMatchObject({ id: 'leader', kind: 'cell' })
+    expect(m.goalChanceLeadLines![2]).toMatchObject({ id: 'leader', kind: 'driver', text: DETAIL.leader })
   })
 
-  it('highest still carries the other options when the quoted options have no drivers (RED on base)', () => {
+  // #2747 re-scope 2 (U0): the UI composes no driver sentence. A canonical driver CEE gave no `detail` says nothing.
+  it.each(['each', 'highest'])('%s: a canonical driver with no served detail says nothing (no UI-composed driver words)', (form) => {
+    const d = data(form, { driver_by_option: { other: STRENGTH, leader: { ...STRENGTH, from: 'retention' }, next: STRENGTH } })
+    const m = chart(d)
+    // CONTROL: the drivers are present on the current canonical view; only their sentence is absent.
+    expect(d.runView!.mainDriverOf('leader')).not.toBeNull()
+    expect(d.runView!.mainDriverDetailOf('leader')).toBeNull()
+    expect(m.goalChanceLeadLines!.filter(line => line.kind === 'driver')).toEqual([])
+    expect(m.goalChanceLeadLines!.filter(line => line.kind === 'cell').map(line => line.id)).toEqual(ORDER)
+    expect(m.subline).not.toMatch(UI_DRIVER_WORDS)
+  })
+
+  it('highest keeps all labelled own cells when no drivers are recorded', () => {
     expect(chart(data('highest')).subline).toBe(
-      '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. ‘Wait’: about 5% chance of meeting your goal, in this model.',
+      '‘Explore partnerships’: about 20% chance of meeting your goal, in this model. ‘Hire’: about 62% chance of meeting your goal, in this model. ‘Wait’: about 5% chance of meeting your goal, in this model. ‘Train’: about 41% chance of meeting your goal, in this model.',
     )
   })
 
-  it('the licence’s verbatim clause follows the option lines and disclosure, once even with the legacy A7 and range present (RED on base)', () => {
+  it('the licence’s verbatim clause follows the option lines (no disclosure line on the hero), once even with the legacy A7 and range present (RED on base)', () => {
     const d = data('each', {
       user_link_existence: { links: 1, one_in: 5 }, horizon_untested: true, horizon_line: HORIZON,
     })
@@ -118,11 +181,13 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     d.confidence.inferenceWarnings = [{ code: 'GOAL_HORIZON_NOT_TESTED', severity: 'info', message: HORIZON, affected_nodes: [] }]
     const m = chart(d)
     expect(m.subline?.endsWith(HORIZON)).toBe(true)
-    expect(m.subline?.indexOf('These chances also count')).toBeLessThan(m.subline?.indexOf(HORIZON) ?? 0)
+    // #2747 re-scope 2 (U0): the licence-composed existence disclosure is no longer said on the hero (was: before HORIZON).
+    expect(m.subline).not.toContain('These chances also count')
+    expect(m.subline).not.toContain('1-in-5')
     expect(m.goalHorizonUntested).toBeNull()
     render(<>
       <AnalysisHeroPanel model={m} rerunDisabled={false} />
-      <GoalChanceRangeLines range={d.goalChanceRange} labelOf={labelOf} heroHorizonShown={m.goalChanceHorizonLine != null} />
+      <GoalChanceRangeLines range={d.goalChanceRange} faceOf={rangeFaceOf(d)} heroHorizonShown={m.goalChanceHorizonLine != null} />
     </>)
     expect(screen.getByTestId('hero-subline').textContent).toContain(HORIZON)
     expect(screen.queryByTestId('hero-goal-horizon-untested')).toBeNull()
@@ -139,7 +204,7 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     expect(m.goalHorizonUntested).toBeNull()
     render(<>
       <AnalysisHeroPanel model={m} rerunDisabled={false} />
-      <GoalChanceRangeLines range={d.goalChanceRange} labelOf={labelOf} heroHorizonShown={m.goalChanceHorizonLine != null} />
+      <GoalChanceRangeLines range={d.goalChanceRange} faceOf={rangeFaceOf(d)} heroHorizonShown={m.goalChanceHorizonLine != null} />
     </>)
     expect(screen.getByTestId('goal-chance-range-horizon').textContent).toBe(HORIZON)
     expect(screen.getAllByText(HORIZON)).toHaveLength(1)
@@ -174,7 +239,7 @@ describe('Science S3 (DL #87 7 Oct, A1 r3 review): a range is never beside a wit
     } } as never)
     const live = renderHook(() => useResultsSectionData()).result.current
     expect(live.goalChanceRange).toBeNull()
-    const { container } = render(<GoalChanceRangeLines range={live.goalChanceRange ?? null} labelOf={live.goalChanceDriverNames!.labelOf} />)
+    const { container } = render(<GoalChanceRangeLines range={live.goalChanceRange ?? null} faceOf={rangeFaceOf(live)} />)
     expect(container.innerHTML).toBe('')
   })
 
@@ -190,13 +255,14 @@ describe('Science S3 (DL #87 7 Oct, A1 r3 review): a range is never beside a wit
     expect(range?.optionIds ?? null).toEqual(kept)
   })
 
-  it('RED: a range option shows no point in the chart; CONTROL without the range it does', () => {
+  it('a range option shows no point; its withhold still hides the point without the range', () => {
     const d = data('each', { withheld_option_ids: ['last'], pct_by_option: { other: 20, leader: 62, next: 41 } })
     d.goalChanceRange = readGoalChanceRange([RANGE, PLACEHOLDER_LAST])
     const last = chart(d).rows.find((r) => r.id === 'last')!
-    expect(last.goal).toEqual({ value: null, readout: '—' })
+    expect(last.goal).toEqual({ value: null, readout: chanceCellOf(d, 'last').text })
     expect(chart(d).rows.find((r) => r.id === 'leader')!.goal.readout).not.toBe('—')
     d.goalChanceRange = null
-    expect(chart(d).rows.find((r) => r.id === 'last')!.goal.value).toBe(0.05)
+    // The licence withholds this option: removing its range must not expose the hidden number.
+    expect(chart(d).rows.find((r) => r.id === 'last')!.goal.value).toBe(null)
   })
 })

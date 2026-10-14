@@ -11,6 +11,7 @@ import {
   compareByDisplayModel,
   determinedRankDepth,
   MAX_BADGED_RANK,
+  isRankedDriverRow,
 } from '../../../components/results/driverDisplayModel'
 import type { selectDriverPolicyFeed } from '../../../components/results/useResultsSectionData'
 
@@ -55,17 +56,17 @@ export interface FactorRanks {
  * second one. See the rationale block inside `rankFactor` for why the key is
  * |elasticity| and not `influence_score`.
  */
-function orderBySensitivity(rows: DriverFeed['policyRows']) {
+function orderBySensitivity(rows: DriverFeed['policyRows'], displayModel: DriverFeed['displayModel']) {
   return rows
     // ⭐ A covered-withheld row (ISL #213: influence depends on the option
     // chosen) is never ranked, nor counted in M or the licence set.
-    .filter((r) => r.influenceGated !== true)
+    .filter((r) => displayModel.has(r.key) && isRankedDriverRow(r))
     .map((r) => ({
       key: r.key,
       elasticity: r.rawElasticity,
       // The badge asks "what is the result most sensitive to". Elasticity is
-      // that question's answer; `displayModel.value` answers "how big is this
-      // factor structurally", which is why it used to disagree with the words.
+      // that question's answer; `displayModel.value` now normalises the same
+      // quantity, so its figure agrees with this order.
       value: Number.isFinite(r.rawElasticity) ? Math.abs(r.rawElasticity) : 0,
     }))
     .sort(compareByDisplayModel)
@@ -130,7 +131,7 @@ export function rankFactor(
    * and carry no badge; that is the two metrics being honestly distinct
    * rather than one silently standing in for the other.
    */
-  const ranked = orderBySensitivity(rows)
+  const ranked = orderBySensitivity(rows, displayModel)
 
   // The denominator for the ranked caption, taken off THIS array so it can
   // never be derived from a different set than the rank beside it. Distinct
@@ -297,7 +298,7 @@ export function sensitivityLeader(
   rows: DriverFeed['policyRows'],
   displayModel: DriverFeed['displayModel'],
 ): SensitivityLeader | null {
-  const first = orderBySensitivity(rows)[0]
+  const first = orderBySensitivity(rows, displayModel)[0]
   if (!first || first.value === 0) return null
   return {
     key: first.key,

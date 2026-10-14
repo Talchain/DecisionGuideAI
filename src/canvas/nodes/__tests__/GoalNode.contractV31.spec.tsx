@@ -142,13 +142,12 @@ describe('U3 — no Chance row when the run produced no goal chance (contract v3
     expect(container.textContent ?? '').not.toContain('Rerun to update')
   })
 
-  it('CONTRAST — a real goal chance still renders its ONE Chance row, and the target line survives', () => {
+  // #2747 re-scope 2 (U0): the Chance-row presence ("Chance", "34%") is deleted — the canvas goal card shows no chance in C.
+  // The target line, this row's other subject, stays.
+  it('CONTRAST — with a real goal chance served, the target line survives', () => {
     mockStore(POST_RUN)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({ ...META, isResultsMode: true, achievementProbability: 0.34 } as never)
     renderGoal(WITH_TARGET)
-    const row = screen.getByTestId('goal-achievement-metric-row')
-    expect(row.textContent).toContain('Chance')
-    expect(row.textContent).toContain('34%')
     expect(screen.getByTestId('goal-node-resting-state').textContent).toContain('100%')
   })
 })

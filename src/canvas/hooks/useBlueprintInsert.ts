@@ -85,6 +85,7 @@ export function useBlueprintInsert() {
     
     // Create edges with probability labels
     const newEdges = blueprint.edges.map((edge, index) => {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
@@ -99,7 +100,9 @@ export function useBlueprintInsert() {
           ...DEFAULT_EDGE_DATA,
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           confidence: edge.probability,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           belief: edge.belief ?? edge.probability,  // v1.2: prefer belief, fallback to probability for legacy
           // Set-vs-defaulted markers (canvas/domain/edgeValueProvenance.ts).
           // A blueprint weight was authored by a template author — a real

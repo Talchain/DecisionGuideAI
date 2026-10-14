@@ -1,35 +1,11 @@
-/**
- * ModelBuildingNoticesNotice — the rendered consumer of CEE's
- * `model_building_notices`.
- *
- * FOUR PROPERTIES CARRY THIS SLICE, each pinned so it fails for the right
- * reason:
- *
- *  1. NO MINTED ZERO. A turn with no notices renders NOTHING — not a headline,
- *     not an empty panel, not "0". Pinned through the REAL `MessageBubble`,
- *     because the mount condition is where a minted zero would be introduced.
- *  2. IDENTITY BINDING, proven by a DISCRIMINATING PAIR (CLAUDE.md trap 19).
- *     A row is asserted via `data-notice-kind` — the producer's own enum member
- *     — never via description text, which is UI copy another row could be
- *     edited to carry.
- *  3. NO RAW WIRE VOCABULARY. The kind codes must not reach the DOM as text.
- *     This is the estate's live defect (`existence_boundary_crossing`), so it
- *     is pinned as an absence over the bubble's whole text content, not merely
- *     over this component's own markup.
- *  4. PROGRESSIVE DISCLOSURE. Collapsed by default; the per-kind breakdown and
- *     the next-route pointer appear only after the toggle.
- *
- * MOUNT (trap 3b — this estate has twice shipped a badge dark by testing a
- * component the deployed flags do not mount): every assertion below drives
- * `MessageBubble`, and NOTHING here sets a flag, because CEE emits
- * unconditionally and this consumer is deliberately unflagged. A test that
- * rendered `ModelBuildingNoticesNotice` directly would pass identically if the
- * mount were deleted — which is the whole failure mode.
- */
+/** U13 retires the MessageBubble mount. Keep notice copy, identity, attribution
+ * and disclosure contracts against the retained component itself. Absence and
+ * user-message controls still exercise MessageBubble. */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MessageBubble } from '../MessageBubble'
+import { ModelBuildingNoticesNotice } from '../ModelBuildingNoticesNotice'
 import type { ConversationMessage } from '../types'
 import {
   MODEL_BUILDING_NOTICES_POINTER,
@@ -105,10 +81,7 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
   it('renders one row per producer group, bound by the producer kind', async () => {
     const user = userEvent.setup()
     render(
-      <MessageBubble
-        message={makeMsg({ modelBuildingNotices: twoKinds })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={twoKinds} />,
     )
     await user.click(screen.getByTestId('model-building-notices-toggle'))
 
@@ -129,10 +102,7 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
     // from rows while total_count stays the producer's). Pinning the two
     // separately is what stops a future edit from collapsing them.
     render(
-      <MessageBubble
-        message={makeMsg({ modelBuildingNotices: twoKinds })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={twoKinds} />,
     )
     const root = screen.getByTestId('model-building-notices')
     expect(root.getAttribute('data-total-count')).toBe('3')
@@ -158,7 +128,7 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
       details_redacted: true,
     })
     render(
-      <MessageBubble message={makeMsg({ modelBuildingNotices: one })} onChipClick={noop} />,
+      <ModelBuildingNoticesNotice notices={one} />,
     )
     const toggle = screen.getByTestId('model-building-notices-toggle')
     // ⚠ NO LONGER "1 thing from your brief": every kind the headline counts is
@@ -208,7 +178,7 @@ describe('ModelBuildingNoticesNotice — ⭐ row copy reads correctly at EVERY c
   async function expandRows(view: ModelBuildingNoticesView) {
     const user = userEvent.setup()
     render(
-      <MessageBubble message={makeMsg({ modelBuildingNotices: view })} onChipClick={noop} />,
+      <ModelBuildingNoticesNotice notices={view} />,
     )
     await user.click(screen.getByTestId('model-building-notices-toggle'))
     return screen.getAllByRole('listitem').filter((li) => li.hasAttribute('data-notice-kind'))
@@ -293,7 +263,7 @@ describe('ModelBuildingNoticesNotice — ⭐ no raw wire vocabulary reaches the 
       details_redacted: true,
     })
     const { container } = render(
-      <MessageBubble message={makeMsg({ modelBuildingNotices: all })} onChipClick={noop} />,
+      <ModelBuildingNoticesNotice notices={all} />,
     )
     await user.click(screen.getByTestId('model-building-notices-toggle'))
 
@@ -326,10 +296,7 @@ describe('ModelBuildingNoticesNotice — ⭐ a headline with no nameable row is 
       details_redacted: true,
     })
     const { container } = render(
-      <MessageBubble
-        message={makeMsg({ modelBuildingNotices: unnameable })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={unnameable} />,
     )
     expect(screen.queryByTestId('model-building-notices')).toBeNull()
     expect(container.textContent).not.toMatch(/out of this model/i)
@@ -340,10 +307,7 @@ describe('ModelBuildingNoticesNotice — ⭐ a headline with no nameable row is 
 describe('ModelBuildingNoticesNotice — ⭐ progressive disclosure', () => {
   it('collapsed by default: the summary shows, the breakdown and pointer do not', () => {
     render(
-      <MessageBubble
-        message={makeMsg({ modelBuildingNotices: twoKinds })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={twoKinds} />,
     )
     expect(screen.getByTestId('model-building-notices-toggle')).toHaveAttribute(
       'aria-expanded',
@@ -358,10 +322,7 @@ describe('ModelBuildingNoticesNotice — ⭐ progressive disclosure', () => {
   it('expanding reveals the breakdown AND the next-route pointer', async () => {
     const user = userEvent.setup()
     render(
-      <MessageBubble
-        message={makeMsg({ modelBuildingNotices: twoKinds })}
-        onChipClick={noop}
-      />,
+      <ModelBuildingNoticesNotice notices={twoKinds} />,
     )
     await user.click(screen.getByTestId('model-building-notices-toggle'))
 

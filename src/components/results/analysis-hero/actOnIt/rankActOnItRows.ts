@@ -39,15 +39,8 @@ import {
   containsBannedTerm as rowContainsBannedTerm,
   safeInterpolatedLabel as safeRowLabel,
 } from '../../utils/glossaryCheck'
-// MAY THIS ROW NAME A LEADER? The shared three-answer claim policy — the one
-// reader for the lattice. Row copy asks `leaderClaimWithheld`; it never reads
-// `verdict.hasLeadingOption` (one conjunct) or the mode (the other) on its own,
-// and it never imports `leaderDesignationPermitted` directly — a second copy of
-// that predicate is a second chance to drift.
-// ⚠ THE POLICY IS NOT THE WHOLE GATE. It deliberately answers "no authority"
-// (not withheld) for a null run, so the `recommendation == null` withholding
-// route is a conjunct at the call site below, not a change to the shared answer.
-import { leaderClaimWithheld } from '../../analysisClaimPolicy'
+// Run-4 judge (DL 12 Oct, the class): no row names a leader any more, so the claim policy (`leaderClaimWithheld`) is
+// no longer imported here.
 // Q2 of the flip vocabulary: may a factor's attestation re-word a claim another
 // instrument (here, the fragile EDGE) makes about that factor? Only the
 // algebraic proof `structurally_invariant` qualifies. See `fragileEdgeRow`.
@@ -342,89 +335,13 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // already ships it as the truthful noun for exactly this sentence. One
   // vocabulary, not a new one.
   //
-  // ── ASKED THROUGH THE SHARED CLAIM POLICY, NOT RE-DERIVED HERE ─────────────
-  // `leaderClaimWithheld` is `analysisClaimPolicy`'s Q-LEADER answer tested
-  // `=== false`, and that answer is `leaderDesignationPermitted` QUOTED, not
-  // re-implemented. So this row never reads `verdict.hasLeadingOption` (one
-  // conjunct) or the admission mode (the other) on its own, and the first
-  // conjunct below is behaviourally identical to spelling
-  // `leaderDesignationPermitted(...) !== false` at this call site — the same
-  // predicate, reached through the one module entitled to answer it.
-  //
-  // ⚠ THE WITHHOLDING TEST IS `=== false`, NOT `!== true`, DELIBERATELY — which
-  // is exactly what `leaderClaimWithheld` is. The answer is
-  // `true | false | undefined`, and `undefined` is NO AUTHORITY, not withheld.
-  //
-  // ⚠⚠ WHAT `undefined` COVERS CHANGED, and an earlier revision of this comment
-  // described only the older half. #1238 rewrote `leaderDesignation.ts` so Q2
-  // alone MAY WITHHOLD AND MAY NEVER LICENSE:
-  //
-  //     rec == null                                          -> undefined
-  //     composed answer present                              -> that answer
-  //     no composed answer, hasLeadingOption === false       -> false
-  //     no composed answer, hasLeadingOption === true        -> undefined  (was `true`)
-  //
-  // So `undefined` now covers TWO shapes, not one: a caller with no verdict at
-  // all, AND a verdict asserting separation with no composed answer beside it —
-  // the licence-inferred-from-separation read that #1238 exists to abolish. The
-  // older gloss, "a legacy caller with no verdict", named only the first and is
-  // why this comment had to be rewritten rather than merely re-dated.
-  //
-  // The gate is UNAFFECTED by that one moved cell: testing `=== false` maps
-  // `true` and `undefined` onto the same naming arm, so it cannot change what
-  // this row prints. Withholding on `!== true` instead would withhold on every
-  // no-authority run too — the over-broad gate that DELETED the producer-tie
-  // sentence in #1232, swapping a true sentence the product had earned for
-  // silence. This gate fires only where the model has POSITIVELY withheld, so it
-  // cannot regress a run that was never withheld.
-  //
-  // ⚠ TWO WITHHOLDING ROUTES, NOT ONE — AND THE SECOND CANNOT BE DELEGATED TO
-  // THE POLICY. Derived at the producer's declared output domain rather than
-  // inferred from a fixture:
-  //
-  //   · `leaderClaimWithheld(recommendation)` — the model positively withheld.
-  //     On the production path this is the ONLY way withholding arrives:
-  //     `useResultsSectionData` composes `leaderDesignationPermitted` as
-  //     `licensesComparativeLeaderClaim(...) && verdict.hasLeadingOption`, and
-  //     BOTH terms are declared strictly `boolean` — the return type of
-  //     `licensesComparativeLeaderClaim` (`useAnalysisReady.ts`) and the field
-  //     `DecisionVerdict.hasLeadingOption` (`decisionVerdict.ts`) — so the
-  //     conjunction cannot widen to `undefined`. Proved at the type level: the
-  //     same expression assigned to `boolean` compiles clean, while the
-  //     identical shape over an optional field fails TS2322.
-  //
-  //   · `data.recommendation == null` — there is no recommendation object AT
-  //     ALL, so the licence reads `undefined` and the withholding test alone
-  //     would let this sentence name a leading option on a run carrying no
-  //     comparison whatsoever. The row is reachable in that state because it is
-  //     built from `confidence.topFragileEdge`, which does not depend on
-  //     `recommendation`. You cannot have a leading option with no
-  //     recommendation, so this is withholding too.
-  //
-  //     ⚠ IT STAYS AT THIS CALL SITE ON PURPOSE. The shared policy answers
-  //     `undefined` for a null run BY DESIGN, and `leaderClaimWithheld(null)`
-  //     is `false` — pinned as such in
-  //     `results/__tests__/analysisClaimPolicy.leaderContradiction.spec.tsx`,
-  //     because absence of authority must keep today's copy for every legacy
-  //     caller of the shared answer. That is right for the shared answer and
-  //     wrong for THIS sentence, so the null route is a local conjunct with its
-  //     own arm in `__tests__/rankActOnItRows.spec.ts` — pushing it down into
-  //     the policy would blank prose on every legacy caller, which is #1232
-  //     again one level up.
-  //
-  // `undefined` WITH a recommendation present stays on the naming arm: that is
-  // a legacy object that never went through this producer, and treating
-  // no-authority as withheld is the over-broad gate that deleted the
-  // producer-tie sentence in #1232.
-  const mayNameLeader =
-    data.recommendation != null && !leaderClaimWithheld(data.recommendation)
+  // ⭐ Run-4 judge (DL 12 Oct, the class): the naming arm ("the most-supported option could change", run-share wording)
+  // is retired, so the leader gate that chose between the two arms (via `leaderClaimWithheld`, with a local null-run
+  // conjunct) is no longer read here. Every run takes the neutral clause.
   const subject = namesRelationship
     ? 'this relationship is stronger or weaker than assumed'
     : `the estimate changes for ${safeFromLabel}`
-  const reason = mayNameLeader
-    // Cut 6 (red team RT-16 re-witness; Science d5 #87 6008249324): run-share vocabulary, never "the leading option".
-    ? `If ${subject}, the most-supported option could change.`
-    : `If ${subject}, the result could change.`
+  const reason = `If ${subject}, the result could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,
@@ -512,7 +429,7 @@ function reflectRows(data: ResultsSectionDataReturn): ActOnItRow[] {
 function readyRow(): ActOnItRow {
   return {
     key: 'ready-brief',
-    title: 'Create decision brief',
+    title: 'Create a summary',
     reason: 'Capture the result, rationale, key assumptions and caveats before sharing.',
     priority: 'Ready',
     priorityWidth: 100,

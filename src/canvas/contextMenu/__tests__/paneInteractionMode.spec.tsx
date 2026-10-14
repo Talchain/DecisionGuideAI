@@ -22,7 +22,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasContextMenu } from '../CanvasContextMenu'
 import type { PaneTarget } from '../types'
 
-vi.mock('../../ToastContext', () => ({ useShowToast: () => vi.fn() }))
+vi.mock('../../ToastContext', () => ({ useShowToast: () => vi.fn(), useShowToastSafe: () => vi.fn() }))
 
 vi.mock('../../store', () => {
   const mockState = {

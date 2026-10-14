@@ -120,3 +120,26 @@ export function orderOptionIdsByCanvasPosition(
   // position, it is "the canvas cannot place this".
   return [...ordered, ...unplaced]
 }
+
+/**
+ * Do any two of these option cards sit on the SAME point of the canvas? Then the canvas has no reading order for them
+ * yet: `applyDraftResult` seeds every drafted node at {0,0} until the layout lands, and `orderOptionIdsByCanvasPosition`
+ * breaks the tie by the caller's order (run-3 judge U7: the session numbered hiring's options in the served graph's
+ * order, and a reopen, laid out first, numbered them along the row). Only cards ON the canvas count: an id the canvas
+ * cannot place is not stacked, it is unplaced, and keeps the caller's order as before.
+ */
+export function optionCardsShareAPlace(
+  optionIds: readonly string[],
+  nodes: readonly PositionedNode[] | undefined | null,
+): boolean {
+  const wanted = new Set(optionIds)
+  const seen = new Set<string>()
+  for (const node of nodes ?? []) {
+    const p = node?.position
+    if (!wanted.has(node.id) || !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue
+    const at = `${p.x},${p.y}`
+    if (seen.has(at)) return true
+    seen.add(at)
+  }
+  return false
+}

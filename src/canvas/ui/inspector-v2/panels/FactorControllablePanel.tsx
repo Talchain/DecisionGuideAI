@@ -31,6 +31,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { OlumiScaleLine } from '../shared/OlumiScaleLine'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
@@ -48,7 +49,8 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
-import { SEND_BLOCKED, SEND_DEFERRED } from '../../../conversation/useConversation'
+import { settleSystemEventSend } from '../../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
@@ -58,7 +60,9 @@ import {
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 import {
+  awaitSavedModelRead,
   didValueCommitRevert,
+  needsSavedModelRead,
   VALUE_COMMIT_SETTLEMENT_COPY,
 } from '../../../conversation/valueCommitSettlement'
 import { USER_VALUE_STAMP, isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
@@ -140,7 +144,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    */
   // ⚠ THIS STATE DRIVES THE TRANSIENT NOTICE COPY ONLY ("Sending…", "Sent",
   // "Not sent", "not applied") — never the provenance pill. See below.
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | null>(null)
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | 'refused' | 'revision_conflict' | 'unconfirmed' | 'checking' | 'saved' | null>(null)
   /**
    * ⚠⚠ A4b: the window during which the context pill must not read `source` —
    * the edit has moved the value locally but has not yet earned (or been
@@ -171,6 +175,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   /** Always the factor on screen, so a late resolution can tell it moved. */
   const shownNodeIdRef = useRef(nodeId)
   shownNodeIdRef.current = nodeId
+  /** Cancels a pending read of the saved model (`awaitSavedModelRead`); a new commit or an unmount retires it. */
+  const cancelSavedReadRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => { cancelSavedReadRef.current?.() }, [])
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   /**
@@ -466,66 +473,63 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // `sendSystemEvent` returns `SEND_BLOCKED` as a RESOLVED value on two
       // paths that never reach the wire (`useConversation.ts:5935` when the
       // orchestrator is off, `:5945` when the event type is not serialisable),
-      // and the `.catch` below cannot see either. So the outcome is read off
+      // so the shared settlement classifier reads the outcome from
       // what the dispatcher actually returns, and only a genuine dispatch or a
       // deferral — which the deferral buffer WILL flush — is allowed to say
       // "Sent to Olumi".
+      cancelSavedReadRef.current?.()
+      cancelSavedReadRef.current = null
       const commitSeq = ++valueCommitSeqRef.current
       const commitNodeId = nodeId
       const seedAfterWrite = resolveValueInputSeed(
         useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
       ).seed
       setValueCommitOutcome('sending')
-    // Fire-and-forget: the response is ingested by the shared turn path
-    // (applyV5State applies graph_patch + analysis_ready for system-event turns
-    // exactly as it does for message turns). Awaiting here would block the blur
-    // handler on a network round-trip.
-    //
-    // ⚠ The catch below is NOT the safety net it looks like, and an earlier
-    // version of this comment wrongly implied it was. It only catches GENUINE
-    // failures — network rejects, 4xx/5xx, parse errors — which reject as
-    // `SystemEventSendError`. It does NOT catch a send blocked by the
-    // dispatcher's in-flight lock: that path resolves. An edit committed during
-    // a running analysis therefore never reaches this catch, and used to be
-    // dropped outright. What actually protects it is the dispatcher's deferral
-    // buffer, which queues the send and flushes it when the lock clears (and
-    // holds the freshness overlay dirty until it does). See
-    // `useConversation`'s `deferredSystemSendsRef`.
-      void Promise.resolve(
-        sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
-      ).then(outcome => {
-        // A later commit, or a move to another factor, owns the notice now.
+      // Settle through the shared send authority: received refusals are not unsent.
+      const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
         if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
-        if (outcome === SEND_BLOCKED) return setValueCommitOutcome('local_only')
-        // `sendTurn` resolves AFTER it has ingested the response and applied or
-        // reverted the optimistic write, so the store now says which. A 200
-        // that wrote nothing is reverted to the pre-edit value: the seed is
-        // back where it was before this commit, and no longer the one it wrote.
-        // A deferred send has no response yet, and stays `sent`.
-        const seedNow = resolveValueInputSeed(
+        if (settlement === 'blocked') return setValueCommitOutcome('local_only')
+        if (settlement === 'unverified') return setValueCommitOutcome('unconfirmed')
+        if (settlement === 'queued') return
+        const readSeed = () => resolveValueInputSeed(
           useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
         ).seed
-        const reverted =
-          outcome !== SEND_DEFERRED && didValueCommitRevert(seedBeforeWrite, seedAfterWrite, seedNow)
-        setValueCommitOutcome(reverted ? 'not_applied' : 'sent')
-        // Put the model's value back in the field HERE too, not only through
-        // the seed effect: when the write and its revert land in one render,
-        // the seed never visibly changes and the effect never fires.
+        // ⭐ The card's moved-base rule (`needsSavedModelRead`, recovery Batch B): after a lost reply the model often
+        // already holds this value, so read the saved model before saying "Not saved".
+        if (needsSavedModelRead(settlement, detail)) {
+          setValueCommitOutcome('checking')
+          cancelSavedReadRef.current = awaitSavedModelRead({
+            baseBeforeRead: useCanvasStore.getState().lastServerGraphHash,
+            readBase: () => useCanvasStore.getState().lastServerGraphHash,
+            subscribe: listener => useCanvasStore.subscribe(listener),
+            beforeCommit: seedBeforeWrite,
+            committedTo: seedAfterWrite,
+            readNow: readSeed,
+            onWord: word => {
+              if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
+              setValueCommitOutcome(word)
+              // The field shows what the model holds now.
+              const seedRead = readSeed()
+              if (!valueFieldFocusedRef.current) setDraftValue(seedRead != null ? String(seedRead) : '')
+            },
+          })
+          return
+        }
+        const seedNow = readSeed()
+        const reverted = didValueCommitRevert(seedBeforeWrite, seedAfterWrite, seedNow)
+        // A refused send gets no reply, so it never says "Olumi's reply says why" (`refused`); a 200 that wrote nothing does.
+        setValueCommitOutcome(settlement === 'refused'
+          ? detail.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'refused'
+          : reverted ? 'not_applied' : 'sent')
+        // Restore the field even when write + rollback happen in a single render.
         if (reverted && !valueFieldFocusedRef.current) {
           setDraftValue(seedNow != null ? String(seedNow) : '')
         }
-      }).catch(() => {
-        // A genuine send failure leaves the edit local. Saying so is the whole
-        // point of this state — the store write did happen, the wire one did not.
-        if (commitSeq === valueCommitSeqRef.current && commitNodeId === shownNodeIdRef.current) {
-          setValueCommitOutcome('local_only')
-        }
-        // Swallowed deliberately: a genuine send failure is already recorded by
-        // the conversation's own failure channel. Re-throwing from a blur handler
-        // would surface as an unhandled rejection and tell the user nothing they
-        // are not already being told. A server REFUSAL is not a failure and never
-        // reaches here — the dispatcher reverts the optimistic write instead.
-      })
+      }
+      settleSystemEventSend(sendSystemEvent(event, {
+        ...(undo ? { optimisticFactorEdit: undo } : {}),
+        onDeferredSettled: dispatch => settleSystemEventSend(dispatch, settle),
+      }), settle)
     },
     [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data],
   )
@@ -858,6 +862,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             </p>
           )}
         </PrimaryControlCard>
+        <OlumiScaleLine label={String(node.data?.label ?? '')} observedState={obs} />
 
         {/* Edit feedback */}
         {lastConfirmed?.field === 'value' && (
@@ -877,22 +882,26 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 Reported to the guard's owner rather than left as a near-miss.
                 The label now states what this app did, which is the part we
                 can actually vouch for. */}
-            {valueCommitOutcome === 'not_applied' ? (
-              // The model answered and kept its value. Persistent, not a fading
-              // notice: the field has just changed under the person's hands, and
-              // the reason is in Olumi's reply.
+            {valueCommitOutcome === 'not_applied' || valueCommitOutcome === 'refused' || valueCommitOutcome === 'revision_conflict' ? (
+              // Nothing was saved. Persistent, not a fading notice: the field has
+              // just changed under the person's hands. Only `not_applied` (a 200
+              // that wrote nothing) points at Olumi's reply; a refusal has none.
               <p
                 role="alert"
                 data-testid="factor-value-not-saved"
                 className={`${typography.panelMeta} text-danger`}
               >
-                {VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message}
+                {VALUE_COMMIT_SETTLEMENT_COPY[valueCommitOutcome].message}
               </p>
+            ) : valueCommitOutcome === 'unconfirmed' ? (
+              <p role="status" data-testid="factor-value-unconfirmed">{VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.message}</p>
+            ) : valueCommitOutcome === 'checking' || valueCommitOutcome === 'saved' ? (
+              <p role="status" data-testid="factor-value-saved-model">{VALUE_COMMIT_SETTLEMENT_COPY[valueCommitOutcome].message}</p>
             ) : valueCommitOutcome === 'sending' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
             ) : valueCommitOutcome === 'local_only' ? (
-              // A4b: `hold` — this stayed genuinely unsent (blocked or a real
-              // send failure), which does not resolve on its own the way
+              // A4b: `hold` — this stayed genuinely unsent (blocked or
+              // without a dispatcher), which does not resolve on its own the way
               // `sending` does. Fading it at 1500ms left the re-run prompt
               // beside it with nothing telling the reader the edit it would
               // re-run was never sent in the first place.

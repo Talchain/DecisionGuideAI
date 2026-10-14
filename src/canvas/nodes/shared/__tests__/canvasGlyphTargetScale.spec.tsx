@@ -713,8 +713,15 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // repeated width, 248 (`tierCardWidth` floors at `REPEATED_CARD_W`).
       //   184 / 248 = 74.2%   (was 184 / 260 = 70.8%)
       // and the row still clears even the bare legibility floor, 184 < 190.88.
-      expect(visual, 'the row visual width moved').toBe(174)
-      expect(occupied, 'the row footprint moved').toBe(184)
+      //
+      // ⭐ RE-DECIDED BY PAUL (2026-10-14: "reduce the Olumi icon to the right
+      // size in the graph nodes so they match" the panel's 24px icon button).
+      // The rail box is 24 (was 25), so the SAME three-button row narrows:
+      //   3 x 50px + 2 x 12px  = 174   →   3 x 48px + 2 x 12px  = 168 CSS px
+      //   6 + 174 + 4          = 184   →   6 + 168 + 4          = 178 CSS px
+      //   184 / 248            = 74.2% →   178 / 248            = 71.8%
+      expect(visual, 'the row visual width moved').toBe(168)
+      expect(occupied, 'the row footprint moved').toBe(178)
       expect(REPEATED_CARD_W, 'the narrowest card moved').toBe(248)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
@@ -724,7 +731,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(
         Math.round((occupied / REPEATED_CARD_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(74.2)
+      ).toBe(71.8)
     })
   })
 })

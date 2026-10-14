@@ -1,3 +1,4 @@
+import { licensedTestReportHeld } from '../../runView/__tests__/helpers/licensedTestReport'
 /**
  * useNodeDisplayMetadata — integration path tests
  *
@@ -14,7 +15,7 @@ import { useNodeDisplayMetadata } from '../useNodeDisplayMetadata'
 // ---------------------------------------------------------------------------
 // Store mock — returns whatever state we pass in
 // ---------------------------------------------------------------------------
-const makeReport = (overrides: Record<string, unknown> = {}) => ({
+const makeReport = (overrides: Record<string, unknown> = {}) => licensedTestReportHeld({
   schema: 'report.v1' as const,
   meta: { seed: 1, elapsed_ms: 100 },
   result: { mean: 0.7, p10: 0.5, p50: 0.7, p90: 0.9, critique: '' },
@@ -428,7 +429,7 @@ describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
     expect(result.current.influence).toBe(1)
   })
 
-  it('reports influence_score when EVERY factor carries a finite producer score', () => {
+  it('reports normalised_elasticity even when EVERY factor carries a finite producer score', () => {
     mockState = {
       results: {
         status: 'complete',
@@ -441,8 +442,8 @@ describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
       },
     }
     const { result } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
-    expect(result.current.influenceProvenance).toBe('influence_score')
-    expect(result.current.influence).toBeCloseTo(0.62)
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+    expect(result.current.influence).toBeCloseTo(0.2 / 0.8)
   })
 
   it('is null outside results mode and for nodes not in the analysis', () => {

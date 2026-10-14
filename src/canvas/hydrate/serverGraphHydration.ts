@@ -22,6 +22,8 @@ import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWord
 import { recordCanonicalOpen } from './canonicalOpenOutcome'
 import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
+import { parseCanonicalAnalysisView } from '../runView/canonicalAnalysisView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
 import { readServerConversationTurns } from '../conversation/serverConversationTurns'
@@ -30,7 +32,7 @@ import { reportActionBarIssue, useActionBarStore } from '../conversation/actionB
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
-import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
+import { fetchScenarioGraph, type FetchScenarioGraphOptions } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
@@ -96,6 +98,8 @@ export interface HydrateFromServerOptions {
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
   timeoutMs?: number
+  /** Opt-in re-read when the read gets no answer (stream-loss recovery only; `fetchScenarioGraph`). Boot passes none. */
+  unansweredRetry?: FetchScenarioGraphOptions['unansweredRetry']
   /** Optional in-session ownership fence, checked after the read, before any write. */
   canApply?: () => boolean
   /**
@@ -104,6 +108,8 @@ export interface HydrateFromServerOptions {
    * Opt-in (recovery reads only): boot hydration keeps its existing foreign-answer handling unchanged.
    */
   requireServedScenario?: boolean
+  /** Refused-write recovery must reapply values even when the server identity is cached. */
+  reapplyServerGraph?: boolean
   /**
    * The token the CALLER got from `beginBootGraphRead` for this read. The boot
    * hook marks the read synchronously, before its identity await, so the
@@ -247,6 +253,7 @@ async function readAndMergeServerGraph(
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,
+    ...(opts.unansweredRetry !== undefined ? { unansweredRetry: opts.unansweredRetry } : {}),
     ...(opts.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
   })
 
@@ -349,6 +356,9 @@ async function readAndMergeServerGraph(
   // a bar is taken only from the scenario the read answered for.
   if (result.scenarioId === scenarioId && result.actionBar !== undefined) {
     useActionBarStore.getState().setBar(scenarioId, parseActionBar(result.actionBar, reportActionBarIssue))
+  }
+  if (result.scenarioId === scenarioId) {
+    useCanonicalAnalysisViewStore.getState().adopt(scenarioId, parseCanonicalAnalysisView(result.canonicalAnalysisView))
   }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
@@ -642,7 +652,7 @@ async function readAndMergeServerGraph(
   dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
 
   const stored = useCanvasStore.getState().serverGraphIdentity
-  if (isSameServerGraph(stored, result.identity)) {
+  if (opts.reapplyServerGraph !== true && isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
@@ -662,7 +672,7 @@ async function readAndMergeServerGraph(
 
   // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
   const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
-  const merge = mergeServerGraphOnHydrate(result.graph)
+  const merge = mergeServerGraphOnHydrate(result.graph, { dropOmittedDisplay: opts.reapplyServerGraph === true })
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
   //

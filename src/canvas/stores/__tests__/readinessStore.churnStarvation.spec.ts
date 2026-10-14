@@ -55,6 +55,12 @@
  * claim; that is the browser witness's job and it cannot be made from jsdom.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// Readiness now awaits the canonical identity seam before dispatching. Keep the
+// timer harness independent of Supabase configuration and client initialisation.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import { useReadinessStore, buildReadinessPayload, __test__ } from '../readinessStore'
 import { useCanvasStore } from '../../store'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'

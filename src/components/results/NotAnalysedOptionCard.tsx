@@ -60,6 +60,7 @@ import {
   notAnalysedReasonCopy,
   takenOutLabel,
   resolveOptionPrompt,
+  includeOlumiOptionPrompt,
 } from './utils/notAnalysedCopy'
 import { FOCUS_ON_CANVAS_LABEL } from './utils/focusOnCanvasCopy'
 import type { OptionResult } from './types'
@@ -126,7 +127,7 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
                 e.stopPropagation()
                 openAskOlumi({
                   context: `About "${option.label}"`,
-                  draft: resolveOptionPrompt(option.label),
+                  draft: reason === 'excluded_olumi_proposed' ? includeOlumiOptionPrompt(option.label) : resolveOptionPrompt(option.label),
                   label: actionLabel,
                 })
               }}

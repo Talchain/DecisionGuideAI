@@ -50,6 +50,17 @@ export const NODE_RAIL_GLYPH_PX = 15
 export const NODE_RAIL_GLYPH_CLASSES = CANVAS_GLYPH_SIZE_CLASSES[NODE_RAIL_GLYPH_PX]
 
 /**
+ * ⭐ THE OLUMI MARK ON THE RAIL — 12px, the reasoning panel's AI glyph size
+ * (`PanelIconButton` `icon('inline')`, Paul 14 Oct 2026: "reduce the Olumi icon
+ * to the right size in the graph nodes so they match"). One step below the
+ * Lucide rail glyph because the mark fills ~96% of its viewBox where a Lucide
+ * glyph fills ~80%. Read by BOTH Olumi doors (`NodeCoachingIcon`, the hover
+ * "Ask Olumi" in `NodeQuickActions`), so every node kind changes together.
+ */
+export const NODE_RAIL_AI_GLYPH_PX = 12
+export const NODE_RAIL_AI_GLYPH_CLASSES = CANVAS_GLYPH_SIZE_CLASSES[NODE_RAIL_AI_GLYPH_PX]
+
+/**
  * ⭐ THE RAIL'S RESTING COLOURS (gap 34; contract `.icon-btn{color:#777B77}`,
  * `.icon-btn.behaviour{color:#736DA0}`), each from a `brand.css` channel token,
  * so the value lives in the token file and nowhere else.

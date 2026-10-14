@@ -7,7 +7,7 @@ import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange 
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
 import type { LodRung } from './utils/zoomLegibility'
-import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
+import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition, optionCardsShareAPlace } from './store/stableOptionNumbers'
 import { seatNodesIntoRankedSlots } from './utils/factorRowOrder'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
@@ -25,7 +25,7 @@ import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1 } from '../adapters/plot/types'
 import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
-
+import { beforeScenarioReplacement } from './store/scenarioReplacement'
 /**
  * ⭐ THE RUN STATES ON WHICH A PRODUCER'S PERMISSION MAY CLEAR A WITHHOLDING.
  *
@@ -82,10 +82,8 @@ export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
 ] as const
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
-import {
-  selectGoalProbability,
-  type GoalProbabilityInput,
-} from '../components/results/utils/selectGoalProbability'
+import { runViewOf } from './runView/runView'
+import { useCanonicalAnalysisViewStore } from './stores/canonicalAnalysisViewStore'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 // The "no analysis on screen" state, shared with the Supabase switch boundary in
@@ -193,6 +191,7 @@ import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
 import { buildSnapshotFromV5Analysis } from './stores/v5RunSnapshotFactory'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 import { useComparisonStore } from './stores/comparisonStore'
+import { scenarioIdWrite, type UnboundModelBinding } from './stores/unboundModelBinding'
 import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -227,7 +226,7 @@ import { useUIStore } from '../stores/uiStore'
 export interface OptionSnapshot {
   winProbability?: number
   outcomeMean?: number
-  goalProbability?: number
+  goalProbability?: number | null
 }
 
 export interface PreviousReportSnapshot {
@@ -1507,6 +1506,13 @@ interface CanvasState {
    * this is the only signal that the user moved on while a read was in flight (#2418 delta CR, P1-2).
    */
   scenarioEpoch: number
+  /**
+   * Written ONLY by `scenarioIdWrite` (`stores/unboundModelBinding.ts`), in the same store write as the id, when the
+   * model already on the canvas had no id and gets one without being replaced (Save as, Save as Scenario from a
+   * template, the first Send's lazy id, an import's registration). A fresh object each time. NodeValueEditor keeps the
+   * model instance's editor across that one null → id change (B UI final check on d770bc1c).
+   */
+  unboundModelBinding?: UnboundModelBinding | null
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -1667,6 +1673,13 @@ interface CanvasState {
    * every scenario boundary (loadScenario, hydrateGraphSlice, resetCanvas,
    * importCanvas). Read outside React via getAnalysisDisplaySnapshot(). */
   optionNumbering: Record<string, number>
+  /**
+   * Run-3 judge U7: the option ids numbered while their cards still shared one point of the canvas (the drafted graph
+   * before its layout), so their numbers follow the caller's order, not the row. The next registration after the
+   * cards are spread numbers them again, after every settled number, in reading order; from then on they are
+   * append-only like the rest. A settled number is never changed.
+   */
+  optionNumberingProvisional?: readonly string[]
   registerOptionNumbering: (optionIds: readonly string[]) => void
   /**
    * Seat the factor cards whose influence ordinal is DETERMINED into canvas
@@ -2494,6 +2507,7 @@ function scenarioResetState(): Partial<CanvasState> {
     nodes: [],
     // Wave F-A: fresh decision, fresh option-ordinal history
     optionNumbering: {},
+    optionNumberingProvisional: [],
     edges: [],
     touchedNodeIds: new Set(),
     nextNodeId: 1,
@@ -3425,6 +3439,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   edges: initialEdges,
   history: { past: [], future: [] },
   scenarioEpoch: 0,
+  unboundModelBinding: null,
   selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
@@ -4849,7 +4864,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   importCanvas: (json: string) => {
     const imported = persistImport(json)
     if (!imported) return false
-
+    beforeScenarioReplacement()
     // Interim 2.467: record this graph's identity as imported-and-unregistered
     // BEFORE the set below, in a TAB-scoped marker. This is what survives a
     // page reload — the autosave puts the imported graph back on the canvas
@@ -4867,6 +4882,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: imported.edges,
       // Wave F-A: full graph replacement starts a fresh ordinal history
       optionNumbering: {},
+      optionNumberingProvisional: [],
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
@@ -5235,8 +5251,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     
     set({ nodes: updatedNodes })
   },
-
   resetCanvas: () => {
+    beforeScenarioReplacement()
     // ── "Start fresh" must be fresh on the NEXT LOAD too ────────────────────
     // Measured defect (link-track item 4c): resetCanvas cleared in-memory state
     // and `currentScenarioId`, but left `olumi-canvas-autosave` and
@@ -5310,6 +5326,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     useDraftStore.getState().resetAllModels()
   },
   adoptScenario: (scenarioId) => {
+    beforeScenarioReplacement()
     const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
     const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingLeft, get()) // same rule as resetCanvas (F1)
     scenarios.clearAutosave()
@@ -5319,7 +5336,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     useComparisonStore.getState().resetComparison()
     useDraftStore.getState().resetAllModels()
   },
-
   deleteEdge: (id) => {
     const { edges, selection } = get()
     const edge = edges.find(e => e.id === id)
@@ -5725,16 +5741,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const options: Record<string, OptionSnapshot> = {}
       // ReportV1.option_probabilities: Record<string, OptionProbability>
       const optionProbs = currentReport.option_probabilities
+      // #2747 chance authority gate: the copy is the previous Run's GATED figure (its scenario's canonical view).
+      const heldCanonical = useCanonicalAnalysisViewStore.getState()
+      const previousRunView = runViewOf(currentReport, heldCanonical.scenarioId === get().currentScenarioId ? heldCanonical.view : null)
       if (optionProbs) {
         for (const [optId, prob] of Object.entries(optionProbs)) {
+          const chance = previousRunView.chanceOf(optId)
           options[optId] = {
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: write: copied onto the previous-Run snapshot record; never displayed as a chance
             winProbability: prob.win_probability,
-            // GOAL-PROBABILITY IDENTITY: the snapshot must hold the same number
-            // the surfaces showed, not a second derivation of it — a snapshot
-            // that disagrees with the panel it snapshotted is the same defect
-            // one run later. Read the owner's choice.
-            goalProbability:
-              selectGoalProbability(prob as GoalProbabilityInput).goalProbability ?? undefined,
+            // PERSIST residual: a client copy of this Run's licensed whole percent.
+            // An absent/withheld licence never falls back to the raw report figure.
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: the gate's own figure (RunView.chanceOf), copied onto the previous-Run snapshot
+            goalProbability: chance.kind === 'figure' ? chance.pct / 100 : null,
           }
         }
       }
@@ -6053,9 +6072,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   optionNumbering: {},
+  optionNumberingProvisional: [],
   registerOptionNumbering: (optionIds) => {
     if (optionIds.length === 0) return
-    const previous = get().optionNumbering
+    // ⭐ RUN-3 JUDGE U7: numbers given while the cards were stacked (no reading order yet) are provisional, so the first
+    // registration once the layout has spread them gives them again, in reading order. Otherwise a session keeps its
+    // draft-time tie order forever, and a reopen (laid out first) numbers the same saved model along the row.
+    const provisional = get().optionNumberingProvisional ?? []
+    const held = get().optionNumbering
+    const previous = provisional.length === 0 ? held : Object.fromEntries(Object.entries(held).filter(([id]) => !provisional.includes(id)))
     // ⭐ THE STORE OWNS ORDER; CALLERS OWN MEMBERSHIP (Paul, 31 Aug 2026).
     //
     // Callers say WHICH options exist. What `Option N` means — the Nth card in
@@ -6070,9 +6095,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // a sorted array, because its order is discarded except as a tiebreak.
     const ordered = orderOptionIdsByCanvasPosition(optionIds, get().nodes)
     const next = assignStableOptionNumbers(previous, ordered)
-    // Merge is append-only: skip the set entirely when nothing was new.
-    if (Object.keys(next).length === Object.keys(previous).length) return
-    set({ optionNumbering: next })
+    const fresh = ordered.filter((id) => previous[id] == null)
+    const stillProvisional = optionCardsShareAPlace(fresh, get().nodes) ? fresh : []
+    if (provisional.length === 0) {
+      // Merge is append-only: skip the set entirely when nothing was new.
+      if (Object.keys(next).length === Object.keys(previous).length) return
+      set(stillProvisional.length > 0 ? { optionNumbering: next, optionNumberingProvisional: stillProvisional } : { optionNumbering: next })
+      return
+    }
+    const same = Object.keys(next).length === Object.keys(held).length && Object.entries(next).every(([id, n]) => held[id] === n)
+    if (same && stillProvisional.length > 0) return
+    set(same ? { optionNumberingProvisional: stillProvisional } : { optionNumbering: next, optionNumberingProvisional: stillProvisional })
   },
 
   orderFactorRowByInfluence: (orderedFactorIds) => {
@@ -6588,7 +6621,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.warn('[Canvas] Scenario not found:', id)
       return false
     }
-
+    beforeScenarioReplacement()
     const { nodes: persistedNodes, edges: rawEdges } = scenario.graph
     // ⛔ A persisted `measured` is another session's DOM (edit-structure/F1).
     const nodes = withoutPersistedMeasurement(persistedNodes)
@@ -6623,6 +6656,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioId: id,
       // Wave F-A: option ordinals never cross a scenario boundary
       optionNumbering: {},
+      optionNumberingProvisional: [],
       scenarioPersistedToDb: true,
       currentScenarioFraming: scenario.framing ?? null,
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
@@ -6876,7 +6910,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // UUID. Auto-generate a name if not provided.
         const scenarioName = name
           || currentScenarioFraming?.title
-          || `Decision - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+          || `Scenario - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 
         const scenario = scenarios.createScenario({
           name: scenarioName,
@@ -6905,7 +6939,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
         set({
           nodes: newCleansedNodes,
-          currentScenarioId: scenario.id,
+          ...scenarioIdWrite(currentScenarioId, scenario.id),
           scenarioPersistedToDb: true,
           isDirty: false,
           isSaving: false,
@@ -6932,7 +6966,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     set({
-      currentScenarioId: scenario.id,
+      ...scenarioIdWrite(get().currentScenarioId, scenario.id),
       scenarioPersistedToDb: true,
       isDirty: false,
       showDraftChat: false,
@@ -8506,9 +8540,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
         // v1.2: Determine edge kind based on data available
         // If probability is present → decision-probability, otherwise → influence-weight
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const hasProb = e.probability !== undefined
         const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
         // Use probability for confidence, fall back to belief if no probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const confidence = e.probability ?? e.belief ?? 0.5
 
         return {
@@ -8603,9 +8639,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         const id = state.createEdgeId()
         // v1.2: Determine edge kind based on data available
         // If probability is present → decision-probability, otherwise → influence-weight
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const hasProb = e.probability !== undefined
         const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
         // Use probability for confidence, fall back to belief if no probability
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a link's probability, mapped onto its confidence), not an analysis result
         const confidence = e.probability ?? e.belief ?? 0.5
 
         return {
@@ -8695,6 +8733,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // P2: Hydration hygiene - merge only graph/scenario bits, ignore unknown keys
   hydrateGraphSlice: (loaded) => {
+    if (loaded.nodes !== undefined || loaded.edges !== undefined || loaded.currentScenarioId !== undefined) {
+      beforeScenarioReplacement()
+    }
     const updates: Partial<CanvasState> = {}
 
     // Only merge known graph/scenario keys

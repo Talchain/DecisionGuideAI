@@ -1,3 +1,4 @@
+import { OptionChanceCellProvider } from './nodes/shared/OptionChanceCellProvider'
 import { routeOnceHeldIds } from './domain/routeOnceHeld'
 import { CanvasEditNote } from './nodes/EditNoteAnchor'
 import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
@@ -1855,11 +1856,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
     // Create edges with v1.2 metadata (weight, belief, provenance)
     const newEdges = graph.edges.map(edge => {
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
 
       // Detect edge kind: influence network (has weight, no probability) vs decision tree (has probability)
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
       const isInfluenceEdge = edge.weight !== undefined && edge.probability === undefined
       const edgeKind = isInfluenceEdge ? 'influence-weight' as const : 'decision-probability' as const
 
@@ -1873,7 +1876,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           kind: edgeKind,                                // Auto-detect influence vs probability edges
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           confidence: edge.probability,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a template link's branch probability), not an analysis result
           belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
           provenance: edge.provenance ?? 'template',    // v1.2: default to template source
           // Set-vs-defaulted markers (domain/edgeValueProvenance.ts). A blueprint
@@ -3620,7 +3625,9 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
             {/* HighlightProvider wraps ReactFlowGraphInner so canvas hover handlers
                 inside the inner component are consumers, not creators, of the context. */}
             <HighlightProvider>
-              <ReactFlowGraphInner {...props} />
+              <OptionChanceCellProvider>
+                <ReactFlowGraphInner {...props} />
+              </OptionChanceCellProvider>
             </HighlightProvider>
           </ReactFlowProvider>
         </LayerProvider>

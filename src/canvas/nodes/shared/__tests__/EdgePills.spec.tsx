@@ -279,9 +279,8 @@ describe('EdgePills — unset strength is disclosed, not reported', () => {
   it('omits the direction arrow AND the "Raises"/"Lowers" text — direction is defaulted too', () => {
     mockStore(unsetState)
     const { container } = render(<EdgePills nodeId="f1" />)
-    // USER_EDGE_DEFAULTS.direction is 'positive'; without this gate the pill
-    // asserted "Raises" about a link the user never characterised.
-    expect(USER_EDGE_DEFAULTS.direction).toBe('positive')
+    // A bare draw has no direction; the pill must not invent "Raises".
+    expect(USER_EDGE_DEFAULTS.direction).toBeUndefined()
     expect(screen.queryByText('Raises')).toBeNull()
     expect(screen.queryByText('Lowers')).toBeNull()
     expect(screen.queryByTestId('edge-pill-verb-e1')).toBeNull()

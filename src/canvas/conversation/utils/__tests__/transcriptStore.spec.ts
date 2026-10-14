@@ -44,6 +44,21 @@ describe('transcriptStore', () => {
     __resetTranscriptTombstonesForTests()
   })
 
+  it('U1: a stale narration with an unknown original Run (empty key) survives a reload; other empty or blank keys do not', () => {
+    saveTranscript(SID, [
+      msg({ id: 'a1', role: 'assistant', content: 'Saved answer.', narration: { status: 'stale', runKey: '' } }),
+      msg({ id: 'a2', role: 'assistant', content: 'Pending.', narration: { status: 'pending', runKey: '' } }),
+      msg({ id: 'a3', role: 'assistant', content: 'Blank.', narration: { status: 'stale', runKey: '  ' } }),
+      msg({ id: 'a4', role: 'assistant', content: 'Moved.', narration: { status: 'stale', runKey: 'rk_old' } }),
+    ])
+    const out = loadTranscript(SID)!.messages
+    expect(out[0].narration).toEqual({ status: 'stale', runKey: '' })
+    expect(out[0].content).toBe('Saved answer.')
+    expect(out[1].narration).toBeUndefined()
+    expect(out[2].narration).toBeUndefined()
+    expect(out[3].narration).toEqual({ status: 'stale', runKey: 'rk_old' })
+  })
+
   it('keeps the producer\'s open-question list across a reload (CEE #2054 `_agent.open_questions`)', () => {
     const list = ['Which did you mean?', 'What is current MRR? It was not stated.']
     saveTranscript(SID, [msg({ id: 'a1', role: 'assistant', content: 'Built.', openQuestionList: list })])
@@ -125,10 +140,10 @@ describe('transcriptStore', () => {
     // The oldest survived message is the first one AFTER the dropped run.
     expect(out!.messages[0].content).toBe('turn 7')
     expect(formatTruncationNotice(7)).toBe(
-      'The earliest 7 messages from this decision could not be restored',
+      'The earliest 7 messages from this scenario could not be restored',
     )
     expect(formatTruncationNotice(1)).toBe(
-      'The earliest message from this decision could not be restored',
+      'The earliest message from this scenario could not be restored',
     )
   })
 

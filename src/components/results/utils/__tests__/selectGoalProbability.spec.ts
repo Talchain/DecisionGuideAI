@@ -26,6 +26,8 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       goalProbability: null,
       goalProbabilityIsJoint: false,
       jointGoalProbability: null,
+      // #2747: presence only, for classification; nothing was sent.
+      jointGoalPresent: false,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
       jointGoalIsModelledBasis: false,

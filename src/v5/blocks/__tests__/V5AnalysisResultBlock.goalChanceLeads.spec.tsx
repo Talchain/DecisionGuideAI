@@ -5,6 +5,9 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { useCanvasStore } from '../../../canvas/store'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { useCanonicalAnalysisViewStore } from '../../../canvas/stores/canonicalAnalysisViewStore'
+import { parseCanonicalAnalysisView } from '../../../canvas/runView/canonicalAnalysisView'
+import { goalProbabilityWords } from '../../../components/results/utils/goalAnchorCopy'
 
 const OPTIONS = [
   ['launch', 'Launch starter tier'],
@@ -26,6 +29,9 @@ const LICENCE = {
 function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5AnalysisResultBlockType {
   return {
     type: 'v5_analysis_result',
+    computed_against_hash: 'graph-hash-d1w5',
+    // #2747 r2: the run id the card's own turn stamped on it (its canonical view's Run).
+    run_id: 'run-d1w5',
     summary: 'The analysis completed for all four options.',
     leading_option_id: 'launch',
     // The served d1w-5 values. The first value deliberately differs from the
@@ -49,6 +55,24 @@ function d1w5Block(warning: Record<string, unknown> | null = LICENCE): V5Analysi
 
 const initialState = useCanvasStore.getState()
 
+/**
+ * #2747 chance authority gate: the card's Run held with its matching (run id AND graph hash), current canonical view.
+ * #2747 r2: CEE's served cells carry each option's sentence as their face (`goal-chance-screen-lines.ts`: the label, the
+ * displayed figure, then "chance of meeting your goal, in this model."); the card says it verbatim.
+ */
+function hold(licence: { option_ids: readonly string[]; pct_by_option: Record<string, number> }, faceTail: Record<string, string> = {}) {
+  const labelOf = (id: string) => OPTIONS.find(([optionId]) => optionId === id)?.[1]
+  useCanonicalAnalysisViewStore.getState().adopt('scn-d1w5', parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: 'run-d1w5', graph_hash_at_run: 'graph-hash-d1w5', computed_at: null },
+    staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
+      limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: licence.option_ids.map(option_id => ({ option_id, main_driver: { kind: 'not_recorded' },
+      cell: { kind: 'figure', display: goalProbabilityWords(`${licence.pct_by_option[option_id]}%`),
+        face: `‘${labelOf(option_id)}’: ${goalProbabilityWords(`${licence.pct_by_option[option_id]}%`)} chance of meeting your goal, in this model.${faceTail[option_id] ?? ''}` } })),
+  }))
+}
+
 beforeEach(() => {
   useCanvasStore.setState({
     nodes: OPTIONS.map(([id, label]) => ({
@@ -59,16 +83,19 @@ beforeEach(() => {
     })),
     results: null,
     ceeAnalysisReady: null,
+    currentScenarioId: 'scn-d1w5',
   } as never)
 })
 
 afterEach(() => {
   cleanup()
   useCanvasStore.setState(initialState, true)
+  useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null })
 })
 
 describe('V5AnalysisResultBlock goal chances lead run shares', () => {
   it('R1: the served each licence puts the goal chance before the first percentage', () => {
+    hold(LICENCE)
     const { container } = render(<V5AnalysisResultBlock block={d1w5Block()} />)
     const chances = screen.getByTestId('v5-analysis-result-goal-chances')
     expect(within(chances).getAllByRole('listitem').map((line) => line.textContent)).toEqual([
@@ -89,15 +116,16 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
     expect(firstPercentElement).toHaveTextContent('chance of meeting your goal')
   })
 
-  it('R2: without this Run\'s licence, no headline is added and the pills are unchanged', () => {
+  // #2747 re-scope 2 (U0 rewrite): was "R2: without this Run's licence, no headline is added and the pills are
+  // unchanged". The no-headline negative is kept as written; the pill-row list (the four "supported by N% of runs"
+  // pills) became the absence check (DL ruling (A): C shows no win share on any Run), on the same unlicensed mount.
+  it('R2: without this Run\'s licence, no headline is added, and still no win-share row in C (ruling (A))', () => {
     render(<V5AnalysisResultBlock block={d1w5Block(null)} />)
     expect(screen.queryByTestId('v5-analysis-result-goal-chances')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('v5-analysis-result-probabilities')).getAllByRole('listitem').map((pill) => pill.textContent)).toEqual([
-      'Launch starter tier· supported by 73% of runs',
-      'Raise prices 10%· supported by 18% of runs',
-      'Offer annual contracts· supported by 6% of runs',
-      'Keep the current plan· supported by 3% of runs',
-    ])
+    // Non-vacuity: the card itself rendered, with its summary.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent('The analysis completed for all four options.')
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').not.toMatch(/of runs/)
   })
 
   it('R3: a highest licence follows option_ids rather than descending run share', () => {
@@ -110,6 +138,7 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
       next_option_id: 'raise',
       pct_by_option: { hold: 64, raise: 43, launch: 30, annual: 12 },
     }
+    hold(highest)
     render(<V5AnalysisResultBlock block={d1w5Block(highest)} />)
     const lines = within(screen.getByTestId('v5-analysis-result-goal-chances')).getAllByRole('listitem')
     expect(lines.map((line) => line.dataset.optionId)).toEqual(optionIds)
@@ -119,5 +148,29 @@ describe('V5AnalysisResultBlock goal chances lead run shares', () => {
       'Launch starter tier',
       'Offer annual contracts',
     ])
+  })
+})
+
+/**
+ * Capacity witness (CEE 351eeda0, `JUDGE-capacity-post2996-codex.md` row 4): CEE's served face already ended with the
+ * option's shortfall sentence (chance and notes are one unit), and the card appended the same sentence again. The sentence
+ * is CEE's served template, with this card's option and unit.
+ */
+describe('V5AnalysisResultBlock says a shortfall sentence once', () => {
+  const SHORTFALL = 'In its worst 1 in 20 runs of this model, ‘Launch starter tier’ falls short of your target by 300 customers or more.'
+  const withShortfall = { ...LICENCE, shortfall_note_by_option: { launch: SHORTFALL } }
+  const launchLine = (): string | null => within(screen.getByTestId('v5-analysis-result-goal-chances')).getAllByRole('listitem')
+    .find((line) => line.dataset.optionId === 'launch')?.textContent ?? null
+
+  it('R4: a face that already ends with its shortfall sentence says it once', () => {
+    hold(withShortfall, { launch: ` ${SHORTFALL}` })
+    render(<V5AnalysisResultBlock block={d1w5Block(withShortfall)} />)
+    expect(launchLine()).toBe(`‘Launch starter tier’: about 52% chance of meeting your goal, in this model. ${SHORTFALL}`)
+  })
+
+  it('R4 CONTRAST: a face without it still has CEE\'s shortfall sentence after it, once', () => {
+    hold(withShortfall)
+    render(<V5AnalysisResultBlock block={d1w5Block(withShortfall)} />)
+    expect(launchLine()).toBe(`‘Launch starter tier’: about 52% chance of meeting your goal, in this model. ${SHORTFALL}`)
   })
 })

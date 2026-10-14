@@ -178,5 +178,7 @@ describe('the lazy mint guarantees a non-null dispatch id', () => {
 
     expect(String(useCanvasStore.getState().currentScenarioId)).toMatch(UUID_RE)
     expect(useCanvasStore.getState().currentScenarioId).toBe(dispatchedScenarioId())
+    // B UI final check on d770bc1c: the canvas's model had no id, so the same write records its first id.
+    expect(useCanvasStore.getState().unboundModelBinding).toEqual({ scenarioId: dispatchedScenarioId() })
   })
 })

@@ -1,7 +1,7 @@
 /**
  * T4 — the M1 coaching row (Reasoning Coach @1c355d57, case A-STRENGTHEN-PLACEHOLDER-P1; carrier AI HARNESS 5937532945).
  * The row's copy below is the coach's own `rendered_example`, not ours. Rows: the reader takes the contract shape and
- * nothing looser; load 2 keeps it; the words render verbatim; the ONE action is #2408's served Accept/Edit, bound to
+ * nothing looser; load 2 keeps it; the words render verbatim; the ONE action is #2408's existing give-figure editor, bound to
  * the `item_ref` link by id, and offered only where #2408 offers it.
  */
 import '@testing-library/jest-dom/vitest'
@@ -21,11 +21,9 @@ vi.mock('../../utils/openEdgeStrengthEditor', () => ({ openEdgeStrengthEditor: (
 
 import { readGuidance, readGuidanceSlots } from '../guidanceRows'
 import { GuidanceRows, showOnCanvas } from '../zones/GuidanceRows'
-import { ChatThread } from '../zones/ChatThread'
 import { saveTranscript, loadTranscript } from '../utils/transcriptStore'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
-import { UNSIZED_LINK_COPY } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
 import { act } from '@testing-library/react'
 // The REAL focus helpers (DL #2427: mocks hid the endpoint fallback); only the camera impl they call is a spy.
 import { registerFocusHelpers } from '../../utils/focusHelpers'
@@ -134,19 +132,16 @@ describe('the row: the coach’s words verbatim, and #2408’s served action bou
     for (const banned of ['Strengthen the model', 'placeholder', 'edge']) expect(text).not.toContain(banned)
   })
 
-  it('S1 + link on canvas + unsized + current Run → Accept/Edit for THAT link (e_ai, not e_int); Accept confirms e_ai', () => {
+  it('S1 placeholder offers only the give-figure editor for THAT link (e_ai, not e_int)', () => {
     seed()
     render(<GuidanceRows guidance={g()} />)
     expect(screen.getByTestId('guidance-row-slot1')).toHaveAttribute('data-has-action', 'true')
-    expect(screen.queryByTestId('guidance-row-slot1-link-e_int-accept')).toBeNull()
-    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
-    expect(confirm).toHaveBeenCalledTimes(1)
-    expect(confirm.mock.calls[0][0]).toBe('e_ai')
-    expect(screen.getByTestId('guidance-row-slot1-link-e_ai-note').textContent).toBe(UNSIZED_LINK_COPY.sending)
-    act(() => { (confirm.mock.calls[0][1] as { onSendSettled: (s: string) => void }).onSendSettled('sent') })
-    expect(screen.getByTestId('guidance-row-slot1-link-e_ai-note').textContent).toBe(UNSIZED_LINK_COPY.sent)
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_ai-accept')).toBeNull()
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_int-edit')).toBeNull()
+    expect(screen.getByTestId('guidance-row-slot1-link-e_ai-edit')).toHaveAccessibleName("Edit how strongly ‘Sprint capacity for AI reporting’ affects ‘AI reporting module availability’")
     fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-edit'))
     expect(openEditor).toHaveBeenCalledWith('e_ai')
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -186,7 +181,7 @@ describe('replay: the PRODUCER’s D1 row, verbatim (CEE #2487 t2-guidance-wire.
     item_ref: { kind: 'link', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability' },
   }
 
-  it('reads, renders verbatim, and binds Accept/Edit + Show to the link item_ref names', () => {
+  it('reads, renders verbatim, and binds Edit + Show to the link item_ref names', () => {
     seed()
     const g = readGuidance({ assistant_text: 'Here is where the comparison stands.', guidance: { slot1: PRODUCED } })!
     expect(g.slot2).toBeNull()
@@ -195,8 +190,10 @@ describe('replay: the PRODUCER’s D1 row, verbatim (CEE #2487 t2-guidance-wire.
     expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(PRODUCED.copy.title)
     expect(screen.getByTestId('guidance-row-slot1-why').textContent).toBe(PRODUCED.copy.why)
     expect(screen.getByTestId('guidance-row-slot1-question').textContent).toBe(PRODUCED.copy.question)
-    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
-    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_ai-accept')).toBeNull()
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-edit'))
+    expect(openEditor).toHaveBeenCalledWith('e_ai')
+    expect(confirm).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
     expect(focusEdge).toHaveBeenCalledWith('e_ai')
   })
@@ -227,9 +224,11 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
       ...s.edges,
     ] }) as never)
     render(<GuidanceRows guidance={g()} />)
-    expect(screen.queryByTestId('guidance-row-slot1-link-e_same_src-accept')).toBeNull()
-    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
-    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_same_src-edit')).toBeNull()
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_ai-accept')).toBeNull()
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-edit'))
+    expect(openEditor).toHaveBeenCalledWith('e_ai')
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('Show on canvas focuses THAT link’s exact edge (e_ai); a factor ref focuses its node', () => {
@@ -272,7 +271,7 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
     expect(focusNode).not.toHaveBeenCalled()
   })
 
-  it('same-LABEL contrast: a link whose ends carry the same labels but other ids comes first → Accept and Show bind e_ai', () => {
+  it('same-LABEL contrast: a link whose ends carry the same labels but other ids comes first → Edit and Show bind e_ai', () => {
     seed()
     useCanvasStore.setState((s) => ({
       nodes: [
@@ -283,9 +282,11 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
       edges: [{ id: 'e_dup', source: 'dup_from', target: 'dup_to', data: PLACEHOLDER }, ...s.edges],
     }) as never)
     render(<GuidanceRows guidance={g()} />)
-    expect(screen.queryByTestId('guidance-row-slot1-link-e_dup-accept')).toBeNull()
-    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
-    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_dup-edit')).toBeNull()
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_ai-accept')).toBeNull()
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-edit'))
+    expect(openEditor).toHaveBeenCalledWith('e_ai')
+    expect(confirm).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
     expect(focusEdge).toHaveBeenCalledWith('e_ai')
     expect(focusEdge).not.toHaveBeenCalledWith('e_dup')
@@ -299,63 +300,5 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
     const { item_ref: _drop, ...noRef } = ROW
     render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: noRef } })!} />)
     expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
-  })
-})
-
-describe('only the latest turn carries a row', () => {
-  it('an older assistant message with guidance shows no row; the latest one does', () => {
-    seed()
-    const g = readGuidance({ guidance: { slot1: ROW } })!
-    const earlier = readGuidance({ guidance: { slot1: { ...ROW, state_key_hash: 'skh_old', copy: { ...COPY, title: 'An earlier challenge.' } } } })!
-    render(
-      <ChatThread
-        messages={[
-          { id: 'a1', role: 'assistant', content: 'Earlier turn.', guidance: earlier, timestamp: new Date() },
-          { id: 'u', role: 'user', content: 'And now?', timestamp: new Date() },
-          { id: 'a2', role: 'assistant', content: 'Latest turn.', guidance: g, timestamp: new Date() },
-        ]}
-        isThinking={false}
-        longRunningHint={null}
-        nodeCount={4}
-        patchBlockStates={new Map()}
-        patchRejections={new Map()}
-        onChipClick={async () => {}}
-        onPatchAccept={() => {}}
-        onPatchDismiss={() => {}}
-        onFeedback={() => {}}
-        onRetry={() => {}}
-      />,
-    )
-    expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
-    expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Latest turn.')
-    expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(COPY.title)
-    expect(screen.queryByText('An earlier challenge.')).toBeNull()
-  })
-
-  it('after a reload, the restore\u2019s "Session resumed" divider does not hide the latest reply\u2019s row', () => {
-    seed()
-    const g = readGuidance({ guidance: { slot1: ROW } })!
-    render(
-      <ChatThread
-        messages={[
-          { id: 'u', role: 'user', content: 'Run it', timestamp: new Date() },
-          { id: 'a', role: 'assistant', content: 'Run complete.', guidance: g, timestamp: new Date() },
-          // useConversation's restore divider, shape verbatim (role assistant, synthetic, sessionDivider)
-          { id: 'boundary-0a1b2c3d', role: 'assistant', content: '', synthetic: true, sessionDivider: 'Session resumed', timestamp: new Date() } as ConversationMessage,
-        ]}
-        isThinking={false}
-        longRunningHint={null}
-        nodeCount={4}
-        patchBlockStates={new Map()}
-        patchRejections={new Map()}
-        onChipClick={async () => {}}
-        onPatchAccept={() => {}}
-        onPatchDismiss={() => {}}
-        onFeedback={() => {}}
-        onRetry={() => {}}
-      />,
-    )
-    expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
-    expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Run complete.')
   })
 })

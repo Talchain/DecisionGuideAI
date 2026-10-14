@@ -637,7 +637,7 @@ export const ANALYSIS_NEW_COPY = {
     /** Drivers, what is worth resolving, and the method receipts. */
     whatMovesTheOutcome: 'What moves the outcome',
     strengthen: 'Strengthen the reasoning',
-    drivers: 'Drivers and dynamics',
+    drivers: 'What changes the outcome most, in this model',
     /**
      * ⭐ THE ONLY SECTION A PERSON REACHES WITHOUT THE PRODUCER OFFERING IT.
      * Named here rather than inline in the component so the section censuses
@@ -1852,7 +1852,7 @@ export const ANALYSIS_NEW_COPY = {
      * when no dispatcher is mounted, and it now says exactly that.
      */
     changedLocally:
-      'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
+      "Not saved: this target can't be sent to Olumi right now.",
     notEncodable: 'That target could not be applied, so nothing changed.',
     /**
      * ⭐⭐⭐ A FIFTH OUTCOME, AND IT IS THE ONE PAUL ACTUALLY HIT.

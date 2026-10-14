@@ -1,3 +1,4 @@
+import type { CritiqueRunContext } from '../../../components/results/utils/humaniseCritique'
 /**
  * ModelHealthSection — "Audit" section, collapsed by default.
  *
@@ -85,7 +86,11 @@ export interface AuditTrailData {
  */
 export const MODELCARD_DISCUSS_LABEL = "Discuss the model's reliability with Olumi"
 
+// Fail safe: a surface that cannot know whether options were ranked never says they were ordered.
+export const MODELCARD_DEFAULT_CRITIQUE_CONTEXT: CritiqueRunContext = { hasRankedOptions: false }
+
 interface ModelHealthSectionProps {
+  context?: CritiqueRunContext
   ceeQuality?: CeeQualityDimensions | null
   /** Audit trail from PLoT response metadata */
   auditTrail?: AuditTrailData
@@ -180,6 +185,7 @@ function QualityRow({ label, score }: { label: string; score?: number }) {
 function ModelHealthSectionInner({
   ceeQuality,
   auditTrail,
+  context = MODELCARD_DEFAULT_CRITIQUE_CONTEXT,
   factorCount,
   edgeCount,
   factorsToVerify,
@@ -199,8 +205,8 @@ function ModelHealthSectionInner({
 
   // Audit-trail inference warnings: one row per code, sentence + code reference.
   const inferenceWarningRows = useMemo(
-    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings),
-    [auditTrail?.inferenceWarnings],
+    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings, context),
+    [auditTrail?.inferenceWarnings, context],
   )
 
   // Repairs summary: aggregate by code
@@ -392,7 +398,7 @@ function ModelHealthSectionInner({
       tierVariant={headerSummary ? 'fair' : undefined}
       // ⚠ "Out of 10 EACH" was written for the three-dimension pill and is wrong
       // now the pill carries the single `overall` again. One number, out of 10.
-      tierTitle="Olumi's structural read of the model, out of 10: how much of the decision it covers, how well-formed it is, and how safely it can be analysed. It does not say whether the values are yours or evidenced. The dimensions behind it are listed below."
+      tierTitle="Olumi's structural read of the model, out of 10: how much of the situation it covers, how well-formed it is, and how safely it can be analysed. It does not say whether the values are yours or evidenced. The dimensions behind it are listed below."
       // ⭐ OPEN ON ARRIVAL (29 Aug 2026). The card carries the seed, the
       // sample count, the VOI method and an explicit "Not reported by this
       // run" for everything the engines did not report — the product's

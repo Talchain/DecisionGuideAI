@@ -20,8 +20,6 @@ import { render, screen } from '@testing-library/react'
 import { LensInfoPanel } from '../LensInfoPanel'
 import { useCanvasStore } from '../../store'
 
-const EM_DASH = '—'
-
 function seedRobustnessLens(fragileEdges: Array<Record<string, unknown>>): void {
   useCanvasStore.setState({
     nodes: [
@@ -61,7 +59,9 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     } as never)
   })
 
-  it('PIN: a marginal-only fragile edge is listed WITHOUT a percentage (em dash, the file’s absent-quantity mark)', () => {
+  // #2747 re-scope 2 (DL ruling): fragile links say their label only in C (no switch figure), so the em dash that stood in
+  // the figure's slot is gone with the slot; the row's label and no-number negatives are kept.
+  it('PIN: a marginal-only fragile edge is listed WITHOUT a percentage', () => {
     seedRobustnessLens([
       {
         from_id: 'price',
@@ -76,7 +76,6 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     expect(panel.textContent).toContain('Price')
     expect(panel.textContent).toContain('Revenue')
     expect(panel.textContent).not.toContain('90%')
-    expect(panel.textContent).toContain(EM_DASH)
   })
 
   it('PIN: a measured edge outranks a marginal-only edge (ranking position is never derived from a substitute)', () => {
@@ -97,8 +96,8 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     render(<LensInfoPanel />)
     const panel = screen.getByTestId('lens-info-robustness')
     const text = panel.textContent ?? ''
-    // Measured 40% renders; the marginal 0.9 never becomes a number.
-    expect(text).toContain('40%')
+    // The marginal 0.9 never becomes a number (#2747 re-scope 2: nor does the measured 40%, not shown in C).
+    expect(text).not.toContain('40%')
     expect(text).not.toContain('90%')
     // Measured sorts first: the measured row's label precedes the marginal row's.
     expect(text.indexOf('Demand')).toBeGreaterThan(-1)
@@ -107,18 +106,9 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     expect(text).toContain('focus on: Demand → Margin')
   })
 
-  it('CONTROL: a measured switch_probability renders its percentage', () => {
-    seedRobustnessLens([
-      {
-        from_id: 'price',
-        to_id: 'revenue',
-        switch_probability: 0.85,
-        alternative_winner_label: 'Plan B',
-      },
-    ])
-    render(<LensInfoPanel />)
-    expect(screen.getByTestId('lens-info-robustness').textContent).toContain('85%')
-  })
+  // #2747 re-scope 2 (DL ruling, pre-accepted): row deleted — "CONTROL: a measured switch_probability renders its
+  // percentage". Its only subject, the switch figure, is not shown in C (interim limit: restore via a CEE-served, licensed
+  // robustness string, post-C). Census row: canvas robustness lens panel.
 
   it('CONTROL: a measured 0 is a measurement — below the display floor, and never overridden by marginal', () => {
     seedRobustnessLens([
@@ -178,10 +168,10 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     render(<LensInfoPanel />)
     const panel = screen.getByTestId('lens-info-robustness')
     // POSITIVE CONTROLS: the panel is mounted and populated — the heading, the
-    // surviving sentence, and the measured fragile edge all render.
+    // surviving sentence, and the measured fragile edge (its label; #2747 re-scope 2: no switch figure in C) all render.
     expect(panel.textContent).toContain('Robustness')
     expect(panel.textContent).toContain('Sensitive assumptions:')
-    expect(panel.textContent).toContain('90%')
+    expect(panel.textContent).toContain('Price → Revenue')
     // The claim, and the figure it would have printed (0.8 → "80%"), are absent.
     expect(panel.textContent).not.toContain('Recommendation stability')
     expect(panel.textContent).not.toContain('80%')

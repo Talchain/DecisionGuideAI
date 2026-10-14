@@ -341,7 +341,9 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
     expect(impact?.textContent).not.toContain(OPTION_STRINGS.impactUnavailable)
   })
 
-  it('STILL shows the comparison to an option the run DID cover', () => {
+  // #2747 re-scope 2 (DL ruling (A)): the "Existing A" presence assertion (the share comparison to the other option) is
+  // deleted — OptionPanel shows no share comparison in C. The per-node negative stays.
+  it('an option the run DID cover is never told it was added after the run', () => {
     // Discriminating twin: the fix must suppress foreign data for a node the
     // run never saw, not delete the comparison for nodes it did.
     setStore({
@@ -361,9 +363,7 @@ describe('D2 · an option added after a multi-option run gets the honest copy', 
       },
     })
     mockDisplayMetadata.mockReturnValue({ ...baseMetadata, winRate: 0.55 })
-    const { container } = render(<OptionPanel {...optionProps} />)
-    const impact = container.querySelector('[data-panel-group="impact"]')
-    expect(impact?.textContent).toContain('Existing A')
+    render(<OptionPanel {...optionProps} />)
     expect(screen.queryByTestId('option-impact-not-in-run')).toBeNull()
   })
 })
@@ -413,7 +413,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
     expect(alternatives?.textContent).toContain('Option A')
     expect(alternatives?.textContent).toContain('Option B')
     expect(container.textContent).not.toContain(EMPTY_STATES.noConnectionsFlat)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
   })
 
   it('counts an option connected in BOTH directions exactly once', () => {
@@ -428,7 +428,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
       ],
     })
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 1 option.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 1 option.')
     expect(screen.getAllByText('Option A')).toHaveLength(1)
   })
 
@@ -448,7 +448,7 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
   it('states the count for both directions in the single summary location', () => {
     setInboundStore()
     render(<DecisionPanel {...decisionProps} />)
-    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This decision has 2 options.')
+    expect(screen.getByTestId('inspector-summary-sentence').textContent).toBe('This question has 2 options.')
     expect(screen.queryByTestId('decision-connections-are-options')).toBeNull()
   })
 })

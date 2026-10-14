@@ -126,25 +126,35 @@ describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
     expect(/Baseline: what happens if nothing changes/i.test(container.textContent ?? '')).toBe(false)
   })
 
-  it('still renders both options and their win probabilities — data is not a claim', () => {
+  // #2747 re-scope 2 (U0, DL ruling (A)): was 'still renders both options and their win probabilities — data is not a
+  // claim'; no card shows a win share in C, so the positive control is the runner-up card by identity, with no share.
+  it('still renders both options (and, in C, no win probability) — data is not a claim', () => {
     // Trap 13 positive control for both absence assertions above.
     renderRunnerUp(false)
     expect(screen.getByText('Standardise on MacBook Pro')).toBeDefined()
     expect(screen.getByText(RUNNER_UP_LABEL)).toBeDefined()
-    expect(screen.getByTestId(`win-pct-${RUNNER_UP_ID}`).textContent).toMatch(/\d/)
+    expect(screen.getByTestId(`option-card-${RUNNER_UP_ID}`)).toBeDefined()
+    expect(screen.queryByTestId(`win-pct-${RUNNER_UP_ID}`)).toBeNull()
   })
 
+  // #2747 re-scope 2 (U0, DL ruling (A)): the baseline card is still pinned present by identity; its win share is not shown in C.
   it('the baseline card itself still renders — its suppression test is not vacuous', () => {
     renderBaseline(false)
     expect(screen.getByText('Status Quo')).toBeDefined()
-    expect(screen.getByTestId(`win-pct-${BASELINE_ID}`).textContent).toMatch(/\d/)
+    expect(screen.getByTestId(`option-card-${BASELINE_ID}`)).toBeDefined()
+    expect(screen.queryByTestId(`win-pct-${BASELINE_ID}`)).toBeNull()
   })
 })
 
 describe('OptionCards — permitted turn (over-suppression controls)', () => {
-  it('keeps the runner-up overtake line', () => {
-    const { container } = renderRunnerUp(true)
-    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, more runs would support this option in this model/i)
+  it('renders no runner-up overtake line on a permitted turn either (the line is removed)', () => {
+    // Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model" is removed; nothing
+    // replaces it. Bound to the runner-up card; its label is the presence control.
+    renderRunnerUp(true)
+    const card = screen.getByTestId(`option-card-${RUNNER_UP_ID}`)
+    expect(card.textContent ?? '').toContain(RUNNER_UP_LABEL)
+    expect(card.textContent ?? '').not.toMatch(/If Customer churn shifts, more runs would support this option in this model/i)
+    expect(card.textContent ?? '').not.toMatch(/more runs would support this option/i)
   })
 
   it('keeps the baseline superlative', () => {
@@ -155,7 +165,9 @@ describe('OptionCards — permitted turn (over-suppression controls)', () => {
   it('an ABSENT flag behaves exactly as a permitted one (legacy callers)', () => {
     // The same concession #493 pinned for the sentences it gated: the default
     // must not drift to silence and blank every legacy caller's cards.
-    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/more runs would support this option/i)
+    // Run-4 judge (DL 12 Oct, the class): the runner-up overtake line is removed on every turn; nothing replaces it. The baseline line
+    // below remains this row's permitted-default control.
+    expect(renderRunnerUp(undefined).container.textContent ?? '').not.toMatch(/more runs would support this option/i)
     expect(renderBaseline(undefined).container.textContent ?? '')
       .toMatch(/Baseline: what happens if nothing changes/i)
   })

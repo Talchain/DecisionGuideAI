@@ -22,13 +22,12 @@
  * `chip.intent` (measured at CEE `df15c8c1`: `method_id` in 0 files under
  * `src/`, against 10 for the contrast `agent-next-pre-mortem`).
  */
-import type { AskAiResult } from '../../../canvas/conversation/askAi'
 import { actionOfMethod } from '../../../canvas/conversation/actionRegistry'
-import { pressAction } from '../../../canvas/conversation/pressAction'
+import { pressAction, type PressActionResult } from '../../../canvas/conversation/pressAction'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import type { MethodEntry } from '../decision-overview/actionsCatalogue'
 
-export type RunMethodResult = AskAiResult | 'drawer'
+export type RunMethodResult = PressActionResult | 'drawer'
 
 /**
  * Presses the method's action: one chip turn to Olumi.
@@ -40,7 +39,7 @@ export type RunMethodResult = AskAiResult | 'drawer'
  */
 export function runMethod(method: MethodEntry): RunMethodResult {
   const action = actionOfMethod(method.id)
-  const result: AskAiResult = action ? pressAction(action) : 'none'
+  const result: PressActionResult = action ? pressAction(action) : 'none'
   if (result !== 'none') return result
   openAskOlumi({
     context: method.description,

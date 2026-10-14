@@ -367,6 +367,66 @@ describe('scenarioGraph — 503 retry', () => {
   })
 })
 
+/**
+ * B UI (SYS1 lever 2; served capacity 001307): ONE 8 s recovery read gave up 2 s before CEE answered it with the saved
+ * model. A read that gets NO answer is read again, only when the caller opts in (`unansweredRetry`).
+ */
+describe('scenarioGraph — opt-in re-read when the read gets no answer', () => {
+  /** A request that never answers: it settles only when the adapter's own deadline aborts it. */
+  const hangsUntilAborted = (_url: string, init: { signal: AbortSignal }) =>
+    new Promise<Response>((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+    })
+  const RETRY = { attempts: 2, backoffMs: 0 }
+
+  it('RED: a read whose deadline passes is read again and the answer is used', async () => {
+    fetchSpy.mockImplementationOnce(hangsUntilAborted).mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID, { timeoutMs: 20, unansweredRetry: RETRY })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(res.status).toBe('graph')
+  })
+
+  it('RED: a failed connection is read again', async () => {
+    fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID, { unansweredRetry: RETRY })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(res.status).toBe('graph')
+  })
+
+  it('bounded: no answer on every attempt ends unusable after exactly the opted attempts', async () => {
+    fetchSpy.mockImplementation(hangsUntilAborted)
+    const res = await fetchScenarioGraph(SCENARIO_ID, { timeoutMs: 20, unansweredRetry: RETRY })
+    expect(res.status).toBe('unusable')
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('CONTROL: without the opt-in (boot hydration) a passed deadline is ONE attempt, as before', async () => {
+    fetchSpy.mockImplementationOnce(hangsUntilAborted).mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID, { timeoutMs: 20 })
+    expect(res.status).toBe('unusable')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([404, 401, 403, 429, 500])('CONTROL: an ANSWERED %s is never re-read under the opt-in', async (status) => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(status, {})).mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID, { unansweredRetry: RETRY })
+    expect(res.status).not.toBe('graph')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('CONTROL: a caller abort is never re-read under the opt-in', async () => {
+    const caller = new AbortController()
+    fetchSpy.mockImplementationOnce((url: string, init: { signal: AbortSignal }) => {
+      const pending = hangsUntilAborted(url, init)
+      caller.abort()
+      return pending
+    }).mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const res = await fetchScenarioGraph(SCENARIO_ID, { signal: caller.signal, unansweredRetry: RETRY })
+    expect(res.status).toBe('unusable')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('scenarioGraph — SC-24 cold-read run_delta carrier (P0 PARTNER ruling #75 5917382664)', () => {
   const DELTA = { attribution_case: 'C5_unattributed', marker: 'the one producer block' }
 

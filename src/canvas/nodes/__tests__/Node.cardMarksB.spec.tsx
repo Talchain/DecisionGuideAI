@@ -50,8 +50,9 @@ it.each((Object.keys(components) as (keyof typeof components)[]).flatMap(type =>
   const olumi = screen.getByTestId(`node-coaching-icon-marks-${type}`)
   expect(band.contains(olumi)).toBe(false)
   expect(olumi.querySelector('img')).toHaveAttribute('src', '/olumi-mark-card.svg')
-  expect(olumi.querySelector('img')).toHaveAttribute('width', '15')
-  expect(olumi.querySelector('img')).toHaveAttribute('height', '15')
+  // Paul 14 Oct 2026: the node Olumi mark is the panel's 12px AI glyph (was 15).
+  expect(olumi.querySelector('img')).toHaveAttribute('width', '12')
+  expect(olumi.querySelector('img')).toHaveAttribute('height', '12')
   expect(olumi.querySelector('img')).toHaveClass('olumi-glyph-ai')
   expect(olumi.querySelector('img')).toHaveAttribute('data-icon', 'olumi-brand-mark')
   expect(olumi.closest(`[data-testid="node-card-rail-marks-${type}"]`)).toHaveClass(type === 'goal' || type === 'decision' ? 'bottom-[6px]' : 'bottom-[5px]', 'right-[6px]')

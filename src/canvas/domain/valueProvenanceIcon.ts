@@ -39,6 +39,7 @@
 import {
   CheckCircle,
   FileText,
+  FileQuestion,
   Flag,
   Pencil,
   Sparkles,
@@ -66,6 +67,7 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
      * `ProvenanceHub`, `ProvenanceHubTab` all use it for exactly that.
      */
     brief: FileText,
+    unverified_brief: FileQuestion,
     /**
      * The model's own estimate. `Sparkles` is the estate's AI glyph by a wide
      * margin — `CoachingTip`, `SuggestionCard`, `AcceptOverrideControl`,

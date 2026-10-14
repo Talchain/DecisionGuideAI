@@ -17,6 +17,10 @@
  * `ConditionalWinnerCards` React component, rendered against the real capture's
  * rows — so the claim "this surface names the option while the claim is
  * withheld" is settled at the DOM, not at a restated predicate (P2).
+ * Run-4 judge (DL 12 Oct, the class): the card's directional arm and bucket
+ * footer are removed, so the mounted consumer now names NEITHER option on the
+ * same capture rows; that row asserts the absence at the DOM, beside the card's
+ * mount and its factor sentence.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -289,7 +293,7 @@ describe('CX4 · leader designation vs withholding', () => {
     expect(violations[0].evidence.named_labels).toContain('Fixed price contract')
   })
 
-  it('RED at the MOUNTED CONSUMER — the real card renders both option identities and their percentages while the claim is withheld (P2)', () => {
+  it('at the MOUNTED CONSUMER — the real card mounts and names neither option while the claim is withheld (P2)', () => {
     const { input } = adaptCapture(w2d)
     const rows = (input.enrichment?.conditional_winners ?? []) as ConditionalWinnerRow[]
     expect(input.analysisState?.leader_claim.permitted).toBe(false)
@@ -302,11 +306,16 @@ describe('CX4 · leader designation vs withholding', () => {
       />,
     )
     // The card mounts at all — so it is not withholding by vanishing.
-    expect(screen.getByTestId('conditional-winner-cards')).toBeInTheDocument()
-    // And the DOM carries the designation the contract withheld.
-    expect(screen.getAllByText(/Fixed price contract/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Floating price contract/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/%/).length).toBeGreaterThan(0)
+    const card = screen.getByTestId('conditional-winner-cards')
+    expect(card).toBeInTheDocument()
+    // #2747 re-scope 2 (DL ruling (A)): the "their percentages" presence (/%/) is deleted — ConditionalWinnerCards never
+    // shows a bucket's win share in C. The identity assertions stay.
+    // Run-4 judge (DL 12 Oct, the class): the bucket footer that carried both identities is removed; nothing replaces it.
+    expect(screen.queryAllByText(/Fixed price contract/)).toHaveLength(0)
+    expect(screen.queryAllByText(/Floating price contract/)).toHaveLength(0)
+    // Presence control on the same card: both capture factors still render their neutral sentence.
+    expect(card.textContent).toContain('How the options compare depends on Price Lock Level')
+    expect(card.textContent).toContain('How the options compare depends on Wholesale Gas Price Exposure')
   })
 
   it('GREEN twin — the SAME rows with the claim PERMITTED are coherent (the pair, not one mutant)', () => {

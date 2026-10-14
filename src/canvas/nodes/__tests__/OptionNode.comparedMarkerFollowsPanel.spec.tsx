@@ -1,3 +1,4 @@
+import { installCanonicalFixtureState } from '../../../components/results/analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ⭐ THE OPTION MARKER SAYS "COMPARED" ONLY WHERE THE PANEL COUNTS THE OPTION AS COMPARED (R3 F5, #85 5930578606;
  * 52f8cd's F1b predicate, 5930666775; DL 5930585164: "fix the source, not the label").
@@ -9,6 +10,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
 import { NOT_RANKED_MARKER, selectOptionComparedInRun } from '../../state/winShareGate'
 import { isAnalysedOption } from '../../../components/results/utils/notAnalysedOptions'
 
@@ -25,6 +27,7 @@ vi.mock('../../layoutStore', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { withLicensedOptionChances } from './__helpers__/optionChanceFixture'
 
 const NODE_ID = 'option-1'
 const SIBLING_ID = 'option-2'
@@ -32,12 +35,13 @@ const SIBLING_ID = 'option-2'
 const makeStoreState = (report: unknown) => ({
   hoveredOptionId: null,
   nodes: [
-    { id: NODE_ID, type: 'option', data: { type: 'option' } },
-    { id: SIBLING_ID, type: 'option', data: { type: 'option' } },
+    { id: NODE_ID, type: 'option', data: { type: 'option', kind: 'option' } },
+    { id: SIBLING_ID, type: 'option', data: { type: 'option', kind: 'option' } },
   ],
   edges: [],
   ceeAnalysisReady: null,
   results: { status: 'complete', report },
+  hasCompletedFirstRun: true,
   highlightedNodes: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   optionNumbering: { [NODE_ID]: 1, [SIBLING_ID]: 2 },
@@ -45,7 +49,7 @@ const makeStoreState = (report: unknown) => ({
   olumiAttention: { nodeIds: [] as string[] },
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   lens: { _dimmedNodeIds: new Set<string>(), _hiddenNodeIds: new Set<string>(), active: 'full' },
-  goalThreshold: null,
+  goalThreshold: 100,
   goalConstraints: [],
   lodRung: 'full',
   viewMode: 'expert',
@@ -69,13 +73,14 @@ const baseProps = {
 }
 
 function renderOption(report: unknown) {
+  const state = installCanonicalFixtureState(makeStoreState(report))
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
+    (selector as (s: unknown) => unknown)(state),
   )
   return render(
-    <ReactFlowProvider>
+    <ReactFlowProvider><OptionChanceCellProvider>
       <OptionNode {...baseProps} data={{ label: 'Hire a Tech Lead', type: 'option' }} />
-    </ReactFlowProvider>,
+    </OptionChanceCellProvider></ReactFlowProvider>,
   )
 }
 
@@ -113,9 +118,11 @@ describe('the option marker follows the panel\'s "was it compared?"', () => {
     expect(marker()).toBeNull()
   })
 
-  it('compared + share shown → the share, never the marker', () => {
-    renderOption({ option_probabilities: { [NODE_ID]: { win_probability: 0.53 }, [SIBLING_ID]: { win_probability: 0.21 } } })
-    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
+  it('compared + licensed chance → never the marker', () => {
+    renderOption(withLicensedOptionChances({ option_probabilities: { [NODE_ID]: { win_probability: 0.53 }, [SIBLING_ID]: { win_probability: 0.21 } } }, { [NODE_ID]: 41, [SIBLING_ID]: 29 }))
+    // #2747 re-scope 2 (U0): the chance readout ("41%") is deleted — the canvas card shows no chance in C; the card's label
+    // is the same-render control instead.
+    expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
     expect(marker()).toBeNull()
   })
 

@@ -1,3 +1,4 @@
+import { licensedTestReport } from '../../../runView/__tests__/helpers/licensedTestReport'
 /**
  * ISL #207 (AIQ #72 5877139338): the node inspector's goal chance is never
  * bare when the goal's level today was worked out from its inputs. Served
@@ -5,6 +6,7 @@
  * `goalLevelAuthor` from `GOAL_LEVEL_FROM_IDENTITY_INPUTS` + the goal's
  * `identity_evaluations` entry), the store, the hook, and the panel.
  * Both render sites (target line, impact group) carry the copy.
+ * #2747 re-scope 2 (U0): in C the goal inspector says no chance, so it says no base-caveat either; the rows pin that.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -45,7 +47,7 @@ function report(author: 'olumi' | 'user' | 'dropped' | 'none') {
 }
 
 function seed(r: Record<string, unknown>) {
-  useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: r } } as never)
+  useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: licensedTestReport(r) } } as never)
 }
 const renderPanel = () => render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
 
@@ -66,19 +68,21 @@ describe('GoalPanel — the goal chance carries its base-caveat (served mapper p
   it.each([
     ['olumi', OLUMI_COPY],
     ['dropped', NEUTRAL_COPY],
-  ] as const)('author %s → the copy beside the chance, at every render site', (author, copy) => {
+  ] as const)('#2747: author %s with no canonical view → no chance is shown, so no base-caveat either (copy: %s)', (author, _copy) => {
+    // The caveat qualifies a shown chance; the view-bearing control below pins it beside the server figure.
     seed(report(author))
     renderPanel()
-    const sites = screen.getAllByTestId(/^goal-fit-base-caveat-goal-panel-/)
-    expect(sites.length).toBeGreaterThanOrEqual(1)
-    for (const s of sites) expect(s.textContent).toBe(copy)
-    if (author === 'dropped') for (const s of sites) expect(s.textContent).not.toContain("Olumi's")
+    expect(screen.queryAllByTestId(/^goal-fit-base-caveat-goal-panel-/)).toHaveLength(0)
   })
 
-  it.each(['user', 'none'] as const)('CONTROL: author %s → no base-caveat, the chance still shows', (author) => {
+  // #2747 re-scope 2 (U0): the "the chance still shows" assertions (the CHANCE_NOT_SHOWN_YET face, and the two negatives
+  // bound to that face) are deleted — the goal inspector shows no chance face in C. The base-caveat negative stays.
+  it.each(['user', 'none'] as const)('author %s → no base-caveat', (author) => {
     seed(report(author))
     renderPanel()
-    expect(screen.getAllByText(/41%/).length).toBeGreaterThanOrEqual(1)
     expect(screen.queryAllByTestId(/^goal-fit-base-caveat-goal-panel-/)).toHaveLength(0)
   })
 })
+
+// #2747 re-scope 2 (U0): row deleted — "view-bearing control: the server figure keeps the authored base-caveat gate": the
+// goal inspector says no chance in C (not even with a canonical view), so neither the "41% chance" nor its base-caveat.

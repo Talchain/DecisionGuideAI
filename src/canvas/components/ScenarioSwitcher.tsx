@@ -29,8 +29,8 @@ import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
 /** Matches the character budget the removed TopBar title input enforced. */
 const MAX_NAME_LENGTH = 60
 
-/** Paul, 14 Aug 2026: "decision" -> "model" on the naming surface. */
-export const UNTITLED_MODEL = 'Untitled model'
+/** Paul, 14 Oct 2026: the saved record is a "scenario" (was "decision", then "model"). */
+export const UNTITLED_MODEL = 'Untitled scenario'
 
 interface ScenarioSwitcherProps {
   /**
@@ -560,7 +560,7 @@ export function ScenarioSwitcher({
                 className={`px-4 py-3 ${typography.body} text-gray-500`}
                 data-testid="scenario-switcher-persisted-notice"
               >
-                Your decisions are on the Decisions page.
+                Your scenarios are listed under My scenarios.
               </div>
             ) : (
             <div className="max-h-64 overflow-y-auto">

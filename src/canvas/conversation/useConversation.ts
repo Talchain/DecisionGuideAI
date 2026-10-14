@@ -1,5 +1,8 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
+import { gatedDriversOf, heldCanonicalFor } from '../runView/heldRunView'
+import { runViewOf } from '../runView/runView'
 import { askAiStage } from './askAi'
+import { createRefusedGraphRefresh, isGraphRecoverySystemEvent } from './refusedGraphRefresh'
 import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
@@ -25,8 +28,10 @@ import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
+import { isThinClientSession } from '../thinClient/thinClient'
 import { useDraftStore, draftStreamPhaseFor, streamedPreviewStandingFor, canvasDraftPreviewFingerprint } from '../stores/draftStore'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import { useReloadDifferenceStore, formatReloadDifferenceNotice } from '../stores/reloadDifferenceStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
@@ -38,7 +43,11 @@ import {
   formatRecoveryHints,
   isDisplaySafeReason,
 } from './ceeRecovery'
-import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } from './transportFailure'
+import {
+  buildTransportFailureCopy, classifyUnansweredSend, DELIVERY_UNKNOWN_COPY, isTransportFailure, isUnverifiedDelivery,
+  NOT_DELIVERED_COPY,
+} from './transportFailure'
+import { edgePairKey } from '../utils/graphIdentity'
 import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
@@ -58,6 +67,7 @@ import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
 import { readGuidedSizing } from '../../v5/readGuidedSizing'
+import { OWNERSHIP_REFUSAL_COPY, ownershipRefusalRetryable, type OwnershipRefusalReason } from '../../v5/ownershipRefusalCopy'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -99,7 +109,7 @@ import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisC
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
 import { deriveV5Stage } from '../../v5/stageMapper'
-import { applyV5State } from '../../v5/applyV5State'
+import { applyV5State, turnCanonicalRunOf } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
@@ -121,11 +131,11 @@ import {
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
 import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
-import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
 import { extractProvisionalViewSidecar } from './provisionalView'
-import { extractAnswerShapeSidecar } from './answerShape'
+import { extractAnswerShapeSidecar, answerStateKeyOf } from './answerShape'
 import { extractGroundedSelectionSidecar } from './groundedSelection'
 import { extractModelBuildingNoticesSidecar } from './modelBuildingNotices'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
@@ -179,7 +189,7 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
-import { readsBackBeforeResend, waitBeforeStreamCloseReadback } from './streamCloseReadback'
+import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
@@ -218,12 +228,11 @@ import {
   type OptimisticEdgeEdit,
 } from './ownOptimisticWrite'
 import { beginModelEditDelivery } from '../registration/editDeliveryHold'
-import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
+import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
-  EXPLAIN_RUN_LABEL,
-  explainRunChipId,
+  EXPLAIN_RUN_CHIP_PREFIX,
   isForeignExplanation,
   namesALatestRun,
   readNarration,
@@ -260,7 +269,7 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
  * else (CLAUDE.md trap 12).
  */
 export const NO_SCENARIO_OPEN_NOTICE =
-  'Open or create a decision first — then I can work on it with you. Your decisions are on the Decisions page.'
+  'Open or create a scenario first — then I can work on it with you. Your scenarios are listed under My scenarios.'
 
 export const DRAFT_DELIVERY_UNRESOLVED_NOTICE =
   "The model hasn't reached this canvas, and I couldn't confirm a saved model. Try loading it again below; this won't resend your brief."
@@ -637,6 +646,7 @@ async function runStreamedDraftTurn(args: {
   headers: Record<string, string>
   signal: AbortSignal
   onRequestStarted?: () => void
+  onResponseReceived?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
   readBackCommittedDraft?: (options: { overPreview: boolean; previewFingerprint: string | null }) => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
@@ -724,7 +734,7 @@ async function runStreamedDraftTurn(args: {
     // to close. Fail-closed toward honesty.
     let result: V5CallResult
     try {
-      result = await callV5Turn(payload, { signal, headers, onRequestStarted })
+      result = await callV5Turn(payload, { signal, headers, onRequestStarted, onResponseReceived: args.onResponseReceived })
     } catch (e) {
       if (previewOnCanvas) {
         useDraftStore
@@ -796,6 +806,7 @@ async function runStreamedDraftTurn(args: {
   const streamStartedAt = Date.now()
   try {
     res = await openV5TurnStream(payload, { headers, signal, onRequestStarted })
+    args.onResponseReceived?.()
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -2148,6 +2159,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? dataObj.options.map((o: any) => ({
                 id: o?.id != null ? String(o.id) : undefined,
                 label: String(o?.label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 probability: typeof o?.probability === 'number' ? o.probability : undefined,
                 rank: typeof o?.rank === 'number' ? o.rank : undefined,
                 strengths: Array.isArray(o?.strengths) ? o.strengths.map(String) : undefined,
@@ -2182,7 +2194,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             ? {
                 id: String((dataObj.current_winner as any).id ?? ''),
                 label: String((dataObj.current_winner as any).label ?? ''),
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                 ...(typeof (dataObj.current_winner as any).probability === 'number'
+                  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: maps a deterministic CEE block's fields; displays nothing
                   ? { probability: (dataObj.current_winner as any).probability }
                   : {}),
               }
@@ -2356,17 +2370,25 @@ function resolveUserTurnType(
  */
 export interface SendFailureNotice {
   /**
-   * 'transport': no CEE body reached the UI (proxy 504, network throw) —
+   * 'not_sent':  proven never dispatched (offline before send, or a failure
+   *   before the fetch started).
+   * 'delivery_unknown': dispatched, but no response or acknowledgement
+   *   arrived (network error after dispatch, timeout, abort mid-flight). The
+   *   server may have received and applied it; a retry reuses the same
+   *   `turn_id`, which CEE deduplicates (recovery-notes/batchB-delivery.md).
+   * 'rejected':  the server answered with a typed refusal, not HTTP 5xx.
+   * 'transport': no CEE body reached the UI (e.g. proxy output) —
    *   the turn never produced a server outcome.
    * 'timeout':   the browser's own timer aborted the wait.
-   * 'server':    the server received the turn and failed it (typed error /
-   *   empty response).
+   * 'server':    an actual HTTP 5xx response.
    */
-  kind: 'transport' | 'timeout' | 'server'
+  kind: 'not_sent' | 'delivery_unknown' | 'transport' | 'timeout' | 'server' | 'rejected'
   /** Whether the retry affordance is being offered for this failure. */
   retryable: boolean
   /** The submitted input text, for restore-into-composer affordances. */
   inputText: string
+  /** Validated refusal shared by the transcript and first-use hero. */
+  ownershipRefusal?: OwnershipRefusalReason
 }
 
 /**
@@ -2608,6 +2630,8 @@ export class SystemEventSendError extends Error {
    * deferral queue asks it for exactly that (`flushDeferredSystemSends`).
    */
   readonly retryable?: boolean
+  /** Recovery wake-up after a carrier has completed its refusal rollback/copy. Never wire data. */
+  onRefusedGraphSettled?: () => void
   constructor(
     kind: 'transport' | 'server',
     options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean },
@@ -2730,12 +2754,10 @@ export function useConversation(): UseConversationReturn {
   // Ownership is per ATTEMPT, never per wire id: `retryLast` reuses the client turn id, so an old attempt's late
   // exit would otherwise settle the live retry (buddy r2 P1-3). Each `sendTurn` start takes the next sequence number.
   const turnAttemptSeqRef = useRef(0)
-  // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
-  // waiting for the current turn to settle, and whether request 2 is in flight.
+  // Pending narration is available on request. Only an admitted Explain attempt is in flight.
   const latestRunKeyRef = useRef<string | null>(null)
-  const sentExplainKeysRef = useRef<Set<string>>(new Set())
-  const [pendingExplainKey, setPendingExplainKey] = useState<string | null>(null)
-  const [explainingRun, setExplainingRun] = useState(false)
+  const [explainAttempt, setExplainAttempt] = useState<string | null>(null)
+  const explainingRun = isThinking && turn.turnId === explainAttempt
   // Mirror isThinking in a ref so sendTurn can read it without being in the
   // useCallback dependency array. Including the state value in deps caused the
   // callback to be recreated on every isThinking toggle, breaking the async
@@ -2786,6 +2808,8 @@ export function useConversation(): UseConversationReturn {
     proposalEdits?: ProposalEdits
   }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
+  /** B UI: the saved-model read before a re-send, while it is out. A scenario switch clears it, as it clears the one above. */
+  const streamLossReadRef = useRef<object | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
   // bubble. Written when the V5 path adds a user bubble; read by the
   // retryLast/skipUserBubble path so a retry re-pends and (on the next
@@ -2972,6 +2996,8 @@ export function useConversation(): UseConversationReturn {
   // restored 19-node model. Verified live on staging 25 Jul 2026.
   const didMountRestoreRef = useRef(false)
   useEffect(() => {
+    // CEE owns signed-in history; a leftover browser transcript has no authority.
+    if (isThinClientSession()) return
     if (didMountRestoreRef.current) return
     if (!scenarioId) return
     didMountRestoreRef.current = true
@@ -2994,9 +3020,9 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId, buildRestoredMessages])
 
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
-  // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
-  // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
-  // transcript; retained uncertain requests admit exact missing replies too.
+  // stored turns and held authority (`serverConversationTurnsStore`). Guest local history keeps its words; its restored
+  // held controls are reconciled ONLY with the current server sidecar. For thin sessions, server text fills an empty
+  // panel regardless of leftover local storage; live messages still reconcile exact missing replies and controls.
   // The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
@@ -3018,10 +3044,12 @@ export function useConversation(): UseConversationReturn {
       setMessages(next)
       return
     }
-    try {
-      if (loadTranscript(scenarioId) !== null) return
-    } catch {
-      return
+    if (!isThinClientSession()) {
+      try {
+        if (loadTranscript(scenarioId) !== null) return
+      } catch {
+        return
+      }
     }
     const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers, serverTurnsOffer.proposalFields)
     if (next.length === 0) return
@@ -3041,6 +3069,7 @@ export function useConversation(): UseConversationReturn {
   // words these are, and on the switch render those are two different
   // decisions.
   useEffect(() => {
+    if (isThinClientSession()) return
     const owner = messagesOwnerRef.current
     if (!owner) return
     if (messages.length === 0) return
@@ -3065,6 +3094,7 @@ export function useConversation(): UseConversationReturn {
       const adoptsTurnId = leavingScenarioId === null || adoptedMint
       prevScenarioRef.current = scenarioId
       missingDraftRecoveryRef.current = null
+      streamLossReadRef.current = null
 
       // Every branch below ends with `messages` belonging to the NEW scenario,
       // so ownership transfers here, once, rather than in four places.
@@ -3092,7 +3122,7 @@ export function useConversation(): UseConversationReturn {
         if (messagesRef.current.length === 0) {
           didMountRestoreRef.current = true
           try {
-            const restored = loadTranscript(scenarioId)
+            const restored = isThinClientSession() ? null : loadTranscript(scenarioId)
             if (restored && restored.fromPreviousSession) {
               const next = buildRestoredMessages(restored, true)
               messagesRef.current = next
@@ -3208,7 +3238,7 @@ export function useConversation(): UseConversationReturn {
       // storage: the user's own work, present, and withheld. What the flag still
       // decides is whether a SESSION boundary is drawn — see `markBoundary`.
       let restoredForSwitch: ConversationMessage[] | null = null
-      if (scenarioId) {
+      if (scenarioId && !isThinClientSession()) {
         try {
           const restored = loadTranscript(scenarioId)
           if (restored) {
@@ -3230,6 +3260,23 @@ export function useConversation(): UseConversationReturn {
       return next
     })
   }, [])
+
+  const refusedGraphRefreshRef = useRef<ReturnType<typeof createRefusedGraphRefresh> | null>(null)
+  useEffect(() => {
+    const refresh = createRefusedGraphRefresh({
+      hasPendingTurn: () => inFlightRef.current || inFlightOptimisticFactorEditRef.current !== null ||
+        deferredSystemSendsRef.current.some(entry => entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          isGraphRecoverySystemEvent(entry.opts.systemEvent?.type)),
+      identity: () => withSessionReadTimeout(getSessionIdentity()),
+      onFailure: () => addMessage({ id: crypto.randomUUID(), role: 'assistant', synthetic: true,
+        content: "The latest state couldn't be refreshed.", timestamp: new Date() }),
+    })
+    refusedGraphRefreshRef.current = refresh
+    return () => {
+      refresh.dispose()
+      if (refusedGraphRefreshRef.current === refresh) refusedGraphRefreshRef.current = null
+    }
+  }, [addMessage])
 
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the lasting line. When the boot read took
   // elements off the canvas because the saved model lacks them, the hydration
@@ -3389,7 +3436,7 @@ export function useConversation(): UseConversationReturn {
         // categories carry a no-write guarantee.
         const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
         shouldRevert = provenNoWrite
-        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        notice = provenNoWrite ? (outcome.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'base_hash_diverged') : 'unconfirmed_server'
         fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         notice = 'unconfirmed_transport'
@@ -3789,7 +3836,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' || outcome.kind === 'typed_error' && outcome.conflictCategory === 'revision_conflict' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -3857,6 +3904,12 @@ export function useConversation(): UseConversationReturn {
       let notice: OptimisticFactorEditNoticeKey
 
       if (isProvenNoWriteConflict(conflictCategory)) {
+        // A newer queued edit may request the SAME number. Value equality alone
+        // cannot license A's rollback over that distinct optimistic gesture.
+        if (deferredSystemSendsRef.current.some(entry =>
+          entry.scenarioId === useCanvasStore.getState().currentScenarioId &&
+          entry.opts.optimisticFactorEdit !== edit && entry.opts.optimisticFactorEdit?.nodeId === edit.nodeId,
+        )) return
         const revertOutcome = revertOptimisticFactorEdit(edit)
         // The copy promises the previous value is back. If the revert stood
         // down — the node is gone, or a newer edit moved the value on — that
@@ -4400,7 +4453,16 @@ export function useConversation(): UseConversationReturn {
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
-      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? crypto.randomUUID()
+      // ⭐ Recovery Batch B, row 3 (DL, §7.3 "check idempotency before offering a retry"): the user typing the SAME words
+      // again (equal after trim, as CEE's request hash reads them) while their LAST send is still delivery-unknown is
+      // that send again, so it re-uses its turn id and CEE replays the recorded answer instead of recording the message
+      // twice (served marketing row 3). A confirmed reply or non-send, other words, a chip, or a send in between: fresh id.
+      const lastInput = lastUserInputRef.current
+      const unknownResendId = mode === 'user' && !hidden && !systemEvent && !chipMeta && lastInput.chipMeta === undefined
+        && lastInput.clientTurnId !== undefined && lastInput.message.trim() === message.trim()
+        && messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
+        ? lastInput.clientTurnId : undefined
+      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? unknownResendId ?? crypto.randomUUID()
       // Stamp the V5 active-turn ref at dispatch time for every turn kind
       // (visible, hidden, system). The stale-turn guard in applyV5State
       // reads this ref, not lastUserInputRef, so hidden/system responses
@@ -4619,13 +4681,14 @@ export function useConversation(): UseConversationReturn {
         // Recorded BEFORE the store write: the switch effect reads it to tell
         // this turn's own mint from the user opening another decision.
         lazyMintedScenarioIdRef.current = newId
-        useCanvasStore.setState({ currentScenarioId: newId })
+        useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, newId))
         setCurrentScenarioId(newId)
       }
       // Response ownership is the scenario that actually goes on the wire.
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      const graphOpeningAtDispatch = refusedGraphRefreshRef.current?.captureOpening()
       const editNoteBeforeState = useCanvasStore.getState()
       const editNoteRevision = opts.editNoteRevision ?? currentManualEditRevision()
       // Factor/rename gestures are already optimistic; their existing intents carry the actual preimage.
@@ -4764,6 +4827,13 @@ export function useConversation(): UseConversationReturn {
       elapsedIntervalRef.current = undefined
       turnOwnerRef.current = turnAttempt
       dispatchTurn({ type: 'start', turnId: turnAttempt })
+      const isBoundExplain = chipMeta?.id?.startsWith(EXPLAIN_RUN_CHIP_PREFIX) === true
+      setExplainAttempt(isBoundExplain ? turnAttempt : null)
+      if (isBoundExplain) {
+        // Cold reopen uses the retained Run's identity, never the requested chip's key as authority.
+        latestRunKeyRef.current = [...messagesRef.current].reverse().find(m => m.role === 'assistant'
+          && m.narration && m.narration.status !== 'stale')?.narration?.runKey ?? null
+      }
       // Synchronously: a preempt cleared the mirror, and pending → pending does not re-run its effect, so without this
       // Stop would read "not thinking" and do nothing under a live spinner (buddy r2 P1-1).
       isThinkingRef.current = true
@@ -4849,8 +4919,12 @@ export function useConversation(): UseConversationReturn {
       let streamedPreviewFingerprint: string | null = null
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
       let deliveryRequestId: string | undefined
-      let requestNotStarted = true
-      const onRequestStarted = () => { requestNotStarted = false }
+      // Delivery evidence, two separate facts (Batch B amendment). `requestStarted`: some transport in this send
+      // reached its dispatch boundary (`onRequestStarted`, just before `fetch`). `responseReceived`: HTTP headers came
+      // back. Dispatched without a response is UNKNOWN, never "not sent" (`classifyUnansweredSend`).
+      let requestStarted = false
+      const onRequestStarted = () => { requestStarted = true }
+      let responseReceived = false
       /** What a failure report says about this turn (no user text; `turnLifecycle.reportTurnFailure`). */
       const turnReportBase = () => ({
         turnType: resolvedTurnType,
@@ -4954,20 +5028,17 @@ export function useConversation(): UseConversationReturn {
           nodeCountAtDispatch: canvasSnap.nodes.length,
         })
 
-        // A18 AUDIT — ARMED HERE, NOT AT DISPATCH START. Everything above
-        // this line (session identity, correlation headers, eligibility) is
-        // pre-flight work that happens before any request leaves the
-        // browser; a throw anywhere in it is caught below and honestly
-        // reported as NOT sent. From this line on, the very next `await` is
-        // the fetch itself (`runStreamedDraftTurn` / `callV5Turn`), so only
-        // NOW is "the message did reach the server" a claim this timer is
-        // entitled to make if it fires.
+        // Start the wait at dispatch, after session/header work. A fetch call
+        // alone is not acknowledgement: the transport records HTTP headers
+        // through onResponseReceived before reading the response body.
         timeoutTimerRef.current = setTimeout(() => {
           controller.abort()
           clearTimeout(longRunningTimerRef.current)
           clearInterval(elapsedIntervalRef.current)
-          turnFailure = 'timeout'
-          settleTurn(turnAttempt, 'timeout', turnReportBase())
+          // The timer is armed at dispatch and fires only while a transport call is pending, so with no response
+          // the request may have arrived: delivery unknown (b), never "not sent".
+          turnFailure = responseReceived ? 'timeout' : 'delivery_unknown'
+          settleTurn(turnAttempt, turnFailure, turnReportBase())
           setLongRunningHint(null)
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
           // already put a graph on the canvas must NOT be told "your message has
@@ -4987,37 +5058,22 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
           )
           if (mode === 'user' && !hidden && !streamedPreviewStanding) {
-            // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
-            //
-            // This branch used to mark the bubble `failed` and say "We stopped
-            // waiting, so your message has not gone through." Both were false.
-            // We stopped waiting; the SERVER did not. CEE runs the turn to
-            // completion and commits it — live-witnessed 2026-08-07, client
-            // gave up at 60.0s while the same turn returned 200 at 123.1s with
-            // its rows written. What actually happened here is UNKNOWN to this
-            // client, and it stays unknown: no status route exists to poll and
-            // `v5_conversation_turns` has zero readers in this codebase, so
-            // there is nothing to reconcile against on this render or any
-            // later one. See `deliveryUnknown.ts` for the full derivation.
-            //
-            // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
-            // per-HTTP-request id, not on `payload.turn_id`, and this client
-            // sends no request-id header for it to reuse.
+            // Either way the server may still complete this turn after our wait ends, so the bubble stays
+            // unconfirmed. Before any response (b), "Try again" is offered: `retryLast` re-sends the SAME
+            // `turn_id`, which CEE deduplicates, so it cannot apply twice (recovery-notes/batchB-delivery.md).
             if (userBubbleIdForTurn) {
               updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed',
                 deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch })
             }
             if (inputForRestore) {
-              // `retryable: false` — the copy-agrees-with-affordance rule. No
-              // retry is offered, so none is advertised. The text is still
-              // carried for restore-into-composer.
-              setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
+              setLastSendFailure({ kind: responseReceived ? 'timeout' : 'delivery_unknown', retryable: !responseReceived, inputText: inputForRestore })
             }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: WAIT_EXPIRY_UNKNOWN_COPY,
+              content: responseReceived ? WAIT_EXPIRY_UNKNOWN_COPY : DELIVERY_UNKNOWN_COPY,
               synthetic: true,
+              ...(!responseReceived ? { actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }] } : {}),
               deliveryRequestId,
               deliveryScenarioId: scenarioIdAtDispatch,
               timestamp: new Date(),
@@ -5056,18 +5112,29 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            onRequestStarted,
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
-            onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
+            onResponseReceived: () => { responseReceived = true; dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
-            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) =>
-              (await recoverDraftFromServer({
+            readBackCommittedDraft: async ({ overPreview, previewFingerprint }) => {
+              // B UI: lost streams read first now, so this read is fenced as the recovery after the re-send is: a scenario
+              // switch, even away and back, ends its claim on the canvas.
+              const readToken = {}
+              streamLossReadRef.current = readToken
+              const recovery = await recoverDraftFromServer({
                 scenarioId: scenarioIdAtDispatch,
                 userId: v5UserId,
                 accessToken: v5Identity.accessToken,
                 turnClientId,
                 signal: controller.signal,
-                canApply: () => canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
-              })) === 'recovered',
+                canApply: () => streamLossReadRef.current === readToken &&
+                  canApplyDraftReadBack(overPreview, previewFingerprint, 'settling'),
+                // B UI (capacity 001307): a read that gets no answer is tried once more before anything is re-sent.
+                unansweredRetry: STREAM_LOSS_READ,
+              })
+              if (streamLossReadRef.current === readToken) streamLossReadRef.current = null
+              return recovery === 'recovered'
+            },
           })
           recoveredBeforeResend = streamed.recoveredBeforeResend === true
           v5Result = streamed.result
@@ -5076,8 +5143,12 @@ export function useConversation(): UseConversationReturn {
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
-          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers, onRequestStarted })
+          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers,
+            onRequestStarted,
+            onResponseReceived: () => { responseReceived = true },
+          })
         }
+        responseReceived ||= v5Result.kind !== 'parse_error' || v5Result.http_status !== undefined
         clearLifecycleTimers()
 
         // Race guard: if the controller was aborted while the fetch was in
@@ -5223,6 +5294,8 @@ export function useConversation(): UseConversationReturn {
                 recoveryCanvas.nodes.length === 0 &&
                 useCanvasStore.getState().nodes === recoveryCanvas.nodes &&
                 useCanvasStore.getState().edges === recoveryCanvas.edges,
+              // B UI (capacity 001307): this one 8 s read gave up 2 s before CEE answered with the saved model.
+              unansweredRetry: STREAM_LOSS_READ,
             })
             reading = false
             if (!ownsRecovery()) return
@@ -5289,6 +5362,13 @@ export function useConversation(): UseConversationReturn {
         }
 
         const target = routeV5Response(v5Result)
+        // CEE's revision CAS can use error.v1 or additive code keys, retained as raw JSON by strict parsing.
+        const conflictEnvelope = target.kind === 'typed_error'
+          ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
+          : undefined
+        const conflictEnvelopeSource = target.kind === 'typed_error' && !target.boundaryError ? 'raw' : 'parsed'
+        const conflictCategory = extractConflictCategory(conflictEnvelope, v5Result.kind === 'response' ? undefined : v5Result.http_status, conflictEnvelopeSource)
+        const revisionConflict = conflictCategory === 'revision_conflict'
 
         // CANVAS UNDO JOURNAL (Undo/Redo S2, dark): record this turn's own
         // versioned write — or another writer's — so ⌘Z can later restore the
@@ -5359,7 +5439,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5384,7 +5464,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5412,7 +5492,7 @@ export function useConversation(): UseConversationReturn {
             target.kind === 'typed_error'
               ? {
                   kind: 'typed_error',
-                  conflictCategory: extractConflictCategory(target.boundaryError),
+                  conflictCategory: conflictCategory,
                 }
               : { kind: 'response', response: target.response },
           )
@@ -5466,7 +5546,7 @@ export function useConversation(): UseConversationReturn {
           if (target.kind === 'typed_error') {
             resolveFailedOptimisticFactorEdit(
               optimisticEdit,
-              extractConflictCategory(target.boundaryError),
+              conflictCategory,
             )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId, optimisticEdit.sentValue)
@@ -5533,23 +5613,30 @@ export function useConversation(): UseConversationReturn {
         // only typed_error leaves it failed. Resolved BEFORE rendering so
         // the marker and the outcome message land in the same commit.
         //
-        // ROADMAP 2.665: 'failed' is a CLAIM, and one shape of typed_error
-        // cannot support it. A proxy/edge timeout body (transport-class,
-        // `network === false`) means the request DID reach CEE and something
-        // downstream stopped waiting — CEE commits that turn anyway. Marking
-        // it "Not delivered" asserts something this client cannot check, so
-        // it resolves to 'unconfirmed' instead. DL Round 3: a fetch rejection
-        // is equally uncertain unless dispatch is proven not to have started.
-        // CEE-class error recovery is unchanged.
+        // With no response, the label follows dispatch evidence (Batch B
+        // amendment): (a) `not_sent` only on positive proof that nothing was
+        // dispatched; otherwise (b) `delivery_unknown`, because a dispatched
+        // request may have been received and applied. An acknowledged stream
+        // or proxy timeout retains the uncertain-outcome treatment below.
+        const noResponse = target.kind === 'typed_error' && target.transportMeta?.network === true &&
+          streamedUnsettledCause == null && !recoveredBeforeResend && !responseReceived
+        const unanswered = noResponse
+          ? classifyUnansweredSend({
+              requestStarted,
+              transportProvedNotStarted: target.transportMeta?.requestNotStarted === true,
+            })
+          : null
+        const httpStatus = v5Result.kind !== 'response' && 'http_status' in v5Result ? v5Result.http_status : undefined
+        const httpServerFailure = typeof httpStatus === 'number' && httpStatus >= 500 && httpStatus < 600
         if (userBubbleIdForTurn) {
-          const unverified =
+          const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
             isUnverifiedDelivery({
-              hasBoundaryError: target.boundaryError !== undefined,
+              hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
               transportMeta: target.transportMeta,
               recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
               rawBody: target.rawBody,
-            })
+            }))
           // F1: a typed_error whose stream already delivered GRAPH_READY is
           // PROOF the server received and processed this message — a
           // "failed"/"unconfirmed" marker would assert something the held
@@ -5557,7 +5644,7 @@ export function useConversation(): UseConversationReturn {
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
-              target.kind !== 'typed_error' || deliveryProvenByFrame
+              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame
                 ? 'sent'
                 : unverified
                   ? 'unconfirmed'
@@ -5569,7 +5656,7 @@ export function useConversation(): UseConversationReturn {
 
         // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
         // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
-        if (target.kind === 'typed_error') turnFailure = 'server'
+        if (target.kind === 'typed_error') turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
         else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
@@ -5637,6 +5724,7 @@ export function useConversation(): UseConversationReturn {
             {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
+              turnScenarioId: scenarioIdAtDispatch,
               // Row 3b: a receipt for THIS turn's own factor edit applies only while
               // that edit still stands — the predicate the confirm above already reads.
               factorEditReceiptStands: (nodeId: string) =>
@@ -6122,6 +6210,8 @@ export function useConversation(): UseConversationReturn {
               lastRun: { visible: stage === 'ran-current' || stage === 'stale',
                 runId: landed.results?.hash ?? landed.v5AnalysisFact?.analysisHash ?? 'visible-run',
                 report: landed.results?.report,
+                // #2747 r2: a note names a driver only from the GATED canonical view of the Run on screen.
+                drivers: gatedDriversOf(runViewOf(landed.results?.report, heldCanonicalFor(landed.currentScenarioId))),
                 fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
                 turningPoints: selectTurningPoints(landed.results?.report),
                 goalConstraints: landed.goalConstraints,
@@ -6133,7 +6223,7 @@ export function useConversation(): UseConversationReturn {
               // Pass suggested_actions so the held-proposal mapper (R8) can
               // resolve confirm_action_id / decline_action_id refs into the
               // {label, message} the card dispatches through the chip seam.
-              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions, turnCanonicalRunOf(target.response))
               : []
 
           // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
@@ -6154,7 +6244,7 @@ export function useConversation(): UseConversationReturn {
           // the store synchronously above. Gated on the flag + a non-empty
           // coaching summary; the block is local-only (no CEE/wire/parser change).
           const receipt = maybeBuildModelReceiptBlock({
-            enabled: isPreAnalysisEnrichedEnabled(),
+            enabled: false,
             isDraftTurn: draftAppliedThisTurn,
             store: useCanvasStore.getState(),
           })
@@ -6226,6 +6316,7 @@ export function useConversation(): UseConversationReturn {
           // merged into `content` (attached as its own field, rendered by
           // AnswerBody). See answerShape.ts for the full contract note.
           const answerShape = extractAnswerShapeSidecar(target.response)
+          const answerStateKey = answerShape ? answerStateKeyOf(target.response) : null
           // CEE hop 4b — WHICH model elements this answer was grounded on.
           // `_grounded_selection` rides the SAME `__additive__` demotion as
           // `_reasoning` and `_answer_shape` (it is undeclared at the pinned
@@ -6280,11 +6371,8 @@ export function useConversation(): UseConversationReturn {
           // is drawn (the surfaces keep the controls they had).
           useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
-          if (namesALatestRun(narration)) {
+          if (namesALatestRun(narration) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
-            if (narration.status === 'pending' && !sentExplainKeysRef.current.has(narration.runKey)) {
-              setPendingExplainKey(narration.runKey)
-            }
           }
           // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the
           // pending server echo to serverTurnId, so a late read cannot replace a live card's controls.
@@ -6300,6 +6388,8 @@ export function useConversation(): UseConversationReturn {
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...((readAgentTurnReceipts(target.response)?.length ?? 0) > 0 ? { undoTurnId: turnClientId } : {}),
+            // Keep stale narration even with an empty key and no result blocks:
+            // the existing freshness pill must disclose the unknown identity.
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(actionScience.success ? { actionScience: actionScience.data } : {}),
@@ -6308,6 +6398,7 @@ export function useConversation(): UseConversationReturn {
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
             ...(answerShape ? { answerShape } : {}),
+            ...(answerStateKey ? { answerStateKey } : {}),
             ...(groundedSelection ? { groundedSelection } : {}),
             ...(openQuestionList ? { openQuestionList } : {}),
             ...(provisionalView ? { provisionalView } : {}),
@@ -6344,7 +6435,7 @@ export function useConversation(): UseConversationReturn {
           if (inputForRestore) {
             // Delivered but produced nothing — the hero must still show
             // feedback rather than fail silently (server class).
-            setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
+            setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
           }
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
@@ -6380,7 +6471,9 @@ export function useConversation(): UseConversationReturn {
           // CeeTypedError-shaped bodies (via rawBody), plus the server
           // retryable marker. Fail closed on every field.
           const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
-          const retryable = resolveV5Retryable(target.code, recovery.retryable)
+          const retryable = target.ownershipRefusal !== undefined
+            ? ownershipRefusalRetryable(target.ownershipRefusal)
+            : resolveV5Retryable(target.code, recovery.retryable)
           // Transcript honesty (trust item #3): the rehearsal's 504s carry
           // NO CEE body — the proxy timeout JSON is not a server-processing
           // fault, and "Something went wrong on our side" was a false
@@ -6388,7 +6481,7 @@ export function useConversation(): UseConversationReturn {
           // zero CEE signal renders transport-honest copy instead, and
           // never invents a recovery suggestion.
           const transportFailure = isTransportFailure({
-            hasBoundaryError: target.boundaryError !== undefined,
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
@@ -6400,14 +6493,20 @@ export function useConversation(): UseConversationReturn {
           // server's `retryable` marker is about whether the FAILURE is
           // transient, not about whether re-asking is safe; on this shape it
           // is overruled, and the copy says why instead.
-          const deliveryUnverified = isUnverifiedDelivery({
-            hasBoundaryError: target.boundaryError !== undefined,
+          const deliveryUnverified = !noResponse && isUnverifiedDelivery({
+            hasBoundaryError: target.boundaryError !== undefined || revisionConflict,
             transportMeta: target.transportMeta,
             recovery,
             rawBody: target.rawBody,
           })
           let content: string
-          if (transportFailure && target.transportMeta) {
+          if (unanswered === 'not_sent') {
+            content = NOT_DELIVERED_COPY
+          } else if (unanswered === 'delivery_unknown') {
+            content = DELIVERY_UNKNOWN_COPY
+          } else if (target.ownershipRefusal !== undefined) {
+            content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
+          } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
             // CEE-class — layered content, each layer display-honest:
@@ -6428,7 +6527,9 @@ export function useConversation(): UseConversationReturn {
             const baseCopy = resolveFailureCopyForError(
               target.code,
               retryable,
-              target.boundaryError,
+              conflictEnvelope,
+              v5Result.kind === 'response' ? undefined : v5Result.http_status,
+              conflictEnvelopeSource,
             )
             const reason = extractV5ErrorReason(target.boundaryError)
             const reasonLayer =
@@ -6440,7 +6541,7 @@ export function useConversation(): UseConversationReturn {
                   // guidance, never "rephrase your message".
                   resolveV5ErrorGuidance(target.code, target.boundaryError)
                 : ''
-            content = [
+            content = revisionConflict ? baseCopy : [
               baseCopy,
               recovery.suggestion ?? '',
               reasonLayer,
@@ -6450,8 +6551,10 @@ export function useConversation(): UseConversationReturn {
               .filter((s) => s.length > 0)
               .join('\n\n')
           }
-          const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+          const retryChips: ActionChip[] = !revisionConflict && retryable && !deliveryUnverified && mode === 'user' && !hidden
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary',
+                // Local retryLast routing still owns the click; the prompt makes this chip renderable.
+                ...(target.ownershipRefusal !== undefined && inputForRestore ? { message: inputForRestore } : {}) }]
             : []
           // System turns get NO transcript bubble — the failure propagates to
           // the dispatcher instead (see SystemEventSendError). Gating here
@@ -6464,19 +6567,27 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               synthetic: true,
               content,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
-              ...(deliveryUnverified ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+              ...(deliveryUnverified || unanswered === 'delivery_unknown' ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
               timestamp: new Date(),
             })
           }
           if (inputForRestore) {
             setLastSendFailure({
-              kind: transportFailure ? 'transport' : 'server',
+              kind: unanswered ?? (httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected'),
               // Copy-agrees-with-affordance: no retry is offered on the
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
               inputText: inputForRestore,
+              ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
             })
+            // Row 3: CEE refused the re-used id as another request ("Nothing was run or changed"). That id is spent, so
+            // "Try again" sends a fresh one rather than meeting the same refusal for ever.
+            if (unknownResendId !== undefined && (String(target.code) === 'TURN_ID_REUSED'
+              || (target.rawBody as { error?: unknown } | undefined)?.error === 'TURN_ID_REUSED')) {
+              lastUserInputRef.current = { ...lastUserInputRef.current, clientTurnId: undefined }
+            }
           } else if (mode === 'system') {
             // inputForRestore is null for system turns; record the failure so
             // it is rethrown after `finally` and the dispatcher can react.
@@ -6488,8 +6599,8 @@ export function useConversation(): UseConversationReturn {
               // generic copy.
               {
                 ...(typeof target.code === 'string' ? { code: target.code } : {}),
-                ...(target.boundaryError
-                  ? { conflictCategory: extractConflictCategory(target.boundaryError) }
+                ...(conflictEnvelope && (conflictEnvelopeSource === 'parsed' || conflictCategory)
+                  ? { conflictCategory }
                   : {}),
                 // ⭐ `details.reason`, carried for the same reason as the
                 // category: the producer states a no-write on THIS field for
@@ -6506,6 +6617,18 @@ export function useConversation(): UseConversationReturn {
                 retryable,
               },
             )
+            // U: only a proven 409 on an actual graph-writing event requests
+            // recovery. Existing rollback and refusal copy have already run.
+            if (v5Result.kind !== 'response' && v5Result.http_status === 409 &&
+              isGraphRecoverySystemEvent(systemEvent?.type) && isProvenNoWriteConflict(conflictCategory)) {
+              systemSendFailure.onRefusedGraphSettled = refusedGraphRefreshRef.current?.request(
+                systemSendFailure, graphOpeningAtDispatch,
+              )
+            }
+            // A graph-writing event CEE did not state it refused may have changed the saved model (a lost reply, served
+            // capacity row 7a): the last analysis can no longer be vouched for as current.
+            if (isGraphRecoverySystemEvent(systemEvent?.type) && !isProvenNoWriteConflict(systemSendFailure.conflictCategory) &&
+              !isProvenNoWriteReason(systemSendFailure.reason)) useCanvasStore.getState().markAnalysisFreshnessDirty?.()
           }
         }
 
@@ -6594,12 +6717,14 @@ export function useConversation(): UseConversationReturn {
         }
       } catch (err) {
         clearLifecycleTimers()
-        const isAbort = (err as Error).name === 'AbortError'
+        // A transport AbortError is a failed send; only our own controller
+        // identifies an intentional Stop/preempt (or an already reported timeout).
+        const isAbort = (err as Error).name === 'AbortError' && (mode === 'system' || controller.signal.aborted)
         // An abort is a Stop, a preempt or the wait timer (which classified itself); it is not a new failure.
         if (!isAbort && turnFailure === null) {
           turnFailure = (err as Error)?.name === 'SessionReadTimeoutError'
             ? 'session_timeout'
-            : requestNotStarted ? 'not_sent' : 'transport'
+            : responseReceived ? 'transport' : classifyUnansweredSend({ requestStarted })
         }
 
         // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
@@ -6654,27 +6779,31 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // A call is not a send: only the transport's fetch boundary clears
-          // requestNotStarted. Error names and elapsed time prove nothing.
+          // Preserve acknowledged-stream uncertainty. With no response: (a)
+          // only when no transport reached its dispatch boundary, else (b).
+          // Both offer "Try again"; on (b) `retryLast` reuses the same turn_id.
+          const unanswered = responseReceived ? null : classifyUnansweredSend({ requestStarted })
+          const maybeArrived = unanswered !== 'not_sent'
           if (userBubbleIdForTurn) {
             updateMessage(userBubbleIdForTurn, {
-              deliveryState: requestNotStarted ? 'failed' : 'unconfirmed',
-              deliveryRequestId: requestNotStarted ? undefined : deliveryRequestId,
-              deliveryScenarioId: requestNotStarted ? undefined : scenarioIdAtDispatch,
+              deliveryState: maybeArrived ? 'unconfirmed' : 'failed',
+              deliveryRequestId: maybeArrived ? deliveryRequestId : undefined,
+              deliveryScenarioId: maybeArrived ? scenarioIdAtDispatch : undefined,
             })
           }
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             synthetic: true,
-            content: buildTransportFailureCopy({ network: true,
-              ...(requestNotStarted ? { requestNotStarted: true as const } : {}) }, requestNotStarted),
-            actionChips: requestNotStarted ? [{ id: 'retry', label: 'Try again', intent: 'primary' }] : [],
-            ...(!requestNotStarted ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+            content: unanswered === null
+              ? buildTransportFailureCopy({ network: true }, false)
+              : unanswered === 'not_sent' ? NOT_DELIVERED_COPY : DELIVERY_UNKNOWN_COPY,
+            actionChips: unanswered === null ? [] : [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            ...(maybeArrived ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
             timestamp: new Date(),
           })
           if (inputForRestore) {
-            setLastSendFailure({ kind: 'transport', retryable: requestNotStarted, inputText: inputForRestore })
+            setLastSendFailure({ kind: unanswered ?? 'transport', retryable: unanswered !== null, inputText: inputForRestore })
           }
         }
         if (!isAbort && mode === 'system') {
@@ -6945,6 +7074,17 @@ export function useConversation(): UseConversationReturn {
       if (!next) return
 
       next.dispatching = true
+
+      // An approval can add the reviewed pair while this older draw waits.
+      // Adding it again would replay the draw's obsolete sign over that review.
+      const addPair = ownAddEdgePair(next.opts.systemEvent)
+      if (addPair && useCanvasStore.getState().lastAuthoritativeGraph?.edgePairs.includes(edgePairKey(addPair.from, addPair.to))) {
+        deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter(d => d !== next)
+        publishPendingEditCount()
+        next.opts.onDeferredSettled?.(Promise.resolve(undefined))
+        flushDeferredSystemSendsRef.current()
+        return
+      }
 
       // ⭐ A QUEUED LINK-STRENGTH `set` ASSERTS WHAT THE SERVER HOLDS **NOW**
       // (canvas audit edit-values F1). Its `expected` was read at the click,
@@ -7339,24 +7479,6 @@ export function useConversation(): UseConversationReturn {
     },
     [sendTurn],
   )
-
-  // Result-first: send request 2 once the Run's own turn has settled (the busy lock would refuse it mid-turn), once per
-  // run_key, hidden, routed by its id. Absent `narration` nothing is pending and the chip stays the path.
-  useEffect(() => {
-    if (pendingExplainKey === null || isThinking) return
-    const runKey = pendingExplainKey
-    setPendingExplainKey(null)
-    if (sentExplainKeysRef.current.has(runKey) || latestRunKeyRef.current !== runKey) return
-    sentExplainKeysRef.current.add(runKey)
-    setExplainingRun(true)
-    void dispatchAction({
-      id: explainRunChipId(runKey),
-      label: EXPLAIN_RUN_LABEL,
-      message: EXPLAIN_RUN_LABEL,
-      hidden: true,
-      source: 'chip',
-    }).finally(() => setExplainingRun(false))
-  }, [pendingExplainKey, isThinking, dispatchAction])
 
   const sendChip = useCallback(
     async (chip: SourceKeyedChip) => {

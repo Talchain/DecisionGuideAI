@@ -145,7 +145,7 @@ export function StarterProvenanceBanner() {
       'Re-draft this example live?\n\n' +
         'Olumi will send the original brief to the model and build a fresh graph. ' +
         'This clears the saved example and replaces it with whatever the live draft returns. ' +
-        'If this decision isn’t saved, it also clears the conversation so far. ' +
+        'If this scenario isn’t saved, it also clears the conversation so far. ' +
         'Live drafting can fail or time out; if it does, the saved example is put back and ' +
         'your brief comes back in the composer so you can retry.',
     )

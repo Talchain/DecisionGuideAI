@@ -195,20 +195,17 @@ describe('where the goal declares no unit, the control collects one', () => {
     expect(screen.queryByTestId(`${TARGET}-unit`)).not.toBeInTheDocument()
   })
 
-  /**
-   * ⚠ THE LOCAL ARM KEEPS IT TOO. With no dispatcher mounted the store write is
-   * all there is, and it already accepts `{ unit }` — it was being called
-   * without one, so a reader's unit was discarded on exactly the path where
-   * nothing else could recover it.
-   */
-  it('carries the collected unit into the local write when no dispatcher is mounted', () => {
+  /** An unsendable target keeps the collected unit in the open draft. */
+  it('retains the collected unit without a local write when no dispatcher is mounted', () => {
     goalTargetDispatchAvailable = false
     nodes.push(...NO_UNIT_NO_TARGET)
     openEditor()
     fireEvent.change(screen.getByTestId(`${TARGET}-unit`), { target: { value: 'points' } })
     fireEvent.change(screen.getByTestId(`${TARGET}-input`), { target: { value: '9' } })
     fireEvent.click(screen.getByTestId(`${TARGET}-save`))
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 9, { unit: 'points' })
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${TARGET}-unit`)).toHaveValue('points')
+    expect(screen.getByTestId(`${TARGET}-input`)).toHaveValue('9')
   })
 })
 

@@ -2,6 +2,7 @@
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
 import { Suspense } from 'react';
+import { InputModality } from './components/InputModality';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
@@ -180,6 +181,7 @@ const AppPoC = lazyWithStallBound(async () => { await runLapseBoundaryIfNeeded()
     queueMicrotask(() => {
       root.render(
         <BootErrorBoundary onError={log}>
+          <InputModality />
           <Suspense fallback={<Shell />}>
             <AppPoC />
           </Suspense>

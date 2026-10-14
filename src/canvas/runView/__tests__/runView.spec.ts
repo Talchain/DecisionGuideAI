@@ -1,0 +1,150 @@
+/**
+ * RunView PR 1 (design: programme-docs design/RUNVIEW-PHASE1-DESIGN-20261008.md, DL APPROVED 8 Oct): one per-option view,
+ * one chance source (CEE's licence), built once per report, and the ONE production reader of the licence and range.
+ * The licence record below is CAPTURED: P02 C3 (scenario 23b1495c), CEE 2334956288d3a87eaece7a5ab3d948b20a5f9dfb.
+ */
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { buildRunView, chanceFigureFromCanonical, runViewOf } from '../runView'
+import { parseCanonicalAnalysisView, type CanonicalAnalysisView } from '../canonicalAnalysisView'
+
+import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
+
+// Captured (C3, 23b1495c): the GOAL_CHANCE_LICENSED record, verbatim fields.
+const C3 = {
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', severity: 'info',
+  message: 'Each option’s chance of meeting your goal is licensed on this Run.',
+  target: { unit: '£/month', value: 20000, comparator: 'at_least' },
+  option_ids: ['keep_pro_at_49', 'raise_pro_to_59'],
+  horizon_line: 'This model doesn\'t yet say whether any option gets there within 12 months.',
+  pct_by_option: { keep_pro_at_49: 0, raise_pro_to_59: 0 }, horizon_untested: true,
+  summary_withheld: { form: 'all_likely_to_miss', cause: 'olumi_existence_assumption' },
+  no_driver_by_option: { keep_pro_at_49: 'none', raise_pro_to_59: 'none' },
+  user_link_existence: { links: 1, one_in: 5 },
+  display_rounding_by_option: { keep_pro_at_49: 'whole', raise_pro_to_59: 'whole' },
+}
+
+/** #2747 chance authority gate: the Run's canonical view (CEE's served shape), matching `run-1` and current by default. */
+function canonicalFor(cells: Record<string, Record<string, unknown>>, over: { runId?: string; stale?: boolean | null } = {}): CanonicalAnalysisView {
+  const view = parseCanonicalAnalysisView({
+    schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', leader_licence: 'withheld',
+    run: { run_id: over.runId ?? 'run-1', graph_hash_at_run: null, computed_at: null },
+    staleness: { stale: over.stale === undefined ? false : over.stale, revision: null, run_revision: null,
+      basis: 'analysis_graph_hash_interim', reason: null, limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
+    options: Object.entries(cells).map(([option_id, cell]) => ({ option_id, cell, main_driver: { kind: 'not_recorded' } })),
+  })
+  if (view === null) throw new Error('fixture canonical view did not parse')
+  return view
+}
+const LESS_THAN_1 = { kind: 'figure', display: 'less than 1%' }
+
+describe('RunView: one per-option view, one chance source', () => {
+  it('C3 captured: each option\'s chance is CEE\'s licensed figure in its display words; the Run\'s lines are byte-identical', () => {
+    const report = { run_id: 'run-1', inference_warnings: [C3] }
+    const view = buildRunView(report, canonicalFor({ keep_pro_at_49: LESS_THAN_1, raise_pro_to_59: LESS_THAN_1 }))
+    expect(view.chanceOf('raise_pro_to_59')).toEqual({ kind: 'figure', pct: 0, words: 'less than 1%' })
+    expect(view.chanceOf('keep_pro_at_49')).toEqual({ kind: 'figure', pct: 0, words: 'less than 1%' })
+    // The Run's lines read the same licence the direct reader returns (line parity: analysis-hero/__tests__/runViewParity.spec.ts).
+    expect(view.goalChance).toEqual(readGoalChanceLicence([C3]))
+  })
+
+  it('an option CEE withheld keeps its place and says so; the others keep their figures', () => {
+    const lic = { ...C3, option_ids: ['a', 'b'], pct_by_option: { a: 41 }, withheld_option_ids: ['b'], summary_withheld: undefined,
+      no_driver_by_option: undefined, display_rounding_by_option: undefined }
+    const view = buildRunView({ run_id: 'run-1', inference_warnings: [lic] }, canonicalFor({ a: { kind: 'figure', display: 'about 41%' },
+      b: { kind: 'withheld', reasons: [] } }))
+    expect(view.chanceOf('a')).toEqual({ kind: 'figure', pct: 41, words: 'about 41%' })
+    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', by: 'licence' })
+  })
+
+  it('goal figures in the report but NO licence → withheld numeric metadata without client words; never the report figure', () => {
+    const view = buildRunView({ inference_warnings: [], option_probabilities: { a: { goal_probability: 0.074 }, b: { probability_of_goal: 0.3 } } })
+    expect(view.unlicensedGoalFigures).toBe(true)
+    expect(view.chanceOf('a')).toEqual({ kind: 'withheld', by: 'no_licence' })
+    expect(view.chanceOf('b')).toEqual({ kind: 'withheld', by: 'no_licence' })
+  })
+
+  it('CONTROL: no goal figures and no licence → no chance to show (not "run again")', () => {
+    const view = buildRunView({ inference_warnings: [], option_probabilities: { a: { win_probability: 0.6 } } })
+    expect(view.unlicensedGoalFigures).toBe(false)
+    expect(view.chanceOf('a')).toEqual({ kind: 'none' })
+    expect(buildRunView(null).chanceOf('a')).toEqual({ kind: 'none' })
+  })
+
+  it('CONTROL: with a licence, an option it does not name has no chance (the report figure is never a fallback)', () => {
+    const view = buildRunView({ inference_warnings: [C3], option_probabilities: { other: { goal_probability: 0.5 } } })
+    expect(view.chanceOf('other')).toEqual({ kind: 'none' })
+  })
+
+  it('built once per report: the same report object gets the same view; a new report gets a new one', () => {
+    const report = { inference_warnings: [C3] }
+    expect(runViewOf(report)).toBe(runViewOf(report))
+    expect(runViewOf({ inference_warnings: [C3] })).not.toBe(runViewOf(report))
+  })
+
+  it('GUARD: RunView is the ONE production reader of the licence and the range', () => {
+    const root = join(__dirname, '..', '..', '..')
+    const offenders: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) { if (name !== '__tests__' && name !== 'node_modules') walk(path); continue }
+        if (!/\.(ts|tsx)$/.test(name) || /\.(test|spec|stories)\.tsx?$/.test(name)) continue
+        const text = readFileSync(path, 'utf8')
+        if (/readGoalChanceLicence\(|readGoalChanceRange\(/.test(text)) offenders.push(relative(root, path))
+      }
+    }
+    walk(root)
+    // The readers' own module (definitions + their internal helpers) and RunView, nothing else.
+    const ALLOWED = ['canvas/runView/runView.ts', 'components/results/utils/goalChanceLicence.ts', 'components/results/utils/goalChanceRange.ts']
+    expect(offenders.filter((f) => !ALLOWED.includes(f))).toEqual([])
+    expect(offenders).toContain('canvas/runView/runView.ts') // contrast: the probe sees the one real caller
+  })
+})
+
+describe('⭐ #2747 the chance authority gate (chanceFigureFromCanonical): a figure ONLY from a current canonical cell that licenses it', () => {
+  const lic = { ...C3, option_ids: ['a', 'b'], pct_by_option: { a: 41, b: 7 }, summary_withheld: undefined,
+    no_driver_by_option: undefined, display_rounding_by_option: undefined }
+  const report = { run_id: 'run-1', inference_warnings: [lic] }
+  const CELLS = { a: { kind: 'figure', display: 'about 41%' }, b: { kind: 'figure', display: 'about 7%' } }
+  it('CONTROL: matching, current, figure cells whose words say the licence\'s number → the figure', () => {
+    const view = buildRunView(report, canonicalFor(CELLS))
+    expect(chanceFigureFromCanonical(view, 'a')).toEqual({ pct: 41, words: 'about 41%' })
+    expect(view.chanceOf('b')).toEqual({ kind: 'figure', pct: 7, words: 'about 7%' })
+  })
+  it.each([
+    ['no canonical view', null],
+    ['the canonical view is another Run', canonicalFor(CELLS, { runId: 'run-2' })],
+    ['the Run is not current (stale)', canonicalFor(CELLS, { stale: true })],
+    ['currency unknown (stale: null)', canonicalFor(CELLS, { stale: null })],
+    ['the cell withholds', canonicalFor({ ...CELLS, a: { kind: 'withheld', reasons: [] } })],
+    ['the cell is a range, not a figure', canonicalFor({ ...CELLS, a: { kind: 'range', display: 'between about 30% and 50%', detail: {} } })],
+    ['the cell\'s words say another number', canonicalFor({ ...CELLS, a: { kind: 'figure', display: 'about 46%' } })],
+  ] as const)('%s → no figure; chanceOf says none', (_case, canonical) => {
+    const view = buildRunView(report, canonical)
+    expect(chanceFigureFromCanonical(view, 'a')).toBeNull()
+    expect(view.chanceOf('a')).toEqual({ kind: 'none' })
+  })
+})
+
+
+describe('#2747 r2 (BLOCKING 2): a range is kept only when the current canonical cell says the SAME bounds', () => {
+  const range = (low: number, high: number) => ({ code: 'GOAL_CHANCE_RANGE', severity: 'info', message: 'range', option_ids: ['a'],
+    range_by_option: { a: { low_pct: low, high_pct: high, low_rounding: 'whole', high_rounding: 'whole', kind: 'link_strength',
+      from: 'x', to: 'y', among: 'all' } } })
+  const cell = (display: string) => ({ a: { kind: 'range', display, detail: {} } })
+  it('the checker\'s reproduction: a stored 5–95% beside a canonical 20–30% → no range', () => {
+    const view = buildRunView({ run_id: 'run-1', inference_warnings: [range(5, 95)] }, canonicalFor(cell('between about 20% and 30%')))
+    expect(view.goalChanceRange).toBeNull()
+  })
+  it('CONTROL: the canonical cell says 5–95% (CEE\'s words for those bounds) → the range', () => {
+    const view = buildRunView({ run_id: 'run-1', inference_warnings: [range(5, 95)] }, canonicalFor(cell('between about 5% and 95%')))
+    expect(view.goalChanceRange?.rangeByOption.a).toMatchObject({ lowPct: 5, highPct: 95 })
+  })
+  it('the ends are said as CEE says them: 0 is "less than 1%", 100 "more than 99%" (the high end without "about")', () => {
+    const report = { run_id: 'run-1', inference_warnings: [range(0, 100)] }
+    expect(buildRunView(report, canonicalFor(cell('between less than 1% and more than 99%'))).goalChanceRange?.optionIds).toEqual(['a'])
+    expect(buildRunView(report, canonicalFor(cell('between about 0% and about 100%'))).goalChanceRange).toBeNull()
+  })
+})

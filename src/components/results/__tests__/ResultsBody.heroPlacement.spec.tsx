@@ -1,3 +1,5 @@
+import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
+import { withCanonicalTestCells } from '../analysis-hero/__tests__/helpers/canonicalTestCells'
 /**
  * ResultsBody — Analysis hero panel placement.
  *
@@ -45,6 +47,7 @@ import {
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
+import { runViewOf } from '../../../canvas/runView/runView'
 
 function makeData(): ResultsSectionDataReturn {
   const winner = {
@@ -116,7 +119,18 @@ function makeData(): ResultsSectionDataReturn {
     count: 0,
     hasHighPriority: false,
   } as ImprovementsSectionData
+  // WS5 (#2709): the hero's goal figures come from RunView cells. Feed the same 70% / 30% through a GOAL_CHANCE licence
+  // (C-CELL); a numeric goal with no licence is not a served shape and now (correctly) prints no figure.
+  const runView = runViewOf({
+    option_probabilities: { opt_a: { goal_probability: 0.7 }, opt_b: { goal_probability: 0.3 } },
+    inference_warnings: [{
+      code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+      option_ids: ['opt_a', 'opt_b'], pct_by_option: { opt_a: 70, opt_b: 30 },
+      target: { comparator: 'at_least', value: 0.6, unit: 'count' },
+    }],
+  })
   return {
+    runView,
     recommendation,
     drivers,
     confidence,
@@ -129,10 +143,10 @@ function makeData(): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderBody(props: { isStale?: boolean } = {}) {
+function renderBody(props: { isStale?: boolean; withView?: boolean } = {}) {
   return render(
     <ResultsBody
-      resultsSectionData={makeData()}
+      resultsSectionData={props.withView ? withCanonicalTestCells(makeData()) : makeData()}
       tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       isStale={props.isStale}
@@ -163,9 +177,33 @@ describe('ResultsBody — Analysis hero placement', () => {
     expect(before(focus, options), 'Focus panel still precedes options').toBe(true)
   })
 
+  // #2747 re-scope 2 round 2 (Codex r1; rule C): the hero composes no goal claim of its own ("Option A meets every target
+  // this run scored in the most model runs (…)" went with the goalOnly arm). With no CEE chance words served, the
+  // headline is the neutral one; each row still says CEE's served cell.
+  it('view-bearing control: ResultsBody preserves the server figure, the neutral headline and recovery ownership', () => {
+    for (const isStale of [false, true]) {
+      const { unmount } = renderBody({ withView: true, isStale })
+      expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+      expect(screen.getByTestId('hero-headline').textContent).not.toMatch(/every target|model runs|meets/i)
+      const rows = screen.getAllByTestId(/^hero-option-row-/)
+      expect(rows.length).toBe(2)
+      expect(rows[0].querySelector('.text-right > span')!.textContent).toBe('about 70%')
+      expect(rows[1].querySelector('.text-right > span')!.textContent).toBe('about 30%')
+      expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
+      expect(screen.queryByTestId('analysis-freshness-notice')).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
   it('hero consumes the same data (headline names the recommended option)', () => {
     renderBody()
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A meets every target this run scored in the most model runs \(.+\)\./)
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+    for (const row of screen.getAllByTestId(/^hero-option-row-/)) {
+      const face = row.querySelector('.text-right > span')!
+      expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(face.textContent).not.toMatch(/\d+%/)
+      expect(face.textContent).not.toContain('Why?')
+    }
   })
 
   it('stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
@@ -182,7 +220,13 @@ describe('ResultsBody — Analysis hero placement', () => {
     // its subtree for a run control of any name/testid.
     expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
     // Content stays readable and interactive (no dim/lock regression).
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A meets every target this run scored in the most model runs \(.+\)\./)
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Here is how your options compare.')
+    for (const row of screen.getAllByTestId(/^hero-option-row-/)) {
+      const face = row.querySelector('.text-right > span')!
+      expect(face.textContent).toBe(CHANCE_NOT_SHOWN_YET)
+      expect(face.textContent).not.toMatch(/\d+%/)
+      expect(face.textContent).not.toContain('Why?')
+    }
     // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim
     // wrapper (review a) — ResultsBody itself authors NO stale surface,
     // and the hero authors no stale banner either.

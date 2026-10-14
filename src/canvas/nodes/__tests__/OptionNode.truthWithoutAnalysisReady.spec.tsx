@@ -155,9 +155,9 @@ describe('POM-2 · an internal 0–1 value never prints beside a real unit', () 
     const { container } = mount([PREMIUM, SHARE, STATUS_QUO, ADD_PREMIUM], 'add_99_premium_tier')
     // Positive control: the row for THIS option + factor is on the card.
     const row = screen.getByTestId('option-change-row-add_99_premium_tier-fac_premium_monthly_price')
-    // It says what the option DOES — the estate's directional fallback — rather
-    // than an arrow pointing at a number in a unit it is not measured in.
-    expect(row.textContent).toContain('Increases')
+    // DL 87114 (#2722): the shared target frame reads CEE's scale_frame (200), so the row
+    // shows the user-unit amount the option names (0.495 × 200 = £99), not "Increases".
+    expect(row.textContent).toContain('£0 → £99 / month')
     expect(row.textContent ?? '').not.toMatch(/0\.495/)
     expect(row.textContent ?? '').not.toMatch(/GBP/)
     expect(container.textContent ?? '').not.toMatch(/0\.495/)

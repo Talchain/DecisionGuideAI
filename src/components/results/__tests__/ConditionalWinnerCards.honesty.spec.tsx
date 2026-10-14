@@ -11,6 +11,12 @@
  *     of silently vanishing (the over-suppression CEE shipped bytes to avoid);
  *   - absent numerics render as absent. No `?? 0`, no minted percentages.
  *
+ * Run-4 judge (DL 12 Oct, the class): the directional arm and the bucket footer
+ * ("Above: {option} / Below: {option}") are removed and nothing replaces them;
+ * EVERY row is the neutral arm, so no row names an option. The identity-bound
+ * direction rows below keep their trap-19 fixture and now pin that neither
+ * recommended id reaches a direction.
+ *
  * Withheld fixture: GENERATED from the full producer row by applying CEE's
  * published projection rule (strip exactly WITHHELD_DROPPED_CONDITIONAL_BUCKET_MEMBERS
  * per bucket — olumi-assistants-service
@@ -150,9 +156,7 @@ describe('ConditionalWinnerCards — withheld/neutral arm (CEE projection shape)
     expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).toMatch(/Market growth/)
     expect(body.textContent).toMatch(/42\.5%/)
-    // …and licensed anonymous probabilities…
-    expect(body.textContent).toMatch(/Above: 70%/)
-    expect(body.textContent).toMatch(/Below: 60%/)
+    // #2747 re-scope 2 (DL ruling (A)): the "Above: 70%" / "Below: 60%" share assertions deleted — no bucket win share is said in C.
     // …but NO option identity anywhere (the pre-projection fixture carries
     // both names, so this assertion discriminates).
     expect(body.textContent).not.toMatch(/Expand into Europe/)
@@ -205,23 +209,18 @@ describe('ConditionalWinnerCards — honest absence (no minted numbers)', () => 
 
     render(<ConditionalWinnerCards winners={[historic]} recommendedOptionId="opt_hold" />)
     const body = screen.getByTestId('conditional-winner-cards')
-    // The scenario renders with its labels…
-    expect(body.textContent).toMatch(/Expand into Europe/)
+    // The scenario renders (rebound: its factor and threshold)…
+    expect(body.textContent).toContain('How the options compare depends on Market growth; the analysis flips at 42.5.')
+    // Run-4 judge (DL 12 Oct, the class): the bucket footer that carried the labels is removed; nothing replaces it.
+    expect(body.textContent).not.toMatch(/Expand into Europe/)
+    expect(body.textContent).not.toMatch(/Hold position/)
     // …and no percentage is fabricated anywhere.
     expect(body.textContent).not.toMatch(/0%/)
     expect(body.textContent).not.toMatch(/%\)/)
   })
 
-  it('renders a producer-sent win_probability of 0 (positive control for absence handling)', () => {
-    const row = fullRow({
-      high_bucket: { winner_id: 'opt_expand', winner_label: 'Expand into Europe', win_probability: 0 },
-      low_bucket: { winner_id: 'opt_hold', winner_label: 'Hold position', win_probability: 1 },
-    })
-    render(<ConditionalWinnerCards winners={[row]} recommendedOptionId="opt_hold" />)
-    const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/\(0%\)/)
-    expect(body.textContent).toMatch(/\(100%\)/)
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row 'renders a producer-sent win_probability of 0' deleted — its only subject was the
+  // bucket win share "(0%)" / "(100%)", which C no longer says.
 })
 
 describe('ConditionalWinnerCards — direction binds by identity (trap 19 discriminating fixture)', () => {
@@ -233,17 +232,25 @@ describe('ConditionalWinnerCards — direction binds by identity (trap 19 discri
       low_bucket: { winner_id: 'opt_a', winner_label: 'Expand', win_probability: 0.6 },
     })
 
-  it('recommended id in the LOW bucket → flip on the HIGH side ("exceeds")', () => {
+  it('recommended id in the LOW bucket → the neutral arm (was the HIGH side, "exceeds")', () => {
     render(<ConditionalWinnerCards winners={[sameLabelRow()]} recommendedOptionId="opt_a" />)
     const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/exceeds/)
+    // Run-4 judge (DL 12 Oct, the class): the directional arm is removed; nothing replaces it.
+    expect(body.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('neutral')
+    expect(body.textContent).not.toMatch(/exceeds/)
     expect(body.textContent).not.toMatch(/falls below/)
+    expect(body.textContent).not.toMatch(/Expand/)
+    expect(body.textContent).toContain('How the options compare depends on Market growth; the analysis flips at 42.5%.')
   })
 
-  it('recommended id in the HIGH bucket → flip on the LOW side ("falls below")', () => {
+  it('recommended id in the HIGH bucket → the neutral arm (was the LOW side, "falls below")', () => {
     render(<ConditionalWinnerCards winners={[sameLabelRow()]} recommendedOptionId="opt_b" />)
     const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/falls below/)
+    // Run-4 judge (DL 12 Oct, the class): the directional arm is removed; nothing replaces it.
+    expect(body.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('neutral')
+    expect(body.textContent).not.toMatch(/falls below/)
     expect(body.textContent).not.toMatch(/exceeds/)
+    expect(body.textContent).not.toMatch(/Expand/)
+    expect(body.textContent).toContain('How the options compare depends on Market growth; the analysis flips at 42.5%.')
   })
 })

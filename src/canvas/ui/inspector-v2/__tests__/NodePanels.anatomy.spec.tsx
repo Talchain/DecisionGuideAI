@@ -246,7 +246,8 @@ describe('specific node contracts', () => {
   })
   it.each([
     { name: 'a held normalised target', data: {}, threshold: 0.8, representation: 'normalised', sentence: 'No target we can show' },
-    { name: 'an unattributed raw target', data: {}, threshold: 85000, representation: 'raw', sentence: 'Success means 85000.' },
+    // #2747 r2: the store's scalar alone is never said as the target (was 'Success means 85000.').
+    { name: 'an unattributed raw target', data: {}, threshold: 85000, representation: 'raw', sentence: 'No target we can show' },
     { name: 'a readable node target before a normalised store value', data: { goal_threshold_raw: 85000, goal_threshold_unit: '£' }, threshold: 0.8, representation: 'normalised', sentence: 'Success means £85,000.' },
     { name: 'an unread held frame', data: { goal_threshold_frame: 'CHANGE_REL', goal_threshold_raw: -0.15 }, threshold: -0.15, representation: 'raw', sentence: 'No target we can show' },
   ])('preserves the target control’s display honesty for $name', ({ data, threshold, representation, sentence }) => {
@@ -296,7 +297,9 @@ describe('specific node contracts', () => {
     expect(screen.getByTestId('risk-likelihood-row')).toBeVisible()
     expect(screen.getByTestId('risk-impact-row')).toBeVisible()
   })
-  it('after a Run the goal chance is stated once while its scientific formatter is preserved', () => {
+  // #2747 re-scope 2 (U0): the CHANCE_NOT_SHOWN_YET face presence (once, visible) and the two negatives bound to that face
+  // are deleted — the goal inspector shows no chance face in C. The panel-wide negatives stay.
+  it('after an unlicensed Run the goal panel shows no raw figure', () => {
     seed(nodes.map(n => n.id === 'goal' ? { ...n, data: { ...n.data, goal_threshold_raw: 0.8 } } : n))
     useCanvasStore.setState({ goalThreshold: 0.8, results: { status: 'complete', report: {
       option_probabilities: { option: { win_probability: 0.62, probability_of_goal: 0.004, status: 'ok' } },
@@ -304,30 +307,12 @@ describe('specific node contracts', () => {
       robustness: { recommended_option_id: 'option', display_verdict: 'fragile' },
     } } } as never)
     open('goal')
-    const chances = screen.getAllByText(/chance of meeting your goal/)
-    expect(chances).toHaveLength(1)
-    expect(chances[0]).toBeVisible()
-    expect(chances[0]).toHaveTextContent('Less than 1% chance of meeting your goal.')
+    expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
-  it('after a Run the option keeps its headline words and moves the duplicate explanation and comparison context', () => {
-    useCanvasStore.setState({ results: { status: 'complete', report: {
-      option_probabilities: { option: { win_probability: 0.62, status: 'ok' }, 'unset-option': { win_probability: 0.38, status: 'ok' } },
-      option_comparison: [{ option_id: 'option', option_label: 'Grow', win_probability: 0.62 },
-        { option_id: 'unset-option', option_label: 'Hold', win_probability: 0.38 }],
-    } }, analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' }, analysisFreshnessDirty: false } as never)
-    open('option')
-    const caption = screen.getByTestId('option-panel-result-caption')
-    expect(caption).toBeVisible()
-    expect(caption).toHaveTextContent('Current model · of runs')
-    expect(caption.previousElementSibling?.textContent).toBe('62%')
-    expect(caption).not.toHaveAttribute('title')
-    const explanation = screen.getByTestId('option-result-explanation')
-    expect(explanation).toHaveTextContent('In this model, 62% of runs supported this option.')
-    expect(more()).toContainElement(explanation)
-    expect(more()).toContainElement(screen.getByTestId('option-comparative-context'))
-    expect(explanation).not.toBeVisible()
-  })
+  // #2747 re-scope 2 (DL ruling (A)): row deleted — "after a Run the option keeps its headline words and moves the duplicate
+  // explanation and comparison context": its only subjects (the share hero "62% · Current model · of runs", the share
+  // sentence and the share comparison context) are removed from OptionPanel in C.
   it('moves conversation navigation to the same header menu', () => {
     open('risk')
     fireEvent.click(screen.getByTestId('inspector-header-menu'))

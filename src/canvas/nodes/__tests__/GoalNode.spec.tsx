@@ -92,7 +92,6 @@ const renderGoal = (data: Record<string, unknown> = {}) =>
  */
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
 const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
-const rowName = (testId: string): string => screen.getByTestId(testId).getAttribute('aria-label') ?? ''
 /** Every accessible name on the card — so an absence claim covers the row's sentence too. */
 const allAccessibleNames = (): string =>
   Array.from(document.querySelectorAll('[aria-label]')).map(el => el.getAttribute('aria-label')).join('\n')
@@ -138,56 +137,9 @@ describe('GoalNode', () => {
     expect(screen.getByLabelText(/^Goal:/i)).toBeDefined()
   })
 
-  // T10: Achievement probability
-  it('shows achievement probability when available', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
-      influence: null,
-      confidence: null,
-      inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
-      stabilityPercentage: null,
-      winRate: null,
-      isResultsMode: true,
-      predictedOutcome: null,
-      valueOfInformation: null,
-      voiRank: null,
-    })
-    // UI-SEM-082: the probability only renders with a user target set.
-    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — ONE Chance row;
-    // the sentence is its accessible name, the prose is off the face.
-    const row = screen.getByTestId(ACHIEVEMENT_ROW)
-    expect(row.textContent).toContain('Chance')
-    expect(row.textContent).toContain('73%')
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/About 73.*% chance of meeting your goal/)
-    expect(screen.queryByText(/chance of meeting your goal/)).toBeNull()
-  })
-
-  // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
-  // caveat, same gate/wording as OptionCards' goal_fit_basis caveat.
-  it('renders the modelled-basis caveat adjacent to the number when flagged', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
-      influence: null,
-      confidence: null,
-      inSensitivityAnalysis: false,
-      achievementProbability: 0.73,
-      achievementProbabilityIsModelledBasis: true,
-      stabilityPercentage: null,
-      winRate: null,
-      isResultsMode: true,
-      predictedOutcome: null,
-      valueOfInformation: null,
-      voiRank: null,
-    })
-    // UI-SEM-082: caveat renders adjacent to the probability, which needs a target.
-    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByTestId('goal-fit-basis-caveat-node')).toHaveTextContent(
-      "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
-    )
-  })
-
+  // #2747 re-scope 2 (U0, pre-accepted): rows deleted — "shows achievement probability when available" and "renders the
+  // modelled-basis caveat adjacent to the number when flagged". Their only subject, the goal card's Chance row and the
+  // caveat beside its number, is removed in C (the canvas goal card shows no chance). Census row: canvas goal card.
   it('renders no caveat when the flag is absent (honest default)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -207,17 +159,14 @@ describe('GoalNode', () => {
     // caveat is absent because the FLAG is false, not because the whole block
     // is gated away.
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the figure's
-    // presence is read off the Chance row's accessible name.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/About 73.*% chance of meeting your goal/)
+    // #2747 re-scope 2 (U0): the Chance-row presence and the row-name negative bound to it are deleted (no Chance row in
+    // C). The caveat negative stays.
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
-    // …and the row does not carry the caveat either (it rides the row's name
-    // only when flagged).
-    expect(rowName(ACHIEVEMENT_ROW)).not.toContain("Modelled from the target's projected outcome distribution")
   })
 
-  // T10: Stability bar
-  it('shows stability bar with percentage from report robustness', () => {
+  // T10 (rewritten, #2747 re-scope 2 round 2, DL ruling (A)): the "Decision stability N%" bar printed the Run's
+  // `recommendation_stability`, a win-share figure; C shows it on no surface, so a reported stability draws nothing.
+  it('PIN: a reported recommendation_stability draws no "Decision stability" figure or bar on the goal card', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: {
@@ -231,29 +180,13 @@ describe('GoalNode', () => {
         },
       }) as any)
     )
-    renderGoal()
-    expect(screen.getByText('Decision stability')).toBeDefined()
-    expect(screen.getByRole('progressbar', { name: 'Stability' })).toBeDefined()
+    const { container } = renderGoal()
+    expect(screen.queryByText('Decision stability')).toBeNull()
+    expect(screen.queryByRole('progressbar', { name: 'Stability' })).toBeNull()
+    expect(container.textContent ?? '').not.toContain('82%')
   })
 
-  // T10: Marginal badge when stability < 60%
-  it('shows Marginal badge when stability < 60%', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          report: {
-            robustness: {
-              recommendation_stability: 0.45,
-              level: 'low',
-            },
-          },
-        },
-      }) as any)
-    )
-    renderGoal()
-    expect(screen.getByText('Marginal')).toBeDefined()
-  })
+  // #2747 re-scope 2 round 2: row deleted — "shows Marginal badge when stability < 60%". Its only subject was the goal card's Decision stability block (the Run's recommendation_stability, a win-share figure, and its Marginal word), which C does not show (DL ruling (A)).
 
   it('does not show Marginal badge when stability >= 60%', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
@@ -466,62 +399,10 @@ describe('GoalNode', () => {
   })
 
   // V5: Stability bar uses goal yellow (not info blue)
-  it('stability bar uses bg-goal for moderate level', () => {
-    const { container } = render(
-      <ReactFlowProvider>
-        <GoalNode
-          {...baseProps}
-          data={{ label: 'Increase revenue', type: 'goal' }}
-        />
-      </ReactFlowProvider>
-    )
-    // Set up with moderate robustness (no high/low)
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          report: {
-            robustness: { recommendation_stability: 0.65, level: 'moderate' },
-          },
-        },
-      }) as any)
-    )
-    const { container: c2 } = render(
-      <ReactFlowProvider>
-        <GoalNode
-          {...baseProps}
-          data={{ label: 'Increase revenue', type: 'goal' }}
-        />
-      </ReactFlowProvider>
-    )
-    // The filled bar div should have bg-goal class
-    const filledBar = c2.querySelector('.bg-goal')
-    expect(filledBar).not.toBeNull()
-    // Must NOT use bg-info (old colour)
-    expect(c2.querySelector('.bg-info')).toBeNull()
-    void container // suppress unused var
-  })
+  // #2747 re-scope 2 round 2: row deleted — "stability bar uses bg-goal for moderate level". Its only subject was the goal card's Decision stability block (the Run's recommendation_stability, a win-share figure, and its Marginal word), which C does not show (DL ruling (A)).
 
   // V4: Marginal badge uses text-text-body (not text-warning) for WCAG AA contrast
-  it('Marginal badge uses text-text-body class', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          report: {
-            robustness: { recommendation_stability: 0.45, level: 'low' },
-          },
-        },
-      }) as any)
-    )
-    const { container } = renderGoal()
-    const badge = Array.from(container.querySelectorAll('span')).find(
-      el => el.textContent === 'Marginal'
-    )
-    expect(badge).toBeDefined()
-    expect(badge?.className).toContain('text-text-body')
-    expect(badge?.className).not.toContain('text-warning')
-  })
+  // #2747 re-scope 2 round 2: row deleted — "Marginal badge uses text-text-body class". Its only subject was the goal card's Decision stability block (the Run's recommendation_stability, a win-share figure, and its Marginal word), which C does not show (DL ruling (A)).
 
   // P1.3 (feedback): full goal threshold unit matrix — all specified unit permutations
   describe('goal threshold unit matrix', () => {
@@ -676,10 +557,10 @@ describe('GoalNode', () => {
     // Contract v3.1 PILL-12: the one neutral line is `border-field/40`.
     expect(badge!.className).toContain('border-field/40')
     expect(badge!.className).not.toMatch(/border-(success|warning|danger|info)/)
-    // ⭐ The number is still there. This is a removal of interpretation, not of
-    // information — without this line the test would also pass on a card that
-    // had dropped the probability altogether.
-    expect(badge!.textContent).toContain(`${Math.round(probability * 100)}%`)
+    // #2747 r2: the limit's satisfaction probability is no longer on the card at all (no canonical cell licenses it);
+    // the limit's own words stay.
+    expect(badge!.textContent).toContain('4 months')
+    expect(badge!.textContent).not.toContain(`${Math.round(probability * 100)}%`)
   })
 
   // B11: Multiple constraints — all render without overflow
@@ -715,7 +596,7 @@ describe('GoalNode', () => {
     expect(badge?.getAttribute('aria-label')).toContain('4 months')
   })
 
-  it('J7: post-analysis constraint badge aria-label includes probability', () => {
+  it('J7 / #2747 r2: the post-analysis constraint badge aria-label names the limit and no probability', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: {
@@ -732,8 +613,9 @@ describe('GoalNode', () => {
     const { container } = renderGoal()
     const badge = container.querySelector('[aria-label*="budget"]')
     expect(badge).not.toBeNull()
-    // Should include probability percentage
-    expect(badge?.getAttribute('aria-label')).toContain('82%')
+    // #2747 r2: no canonical cell licenses the limit's probability, so it is not said (here or in the text).
+    expect(badge?.getAttribute('aria-label')).toContain('budget')
+    expect(badge?.getAttribute('aria-label')).not.toContain('82%')
   })
 
   // B5/B6: null and empty string both show coaching prompt
@@ -890,7 +772,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
-  it('target set + probability available: probability rendering wins, no rerun line', () => {
+  it('target set + probability available: no rerun line and no unset row (no Chance row in C)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -910,9 +792,8 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the Chance row wins
-    // and the unset row (which would carry any rerun line) is absent.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/About 73.*% chance of meeting your goal/)
+    // #2747 re-scope 2 (U0): the Chance-row presence is deleted (no Chance row in C); the unset row (which would carry any
+    // rerun line) is still absent.
     expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
     expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
@@ -995,7 +876,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
   })
 
-  it('mutual-exclusivity invariant: with a user target the probability shows and the invitation is absent', () => {
+  it('mutual-exclusivity invariant: with a user target the invitation is absent (no Chance row in C)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -1016,9 +897,8 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the probability is
-    // the Chance row; the invitation is the no-target chip.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/About 40.*% chance of meeting your goal/)
+    // #2747 re-scope 2 (U0): the Chance-row presence is deleted (no Chance row in C); the invitation (the no-target chip)
+    // is still absent with a user target.
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })

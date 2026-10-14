@@ -332,8 +332,8 @@ function sentenceCase(s: string): string {
 }
 
 /**
- * The canvas lens's hover label for a fragile edge, and the alternative on a
- * lens row. ALWAYS the withheld form, by the ruling in this file's header: the
+ * The canvas lens's hover label for a fragile edge (#2747 re-scope 2: the lens
+ * row's "towards {alt}" beside a switch figure is removed in C). ALWAYS the withheld form, by the ruling in this file's header: the
  * alternative's NAME is data; "If wrong → {alt}" presupposed a result to flip
  * FROM, which is the claim a withheld run refuses. The form is true on a
  * permitted run too, the same choice the canvas turning-point track makes
@@ -345,7 +345,3 @@ export function lensFragileEdgeLabel(alternative: string | null | undefined): st
   return alt ? `${sentenceCase(FRAGILE_NEUTRAL_OBJECT)} could shift towards ${alt}` : 'Sensitive'
 }
 
-/** The lens row's short form beside the edge, with the full sentence as its title. */
-export function lensFragileRowAlternative(alternative: string): { text: string; title: string } {
-  return { text: `towards ${alternative}`, title: lensFragileEdgeLabel(alternative) }
-}

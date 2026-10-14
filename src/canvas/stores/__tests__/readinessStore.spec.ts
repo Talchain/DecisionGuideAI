@@ -9,6 +9,12 @@
  * - No verdict + error on 404 (ROADMAP 2.329) / backoff on 429
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// Readiness now awaits the canonical identity seam before dispatching. Keep the
+// timer harness independent of Supabase configuration and client initialisation.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import { useReadinessStore, __test__ } from '../readinessStore'
 import { useCanvasStore } from '../../store'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'

@@ -168,7 +168,7 @@ describe('first run narration: the banner no longer depends on a previous report
     renderDock()
 
     expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-narration')).toHaveTextContent('Analysing your decision…')
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent('Analysing your model…')
   })
 
   it('escalates on a first run exactly as it does on a rerun (25s)', () => {
@@ -176,7 +176,7 @@ describe('first run narration: the banner no longer depends on a previous report
     renderDock()
 
     expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
-      'Still analysing your decision…',
+      'Still analysing your model…',
     )
   })
 
@@ -185,7 +185,7 @@ describe('first run narration: the banner no longer depends on a previous report
     renderDock()
 
     expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
-      'Still analysing — complex decisions can take a while…',
+      'Still analysing — complex models can take a while…',
     )
   })
 

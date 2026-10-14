@@ -18,9 +18,7 @@ import { Check, Link2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { GraphLink } from '../../components/results/GraphLink'
-import { edgeValueSource } from '../domain/edgeValueProvenance'
-import { isStrengthStated } from '../domain/strengthStated'
-import { isStrengthAccepted } from '../domain/strengthAccepted'
+import { edgeProvenance } from '../domain/edgeProvenance'
 import type { ReasonSegment } from './withheldReasonSegments'
 
 export const COMPARE_SIZING_TESTID = 'compare-sizing'
@@ -62,8 +60,10 @@ export function linkSizingStateOf(
   const edge = (edges ?? []).find((e) => e.source === fromId && e.target === toId)
   if (!edge) return 'off_canvas'
   const data = edge.data as Record<string, unknown> | undefined
-  if (edgeValueSource(data, 'weight') === 'user' || isStrengthStated(data)) return 'set'
-  return isStrengthAccepted(data) ? 'accepted' : 'not_set'
+  // Data layer Phase 1 (PR2a): whose the size is comes from the ONE classifier (`edgeProvenance.ts`).
+  const kind = edgeProvenance(data)?.kind
+  if (kind === 'user' || kind === 'brief') return 'set'
+  return kind === 'accepted' ? 'accepted' : 'not_set'
 }
 
 /** Sized for CEE's goal licence: the user's own, or Olumi's estimate the user accepted. */

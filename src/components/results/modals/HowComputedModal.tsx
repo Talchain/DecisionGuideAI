@@ -67,7 +67,7 @@ export const HOW_COMPUTED_COPY = {
     {
       heading: 'It finds what actually moves the result',
       body:
-        'We vary one input at a time and measure how far the result moves. That is the ranking in Drivers: the inputs your decision is most exposed to.',
+        'We vary one input at a time and measure how far the result moves. That is the ranking in Drivers: the inputs the result is most exposed to.',
     },
     {
       heading: 'It estimates what is worth finding out',

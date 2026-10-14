@@ -26,6 +26,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { OlumiScaleLine } from '../shared/OlumiScaleLine'
 import { InlineNumberEditor } from '../shared/InlineNumberEditor'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
@@ -311,6 +312,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
               a fact about the apply and not about the extraction kind. */}
           <CitedEvidenceNote resolution={citedEvidence} />
         </PrimaryControlCard>
+        <OlumiScaleLine label={String(node.data?.label ?? '')} observedState={obs} />
 
         {/* Coaching — within Your input group, below the card */}
         <InspectorCoaching

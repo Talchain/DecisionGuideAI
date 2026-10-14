@@ -33,17 +33,26 @@ async function readOf(body: unknown): Promise<SavedScenarioRead> {
   return result
 }
 
-/** Every figure-bearing string the brief could show as a Run result. */
+/** Every figure-bearing string the brief could show as a Run result (#2747 re-scope 2 round 2: drivers; no chances in C). */
 function runFigureStrings(brief: ReturnType<typeof buildDecisionBrief>): string[] {
-  return [
-    ...brief.chances.flatMap((c) => [c.chanceText ?? '']),
-    ...brief.drivers.map((d) => d.label),
-  ].filter((s) => s !== '')
+  return brief.drivers.map((d) => d.label).filter((s) => s !== '')
 }
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
+
+/**
+ * #2747 re-scope 2 round 2: the brief's figure lines that could be a chance — a line naming one of the brief's own options
+ * (by its exact label) or speaking of a chance. The model's own limits and estimates carry figures too ("Monthly churn
+ * ≤ 5%", "3% (Olumi’s estimate)"), so the scan asserts it sees figures before it asserts none is a chance.
+ */
+function chanceLines(brief: ReturnType<typeof buildDecisionBrief>): string[] {
+  const figureLines = decisionBriefToText(brief).split('\n').filter((l) => /\d+\s?%/.test(l))
+  expect(figureLines.length, 'the scan sees no figure at all, so its absence claim proves nothing').toBeGreaterThan(0)
+  const labels = brief.options.map((o) => o.label)
+  return figureLines.filter((l) => labels.some((label) => l.includes(label)) || /chance|likel|probab|of runs/i.test(l))
+}
 
 describe('buildDecisionBrief — a current Run (served 520aab46)', () => {
   it('states the decision, every option, the Run time and the saved version', async () => {
@@ -59,15 +68,12 @@ describe('buildDecisionBrief — a current Run (served 520aab46)', () => {
     expect(brief.version.shortVersion).toBe('45019418')
   })
 
-  it('gives each option its chance of meeting your goal, in this model, bound by option id', async () => {
+  // #2747 re-scope 2 round 2 (Codex r1 blocking 3; U0): the brief carries no chance on any Run; a current Run says once where
+  // the chances are shown. (Was "keeps the once-only no-figure shape".)
+  it('a current Run says once where its chances are shown, and carries no chance itself', async () => {
     const brief = buildDecisionBrief(await readOf(currentRead))
-
-    expect(brief.chances.map((c) => c.optionId)).toEqual(['raise_to_59', 'keep_49_price', 'raise_to_54'])
-    for (const c of brief.chances) {
-      if (c.chanceText !== null) expect(c.chanceText).toMatch(/^(About|Less than|More than) \d+(\.\d+)?% chance of meeting your goal, in this model$/)
-      else expect(c.withheldText).toBeTruthy()
-    }
-    expect(brief.chances.some((c) => c.chanceText !== null)).toBe(true)
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
+    expect(chanceLines(brief)).toEqual([])
     expect(brief.drivers.length).toBeGreaterThan(0)
   })
 
@@ -110,7 +116,7 @@ describe('buildDecisionBrief — a Run that is not current shows no figure as cu
     const brief = buildDecisionBrief(await readOf(staleRead))
     expect(brief.run.status).toBe('not_current')
     expect(brief.run.statement).toBe(DECISION_BRIEF_COPY.runStale)
-    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBeNull()
     expect(brief.drivers).toEqual([])
     expect(brief.withheld.map((w) => w.text)).toContain(DECISION_BRIEF_COPY.runStaleNeed)
     expect(decisionBriefToText(brief)).not.toMatch(/% chance of meeting your goal/)
@@ -157,36 +163,37 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
       expect(why?.text).not.toMatch(/\d+%/)
       expect(why?.nodeId).toBe(id)
     }
-    // ⛔ THE COMPLETE-FIELD RULE (the Reasoning tab's): the EARNED option's figure is held back too, never shown alone,
-    // and with no option carrying a figure the brief says so ONCE, not a row per option.
-    expect(brief.chances).toEqual([])
-    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+    // #2747 re-scope 2 round 2: no option's chance is in the brief (the complete-field rule it pinned has no subject here
+    // now); the reasons above stay, and the brief says once where the chances are shown.
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
     expect(decisionBriefToText(brief)).not.toMatch(/chance of meeting your goal/)
   })
 
-  it('CONTRAST: the same Run with the two withheld options taken out (not in the Run) → the earned figure is shown', async () => {
+  it('CONTRAST: taking out withheld options does not license the remaining raw figure', async () => {
     const body = JSON.parse(JSON.stringify(unearnedRead))
     const out = new Set(['raise_price_to_59', 'raise_price_to_54'])
     const enrichment = body.analysis_result.enrichment
     enrichment.option_comparison = enrichment.option_comparison.filter((o: { option_id: string }) => !out.has(o.option_id))
-    body.analysis_result.win_probabilities = { 'Keep current price': body.analysis_result.win_probabilities['Keep current price'] }
+    const probabilities: Record<string, number> = body.analysis_result.win_probabilities
+    for (const label of Object.keys(probabilities)) if (label !== 'Keep current price') delete probabilities[label]
     body.analysis_goal_certainty = body.analysis_goal_certainty.filter((g: { option_id: string }) => !out.has(g.option_id))
     const brief = buildDecisionBrief(await readOf(body))
     expect(brief.run.status).toBe('current')
-    expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/chance of meeting your goal, in this model$/)
-    for (const id of out) expect(brief.chances.find((c) => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
-    expect(brief.chancesNote).toBeNull()
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
+    expect(chanceLines(brief)).toEqual([])
   })
 })
+
+// #2747 re-scope 2 round 2 (Codex r1 blocking 3; U0): describe deleted — "licensed complete-field controls" (3 rows: a
+// complete licensed field retains every option; an earned figure is not shown alone; taken-out options do not suppress the
+// remaining one). Their only subject, the brief's per-option chance rows, is removed in C: the brief shows no chance.
 
 describe('buildDecisionBrief — goal figures withheld for the whole Run (served 0c238873)', () => {
   it('no option carries a figure; the producer’s reason is said once, bound to the goal', async () => {
     const brief = buildDecisionBrief(await readOf(identityWithheldRead))
     expect(brief.run.status).toBe('current')
-    // ONE line, not three "No figure for this option" rows over the reason below (served D1 witness 5947614047).
-    expect(brief.chances).toEqual([])
-    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-    expect(decisionBriefToText(brief).match(new RegExp(DECISION_BRIEF_COPY.noFigure, 'g'))).toBeNull()
+    // ONE line, not a row per option over the reason below (served D1 witness 5947614047); in C it says where the chances are.
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.chancesWhere)
     const reasons = brief.withheld.filter((w) => w.id === 'goal:identity')
     expect(reasons).toHaveLength(1)
     expect(reasons[0].text).toMatch(/^Not shown\./)

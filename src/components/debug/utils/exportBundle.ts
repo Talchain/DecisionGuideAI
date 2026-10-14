@@ -721,6 +721,7 @@ function extractPlotEnrichment(plotResponse: unknown): PlotEnrichment | null {
   return {
     factor_sensitivity: Array.isArray(plot.factor_sensitivity) ? plot.factor_sensitivity : null,
     range_derivation_sources: meta?.range_derivation_sources ?? null,
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
     conditional_probabilities: Array.isArray(plot.conditional_probabilities) ? plot.conditional_probabilities : null,
     m1_coaching: m1Coaching ? {
       evidence_gaps: m1Coaching.evidence_gaps ?? null,
@@ -3024,10 +3025,12 @@ function deriveHeroHeadline(
   const comparison = optionComparison as
     Array<{ option_label?: string; win_probability?: number }>
   const ranked = comparison.filter(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
     (o) => typeof o.win_probability === 'number' && Number.isFinite(o.win_probability),
   )
   if (ranked.length === 0) return null
   const sorted = [...ranked].sort(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
     (a, b) => (b.win_probability as number) - (a.win_probability as number),
   )
   const winnerLabel = sorted[0]?.option_label
@@ -3305,11 +3308,13 @@ export async function captureDisplayState(
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
       if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
           label: nodeLabel ?? (typeof match.option_label === 'string' ? match.option_label : null) ?? (typeof match.option === 'string' ? match.option : null),
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
           winProbability: match.win_probability,
           source: 'payloads.plot_response.option_comparison.win_probability',
         }
@@ -3319,11 +3324,13 @@ export async function captureDisplayState(
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
       if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
           label: nodeLabel ?? (typeof match.option_label === 'string' ? match.option_label : null),
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
           winProbability: match.win_probability,
           source: 'payloads.plot_response.options.win_probability',
         }
@@ -3336,11 +3343,13 @@ export async function captureDisplayState(
       // label — a consumer reading the exported bundle finds this datum at
       // `results.report.option_probabilities`, not at `payloads.plot_response`.
       const probEntry = optionProbabilities[node.id]
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
       if (probEntry && isFiniteWinProb(probEntry.win_probability)) {
         return {
           node,
           optionId: node.id ?? null,
           label: nodeLabel,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
           winProbability: probEntry.win_probability,
           source: 'results.report.option_probabilities.win_probability',
         }
@@ -3380,6 +3389,7 @@ export async function captureDisplayState(
     // would have been resolved as null/unmatched anyway, but this keeps the
     // intent explicit.
     const allHaveWinProb = resolvedOptions.length > 0
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
       && resolvedOptions.every((r) => isFiniteWinProb(r.winProbability))
 
     let rankByNodeId: Map<string, number>
@@ -3399,6 +3409,7 @@ export async function captureDisplayState(
       // Analytical rank, mirroring OptionCards.tsx:506-513 production sort.
       // Deterministic tie-break: equal win_probability → secondary sort by option_id asc.
       const sorted = [...resolvedOptions].sort((a, b) => {
+        // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
         const delta = (b.winProbability ?? -Infinity) - (a.winProbability ?? -Infinity)
         if (delta !== 0) return delta
         const idA = a.optionId ?? a.node.id ?? ''
@@ -3421,6 +3432,7 @@ export async function captureDisplayState(
           id: r.node.id,
           option_id: r.optionId,
           label_displayed: r.label,
+          // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: debug: the developer debug panel and its export
           win_probability_displayed: r.winProbability,
           win_probability_source: r.source,
           rank_displayed: rankByNodeId.get(r.node.id) ?? null,

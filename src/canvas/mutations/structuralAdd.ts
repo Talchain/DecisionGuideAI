@@ -678,7 +678,7 @@ export const STRUCTURAL_ADD_NOTICE = {
    * for the one thing that works, in-session, with no reload.
    */
   base_hash_diverged:
-    "The saved model changed while you were adding that, so it wasn't saved — I've taken it back off rather than show you something the model doesn't hold. Ask me anything about this decision and I'll re-sync, then add it again.",
+    "The saved model changed while you were adding that, so it wasn't saved — I've taken it back off rather than show you something the model doesn't hold. Ask me anything about this scenario and I'll re-sync, then add it again.",
   /**
    * The server answered and the evidence says it did not write. CEE said
    * nothing we can render, so we say it.

@@ -245,7 +245,7 @@ export function selectEvidencePriorityFactorId(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: { type?: unknown } | null }>,
 ): string | null {
   if (!report || typeof report !== 'object') return null
-  const feed = selectDriverPolicyFeed(report as ResultsReport)
+  const feed = selectDriverPolicyFeed(report as ResultsReport, nodes)
   if (feed.policyRows.length === 0) return null
   for (const node of nodes) {
     if (node.type !== 'factor' && node.data?.type !== 'factor') continue

@@ -155,7 +155,11 @@ export function settleSystemEventSend(
         if (err.kind === 'server') {
           const reason = err.reason !== undefined ? { reason: err.reason } : {}
           if (isProvenNoWriteConflict(err.conflictCategory)) {
-            return settleOnce('refused', { ...reason, refusal: 'conflict', conflictCategory: err.conflictCategory })
+            try {
+              return settleOnce('refused', { ...reason, refusal: 'conflict', conflictCategory: err.conflictCategory })
+            } finally {
+              err.onRefusedGraphSettled?.()
+            }
           }
           // ⭐ The producer's other no-write statement, on `details.reason`.
           // Without this arm a request CEE declined without writing settled as

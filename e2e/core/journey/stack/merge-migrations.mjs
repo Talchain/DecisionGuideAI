@@ -48,10 +48,18 @@ const ceeOnly = cee.filter((c) => {
   shared.push(c.file)
   return false
 })
-const pre = preDir ? read(preDir, 'j1-drift') : []
-for (const p of pre) {
+const preAll = preDir ? read(preDir, 'j1-drift') : []
+for (const p of preAll) {
   if (!p.file.includes('_j1_drift_')) { console.error(`[migrations] pre-shim ${p.file} is not named <ts>_j1_drift_<what>.sql`); process.exit(1) }
 }
+// A pre-shim that prepares for one migration declares it (`-- j1-requires-migration: <14-digit version>`): it is applied
+// only when that migration is in this tuple's merged set, so an older pinned tuple never runs it (Recovery Batch 0).
+const versions = new Set([...dgai, ...cee].map((m) => m.ts))
+const pre = preAll.filter((p) => {
+  const req = fs.readFileSync(path.join(p.dir, p.file), 'utf8').match(/^--\s*j1-requires-migration:\s*(\d{14})\s*$/m)
+  if (req && !versions.has(req[1])) { console.log(`[migrations] pre-shim ${p.file}: skipped (its migration ${req[1]} is not in this tuple)`); return false }
+  return true
+})
 const all = [...dgai, ...ceeOnly, ...pre]
   .sort((a, b) => (a.ts === b.ts ? (a.repo === 'dgai' ? -1 : 1) : a.ts < b.ts ? -1 : 1))
 for (const f of shared) console.log(`[migrations] ${f}: in both repos, same SQL (comments aside); applied once`)

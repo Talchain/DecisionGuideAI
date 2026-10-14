@@ -1229,7 +1229,7 @@ export function ModelRowView({
            the one thing the re-application lost. Restored here, because the
            deferral is defensible and its silence was not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} accepted={row.provenanceAccepted === true} />
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} accepted={row.provenanceAccepted === true} kind={row.provenanceKind} />
         </span>
       )}
 

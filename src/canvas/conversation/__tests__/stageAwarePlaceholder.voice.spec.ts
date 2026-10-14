@@ -66,7 +66,7 @@ describe('L-17 — a selection no longer writes a fake sentence into the compose
    */
   it('still says the neutral empty-canvas line on an empty canvas', () => {
     const { result } = renderHook(() => useStageAwarePlaceholder())
-    expect(result.current).toBe('Describe your decision or challenge…')
+    expect(result.current).toBe('Describe your question or situation…')
   })
 })
 

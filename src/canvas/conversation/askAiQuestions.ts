@@ -108,10 +108,10 @@ export const QUESTIONS = {
       : `What explains the low chance of meeting ${goal(c)}, and which assumptions should we examine?`,
   'goal-realistic': (c: QuestionContext) => `Is the target for ${goal(c)} realistic, and what evidence would help me judge it?`,
   'reduce-risk': (c: QuestionContext) => `What could reduce ${element(c)}, and what would need to change in this model?`,
-  'other-options': (c: QuestionContext) => `What would need to change for another option to be better supported than ${c.label || 'this option'}?`,
+  // Run-4 judge (DL 12 Oct, the class): 'other-options' and 'support-option' ("… to be better supported …") went with
+  // the coaching chips that asked them (option_what_would_change, option_what_would_make_lead).
   'close-call': (c: QuestionContext) => `What would need to be true for ${c.label || 'this option'} to be the better choice?`,
   'counter-case': (c: QuestionContext) => `Set aside the numbers for a moment. What would have to be true for ${c.label || 'this option'} to be the wrong choice here? What could this model be missing?`,
-  'support-option': (c: QuestionContext) => `What would need to change for ${element(c)} to be better supported, and what evidence would we need?`,
   'compare-options': (_c: QuestionContext) => 'How do the options compare in what they gain, give up and depend on?',
   'inaction-risks': (c: QuestionContext) => `What risks does keeping ${element(c)} as it is carry, and what could make them worse?`,
   'missing-outcome': (_c: QuestionContext) => 'Where else could this lead that the model doesn’t have yet?',
@@ -144,8 +144,8 @@ export const COACHING_ASK_INTENTS: Readonly<Record<string, AskIntent>> = {
   factor_help_estimate: 'estimate', factor_what_if_changes: 'factor-change',
   factor_confirm_top_influence: 'confirm', factor_evidence_supports: 'evidence',
   option_what_could_go_wrong: 'pre-mortem', option_why_win_lose: 'option',
-  option_risks_of_inaction: 'inaction-risks', option_what_would_change: 'other-options', option_why_lead: 'option',
-  option_counter_case: 'counter-case', option_what_would_change_close_call: 'close-call', option_what_would_make_lead: 'support-option',
+  option_risks_of_inaction: 'inaction-risks', option_why_lead: 'option',
+  option_counter_case: 'counter-case', option_what_would_change_close_call: 'close-call',
   risk_leading_indicator: 'risk-indicators', risk_size_exposure: 'risk-size',
   risk_what_reduces: 'reduce-risk', risk_add_mitigation: 'mitigation',
   outcome_what_would_falsify: 'falsify', outcome_explore_consequences: 'consequences',

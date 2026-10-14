@@ -78,11 +78,11 @@ describe('TopBar — single model-name control (Paul, 14 Aug 2026)', () => {
     // counting name-BEARING CONTROLS instead of string occurrences. Both old
     // controls are sibling <button>s (never ancestors of one another), so the
     // count is stable. Pristine = 2, fixed = 1.
-    renderTopBar({ scenarioTitle: 'Untitled model' })
+    renderTopBar({ scenarioTitle: 'Untitled scenario' })
     const banner = screen.getByRole('banner')
     const nameBearing = within(banner)
       .getAllByRole('button')
-      .filter(b => /untitled (model|decision)/i.test(b.textContent ?? ''))
+      .filter(b => /untitled (scenario|model|decision)/i.test(b.textContent ?? ''))
     expect(nameBearing).toHaveLength(1)
   })
 
@@ -193,10 +193,11 @@ describe('TopBar — single model-name control (Paul, 14 Aug 2026)', () => {
 
   // --- 6. copy: model, not decision ----------------------------------------
 
-  it('falls back to "Untitled model", never "Untitled decision"', () => {
-    renderTopBar({ scenarioTitle: 'Untitled model' })
-    expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Untitled model')
+  it('falls back to "Untitled scenario", never "Untitled decision" or "Untitled model"', () => {
+    renderTopBar({ scenarioTitle: 'Untitled scenario' })
+    expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Untitled scenario')
     expect(screen.queryByText(/untitled decision/i)).toBeNull()
+    expect(screen.queryByText(/untitled model/i)).toBeNull()
   })
 
   it('carries no "decision" wording on the naming surface', () => {

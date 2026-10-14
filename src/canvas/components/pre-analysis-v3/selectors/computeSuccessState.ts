@@ -19,8 +19,8 @@
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
-import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
-import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { goalTargetChangeFrameOf, goalTargetMeaningUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
+import { formatGoalTarget, TARGET_NOT_CAPTURED } from '../../../../components/results/utils/formatGoalTarget'
 import type { Attribution } from '../types'
 
 export interface SuccessState {
@@ -156,9 +156,11 @@ export function computeSuccessState(
    */
   const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
   // ⛔ AIQ 5880974047: a frame this UI cannot read — the figure's meaning is unknown, so no measure is claimed.
-  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return unset
-  const sayTarget = (n: number): string =>
-    (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame) : null) ?? formatWithUnit(n, unit)
+  if (goalTargetMeaningUnread(data as GoalTargetSource)) return unset
+  // #2747 (b): a change the formatter cannot say is "Target not captured", never the bare number beside its unit.
+  const sayTarget = (n: number): string => changeFrame !== null
+    ? formatGoalTarget(n, unit, changeFrame, (data as { quantity_frame?: unknown }).quantity_frame) ?? TARGET_NOT_CAPTURED
+    : formatWithUnit(n, unit)
 
   /**
    * ⭐⭐ EXISTENCE IS DECIDED NON-NUMERICALLY; THE NUMBER STAYS STRICT. This

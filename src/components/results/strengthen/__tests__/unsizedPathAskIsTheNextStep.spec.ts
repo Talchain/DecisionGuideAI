@@ -32,7 +32,7 @@ describe('the unsized-path withhold\'s own ask is the panel\'s next step', () =>
   it('DRAFT 6: the withhold\'s link, focusing that link; the different factor does not render', () => {
     const recs = buildRecommendations(draft6(LINK))
     expect(recs.map((r) => r.id)).toEqual(['strengthen:unsized-path:link:starter_burden->revenue'])
-    expect(recs[0]).toMatchObject({ title: 'Set the strength of the link from ‘Starter support burden’ to ‘Revenue’',
+    expect(recs[0]).toMatchObject({ title: 'How strongly does ‘Starter support burden’ affect ‘Revenue’?',
       targetId: 'starter_burden->revenue', action: { kind: 'canvas-focus', label: 'Show me this link' } })
   })
 
@@ -40,7 +40,7 @@ describe('the unsized-path withhold\'s own ask is the panel\'s next step', () =>
     const recs = buildRecommendations(draft6({ kind: 'gauge', fromId: 'price', throughId: 'strain', toId: 'mrr',
       from: 'Pro plan price', through: 'Support capacity strain', to: 'MRR' }))
     expect(recs).toHaveLength(1)
-    expect(recs[0]).toMatchObject({ title: 'Set how much ‘Pro plan price’ changes ‘MRR’ through ‘Support capacity strain’',
+    expect(recs[0]).toMatchObject({ title: 'How much does ‘Pro plan price’ change ‘MRR’ through ‘Support capacity strain’?',
       targetId: 'price->strain' })
   })
 

@@ -35,7 +35,7 @@ import { GitBranch, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { isSuppressedUnit } from '../../canvas/utils/labelUtils'
-import type { ConditionalWinner, ConditionalWinnerBucket } from './types'
+import type { ConditionalWinner } from './types'
 import { useCanvasStore } from '../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 // Canonical glossary check shared with the v17 hero row builders + body
@@ -110,14 +110,11 @@ interface ConditionalWinnerCardsProps {
 }
 
 /** Which direction arm a row can honestly claim. */
-type DirectionArm = 'high-alt' | 'low-alt' | 'neutral'
 
 export function ConditionalWinnerCards({
   winners,
-  recommendedOptionId,
   onFocusNode,
   useV17Copy = false,
-  mayNameLeader: mayNameLeaderProp = true,
 }: ConditionalWinnerCardsProps) {
   // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). When the producer withheld
   // the leader (any reason) no bucket prints its win share, labelled or not: "Above: 80%" beside "Below: 13%" on a
@@ -126,7 +123,6 @@ export function ConditionalWinnerCards({
   // through `winShareGate`; a PERMITTED run renders exactly as before.
   const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
   const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
-  const mayNameLeader = mayNameLeaderProp && !winSharesAreWithheld
   // Producer attestation ONLY — label comparison cannot see a same-label
   // flip and renders label churn as a phantom scenario. A row without a
   // finite split_value cannot state "flips at N" and is skipped.
@@ -141,10 +137,9 @@ export function ConditionalWinnerCards({
   // cleanup retired the "the recommendation" legacy string. The branches
   // remain distinct so the v17 hero can use the more pointed "which
   // option leads" phrasing.
-  // Cut 6: "the most-supported option" presupposes one, so a run that may not name a leader gets the neutral header.
-  const headerHelpText = useV17Copy && mayNameLeader
-    ? 'Factors that change the most-supported option when they shift'
-    : 'Factors that change the result when they shift'
+  // Cut 6, then the run-4 judge (DL 12 Oct, the class): the header no longer says "the most-supported option" on any
+  // run; every run takes the neutral header.
+  const headerHelpText = 'Factors that change the result when they shift'
 
   return (
     <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
@@ -177,29 +172,10 @@ export function ConditionalWinnerCards({
             else focusNodeById(w.factor_id)
           }
         }
-        // Direction by IDENTITY. The recommended option id must match
-        // exactly one bucket's winner_id; anything else — identity withheld,
-        // recommended absent, or an id the buckets don't carry — is the
-        // neutral arm, never a guess.
-        const highId = w.high_bucket.winner_id
-        const lowId = w.low_bucket.winner_id
-        let arm: DirectionArm = 'neutral'
-        // WITHHELD ⇒ the NEUTRAL arm, which is the arm this component already
-        // ships for "direction cannot be honestly bound". It is reused rather
-        // than a fourth arm authored, because the sentence it renders —
-        // "Which option leads depends on {factor} — the analysis flips at {N}"
-        // — is already the exact claim a withheld run is entitled to make: the
-        // factor, the threshold, the flip, and no option identity. No new copy.
-        if (mayNameLeader && recommendedOptionId && highId && lowId && highId !== lowId) {
-          if (lowId === recommendedOptionId) arm = 'high-alt'
-          else if (highId === recommendedOptionId) arm = 'low-alt'
-        }
-        // A directional sentence names the alternative; without its label
-        // there is nothing honest to name — fall back to the neutral arm.
-        const altBucket: ConditionalWinnerBucket | undefined =
-          arm === 'high-alt' ? w.high_bucket : arm === 'low-alt' ? w.low_bucket : undefined
-        if (arm !== 'neutral' && altBucket?.winner_label === undefined) arm = 'neutral'
-
+        // ⭐ Run-4 judge (DL 12 Oct, the class): every row is the NEUTRAL arm now. The directional sentence ("When {factor}
+        // exceeds {N}, {alt} becomes the most-supported option instead") and the bucket footer ("Above: {option} / Below:
+        // {option}", which names the option that comes out on top in each bucket) were run-share comparison wording; they
+        // are removed and nothing replaces them. The factor, the threshold and the flip (the science) stay.
         // ⛔ A FACTOR-TYPE DESCRIPTOR IS NO UNIT. `split_unit` is ISL's
         // `node.observed_state.unit` (`robustness_analyzer_v2.py:6086`, ISL
         // `staging` `c00f5077`), which can carry "binary"; nothing between the
@@ -215,87 +191,20 @@ export function ConditionalWinnerCards({
         const factorLabelDisplay = useV17Copy
           ? safeInterpolatedLabel(w.factor_label, 'this factor')
           : w.factor_label
-        const altDisplay = altBucket?.winner_label !== undefined
-          ? (useV17Copy ? safeInterpolatedLabel(altBucket.winner_label, 'the other option') : altBucket.winner_label)
-          : undefined
-
-        // Footer sides render exactly what the producer sent: label when
-        // present, percentage when present, neither minted. A side with
-        // nothing to say is omitted; so is an empty footer.
-        const sideText = (bucket: ConditionalWinnerBucket): string | undefined => {
-          // ⚠ THE SECOND DESIGNATION, AND IT IS THE ONE THE PROSE SWEEP MISSES.
-          // "Above: Two Mid-Level Developers at £70k Each (61%)" names which
-          // option leads in that bucket just as surely as the directional
-          // sentence does — it simply does it without a verb, which is why a
-          // regex hunting leader VERBS reads the footer as clean. Forcing the
-          // neutral arm above without stripping this would move the claim, not
-          // withdraw it. `crossSurfaceCoherence.rowNamesAnOption` names this
-          // function by line as the place the choice is made.
-          //
-          // ⚠⚠ AND THE PERCENTAGE DOES NOT SURVIVE ITS SUBJECT — CORRECTED.
-          // This said "the PERCENTAGE stays: it is a bucket-conditional
-          // probability — a measurement, not a designation". True of the
-          // number, false of the PAIR, and the pair is what the footer renders.
-          // Stripping both labels left:
-          //
-          //     Above: 61%   Below: 55%
-          //
-          // By this row's own precondition (`winner_flips: true`) those are
-          // DIFFERENT options' win probabilities. Side by side without their
-          // subjects they read as one quantity under two conditions — and on
-          // the witnessed fixture the larger belongs to the option that is NOT
-          // recommended, so a reader anchoring on the recommendation reads it
-          // exactly backwards. That is not the row's information preserved; it
-          // is a new, wrong reading minted by the label filter.
-          //
-          // So an ORPHANED percentage is dropped: one whose label existed and
-          // was suppressed. Where the producer sent no `winner_label` at all
-          // there was never a subject to lose, and that side renders exactly as
-          // it does today — the suppression is scoped to the harm.
-          //
-          // Over-suppression is still refused: the neutral sentence above keeps
-          // the factor, the threshold and the flip, which is the science; the
-          // permitted arm keeps label AND percentage untouched.
-          const labelSuppressed = bucket.winner_label !== undefined && !mayNameLeader
-          const label = bucket.winner_label !== undefined && mayNameLeader
-            ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
-            : undefined
-          const pct = bucket.win_probability !== undefined && !winSharesAreWithheld
-            ? `${Math.round(bucket.win_probability * 100)}%`
-            : undefined
-          if (label !== undefined && pct !== undefined) return `${label} (${pct})`
-          if (label !== undefined) return label
-          if (pct !== undefined && !labelSuppressed) return pct
-          return undefined
-        }
-        const aboveText = sideText(w.high_bucket)
-        const belowText = sideText(w.low_bucket)
 
         return (
           <div
             key={`${w.factor_id}-${idx}`}
-            data-cw-arm={arm}
+            data-cw-arm="neutral"
             className={`p-3 bg-panel border border-info/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
             onClick={canFocus ? handleFocus : undefined}
             role={canFocus ? 'button' : undefined}
             tabIndex={canFocus ? 0 : undefined}
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
-            {arm === 'neutral' ? (
-              <p className={`${typography.panelBody} text-text-body`}>
-                How the options compare depends on <span className="text-text-header">{factorLabelDisplay}</span>; the analysis flips at {splitDisplay}.
-              </p>
-            ) : (
-              <p className={`${typography.panelBody} text-text-body`}>
-                When <span className="text-text-header">{factorLabelDisplay}</span> {arm === 'high-alt' ? 'exceeds' : 'falls below'} {splitDisplay}, <span className="text-text-header">{altDisplay}</span> becomes the most-supported option instead, in this model.
-              </p>
-            )}
-            {(aboveText !== undefined || belowText !== undefined) && (
-              <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
-                {aboveText !== undefined && <span>Above: {aboveText}</span>}
-                {belowText !== undefined && <span>Below: {belowText}</span>}
-              </div>
-            )}
+            <p className={`${typography.panelBody} text-text-body`}>
+              How the options compare depends on <span className="text-text-header">{factorLabelDisplay}</span>; the analysis flips at {splitDisplay}.
+            </p>
           </div>
         )
       })}

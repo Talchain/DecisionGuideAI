@@ -127,7 +127,7 @@ const exampleNodes = () => example.nodes.map(mapDraftNodeToCanvas) as Node[]
 const label = (id: string) => example.nodes.find(n => n.id === id)?.label ?? id
 const WRONG_AUTHOR = /Olumi[’']s estimate|from your brief|your figure|Confirmed by you/
 const EXAMPLE_WHY = 'This is an example figure, not a figure about your situation. Change it to see how much it matters.'
-const EXAMPLE_STRENGTH_COPY = 'Example figure. The example decision comes with this strength so you can see a Run; change it to see how much it matters.'
+const EXAMPLE_STRENGTH_COPY = 'Example figure. The example scenario comes with this strength so you can see a Run; change it to see how much it matters.'
 
 function renderHover(edge: CanvasEdge) {
   return render(<LinkHoverCard

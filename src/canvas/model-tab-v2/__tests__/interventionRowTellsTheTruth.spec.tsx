@@ -302,7 +302,7 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
     expect(notice.textContent).toBe(
       // DS v5 §29: no em dashes (Panel, 30 Sep 2026). The opener "Not saved" is unchanged.
-      'Not saved: the model moved on while this was in flight. Ask me anything about this decision, then set this value again.',
+      'Not saved: the model moved on while this was in flight. Ask me anything about this scenario, then set this value again.',
     )
   })
 

@@ -44,7 +44,7 @@ describe('Actions catalogue (brief §4.7 — one recognisable set)', () => {
       'Review a possible bias',
     ])
     expect(GLOBAL_ACTIONS.map((a) => a.title)).toEqual([
-      'Edit decision brief',
+      'Edit your brief',
       'Review all inputs',
       'Rerun analysis',
     ])
@@ -115,10 +115,10 @@ describe('ActionsMenu', () => {
     expect(useAskOlumiStore.getState().isOpen).toBe(true)
   })
 
-  it('"Edit decision brief" opens the drawer with the shared review-brief ask', () => {
+  it('"Edit your brief" opens the drawer with the shared review-brief ask', () => {
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
-    fireEvent.click(screen.getByText('Edit decision brief'))
+    fireEvent.click(screen.getByText('Edit your brief'))
     const drawer = useAskOlumiStore.getState()
     expect(drawer.isOpen).toBe(true)
     expect(drawer.label).toBe(REVIEW_BRIEF_ASK.label)

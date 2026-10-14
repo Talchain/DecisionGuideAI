@@ -6,6 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createElement } from 'react'
+import { act, cleanup, render } from '@testing-library/react'
+import { ANALYSE_AFTER_CHANGE_SOURCE, useAnalyseAfterCommittedChange } from '../../analysis/useAnalyseAfterCommittedChange'
 
 const restoreModelVersion = vi.fn()
 vi.mock('../../../adapters/cee/modelVersions', async (importOriginal) => ({
@@ -129,6 +132,41 @@ describe('undo is a SAVED restore of the edit’s own pre-edit version', () => {
       label: 'Redo: Add "Raise to £60"',
     })
     expect(useCanvasStore.getState().nodes.map((n) => n.id)).toContain(OPT)
+  })
+})
+
+describe('the restored model gets its own fresh analysis (Paul 14 Oct)', () => {
+  it('Undo and Redo each run the analysis once, through the canonical runner, after the restore', async () => {
+    const run = vi.fn(async () => ({ status: 'dispatched' as const }))
+    function Host() {
+      useAnalyseAfterCommittedChange({ run, idle: true, hasRunOnRecord: true })
+      return null
+    }
+    render(createElement(Host))
+    restoreModelVersion.mockResolvedValue(restored(h('0')))
+    await act(async () => { await runCanvasUndo('undo') })
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledWith({ source: ANALYSE_AFTER_CHANGE_SOURCE })
+    restoreModelVersion.mockResolvedValue({
+      ...restored(h('1')),
+      version: { versionId: 'rrrrrrrr-2222-4222-8222-222222222222', versionNumber: 4, deduped: false },
+    })
+    await act(async () => { await runCanvasUndo('redo') })
+    expect(run).toHaveBeenCalledTimes(2)
+    cleanup()
+  })
+
+  it('CONTRAST: a refused restore (409) runs nothing', async () => {
+    const run = vi.fn(async () => ({ status: 'dispatched' as const }))
+    function Host() {
+      useAnalyseAfterCommittedChange({ run, idle: true, hasRunOnRecord: true })
+      return null
+    }
+    render(createElement(Host))
+    restoreModelVersion.mockResolvedValue({ status: 'conflict' })
+    await act(async () => { await runCanvasUndo('undo') })
+    expect(run).not.toHaveBeenCalled()
+    cleanup()
   })
 })
 

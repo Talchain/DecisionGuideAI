@@ -1,21 +1,6 @@
-/**
- * ⭐ AFTER A RUN, THE REPLY LEADS AND THE ANALYSIS SUMMARY WAITS BEHIND "Details".
- *
- * Paul's brief for the chat after a Run: the conclusion first, one decisive
- * caveat, one real next action, and detail behind disclosure. On the served
- * OpenAI route (`c673223` "C2 run") the reply already says the conclusion in
- * five short lines, and the turn's `analysis_result.summary` then repeated it
- * as a ~140-word paragraph, open, straight underneath.
- *
- * THE RULE: when the turn's reply text is on screen (`assistantTextWordCount`
- * > 0), the card's summary sits inside a closed "Details" disclosure. Nothing
- * is removed or reworded; one click shows it verbatim. A turn with NO reply
- * text keeps the summary open, because then it is the only account of the run.
- *
- * CLAIM TYPE: jsdom DOM. The block is the served bytes, verbatim. No model calls.
- */
+/** U7: the served analysis summary remains visible alongside assistant_text; no default Details fold. */
 import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { render } from '@testing-library/react'
 
 import servedJourneyC673223 from './fixtures/openai-route-coaching-journey.c673223.json'
 import { InlineBlocks } from '../InlineBlocks'
@@ -56,23 +41,17 @@ function mount(assistantTextWordCount: number) {
   )
 }
 
-describe('the served Run turn: analysis summary placement (c673223 "C2 run")', () => {
+describe('U7: the served Run summary is visible in full', () => {
+  it('keeps the summary visible beside the reply, with no closed Details fold', () => {
+    const { getByTestId, queryByTestId } = mount(REPLY_WORDS)
+    expect(queryByTestId('v5-analysis-result-summary-details')).toBeNull()
+    expect(getByTestId('v5-analysis-result-summary')).toBeVisible()
+    expect(getByTestId('v5-analysis-result-summary').textContent).toBe(BLOCK.summary)
+  })
   it('PRECONDITION: the served summary is long and restates the reply', () => {
     expect(BLOCK.summary.split(/\s+/).length).toBeGreaterThan(100)
     expect(BLOCK.summary).toContain('could not be checked')
     expect(REPLY_WORDS).toBeGreaterThan(0)
-  })
-
-  it('⭐ with the reply on screen: the summary is folded behind a closed "Details", verbatim inside', () => {
-    const { getByTestId } = mount(REPLY_WORDS)
-    const details = getByTestId('v5-analysis-result-summary-details') as HTMLDetailsElement
-    expect(details.open).toBe(false)
-    expect(getByTestId('v5-analysis-result-summary-toggle').textContent).toContain('Details')
-    expect(getByTestId('v5-analysis-result-summary')).not.toBeVisible()
-    // Nothing is lost: one click shows the producer's paragraph byte for byte.
-    fireEvent.click(getByTestId('v5-analysis-result-summary-toggle'))
-    expect(details.open).toBe(true)
-    expect(getByTestId('v5-analysis-result-summary').textContent).toBe(BLOCK.summary)
   })
 
   it('CONTROL — no reply text on the turn: the summary stays open (it is the only account)', () => {

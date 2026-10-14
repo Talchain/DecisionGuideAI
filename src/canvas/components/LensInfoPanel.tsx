@@ -40,7 +40,6 @@ import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { lensFragileRowAlternative } from '../../components/results/utils/fragileEdgeCopy'
 import type { LensMode } from '../store'
 import type { CausalLensEdgeParams } from '../domain/edgeValueProvenance'
 
@@ -207,7 +206,7 @@ function RobustnessPanel({ lastRun }: { lastRun: boolean }) {
     // MC evidences as fragile is listed qualitatively (em dash, after every
     // measured edge — the contract forbids deriving a ranking position from a
     // substitute).
-    const list: Array<{ from: string; to: string; switchProb: number | undefined; altWinner: string | null }> = []
+    const list: Array<{ from: string; to: string; switchProb: number | undefined }> = []
     for (const fe of rawFragile) {
       const measuredRaw = (fe.switch_probability ?? fe.switchProbability) as number | undefined
       const measured = typeof measuredRaw === 'number' ? measuredRaw : undefined
@@ -220,12 +219,10 @@ function RobustnessPanel({ lastRun }: { lastRun: boolean }) {
       if (!eligible) continue
       const fromId = (fe.from_id ?? fe.fromId ?? fe.source) as string
       const toId = (fe.to_id ?? fe.toId ?? fe.target) as string
-      const altWinner = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | null ?? null
       list.push({
         from: nodeMap.get(fromId) ?? fromId,
         to: nodeMap.get(toId) ?? toId,
         switchProb: measured,
-        altWinner,
       })
     }
     // Measured desc; unmeasured last with producer order preserved
@@ -283,24 +280,16 @@ function RobustnessPanel({ lastRun }: { lastRun: boolean }) {
       {/* Ranked fragile edge list */}
       {fragileList.length > 0 && (
         <div className="mt-2 space-y-1" style={{ fontSize: 11 }}>
+          {/* #2747 re-scope 2 (DL ruling): each fragile link says its label only. Its switch probability ("62%") and the
+              option it would switch "towards" are an option-comparative figure CEE does not serve or license, and read as
+              a leader claim. Interim limit: robustness switch figures not shown in C; restore via a CEE-served, licensed
+              robustness string (post-C). The list keeps the producer's order (measured first). */}
           {fragileList.map((fe, i) => (
             <div key={i} className="flex items-center gap-1">
-              {typeof fe.switchProb === 'number' ? (
-                <span className="text-danger font-semibold" style={{ minWidth: 32 }}>{Math.round(fe.switchProb * 100)}%</span>
-              ) : (
-                // Not computed — the file's own absent-quantity mark (the
-                // causal table's Std / P(exists) cells): an em dash, never a
-                // number derived from the marginal quantity.
-                <span style={{ minWidth: 32, color: 'var(--text-light, #6E6B6B)' }}>{'\u2014'}</span>
-              )}
               <span className="text-text-body truncate" title={`${fe.from} \u2192 ${fe.to}`}>
-                {fe.from} \u2192 {fe.to}
+                {/* A template, as in the title: in JSX text "\u2192" is printed as six characters, not an arrow. */}
+                {`${fe.from} \u2192 ${fe.to}`}
               </span>
-              {fe.altWinner && (
-                <span className="text-text-light ml-auto flex-shrink-0" title={lensFragileRowAlternative(fe.altWinner).title}>
-                  {lensFragileRowAlternative(fe.altWinner).text}
-                </span>
-              )}
             </div>
           ))}
         </div>

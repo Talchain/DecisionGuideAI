@@ -29,18 +29,8 @@ import { isOrchestratorRenderingV2Enabled, isPreAnalysisEnrichedEnabled } from '
 // EnrichedEnabled is added as a bare vi.fn() (no factory return value — vitest
 // config has mockReset:true, which wipes factory-level mockReturnValue); the
 // model_receipt describe below sets it per-test in a scoped beforeEach.
-/*
- * ⚠ `isCompactCoachingLinesEnabled` IS CONTROLLED HERE BECAUSE §21.2 IS A CARD
- * CONTRACT AND A COLLAPSED LINE IS NOT A CARD. `review_card` is a point
- * candidate, so with the compact flag at its product default (ON) the two
- * variant arms below stop rendering the card whose badge they are asserting.
- * They pin the CARD deliberately; the line's own rule — no card badge — is
- * asserted by its own arm at the end of the describe, and in full in
- * `coachingLineChannels.spec.tsx`.
- *
- * A plain `mockReturnValue` in this factory would be wiped by the config's
- * `mockReset: true`, which is why this reads a module-level object instead.
- */
+// U7 renders cards expanded regardless of the retired compact-line flag.
+// Exercise both legacy flag values so a stored preference cannot restore folding.
 const compactLines = { enabled: false }
 
 vi.mock('../../../flags', async (importOriginal) => {
@@ -160,20 +150,7 @@ describe('InlineBlocks — DS v5 §21.2 block type badge dots', () => {
     expect(dot.className).toMatch(/blockBadgeDotInfo/)
   })
 
-  it('renders NO badge dot when that same review_card collapses to a compact LINE', () => {
-    /*
-     * ⛔ THE INVERSION IS DELIBERATE AND IS THE POINT, not a spec bent to fit a
-     * change. §21.2 defines the dot as one limb of the BLOCK treatment — panel
-     * background, 20px radius, 24px padding, 3px top border, dot. A collapsed
-     * line has none of the other four; the dot outlived them only because it
-     * is painted by this component rather than by the card, so `suppressHeader`
-     * never reached it. Worse, `.blockWithBadge > div { padding-left: 24px }`
-     * reserves its gutter with a CHILD selector matching a `div`, and a line is
-     * a `<details>` — so the selector silently stopped matching and the dot
-     * rendered ON TOP of the line's own glyph (photographed, staging b7c8c74e).
-     *
-     * The two arms above keep asserting the CARD's badge, with the flag off.
-     */
+  it('U7: review cards stay expanded with their badge even when the legacy compact-line flag is on', () => {
     compactLines.enabled = true
     const block: ReviewCardBlock = {
       type: 'review_card',
@@ -184,9 +161,10 @@ describe('InlineBlocks — DS v5 §21.2 block type badge dots', () => {
     render(<InlineBlocks blocks={[block]} />)
     expect(
       screen.queryByTestId('coaching-line-summary-Should fix: goal missing horizon'),
-      'precondition: this block really did collapse to a line',
-    ).not.toBeNull()
-    expect(screen.queryByTestId('block-badge-dot')).toBeNull()
+      'the retired compact-line flag must not fold this card',
+    ).toBeNull()
+    expect(screen.getByTestId('block-badge-dot')).toBeVisible()
+    expect(screen.getByText('Should fix: goal missing horizon')).toBeVisible()
     compactLines.enabled = false
   })
 

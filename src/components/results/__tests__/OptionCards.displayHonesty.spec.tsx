@@ -2,8 +2,8 @@
  * OptionCards display-honesty tests.
  *
  * Covers:
- *   A. sample-resolution display (<0.1% / >99.9% / threshold scaling with N,
- *      raw winProbability preserved for bar width)
+ *   A. no win share at any sample resolution (#2747 re-scope 2, DL ruling (A): the
+ *      card's former <0.1% / >99.9% / N-scaled share readout and fill bar are gone)
  *   C. high-variance leading-option qualification (renders only when the
  *      leading option's outcome.p10 < 0)
  *
@@ -33,57 +33,65 @@ function makeOption(overrides: Partial<OptionResult> = {}): OptionResult {
   }
 }
 
-describe('OptionCards — display-honesty (A) sample resolution', () => {
-  it('renders exact 0 winProbability as <0.1% at n_valid_samples=1000', () => {
+// #2747 re-scope 2 (U0, DL ruling (A)): the card shows no win share in C, so each sample-resolution row now pins, by
+// identity, that no win readout (`win-pct-<id>`), no share figure and no share fill bar is drawn at that resolution.
+function expectNoWinShare(id: string, printed: string[]) {
+  expect(screen.queryByTestId(`win-pct-${id}`)).not.toBeInTheDocument()
+  const card = screen.getByTestId(`option-card-${id}`)
+  for (const figure of printed) expect(card.textContent).not.toContain(figure)
+  expect(card.querySelector('[title^="Supported in"]')).toBeNull()
+}
+
+describe('OptionCards — display-honesty (A) no win share at any sample resolution', () => {
+  it('an exact 0 winProbability at n_valid_samples=1000 prints no win share (no <0.1%)', () => {
     const options: OptionResult[] = [
       makeOption({ id: 'a', label: 'A', winProbability: 0.65, nValidSamples: 1000 }),
       makeOption({ id: 'b', label: 'B', winProbability: 0, nValidSamples: 1000, isRecommended: false }),
     ]
     render(<OptionCards options={options} winnerId="a" />)
 
-    expect(screen.getByTestId('win-pct-b').textContent).toBe('<0.1%')
+    expectNoWinShare('b', ['<0.1%'])
   })
 
-  it('renders exact 1 winProbability as >99.9% at n_valid_samples=1000', () => {
+  it('an exact 1 winProbability at n_valid_samples=1000 prints no win share (no >99.9%)', () => {
     const options: OptionResult[] = [
       makeOption({ id: 'a', label: 'A', winProbability: 1, nValidSamples: 1000 }),
       makeOption({ id: 'b', label: 'B', winProbability: 0, nValidSamples: 1000, isRecommended: false }),
     ]
     render(<OptionCards options={options} winnerId="a" />)
 
-    expect(screen.getByTestId('win-pct-a').textContent).toBe('>99.9%')
+    expectNoWinShare('a', ['>99.9%'])
   })
 
-  it('threshold scales with sample count: <0.01% at n_valid_samples=10000', () => {
+  it('at n_valid_samples=10000 neither bound is printed (no <0.01%, no >99.99%)', () => {
     const options: OptionResult[] = [
       makeOption({ id: 'a', label: 'A', winProbability: 1, nValidSamples: 10000 }),
       makeOption({ id: 'b', label: 'B', winProbability: 0, nValidSamples: 10000, isRecommended: false }),
     ]
     render(<OptionCards options={options} winnerId="a" />)
 
-    expect(screen.getByTestId('win-pct-b').textContent).toBe('<0.01%')
-    expect(screen.getByTestId('win-pct-a').textContent).toBe('>99.99%')
+    expectNoWinShare('b', ['<0.01%'])
+    expectNoWinShare('a', ['>99.99%'])
   })
 
-  it('falls back to legacy formatting when nValidSamples is absent', () => {
+  it('with nValidSamples absent, no legacy share figure is printed (no 0%, no 50%)', () => {
     const options: OptionResult[] = [
       makeOption({ id: 'a', label: 'A', winProbability: 0, nValidSamples: undefined }),
       makeOption({ id: 'b', label: 'B', winProbability: 0.5, nValidSamples: undefined, isRecommended: false }),
     ]
     render(<OptionCards options={options} winnerId="a" />)
 
-    // Legacy formatPct path — preserves the prior 0% rendering
-    expect(screen.getByTestId('win-pct-a').textContent).toBe('0%')
-    expect(screen.getByTestId('win-pct-b').textContent).toBe('50%')
+    expectNoWinShare('a', ['0%'])
+    expectNoWinShare('b', ['50%'])
   })
 
-  it('renders normal percent for mid-range probabilities even with sample count present', () => {
+  it('a mid-range winProbability with a sample count present prints no share figure (no 58%)', () => {
     const options: OptionResult[] = [
       makeOption({ id: 'a', label: 'A', winProbability: 0.58, nValidSamples: 1000 }),
     ]
     render(<OptionCards options={options} winnerId="a" />)
 
-    expect(screen.getByTestId('win-pct-a').textContent).toBe('58%')
+    expectNoWinShare('a', ['58%'])
   })
 })
 
@@ -102,9 +110,12 @@ describe('OptionCards — display-honesty (C) leading-option downside qualificat
 
     const note = screen.getByTestId('leading-option-downside-a')
     expect(note).toBeInTheDocument()
-    expect(note.textContent).toContain(
-      'In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.',
+    // Run-4 judge (DL 12 Oct, the class): the leader clause ("the most runs supported this option, but …") is removed;
+    // nothing replaces it. The downside fact stays.
+    expect(note.textContent).toBe(
+      "In this model, the lower range of this option's simulated outcomes includes meaningful downside.",
     )
+    expect(note.textContent).not.toMatch(/most runs/i)
   })
 
   it('does not render the qualification sentence when the flag is false', () => {

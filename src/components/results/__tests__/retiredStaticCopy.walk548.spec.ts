@@ -85,7 +85,6 @@ const F4_RETIRED = '>wins<'
  * string the product once shipped, and is not edited to match the new site.
  */
 const FRAGILE_COPY = 'src/components/results/utils/fragileEdgeCopy.ts'
-const WIN_GAUGE = 'src/components/results/WinGauge.tsx'
 
 describe('F2 — the fragility copy does not name "the recommendation" (ROADMAP 2.213)', () => {
   it('the retired sentence is gone from the rendered copy', () => {
@@ -135,18 +134,9 @@ describe('F2 — the fragility copy does not name "the recommendation" (ROADMAP 
  * pinned to the exact historical markup (trap 12b).
  */
 describe('F4 — the gauge does not caption its number "wins" (ROADMAP 2.214)', () => {
-  it('the bare caption is gone', () => {
-    expect(renderedCopy(WIN_GAUGE)).not.toContain(F4_RETIRED)
-  })
-
-  it('the gauge still carries an ANCHORED accessible name — the number is not left unlabelled', () => {
-    // Over-suppression control: removing the caption must not leave a large
-    // bare percentage with no stated basis, which is the very defect the
-    // comparative register exists to prevent.
-    const copy = renderedCopy(WIN_GAUGE)
-    expect(copy).toContain('COMPARATIVE_COPY.label')
-    expect(copy).toContain('aria-label')
-  })
+  // #2747 re-scope 2 (pre-accepted): rows deleted — "the bare caption is gone" and "the gauge still carries an ANCHORED
+  // accessible name". Their only subject, WinGauge.tsx, is deleted (no win share on any surface in C); the census rows
+  // prove no surface shows a win share. The historical-markup control stays.
 
   it('POSITIVE CONTROL — the rule fires on the exact historical markup', () => {
     const historical = '<span className="text-[8.5px] text-text-light">wins</span>'

@@ -98,7 +98,7 @@ describe('draft-path copy carries no em dash', () => {
       'PROGRESSIVE_STAGES 45s entry',
     )[1]
     expect(msg).not.toContain(EM_DASH)
-    expect(msg).toBe('Still drafting. Complex decisions can take a while…')
+    expect(msg).toBe('Still drafting. Complex models can take a while…')
   })
 
   it('(2) the first-model notice - SUBSTANCE PRESERVED, punctuation only', () => {

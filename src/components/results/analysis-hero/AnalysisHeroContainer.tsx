@@ -175,7 +175,10 @@ export function AnalysisHeroContainer({
   const rangeLines = (
     <><GoalChanceRangeLines
       range={data.goalChanceRange ?? null}
-      labelOf={data.goalChanceDriverNames?.labelOf ?? (() => null)}
+      faceOf={(id) => {
+        const cell = data.runView?.servedCellOf(id) ?? null
+        return cell?.kind === 'range' ? cell.face ?? null : null
+      }}
       heroHorizonShown={model.kind === 'chart' && model.goalChanceHorizonLine != null}
     /><GoalOptionWithheldLines coverage={model.kind === 'chart' ? model.goalOptionCoverage : undefined} /></>
   )

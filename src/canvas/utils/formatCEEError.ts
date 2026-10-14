@@ -112,8 +112,8 @@ export function formatCEEError(error: CEEError | Error): FormattedCEEError {
           ? 'Your brief needs a bit more detail'
           : 'Something about your input didn\u2019t look right',
         message: hasBriefTooSmall
-          ? 'Add more context about your decision \u2014 what you\u2019re deciding, your key options, and what a good outcome looks like.'
-          : 'Try rephrasing your decision description or adding more detail about what you\u2019re trying to decide.',
+          ? 'Add more context about your situation \u2014 what you\u2019re working through, your key options, and what a good outcome looks like.'
+          : 'Try rephrasing your brief or adding more detail about what you\u2019re working through.',
         guidance: 'A good brief includes a clear goal or KPI, 2\u20133 specific options, and the key factors that matter most.',
         isValidationFailed: true,
         debugInfo,

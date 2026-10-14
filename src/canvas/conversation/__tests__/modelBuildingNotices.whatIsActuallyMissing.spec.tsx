@@ -44,17 +44,16 @@
  * matched "14" or "6" in the text would pass on any row that happened to carry
  * that number, which is exactly the defect this file exists to close.
  *
- * MOUNT (trap 3b): every rendering assertion drives the real `MessageBubble`,
- * as its sibling suite does, so a deleted mount REDs here too.
+ * U13 retired the MessageBubble mount. Copy and producer-semantics checks
+ * remain on the isolated notice; modelBuildingNotices.mountSite pins its absence.
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ModelBuildingNoticeKindSchema } from '@talchain/schemas/boundary'
 import type { ModelBuildingNoticeKind } from '@talchain/schemas/boundary'
-import { MessageBubble } from '../MessageBubble'
+import { ModelBuildingNoticesNotice } from '../ModelBuildingNoticesNotice'
 import { PRODUCER_CORPUS } from './producerNoticeReasons'
-import type { ConversationMessage } from '../types'
 import {
   OUTCOME_HEADINGS,
   absentCountOf,
@@ -63,18 +62,6 @@ import {
   toModelBuildingNoticesView,
   type ModelBuildingNoticesView,
 } from '../modelBuildingNotices'
-
-const noop = async () => {}
-
-function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
-  return {
-    id: 'msg-mbn-missing-1',
-    role: 'assistant',
-    content: "Here's a first model of your pricing decision.",
-    timestamp: new Date(),
-    ...overrides,
-  }
-}
 
 function view(groups: Array<{ kind: ModelBuildingNoticeKind; count: number }>) {
   return toModelBuildingNoticesView({
@@ -87,7 +74,7 @@ function view(groups: Array<{ kind: ModelBuildingNoticeKind; count: number }>) {
 async function expand(v: ModelBuildingNoticesView) {
   const user = userEvent.setup()
   const { container } = render(
-    <MessageBubble message={makeMsg({ modelBuildingNotices: v })} onChipClick={noop} />,
+    <ModelBuildingNoticesNotice notices={v} />,
   )
   await user.click(screen.getByTestId('model-building-notices-toggle'))
   return container

@@ -85,6 +85,12 @@ export interface OptionTargetLike {
   value: number
   displayValue?: string | null
   source?: string | null
+  /**
+   * The producer's `user_material_unverified: true` on this target (the AI
+   * claimed the user as its source; the host could not verify it). Present only
+   * when true. The mark then reads "Not confirmed from your brief", never Olumi's.
+   */
+  userMaterialUnverified?: boolean
 }
 
 /**
@@ -454,7 +460,7 @@ export function buildOptionChangeRow({
   // Point 7: every row names its target's source. Was `classify…?.kind === 'ai'`,
   // which left `cee_inference` (live on the wire, unclassified in the
   // intervention vocabulary) and an absent source UNMARKED — "unmarked = Olumi".
-  const targetSource = interventionTargetSourceMark(target.source ?? null)
+  const targetSource = interventionTargetSourceMark(target.source ?? null, { userMaterialUnverified: target.userMaterialUnverified })
   const estimated = targetSource.kind === 'olumi'
   const context = {
     label: fullLabel,

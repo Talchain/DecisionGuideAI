@@ -101,7 +101,7 @@ export function provenanceKey(
     const mark = factorValueSourceMark(n.data)
     if (mark) valueKinds.add(mark.kind)
   }
-  const VALUE_ORDER: readonly ValueSourceMarkKind[] = ['olumi', 'brief', 'you', 'panel', 'unknown']
+  const VALUE_ORDER: readonly ValueSourceMarkKind[] = ['olumi', 'brief', 'unverified_brief', 'you', 'panel', 'unknown']
   const values = VALUE_ORDER.filter((k) => valueKinds.has(k)).map((k) => ({ kind: k, token: VALUE_SOURCE_MARK_TOKEN[k], label: VALUE_SOURCE_MARK_LABEL[k] }))
 
   const heldEdges = routeOnceHeldEdges(nodes, edges)

@@ -61,10 +61,12 @@ describe('⭐ the Compare tab actually mounts the section', () => {
   })
 
   it('⛔ the body renders the section, fed from the ONE shared reader', () => {
-    expect(body()).toMatch(/useDisplayedRunDeltaView\(responseHash\)/)
+    // C1 (#2726): the same ONE reader; 'all' only asks it for every row.
+    expect(body()).toMatch(/useDisplayedRunDeltaView\(responseHash(?:, 'all')?\)/)
     // The section is fed `view` — the reader's own value — and nothing else decides it. CANVAS's `rowFocus` prop (the
     // Changes view, DL #75 5920620752) only links rows to the canvas; it is allowed, a second `view` is not.
-    expect(body()).toMatch(/<ComparePairSections\s+view=\{view\}[\s\S]{0,400}?\/>/)
+    // The window spans one element's props (#2747 added Compare's `goalChancesCurrent`, 429 characters).
+    expect(body()).toMatch(/<ComparePairSections\s+view=\{view\}[\s\S]{0,500}?\/>/)
     expect(body().match(/<ComparePairSections\b/g)).toHaveLength(1)
   })
 

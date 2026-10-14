@@ -89,6 +89,8 @@ function renderCards(options: OptionResult[], props: Record<string, unknown> = {
       hasLeadingOption
       hasGoalThreshold
       stableNumbers={{ [ANALYSED_A]: 1, [ANALYSED_B]: 2, [NOT_ANALYSED]: 3 }}
+      // #2747 re-scope 2 round 2 (rule C): the goal readout is CEE's served cell; the never-analysed option has none.
+      goalCellOf={(id: string) => (id === NOT_ANALYSED ? null : { display: 'about 40%', face: null })}
       {...props}
     />,
   )
@@ -106,7 +108,8 @@ describe('OptionCards — the option that was never analysed', () => {
     // If these ever go missing the absence assertions below stop discriminating
     // and start agreeing with a blank screen.
     expect(screen.getByTestId(`rank-marker-${ANALYSED_A}`)).toBeInTheDocument()
-    expect(screen.getByTestId(`win-pct-${ANALYSED_A}`)).toBeInTheDocument()
+    // #2747 re-scope 2 (U0, DL ruling (A)): no card shows a win share in C, so the analysed sibling carries none either.
+    expect(screen.queryByTestId(`win-pct-${ANALYSED_A}`)).not.toBeInTheDocument()
     expect(screen.getByTestId(`stable-number-${ANALYSED_A}`)).toBeInTheDocument()
   })
 

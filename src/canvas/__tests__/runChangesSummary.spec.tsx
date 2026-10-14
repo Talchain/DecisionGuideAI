@@ -3,7 +3,8 @@
  *
  * Rows (each bound by identity: the one reader's own view, the share gate's own reason, the claimant's own test id):
  *   M2-1  what changed: the producer's input rows in the Compare section's words; at most two, then "+N more".
- *   M2-2  what moved: ONLY options beyond noise (`signal`), in `movementText`'s words; a within-noise pair says the ONE
+ *   M2-2  what moved: ONLY options beyond noise (`signal`), in `movementText`'s words (direction only in C, #2747
+ *         re-scope 2 DL ruling (A)); a within-noise pair says the ONE
  *         noise sentence and names no option.
  *   M2-3  withheld shares outrank everything: the share gate's reason, no option named, even when the producer
  *         reports a signal movement.
@@ -160,9 +161,10 @@ describe('Q10 · labels belong to rows; notes are standalone clauses', () => {
       over: {},
       withheld: false,
       changed: ['Monthly churn: 7% → 12%'],
-      moved: ['Keep pricing: 41% → 55%'],
+      // #2747 re-scope 2 (DL ruling (A)): a movement is a win share, so in C it says its direction only, never the figures.
+      moved: ['Keep pricing: scored higher than last time'],
       note: null,
-      text: 'Changed: Monthly churn: 7% → 12% · Moved: Keep pricing: 41% → 55%',
+      text: 'Changed: Monthly churn: 7% → 12% · Moved: Keep pricing: scored higher than last time',
     },
     {
       name: 'only a note, no input comparison',
@@ -239,7 +241,9 @@ describe('M2-2 · what moved: beyond noise only', () => {
       { option_id: 'opt_b', prior: 0.59, current: 0.57, noise_verdict: 'within_noise' },
     ] }))
     const lines = runChangesSummaryLines(readerView(), false, null)
-    expect(lines.moved).toEqual(['Keep pricing: 41% → 55%'])
+    // #2747 re-scope 2 (DL ruling (A)): the direction only; the share figures (41% → 55%) are never said in C.
+    expect(lines.moved).toEqual(['Keep pricing: scored higher than last time'])
+    expect(lines.moved.join(' ')).not.toMatch(/\d+%/)
     expect(lines.movedNote).toBeNull()
   })
 })

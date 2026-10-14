@@ -38,7 +38,7 @@ import { extractPhase3FromV5Response, deriveV5AnalysisFactUpdate } from '../../.
 import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChips'
 import { composePhase3BridgedBlocks } from '../useConversation'
 import { extractAnswerShapeSidecar } from '../answerShape'
-import { extractOpenQuestionListSidecar, SERVER_OPEN_QUESTIONS_MARKER } from '../serverOpenQuestions'
+import { extractOpenQuestionListSidecar } from '../serverOpenQuestions'
 import { extractProvisionalViewSidecar } from '../provisionalView'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
@@ -54,10 +54,7 @@ const IN_CHAT = new Set([
   'blocks[].body',
   'blocks[].action_label',
   'blocks[].target_refs[].label',
-  '_answer_shape.headline',
-  '_answer_shape.bullets[]',
-  '_answer_shape.detail',
-  '_agent.open_questions[]',
+  'assistant_text',
   'suggested_actions[].label',
   'suggested_actions[].detail',
   // Slice C5: Olumi's provisional view, typed (`_agent.provisional_view`); the why is one press away.
@@ -70,6 +67,8 @@ const IN_CHAT = new Set([
 
 /** Producer prose that is deliberately NOT the chat's to show, and why. */
 const ELSEWHERE: ReadonlyArray<{ prefix: string; why: string }> = [
+  { prefix: '_answer_shape.', why: 'U1: retired display sidecar; assistant_text owns the reply' },
+  { prefix: '_agent.open_questions', why: 'U5: retired question fold; assistant_text owns the reply' },
   { prefix: 'blocks[].enrichment.', why: 'the analysis detail; the Analysis panel / Reasoning tab (Panel, slice D-4) shows it' },
   { prefix: 'blocks[].action_prompt', why: 'the message a coaching action SENDS as the user\'s words; its label is shown' },
   { prefix: 'suggested_actions[].message', why: 'the message a chip SENDS as the user\'s words; it enters the thread when pressed' },
@@ -188,6 +187,7 @@ describe('D-4: the chat shows every piece of producer prose on a served turn, or
     const unclassified = new Set<string>()
     for (const { body } of turns) {
       const leaves: Array<{ path: string; text: string }> = []
+      proseLeaves(body.assistant_text, 'assistant_text', leaves)
       proseLeaves(body.blocks, 'blocks', leaves)
       proseLeaves(body.suggested_actions, 'suggested_actions', leaves)
       proseLeaves(body._answer_shape, '_answer_shape', leaves)
@@ -203,17 +203,13 @@ describe('D-4: the chat shows every piece of producer prose on a served turn, or
   it.each(turns.map((t, i) => [i, t.source, t.body] as const))('turn %i reaches the screen whole (%s)', async (_i, source, body) => {
     Element.prototype.scrollIntoView = vi.fn()
     const leaves: Array<{ path: string; text: string }> = []
-    proseLeaves(body.blocks, 'blocks', leaves)
+    proseLeaves(body.assistant_text, 'assistant_text', leaves)
+      proseLeaves(body.blocks, 'blocks', leaves)
     proseLeaves(body.suggested_actions, 'suggested_actions', leaves)
     proseLeaves(body._answer_shape, '_answer_shape', leaves)
     proseLeaves((body._agent as Wire | undefined)?.open_questions, '_agent.open_questions', leaves)
     proseLeaves((body._agent as Wire | undefined)?.provisional_view, '_agent.provisional_view', leaves)
-    const owed = leaves.filter(
-      (l) =>
-        IN_CHAT.has(l.path) &&
-        // The in-prose question list is replaced by the typed `_agent.open_questions` list, checked on its own path.
-        !(l.path === '_answer_shape.detail' && l.text.includes(SERVER_OPEN_QUESTIONS_MARKER)),
-    )
+    const owed = leaves.filter(l => IN_CHAT.has(l.path))
     expect(owed.length, `${source}: nothing to check`).toBeGreaterThan(0)
 
     const root = renderThread(await messageFrom(body))

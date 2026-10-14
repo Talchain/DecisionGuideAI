@@ -34,6 +34,7 @@ import { render, fireEvent, act, screen } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 import { LAST_RUN_PREFIX } from '../../nodes/shared/metricVocabulary'
+import { FRAGILE_CUE_SENTENCE } from '../connectorCopy'
 
 // Mutable per-test report — the store mock factory reads it at selector time.
 let mockReport: Record<string, unknown> | null = null
@@ -183,7 +184,7 @@ describe('StyledEdge — a stale fragile finding is labelled "Last run", never p
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
     const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.getAttribute('aria-label')).toContain(LAST_RUN_PREFIX)
-    expect(badge.getAttribute('aria-label')).toContain('42% flip risk')
+    expect(badge.getAttribute('aria-label')).toBe(LAST_RUN_PREFIX + FRAGILE_CUE_SENTENCE) // #2747 r2: the Run's switch figure is not shown in C
     const titled = badge.closest('[title]')
     expect(titled?.getAttribute('title')).toContain(LAST_RUN_PREFIX)
   })
@@ -198,8 +199,8 @@ describe('StyledEdge — a stale fragile finding is labelled "Last run", never p
     // ⭐ IDENTITY, NOT JUST PRESENCE — the popover and the cue must carry
     // byte-identical wording, never two spellings of the same staleness
     // (CLAUDE.md trap 12). This is the case that would have stayed green if
-    // the popover's own `fragileEdgeSentence(...)` call had been left
-    // un-refactored beside the cue's prefixed `fragileSentence`.
+    // the popover had kept its own sentence call un-refactored beside the
+    // cue's prefixed `fragileSentence`.
     expect(line.textContent).toBe(badge.getAttribute('aria-label'))
   })
 

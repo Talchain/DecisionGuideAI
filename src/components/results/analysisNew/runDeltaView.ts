@@ -115,6 +115,21 @@ export interface RunDeltaGoalChanceRow {
   readonly current: RunDeltaGoalChanceSide
 }
 
+/**
+ * ⭐ DOES THIS PAIR SHOW A GOAL CHANCE? True when any option's chance of meeting the goal was licensed (a `point` or a
+ * `range`) on either Run of the pair, as each Run's own licence showed it (`goalChances`, schemas 0.81.0).
+ *
+ * Run-5 judge, operator finding (DL ruling, 12 Oct): capacity step 6 said "No option moved beyond ordinary run-to-run
+ * variation." beside a goal chance that moved 37% → 63%; only the WIN SHARE was unchanged (0.87985 both Runs). Where a
+ * goal chance is shown, a movement claim read from the win shares is not said at all (`movementSentence`,
+ * `runChangesSummaryLines`). Positive evidence only: `withheld` and `not_recorded` sides show no chance.
+ */
+export function pairShowsAGoalChance(view: Pick<RunDeltaView, 'goalChances'>): boolean {
+  const shown = (side: RunDeltaGoalChanceSide): boolean => side.kind === 'point' || side.kind === 'range'
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: presence: whether either side is licensed (kind only), to omit a win-share claim; no number leaves the line
+  return (view.goalChances ?? []).some((row) => shown(row.prior) || shown(row.current))
+}
+
 export interface RunDeltaView {
   /** PART A. */
   readonly comparability: string
@@ -396,6 +411,18 @@ function formatInputValue(
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
 }
 
+/** Option-setting values in the producer's carried raw/unit frame, without scaling or rounding. */
+export function optionInputChangeValues(row: RunDeltaInputChange): { before: string | null; after: string | null } {
+  const value = (side: RunDeltaInputChange['before']): string | null => {
+    if (side === null) return null
+    const raw = String(side.raw)
+    if (!side.unit) return raw
+    if (side.unit === '%') return `${raw}%`
+    return ['£', '$', '€', '¥'].includes(side.unit) ? `${side.unit}${raw}` : `${raw} ${side.unit}`
+  }
+  return { before: value(row.before), after: value(row.after) }
+}
+
 const GOAL_FIELD_WORDS: Record<string, string> = {
   target: 'Goal target',
   unit: 'Goal unit',
@@ -483,11 +510,13 @@ export function buildRunDeltaView(
   labelFor: (optionId: string) => string | null,
   nodeLabelFor: (nodeId: string) => string | null = () => null,
   frame: RunDeltaFrame = 'rerun',
+  inputRows: 'folded' | 'all' = 'folded',
 ): RunDeltaView {
   const attributable = delta.attribution_case === 'C1_attributable'
 
   const framingChanged = goalFramingChanged(delta)
   // Withheld, not emptied by accident: across a direction change no option has a comparable pair (see the field).
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
   const movements: RunDeltaMovement[] = framingChanged ? [] : delta.win_probabilities.map((w) => ({
     optionId: w.option_id,
     label: labelFor(w.option_id),
@@ -519,7 +548,9 @@ export function buildRunDeltaView(
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
     ...(framingChanged ? { goalFramingChanged: true as const } : {}),
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
     ...(!framingChanged && delta.goal_chances !== undefined
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: mapper: wire → view mapping; Compare and the chat read it only through the gate
       ? { goalChances: delta.goal_chances.map((g) => ({ optionId: g.option_id, label: labelFor(g.option_id), prior: g.prior, current: g.current })) }
       : {}),
     winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
@@ -535,7 +566,7 @@ export function buildRunDeltaView(
         ? null
         : {
             coverage: delta.input_coverage,
-            rows: foldSizingAndStrength((delta.input_changes ?? []).map((row, i) => ({
+            rows: (inputRows === 'all' ? (rows: RunDeltaInputRow[]) => rows : foldSizingAndStrength)((delta.input_changes ?? []).map((row, i) => ({
               key: `${row.entity_kind}:${row.entity_id}:${row.option_id ?? ''}:${row.field}:${i}`,
               kind: row.entity_kind,
               entityId: row.entity_id,
@@ -543,8 +574,10 @@ export function buildRunDeltaView(
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
               ...inputName(row, labelFor, nodeLabelFor),
-              before: formatInputValue(row.before, row.field),
-              after: formatInputValue(row.after, row.field),
+              ...(row.entity_kind === 'option_setting' && inputRows === 'all' ? optionInputChangeValues(row) : {
+                before: formatInputValue(row.before, row.field),
+                after: formatInputValue(row.after, row.field),
+              }),
               change: row.change,
               field: row.field,
               linkLabels: row.link ? { from: nodeLabelFor(row.link.from), to: nodeLabelFor(row.link.to) } : null,

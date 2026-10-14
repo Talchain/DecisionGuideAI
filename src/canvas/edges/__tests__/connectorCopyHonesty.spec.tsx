@@ -25,6 +25,7 @@ import { StyledEdge } from '../StyledEdge'
 import { CanvasLegendPopover } from '../../components/CanvasLegendPopover'
 import { Position } from '@xyflow/react'
 import { CONTESTED_WORD, bareFragilityFigures, perceivableStrings } from './__helpers__/edgeCopyHonesty'
+import { FRAGILE_CUE_SENTENCE } from '../connectorCopy'
 
 let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
@@ -196,14 +197,16 @@ describe('B — no bare fragility figure', () => {
     expect(cue!.textContent ?? '').not.toMatch(/\d+\s?%/)
   })
 
-  it('every string that speaks about fragility states the figure WITH its noun', () => {
+  it('no string that speaks about fragility states a bare figure — and none states the Run\'s figure (#2747 r2)', () => {
     const container = renderEverySurface({ ...EDGE })
     const strings = perceivableStrings(container)
     const cue = container.querySelector('[data-testid="edge-fragile-tag"]') as HTMLElement
     // The cue's joined text too, because it was two spans ("Sensitive" · "42%").
     const corpus = [...strings, cue.textContent ?? '']
-    // Populated: the measured figure IS stated somewhere, labelled.
-    expect(corpus.some((s) => /42% (flip risk|chance the result flips)/.test(s))).toBe(true)
+    // Populated: the fragility sentence IS perceivable. #2747 r2: the Run's switch figure is not shown in C, so the
+    // measured 42% is stated nowhere, with or without its noun.
+    expect(corpus.some((s) => s.includes(FRAGILE_CUE_SENTENCE))).toBe(true)
+    expect(corpus.filter((s) => s.includes('42%'))).toEqual([])
     const offenders = corpus.flatMap((s) => bareFragilityFigures(s).map((f) => `${f} in "${s}"`))
     expect(offenders).toEqual([])
   })

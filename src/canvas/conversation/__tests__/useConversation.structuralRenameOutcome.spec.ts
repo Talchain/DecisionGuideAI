@@ -35,7 +35,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
 import { useConversation } from '../useConversation'
@@ -480,5 +480,25 @@ describe('structural_rename — the lifecycle verdict, one per arm', () => {
     // Calling an unknown a refusal is the same overclaim as calling it a
     // success, one step further down. The producer guarantees nothing here.
     expect(verdictFor('sr-1')).toBe('unconfirmed')
+  })
+})
+
+describe('S2 structural conflict recovery', () => {
+  it('S2 refused rename reads the server winner after the local rollback', async () => {
+    const savedGraph = { schema: 'scenario_graph.v1', scenario_id: SCENARIO_ID, graph_present: true,
+      graph: { nodes: [{ id: NODE_ID, kind: 'factor', label: OTHER_USERS_LABEL },
+        { id: SIBLING_ID, kind: 'factor', label: NEW_LABEL }], edges: [] } }
+    stub409('turn_fence_superseded')
+    const post = globalThis.fetch
+    const get = vi.fn(async () => ({ ok: true, status: 200, json: async () => savedGraph } as Response))
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => url.endsWith('/graph') ? get() : post(url, init)))
+    useCanvasStore.setState({ importPendingServerRegistration: false, pendingEmittedEdits: 0,
+      pendingStructuralAdds: [], pendingStructuralAddEdges: [], pendingStructuralDeletes: [],
+      pendingStructuralRenames: [], structuralAddLifecycle: [], serverGraphIdentity: null,
+      lastAuthoritativeGraph: null } as never)
+    const r = await driveRename()
+    await waitFor(() => expect(useCanvasStore.getState().nodes.find(n => n.id === NODE_ID)?.data.label).toBe(OTHER_USERS_LABEL))
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(r.notices).toContain(FENCE_SUPERSEDED_COPY)
   })
 })

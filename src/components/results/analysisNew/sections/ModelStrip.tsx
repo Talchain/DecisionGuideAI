@@ -218,7 +218,9 @@ import {
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 import { action, icon } from '../panelSurfaces'
-import { useCurrentBriefText } from './BriefEditForm'
+import { BRIEF_EDIT_COPY, BriefEditForm, useCurrentBriefText } from './BriefEditForm'
+import { useBriefEditStore } from '../briefEditStore'
+import { REVIEW_TOOL_COPY, WHOLE_FRAMING_ASK } from '../buildReviewQueue'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -443,6 +445,11 @@ export interface ReviewSlotProps {
   request: ReviewToolRequest | null
   /** The node ids the queue holds an item about, reported by the tool. */
   onQueueTargets: (ids: readonly string[]) => void
+  /**
+   * The strip's Decision row carries the question's ✎ (edit the brief) and ✦ (check the framing) and hosts the
+   * brief form, so the tool's own row shows only "N to review".
+   */
+  framingActsInChecklist?: boolean
 }
 
 export function ModelStrip({
@@ -531,6 +538,8 @@ export function ModelStrip({
     return null
   })
   const briefText = useCurrentBriefText()
+  /** The Brief row shows the user's own words (Paul 14 Oct 2026: brief = what the user wrote); the question only when there is no brief. */
+  const briefRowText = briefText !== null && briefText.trim() !== '' ? briefText.trim() : null
   const questionLead =
     decisionQuestion !== null
       ? oneSentence(decisionQuestion)
@@ -685,6 +694,13 @@ export function ModelStrip({
    * proposal is then `not_encodable`, which is the honest answer.
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
+  // The Decision row's ✎ and its brief form: the SAME store `ModelReviewTool` hosts (one form, one open state).
+  const briefOpen = useBriefEditStore((s) => s.isOpen)
+  const briefOpenRequest = useBriefEditStore((s) => s.openRequest)
+  const setBriefOpen = useBriefEditStore((s) => s.setOpen)
+  const briefPencilRef = useRef<HTMLSpanElement | null>(null)
+  /** The Decision row's text: one clipped line at rest, the whole question on click. */
+  const [decisionWrapped, setDecisionWrapped] = useState(false)
 
   /* ⭐ `openAtRest` IS THE PROTOTYPE'S STATIC HEADER (design audit B2): the
      question is an h2 and the census always shows, so there is no fold for a
@@ -905,9 +921,9 @@ export function ModelStrip({
   }
 
   /** The review slot, in whichever form the host passed it. */
-  const renderReviewSlot = (successSlot: ReactNode): ReactNode =>
+  const renderReviewSlot = (successSlot: ReactNode, framingActsInChecklist = false): ReactNode =>
     typeof reviewSlot === 'function' ? (
-      reviewSlot({ successSlot, request: reviewRequest, onQueueTargets })
+      reviewSlot({ successSlot, request: reviewRequest, onQueueTargets, framingActsInChecklist })
     ) : (
       <>
         {reviewSlot}
@@ -1078,13 +1094,17 @@ export function ModelStrip({
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
 
-  /** The success line, handed to the review slot — see `reviewSlot`. */
-  const successLine = (
-    <>
+  /**
+   * The success target, in either shape: the Goal row of the checklist (`checklist`, while the census is open) or
+   * the old success line handed to the review slot (a closed bare mount). One element, so the handlers cannot fork.
+   */
+  const goalTarget = (variant: 'reasoning' | 'checklist') => (
     <SuccessTargetLine
       goalNodeId={strip.goalNodeId}
       divider={false}
-      variant="reasoning"
+      variant={variant}
+      goalLabel={goalLabel}
+      provisional={Boolean(strip.provisionalGoalLabel)}
       /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
          This read TWO, on the premise that no server carrier for a goal
          threshold exists, and told every reader "It will be used the next time
@@ -1127,6 +1147,11 @@ export function ModelStrip({
       }}
       testId={`${testId}-target`}
     />
+  )
+  /** The success line, handed to the review slot — see `reviewSlot`. Open, the Goal row carries the target. */
+  const successLine = (
+    <>
+    {open ? null : goalTarget('reasoning')}
     <LimitVerdictLines view={limitVerdicts} testId={`${testId}-limit-verdicts`} />
     </>
   )
@@ -1167,6 +1192,7 @@ export function ModelStrip({
               ⚠ `aria-labelledby` points HERE, so the landmark is announced as
               the decision when there is one and the goal when there is not —
               never as an empty string. */}
+          {open ? null : (
           <SubjectTag
             id={subjectId}
             // ⚠⚠ 24 Sep 2026 — NO LONGER CLAMPED. Reasoning-V2 fidelity gap #8
@@ -1184,24 +1210,26 @@ export function ModelStrip({
             // ⭐ 8 Oct 2026 (Paul: "too dominating and loud"): the subject is the model's own words, not a section
             // title. Same 14px as the section titles (`panelQuestion`), one weight lighter and in body ink, so a
             // three-line goal no longer outweighs "Challenge the thinking" beneath it.
-            className={`${typography.panelQuestion} text-text-body block m-0 break-words${
-              open && subjectSubLabel === null ? ' pr-5' : ''
-            }`}
+            // Paul 14 Oct 2026: the decision text no longer shows at the top of the Reasoning panel.
+            // Kept screen-reader-only because the region's aria-labelledby points here.
+            className="sr-only"
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
             {leadLabel ?? NO_SUBJECT_LABEL}
           </SubjectTag>
-          {subjectSubLabel === null ? null : (
+          )}
+          {open || subjectSubLabel === null ? null : (
             <span
-              className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
+              className="sr-only"
               data-testid={`${testId}-goal`}
               title={subjectSubLabel}
             >
               {subjectSubLabel}
             </span>
           )}
-          {strip.provisionalGoalLabel ? (
+          {/* Open, the Goal row says "provisional" — this line only survives on a closed bare mount. */}
+          {!open && strip.provisionalGoalLabel ? (
             <span className={`${typography.panelMeta} text-text-light block`}
               data-testid={`${testId}-provisional-objective`}>
               Provisional objective: {strip.provisionalGoalLabel}.
@@ -1407,8 +1435,63 @@ export function ModelStrip({
         <ul
           role="list"
           data-testid={`${testId}-rows`}
-          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1"
+          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-start gap-x-2 gap-y-1"
         >
+          {/* Paul 14 Oct 2026: one checklist — Decision, Goal, then the census; every row marker · name · state · ✎ ✦.
+              Decision: the lead text (one clipped line; a click shows it whole), ✎ = the brief form ("Edit the full
+              question", the store `ModelReviewTool` hosts), ✦ = the whole-framing ask — the pair that sat on the
+              "N to review" row. The text element carries `subjectId`, so the landmark keeps its name. */}
+          <li role="listitem" className="contents" data-testid={`${testId}-decision`} data-kind="decision">
+            <span className="flex min-h-7 items-center gap-1 py-0.5 min-w-0">
+              <NodeMark kind="decision" />
+              <span className={`${typography.panelMeta} text-text-light truncate`}>Brief</span>
+            </span>
+            <SubjectTag id={subjectId} className="m-0 min-w-0" data-testid={`${testId}-lead`}>
+              <button
+                type="button"
+                onClick={() => setDecisionWrapped((v) => !v)}
+                aria-expanded={decisionWrapped}
+                title={briefRowText ?? leadLabel ?? undefined}
+                className={`${typography.panelBody} text-text-body block w-full min-w-0 py-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                  decisionWrapped ? 'whitespace-normal break-words' : 'truncate'
+                }`}
+                data-testid={`${testId}-lead-text`}
+              >
+                {briefRowText ?? leadLabel ?? NO_SUBJECT_LABEL}
+              </button>
+            </SubjectTag>
+            <span className="flex items-center shrink-0 justify-self-end">
+              <span ref={briefPencilRef} className="inline-flex">
+                <PanelIconButton
+                  Icon={Pencil}
+                  label={BRIEF_EDIT_COPY.open}
+                  expanded={briefOpen}
+                  onClick={() => setBriefOpen(!briefOpen)}
+                  testId={`${testId}-decision-edit`}
+                />
+              </span>
+              <PanelIconButton
+                ai
+                label={REVIEW_TOOL_COPY.askFraming}
+                onClick={() => openAskOlumi(WHOLE_FRAMING_ASK)}
+                testId={`${testId}-decision-ask`}
+              />
+            </span>
+          </li>
+          {briefOpen ? (
+            <li role="listitem" className="col-span-3 min-w-0">
+              <BriefEditForm
+                onAsk={openAskOlumi}
+                onClose={() => {
+                  setBriefOpen(false)
+                  briefPencilRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+                }}
+                focusRequest={briefOpenRequest}
+                testIdPrefix={testId}
+              />
+            </li>
+          ) : null}
+          {goalTarget('checklist')}
           {visible.map(({ row, nodes, drawMarks, narrowed, uncapped, zero }) => zero ? (
             <li
               key={row.kind}
@@ -1419,13 +1502,13 @@ export function ModelStrip({
               data-zero="true"
             >
               {/* Not a control: there is nothing of this kind to ring or narrow to. */}
-              <span className="flex items-center gap-1 px-1 py-0.5 min-w-0">
+              <span className="flex min-h-6 items-center gap-1 py-0.5 min-w-0">
                 <NodeMark kind={row.kind} />
                 <span className={`${typography.panelMeta} text-text-light truncate`}>{row.label}</span>
               </span>
               <span data-testid={`${testId}-marks`} />
               <span
-                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                className={`${typography.panelMeta} text-text-light tabular-nums justify-self-end flex min-h-6 items-center`}
                 data-testid={`${testId}-row-count`}
                 data-kind={row.kind}
               >
@@ -1452,7 +1535,7 @@ export function ModelStrip({
                 onClick={() => pickKind(row.kind)}
                 aria-pressed={kindFilter === row.kind}
                 aria-label={COPY.modelStrip.onlyKind(row.label)}
-                className={`flex items-center gap-1 rounded px-1 py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                className={`flex min-h-6 items-center gap-1 rounded py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                   kindFilter === row.kind ? 'bg-panel-hover' : 'hover:bg-panel-hover'
                 }`}
                 data-testid={`${testId}-row-filter`}
@@ -1571,7 +1654,7 @@ export function ModelStrip({
                   narrowed count alone would read as the row's size and
                   silently shrink the model. */}
               <span
-                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                className={`${typography.panelMeta} text-text-light tabular-nums justify-self-end flex min-h-6 items-center`}
                 data-testid={`${testId}-row-count`}
                 data-kind={row.kind}
               >
@@ -1901,7 +1984,7 @@ export function ModelStrip({
           review", then the success line, then the review tool, then the
           picked mark's detail. The success line is handed to the review slot
           so it can sit between the tool's row and its open item. */}
-      {renderReviewSlot(successLine)}
+      {renderReviewSlot(successLine, open)}
     </section>
   )
 }

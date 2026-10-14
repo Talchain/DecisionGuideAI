@@ -41,7 +41,6 @@
  * The two goal arms that pinned the old face are re-pointed to those homes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { METRIC_NOUN } from '../shared/metricVocabulary'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -271,15 +270,15 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
     vi.clearAllMocks()
   })
 
-  it('renders the shared row when a target is set and a figure exists', () => {
+  it('a target and raw metadata without a licensed chance cell render no figure', () => {
     renderGoal(
       { achievementProbability: 0.73 },
       { goal_threshold_raw: '100', goal_threshold_unit: '%' },
     )
-    const row = screen.getByTestId(GOAL_ROW)
-    expect(row.textContent).toContain(METRIC_NOUN.chance)
-    expect(row.textContent).toContain('73%')
-    expect(fillWidthWithin(GOAL_ROW)).toContain('73%')
+    // makeGoalState has no licence/canonical figure; raw mock metadata cannot license it.
+    expect(screen.queryByTestId(GOAL_ROW)).toBeNull()
+    expect(screen.queryByText(/73%/)).toBeNull()
+    expect(fillWidthWithin(GOAL_ROW)).toBeNull()
   })
 
   it('NO TARGET: no row — even though the figure IS available (UI-SEM-082)', () => {
@@ -301,45 +300,37 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
     expect(screen.getByText('Increase revenue')).toBeDefined()
   })
 
-  it('MODELLED BASIS: the caveat still travels with the figure — the row does not displace it', () => {
+  it('MODELLED BASIS: no unlicensed figure or accompanying caveat in either view', () => {
     const modelled = { achievementProbability: 0.73, achievementProbabilityIsModelledBasis: true }
     const target = { goal_threshold_raw: '100', goal_threshold_unit: '%' }
     renderGoal(modelled, target)
-    const row = screen.getByTestId(GOAL_ROW)
-    // The figure must never be shown BARE on a modelled basis. The disclosure
-    // that makes it honest is the reason the low-zoom line withholds it.
-    //
-    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2): on the Standard
-    // face the caveat rides the Chance row itself — its accessible name and
-    // tooltip — and the separate caveat paragraph is Detailed-only.
-    expect(row.getAttribute('aria-label')).toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+    expect(screen.queryByTestId(GOAL_ROW)).toBeNull()
+    expect(screen.queryByText(GOAL_FIT_BASIS_CAVEAT_COPY)).toBeNull()
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
     cleanup()
 
-    // …and the paragraph's home, Detailed, still renders it beside the row.
+    // Detailed does not grant a missing licence either.
     renderGoal(modelled, target, { viewMode: 'expert' })
-    expect(screen.getByTestId(GOAL_ROW)).toBeDefined()
-    expect(screen.getByTestId('goal-fit-basis-caveat-node').textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
+    expect(screen.queryByTestId(GOAL_ROW)).toBeNull()
+    expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
+    expect(screen.queryByText(/73%/)).toBeNull()
   })
 
-  it('NOT MODELLED: the row carries no caveat it has not earned (control for the arm above)', () => {
+  it('NOT MODELLED: no unlicensed figure or caveat (control for the arm above)', () => {
     renderGoal(
       { achievementProbability: 0.73, achievementProbabilityIsModelledBasis: false },
       { goal_threshold_raw: '100', goal_threshold_unit: '%' },
     )
-    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+    expect(screen.queryByTestId(GOAL_ROW)).toBeNull()
+    expect(screen.queryByText(GOAL_FIT_BASIS_CAVEAT_COPY)).toBeNull()
   })
 
-  it('the prose sentence the row encodes is UNCHANGED — now the row\'s accessible name, off the face', () => {
+  it('raw metadata without a licence produces no chance sentence or accessible row', () => {
     renderGoal(
       { achievementProbability: 0.73 },
       { goal_threshold_raw: '100', goal_threshold_unit: '%' },
     )
-    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2): the row replaces
-    // the prose readout rather than sitting beside it. The WORDING is unchanged
-    // and is bound to the row by identity (its accessible name); the prose line
-    // is gone from the visible face.
-    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/About 73.*% chance of meeting your goal\./)
+    expect(screen.queryByTestId(GOAL_ROW)).toBeNull()
     expect(screen.queryByText(/About 73.*% chance of meeting your goal/)).toBeNull()
   })
 })

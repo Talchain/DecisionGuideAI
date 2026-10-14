@@ -17,9 +17,15 @@
  * re-seeds the ref and is fixed there; **staying on the SAME edge across a save
  * never remounts**, so the stale baseline survives exactly where the save
  * happened. Same field, two different paths, and only one of them was closed.
+ *
+ * ⚠ RECOVERY BATCH B (a774438, "link signs that stick"): a strength band no longer
+ * sets a drawn link's direction; only Helps / Hurts does. A link with an unstated
+ * direction stays pending, so "state 0.85, then fine-tune" now starts with the
+ * person's Helps. The second row covers the order that change opened: band first,
+ * then Hurts, where the baseline must follow the sign the person chose.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 
 const previewEdit = vi.fn()
 const clearPreview = vi.fn()
@@ -30,6 +36,7 @@ vi.mock('@xyflow/react', () => ({ useViewport: () => ({ x: 0, y: 0, zoom: 1 }) }
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
+import { overlayEdge } from '../../../utils/mergeAppliedGraph'
 
 const NODES = [
   { id: '2891dabb', type: 'factor', data: { label: 'Marketing' }, position: { x: 0, y: 0 } },
@@ -57,6 +64,19 @@ function seed() {
   } as never)
 }
 
+/**
+ * CEE stores the reviewed link and the reply overlays it (as `marketing_draw_review_sign_change_strength_reload` does).
+ * Until then the panel keeps the link in "Waiting to send your reviewed link" (a774438), and a fine-tune has no
+ * saved link to edit.
+ */
+function serverHoldsTheLink() {
+  const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e1')!
+  const d = edge.data as { weight: number; direction: 'positive' | 'negative' }
+  const saved = { from: '2891dabb', to: 'c12af5de', strength: { mean: (d.direction === 'negative' ? -1 : 1) * d.weight, std: 0.15 },
+    effect_direction: d.direction, provenance: { source: 'user_specified' }, provenance_display: 'user_set' }
+  act(() => useCanvasStore.setState({ edges: [overlayEdge(edge, saved, { acquireServerStrengthOnNoop: true })] } as never))
+}
+
 const bandNamed = (re: RegExp) => screen.queryAllByRole('button')
   .find((b) => re.test(b.textContent ?? ''))
 
@@ -68,6 +88,8 @@ describe('the impact preview measures from the strength the user stated', () => 
     // FLOOR: the panel mounted and offers the save control.
     expect(screen.queryAllByRole('button').length, 'panel did not mount').toBeGreaterThan(0)
 
+    // The person states the direction first (a band alone never sends a drawn link).
+    fireEvent.click(screen.getByRole('button', { name: 'Helps' }))
     const veryStrong = bandNamed(/^Very strong/)
     expect(veryStrong, 'the state-for-save control is not on screen').toBeDefined()
     fireEvent.click(veryStrong!)
@@ -76,6 +98,7 @@ describe('the impact preview measures from the strength the user stated', () => 
     const stated = Math.abs(((useCanvasStore.getState().edges
       .find((e) => e.id === 'e1')!.data as { weight?: number }).weight) ?? 0)
     expect(stated, 'precondition: the stated strength did not reach the store').toBeCloseTo(0.85, 2)
+    serverHoldsTheLink()
 
     // Now FINE-TUNE. Only the slider routes through `handleStrengthChange`,
     // which is the one path that previews; the preset row calls `clearPreview`
@@ -105,5 +128,29 @@ describe('the impact preview measures from the strength the user stated', () => 
     // direction of the user's own adjustment: weakening a link is previewed as
     // strengthening it.
     expect(deltas[0], `previewed delta ${deltas[0]}: a POSITIVE value means the baseline was the 0.3 default the user never chose`).toBeCloseTo(-0.30, 2)
+  })
+
+  it('⭐ "Very strong" THEN "Hurts": a fine-tune measures from −0.85, the sign the person chose', async () => {
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(bandNamed(/^Very strong/)!)
+    fireEvent.click(screen.getByRole('button', { name: 'Hurts' }))
+
+    const stored = useCanvasStore.getState().edges.find((e) => e.id === 'e1')!.data as { weight?: number; direction?: string; directionSource?: string }
+    expect(stored, 'precondition: the stated strength and direction reached the store').toMatchObject({ weight: 0.85, direction: 'negative', directionSource: 'user' })
+    serverHoldsTheLink()
+
+    previewEdit.mockClear()
+    const ranges = [...document.querySelectorAll('input[type=range]')] as HTMLInputElement[]
+    const strength = ranges.find((r) => Math.abs(Number(r.value) + 0.85) < 0.02)
+    expect(strength, `no strength slider at -0.85; ranges = ${ranges.map((r) => r.value)}`).toBeDefined()
+
+    // Easing the negative link from −0.85 to −0.55 WEAKENS it by 0.30.
+    fireEvent.change(strength!, { target: { value: '-0.55' } })
+    await waitFor(() => expect(previewEdit).toHaveBeenCalled())
+
+    //   baseline −0.85 (the sign chosen)          -> −0.55 − (−0.85) = +0.30
+    //   baseline +0.85 (the band, before Hurts)   -> −0.55 − 0.85    = −1.40
+    const deltas = previewEdit.mock.calls.map((c) => c[1] as number)
+    expect(deltas[0], `previewed delta ${deltas[0]}: −1.40 means the baseline kept the band's sign, not the person's Hurts`).toBeCloseTo(0.30, 2)
   })
 })

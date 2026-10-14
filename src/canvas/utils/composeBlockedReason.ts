@@ -92,7 +92,7 @@ export const BLOCKED_REASON_COPY = {
           analysisCanRunAfter ? ' and the analysis can run' : ''
         }.`,
   /** The goal the verdict was graded against is not in the model. */
-  goalMissing: 'This decision needs a goal before the analysis can run.',
+  goalMissing: 'This model needs a goal before the analysis can run.',
   /** Fewer than two options to compare. */
   tooFewOptions: 'Olumi compares at least two options. Add another one to run the analysis.',
   /**

@@ -110,7 +110,7 @@ export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
             >
               <LayoutGrid className="h-4 w-4 text-text-light" />
-              <span className={typography.bodySmall}>My decisions</span>
+              <span className={typography.bodySmall}>My scenarios</span>
             </button>
             <button
               type="button"

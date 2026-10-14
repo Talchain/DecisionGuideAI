@@ -6,7 +6,8 @@
  * bands, deltas or thresholds — and every lens/state gate must fail closed.
  */
 import { describe, expect, it } from 'vitest'
-import { buildHeroModel } from '../buildHeroModel'
+import { buildHeroModel as buildModel } from '../buildHeroModel'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import { HERO_COPY } from '../heroCopy'
 import { COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
@@ -14,11 +15,26 @@ import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
   makeDriver,
-  makeHeroData,
+  makeHeroData as numericHeroData,
   makeOption,
   OPTION_A,
   OPTION_B,
 } from '../__fixtures__/hero.fixtures'
+import { withGoalChanceReport } from '../../__tests__/helpers/goalChanceReport'
+import { chanceCellOf } from './helpers/chanceCellOf'
+
+const makeHeroData = (...args: Parameters<typeof numericHeroData>) => withGoalChanceReport(numericHeroData(...args))
+const dataOf = new WeakMap<HeroChartModel, ResultsSectionDataReturn>()
+function buildHeroModel(...args: Parameters<typeof buildModel>) {
+  const model = buildModel(...args)
+  if (model.kind === 'chart') dataOf.set(model, args[0])
+  return model
+}
+function cellTextOf(model: HeroChartModel, id: string): string {
+  const text = chanceCellOf(dataOf.get(model)!, id).text
+  expect(text).not.toBeNull()
+  return text!
+}
 import type { ResultCompleteness } from '../../useResultCompleteness'
 import type { DecisionResultData } from '../../types'
 
@@ -83,28 +99,7 @@ const producerRun = (...args: Parameters<typeof producerVerdict>) => {
   return { verdict, leaderDesignationPermitted: verdict.hasLeadingOption }
 }
 
-/**
- * The magnitudes the re-anchored leader sentences carry, read back off the
- * MODEL rather than hard-coded — so these assertions stay template checks
- * (does the builder select the right copy for the right row?) and do not
- * quietly become string fixtures that pass whatever the builder emits.
- */
-function winReadoutOf(
-  m: { rows: Array<{ label: string; comparativeReadout?: string | null }> },
-  label: string,
-): string | null {
-  const row = m.rows.find((r) => r.label === label)
-  if (!row) throw new Error(`no row for ${label}`)
-  // Mirrors the builder exactly: a row with no comparative probability yields
-  // null, and the copy drops its magnitude clause rather than printing a
-  // placeholder glyph inside the sentence.
-  return row.comparativeReadout ?? null
-}
-function goalReadoutOf(m: { rows: Array<{ label: string; goal: { readout: string } }> }, label: string): string {
-  const row = m.rows.find((r) => r.label === label)
-  if (!row) throw new Error(`no row for ${label}`)
-  return row.goal.readout
-}
+// Run-4 judge (DL 12 Oct, the class): `winReadoutOf` read the leader sentences' magnitudes; those sentences are deleted.
 function outcomeReadoutOf(m: { rows: Array<{ label: string; outcome: { readout: string } }> }, label: string): string {
   const row = m.rows.find((r) => r.label === label)
   if (!row) throw new Error(`no row for ${label}`)
@@ -116,8 +111,8 @@ describe('buildHeroModel — boundary values', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
     expect(m.rows[1].goal.value).toBe(OPTION_B.goalProbability)
-    expect(m.rows[0].goal.readout).toBe('34%')
-    expect(m.rows[1].goal.readout).toBe('49%')
+    expect(m.rows[0].goal.readout).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows[1].goal.readout).toBe(cellTextOf(m, OPTION_B.id))
   })
 
   it('outcome values equal the adapted outcome fields exactly', () => {
@@ -163,7 +158,9 @@ describe('buildHeroModel — leaders and headline', () => {
     // (lane 35; live staging crowned a 4% fit over 7%/6%).
     const a = makeOption({ ...OPTION_A, goalProbability: 0.9 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Two developers', goalReadoutOf(m, 'Two developers')))
+    // #2747 re-scope 2 round 2 (rule C): the crown (the goal lens ring) still follows the argmax; the headline no longer
+    // states it (headline.goalOnly is deleted).
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
     expect(m.leaders.goal).toBe('opt_a')
   })
 
@@ -178,21 +175,27 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.leaders.outcome).toBe('opt_a')
   })
 
-  it('diverged leaders produce the tension subline naming the outcome leader', () => {
+  // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own (headline.goalOnly / noneOnTrack are
+  // deleted); with no producer band the headline is the neutral one and the subline names no option.
+  // Was "diverged leaders produce the tension subline naming the outcome leader" (it reached the tension line through the
+  // goal headline); the banded divergence rows below keep that line.
+  it('diverged leaders with no goal claim and no producer band: the subline names no option', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
-  it('constraint presence switches the headline to goal-and-limits wording', () => {
+  it('constraint presence never gives a goal-only headline joint wording', () => {
     // Constraints are request-level, so every option carries its analysis.
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
-    expect(m.headline).toBe(HERO_COPY.headline.goalWithLimits('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
-    // The tension subline stays the single outcome-leader sentence.
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
+    // C-FALSE: goal-only figures beside joint words removed (DL ruling 8 Oct).
+    expect(m.headline).not.toMatch(/and limits|limits together/i)
+    // #2747 re-scope 2 round 2 (rule C): no goal claim is headlined; with no band, the subline names no option.
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('mixed constraint coverage falls back to goal-alone wording (never overstates)', () => {
@@ -203,7 +206,8 @@ describe('buildHeroModel — leaders and headline', () => {
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
+    // #2747 re-scope 2 round 2 (rule C): no goal wording is headlined at all, so none can overstate.
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
   /**
@@ -252,13 +256,8 @@ describe('buildHeroModel — leaders and headline', () => {
     // ② ENTITLEMENT — and yet NO crown. This is the pair; neither line means
     //    much without the other.
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
-    expect(m.subline).toBe(
-      HERO_COPY.subline.highestOutcome(
-        'Two developers',
-        m.rows.find((r) => r.label === 'Two developers')!.outcome.readout,
-      ),
-    )
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('does not goal-headline a recommended option whose goal value floors below 1% (mixed coverage)', () => {
@@ -278,18 +277,19 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
-  it('no-option-on-track headline is constraint-aware (goal and limits wording)', () => {
-    // Under constraints the floored figure is the JOINT probability and the
-    // axis/caption say "goal and limits" — the headline must describe the
-    // same quantity, not claim "your goal" alone.
+  it('no-option-on-track headline never adds joint words to goal-only figures', () => {
+    // C-FALSE: constraint presence does not change a goal-only figure's identity.
     const a = makeOption({ ...OPTION_A, goalProbability: 0, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, goalProbability: 0.004, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
-    expect(m.headline).toBe('No option is currently on track to meet your goal and limits.')
+    // C-FALSE: the goal-only number does not license the old joint claim.
+    expect(m.headline).not.toMatch(/and limits|limits together/i)
+    // #2747 re-scope 2 round 2 (rule C): headline.noneOnTrack is deleted (the UI's own goal-chance sentence).
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
   it('never headlines an outcome claim when the outcome lens is hidden (no recommended option)', () => {
@@ -323,7 +323,9 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.subline).toBeNull()
   })
 
-  it('all goal values below the sub-1% floor produce the no-option-on-track headline', () => {
+  // #2747 re-scope 2 round 2 (rule C): was "…produce the no-option-on-track headline"; the UI says no on-track sentence of
+  // its own now (headline.noneOnTrack is deleted). The crown, the default lens and the cells are unchanged.
+  it('all goal values below the sub-1% floor: no on-track sentence, no crown, the goal lens stays the default', () => {
     // Staging shape: every option carried probability_of_joint_goal 0 —
     // crowning any option "is most likely to meet every target this run scored" would be false. The hero
     // states the decision-relevant truth, drops the goal-lens leader ring,
@@ -331,15 +333,17 @@ describe('buildHeroModel — leaders and headline', () => {
     const a = makeOption({ ...OPTION_A, goalProbability: 0 })
     const b = makeOption({ ...OPTION_B, goalProbability: 0 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(m.leaders.goal).toBeNull()
     // Goal lens stays available AND default — the "< 1%" rows ARE the story.
     expect(m.defaultLens).toBe('goal')
-    expect(m.rows.every((r) => r.goal.readout === '< 1%')).toBe(true)
+    for (const row of m.rows) expect(row.goal.readout).toBe(cellTextOf(m, row.id))
   })
 
-  it('omits the subline when the outcome lens is hidden (centres without ranges)', () => {
+  // #2747 re-scope 2 round 2: was "omits the subline…"; with no goal claim headlined the subline is the neutral one,
+  // which names no option and asserts no expected-outcome comparison.
+  it('names no option and no outcome in the subline when the outcome lens is hidden (centres without ranges)', () => {
     // Options carry an expected centre but no p10-p90 range: the outcome
     // lens is unavailable, so the hero must not assert an expected-outcome
     // comparison it cannot show.
@@ -353,16 +357,18 @@ describe('buildHeroModel — leaders and headline', () => {
       })
     const m = chart(buildHeroModel(makeHeroData({ options: [strip(OPTION_A), strip(OPTION_B)] })))
     expect(m.lenses).toEqual(['goal'])
-    expect(m.subline).toBeNull()
-    // The goal-fit headline itself is still honest and allowed.
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
-  it('equal leaders produce the aligned subline', () => {
+  // #2747 re-scope 2 round 2 (rule C): the hero headlines no goal claim of its own (headline.goalOnly / noneOnTrack are
+  // deleted); with no producer band the headline is the neutral one and the subline names no option.
+  // Was "equal leaders produce the aligned subline" (reached through the goal headline); the banded aligned row below keeps it.
+  it('equal leaders with no goal claim and no producer band: the subline names no option', () => {
     // Make the recommended option also the outcome leader.
     const b = makeOption({ ...OPTION_B, expected: 90, outcome: { ...OPTION_B.outcome, mean: 90 } })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
-    expect(m.subline).toBe('Upskill the team’s expected outcome points the same way, in this model.')
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('recommended id missing from analysed rows still crowns the goal argmax (recovered-session guard)', () => {
@@ -381,8 +387,10 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBe('opt_b')
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
+    // #2747 re-scope 2 round 2 (rule C): no goal claim is headlined; with no analysis leader the headline is the outcome
+    // fact, and no claimed row means no tension subline.
+    expect(m.headline).toBe(HERO_COPY.headline.outcomeLeader('Two developers', outcomeReadoutOf(m, 'Two developers')))
+    expect(m.subline).toBeNull()
   })
 
   it('recommended id missing from analysed rows claims no analysis leader when no goal crown exists', () => {
@@ -414,6 +422,8 @@ describe('buildHeroModel — leaders and headline', () => {
 })
 
 describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
+  // ⭐ Run-4 judge, DL ruling (12 Oct, the class): no band names a leader any more. 'strong' and 'ahead' take the
+  // neutral headline (`noLeader`) and subline (`compareTop`), the same as a withheld turn; nothing replaces the claims.
   // No goal values anywhere: the headline takes the no-goal-basis leader
   // branch, where the leader claim is banded.
   //
@@ -428,7 +438,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
   const noGoal = (o: ReturnType<typeof makeOption>) =>
     makeOption({ ...o, goalProbability: undefined })
 
-  it('range overlap alone NEVER produces a close-call: a 77% leader with a wide outcome gap keeps the strong claim (staging Tech Lead shape)', () => {
+  it('range overlap alone NEVER produces a close-call: a 77% leader with a wide outcome gap names no leader and no closeness (staging Tech Lead shape; run-4 judge)', () => {
     // The exact miscalibration from the staging screenshot: leader wins 77%,
     // centres +22 vs +8, yet the p10-p90 ranges overlap (-1..45 vs -5..25).
     // Overlap must only append the advisory — never "top options are close".
@@ -438,16 +448,12 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: producerRun('clear', 57),
     })))
-    expect(m.headline).toBe(
-      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
-    )
-    expect(m.subline).toBe(
-      `${HERO_COPY.subline.highestOutcome('Upskill the team', outcomeReadoutOf(m, 'Upskill the team'))} ${HERO_COPY.subline.overlapAdvisory}`,
-    )
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(`${m.headline} ${m.subline}`).not.toMatch(/close/i)
   })
 
-  it('strong leader without range overlap gets the plain outcome subline (no advisory)', () => {
+  it('strong band without range overlap: the neutral headline and subline (run-4 judge, the class)', () => {
     // Ranges disjoint: B 70..90, A 40..60.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
@@ -455,15 +461,11 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: producerRun('clear', 60),
     })))
-    expect(m.headline).toBe(
-      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
-    )
-    expect(m.subline).toBe(
-      HERO_COPY.subline.highestOutcome('Upskill the team', outcomeReadoutOf(m, 'Upskill the team')),
-    )
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('strong but diverged leader keeps the persistent divergence subline', () => {
+  it('strong but diverged band: the neutral headline and subline, no line naming either option (run-4 judge)', () => {
     // Recommended B wins 80% but A has the higher centre; disjoint ranges.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
@@ -471,18 +473,11 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: producerRun('clear', 60),
     })))
-    expect(m.headline).toBe(
-      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
-    )
-    expect(m.subline).toBe(
-      HERO_COPY.subline.highestOutcome(
-        'Two developers',
-        m.rows.find((r) => r.label === 'Two developers')!.outcome.readout,
-      ),
-    )
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('sub-strong majority leader is "slightly ahead", naming the runner-up ONLY when the outcome gap is genuinely small', () => {
+  it('slight band names neither the leader nor a runner-up (run-4 judge, the class)', () => {
     // Win 55%; centres 68 vs 67 (gap 1 ≤ 15% of 68) → runner-up named.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
@@ -490,8 +485,8 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: producerRun('slight', 10),
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
-    expect(m.subline).toBe(HERO_COPY.subline.closeOnOutcome('Two developers'))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('"close on expected outcome" never fires from range overlap when the outcome gap is wide', () => {
@@ -503,12 +498,12 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: producerRun('slight', 10),
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
-    expect(m.subline).toBe(HERO_COPY.subline.aligned('Upskill the team'))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(m.subline).not.toMatch(/close|overlap/i)
   })
 
-  it('runner-up naming comes from the rendered outcome ranking, not the input order', () => {
+  it('rows follow the rendered outcome ranking, not the input order; the slight band names no option (run-4 judge)', () => {
     // Recommended Gamma at 55% win; runner-up by CENTRE is Alpha (69) not
     // Beta (50) — the copy must name Alpha, matching the rendered rows.
     const a = noGoal(makeOption({ id: 'opt_a2', label: 'Alpha', winProbability: 0.25, expected: 69, outcome: { mean: 69, p10: 57, p50: 69, p90: 81 } }))
@@ -519,8 +514,8 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       recommendation: producerRun('slight', 30, 'opt_c2'),
     })))
     expect(m.rows.map((r) => r.label)).toEqual(['Gamma', 'Alpha', 'Beta'])
-    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Gamma'))
-    expect(m.subline).toBe(HERO_COPY.subline.closeOnOutcome('Alpha'))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   // ── ROADMAP 1.223: raw win probabilities authorise NOTHING ───────────────
@@ -580,14 +575,14 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } })),
   ]
 
-  it('producer clearly_ahead → strong claim on a run whose raw win probabilities are merely 55/45', () => {
+  it('producer clearly_ahead → no leader headline either, whatever the raw win probabilities (run-4 judge, the class)', () => {
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
         headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_b', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
   it('producer very_close → no-clear-leader claim on a run whose leader wins 80%', () => {
@@ -605,14 +600,15 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.subline).toBe('Compare the top options before deciding.')
   })
 
-  it('producer slightly_ahead → "slightly ahead" copy (robustness_gated downgrade already producer-applied)', () => {
+  it('producer slightly_ahead → no "slightly ahead" copy (run-4 judge, the class)', () => {
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
         headlineBanded: { band: 'slightly_ahead', leaderOptionId: 'opt_b', robustnessGated: true },
       },
     })))
-    expect(m.headline).toBe('In this model, slightly more runs supported Upskill the team.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.headline).not.toMatch(/slightly more runs|Upskill the team/)
   })
 
   it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → NO claim)', () => {
@@ -655,7 +651,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.headline).toBe('In this model, no option is clearly most likely.')
   })
 
-  it('SINGLE VERDICT: a clear verdict claims a leader even where the producer band said very_close', () => {
+  it('SINGLE VERDICT: a clear verdict claims no leader either, even where the producer band said very_close (run-4 judge)', () => {
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
@@ -672,7 +668,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         leaderDesignationPermitted: true,
       },
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')))
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 
   it('SINGLE VERDICT identity gate: a verdict naming a different leader is not applied (→ NO claim)', () => {
@@ -687,7 +683,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     // the gate fails closed to silence (ROADMAP 1.223).
     expect(m.headline).toBe(HERO_COPY.headline.noLeader)
     expect(m.headline).not.toBe(HERO_COPY.headline.noClearLeader)
-    expect(m.headline).not.toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.headline).not.toContain('Upskill the team')
     expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
@@ -700,16 +696,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('producer band never invents a leader claim on the goal-basis headline branch', () => {
-    // With a goal basis the headline stays the goal-fit claim; the banded
-    // no-goal-basis path (and therefore the producer band) is not in play.
-    const m = chart(buildHeroModel(makeHeroData({
-      recommendation: {
-        headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
-      },
-    })))
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
-  })
+  // #2747 re-scope 2 round 2: row deleted — "producer band never invents a leader claim on the goal-basis headline branch". Its only subject was the goal-basis headline branch (headline.goalOnly), deleted (rule C); the banded rows above cover the producer band.
 })
 
 describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (UI-SEM-054)', () => {
@@ -754,18 +741,12 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
 
   it('never claims "strongest/highest expected outcome" when the top readouts are identical', () => {
     // The producer claims a clear leader — the strongest pressure on the
-    // subline there is (it is the branch that says "has the highest expected
-    // outcome"). The headline still carries the claim and still names the
-    // panel's recommended leader (no cross-surface contradiction); only the
-    // over-claiming subline is gated.
+    // subline there is. Run-4 judge (DL 12 Oct, the class): the headline names
+    // no leader now either; the readout-tie subline still wins over it.
     const m = chart(buildHeroModel(tiedRun(producerRun('clear', 12, 'opt_contractor'))))
-    expect(m.headline).toBe(
-      HERO_COPY.headline.mostLikelyStrongest(
-        'Outsourced Contractor Team',
-        winReadoutOf(m, 'Outsourced Contractor Team'),
-      ),
-    )
-    expect(m.subline).toBe(HERO_COPY.subline.outcomesClose)
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    // A 'clear' band now takes the same neutral subline as no band (it no longer reaches the tie-coherence arm).
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(m.subline).not.toMatch(/strongest|highest/i)
   })
 
@@ -825,8 +806,9 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
         }),
       ),
     )
-    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
-    expect(m.subline).toBe('The top options are close on expected outcome.')
+    // #2747 re-scope 2 round 2 (rule C): headline.noneOnTrack is deleted; with no band the subline is the neutral one.
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(m.subline).not.toMatch(/highest|strongest/i)
   })
 
@@ -854,31 +836,26 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     // OPTION_A: p10 54, p90 82, count unit; goal 0.34 without constraints.
     expect(m.rows[0].detail.range).toBe('Realistic range: 54 to 82.')
-    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal.')
+    expect(m.rows[0].detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
   })
 
-  it('uses the goal-and-limits wording when every goal-bearing option is constrained', () => {
+  it('keeps the cell identity when every goal-bearing option is constrained', () => {
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal and limits, in this model.')
+    // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct).
+    expect(m.rows[0].detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows[0].detail.goalFit).not.toMatch(/and limits|limits together/i)
   })
 
   it('goal-fit detail wording is PER ROW under mixed constraint coverage', () => {
-    // The selector collapses goalProbability per option (joint only for
-    // options carrying their own constraint analysis), so in a mixed set the
-    // constrained row's joint figure must say "goal and limits" while the
-    // unconstrained row stays goal-alone — even though the SHARED
-    // axis/caption fall back to goal-alone (hasConstraints false).
+    // C-FALSE: both rows carry goal-only cells; constraints never add joint words.
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
-    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(
-      'About 34% chance of meeting your goal.',
-    )
-    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(
-      'About 49% chance of meeting your goal and limits, in this model.',
-    )
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(cellTextOf(m, OPTION_A.id))
+    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(cellTextOf(m, OPTION_B.id))
+    expect(m.rows.find(r => r.id === OPTION_B.id)!.detail.goalFit).not.toMatch(/and limits|limits together/i)
   })
 
   it('omits the range and goal-fit lines when the sourcing fields are absent', () => {
@@ -1162,7 +1139,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     const a = makeOption({ ...OPTION_A, goalProbability: 0.004 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
     expect(m.rows[0].goal.value).toBe(0.004)
-    expect(m.rows[0].goal.readout).toBe('< 1%')
+    expect(m.rows[0].goal.readout).toBe(cellTextOf(m, OPTION_A.id))
   })
 
   it('omits Could-change-if when no flip thresholds resolve', () => {
@@ -1173,21 +1150,27 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     expect(m.rows[1].detail.couldChangeIf).toBeUndefined()
   })
 
-  it('formats win probability with the display-honesty formatter', () => {
+  // #2747 re-scope 2 (DL ruling (A)): no win share is said in C. A row whose option carries a win probability (0.3) has no
+  // win line and no comparative magnitude, in its detail or anywhere in the model.
+  it('says no win share: a row with a win probability carries no win line and no comparative magnitude', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.winChance).toBe(COMPARATIVE_COPY.sentence('30%'))
+    expect(m.rows[0].detail).not.toHaveProperty('winChance')
+    expect(m.rows.map((r) => r.comparativeReadout)).toEqual([null, null])
+    expect(JSON.stringify(m)).not.toContain(COMPARATIVE_COPY.sentence('30%'))
+    expect(JSON.stringify(m)).not.toContain('supported by 30% of runs')
   })
 
   it('omits the win line when winProbability is absent', () => {
     const a = makeOption({ ...OPTION_A, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.rows[0].detail.winChance).toBeUndefined()
+    // #2747 re-scope 2 (DL ruling (A)): `winChance` left the row detail type; the negative is kept by key.
+    expect(m.rows[0].detail).not.toHaveProperty('winChance')
   })
 
   it('main reason names the Drivers section top driver; omitted when none', () => {
     const withDriver = chart(buildHeroModel(makeHeroData()))
     expect(withDriver.mainReason).toBe(
-      'Main driver: Developer capacity.',
+      'Moves the result most: Developer capacity.',
     )
     const without = chart(buildHeroModel(makeHeroData({ topDriverLabel: null })))
     expect(without.mainReason).toBeNull()
@@ -1235,15 +1218,11 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
   it('crowns the max goal probability, never the win-probability leader (live 4/7/6 shape)', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
     expect(m.leaders.goal).toBe('opt_status_quo')
-    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Stay in London', goalReadoutOf(m, 'Stay in London')))
+    // #2747 re-scope 2 round 2 (rule C): the crown stays; the headline no longer states it.
+    expect(m.headline).not.toMatch(/Stay in London|every target|most model runs/)
   })
 
-  it('states the tension against the crowned row, not the recommended option', () => {
-    // Crowned Status Quo (7%) is not the outcome leader (Relocate is): the
-    // persistent divergence subline names the outcome leader.
-    const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Relocate to Manchester', outcomeReadoutOf(m, 'Relocate to Manchester')))
-  })
+  // #2747 re-scope 2 round 2: row deleted — "states the tension against the crowned row, not the recommended option". Its only subject was the tension subline against the goal-crowned HEADLINED row, which no longer exists (headline.goalOnly deleted, rule C); the crown itself is pinned by the row above.
 
   it('uniform fits crown nobody (no crown rather than a wrong crown)', () => {
     const a = makeOption({ ...OPTION_A, goalProbability: 0.34 })
@@ -1281,9 +1260,9 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const a = makeOption({ ...OPTION_A, goalProbability: 0.004 })
     const b = makeOption({ ...OPTION_B, goalProbability: 0.002 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    // All rows below the floor: the no-option-on-track honesty takes over.
+    // All rows below the floor: no crown. #2747 re-scope 2 round 2: no on-track sentence either (headline.noneOnTrack is deleted).
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
   })
 })
 describe('Wave 2: identity-anchored stable numbers (brief §6.4)', () => {
@@ -1340,7 +1319,7 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
   it('mainDriver is null when the top driver cannot focus (static main reason remains)', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.quickLinks.mainDriver).toBeNull()
-    expect(m.mainReason).toBe('Main driver: Developer capacity.')
+    expect(m.mainReason).toBe('Moves the result most: Developer capacity.')
   })
 
   /**
@@ -1483,9 +1462,11 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
 
   it('flip risks: falls-below sentence with user unit and alternative winner', () => {
     const m = chart(buildHeroModel(makeHeroData()))
+    // Run-4 judge (DL 12 Oct, the class): "‘Two developers’ becomes the most-supported option" is removed; every run takes the comparison wording.
+    expect(m.evidence.flipRisks[0]?.text).not.toMatch(/most[- ]supported/i)
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If ‘Team capacity’ falls below about 30%, ‘Two developers’ becomes the most-supported option, in this model.',
+        text: 'If ‘Team capacity’ falls below about 30%, the comparison shifts towards ‘Two developers’, in this model.',
         targetId: 'fac_capacity',
         switchMeta: null,
         magnitude: null,
@@ -1499,9 +1480,11 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
         { label: 'Salary cost', node_id: 'fac_salary', current_value: 50000, flip_value: 60000, unit: '$' },
       ],
     } })))
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option changes" is removed; every run takes the comparison wording.
+    expect(m.evidence.flipRisks[0]?.text).not.toMatch(/most[- ]supported/i)
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.',
+        text: 'If ‘Salary cost’ rises above about $60,000, the comparison changes, in this model.',
         targetId: 'fac_salary',
         switchMeta: null,
         magnitude: null,
@@ -1515,8 +1498,10 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
         { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: 40, unit: '%' },
       ],
     } })))
+    // Run-4 judge (DL 12 Oct, the class): "the most-supported option changes" is removed; every run takes the
+    // comparison wording.
     expect(m.evidence.flipRisks[0].text).toBe(
-      'If ‘Team capacity’ crosses about 40%, the most-supported option changes, in this model.',
+      'If ‘Team capacity’ crosses about 40%, the comparison changes, in this model.',
     )
   })
 

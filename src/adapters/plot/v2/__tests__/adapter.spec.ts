@@ -1594,10 +1594,11 @@ describe('reconcileOptionsWithCanvasNodes integration', () => {
 
     expect(reconciled).toHaveLength(1)
     expect(reconciled[0].interventions).toEqual({
-      // Backfill tags entries with 'cee_hypothesis' (closest existing semantic).
-      // The platform contract intentionally has no UI-only 'canvas_fallback' source.
-      fac_a: expect.objectContaining({ value: 0.9, source: 'cee_hypothesis' }),
+      // A bare number carries no provenance, so the backfill emits none (it used to stamp
+      // 'cee_hypothesis' = "Estimated by Olumi"; see reconcileKeepsProvenance.spec.ts).
+      fac_a: { value: 0.9, target_match: { node_id: 'fac_a', match_type: 'exact_id', confidence: 'high' } },
     })
+    expect(reconciled[0].interventions.fac_a).not.toHaveProperty('source')
     void goalNodeId
   })
 

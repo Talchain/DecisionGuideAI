@@ -346,8 +346,7 @@ describe('CommentaryBlockRenderer — flag ON (collapse behaviour)', () => {
 
     const toggle = screen.getByRole('button', { name: /expand commentary|collapse commentary/i })
     expect(toggle).toBeDefined()
-    // Default: assistant_text > 20 words → collapsed
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('shows title as preview when title is provided', () => {
@@ -362,17 +361,7 @@ describe('CommentaryBlockRenderer — flag ON (collapse behaviour)', () => {
       text: 'First line used as preview.\n\nMore content.',
     })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
-    expect(screen.getByText('First line used as preview.')).toBeDefined()
-  })
-
-  it('defaults to collapsed when assistant_text has 20+ words', () => {
-    const block = makeCommentaryBlock({ title: 'T', text: 'Full content.' })
-    // 20+ words in assistant text → collapsed
-    render(<InlineBlocks blocks={[block]} assistantTextWordCount={25} />)
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    // Full content not visible yet
-    expect(screen.queryByText('Full content.')).toBeNull()
+    expect(screen.getAllByText('First line used as preview.').length).toBeGreaterThan(0)
   })
 
   it('defaults to expanded when assistant_text has < 20 words', () => {
@@ -388,19 +377,19 @@ describe('CommentaryBlockRenderer — flag ON (collapse behaviour)', () => {
     const block = makeCommentaryBlock({ title: 'T', text: 'Expanded text here.' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
 
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
-    fireEvent.click(toggle)
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
+    fireEvent.click(toggle) // collapse
+    fireEvent.click(toggle) // expand again
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('Expanded text here.')).toBeDefined()
   })
 
-  it('collapses on second click', () => {
+  it('collapses on click', () => {
     const block = makeCommentaryBlock({ title: 'T', text: 'Expandable.' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
 
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
-    fireEvent.click(toggle) // expand
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
     fireEvent.click(toggle) // collapse
 
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
@@ -410,20 +399,20 @@ describe('CommentaryBlockRenderer — flag ON (collapse behaviour)', () => {
     const block = makeCommentaryBlock({ title: 'T', text: 'Content.' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
 
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
     fireEvent.keyDown(toggle, { key: 'Enter', code: 'Enter' })
 
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('toggle is keyboard-operable with Space key', () => {
     const block = makeCommentaryBlock({ title: 'T', text: 'Content.' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
 
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
     fireEvent.keyDown(toggle, { key: ' ', code: 'Space' })
 
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('expanded content contains markdown rendered as HTML (bold)', () => {
@@ -432,9 +421,6 @@ describe('CommentaryBlockRenderer — flag ON (collapse behaviour)', () => {
       text: '**Important finding** here.',
     })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
-
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
-    fireEvent.click(toggle)
 
     const expandedDiv = screen.getByText('Important finding', { exact: false })
     expect(expandedDiv.tagName.toLowerCase()).toBe('strong')
@@ -784,7 +770,7 @@ describe('CommentaryBlockRenderer — focus and tabIndex', () => {
   it('toggle button is natively focusable (no explicit tabIndex override)', () => {
     const block = makeCommentaryBlock({ title: 'Focus test' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
     // type="button" is focusable by default; tabIndex should be 0 or -1 (not removed from flow)
     const tabIndex = toggle.getAttribute('tabindex')
     // null means no explicit override — browser default is 0 (in tab order)
@@ -794,7 +780,7 @@ describe('CommentaryBlockRenderer — focus and tabIndex', () => {
   it('toggle button has accessible aria-label', () => {
     const block = makeCommentaryBlock({ title: 'A11y test' })
     render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
-    const toggle = screen.getByRole('button', { name: /expand commentary/i })
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
     expect(toggle.getAttribute('aria-label')).toBeTruthy()
   })
 })

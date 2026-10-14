@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { OWNERSHIP_REFUSAL_COPY } from '../../v5/ownershipRefusalCopy'
 import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 
 
@@ -7,6 +8,7 @@ import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import type { SendFailureNotice } from '../conversation/useConversation'
+import { DELIVERY_UNKNOWN_COPY, NOT_DELIVERED_COPY } from '../conversation/transportFailure'
 import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelState'
 import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -85,7 +87,14 @@ const PANEL_MARGIN = 16
  * recovery suggestion.
  */
 function heroFailureCopy(failure: SendFailureNotice): string {
+  if (failure.ownershipRefusal !== undefined) return OWNERSHIP_REFUSAL_COPY[failure.ownershipRefusal]
   switch (failure.kind) {
+    case 'not_sent':
+      return NOT_DELIVERED_COPY
+    case 'delivery_unknown':
+      return DELIVERY_UNKNOWN_COPY
+    case 'rejected':
+      return "Your message couldn't be processed. Your text is back in the box above. Check the conversation for details."
     case 'transport':
       return "That didn't get through. The server didn't respond, so no model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
     case 'timeout':
@@ -615,7 +624,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   return createPortal(
     <div
       role="dialog"
-      aria-label="Describe your decision"
+      aria-label="Write your brief"
       data-testid="first-use-composer"
       className="fixed flex flex-col items-center"
       style={{
@@ -691,7 +700,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
              * change accurate and left the defect where it matters most.
              */
             placeholder={FIRST_USE_PLACEHOLDER}
-            ariaLabel="Describe your decision or challenge"
+            ariaLabel="Describe your question or situation"
             testId="first-use-input-bar"
             onAfterSend={handleAfterSend}
             inBoxAction={briefUpload.trigger}

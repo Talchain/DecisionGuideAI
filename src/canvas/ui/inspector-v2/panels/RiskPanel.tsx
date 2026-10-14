@@ -97,6 +97,7 @@ export const RiskPanel = memo(function RiskPanel({
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
 
   // Match the card's existing input contract; invalid imported values are not estimates.
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: model-input: a model input (a risk's own likelihood), not an analysis result
   const probabilityInput = RiskNodeDataSchema.shape.probability.safeParse(node?.data?.probability)
   const impactInput = RiskNodeDataSchema.shape.impact.safeParse(node?.data?.impact)
   const probability = probabilityInput.success ? probabilityInput.data : undefined

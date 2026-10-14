@@ -23,7 +23,7 @@ import { COACHING_ICON_GLYPH, OLUMI_CARD_MARK_SRC } from '../shared/NodeCoaching
 import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { ASSUMPTIONS_OPEN_LINE, modelHasOpenAssumptions } from '../DecisionNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
-import { ESTIMATE_SUBJECT_TITLE } from '../shared/EstimateMarker'
+import { ESTIMATE_SUBJECT_TITLE, OLUMI_ESTIMATE_NAME } from '../shared/EstimateMarker'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -199,7 +199,7 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
       const c = card()
       const mark = within(c).getByTestId('estimate-marker')
       expect(mark.tagName).toBe('BUTTON')
-      expect(within(c).getByRole('button', { name: ESTIMATE_SUBJECT_TITLE.value })).toBe(mark)
+      expect(within(c).getByRole('button', { name: `${OLUMI_ESTIMATE_NAME}. ${ESTIMATE_SUBJECT_TITLE.value}` })).toBe(mark)
       expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
       expect(visibleText(mark)).toBe('')
       expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()

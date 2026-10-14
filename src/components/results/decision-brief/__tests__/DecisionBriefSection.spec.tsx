@@ -105,3 +105,24 @@ describe('DecisionBriefSection', () => {
     expect(assumedItems.every(item => !driverNames.has(item))).toBe(true)
   })
 })
+
+it('D2-a no option result: one plain line and no driver list items', () => {
+  render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted={false} estimatedInterventions={[]} hasOptionResult={false} />)
+  const group = screen.getByTestId('decision-brief-drivers')
+  expect(group.querySelectorAll('li')).toHaveLength(0)
+  expect(group.querySelectorAll('p')).toHaveLength(1)
+  expect(group).toHaveTextContent('No result yet to attribute these to.')
+})
+it('D2-b with results: original driver list', () => {
+  render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted estimatedInterventions={[]} hasOptionResult />)
+  const group = screen.getByTestId('decision-brief-drivers')
+  expect(group.querySelectorAll('li')).toHaveLength(1)
+  expect(group.querySelector('li')?.textContent).toBe(BRIEF.topDrivers[0].label)
+  expect(group).not.toHaveTextContent('No result yet to attribute these to.')
+})
+it('D2-c no option result and no drivers: no drivers group, and no empty card', () => {
+  const empty = { ...BRIEF, topDrivers: [], defaultedAssumptions: [], whatWouldChange: [], robustnessCaveat: null }
+  const { container } = render(<DecisionBriefSection brief={empty} leaderClaimPermitted={false} estimatedInterventions={[]} hasOptionResult={false} />)
+  expect(screen.queryByTestId('decision-brief-drivers')).toBeNull()
+  expect(container.querySelector('[data-testid="decision-brief-section"]')).toBeNull()
+})

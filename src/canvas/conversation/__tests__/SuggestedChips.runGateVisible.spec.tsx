@@ -129,13 +129,15 @@ function conversationOffering(
   }
 }
 
-async function mountPanel(chips: ActionChip[]) {
+async function mountPanel(chips: ActionChip[], proposalFields?: unknown) {
   const dispatchAction = vi.fn().mockResolvedValue(undefined)
   const sendChip = vi.fn().mockResolvedValue(undefined)
+  const conversation = conversationOffering(chips, dispatchAction, sendChip)
+  if (proposalFields) conversation.messages[1].proposalFields = proposalFields
   render(
     <ToastProvider>
       <ConversationPanel
-        conversation={conversationOffering(chips, dispatchAction, sendChip)}
+        conversation={conversation}
         onCollapse={vi.fn()}
         onAttach={vi.fn()}
       />
@@ -176,6 +178,45 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('ConversationPanel → Run chip shows the run gate', () => {
+  it('U15/U17: without an action bar or Run chip, Run and bound approve/decline remain visible and clickable beyond three offers', async () => {
+    const proposalId = 'gmh_0123456789ab'
+    const approve: ActionChip = { id: `agent-approve-proposal:${proposalId}`, label: 'Approve the changes', message: 'Approve the changes', intent: 'primary' }
+    const decline: ActionChip = { id: `agent-decline-proposal:${proposalId}`, label: 'Not now', message: 'Not now.', intent: 'secondary' }
+    const proposal = {
+      proposal_id: proposalId, revision: 'revision-1', digest: 'a'.repeat(32),
+      approve_action: approve, decline_action: decline, fields: [], missing: [],
+    }
+    const graphHash = 'b'.repeat(64)
+    const { dispatchAction, sendChip } = await mountPanel([
+      ...[1, 2, 3].map(i => ({ id: `question-${i}`, label: `Explore question ${i}`, message: `Explore question ${i}`, intent: 'secondary' as const })),
+      approve, decline,
+    ], { version: 1, graph_hash: graphHash, proposals: [proposal] })
+
+    expect(screen.queryByTestId('chat-action-bar')).toBeNull()
+    const run = screen.getByRole('button', { name: 'Run analysis' })
+    const accept = screen.getByRole('button', { name: approve.label })
+    const reject = screen.getByRole('button', { name: decline.label })
+    for (const button of [run, accept, reject]) {
+      expect(button).toBeVisible()
+      expect(button).toBeEnabled()
+      button.focus()
+      expect(button).toHaveFocus()
+    }
+    await userEvent.click(run)
+    expect(dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'run_analysis', source: 'chip' }))
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
+    expect(sendChip).not.toHaveBeenCalled()
+    await userEvent.click(accept)
+    expect(sendChip).toHaveBeenCalledWith(expect.objectContaining({
+      id: approve.id,
+      proposalEdits: { proposal_id: proposalId, revision: proposal.revision, digest: proposal.digest, graph_hash: graphHash, fields: [] },
+    }))
+    await userEvent.click(reject)
+    expect(sendChip).toHaveBeenLastCalledWith(expect.objectContaining({ id: decline.id }))
+    // Neither consent press grants another Run.
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
+  })
+
   it('gate CLOSED (run in flight): Run chip disabled, reason visible + described, click does nothing; non-run chip stays live', async () => {
     useCanvasStore.setState({ results: { status: 'streaming' } } as never)
     const { dispatchAction, sendChip } = await mountPanel([RUN_CHIP, EXPLAIN_CHIP])

@@ -21,10 +21,19 @@
  * the full reasoning and the one thing this predicate genuinely cannot tell
  * apart (a slow-but-successful commit from a lost one).
  */
-import type { SystemEventSendSettlement } from './settleSystemEventSend'
+import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
+import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from './settleSystemEventSend'
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
-export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed' | 'local_only'
+export type ValueCommitSettlementWord =
+  | 'saving'
+  | 'not_applied'
+  | 'unconfirmed'
+  | 'local_only'
+  | 'revision_conflict'
+  | 'checking'
+  | 'saved'
+  | 'refused'
 
 /**
  * Did an optimistic write REVERT?
@@ -62,7 +71,7 @@ export function didValueCommitRevert(
 /**
  * The word + ARIA role a caller should render for one settlement state.
  *
- * ⚠ `role: 'alert'` ONLY ON `not_applied` — the one state this predicate can
+ * ⚠ `role: 'alert'` on `not_applied` and revision refusal — the one state this predicate can
  * assert with confidence (a genuine, observed revert). `saving` and
  * `unconfirmed` are both honest UNCERTAINTY, never a confirmed problem, so
  * they take the non-interrupting `status` role — the same split
@@ -77,11 +86,19 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
   ValueCommitSettlementWord,
   { readonly message: string; readonly role: 'alert' | 'status' }
 > = {
+  revision_conflict: { message: REVISION_CONFLICT_NOTICE, role: 'alert' },
   saving: { message: 'Saving…', role: 'status' },
   not_applied: {
     message: 'Not saved. The model kept its previous value; Olumi\'s reply says why.',
     role: 'alert',
   },
+  /**
+   * The server refused the send and the model still holds the value it had. A refused system event gets NO reply (no
+   * transcript bubble), so this never says "Olumi's reply says why" (`goalTargetEdit.ts` learned the same; served
+   * `live/runs/2026-10-12T144844Z/capacity`, row 6). `not_applied` keeps that clause for a 200 that wrote nothing: there
+   * the reply came.
+   */
+  refused: { message: 'Not saved. The model kept its previous value.', role: 'alert' },
   unconfirmed: {
     message: 'Could not confirm. It may not have reached the model.',
     role: 'status',
@@ -91,6 +108,104 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
     message: 'Saved on this device only — not sent to the model yet.',
     role: 'status',
   },
+  /** A moved-base refusal: the saved model is being read before anything is said (`awaitSavedModelRead`). */
+  checking: { message: 'Checking the saved model…', role: 'status' },
+  /** The saved model, read after a moved-base refusal, already holds the committed value. */
+  saved: { message: 'Saved. The model holds this value.', role: 'status' },
+}
+
+/**
+ * The conflict categories that mean "the saved model MOVED under this send" — the base hash it carried is no longer
+ * the stored one. The stale-base, CAS, delete-divergence and revision-CAS members of
+ * `PROVEN_NO_WRITE_CONFLICT_CATEGORIES`, and no others: a fence verdict (`turn_fence_*`) moves nothing.
+ *
+ * `revision_conflict` is the revision CAS (expected revision N, current N+1): the model moved, by another tab's edit or
+ * by this edit's own lost reply. Served `live/runs/2026-10-12T144844Z/capacity`, row 6: tab B's 2 → 5 got 409
+ * `revision_conflict` because tab A's 2 → 4 landed first, and the card said "Not saved. The model kept its previous value;
+ * Olumi's reply says why." over a model holding 4, with no reply. So it reads the saved model too.
+ */
+const MOVED_BASE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set([
+  'stale_base_graph_hash',
+  'BASE_HASH_DIVERGED',
+  'rpc_cas_conflict',
+  'revision_conflict',
+])
+
+/**
+ * ⭐ A REFUSAL ON A MOVED BASE SAYS NOTHING ABOUT WHAT THE MODEL HOLDS (recovery Batch B, served
+ * `live/runs/2026-10-12T001307Z/capacity`, row 7a).
+ *
+ * The server certifies that THIS send wrote nothing. It does not say the model kept the value it had before: the base
+ * moved because something else was written, and after a lost reply that something is usually this same edit. Served:
+ * "Add one specialist" 1 → 2, the 200 was dropped after the server stored 2, the user re-entered 2, the retry carried the
+ * old base and got 409 `stale_base_graph_hash` — and the card said "Not saved. The model kept its previous value" over a
+ * model holding 2. So on these categories the editor reads the saved model before it speaks.
+ */
+export function needsSavedModelRead(
+  settlement: SystemEventSendSettlement,
+  detail: SystemEventSendSettlementDetail = {},
+): boolean {
+  return settlement === 'refused' && detail.refusal === 'conflict' &&
+    detail.conflictCategory !== undefined && MOVED_BASE_CONFLICT_CATEGORIES.has(detail.conflictCategory)
+}
+
+/** What a moved-base refusal says once the saved model has been read, or could not be. */
+export type SavedModelReadWord = 'saved' | 'refused' | 'revision_conflict' | 'unconfirmed'
+
+/** How long a moved-base refusal waits for the saved model to be read before it says it could not confirm. */
+export const SAVED_MODEL_READ_TIMEOUT_MS = 30_000
+
+/**
+ * Wait for the saved model, then say what it holds. Returns a cancel.
+ *
+ * A proven-no-write 409 on a graph-writing event already requests the canonical re-read (`refusedGraphRefresh`); this
+ * does not read anything itself. "The saved model has been read" is the write base moving off `baseBeforeRead` (the
+ * base when the refusal settled, before that re-read can run) — every writer of `lastServerGraphHash` sets it beside the
+ * graph it read. Then:
+ *   the model holds the committed value → `saved` (no second write: a 409 on the retry means it was already applied) ·
+ *   it holds the value from before the commit → `refused` (a genuine refusal; nothing moved for this field) ·
+ *   it holds a third value → `revision_conflict` (another change got in first: "The scenario changed while I was
+ *   saving, so nothing was saved", CEE's own 409 sentence) · no read within the timeout → `unconfirmed`, never
+ *   "not saved". None of these claims a reply: a refused send has none.
+ * The value is read one task after the base moves, so a writer that sets the hash and the graph in separate store
+ * updates is read whole.
+ */
+export function awaitSavedModelRead(opts: {
+  baseBeforeRead: string | null
+  readBase: () => string | null
+  subscribe: (listener: () => void) => () => void
+  beforeCommit: number | null | undefined
+  committedTo: number | null | undefined
+  readNow: () => number | null | undefined
+  onWord: (word: SavedModelReadWord) => void
+  timeoutMs?: number
+}): () => void {
+  let done = false
+  let readTimer: ReturnType<typeof setTimeout> | undefined
+  let unsubscribe: (() => void) | undefined
+  const wordFromRead = (held: number | null | undefined): SavedModelReadWord =>
+    held === opts.committedTo ? 'saved' : held === opts.beforeCommit ? 'refused' : 'revision_conflict'
+  const finish = (word: SavedModelReadWord) => {
+    if (done) return
+    done = true
+    cancel()
+    opts.onWord(word)
+  }
+  const deadline = setTimeout(() => finish('unconfirmed'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
+  const check = () => {
+    if (done || readTimer !== undefined || opts.readBase() === opts.baseBeforeRead) return
+    readTimer = setTimeout(() => finish(wordFromRead(opts.readNow())), 0)
+  }
+  function cancel() {
+    clearTimeout(deadline)
+    if (readTimer !== undefined) clearTimeout(readTimer)
+    unsubscribe?.()
+    unsubscribe = undefined
+    done = true
+  }
+  unsubscribe = opts.subscribe(check)
+  check()
+  return cancel
 }
 
 /**
@@ -111,7 +226,8 @@ export const VALUE_NOT_ENCODABLE_COPY = 'This value cannot be sent to the model 
  * card and the canvas context menu cannot disagree about what a settlement
  * means (26 Sep 2026). The mapping and its reasons are that component's header:
  *
- *   refused → `not_applied` · unverified → `unconfirmed` · blocked → `local_only`
+ *   refused → `refused` (revision uses its exact notice; no reply clause, a refused send has none) ·
+ *   unverified → `unconfirmed` · blocked → `local_only`
  *   queued → nothing (the flush queue owns it) · sent → `not_applied` only when
  *   the live value visibly REVERTED (`didValueCommitRevert`), else nothing.
  *
@@ -126,8 +242,9 @@ export function valueCommitSettlementWord(
   beforeCommit: number | null | undefined,
   committedTo: number | null | undefined,
   readNow: () => number | null | undefined,
+  detail: SystemEventSendSettlementDetail = {},
 ): ValueCommitSettlementWord | null {
-  if (settlement === 'refused') return 'not_applied'
+  if (settlement === 'refused') return detail.conflictCategory === 'revision_conflict' ? 'revision_conflict' : 'refused'
   if (settlement === 'unverified') return 'unconfirmed'
   if (settlement === 'blocked') return 'local_only'
   if (settlement === 'queued') return null

@@ -4,11 +4,10 @@
  */
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
-import { classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { classifyNodeProvenance, classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
-import { fragileEdgeSentence } from '../../edges/connectorCopy'
 import { QUESTIONS } from '../../conversation/askAiQuestions'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
@@ -70,7 +69,7 @@ export const BADGE_TOOLTIPS: Record<string, string> = {
   observable:   'Your team can track this but not directly control it',
   external:     "Market conditions, competitor actions, or other forces you can't influence",
   baseline:     'What happens if you change nothing',
-  explicit:     'This value was stated in your decision brief',
+  explicit:     'This value was stated in your brief',
   inferred:     'This value was estimated because it wasn\'t stated explicitly',
 }
 
@@ -101,6 +100,7 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   human: 'Set by you',
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
+  unverified_brief: VALUE_PROVENANCE_LABEL.unverified_brief,
   ai: null,
   accepted: null, // Olumi's figure, accepted — a producer kind: never first-person copy
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
@@ -232,6 +232,12 @@ export function factorValueSourceLabel(
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : undefined
+  const mark = factorValueSourceMark(data)
+  // Node display provenance discloses an unconfirmed brief binding before any old value source.
+  if (mark?.kind === 'unverified_brief') return mark.label
+  if (typeof d?.provenance === 'string' && !classifyNodeProvenance(d.provenance)) {
+    return VALUE_SOURCE_MARK_LABEL.unknown
+  }
   const attributed = source ? attributedLabelFor(source, attributedTo, isAcceptedOlumiFigure(obs)) : null
   if (attributed) return attributed
   const words: Readonly<Record<ValueSourceMarkKind, string>> = {
@@ -240,8 +246,9 @@ export function factorValueSourceLabel(
     you: VALUE_SOURCE_MARK_LABEL.you,
     panel: VALUE_SOURCE_MARK_LABEL.panel,
     unknown: VALUE_SOURCE_MARK_LABEL.unknown,
+    unverified_brief: VALUE_SOURCE_MARK_LABEL.unverified_brief,
   }
-  return words[factorValueSourceMark(data)?.kind ?? 'unknown']
+  return words[mark?.kind ?? 'unknown']
 }
 
 /** Extraction type user-facing labels */
@@ -435,6 +442,7 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
   // glance downward; a competing one costs them a wrong belief about who
   // authored a number.
   brief: GROUP_LABELS.inputUnattributed,
+  unverified_brief: GROUP_LABELS.inputUnattributed,
   ai:    GROUP_LABELS.inputUnattributed,
   accepted: GROUP_LABELS.inputUnattributed, // Olumi's figure, accepted: not the user's input
   panel: GROUP_LABELS.inputUnattributed,
@@ -526,7 +534,7 @@ export const INLINE_LABELS = {
 export const EDGE_LINK_NOTICES = {
   organisational: {
     title: 'Organisational link',
-    body:  'This connection shows how options relate to the decision. It does not affect analysis.',
+    body:  'This connection shows how options relate to the question. It does not affect analysis.',
   },
   intervention: {
     title: 'Intervention link',
@@ -576,13 +584,7 @@ export const EDGE_COPY = {
   // S-DEF (Science 393023, 7 Oct): a validated definition is held whoever drew it; no likelihood is said of it.
   existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis always includes it.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',
-  /**
-   * The SAME sentence the canvas cue, the edge hover and the key carry
-   * (`fragileEdgeSentence`), so the panel cannot size the change one way on its
-   * heading and another on this tooltip ("small" vs "significantly" was the
-   * reviewer blocker on Paul 23 Sep contract feedback point 4). No size claim.
-   */
-  flipRiskTooltip: (pct: number) => `${fragileEdgeSentence(pct / 100)}.`,
+  // #2747 re-scope 2 round 2: `flipRiskTooltip` ("… (86% flip risk).") lost its only caller with the edge panel's switch figure.
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',
@@ -772,11 +774,11 @@ export const ACTION_LABELS = {
 export const INSPECTOR_DESCRIPTION_EMPTY = 'No description recorded.'
 
 export const DESCRIPTION_PLACEHOLDERS = {
-  decision: "What's the decision you're facing and why does it matter now?",
+  decision: "What's the question you're working on and why does it matter now?",
   option:   'What would choosing this option actually mean in practice?',
   goal:     'Describe what achieving this goal looks like for your team.',
   factor:   'What is this factor and why does it matter?',
-  outcome:  'What does this outcome represent in your decision?',
+  outcome:  'What does this outcome represent in your situation?',
   risk:     'What could go wrong and how would it affect the decision?',
 } as const
 
@@ -1024,7 +1026,7 @@ export const DECISION_STRINGS = {
    * Derived from the SAME edge data the options list reads, and it names where
    * those connections went rather than pretending they do not exist.
    */
-  connectionsAreOptions: 'Its {count} option{s} above are its only connections. Nothing else links to this decision yet.',
+  connectionsAreOptions: 'Its {count} option{s} above are its only connections. Nothing else links to this question yet.',
 } as const
 
 // ─── Generic fallback panel strings ──────────────────────────────

@@ -55,8 +55,8 @@ describe('MAGNITUDE_FIELD_NAMES — completeness against the real feed', () => {
       const feed = feedFor([{ factor_id: 'fac_probe', [field]: PROBE }])
       expect(feed.policyRows).toHaveLength(1)
       expect(feed.policyRows[0].key).toBe('fac_probe')
-      // If this field were NOT in the chain the row would fall through to the
-      // terminal 0 — so a non-zero magnitude here IS the proof of membership.
+      // If this field were NOT in the chain the magnitude would remain
+      // undefined (NaN), so this finite value proves membership.
       expect(feed.policyRows[0].rawElasticity).toBe(PROBE)
       expect(rowCarriesMagnitudeMetric({ factor_id: 'fac_probe', [field]: PROBE })).toBe(true)
     },
@@ -75,7 +75,8 @@ describe('MAGNITUDE_FIELD_NAMES — completeness against the real feed', () => {
   ])('a NON-member field really is absent from the chain: %s', (field) => {
     const feed = feedFor([{ factor_id: 'fac_probe', [field]: PROBE }])
     expect(feed.policyRows).toHaveLength(1)
-    expect(feed.policyRows[0].rawElasticity).toBe(0)
+    expect(feed.policyRows[0].rawElasticity).toBeNaN()
+    expect(feed.displayModel.has('fac_probe')).toBe(false)
     expect(rowCarriesMagnitudeMetric({ factor_id: 'fac_probe', [field]: PROBE })).toBe(false)
   })
 })
@@ -100,12 +101,13 @@ describe('rowCarriesMagnitudeMetric — absence fails closed, an explicit zero s
   // about the real feed and not about my reading of it.
   it('a producer influence_score is NOT a magnitude — it does not feed rawElasticity', () => {
     // PRECONDITION, driven through the real feed: the producer score lands on
-    // `influenceScore`, and the magnitude falls through to the terminal 0.
+    // `influenceScore`, while absent magnitude remains NaN and unranked.
     const feed = feedFor([{ factor_id: 'fac_probe', influence_score: PROBE }])
     expect(feed.policyRows).toHaveLength(1)
     expect(feed.policyRows[0].influenceScore).toBe(PROBE)
-    expect(feed.policyRows[0].rawElasticity).toBe(0)
-    // So the presence check must NOT license the manufactured zero.
+    expect(feed.policyRows[0].rawElasticity).toBeNaN()
+    expect(feed.displayModel.has('fac_probe')).toBe(false)
+    // The presence check cannot license a magnitude the row did not carry.
     expect(rowCarriesMagnitudeMetric({ factor_id: 'fac_a', influence_score: 0.4 })).toBe(false)
     expect(rowCarriesMagnitudeMetric({ factor_id: 'fac_a', influence_score: 0 })).toBe(false)
   })

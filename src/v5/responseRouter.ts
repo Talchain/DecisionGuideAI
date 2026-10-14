@@ -33,6 +33,7 @@
 import type { OlumiResponse, FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary';
 
 import type { V5CallResult } from './v5Adapter';
+import type { OwnershipRefusalReason } from './ownershipRefusalCopy';
 
 /**
  * Parse-failure metadata forwarded on typed_error targets that originated
@@ -62,6 +63,8 @@ export type RenderTarget =
   | {
       kind: 'typed_error';
       code: FailureTypeLiteral;
+      /** Validated ownership refusal; never a generic parse failure. */
+      ownershipRefusal?: OwnershipRefusalReason;
       requestId?: string;
       boundaryError?: BoundaryError;
       /**
@@ -82,6 +85,9 @@ export type RenderTarget =
     };
 
 export function routeV5Response(result: V5CallResult): RenderTarget {
+  if (result.kind === 'ownership_refused') {
+    return { kind: 'typed_error', code: 'INTERNAL_ERROR', ownershipRefusal: result.reason };
+  }
   if (result.kind === 'boundary_error') {
     return {
       kind: 'typed_error',

@@ -32,6 +32,10 @@
  *
  * CLAUDE.md trap 3: this asserts presence/absence of TEXT and DOM structure.
  * jsdom cannot prove visibility and nothing here claims it does.
+ *
+ * ⭐ Run-4 judge (DL 12 Oct, the class): the tie sentence was a leader claim from
+ * a win share. It and `tiedOrWithheld` are deleted; nothing replaces them. This
+ * file now pins that NEITHER side of the old boundary says anything, on both arms.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
@@ -105,6 +109,10 @@ const cardOf = (container: HTMLElement, id: string): HTMLElement => {
 const paragraphsOf = (container: HTMLElement, id: string): string[] =>
   Array.from(cardOf(container, id).querySelectorAll('p')).map((p) => p.textContent ?? '')
 
+/** The card's description line: the only `line-clamp-2` paragraph OptionCards draws. */
+const descriptionOf = (container: HTMLElement, id: string): Element | null =>
+  cardOf(container, id).querySelector('p.line-clamp-2')
+
 describe('the fixtures pin their own precondition', () => {
   /**
    * Trap 13b: a boundary test whose fixture silently stops straddling the
@@ -131,15 +139,20 @@ describe('the fixtures pin their own precondition', () => {
   })
 })
 
-describe('the near-tie sentence fires at the ROUNDED boundary, on both arms', () => {
-  it('RUNNER-UP arm: a lead that rounds to 0pp reads as a tie', () => {
+describe('the near-tie sentence is gone at the ROUNDED boundary, on both arms', () => {
+  // Run-4 judge (DL 12 Oct, the class): the tie sentence is removed; nothing replaces it.
+  it('RUNNER-UP arm: a lead that rounds to 0pp is no longer called a tie', () => {
     const { container } = renderCards(TIE, OTHER_ID)
-    expect(paragraphsOf(container, OTHER_ID)).toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(RETIRED_TIE_SENTENCE)
+    expect(cardOf(container, OTHER_ID).textContent).not.toMatch(/tied|most runs|came out best/i)
   })
 
-  it('OTHER-NON-WINNER arm: the same lead reads as the same tie', () => {
+  it('OTHER-NON-WINNER arm: the same lead is no longer called a tie either', () => {
     const { container } = renderCards(TIE, undefined)
-    expect(paragraphsOf(container, OTHER_ID)).toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(RETIRED_TIE_SENTENCE)
+    expect(cardOf(container, OTHER_ID).textContent).not.toMatch(/tied|most runs|came out best/i)
   })
 
   it('RUNNER-UP arm: a lead that rounds to 1pp is WITHHELD, not called a tie', () => {
@@ -167,19 +180,37 @@ describe("the withhold idiom is SILENCE, not a substitute sentence", () => {
     ['runner-up', OTHER_ID],
     ['other-non-winner', undefined],
   ] as const) {
-    it(`${arm} arm: the withheld card renders exactly one paragraph FEWER`, () => {
+    // Run-4 judge (DL 12 Oct, the class): the tie line is removed; nothing replaces it. Both sides of the old boundary
+    // now draw NO description line (silence, not a substitute) and the same paragraphs.
+    it(`${arm} arm: both sides of the old boundary draw no description line and the same paragraphs`, () => {
       const tie = renderCards(TIE, runnerId)
       const tieParagraphs = paragraphsOf(tie.container, OTHER_ID)
+      const tieDescription = descriptionOf(tie.container, OTHER_ID)
       tie.unmount()
 
       const ahead = renderCards(AHEAD, runnerId)
       const aheadParagraphs = paragraphsOf(ahead.container, OTHER_ID)
+      const aheadDescription = descriptionOf(ahead.container, OTHER_ID)
       ahead.unmount()
 
-      // The tie render must actually have produced the extra paragraph, or the
-      // count comparison below is comparing two nothings (trap 13).
-      expect(tieParagraphs).toContain(TIE_SENTENCE)
-      expect(aheadParagraphs).toHaveLength(tieParagraphs.length - 1)
+      expect(tieDescription).toBeNull()
+      expect(aheadDescription).toBeNull()
+      expect(aheadParagraphs).toEqual(tieParagraphs)
     })
   }
+
+  it('POSITIVE CONTROL: the description probe sees a line when the card draws one (lens-crowned)', () => {
+    const { container } = render(
+      <OptionCards
+        options={opts(TIE.winner, TIE.other)}
+        winnerId={WINNER_ID}
+        runnerId={OTHER_ID}
+        hasLeadingOption
+        lensActive
+        lensHighlightedId={OTHER_ID}
+        onSendMessage={() => {}}
+      />,
+    )
+    expect(descriptionOf(container, OTHER_ID)?.textContent).toMatch(/^Ahead on this outcome view\./)
+  })
 })

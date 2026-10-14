@@ -22,6 +22,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { OlumiScaleLine } from '../shared/OlumiScaleLine'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
@@ -494,6 +495,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           </p>
           <CitedEvidenceNote resolution={citedEvidence} />
         </PrimaryControlCard>
+        <OlumiScaleLine label={String(node.data?.label ?? '')} observedState={obs} />
 
         {/* Coaching — within Your input group, below the card */}
         <InspectorCoaching

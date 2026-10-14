@@ -992,7 +992,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           ? 'What options are you considering? Add at least two alternatives to compare.'
           : 'Have you considered all your options? A single option limits comparison.',
         detail: optionNodes.length === 0
-          ? 'A decision model needs at least two options to evaluate trade-offs.'
+          ? 'A model needs at least two options to evaluate trade-offs.'
           : 'Having only one choice means there\u2019s nothing to compare against. What else could you do?',
         action: { label: 'Add Option', kind: 'add_option' },
       })

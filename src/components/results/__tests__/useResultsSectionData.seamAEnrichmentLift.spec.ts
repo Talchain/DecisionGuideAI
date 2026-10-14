@@ -1,3 +1,4 @@
+import { licensedTestReportHeld } from '../../../canvas/runView/__tests__/helpers/licensedTestReport'
 /**
  * useResultsSectionData — Seam-A (live conversational) enrichment lift
  * (ROADMAP 1.6b, claim-integrity, shared-seam UI lane).
@@ -38,7 +39,7 @@ const OPTION_NODES = [
 ]
 
 function setStoreFromLiveSeamABlock(block: AnalysisResultBlock): void {
-  const report = mapV5AnalysisToReport(block, { seed: 42 })
+  const report = licensedTestReportHeld(mapV5AnalysisToReport(block, { seed: 42 }))
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as any,
     runMeta: {} as any,
@@ -166,12 +167,10 @@ describe('useResultsSectionData — Seam-A live fixture carrying the 4 lifted fi
     // on one.
     expect(byId.get('opt_a')?.goalProbability).toBeNull()
     expect(byId.get('opt_a')?.goalFitIsModelledBasis).toBe(false)
-    expect(byId.get('opt_a')?.goalFitWithheld).toBe(true)
     // opt_b: a real `probability_of_goal` ⇒ untouched. This is what makes the
     // pair a discriminator rather than a blanket suppression.
     expect(byId.get('opt_b')?.goalProbability).toBe(0.55)
     expect(byId.get('opt_b')?.goalFitIsModelledBasis).toBe(false)
-    expect(byId.get('opt_b')?.goalFitWithheld).toBe(false)
   })
 
   it('a live Seam-A turn WITHOUT the four fields renders honest absence — no invention, no crash', () => {

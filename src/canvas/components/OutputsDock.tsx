@@ -33,6 +33,8 @@ import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useAnalyseAfterCommittedChange } from '../analysis/useAnalyseAfterCommittedChange'
+import { useEditDeliveryHeld } from '../registration/editDeliveryHold'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
@@ -40,7 +42,6 @@ import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelec
 import { selectRunOnRecordWithoutResult, selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
-import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 // ── The workspace-shell contract ────────────────────────────────────────────
 // This dock IS the shell. `shellContract.ts` states what it owns and what a
 // child surface may never set; read that file before changing width, tabs,
@@ -497,17 +498,6 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
 }
 
 /**
- * The tab the dock can show for a requested one (workstream D, Paul 8 Oct "overcomplicated": no tab that opens onto
- * nothing). Compare is offered only once there is a pair to compare — until then its body is "No comparison yet" — so
- * a route that asks for it (the Reasoning receipt, a deep link, a restored session) lands on Reasoning instead.
- * Pure, so the rule is testable without mounting the dock.
- */
-export function resolvePresentedTab(tab: OutputTab, comparePairExists: boolean): OutputTab {
-  if (tab === 'compare' && !comparePairExists) return UNFLAGGED_FALLBACK_SURFACE
-  return tab
-}
-
-/**
  * Public OutputsDock entry point.
  *
  * **Critical singleton invariant:** exactly one `useConversation()` instance
@@ -886,9 +876,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // non-click paths (programmatic setActiveOutputTab, persisted state on
   // page load) we add a guard effect below so the duplicate-readable-
   // surface invariant ("never both at once") still holds.
-  // Workstream D: Compare is a tab only while it has a pair to show (the same reader its body uses).
-  const comparePairExists = useDisplayedRunDeltaView(results?.hash) !== null
-  const effectiveActiveTab = resolvePresentedTab(state.activeTab, comparePairExists)
+  // Paul 14 Oct 2026: all five tabs shown from the start. Compare is no longer held back until a run pair
+  // exists (supersedes workstream D, 8 Oct); before then its body shows its own "No comparison yet" state.
+  const effectiveActiveTab = state.activeTab
 
   /**
    * ⭐⭐ ONE DERIVATION OF "THIS RUN START WILL FRONT THE ANALYSIS TAB", read by
@@ -1803,6 +1793,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  // Paul 14 Oct (#94 6166259456): every committed change (an edit, Olumi's approved change, Undo, Redo) is analysed
+  // through this same runner once nothing else is in flight; the rerun surfaces compare it with the preceding Run.
+  const editDeliveryHeld = useEditDeliveryHeld()
+  useAnalyseAfterCommittedChange({
+    run: runCanonicalAnalysis,
+    idle: !isRunning && !conversationIsThinking && !editDeliveryHeld,
+    hasRunOnRecord: rerunInputs.hasRunOnRecord,
+  })
 
   const handleRunAnalysis = useCallback(async () => {
     const outcome = await runCanonicalAnalysis()
@@ -2727,12 +2726,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
   const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
-    () => getOutputTabsForParity().filter(tab => tab.id !== 'compare' || comparePairExists),
+    () => getOutputTabsForParity(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     // No `isJourneyTabEnabled()` here: `getOutputTabsForParity` no longer reads
     // it (journey is hidden by contract), so listing it would re-run this memo
     // on a value the computation cannot consume.
-    [aiPanelV2On, isCompareTabEnabled(), comparePairExists],
+    [aiPanelV2On, isCompareTabEnabled()],
   )
 
   // ── Shell width, published once, derived from the live element ────────────
@@ -3510,7 +3509,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
                   const isComplexGraph = nodes.length > 15
                   if (isCeeTimeout && isComplexGraph) {
-                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                    friendlyError.explanation = 'Your model has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
                   }
 
                   return (
@@ -3671,7 +3670,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                       data-testid="outputs-analysis-empty-describe"
                     >
-                      Describe your decision to Olumi
+                      Describe your situation to Olumi
                     </button>
                   </div>
                 )}

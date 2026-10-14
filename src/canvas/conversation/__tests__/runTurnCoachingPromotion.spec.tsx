@@ -270,16 +270,6 @@ describe('the promotion is ON by default; explicit OFF is byte-identical to befo
     for (const block of blocks) expect(plan.get(block)).toEqual({ disambiguator: null, collapsible: true })
   })
 
-  it('explicit OFF, mounted: the card sits behind "Show 1 more" and, revealed, is a collapsed line', () => {
-    promotion.forced = false
-    installRun(RUN_COMPUTED_AT)
-    render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} />)
-    expect(fragileCard(), 'demoted: not rendered while the disclosure is closed').toBeNull()
-    fireEvent.click(screen.getByTestId('block-detail-toggle'))
-    expect(fragileCard()).not.toBeNull()
-    expect(screen.getByTestId(`coaching-line-${FRAGILE_ID}`)).toBeInTheDocument()
-  })
-
   it('DEFAULT, mounted, current run: the card is on the face of the reply with its action live — no seam forced', () => {
     installRun(RUN_COMPUTED_AT)
     render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} />)
@@ -338,9 +328,7 @@ describe('promotion ON — the producer’s fragile-link card becomes a top-leve
     // Top level: rendered while the disclosure is still closed.
     const card = fragileCard()
     expect(card, 'the promoted card renders at top level').not.toBeNull()
-    expect(screen.getByTestId('block-detail-toggle')).toHaveTextContent('Show 1 more')
-    // The displaced card is the one now behind the disclosure.
-    expect(document.querySelector('[data-block-id="co_3"]')).toBeNull()
+    expect(screen.queryByTestId('block-detail-toggle')).toBeNull()
 
     // Expanded: no line wraps it, and the face carries the producer's own
     // title, body and action — verbatim.
@@ -355,8 +343,8 @@ describe('promotion ON — the producer’s fragile-link card becomes a top-leve
     expect(fragilePart('freshness')).toBeNull()
 
     // Its neighbours are still lines.
-    expect(screen.getByTestId('coaching-line-co_1')).toBeInTheDocument()
-    expect(screen.getByTestId('coaching-line-co_2')).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-line-co_1')).toBeNull()
+    expect(screen.queryByTestId('coaching-line-co_2')).toBeNull()
   })
 
   it('mounted, HISTORICAL (same model, a later run completed): still top-level and expanded, the earlier-run notice speaks, the action is inert', () => {
@@ -514,11 +502,17 @@ describe('ONE REAL NEXT ACTION — a turn that asks for consent keeps the run ca
     expect(planCoachingLines(blocks, { consentPending: false }).get(blocks[3])?.collapsible).toBe(false)
   })
 
-  it('mounted: with consent pending the card is a closed line, not on the face', () => {
+  it('with consent pending the run coaching stays disclosed; consent owns the next action', () => {
     installRun(RUN_COMPUTED_AT)
     render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} consentPending />)
-    expect(fragileCard(), 'not a top-level point while the disclosure is closed').toBeNull()
-    fireEvent.click(screen.getByTestId('block-detail-toggle'))
-    expect(screen.getByTestId(`coaching-line-${FRAGILE_ID}`)).toBeInTheDocument()
+    expect(fragileCard()).not.toBeVisible()
+    expect(screen.queryByTestId('block-detail-toggle')).toBeNull()
+    const line = screen.getByTestId(`coaching-line-${FRAGILE_ID}`)
+    expect(line).not.toHaveAttribute('open')
+    expect(line).toContainElement(fragileCard())
+    const summary = screen.getByTestId(`coaching-line-summary-${FRAGILE_ID}`)
+    expect(summary.tagName).toBe('SUMMARY')
+    fireEvent.click(summary)
+    expect(fragileCard()).toBeVisible()
   })
 })

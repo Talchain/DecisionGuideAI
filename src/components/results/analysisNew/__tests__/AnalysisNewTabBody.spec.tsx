@@ -418,8 +418,10 @@ describe('empty states say what was NOT established (§19)', () => {
     expect(card.getAttribute('data-recommendation-id')).toMatch(/^strengthen:/)
     // What / why / do-it are all present, and all come from the engine.
     expect(within(card).getByTestId('analysis-new-challenge-heading').textContent?.trim()).not.toBe('')
-    expect(within(card).getByTestId('analysis-new-challenge-work-through')).toBeInTheDocument()
-    fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
+    // Paul 14 Oct 2026: the card's acts sit in the section's title row, beside the card.
+    const section = screen.getByTestId('analysis-new-challenge-section')
+    expect(within(section).getByTestId('analysis-new-challenge-work-through')).toBeInTheDocument()
+    fireEvent.click(within(section).getByTestId('analysis-new-challenge-more'))
     // Slice D-4 (27 Sep): the engine's why-line is on the card AT REST, not behind "Why this?".
     expect(within(card).getByTestId('analysis-new-challenge-body').textContent?.trim()).not.toBe('')
   })

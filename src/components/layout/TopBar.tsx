@@ -384,12 +384,12 @@ export const TopBar = ({
             now states what the link carries, because "Generate shareable link"
             was equally true of the link that carried nothing. */}
         {shareScenarioId != null && shareScenarioId !== '' && (
-          <Tooltip content="Copy a link to this decision's brief — anyone with the link can open it">
+          <Tooltip content="Copy a link to this scenario's summary — anyone with the link can open it">
             <button
               type="button"
               onClick={onShare}
               className={styles.shareButton}
-              aria-label="Copy link to decision brief"
+              aria-label="Copy link to summary"
               data-testid="topbar-share"
             >
               <Share2 size={14} aria-hidden="true" />
@@ -402,12 +402,12 @@ export const TopBar = ({
             never while that answer is pending (Codex R4): a viewer's canvas can hold the
             scenario id before its access lands. The server enforces ownership too. */}
         {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
-          <Tooltip content="Invite a colleague to view this decision">
+          <Tooltip content="Invite a colleague to view this scenario">
             <button
               type="button"
               onClick={() => setInviteOpen(true)}
               className={styles.shareButton}
-              aria-label="Invite a colleague to view this decision"
+              aria-label="Invite a colleague to view this scenario"
               data-testid="topbar-invite"
             >
               <UserPlus size={14} aria-hidden="true" />
@@ -441,7 +441,7 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        <Tooltip content="Decision brief: the saved model and its latest Run, to print or share">
+        <Tooltip content="Summary: the saved model and its latest Run, to print or share">
           <DecisionBriefTrigger className={styles.iconButton} />
         </Tooltip>
 

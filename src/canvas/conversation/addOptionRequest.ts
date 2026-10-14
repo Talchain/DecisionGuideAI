@@ -356,7 +356,7 @@ export function buildAddOptionDispatch(input: {
  */
 export const ADD_OPTION_REFUSAL_COPY = {
   labelRequired: 'Give the option a name first.',
-  noDecisionNode: 'This model has no decision node yet, so there is nothing to add an option to.',
+  noDecisionNode: 'This model has no question yet, so there is nothing to add an option to.',
   factorNeedsNumber: 'Every factor you tick needs a number.',
   duplicateFactor: 'The same factor is listed twice.',
   unknownFactor:

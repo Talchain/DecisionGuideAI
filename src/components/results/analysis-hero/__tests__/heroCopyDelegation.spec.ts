@@ -25,7 +25,8 @@ const N = '72%'
 describe('HERO_COPY.detail — the A register exists once', () => {
   it.each([
     ['goalFit', false, (r: string) => HERO_COPY.detail.goalFit(r)],
-    ['goalFitJointBasis', true, (r: string) => HERO_COPY.detail.goalFitJointBasis(r)],
+    // #2747 re-scope 2 round 2: the goalFitJointBasis arm is deleted with HERO_COPY.detail.goalFitJointBasis (no producer
+    // path sets a substituted joint in C; the field that said so is cut).
   ])('%s IS GOAL_ANCHOR_COPY.sentence(_, %s)', (_name, substituted, build) => {
     expect(build(N)).toBe(GOAL_ANCHOR_COPY.sentence(N, substituted as boolean))
   })
@@ -33,24 +34,15 @@ describe('HERO_COPY.detail — the A register exists once', () => {
   it('keeps the possessive discipline the selector publishes', () => {
     // Ruling 4: the permitted basis names your goal; the joint basis names every target this run scored.
     expect(HERO_COPY.detail.goalFit(N).toLowerCase()).toContain('chance of meeting your goal')
-    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('chance of meeting your goal')
-    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('your goal')
+    // #2747 re-scope 2 round 2: the joint-basis half is deleted with HERO_COPY.detail.goalFitJointBasis.
   })
 })
 
 describe('HERO_COPY.headline — the A register exists once here too', () => {
   const L = 'Option A'
 
-  /**
-   * The ONE-COPY guarantee above covered `detail.*` and missed the HEADLINES,
-   * which is where the same claim is loudest: `headline.goalOnly` restated
-   * `GOAL_ANCHOR_COPY.headline(_, _, true)` byte-for-byte plus a full stop.
-   */
-  it.each([
-    ['goalOnly', true, (label: string, r: string) => HERO_COPY.headline.goalOnly(label, r)],
-  ])('%s IS GOAL_ANCHOR_COPY.headline(_, _, %s), said in this model, plus a full stop', (_name, substituted, build) => {
-    expect(build(L, N)).toBe(`In this model, ${GOAL_ANCHOR_COPY.headline(L, N, substituted as boolean)}.`)
-  })
+  // #2747 re-scope 2 round 2: row deleted — "goalOnly IS GOAL_ANCHOR_COPY.headline(_, _, true), said in this model, plus a
+  // full stop". Its only subject was HERO_COPY.headline.goalOnly, deleted (the UI's own leader goal-chance sentence; rule C).
 
   /**
    * `goalWithLimits` is the SAME SHAPE but names a third basis — goal AND
@@ -79,8 +71,6 @@ describe('HERO_COPY — the comparative register exists once', () => {
     const all = [
       HERO_COPY.detail.winChance(N),
       HERO_COPY.detail.goalFit(N),
-      HERO_COPY.detail.goalFitJointBasis(N),
-      HERO_COPY.headline.mostLikelyStrongest('Option A', N),
     ].join(' ').toLowerCase()
     for (const retired of ['strongest option overall', 'strongest overall', 'win probability']) {
       expect(all).not.toContain(retired)
@@ -94,24 +84,18 @@ describe('HERO_COPY — the no-target action is not duplicated', () => {
   })
 })
 
-describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholder', () => {
-  /**
-   * REGRESSION PIN for a defect this change introduced and an existing
-   * readout-tie spec caught: with no comparative probability for the leader,
-   * the builder passed the missing-value glyph INTO the sentence, producing
-   * "supported in — of simulated scenarios". A placeholder rendered
-   * where a quantity belongs is exactly the dishonesty this whole re-anchoring
-   * exists to remove.
-   */
-  it('drops the magnitude clause rather than printing a placeholder', () => {
-    const sentence = HERO_COPY.headline.mostLikelyStrongest('Option A', null)
-    expect(sentence).toBe(`In this model, Option A ${COMPARATIVE_COPY.modelLeaderNoMagnitude}.`)
-    expect(sentence).not.toContain(HERO_COPY.readout.missing)
-    expect(sentence).not.toMatch(/came out ahead in\s/)
+describe('HERO_COPY.headline — no leader claim from a win share (run-4 judge, DL 12 Oct, the class)', () => {
+  // `mostLikelyStrongest` ("In this model, X was supported by more runs than any other option." / "… by N of runs.") and
+  // `slightlyAhead` are deleted; their bands take `noLeader`. Nothing replaces them.
+  it('the leader arms are gone from the register', () => {
+    expect(HERO_COPY.headline).not.toHaveProperty('mostLikelyStrongest')
+    expect(HERO_COPY.headline).not.toHaveProperty('slightlyAhead')
+    expect(COMPARATIVE_COPY).not.toHaveProperty('modelLeaderNoMagnitude')
+    expect(COMPARATIVE_COPY).not.toHaveProperty('modelLeaderClause')
   })
 
-  it('carries the magnitude when there is one', () => {
-    expect(HERO_COPY.headline.mostLikelyStrongest('Option A', N)).toContain(N)
+  it('CONTROL: the neutral headline those bands now take still exists', () => {
+    expect(HERO_COPY.headline.noLeader).toBe('Here is how your options compare.')
   })
 })
 

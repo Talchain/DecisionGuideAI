@@ -3,7 +3,7 @@
  *
  * - Ordinal colour marker + option name + win percentage text (D17: "#N of M" prefix removed)
  * - 1-2 line contextual description (story headline or fallback)
- * - "Hits target" stat row: horizontal bar + percentage (conditional on target set).
+ * - Goal stat row: CEE's served face as its caption, then bar + percentage (conditional on target set; no UI label).
  *   ROADMAP 2.282: that possessive wording is WITHHELD when the number is a
  *   substituted joint figure (`goalFitIsSubstitutedJoint`) — see the possessive
  *   gate in `OptionCard`.
@@ -22,10 +22,8 @@ import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import {
   COMPARATIVE_COPY,
-  GOAL_ANCHOR_COPY,
   LENS_COPY,
   deriveComparisonScope,
-  isFiniteProbability,
   runHasGoalNumbers,
 } from './utils/goalAnchorCopy'
 import { ComparisonScopeNote } from './ComparisonScopeNote'
@@ -50,7 +48,6 @@ import {
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
-import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
   DOWNSIDE_HEADING_COPY,
@@ -66,13 +63,8 @@ import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
-import {
-  constraintConfidenceColour,
-  jointProbabilityLabel,
-} from '../../types/constraints'
-import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
+import { buildOptionRankColorMap, OPTION_RANK_COLORS } from './optionRankColors'
 import Tooltip from '../Tooltip'
-import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from './utils/goalIdentityWithheld'
 
@@ -176,80 +168,38 @@ export interface OptionCardsProps {
   outcomeUnitSymbol?: string
   /** True when option magnitudes are normalised 0-1 scores, not user units. */
   isNormalised?: boolean
+  /**
+   * #2747 re-scope 2 (U2, DL rulings 12 Oct): CEE's served cell for an option's goal chance, verbatim: `display` is the
+   * goal row's readout ("about 64%", "more than 99%") and `face` its caption. The card formats no number of its own; with
+   * no served figure cell the goal row is not drawn.
+   */
+  goalCellOf?: (optionId: string) => ServedGoalCell | null
+}
+
+/** CEE's served figure (or range) cell for one option, as the card says it: the display string and, when served, the face. */
+export interface ServedGoalCell {
+  readonly display: string
+  readonly face: string | null
+  /**
+   * #2747 re-scope 2 round 2 (DL, restoring what staging showed): a RANGE cell ("between about 18% and 26%") is said too,
+   * as CEE's display verbatim, with no bar (a range has no point to draw). Absent = a figure cell.
+   */
+  readonly kind?: 'figure' | 'range'
 }
 
 /** Fallback description when no story headline is available */
 function fallbackDescription(
   option: OptionResult,
   totalOptions: number,
-  hasLeadingOption?: boolean,
 ): string {
-  // ROADMAP 1.223: both leader-presupposing strings below are withheld when
-  // the producer made no leader claim. Returning '' suppresses the line
-  // entirely (the caller renders nothing) rather than substituting invented
-  // copy — the card still shows the option's label, its win probability and
-  // its bar, so no DATA is lost. Only the claim is.
-  const noLeader = hasLeadingOption === false
-  if (option.isRecommended && totalOptions > 1) {
-    return noLeader ? '' : 'The most runs supported it in this model, on its current estimates.'
-  }
+  // ⭐ Run-4 judge (DL 12 Oct, the class): the leading option's "The most runs supported it…" and the others' "Compare
+  // it against the option the most runs supported…" were leader claims from a win share. They are removed, with no
+  // words in their place: '' is the caller's withhold idiom (it renders nothing). Only the baseline's own line stays.
+  if (option.isRecommended && totalOptions > 1) return ''
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return noLeader ? '' : 'Compare it against the option the most runs supported in this model.'
-}
-
-/**
- * The non-winner comparative line, for the ONE state both non-winner arms share.
- *
- * ⭐⭐ THE "Behind by N percentage points" LINE IS RETIRED (2026-08-10).
- *
- * It stated the percentage-point DIFFERENCE between two Monte-Carlo win
- * frequencies. A difference of two estimates carries more uncertainty than
- * either estimate does, and printed as a bare integer with no interval it read
- * as the most precise number on the card while being the least reliable one.
- * The ratified rule: no user-facing surface states that gap — own-probability
- * statements only.
- *
- * DELETED rather than reworded, and the licence for deleting is derivable at
- * this seam: the branch requires `option.winProbability != null`, which is the
- * SAME condition that renders the card's own `win-pct-{id}` readout. So
- * wherever this line could ever have fired, the option's OWN probability is
- * already on the card — the number survives, only the difference goes. `''` is
- * the caller's established withhold idiom (see the ROADMAP 1.223 header): the
- * caller renders nothing and the card falls back to label + win % + bar, which
- * are DATA and stay.
- *
- * The gap is still COMPUTED, purely as the near-tie predicate here. It is never
- * rendered.
- *
- * ⭐ ONE COPY, TWO CALLERS (2026-08-11). The runner-up arm and the
- * other-non-winner arm carried byte-identical five-line blocks. They were
- * changed together at the retirement precisely because leaving either one would
- * keep the banned quantity on screen for a different slice of the option list —
- * and two copies is how the next such change reaches only one of them. Returns
- * `null` when the comparison cannot be made, so each caller keeps its OWN
- * fallback sentence ("Close competitor" / "Compare against the leading
- * option"), which is the only thing that ever differed between them.
- *
- * ⚠ THE BOUNDARY IS `Math.round(diff * 100) > 0`, NOT `diff > 0`. They are not
- * the same predicate: a raw difference of +0.004 is a positive `diff` and a
- * ROUNDED gap of 0, i.e. a tie at the precision this card displays. Rounding
- * first is what makes the near-tie sentence agree with the two percentages
- * printed beside it.
- */
-function tiedOrWithheld(
-  winnerWinProbability: number | null | undefined,
-  optionWinProbability: number | null | undefined,
-): string | null {
-  if (winnerWinProbability != null && optionWinProbability != null) {
-    const gapPct = Math.round((winnerWinProbability - optionWinProbability) * 100)
-    if (gapPct > 0) {
-      return ''
-    }
-    return 'Effectively tied, in this model, with the option the most runs supported'
-  }
-  return null
+  return ''
 }
 
 /**
@@ -261,8 +211,6 @@ function hingeAwareDescription(
   option: OptionResult,
   isWinner: boolean,
   isRunnerUp: boolean,
-  hinge: HingeInfo | null | undefined,
-  winnerWinProbability?: number | null,
   lensActive = false,
   hasLeadingOption?: boolean,
   /** Run-level: does ANY option carry a goal number? Gates the lens sentence. */
@@ -343,53 +291,17 @@ function hingeAwareDescription(
   if (noLeader) return ''
 
   if (isWinner) {
-    /**
-     * The winner's comparative claim, in ONE place for all three variants.
-     *
-     * ⚠ F1 — an ABSENT comparative probability must never become a measured
-     * one. This read `option.winProbability ?? 0` and then applied the
-     * simulation-resolution floor, so a designated leader carrying no
-     * comparative probability got "Came out ahead in <0.02% of simulated
-     * scenarios" — a precise-looking, entirely invented measurement, on the
-     * card the user trusts most. Reachable: the `decisionState` arm at the
-     * render site calls this with no presence check (its sibling arm does).
-     *
-     * Same class as the two defects the previous pass fixed, and the same
-     * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
-     * so a fourth variant cannot be born ungated.
-     */
-    const claim =
-      isFiniteProbability(option.winProbability)
-        ? COMPARATIVE_COPY.phrase(
-            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
-          )
-        : COMPARATIVE_COPY.leadNoMagnitude
-
-    // F2 — both hinge variants carried the retired un-anchored superlative
-    // ("Highest leading-option likelihood"): no basis, no number. Only the
-    // third sibling had been re-anchored. They keep the hinge clause, which
-    // is the whole point of the variant.
-    if (hinge?.reason === 'fragile_edge') {
-      return `${claim}, but this depends on ${hinge.label}`
-    }
-    if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `${claim}. ${hinge.label} has the widest uncertainty.`
-    }
-    return claim
+    // ⭐ RUN-4 JUDGE, BLOCKING (DL 12 Oct): "Supported in more simulated scenarios than any other option" (with its
+    // hinge tail) was a leader claim built from a win share, said beside the option's goal chance. Ruling A and the
+    // guiding principle allow no "more than any other option", and CEE sends no such line. The winner's card says
+    // nothing here; no words replace it (the goal row and CEE's cells say what the model implies).
+    return ''
   }
   if (isRunnerUp) {
-    // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
-    // above. The conditional-flip line is honest copy where a leader HAS been
-    // designated; it is the designation it presupposes, not the factor it
-    // names, that made it unrenderable on a withheld one.
-    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
-      return `If ${hinge.label} shifts, more runs would support this option in this model`
-    }
-    // The retired point-gap line and its surviving near-tie predicate — see
-    // `tiedOrWithheld`, which is the single copy both non-winner arms call.
-    const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
-    if (runnerUpTied !== null) return runnerUpTied
-    return 'Close to the option the most runs supported in this model'
+    // ⭐ Run-4 judge (DL 12 Oct, the class): "If <factor> shifts, more runs would support this option in this model",
+    // "Effectively tied … with the option the most runs supported" and "Close to the option the most runs supported" were
+    // run-share comparison lines with no other fact. Removed; nothing replaces them.
+    return ''
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
   // note that used to sit here ("non-comparative … so it is not gated"): both
@@ -399,13 +311,9 @@ function hingeAwareDescription(
   if (option.isBaseline) {
     return 'Baseline: what happens if nothing changes. Compare the others against it.'
   }
-  // Other non-winner. Same retirement and the same near-tie predicate as the
-  // runner-up arm above — now literally the same code, so a future change
-  // cannot reach one arm and miss the other (which would keep the banned
-  // quantity on screen for whoever happens to have three options).
-  const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
-  if (tied !== null) return tied
-  return 'Compare it against the option the most runs supported in this model'
+  // Other non-winner: its "Effectively tied …" / "Compare it against the option the most runs supported" lines went
+  // with the runner-up's (run-4 judge, the class). Nothing replaces them.
+  return ''
 }
 
 /**
@@ -544,17 +452,15 @@ function OptionCard({
   segmentFillColor,
   onClick,
   scale = null,
-  onSendMessage,
   onFocusNode,
   expertMode = false,
-  confidenceTier,
-  recommendationStability,
   leadingOptionDownsideFlag,
   hasLeadingOption,
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
   winSharesWithheld = false,
+  goalCell = null,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -563,6 +469,8 @@ function OptionCard({
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
    */
   winSharesWithheld?: boolean
+  /** CEE's served cell for this option's goal chance (see OptionCardsProps.goalCellOf); null = no goal row. */
+  goalCell?: ServedGoalCell | null
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -652,70 +560,24 @@ function OptionCard({
     ? undefined
     : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // THE POSSESSIVE GATE (ROADMAP 2.282) — this card was the one unwired
-  // consumer of a mitigation six sibling surfaces already honour.
-  //
-  // `selectGoalProbability` publishes `basis`. When it is
-  // ⚠ L62 (2026-08-04): the basis named below was renamed
-  // `'joint_goal_withheld'` AND now carries no number at all, so this card
-  // renders no goal figure in that state and the branch is unreachable. The
-  // paragraph is kept as the record of what it guarded. On the basis
-  // `'joint_goal_withheld'` the number in `option.goalProbability` is
-  // P(all constraints jointly satisfied) STANDING IN for an absent
-  // `probability_of_goal` — it answers a DIFFERENT question from the one
-  // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is
-  // false. `useResultsSectionData` carries that decision here as
-  // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
-  // site (types.ts states the rule; `WinGauge`, `RangeVisualization`,
-  // and `buildHeroModel` all read it the same way; `buildV7Headline` and the
-  // V7 lens group did too, until the V7 retirement deleted them).
-  //
-  // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
-  // rendered "Hits target" / "< 1% likely to reach target" over the joint
-  // figure while the V7 goal lens BESIDE IT (since deleted) rendered the
-  // withheld wording for the same number — two contradictory claims about one
-  // value in one render.
-  // The withheld number is 0.0054 (answers "is the uplift >= £6M?") where the
-  // user asked "is the uplift >= £2M?" (~0.55).
-  //
-  // This is a COPY switch, never a value transform: the bar length, the
-  // percentage readout and the leader colour are all untouched.
-  const goalFitSubstituted = option.goalFitIsSubstitutedJoint === true
+  // THE POSSESSIVE GATE (ROADMAP 2.282) is gone with the card's own goal wording (#2747 re-scope 2): the goal row's only
+  // words are CEE's served cell (`goalCell`), so there is no UI phrase left to switch.
 
   // ───────────────────────────────────────────────────────────────────────
   // ⭐ ONE READOUT PER REGISTER PER CARD (ROADMAP 2.333) — N11
   // ───────────────────────────────────────────────────────────────────────
-  // Every surface on this card that states a number states one of exactly
-  // these two strings. Not "computes it the same way" — states the SAME
-  // string, because there is only one.
-  //
-  // Both go through their register's shared primitive with the option's own
-  // `nValidSamples`, which the response mapper already carries off
-  // `outcome.n_valid_samples`. Passing it to only ONE of them is the
-  // half-fix that leaves a card printing a resolved figure in the header and
-  // a floored one in the row below, so both take it or neither does.
-  const goalReadout = formatGoalProbability(
-    option.goalProbability as number,
-    option.nValidSamples,
-  )
+  // #2747 re-scope 2 round 2 (DL rule C, 12 Oct): the goal register's readout is CEE's served display string, verbatim
+  // (`goalCell.display`). It was `formatGoalProbability(goalProbability)`, which printed "100%" beside CEE's
+  // "more than 99%" (Codex r1 blocking 1): a chance becomes text only as CEE served it.
   // Byte-identical to the expression the header readout has always used
   // (:609 before this change) — now hoisted so the header and the "Wins" row
   // are literally the same value rather than two evaluations of one rule.
   const winsReadout = formatProbabilityWithResolution(
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
     option.winProbability as number,
     option.nValidSamples,
   )
 
-  // The low-goal badge's VISIBILITY gate. It used to also carry its own
-  // inline copy of the sub-1% floor — a hand-copy of `formatGoalProbability`
-  // rather than a call to it, and the direct source of the "0%" beside
-  // "< 1%" contradiction. The threshold below is a display DECISION (when is
-  // a goal probability low enough to warrant a warning affordance) and stays;
-  // the FORMATTING is gone, and the badge now renders `goalReadout`.
-  const showLowGoalBadge =
-    typeof option.goalProbability === 'number' && option.goalProbability < 0.10
-  const lowGoalReadout = showLowGoalBadge ? goalReadout : null
 
   return (
     <div
@@ -734,14 +596,14 @@ function OptionCard({
       {/* Header: colour marker · option name | win percentage right-aligned.
           D17: "#N of M" rank prefix removed (rank conveyed by position +
           marker colour + right-aligned win%). Colour marker = 10×10px square
-          matching the scenario-bar ordinal palette from WIN_GAUGE_COLORS. */}
+          matching the scenario-bar ordinal palette from OPTION_RANK_COLORS. */}
       <div className="flex items-center gap-2">
         {!neutralised && rank != null && totalOptions > 1 && (
           <span
             aria-hidden="true"
             className="inline-block flex-shrink-0 w-2.5 h-2.5"
             data-testid={`rank-marker-${option.id}`}
-            style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
+            style={{ backgroundColor: OPTION_RANK_COLORS[Math.min(rank - 1, OPTION_RANK_COLORS.length - 1)] }}
           />
         )}
         {stableNumber != null && (
@@ -767,11 +629,14 @@ function OptionCard({
           </span>
         )}
         <span className="flex-1" />
+        {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
         {option.winProbability != null && !winSharesWithheld && (
           <Tooltip
             content={
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               isBelowSimulationResolution(option.winProbability, option.nValidSamples)
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
+                // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
                   : COMPARATIVE_COPY.phrase(winsReadout)
@@ -797,6 +662,7 @@ function OptionCard({
       ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
+      {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance */}
       {option.winProbability != null && segmentFillColor && !neutralised && !winSharesWithheld && (
         <div
           className="w-full rounded-full overflow-hidden"
@@ -811,6 +677,7 @@ function OptionCard({
           <div
             className="h-full rounded-full transition-all duration-300"
             style={{
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               width: `${Math.max(2, Math.round(option.winProbability * 100))}%`,
               backgroundColor: segmentFillColor,
             }}
@@ -827,63 +694,52 @@ function OptionCard({
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
         >
-          In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.
+          {/* Run-4 judge (DL 12 Oct, the class): the leader clause ("the most runs supported this option, but …") is cut; the
+              downside fact about this option stays, in its own words. */}
+          In this model, the lower range of this option&apos;s simulated outcomes includes meaningful downside.
         </p>
       )}
 
       {/* Stat rows */}
       {hasGoalThreshold && (
         <div className="space-y-1.5">
-          {/* ROADMAP 2.282 — the withheld arm of the goal-row caption. The
-              register string is 45 characters, so it is hoisted to a
-              full-width line above the bar instead of the StatBar's 72px
-              column; `WinGauge`'s goal block renders the SAME register string
-              in the SAME shape (`win-gauge-goal-heading`), so this is the
-              established layout for this copy, not a new one. Rendered only
-              when the basis is substituted — the permitted arm keeps the
-              card's shipped inline "Hits target" label unchanged. */}
-          {goalFitSubstituted && option.goalProbability != null && (
+          {/* #2747 re-scope 2 (U2, DL ruling 12 Oct): the goal row says what its figure is a chance OF only in CEE's
+              served words, the option's current canonical cell face verbatim (figure, chance words, "in this model",
+              the provisional clause); with none served, no caption. The UI's own "Hits target" label is gone: a UI
+              phrase beside a chance reads as certainty. (The substituted-joint caption went with it: no producer path
+              sets `goalFitIsSubstitutedJoint` in C.) */}
+          {/* eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view */}
+          {goalCell !== null && goalCell.face !== null && (option.goalProbability != null || goalCell.kind === 'range') && (
             <p
               className={`${typography.panelMeta} text-text-light`}
-              data-testid={`goal-fit-substituted-label-${option.id}`}
+              data-testid={`goal-chance-face-${option.id}`}
             >
-              {GOAL_ANCHOR_COPY.label(goalFitSubstituted)}
+              {goalCell.face}
             </p>
           )}
-          <StatBar
+          {goalCell !== null && goalCell.kind !== 'range' && <StatBar
+            // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
             value={option.goalProbability}
-            // The SAME string the low-goal badge below renders. This is the
-            // N11 fix at its call site: one readout, two surfaces.
-            readout={goalReadout}
+            // The card's one goal readout (N11): CEE's served display, verbatim (round 2, rule C).
+            readout={goalCell.display}
             testId={`goal-readout-${option.id}`}
-            // The possessive "Hits target" names the user's OWN target, which
-            // a substituted joint figure does not answer — so that arm is
-            // withheld and the caption above carries the honest name instead.
-            // `null` omits the column rather than emptying it (see StatBar).
-            label={goalFitSubstituted ? null : 'Hits target'}
+            // No UI label beside the chance (#2747 re-scope 2): the caption above is CEE's words. `null` omits the column.
+            label={null}
             // ROADMAP 1.267: the bar length stays (it is the goal
             // probability); only the leader COLOUR is withheld.
             isLeader={isWinner && !designationsWithheld}
             color="info"
             neutralised={neutralised}
-          />
-          {/* T6 fix: Warning badge when goal probability is very low (<10%).
-              ROADMAP 2.282: the badge is the register's COMPACT READOUT slot
-              — "number first, no full stop" — so the withheld arm is
-              `GOAL_ANCHOR_COPY.phrase(...)` verbatim, no adapted wording. The
-              permitted arm keeps the shipped sentence byte-for-byte. The two
-              arms are mutually exclusive by construction: one boolean, one
-              ternary, one readout. */}
-          {lowGoalReadout != null && (
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
-                data-testid={`low-goal-warning-${option.id}`}
-              >
-                {GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
-              </span>
-            </div>
+          />}
+          {/* #2747 re-scope 2 round 2 (DL): a served RANGE cell says CEE's display, verbatim; no bar, no UI rounding. */}
+          {goalCell !== null && goalCell.kind === 'range' && (
+            <p className={`${typography.panelMeta} text-text-body tabular-nums text-right`} data-testid={`goal-readout-${option.id}`}>
+              {goalCell.display}
+            </p>
           )}
+          {/* #2747 re-scope 2 (U2): no low-goal badge in C. It restated the readout above in a chance sentence the UI
+              composed ("About N% chance of meeting your goal", or of the Run's chance words without CEE's "in this
+              model" and provisional clause), on a threshold the UI chose. CEE's served cell says the chance. */}
           {/* Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
               "Hits target" number above is scored from a MODELLED
               forward-propagated outcome distribution, not a
@@ -1062,51 +918,15 @@ function OptionCard({
         </ExpertBlock>
       )}
 
-      {/* Multi-constraint joint probability line */}
-      {option.constraintAnalysis != null &&
-        option.constraintAnalysis.constraints.length > 0 && (
-        <p
-          className={`${typography.panelMeta} ${constraintConfidenceColour(option.constraintAnalysis.joint_probability)}`}
-          data-testid="option-constraint-badge"
-        >
-          {jointProbabilityLabel(option.constraintAnalysis.joint_probability)}{' '}
-          {/* ROADMAP 2.333: was a bare `Math.round(... * 100)%`. This is the
-              SAME joint-constraint quantity `SuccessTargetRow` and
-              `TargetProbabilityBars` render, so leaving it rounded here would
-              have created a fresh "one number, two answers" pair with the
-              surfaces this slice just fixed. Comparative register (met every
-              target in n of N runs), hence `null` samples and an exact zero
-              still reading "0%". */}
-          {formatProbabilityWithResolution(option.constraintAnalysis.joint_probability, null)}
-        </p>
-      )}
+      {/* #2747 r2: the multi-constraint joint probability line ("met every target in n of N runs") is removed: it is the
+          legacy limits channel, licensed by no canonical cell (DL ruling (a)), so it was a chance outside the gate. */}
 
       {/* Action CTAs */}
-      {(onSendMessage || onFocusNode) && (
+      {onFocusNode && (
         <div className="flex items-center gap-1 pt-1.5">
-          {onSendMessage && (
-            // Brief 5.1 Task 7 / Brief 5.4 Phase 7: single non-winner chip copy.
-            // The earlier baseline-specific "Why does this lose?" read as negative
-            // framing; forward-looking copy is parallel for both winner and non-winner.
-            // Copy source: winnerChipCopy utility (no hardcoded strings at render sites).
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Codex finding 6: exploratory question-shaped CTA — prefill the
-                // Ask-Olumi drawer (editable draft, user presses Send) instead of
-                // auto-sending into a possibly-hidden conversation.
-                openAskOlumi({
-                  context: `About "${option.label}"`,
-                  draft: winnerChipPrompt(isWinner, option.label, hasLeadingOption),
-                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption),
-                })
-              }}
-              className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
-            >
-              {winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption)}
-            </button>
-          )}
+          {/* Run-4 judge (DL 12 Oct, the class): the card's chat chip is removed and nothing replaces it. Its every label was
+              run-share comparison wording ("Why did the most runs in this model support this?", "What would make this
+              better supported?"). */}
           {!option.isBaseline && onFocusNode && (
             // ⚠ THIS CHIP READ "Edit interventions" AND EDITED NOTHING.
             // `onFocusNode` on this surface is `handleFocusResultNode`
@@ -1145,7 +965,6 @@ export function OptionCards({
   storyHeadlines,
   cardRefMap,
   decisionState,
-  hinge,
   runnerId,
   onSendMessage,
   onFocusNode,
@@ -1157,6 +976,7 @@ export function OptionCards({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  goalCellOf,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1211,8 +1031,11 @@ export function OptionCards({
   // that WERE scored, caused by one that was not. Same defect class as
   // `sortOptionsForDisplay`'s `allHaveWinProb` and
   // `determineWinnerSelection`'s coverage check.
+  // #2747 re-scope 2 round 2 (DL): an option whose served cell is a RANGE has no point figure, but its row is said (CEE's
+  // range display, verbatim), so it counts as covered here rather than deleting every card's goal row.
   const allGoalProbability =
-    analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gated: a figure the gate already produced (RunView.chanceOf), carried on the option view
+    analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null || goalCellOf?.(o.id)?.kind === 'range')
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // V14.2: Sort by win probability descending (same order as WinGauge segments).
@@ -1237,7 +1060,7 @@ export function OptionCards({
   // sentences), so the card copy and the sentence above it read one answer.
   // Only a caller that supplies none falls back to deriving it here.
   const hasGoalNumbers = hasGoalNumbersProp ?? runHasGoalNumbers(options)
-  const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
+  const segmentColorMap = buildOptionRankColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
   const TOP_N = 2
@@ -1443,17 +1266,18 @@ export function OptionCards({
         // at the one call site that mattered.
         const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
         const description = isLensCrowned
-          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
+          ? hingeAwareDescription(option, true, isRunnerUp, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
             : headline
               ? headline
+              // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
-                : fallbackDescription(option, options.length, hasLeadingOption)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, false, hasLeadingOption, hasGoalNumbers)
+                : fallbackDescription(option, options.length)
 
         // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
-        // kept) but its COLOUR is the rank palette — WIN_GAUGE_COLORS[0] is
+        // kept) but its COLOUR is the rank palette — OPTION_RANK_COLORS[0] is
         // commented "Winner — mint-500". On a withheld run the bar still
         // draws, in one neutral colour for every option: the measurement
         // survives, the ranking does not.
@@ -1496,7 +1320,10 @@ export function OptionCards({
             outcomeUnitSymbol={outcomeUnitSymbol}
             isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
-            winSharesWithheld={winSharesAreWithheld}
+            // #2747 re-scope 2 (DL ruling (A)): no card shows a win share in C, permitted or not (no header figure, no fill
+            // bar). CEE serves no wording or Run authority for it. The leader entitlement above is unchanged.
+            winSharesWithheld
+            goalCell={goalCellOf?.(option.id) ?? null}
           />
         )
       })}

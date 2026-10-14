@@ -136,6 +136,15 @@ const STRENGTH_OBJECT = 'the strength of this connection'
 const OPEN_DETAILS_SET_OR_CONFIRM = 'Open the details to set or confirm it.'
 const OPEN_DETAILS_SET = 'Open the details to set it.'
 
+/**
+ * WHOSE estimate, first, in the card mark's accessible name (P02 smoke B2 M5, 8 Oct; DL). The tip says an estimate
+ * was "filled in for you" but never by whom, so a screen reader heard no "Olumi" on any estimate card; the only
+ * "Olumi" a card announced was its coaching button ("Ask Olumi about …"), which names an action, not the value.
+ * Accessible name only: the visible `est.` and the tooltip are unchanged. The mark renders only for a value whose
+ * provenance classifies as Olumi's (`factorValueSourceMark`), never by label.
+ */
+export const OLUMI_ESTIMATE_NAME = 'Olumi\u2019s estimate \u2014 not your figure'
+
 export const ESTIMATE_SUBJECT_TITLE: Record<EstimateSubject, string> = {
   value: `${UNCONFIRMED_ESTIMATE_LABEL} — this value was filled in for you. ${OPEN_DETAILS_SET_OR_CONFIRM}`,
   strength: `${UNCONFIRMED_ESTIMATE_LABEL} — ${STRENGTH_OBJECT} was filled in for you. ${OPEN_DETAILS_SET_OR_CONFIRM}`,
@@ -351,7 +360,7 @@ export function EstimateMarker({
   if (!onOpenSource) return <SourceMark testId="estimate-marker" tip={tip}>{UNCONFIRMED_ESTIMATE_TOKEN}</SourceMark>
   const Icon = VALUE_PROVENANCE_ICON.ai
   return (
-    <BottomCardMark><SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={tip} onOpen={onOpenSource}>
+    <BottomCardMark><SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={`${OLUMI_ESTIMATE_NAME}. ${tip}`} onOpen={onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
           mark kind. As a button its accessible name is the full `tip`
           (`aria-label`, as v3.1 `prov()` does); the styled tooltip keeps it. */}

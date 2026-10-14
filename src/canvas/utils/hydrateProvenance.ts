@@ -51,8 +51,9 @@
  * THE RULE — honesty in both directions, and it needs both halves
  * ─────────────────────────────────────────────────────────────────────────────
  *   · value UNCHANGED by the merge → PRESERVE the user's stamp (fixes (a));
- *   · value CHANGED by the merge   → the server wins on the value AND every
- *     user stamp is cleared in BOTH spellings and at the top level (fixes (b)).
+ *   · value CHANGED by the merge → local user stamps are cleared in both
+ *     spellings and at the top level (fixes (b)). The stamps the server read
+ *     itself carries are kept, so recovery equals reload.
  *
  * Only USER-OWNED stamps are touched, and membership is decided by
  * `isReviewedSource` — the same predicate that paints the badge, so this can
