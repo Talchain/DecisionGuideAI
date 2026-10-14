@@ -116,6 +116,7 @@ import { NodeSignalRailIcons } from './shared/NodeRailIcons'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { useMethodPointedOption } from '../conversation/methodResultPointing'
 import { RunChangeBadge } from '../graphChanges/RunChangeBadge'
 import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 
@@ -476,6 +477,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // …and the reduced line's "Compared · share not shown" holds only for an option the Run compared (F1b, 52f8cd), as
   // on the full-zoom card. A left-out option never reads "Compared".
   const optionComparedInRun = useCanvasStore((s) => nodeType === 'option' && selectOptionComparedInRun(s, id))
+  // Pointing into the model: an option the last reply's test was about. Never a click: it comes only from a reply.
+  const pointedOption = useMethodPointedOption(id, useCanvasStore((s) => s.currentScenarioId))
+  const methodPointed = nodeType === 'option' ? pointedOption : null
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
    * two-second acknowledgement above. Primitive-boolean selectors (React #185),
@@ -2158,6 +2162,14 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         />
       )}
 
+      {methodPointed !== null && !isAssistantFocused && (
+        <span
+          aria-hidden="true"
+          data-testid={`method-pointed-node-halo-${id}`}
+          data-method-pointed={methodPointed}
+          className="pointer-events-none absolute -inset-1 z-[1] rounded-md border-2 border-info ring-2 ring-info/30 ring-offset-1"
+        />
+      )}
       {isAssistantFocused && (
         <span
           aria-hidden="true"

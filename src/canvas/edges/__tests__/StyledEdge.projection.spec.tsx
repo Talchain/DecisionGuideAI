@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act, render, cleanup, screen } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
+import { recordMethodPointing, useMethodPointingStore } from '../../conversation/methodResultPointing'
 import { Position } from '@xyflow/react'
 import {
   activateAssistantFocus,
@@ -42,6 +43,7 @@ vi.mock('../../store', () => ({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
       results: { status: 'complete', report: { robustness: { fragile_edges: [] } } },
+      currentScenarioId: 'scn-pointing',
       highlightedEdges: new Set<string>(),
       analysisHighlight,
       viewMode: 'standard',
@@ -146,5 +148,28 @@ describe('StyledEdge — assistant focus render', () => {
     const { container } = render(<StyledEdge {...(edgeProps as any)} />)
     expect(container.querySelector('g[data-assistant-focused="true"]')).toBeNull()
     expect(screen.queryByTestId('assistant-focus-edge-halo-e1')).not.toBeInTheDocument()
+  })
+})
+
+// Pointing into the model: the link the last reply tested wears the same halo as an assistant focus, until the next
+// reply. Identity-bound: another link, or the same link in another scenario, wears none.
+describe('StyledEdge — the link the reply tested', () => {
+  afterEach(() => recordMethodPointing(null))
+  const point = (scenarioId: string, link: string) => act(() => {
+    useMethodPointingStore.setState({ pointing: { scenarioId, actionId: 'test_link', links: new Set([link]), optionIds: new Set() } })
+  })
+  it('the tested link has the halo, marked with the method', () => {
+    point('scn-pointing', 'n1->n2')
+    render(<StyledEdge {...(edgeProps as any)} />)
+    expect(screen.getByTestId('method-pointed-edge-halo-e1')).toHaveAttribute('data-method-pointed', 'test_link')
+  })
+  it('CONTRAST: another link, or another scenario, has none', () => {
+    point('scn-pointing', 'n2->n1')
+    const a = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(screen.queryByTestId('method-pointed-edge-halo-e1')).toBeNull()
+    a.unmount()
+    point('scn-other', 'n1->n2')
+    render(<StyledEdge {...(edgeProps as any)} />)
+    expect(screen.queryByTestId('method-pointed-edge-halo-e1')).toBeNull()
   })
 })

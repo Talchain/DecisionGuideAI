@@ -61,6 +61,7 @@ import {
 import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
 import { optionParticipationFromResponse, readOptionParticipation } from '../canvas/state/storedOptionParticipation'
 import { identityEvaluatedFromResponse, recordIdentityEvaluated } from '../canvas/domain/identityExactLinks'
+import { recordMethodPointing } from '../canvas/conversation/methodResultPointing'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -1057,6 +1058,9 @@ export function applyV5State(
     })
     return { applied, deferred }
   }
+
+  // Pointing into the model (`_method_result` v:1): this reply's tested link and options replace the last reply's marks.
+  recordMethodPointing(response)
 
   // 1. Stage tracking. V5 StageType → UI ScenarioStage. Callers may bias
   // 'frame' to 'ideate' when the graph is non-empty (preserve pre-V5
