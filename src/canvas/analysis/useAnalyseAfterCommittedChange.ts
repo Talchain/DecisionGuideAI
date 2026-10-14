@@ -42,7 +42,10 @@ interface CanvasLocalCommit {
 
 const useCanvasLocalCommitStore = create<CanvasLocalCommit>(() => ({ seq: 0, versionId: null, origin: null }))
 
-/** A canvas-local commit landed: a direct canvas edit's receipt, or a journal Undo/Redo restore. */
+/**
+ * A canvas-local commit landed: a direct canvas edit's receipt, or a journal Undo/Redo restore. `versionId` is the saved
+ * version, or, for an edit CEE saved without versions (a guest), the `graph_hash` it moved the model to.
+ */
 export function noteCanvasLocalCommit(versionId: string, origin: CanvasLocalCommitOrigin = 'edit_receipt'): void {
   useCanvasLocalCommitStore.setState((s) => ({ seq: s.seq + 1, versionId, origin }))
 }

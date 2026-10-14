@@ -7,8 +7,10 @@
  *
  *  - A canvas edit with a receipt → a journal step.
  *  - A canvas edit WITHOUT a receipt (refused, no-op, guest, versions off) →
- *    nothing. Safe by construction: if it did commit, the head moved without
- *    the journal, and the next restore's identity check refuses it.
+ *    no journal step. Safe by construction: if it did commit, the head moved
+ *    without the journal, and the next restore's identity check refuses it.
+ *    If CEE's `graph_hash` shows it did commit (a guest), it is still noted as
+ *    a canvas-local commit so its analysis re-runs.
  *  - A judgement the journal cannot undo (a prior range, an edge verdict) →
  *    a barrier, so ⌘Z says so instead of reverting an OLDER graph edit.
  *  - Any other turn carrying a receipt (chat, a Run) → a foreign
@@ -79,6 +81,25 @@ export function undoLabelFor(event: { type: string; payload?: unknown }): string
   }
 }
 
+/**
+ * CEE's own evidence that a canvas edit with no version receipt committed: the turn's `graph_hash` (the
+ * analysis-affecting hash CEE stamps on what it holds) differs from the base the edit was sent against — the event's
+ * CAS-checked `base_graph_hash`, else the hash the canvas held at dispatch. Returns the new hash, or `null` when there
+ * is no claim: a refusal carries no `graph_hash`, a no-op answers at the base, and no base means nothing to compare.
+ */
+export function canvasEditMovedServerGraph(
+  event: { type: string; payload?: unknown },
+  response: unknown,
+  serverGraphHashAtDispatch: string | null | undefined,
+): string | null {
+  const after = (response as { graph_hash?: unknown } | null | undefined)?.graph_hash
+  if (typeof after !== 'string' || after.length === 0) return null
+  const sentBase = (event.payload as { base_graph_hash?: unknown } | undefined)?.base_graph_hash
+  const base = typeof sentBase === 'string' && sentBase.length > 0 ? sentBase : serverGraphHashAtDispatch
+  if (typeof base !== 'string' || base.length === 0) return null
+  return after === base ? null : after
+}
+
 export function captureTurnForUndo(input: {
   readonly scenarioId: string
   readonly turnId: string
@@ -86,6 +107,8 @@ export function captureTurnForUndo(input: {
   readonly response: unknown
   /** Groups one gesture's receipts (a node add and its chained link). */
   readonly undoGestureId?: string
+  /** CEE's `graph_hash` the canvas held when this turn was sent (`lastServerGraphHash` at dispatch). */
+  readonly serverGraphHashAtDispatch?: string | null
 }): void {
   const receipt = readUndoReceipt(input.response)
   const { journal } = useUndoJournalStore.getState()
@@ -109,7 +132,15 @@ export function captureTurnForUndo(input: {
 
   let next: UndoJournalState = journal
   if (event !== undefined && isModelChangingSystemEvent(event.type)) {
-    if (receipt === null) return
+    if (receipt === null) {
+      // No versions (a guest, versions off): no journal step, but a direct canvas edit CEE saved is still a
+      // canvas-local commit, and its analysis must re-run (witness 2026-10-14T174333Z turn #3: a guest's option edit
+      // moved CEE's graph a1636315 → 9349dd99 with no receipt, and no Run ever started). The receipt path above and
+      // this path are exclusive, so one commit is noted once.
+      const committedHash = canvasEditMovedServerGraph(event, input.response, input.serverGraphHashAtDispatch)
+      if (committedHash !== null) noteCanvasLocalCommit(committedHash)
+      return
+    }
     next = recordEditReceipt(journal, {
       scenarioId: input.scenarioId,
       receipt,

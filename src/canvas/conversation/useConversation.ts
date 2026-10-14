@@ -4690,6 +4690,9 @@ export function useConversation(): UseConversationReturn {
       const scenarioIdAtDispatch = currentScenarioId
       const graphOpeningAtDispatch = refusedGraphRefreshRef.current?.captureOpening()
       const editNoteBeforeState = useCanvasStore.getState()
+      // The write base this turn was sent against: a guest's committed canvas edit carries no version receipt, so the
+      // auto-run reads "it committed" from CEE's `graph_hash` moving off it (`captureUndoReceipt.ts`).
+      const serverGraphHashAtDispatch = editNoteBeforeState.lastServerGraphHash
       const editNoteRevision = opts.editNoteRevision ?? currentManualEditRevision()
       // Factor/rename gestures are already optimistic; their existing intents carry the actual preimage.
       const editNoteBefore = {
@@ -5384,6 +5387,7 @@ export function useConversation(): UseConversationReturn {
             systemEvent,
             response: v5Result.response,
             undoGestureId: opts.undoGestureId ?? opts.structuralAdd?.id,
+            serverGraphHashAtDispatch,
           })
         }
 
