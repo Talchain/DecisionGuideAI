@@ -2111,7 +2111,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // 6135017311): a `quantified_provisional` run read "Stable ranking" here from
   // PLoT's verdict alone, while the checks glyph and the Reasoning tab — which
   // read `mayStateStability` — said "Robustness not established".
-  const footerStabilityLicensed = analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability
+  // DL ruling (14 Oct 2026): a run whose LEADER alone is withheld does not license a ranking-stability claim either.
+  const footerStabilityLicensed =
+    analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability &&
+    !rankingWasWithheld(resultsSectionData.recommendation)
   const postFooterStatus = derivePostFooterStatus(
     resultsSectionData.recommendation.robustnessVerdict,
     footerStabilityLicensed,

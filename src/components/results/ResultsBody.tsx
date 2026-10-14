@@ -12,6 +12,7 @@
 import { useOptionCoverage } from '../../v5/blocks/useOptionCoverage'
 import { leaderDesignationPermitted } from './leaderDesignation'
 import { analysisClaimPolicy } from './analysisClaimPolicy'
+import { rankingWasWithheld } from './leaderDesignation'
 import { buildCoverageDisclosure } from './utils/optionCoverage'
 import { useCanvasNodeLabels } from '../../v5/blocks/useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
@@ -952,7 +953,10 @@ export const ResultsBody = memo(function ResultsBody({
         <AdvancedSection
           context={resultsSectionData.confidence.critiqueRunContext}
           robustnessVerdict={resultsSectionData.recommendation.robustnessVerdict}
-          stabilityLicensed={analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability}
+          stabilityLicensed={
+            analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability &&
+            !rankingWasWithheld(resultsSectionData.recommendation)
+          }
           freshnessReason={freshnessReason}
           responseHashIsLocal={responseHashIsLocal}
           nSamples={nSamples}

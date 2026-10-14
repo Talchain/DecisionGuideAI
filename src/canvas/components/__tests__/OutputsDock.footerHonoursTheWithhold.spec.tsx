@@ -246,8 +246,18 @@ describe('the dock footer may not explain a verdict by a ranking the run withhel
    * retyped here — a second spelling of a status string is the mirror this
    * estate pays for (CLAUDE.md trap 12).
    */
-  it('⛔ the robustness GRADE survives the withhold, on the same run', () => {
+  // DL ruling (14 Oct 2026): a withheld leader withholds the ranking-stability grade too — the footer says
+  // "Robustness not established", never the licensed grade, on the same run.
+  it('⛔ the robustness GRADE is withheld with the leader, on the same run', () => {
     seedPostRun(true)
+    render(<OutputsDock />)
+
+    expect(footer().textContent).toContain(derivePostFooterStatus('moderate', false).label)
+    expect(footer().textContent).not.toContain(derivePostFooterStatus('moderate', true).label)
+  })
+
+  it('CONTROL: a licensed leader still shows the robustness grade', () => {
+    seedPostRun(false)
     render(<OutputsDock />)
 
     expect(footer().textContent).toContain(derivePostFooterStatus('moderate', true).label)
