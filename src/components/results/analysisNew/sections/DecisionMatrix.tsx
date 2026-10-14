@@ -5,6 +5,7 @@ import { formatThreshold } from '../../RangeVisualization'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { MODEL_SCORE_COPY } from '../modelScore'
 import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
+import { GoalReadingLine } from '../../GoalReadingLine'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -87,6 +88,8 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
         </table>
       </div>
       {withheldLine !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-withheld">{withheldLine}</p>}
+      {/* CEE #3059: beside the chances only while one is shown; the reading they rest on is Olumi's, said and correctable. */}
+      {rows.some((r) => r.chance !== null) && <GoalReadingLine reading={data.goalChanceLicence?.goalReading} testId="decision-matrix-goal-reading" />}
       {hasOutcome && <SectionShell title="Modelled outcomes" count={null} variant="disclose" testId="decision-matrix-outcomes">
         {rows.map((row) => <div key={row.id} className={`${typography.panelBody} text-text-body py-2`}>
           <p data-testid={`decision-matrix-outcome-${row.id}`}>{row.label}: {row.centreReadout ?? 'No modelled outcome for this option.'}</p>
