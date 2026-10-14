@@ -104,6 +104,7 @@ import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, 
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { useMethodPointedLink } from '../conversation/methodResultPointing'
 import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
 import { openEdgeStrengthEditor, OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
@@ -408,6 +409,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const isAssistantFocused = useAssistantFocusStore(
     (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
   )
+
+  // Pointing into the model: the link the last reply tested ("Test without this link" / "What would change this?").
+  const methodPointed = useMethodPointedLink(String(source), String(target), useCanvasStore(s => s.currentScenarioId))
 
   // #2747 r2: the "chance rests most on this" tag reads the scenario's held canonical view through the gate.
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.view)
@@ -2548,6 +2552,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           vectorEffect="non-scaling-stroke"
           data-testid={`edge-uncertainty-band-${edgeIdKey}`}
           data-uncertainty-half-width={uncertaintyBand}
+        />
+      )}
+      {methodPointed !== null && !isAssistantFocused && (
+        // The same halo as an assistant focus: one visual for "Olumi points here". It lasts until the next reply.
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="var(--semantic-info)"
+          strokeWidth={8}
+          opacity={0.32}
+          pointerEvents="none"
+          vectorEffect="non-scaling-stroke"
+          data-testid={`method-pointed-edge-halo-${edgeIdKey}`}
+          data-method-pointed={methodPointed}
         />
       )}
       {isAssistantFocused && (

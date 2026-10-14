@@ -1,0 +1,111 @@
+{
+ "_source": "Row text = CEE structural-challenge-turn.ts composer lines at e80586d8 (:217, :142 with :117-119, :254); displays from CEE structural-challenge-goal-chance.test.ts:93; labels and link from served witness cgc-4 (T1b pricing brief, staging a2a54aa4).",
+ "assistant_text": "Without the link from Price rise to Customers lost from price rise, the recorded evidence doesn't establish that the tested conclusions hold or change.\n\nWhat I tested: the same model and inputs, recomputed with only this link removed. The two Runs are separately sampled (unpaired). It compares these two model versions; it doesn't say which version of the model is right.\n\nWhat holds:\n- Launch starter tier — baseline: about 52% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.\n- Keep pricing as is — baseline: less than 1% chance of meeting the goal, in this model, on current information. Without the link: less than 1% chance of meeting the goal, in this model, on current information.\n- Launch starter tier leads in both versions.\n\nWhat changes:\n- Raise prices 10% — baseline: about 46% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.\n\nWhat remains uncertain:\n- Driver rankings and other diagnostic scores aren't compared between the two versions, because they shift with how the model is scaled.\n- This test isn't saved. You can run it again while the model stays as it is.",
+ "response": {
+  "assistant_text": "Without the link from Price rise to Customers lost from price rise, the recorded evidence doesn't establish that the tested conclusions hold or change.\n\nWhat I tested: the same model and inputs, recomputed with only this link removed. The two Runs are separately sampled (unpaired). It compares these two model versions; it doesn't say which version of the model is right.\n\nWhat holds:\n- Launch starter tier — baseline: about 52% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.\n- Keep pricing as is — baseline: less than 1% chance of meeting the goal, in this model, on current information. Without the link: less than 1% chance of meeting the goal, in this model, on current information.\n- Launch starter tier leads in both versions.\n\nWhat changes:\n- Raise prices 10% — baseline: about 46% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.\n\nWhat remains uncertain:\n- Driver rankings and other diagnostic scores aren't compared between the two versions, because they shift with how the model is scaled.\n- This test isn't saved. You can run it again while the model stays as it is.",
+  "__additive__": {
+   "_method_result": {
+    "v": 1,
+    "action_id": "test_link",
+    "outcome": "completed",
+    "scenario_id": "d65a2748-c05b-4545-9418-31bdd6f823c9",
+    "turn_id": "turn_sc_01",
+    "run": {
+     "graph_hash_at_run": "3f9a1c2b7d4e8f60",
+     "run_id": "run_7c1e",
+     "computed_at": "2026-10-07T21:03:30.000Z"
+    },
+    "rows": [
+     {
+      "row_id": "tested",
+      "item_refs": [
+       {
+        "kind": "link",
+        "from_id": "fac_price_rise",
+        "to_id": "out_customers_lost"
+       }
+      ],
+      "text": "What I tested: the same model and inputs, recomputed with only this link removed. The two Runs are separately sampled (unpaired). It compares these two model versions; it doesn't say which version of the model is right.",
+      "provenance": "server_built"
+     },
+     {
+      "row_id": "goal:opt_starter",
+      "item_refs": [
+       {
+        "kind": "option",
+        "id": "opt_starter"
+       },
+       {
+        "kind": "link",
+        "from_id": "fac_price_rise",
+        "to_id": "out_customers_lost"
+       }
+      ],
+      "text": "Launch starter tier — baseline: about 52% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.",
+      "provenance": "server_built",
+      "figures": [
+       "about 52%"
+      ]
+     },
+     {
+      "row_id": "goal:opt_keep",
+      "item_refs": [
+       {
+        "kind": "option",
+        "id": "opt_keep"
+       },
+       {
+        "kind": "link",
+        "from_id": "fac_price_rise",
+        "to_id": "out_customers_lost"
+       }
+      ],
+      "text": "Keep pricing as is — baseline: less than 1% chance of meeting the goal, in this model, on current information. Without the link: less than 1% chance of meeting the goal, in this model, on current information.",
+      "provenance": "server_built",
+      "figures": [
+       "less than 1%"
+      ]
+     },
+     {
+      "row_id": "goal:opt_raise",
+      "item_refs": [
+       {
+        "kind": "option",
+        "id": "opt_raise"
+       },
+       {
+        "kind": "link",
+        "from_id": "fac_price_rise",
+        "to_id": "out_customers_lost"
+       }
+      ],
+      "text": "Raise prices 10% — baseline: about 46% chance of meeting the goal, in this model, on current information. Without the link: about 52% chance of meeting the goal, in this model, on current information.",
+      "provenance": "server_built",
+      "figures": [
+       "about 46%",
+       "about 52%"
+      ]
+     },
+     {
+      "row_id": "not_saved",
+      "item_refs": [],
+      "text": "This test isn't saved. You can run it again while the model stays as it is.",
+      "provenance": "server_built"
+     }
+    ]
+   }
+  }
+ },
+ "labels": {
+  "fac_price_rise": "Price rise",
+  "out_customers_lost": "Customers lost from price rise",
+  "opt_raise": "Raise prices 10%",
+  "opt_starter": "Launch starter tier",
+  "opt_keep": "Keep pricing as is"
+ },
+ "never_on_card": [
+  "Without the link from Price rise to Customers lost from price rise, the recorded evidence doesn't establish that the tested conclusions hold or change.",
+  "- Launch starter tier leads in both versions.",
+  "Driver rankings and other diagnostic scores"
+ ]
+}
