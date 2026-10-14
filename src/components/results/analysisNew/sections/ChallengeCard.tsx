@@ -67,6 +67,7 @@ import { PanelActRow } from '../PanelActRow'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
+import { useFindingDissent } from '../useFindingDissent'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 import {
   METHOD_MENU_GLYPH_CLASS,
@@ -105,7 +106,11 @@ export interface ChallengeCardProps {
   onRunIntervention: (recommendationId: string) => void
   /** The existing `runMethod` route, by catalogue id. */
   onRunMethod: (methodId: string) => void
-  /** "I disagree" on a grounded finding: continues into the conversation. */
+  /**
+   * "Discuss with Olumi" on a recorded objection: continues into the
+   * conversation (the host's existing ask route). "I disagree" itself no
+   * longer needs this — it RECORDS the objection (`useFindingDissent`).
+   */
   onDisagree?: (rec: Recommendation) => void
   /**
    * The ⋯ menu's method rows pick a method, exactly as the strip does. Absent
@@ -192,6 +197,7 @@ export function ChallengeCard({
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
   const seedIfAbsent = useStrengthenStore((st) => st.seedIfAbsent)
   const scenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const dissent = useFindingDissent()
 
   const shown = resolveShown(intervention, methodId)
 
@@ -218,6 +224,10 @@ export function ChallengeCard({
   const basisOpen = shown !== null && basisFor === shown.key
   const respondOpen = shown !== null && respond !== null && respond.key === shown.key
   const respondText = respondOpen ? respond.text : ''
+  const disagreeOpen = shown !== null && shown.kind === 'intervention' && dissent.openId === shown.rec.id
+  // The receipt is the DURABLE record read back by the finding's id — the same
+  // read a reload makes — never local "just saved" state.
+  const objection = shown !== null && shown.kind === 'intervention' ? dissent.recorded(shown.rec) : undefined
 
   const closeRespond = () => setRespond(null)
   const focusTrigger = () =>
@@ -398,7 +408,11 @@ export function ChallengeCard({
       <PanelIconButton
         Icon={Pencil}
         label={ZONE.respond}
-        onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
+        onClick={() => {
+          if (respondOpen) { closeRespond(); return }
+          dissent.close()
+          setRespond({ key: shown.key, text: '' })
+        }}
         expanded={respondOpen}
         testId={`${testId}-respond`}
       />
@@ -437,13 +451,14 @@ export function ChallengeCard({
             {canSetAside ? (
               <MenuRow Glyph={Clock} label={ZONE.notUseful} onClick={setAside} testId={`${testId}-not-useful`} />
             ) : null}
-            {shown.kind === 'intervention' && onDisagree ? (
+            {shown.kind === 'intervention' ? (
               <MenuRow
                 Glyph={MessageSquareX}
                 label={REVIEW_TOOL_COPY.disagree}
                 onClick={() => {
                   setMenuFor(null)
-                  onDisagree(shown.rec)
+                  closeRespond()
+                  dissent.open(shown.rec, analysisHash)
                 }}
                 testId={`${testId}-disagree`}
               />
@@ -617,6 +632,91 @@ export function ChallengeCard({
             </span>
           </PanelActRow>
         </form>
+      ) : null}
+      {/* "I disagree" RECORDS the objection (DL 14 Oct 2026, "preserve
+          meaningful dissent"): session + durable + `finding_dissent`, the
+          writers `StrengthenTheReasoning.commitDispute` ships — see
+          `useFindingDissent`. Same field styles as the Respond form above. */}
+      {disagreeOpen && shown.kind === 'intervention' ? (
+        <form
+          className="grid gap-2 pt-2 pb-1"
+          data-testid={`${testId}-disagree-form`}
+          data-recommendation-id={shown.rec.id}
+          onSubmit={(e) => {
+            e.preventDefault()
+            dissent.commit(shown.rec)
+          }}
+        >
+          <div className="grid gap-1">
+            <label className={`${typography.panelBody} text-text-body`} htmlFor={`${testId}-disagree-note`}>
+              {ZONE.disagreeLabel}
+            </label>
+            {/* The disclosure, decided by the send's own predicate before a
+                word is typed (`analysisNewCopy` dissent.prompt*). */}
+            <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-disagree-disclosure`}>
+              {dissent.willSend() ? COPY.dissent.promptSendsToOlumi : COPY.dissent.prompt}
+            </p>
+            <textarea
+              id={`${testId}-disagree-note`}
+              value={dissent.draft}
+              autoFocus={true}
+              onChange={(e) => dissent.setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                e.preventDefault()
+                dissent.close()
+              }}
+              rows={2}
+              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-sm border border-field bg-panel px-2 py-2 text-text-body ${ACTION_FOCUS}`}
+              data-testid={`${testId}-disagree-note`}
+            />
+          </div>
+          {dissent.saveError ? (
+            <p role="alert" className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-disagree-error`}>
+              {dissent.saveError}
+            </p>
+          ) : null}
+          <PanelActRow className="justify-between">
+            <button
+              type="button"
+              onClick={dissent.close}
+              className={`${typography.panelBody} ${action('text')}`}
+              data-testid={`${testId}-disagree-cancel`}
+            >
+              {COPY.dissent.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={dissent.draft.trim() === ''}
+              className={`${typography.panelBody} ${action('text')} ml-auto disabled:cursor-default disabled:opacity-40`}
+              data-testid={`${testId}-disagree-save`}
+            >
+              {ZONE.disagreeSave}
+            </button>
+          </PanelActRow>
+        </form>
+      ) : objection && shown.kind === 'intervention' ? (
+        <div
+          className="grid gap-1 pt-2 pb-1"
+          role="status"
+          data-testid={`${testId}-disagree-receipt`}
+          data-recommendation-id={shown.rec.id}
+        >
+          <p className={`${typography.panelMeta} text-text-light m-0`}>{ZONE.disagreeRecorded}</p>
+          <p className={`${typography.panelBody} text-text-body m-0 whitespace-pre-wrap`} data-testid={`${testId}-disagree-words`}>
+            {objection.reason}
+          </p>
+          {onDisagree ? (
+            <button
+              type="button"
+              onClick={() => onDisagree(shown.rec)}
+              className={`${typography.panelMeta} ${action('text')} justify-self-start`}
+              data-testid={`${testId}-disagree-discuss`}
+            >
+              {ZONE.disagreeDiscuss}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>,
     acts,

@@ -64,4 +64,18 @@ export const CHALLENGE_ZONE_COPY = {
   respondCancel: 'Cancel',
   /** The send act's name AND its visible label (V2 prototype `sendButton()`). */
   respondSend: 'Send to Olumi',
+  /**
+   * "I disagree" (in the ⋯ menu) opens an inline composer that RECORDS the
+   * objection (`useFindingDissent`). Label of its textarea.
+   */
+  disagreeLabel: 'What do you disagree with?',
+  /** The composer's write act (beside Cancel). */
+  disagreeSave: 'Save',
+  /**
+   * The receipt. Rendered only from the durable dissent record read back by
+   * the finding's id, so it is never shown for a write that failed.
+   */
+  disagreeRecorded: 'Your objection is recorded.',
+  /** The receipt's secondary act: the old chat route, with the finding. */
+  disagreeDiscuss: 'Discuss with Olumi',
 } as const
