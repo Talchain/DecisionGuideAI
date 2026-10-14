@@ -128,7 +128,29 @@ export interface PostFooterMetaInput {
  */
 export function derivePostFooterStatus(
   robustnessVerdict: RobustnessDisplayVerdict | null | undefined,
+  /**
+   * May THIS run's stability be stated at all? Production call sites pass
+   * `analysisClaimPolicy(recommendation).mayStateStability` — the one authority
+   * (`comparative_leader` on BOTH the current admission and the displayed
+   * run's own), never a literal. Required, so no caller can forget it.
+   */
+  stabilityLicensed: boolean,
 ): PostFooterStatus {
+  // ⛔ THE LICENCE OUTRANKS THE VERDICT (PL #94 6135017311, witnessed on the
+  // served legacy capture 14 Oct: `permitted_analysis_mode:
+  // quantified_provisional`, `leader_licence: withheld`, PLoT
+  // `display_verdict: robust` → this footer read "Stable ranking"). The
+  // producer's verdict decides WHICH word we would say; the admission decides
+  // whether we may say one. Both directions are withheld — "sensitive" is a
+  // stability verdict too — and the label is the neutral one the Analysis
+  // tab's checks glyph and the Reasoning tab already use for this exact state,
+  // never a softer verdict.
+  if (
+    !stabilityLicensed &&
+    (robustnessVerdict === 'robust' || robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile')
+  ) {
+    return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness not established' }
+  }
   if (robustnessVerdict === 'robust') {
     return { icon: 'check', iconClass: 'text-success', label: 'Stable ranking' }
   }

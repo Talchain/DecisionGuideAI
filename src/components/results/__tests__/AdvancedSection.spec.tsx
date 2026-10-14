@@ -67,7 +67,7 @@ describe('AdvancedSection', () => {
   // (premise 1) — NEVER the deprecated recommendation_stability. The mapping
   // is the shared ROBUSTNESS-VERDICT-CONTRACT (derivePostFooterStatus).
   it('renders "Stable ranking" for a robust display verdict', () => {
-    render(<AdvancedSection robustnessVerdict="robust" />)
+    render(<AdvancedSection robustnessVerdict="robust" stabilityLicensed />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
     const row = screen.getByTestId('receipt-result-stability')
     expect(row).toHaveTextContent('Result stability')
@@ -75,11 +75,23 @@ describe('AdvancedSection', () => {
   })
 
   it('renders "Ranking sensitive to assumptions" for moderate and fragile verdicts', () => {
-    const { rerender } = render(<AdvancedSection robustnessVerdict="moderate" />)
+    const { rerender } = render(<AdvancedSection robustnessVerdict="moderate" stabilityLicensed />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
     expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Ranking sensitive to assumptions')
-    rerender(<AdvancedSection robustnessVerdict="fragile" />)
+    rerender(<AdvancedSection robustnessVerdict="fragile" stabilityLicensed />)
     expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Ranking sensitive to assumptions')
+  })
+
+  // PL #94 6135017311: the run's licence (`mayStateStability`) outranks the
+  // verdict, and the prop is FAIL-CLOSED — absent is not a licence.
+  it('renders "Robustness not established", never a ranking verdict, when the run is unlicensed or the licence is absent', () => {
+    const { rerender } = render(<AdvancedSection robustnessVerdict="robust" stabilityLicensed={false} />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Robustness not established')
+    expect(screen.queryByText('Stable ranking')).not.toBeInTheDocument()
+    rerender(<AdvancedSection robustnessVerdict="fragile" />)
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Robustness not established')
+    expect(screen.queryByText('Ranking sensitive to assumptions')).not.toBeInTheDocument()
   })
 
   it('renders "Robustness not assessed" for the producer not_assessed verdict', () => {
@@ -104,7 +116,7 @@ describe('AdvancedSection', () => {
   // never surface as a percentage. Mutation: re-add the old Stability % row →
   // this goes RED.
   it('renders NO recommendation_stability-sourced value (negative pin)', () => {
-    render(<AdvancedSection stability={0.4375} robustnessVerdict="robust" nSamples={1000} />)
+    render(<AdvancedSection stability={0.4375} robustnessVerdict="robust" stabilityLicensed nSamples={1000} />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
     // The deprecated stability % (44% / 43%) must not appear anywhere.
     expect(screen.queryByText('44%')).not.toBeInTheDocument()
@@ -302,6 +314,7 @@ describe('AdvancedSection', () => {
     render(
       <AdvancedSection
         robustnessVerdict="robust"
+        stabilityLicensed
         nSamples={5000}
         fragileEdgeCount={2}
         robustEdgeCount={8}

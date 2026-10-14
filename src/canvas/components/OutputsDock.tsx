@@ -191,6 +191,7 @@ import {
   deriveRerunActionLabel,
 } from './utils/postAnalysisFooter'
 import { rankingWasWithheld } from '../../components/results/leaderDesignation'
+import { analysisClaimPolicy } from '../../components/results/analysisClaimPolicy'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import {
   selectAnalysisReadinessAuthority,
@@ -2106,7 +2107,18 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // from raw stability (which contradicted the glyph on the same tab). Raw
   // stability is retained only as neutral metadata in derivePostFooterMeta
   // below. See ./utils/postAnalysisFooter.ts + ROBUSTNESS-VERDICT-CONTRACT.
-  const postFooterStatus = derivePostFooterStatus(resultsSectionData.recommendation.robustnessVerdict)
+  // ⛔ AND ONLY WHERE THIS RUN'S LICENCE SUPPORTS A STABILITY STATEMENT (PL #94
+  // 6135017311): a `quantified_provisional` run read "Stable ranking" here from
+  // PLoT's verdict alone, while the checks glyph and the Reasoning tab — which
+  // read `mayStateStability` — said "Robustness not established".
+  // DL ruling (14 Oct 2026): a run whose LEADER alone is withheld does not license a ranking-stability claim either.
+  const footerStabilityLicensed =
+    analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability &&
+    !rankingWasWithheld(resultsSectionData.recommendation)
+  const postFooterStatus = derivePostFooterStatus(
+    resultsSectionData.recommendation.robustnessVerdict,
+    footerStabilityLicensed,
+  )
   const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, unknown: HelpCircle } as const
   const postRunFooter = {
     icon: POST_FOOTER_ICONS[postFooterStatus.icon],
@@ -2138,7 +2150,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
      * The third site is `TriageActionCardsBody.tsx:763`, on the PARKED Analysis
      * tab, and is deliberately NOT changed here — reported rather than fixed.
      */
-    robustnessVerdictReason: rankingWasWithheld(resultsSectionData.recommendation)
+    //
+    // The status line's licence (above) also gates this sentence: "this run
+    // held up under the changes we tested" is the same stability claim in the
+    // producer's words, and an unlicensed run states neither.
+    robustnessVerdictReason: rankingWasWithheld(resultsSectionData.recommendation) || !footerStabilityLicensed
       ? null
       : resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],

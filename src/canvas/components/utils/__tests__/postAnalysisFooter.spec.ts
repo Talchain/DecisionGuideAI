@@ -50,7 +50,7 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
   // recommendation_stability. So the helper takes the verdict, not a number.
 
   it('verdict "robust" → success "Stable ranking" (the ONLY path to a positive verdict)', () => {
-    expect(derivePostFooterStatus('robust')).toEqual({
+    expect(derivePostFooterStatus('robust', true)).toEqual({
       icon: 'check',
       iconClass: 'text-success',
       label: 'Stable ranking',
@@ -59,7 +59,7 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
 
   it('verdict "moderate" | "fragile" → warning "Ranking sensitive to assumptions"', () => {
     for (const v of ['moderate', 'fragile'] as const) {
-      expect(derivePostFooterStatus(v)).toEqual({
+      expect(derivePostFooterStatus(v, true)).toEqual({
         icon: 'warning',
         iconClass: 'text-warning',
         label: 'Ranking sensitive to assumptions',
@@ -68,7 +68,7 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
   })
 
   it('verdict "not_assessed" → neutral "Robustness not assessed" (the producer\'s own stated absence, never "Sensitive")', () => {
-    expect(derivePostFooterStatus('not_assessed')).toEqual({
+    expect(derivePostFooterStatus('not_assessed', true)).toEqual({
       icon: 'unknown',
       iconClass: 'text-text-light',
       label: 'Robustness not assessed',
@@ -77,7 +77,7 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
 
   it('undefined / null verdict → neutral "Robustness unknown" (older PLoT builds; matches the certified glyph)', () => {
     for (const v of [undefined, null] as const) {
-      expect(derivePostFooterStatus(v)).toEqual({
+      expect(derivePostFooterStatus(v, true)).toEqual({
         icon: 'unknown',
         iconClass: 'text-text-light',
         label: 'Robustness unknown',
@@ -88,11 +88,28 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
   it('trust fix: an ABSENT display-safe verdict never renders "Stable ranking" nor a green/check positive icon', () => {
     // Previously raw stability ≥ 0.85 rendered a green "Stable ranking" that
     // contradicted the neutral robustness glyph.
-    const status = derivePostFooterStatus(undefined)
+    const status = derivePostFooterStatus(undefined, true)
     expect(status.label).not.toBe('Stable ranking')
     expect(status.icon).not.toBe('check')
     expect(status.iconClass).not.toContain('success')
     expect(status.label).toBe('Robustness unknown')
+  })
+})
+
+describe('derivePostFooterStatus — the Run\'s licence outranks the verdict (PL #94 6135017311)', () => {
+  it('an unlicensed run states no stability verdict in EITHER direction', () => {
+    for (const v of ['robust', 'moderate', 'fragile'] as const) {
+      expect(derivePostFooterStatus(v, false)).toEqual({
+        icon: 'unknown',
+        iconClass: 'text-text-light',
+        label: 'Robustness not established',
+      })
+    }
+  })
+
+  it('the non-verdict states are unchanged by the licence (nothing to withhold)', () => {
+    expect(derivePostFooterStatus('not_assessed', false)).toEqual(derivePostFooterStatus('not_assessed', true))
+    expect(derivePostFooterStatus(undefined, false)).toEqual(derivePostFooterStatus(undefined, true))
   })
 })
 
@@ -119,7 +136,7 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
     ['array', []],
   ]
   it.each(UNEXPECTED)('%s → neutral "Robustness unknown", no verdict / no positive styling', (_label, value) => {
-    const status = derivePostFooterStatus(value as unknown as RobustnessDisplayVerdict)
+    const status = derivePostFooterStatus(value as unknown as RobustnessDisplayVerdict, true)
     expect(status).toEqual(NEUTRAL)
     expect(status.label).not.toBe('Stable ranking')
     expect(status.label).not.toBe('Ranking sensitive to assumptions')
