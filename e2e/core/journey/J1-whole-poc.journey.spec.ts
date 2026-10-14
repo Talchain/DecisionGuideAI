@@ -118,7 +118,7 @@ const J: {
   G2?: Graph; H2?: string; H2id?: string
   AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
   G0?: Graph; H0?: string; R0?: string | null; sized?: { from: string; to: string; target: number }[]; j2dBranch?: J2dBranch
-  optionEdit?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
+  optionEdit?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number; stripName?: string }
   j5Branch?: 'fragile_link' | 'option_intervention'; j5Option?: { option: string; factor: string; value: number; factorLabel: string; typed: string; typedNumber: number; stored?: number }
   cardS?: string; C?: string
 } = {}
@@ -590,6 +590,19 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(after.current_read?.computed_against_hash, '[J2d] the fresh Run is still R1\'s analysis').not.toBe(J.A1)
     expect(after.current_read?.computed_against_hash, '[J2d] the fresh Run was not computed on the current model').toBe(after.current_read?.current_analysis_hash)
     expect(after.analysis_state?.run_state?.computed_at, '[J2d] the current Run is R1, not a fresh Run').not.toBe(J.R1at)
+    if (J.optionEdit) {
+      // The automatic Run IS the re-Run on the edited model (#2767), so the user's "what changed" belongs to it. On screen
+      // after a real reload, by identity: the "Since the last run" strip names THIS option's target and the typed figure
+      // ("Starter-tier price, Launch £49 starter tier: £49 per subscriber / month → £59 per subscriber / month").
+      // A reload makes no AI call, so the frozen boundary is untouched.
+      const oe = J.optionEdit
+      const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      await pageA.reload({ waitUntil: 'load' })
+      await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: '[J2d reload] the reload does not render the edited model by id', timeout: 120_000 }).toEqual(nodesOf(G))
+      const strip = pageA.getByRole('button', { name: new RegExp(`^${esc(oe.factorLabel)}, ${esc(labelOf(G, oe.option))}: .*→\\D*${esc(String(oe.typedNumber))}\\b`) })
+      await expect(strip, `[J2d reload] after the automatic Run, the since-last-run strip does not show ${oe.factorLabel} under ${labelOf(G, oe.option)} moving to ${oe.typedNumber}`).toHaveCount(1, { timeout: 30_000 })
+      oe.stripName = (await strip.getAttribute('aria-label')) ?? (await strip.innerText())
+    }
     J.G0 = J.G1; J.H0 = J.H1; J.R0 = J.R1; J.sized = sized
     J.G1 = G; J.H1 = body.graph_hash; J.H1id = body.graph_identity_hash?.value
     writeEvidence('J2d-edit.json', { branch, warning: w ? { code: w.code, option_ids: w.option_ids, links: w.links } : null, sized, option_edit: J.optionEdit ?? null, H0: J.H0, H1: J.H1 })
@@ -655,16 +668,16 @@ test.describe.serial('J1 · whole PoC', () => {
     if (J.optionEdit) {
       const oe = J.optionEdit
       const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const optionLabel = labelOf(J.G1!, oe.option)
-      // On screen after the reload, by identity: the "Since the last run" strip names THIS option's target and the typed
-      // figure ("Starter-tier price, Launch £49 starter tier: £49 per subscriber / month → £59 per subscriber / month").
-      const strip = pageA.getByRole('button', { name: new RegExp(`^${esc(oe.factorLabel)}, ${esc(optionLabel)}: .*→\\D*${esc(String(oe.typedNumber))}\\b`) })
-      await expect(strip, `[J2e reload] the since-last-run strip does not show ${oe.factorLabel} under ${optionLabel} moving to ${oe.typedNumber}`).toHaveCount(1, { timeout: 30_000 })
-      shown.push({ what: `${oe.option}:${oe.factor} (since-last-run strip)`, shown: oe.typedNumber })
+      // J2e's rerun is on a model the automatic Run already analysed (#2767), so after the reload the strip says exactly
+      // that, by its own words; the £49 → £59 change was shown for the automatic Run in J2d ([J2d reload]).
+      await expect(pageA.getByRole('status').filter({ hasText: 'Since the last run' }).getByText('Both runs used the same input values.', { exact: true }),
+        '[J2e reload] after a rerun on an unchanged model, the since-last-run strip does not say both runs used the same input values').toHaveCount(1, { timeout: 30_000 })
+      shown.push({ what: `${oe.option}:${oe.factor} (since-last-run strip, J2d auto-run)`, shown: oe.typedNumber })
       // After a real reload the user's typed figure is shown where they set it, in its own unit frame (02 #2722 fixed the
       // S2 defect where the card and inspector fell back to "Increases", #87 6072744712). The frame is the one the
-      // since-last-run strip uses for the same target (e.g. "£"), so nothing here is pinned to this brief's currency.
-      const stripName = (await strip.getAttribute('aria-label')) ?? (await strip.innerText())
+      // since-last-run strip used for the same target in J2d (e.g. "£"), so nothing here is pinned to this brief's currency.
+      const stripName = oe.stripName ?? ''
+      expect(stripName, '[J2e reload] J2d recorded no since-last-run strip for the edit').not.toBe('')
       const prefix = (stripName.match(new RegExp(`→\\s*(\\D*?)${esc(String(oe.typedNumber))}\\b`)) ?? [, ''])[1]!.trim()
       const card = pageA.locator(`.react-flow__node[data-id="${oe.option}"]`).getByRole('button', { name: `${oe.factorLabel}, as this option sets it — click to edit` })
       await expect(card, `[J2e reload] the option card does not show ${prefix}${oe.typedNumber} for ${oe.factorLabel}`)
