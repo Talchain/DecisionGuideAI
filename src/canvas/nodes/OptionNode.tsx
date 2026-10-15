@@ -826,14 +826,13 @@ export const OptionNode = memo((props: NodeProps) => {
   // card read. A matched 'withheld' puts no badge on any card; with no matched view the admission read below answers alone.
   const canonicalScenarioId = useCanvasStore(state => state.currentScenarioId)
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.scenarioId === canonicalScenarioId ? s.view : null)
-  const runLeaderLicensed = useMemo(() => {
-    return ceeLeaderPermits(runViewOf(resultsReport, heldCanonical), verdict.leaderId) ?? true
-  }, [resultsReport, heldCanonical, verdict.leaderId])
+  const runLeaderView = useMemo(() => runViewOf(resultsReport, heldCanonical), [resultsReport, heldCanonical])
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
-    if (!modelLicensesComparativeClaim || !runLeaderLicensed) return false
+    // S7 (DL #2800 follow-up): CEE's licence AND its leader identity, read behind the compute-status gate above.
+    if (!modelLicensesComparativeClaim || !(ceeLeaderPermits(runLeaderView, verdict.leaderId) ?? true)) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, runLeaderLicensed, verdict, props.id])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, runLeaderView, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   /** The analysis view describes a graph other than the saved one (`analysisViewIsStale`): the saved numbers stand. */
