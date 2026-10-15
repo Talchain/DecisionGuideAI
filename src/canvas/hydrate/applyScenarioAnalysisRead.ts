@@ -81,6 +81,7 @@
  */
 
 import { RunDeliveredRecordSchema, RunDeltaSchema, type RunDeliveredRecord } from '@talchain/schemas/boundary'
+import { stampCanonicalRunId, type CanonicalAnalysisView } from '../runView/canonicalAnalysisView'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../state/storedRunDelta'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
@@ -387,6 +388,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly analysisResult: unknown
   /** Supplied only under the caller's accepted-current-read proof; null means unavailable. */
   readonly currentReadInputBasis?: unknown
+  /** The canonical view delivered WITH this read (parsed); its Run id is stamped onto the report (`stampCanonicalRunId`). */
+  readonly canonicalAnalysisView?: CanonicalAnalysisView | null
   /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
   readonly goalCertainty?: unknown
   /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
@@ -544,6 +547,7 @@ export function applyScenarioAnalysisRead(
       optionParticipation: readOptionParticipation(input.optionParticipation),
     })
     if (input.currentReadInputBasis !== undefined) report.current_read_input_basis = input.currentReadInputBasis
+    stampCanonicalRunId(report as unknown as Record<string, unknown>, input.canonicalAnalysisView ?? null)
     const hash = report.model_card.response_hash
     // Before the dedupe below: a re-read of the Run already shown is exactly the read that brings this set.
     recordIdentityEvaluated(hash, input.identityEvaluated)

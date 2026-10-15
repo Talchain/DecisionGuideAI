@@ -100,6 +100,11 @@ export interface RunView {
    */
   readonly leaderLicence: () => CanonicalAnalysisView['leader_licence'] | null
   /**
+   * S7 (CEE #3192): WHO CEE says leads THIS Run (`canonical_analysis_view.leader.option_id`), from the view matched by
+   * identity. `undefined` = no matched view, or a CEE that serves no `leader`; `null` = CEE names no leader.
+   */
+  readonly leaderOptionId: () => string | null | undefined
+  /**
    * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
    */
@@ -140,6 +145,7 @@ const EMPTY: RunView = {
   chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), withheldReasonCodesOf: () => [],
   boundToCurrentCanonical: () => false,
   leaderLicence: () => null,
+  leaderOptionId: () => undefined,
   participationOf: () => null,
   goalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
@@ -309,6 +315,7 @@ export function runViewFromParts(
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     boundToCurrentCanonical: () => current !== null,
     leaderLicence: () => held?.leader_licence ?? null,
+    leaderOptionId: () => (held?.leader === undefined ? undefined : held.leader.option_id),
     withheldReasonCodesOf: (optionId) => {
       const cell = current?.options.find(o => o.option_id === optionId)?.cell
       return cell?.kind === 'withheld' ? cell.reasons.map(reason => reason.code) : []
@@ -346,6 +353,20 @@ export function runViewFromParts(
 export function ceeLicencePermitsLeader(licence: string | null): boolean | null {
   if (licence === null) return null
   return licence === 'permitted' || licence === 'permitted_with_caveat'
+}
+
+/**
+ * ⭐ S7/S9 (DL #2800 follow-up, 15 Oct): may THIS surface designate `leadingOptionId` (its report's `leading_option_id`)
+ * as the leader? Where the matched view carries CEE's `leader`, only on a positive licence AND when CEE names that SAME
+ * option: CEE's identity decides WHO, so a report whose leader CEE does not name designates none. A matched view from a
+ * CEE that serves no `leader` keeps the licence alone. `null` = no matched view: the caller's fallback (until fail-closed).
+ */
+export function ceeLeaderPermits(view: RunView, leadingOptionId: unknown): boolean | null {
+  const permits = ceeLicencePermitsLeader(view.leaderLicence())
+  if (permits === null) return null
+  const leader = view.leaderOptionId()
+  if (leader === undefined) return permits
+  return permits && leader !== null && leader === leadingOptionId
 }
 
 export function chatCardRunViewOf(

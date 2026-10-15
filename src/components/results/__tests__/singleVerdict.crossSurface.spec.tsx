@@ -1,5 +1,5 @@
 import { useCanonicalAnalysisViewStore } from '@/canvas/stores/canonicalAnalysisViewStore'
-import type { CanonicalAnalysisView } from '@/canvas/runView/canonicalAnalysisView'
+import { parseCanonicalAnalysisView, type CanonicalAnalysisView } from '@/canvas/runView/canonicalAnalysisView'
 import served from '@/canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
 import servedLicences from './fixtures/served-leader-licence-20261014.json'
 import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
@@ -483,9 +483,11 @@ it('view-bearing control: singleVerdict Results panel preserves its single verdi
 // witness, CEE 880b35b4) and hiring 'withheld' (leader_claim goal_path_unsized). The SAME clearly separated Run (72% vs
 // 20%) is bound to each view by the view's own run id, so only CEE's licence differs between the rows.
 describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the Run by identity', () => {
-  const bindServed = (name: 'capacity' | 'hiring', runId?: string): void => {
+  const bindServed = (name: 'capacity' | 'hiring', runId?: string, leader?: CanonicalAnalysisView['leader'] | 'malformed'): void => {
     setStore(CLEAR_RUN)
-    const view = servedLicences[name].canonical_analysis_view as unknown as CanonicalAnalysisView
+    const served = servedLicences[name].canonical_analysis_view as unknown as CanonicalAnalysisView
+    const view = (leader === undefined ? served
+      : parseCanonicalAnalysisView({ ...served, leader: leader === 'malformed' ? { licence: 'permitted', option_id: 42 } : leader }))!
     useCanonicalAnalysisViewStore.getState().adopt(`q3a-${name}`, view)
     const state = useCanvasStore.getState()
     useCanvasStore.setState({ currentScenarioId: `q3a-${name}`,
@@ -514,5 +516,28 @@ describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the 
   it('IDENTITY: CEE\'s withheld for a DIFFERENT Run does not decide this one (no admission recorded: today\'s behaviour)', () => {
     bindServed('hiring', 'some-other-run')
     expect(readLicence()).toEqual({ permitted: true, source: 'fallback' })
+  })
+
+  // ⭐ DL #2800 follow-up (15 Oct): WHO leads is CEE's own `leader.option_id` (CEE #3192, `run-facts.ts` `RunLeader`, the
+  // producer's full shape below), never the UI's. The served capacity view, licence 'permitted_with_caveat', carries a
+  // `leader` naming one option; the option the surfaces designate must be that SAME option, or nothing is designated.
+  const cee = (option_id: string | null): CanonicalAnalysisView['leader'] => ({ licence: 'permitted_with_caveat', option_id,
+    goal_chance_leader: null, similar_option_ids: [], near_tie: false, robustness: 'moderate' } as unknown as CanonicalAnalysisView['leader'])
+  it('LEADER IDENTITY: CEE names the report\'s own leader → designated', () => {
+    bindServed('capacity', undefined, cee(WINNER_ID))
+    expect(readLicence()).toEqual({ permitted: true, source: 'cee-permitted_with_caveat' })
+  })
+  it('LEADER IDENTITY: CEE names a DIFFERENT option → the panel\'s leader is not designated', () => {
+    bindServed('capacity', undefined, cee(RUNNER_UP_ID))
+    expect(readLicence()).toEqual({ permitted: false, source: 'cee-permitted_with_caveat' })
+  })
+  it('LEADER IDENTITY: CEE names NO leader (null) → none designated, even under a positive licence', () => {
+    bindServed('capacity', undefined, cee(null))
+    expect(readLicence()).toEqual({ permitted: false, source: 'cee-permitted_with_caveat' })
+  })
+  it('LEADER IDENTITY: a malformed leader is dropped and the view still stands on its licence alone', () => {
+    bindServed('capacity', undefined, 'malformed')
+    expect(useCanonicalAnalysisViewStore.getState().view?.leader).toBeUndefined()
+    expect(readLicence()).toEqual({ permitted: true, source: 'cee-permitted_with_caveat' })
   })
 })

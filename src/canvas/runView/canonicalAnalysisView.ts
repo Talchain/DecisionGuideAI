@@ -27,6 +27,16 @@ export interface CanonicalAnalysisView {
   readonly options: readonly { readonly option_id: string; readonly cell: CanonicalAnalysisCell; readonly main_driver: CanonicalMainDriver }[]
   /** Recovery Batch C (CEE `canonicalGoalChanceDetail`): what the chance is a chance OF, and the lines said once beside it. */
   readonly goal_chance?: CanonicalGoalChanceDetail
+  /**
+   * S7 (CEE #3192, served from 15 Oct 02:32Z; `run-facts.ts` `RunLeader`): WHO leads this Run, as CEE says it. `option_id`
+   * is the comparative leader only where the licence permits naming one and the Run is current, else null. Absent from
+   * an older CEE, and dropped here when malformed (the rest of the view still stands).
+   */
+  readonly leader?: CanonicalRunLeader
+}
+export interface CanonicalRunLeader {
+  readonly licence: CanonicalAnalysisView['leader_licence']
+  readonly option_id: string | null
 }
 /**
  * Recovery Batch C, CEE `canonical-analysis-view.ts` `CanonicalGoalChanceDetail`, copied from the Run's stored licence. The
@@ -64,6 +74,12 @@ export function parseCanonicalGoalChance(v: unknown): CanonicalGoalChanceDetail 
       && row.options.every(o => rec(o) && sayable(o.option_id) && sayable(o.display)))) return undefined
   }
   return v as unknown as CanonicalGoalChanceDetail
+}
+/** CEE's `leader` (licence + option id only; the rest is CEE's own), or `undefined` when absent or malformed. */
+function parseCanonicalRunLeader(v: unknown): CanonicalRunLeader | undefined {
+  if (!rec(v) || !['permitted', 'permitted_with_caveat', 'withheld'].includes(v.licence as string)) return undefined
+  if (!(v.option_id === null || (typeof v.option_id === 'string' && v.option_id.trim() !== ''))) return undefined
+  return { licence: v.licence as CanonicalRunLeader['licence'], option_id: v.option_id }
 }
 /** The only parser of the opaque field carried by the READ adapter. */
 export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | null {
@@ -104,8 +120,28 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
           && typeof reason.code === 'string' && nullableString(reason.message))) return null
       } else if (cell.kind !== 'none') return null
     }
-    const { goal_chance: goalChanceRaw, ...view } = v
+    const { goal_chance: goalChanceRaw, leader: leaderRaw, ...view } = v
     const goalChance = parseCanonicalGoalChance(goalChanceRaw)
-    return { ...view, ...(goalChance === undefined ? {} : { goal_chance: goalChance }) } as unknown as CanonicalAnalysisView
+    const leader = parseCanonicalRunLeader(leaderRaw)
+    return {
+      ...view,
+      ...(goalChance === undefined ? {} : { goal_chance: goalChance }),
+      ...(leader === undefined ? {} : { leader }),
+    } as unknown as CanonicalAnalysisView
   } catch { return null }
+}
+
+/**
+ * ⭐ DL #2800 follow-up (15 Oct): stamp a Results report with the Run id of the canonical view DELIVERED WITH IT (the same
+ * turn or the same read), so `runViewOf` matches it by Run identity rather than hash + time. Only when the report has no
+ * id of its own and the view's Run is the report's graph (`graph_hash_at_run === computed_against_hash`): a co-delivered
+ * view about another Run never stamps. Mutates the freshly built report before it is stored.
+ */
+export function stampCanonicalRunId(report: Record<string, unknown>, canonical: CanonicalAnalysisView | null): void {
+  const run = canonical?.run
+  if (run == null || typeof run.run_id !== 'string' || run.run_id === '') return
+  if (typeof report.run_id === 'string' && report.run_id !== '') return
+  const hash = report.computed_against_hash
+  if (typeof hash !== 'string' || hash === '' || hash !== run.graph_hash_at_run) return
+  report.run_id = run.run_id
 }
