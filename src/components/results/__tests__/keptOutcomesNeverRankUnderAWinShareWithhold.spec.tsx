@@ -18,6 +18,7 @@ import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { rankingWasWithheld } from '../leaderDesignation'
 import served from '../../../canvas/__tests__/fixtures/served-0303ef5-pricing-withheld-run.json'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 afterEach(() => {
   cleanup()
@@ -60,13 +61,14 @@ function seed(withhold: boolean) {
       status: 'complete',
       progress: 100,
       // A PERMITTED run (the producer separates the arms), so only the withhold can stop the ranking.
-      report: {
+      // FAIL CLOSED (15 Oct): CEE's matched view names 59_with_next_release, as served.
+      report: holdLeaderForReport({
         ...report,
         robustness: {
           ...(report.robustness as object),
           near_tie: { is_tie: false, top_option_id: '59_with_next_release', second_option_id: 'keep_49_price', gap: 0.69, threshold: 0.1 },
         },
-      },
+      }, 'permitted', '59_with_next_release'),
     } as never,
   } as never)
 }

@@ -27,26 +27,30 @@ import { AnalysisNewTabBody } from '../analysisNew/AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 import { admission, OPT_HEDGE, OPT_BOLD, OPT_HEDGE_LABEL, resetStore, setStore } from './helpers/admissionGatesHarness'
 import type { PermittedAnalysisMode } from '../../../adapters/cee/types'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 /** The served shape: the producer's band names the leader, not robustness-gated. */
 function withSlightlyAheadHeadline(mode: PermittedAnalysisMode) {
   setStore({ separated: true, admission: admission(mode) })
   const s = useCanvasStore.getState() as unknown as { results: { report: Record<string, unknown> } }
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hedge, as served. The Run's licence permits in both arms, so the
+  // CURRENT-graph admission (`ceeAnalysisReady`, set by `setStore`) is what withholds under quantified_provisional.
+  const report = holdLeaderForReport({
+    ...s.results.report,
+    leading_option_id: OPT_HEDGE,
+    decision_brief: {
+      headline_banded: {
+        band: 'slightly_ahead',
+        leader_option_id: OPT_HEDGE,
+        second_option_id: OPT_BOLD,
+        robustness_gated: false,
+      },
+    },
+  }, 'permitted', OPT_HEDGE)
   useCanvasStore.setState({
     results: {
       ...s.results,
-      report: {
-        ...s.results.report,
-        leading_option_id: OPT_HEDGE,
-        decision_brief: {
-          headline_banded: {
-            band: 'slightly_ahead',
-            leader_option_id: OPT_HEDGE,
-            second_option_id: OPT_BOLD,
-            robustness_gated: false,
-          },
-        },
-      },
+      report,
     },
   } as never)
   return renderHook(() => useResultsSectionData()).result.current

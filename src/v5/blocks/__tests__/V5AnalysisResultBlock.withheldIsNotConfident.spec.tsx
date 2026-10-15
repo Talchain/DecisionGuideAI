@@ -22,6 +22,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { calibrateUncertaintyCopy } from '../../../components/results/utils/uncertaintyCalibration'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 const RAISE = 'Raise Pro to £59'
 const HOLD = 'Hold Pro at £49'
@@ -69,6 +70,10 @@ function block(opts: {
 
 afterEach(() => cleanup())
 
+/** FAIL CLOSED (15 Oct): the card's Run as CEE serves it, with CEE's matched view holding `licence` and `leader`. */
+const served = (b: V5AnalysisResultBlockType, licence: 'permitted' | 'withheld', leader: string | null) =>
+  holdLeaderForCard(b, licence, leader)
+
 describe('the confident tier needs a licensed leader', () => {
   it('PRECONDITION: these robustness inputs calibrate to the confident tier', () => {
     expect(calibrateUncertaintyCopy({ robustnessLevel: 'high', robustnessLabel: null, p10: 0.1, p90: 0.4 } as never)?.tier)
@@ -76,12 +81,14 @@ describe('the confident tier needs a licensed leader', () => {
   })
 
   it('CONTRAST: a permitted run says it looks fairly confident', () => {
-    render(<V5AnalysisResultBlock block={block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'high' })} />)
+    // FAIL CLOSED (15 Oct): CEE's matched view names opt_raise, as served.
+    render(<V5AnalysisResultBlock block={served(block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'high' }), 'permitted', 'opt_raise')} />)
     expect(screen.getByTestId(COPY_ID)).toHaveTextContent(CONFIDENT)
   })
 
   it('⭐ a WITHHELD run (identities stripped) does not say it looks fairly confident', () => {
-    render(<V5AnalysisResultBlock block={block({ leadingOptionId: null, nearTie: withheldProjection(), robustnessLevel: 'high' })} />)
+    // FAIL CLOSED (15 Oct): CEE withheld this Run, so its matched view says 'withheld' (names none), as served.
+    render(<V5AnalysisResultBlock block={served(block({ leadingOptionId: null, nearTie: withheldProjection(), robustnessLevel: 'high' }), 'withheld', null)} />)
     expect(screen.queryByText(CONFIDENT)).toBeNull()
     expect(screen.queryByTestId(COPY_ID)).toBeNull()
   })
@@ -89,14 +96,16 @@ describe('the confident tier needs a licensed leader', () => {
   it('a NEAR-TIE run (the producer denies a leader) does not say it looks fairly confident', () => {
     render(
       <V5AnalysisResultBlock
-        block={block({ leadingOptionId: 'opt_raise', nearTie: { ...permitting(), is_tie: true }, robustnessLevel: 'high' })}
+        // FAIL CLOSED (15 Oct): CEE's matched view names opt_raise, as served; the near tie is what withholds.
+        block={served(block({ leadingOptionId: 'opt_raise', nearTie: { ...permitting(), is_tie: true }, robustnessLevel: 'high' }), 'permitted', 'opt_raise')}
       />,
     )
     expect(screen.queryByText(CONFIDENT)).toBeNull()
   })
 
   it('the tentative tier still renders on a withheld run — it states doubt and names no winner', () => {
-    render(<V5AnalysisResultBlock block={block({ leadingOptionId: null, nearTie: withheldProjection(), robustnessLabel: 'fragile' })} />)
+    // FAIL CLOSED (15 Oct): CEE withheld this Run, so its matched view says 'withheld' (names none), as served.
+    render(<V5AnalysisResultBlock block={served(block({ leadingOptionId: null, nearTie: withheldProjection(), robustnessLabel: 'fragile' }), 'withheld', null)} />)
     const copy = screen.getByTestId(COPY_ID)
     expect(copy).not.toHaveTextContent(CONFIDENT)
     expect(copy.textContent?.length ?? 0).toBeGreaterThan(0)
@@ -111,14 +120,16 @@ describe('the confident tier needs a licensed leader', () => {
       .toBe('moderate')
     render(
       <V5AnalysisResultBlock
-        block={block({ leadingOptionId: 'opt_raise', nearTie: { ...permitting(), is_tie: true }, robustnessLevel: 'moderate' })}
+        // FAIL CLOSED (15 Oct): CEE's matched view names opt_raise, as served; the near tie is what withholds.
+        block={served(block({ leadingOptionId: 'opt_raise', nearTie: { ...permitting(), is_tie: true }, robustnessLevel: 'moderate' }), 'permitted', 'opt_raise')}
       />,
     )
     expect(screen.queryByTestId(COPY_ID)).toBeNull()
   })
 
   it('CONTRAST: a permitted run with a moderate band still says it appears to hold', () => {
-    render(<V5AnalysisResultBlock block={block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'moderate' })} />)
+    // FAIL CLOSED (15 Oct): CEE's matched view names opt_raise, as served.
+    render(<V5AnalysisResultBlock block={served(block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'moderate' }), 'permitted', 'opt_raise')} />)
     expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^Under this model's assumptions, the result held in many simulated futures/)
   })
 })

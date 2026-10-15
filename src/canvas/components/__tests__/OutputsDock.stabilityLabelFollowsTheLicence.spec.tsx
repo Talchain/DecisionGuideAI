@@ -26,6 +26,7 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { derivePostFooterStatus } from '../utils/postAnalysisFooter'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
+import { holdLeaderForReport } from '../../runView/__tests__/helpers/leaderTestView'
 import type { PermittedAnalysisMode } from '../../../adapters/cee/types'
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -122,7 +123,9 @@ function seedPostRun(mode: PermittedAnalysisMode) {
     ],
     edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
     graphHealth: { status: 'healthy', score: 100, issues: [] },
-    results: { status: 'complete', report: reportFor(mode) },
+    // FAIL CLOSED (15 Oct): CEE's matched view names opt_hire, as served — the SAME view on every arm, so the Run's
+    // admission mode stays the one variable and is still what withholds on the ⛔ arms.
+    results: { status: 'complete', report: holdLeaderForReport(reportFor(mode), 'permitted', OPTION_A) },
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: 1 },
     analysisFreshnessDirty: false,
     v5AnalysisFact: null,

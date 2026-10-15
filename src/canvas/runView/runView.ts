@@ -96,7 +96,7 @@ export interface RunView {
    * ⭐ S9/S11 (DL Q3a, 15 Oct): CEE's own `leader_licence` for THIS Run (canonical-analysis-view `leader_licence`: leader
    * claim + separation + admission, composed by CEE), read from the canonical view matched to this Run by identity.
    * `null` when no view is matched to this Run. A matched view DECIDES: 'withheld' names no leader, whatever the UI's own
-   * admission reading says. (Fail-closed on `null` waits until Run-identity matching is proven on the served build.)
+   * admission reading says. `null` designates no leader at every caller (fail closed, 15 Oct).
    */
   readonly leaderLicence: () => CanonicalAnalysisView['leader_licence'] | null
   /**

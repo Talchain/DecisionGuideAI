@@ -13,18 +13,20 @@ import { AtAGlance } from '../sections/AtAGlance'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import { logger } from '../../../../lib/logger'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { leaderTestView } from '../../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 // Graph/census/mode/hash are produced by the real CEE admission authority on an
 // existing captured graph. Only the analysis_result below is an offline mapper
 // fixture, NOT a computation or served acceptance witness.
 const SCENARIO = '11111111-2222-4333-8444-555555555555'
 const RUN_HASH = 'd'.repeat(16) // intentionally differs from the stored-graph CAS hash
+const RUN_ID = 'b3-captured-run'
 const TID = 'analysis-new-glance-conditional-input-basis'
 const options = capture.graph.nodes.filter((n) => n.kind === 'option')
 const probabilities = [0.78, 0.14, 0.08]
 type CensusCase = 'actual' | 'empty' | 'mismatch' | 'absent'
 
-function readBody(kind: CensusCase, current = true) {
+function readBody(kind: CensusCase, current = true, licensed = true) {
   const fixture = kind === 'empty' ? capture.known_empty : capture
   const graphHash = fixture.reference_hash.slice(0, 16)
   const admission: Record<string, unknown> = structuredClone(fixture.projection)
@@ -55,6 +57,12 @@ function readBody(kind: CensusCase, current = true) {
         decision_brief: { headline_banded: { band: 'clearly_ahead', leader_option_id: options[0].id, robustness_gated: false } },
       },
     } : null,
+    // FAIL CLOSED (15 Oct): CEE's matched view names options[0] (the Run's leading_option_id), as served on the read.
+    // Matched to the Run by `graph_hash_at_run` = the result's computed_against_hash (`stampCanonicalRunId`).
+    // Unlicensed: CEE composes the Run's own `quantified_provisional` admission into 'withheld' (names none), as served.
+    ...(current
+      ? { canonical_analysis_view: leaderTestView({ run_id: RUN_ID, graph_hash_at_run: RUN_HASH }, licensed ? 'permitted' : 'withheld', licensed ? options[0].id : null) }
+      : {}),
     request_id: 'b3-captured-canonical-reload',
   }
 }
@@ -66,7 +74,7 @@ function MountedResult() {
 }
 
 async function coldRead(kind: CensusCase, current = true, licensed = true) {
-  const body = readBody(kind, current)
+  const body = readBody(kind, current, licensed)
   expect(AnalysisStateV1Schema.safeParse(body.analysis_state).success).toBe(true)
   expect(body.analysis_admission.admitted).toBe(true)
   expect(body.analysis_admission.permitted_analysis_mode).toBe('comparative_leader')
@@ -88,7 +96,8 @@ async function coldRead(kind: CensusCase, current = true, licensed = true) {
 }
 
 function holdSameReport() {
-  const report = mapV5AnalysisToReport(readBody('actual').analysis_result as never)
+  // FAIL CLOSED (15 Oct): the held report is the same Run, stamped with the Run id CEE's matched view names.
+  const report = Object.assign(mapV5AnalysisToReport(readBody('actual').analysis_result as never), { run_id: RUN_ID })
   useCanvasStore.setState({ results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
     analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' } } as never)
   return report

@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 function makeBlock(
   overrides: {
@@ -22,7 +23,8 @@ function makeBlock(
     p90?: number | null
   } = {},
 ): V5AnalysisResultBlockType {
-  return {
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hire_local, as served.
+  return holdLeaderForCard<V5AnalysisResultBlockType>({
     type: 'v5_analysis_result',
     summary: 'Hire Two Senior Engineers Locally looks strongest.',
     leading_option_id: 'opt_hire_local',
@@ -62,7 +64,7 @@ function makeBlock(
         },
       },
     },
-  }
+  }, 'permitted', 'opt_hire_local')
 }
 
 describe('V5AnalysisResultBlock — Sci-4B verbal uncertainty calibration', () => {

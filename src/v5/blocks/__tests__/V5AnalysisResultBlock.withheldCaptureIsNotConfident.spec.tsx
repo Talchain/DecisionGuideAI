@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 // Kept OUT of `src/v5/__tests__/fixtures/`: that directory is the whole-turn
 // live-capture corpus `optionComputeStatusDivergence.spec.ts` counts and reads,
 // and this file is one block from a capture, not a turn.
@@ -56,12 +57,14 @@ describe('the captured withheld OpenAI pricing run', () => {
   })
 
   it('OPPOSITE CONTROL: the same bytes with the leader identity restored keep today\'s copy', () => {
-    render(<V5AnalysisResultBlock block={{ ...permittedTwin(), type: 'v5_analysis_result' } as unknown as V5AnalysisResultBlockType} />)
+    // FAIL CLOSED (15 Oct): CEE's matched view names raise_pro_to_59_at_release, as served.
+    render(<V5AnalysisResultBlock block={holdLeaderForCard({ ...permittedTwin(), type: 'v5_analysis_result' } as unknown as V5AnalysisResultBlockType, 'permitted', RAISE)} />)
     expect(screen.getByTestId(COPY_ID)).toHaveTextContent(CONFIDENT)
   })
 
   it('⭐ the withheld capture renders no "fairly confident" line', () => {
-    render(<V5AnalysisResultBlock block={{ ...clone(), type: 'v5_analysis_result' } as unknown as V5AnalysisResultBlockType} />)
+    // FAIL CLOSED (15 Oct): the capture's leader_claim is withheld, so CEE's matched view says 'withheld', as served.
+    render(<V5AnalysisResultBlock block={holdLeaderForCard({ ...clone(), type: 'v5_analysis_result' } as unknown as V5AnalysisResultBlockType, 'withheld', null)} />)
     expect(screen.queryByText(CONFIDENT)).toBeNull()
     expect(screen.queryByTestId(COPY_ID)).toBeNull()
     // The producer's own summary still renders: suppression, not a blank card.

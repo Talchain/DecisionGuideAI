@@ -75,6 +75,7 @@ import { ResultsBody } from '../ResultsBody'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -173,8 +174,12 @@ const OPTION_NODES = [
 
 function setStore(nearTie: Signal, shares?: Shares): void {
   const v2 = makeV2Response(nearTie, shares)
+  const mapped = mapV2ResponseToReportV1(v2, { seed: 42 })
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_wholesale, as served, whenever the producer spoke (a tie still
+  // withholds on the producer's own tie call); with no producer signal no view is held.
+  const report = nearTie ? holdLeaderForReport(mapped, 'permitted', WINNER_ID) : mapped
   useCanvasStore.setState({
-    results: { status: 'complete', progress: 100, report: mapV2ResponseToReportV1(v2, { seed: 42 }) },
+    results: { status: 'complete', progress: 100, report },
     runMeta: {},
     nodes: OPTION_NODES,
     edges: [],

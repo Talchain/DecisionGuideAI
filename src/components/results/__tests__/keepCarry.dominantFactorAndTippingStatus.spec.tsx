@@ -36,6 +36,7 @@ import { useAnalysisNewViewModel } from '../analysisNew/useAnalysisNewViewModel'
 import { ResultsBody } from '../ResultsBody'
 import { leaderDesignationPermitted } from '../leaderDesignation'
 import type { TornadoRow } from '../TornadoChart'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -84,7 +85,10 @@ function mapped(extra: Record<string, unknown>, leadingOptionId: string | null =
 
 /** The Results hook and the Reasoning view model over the mapped report, through the real store. */
 function readersOver(extra: Record<string, unknown>, leadingOptionId: string | null = 'opt_a') {
-  const report = mapped(extra, leadingOptionId)
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_a (the block's leading_option_id), as served. A run without the
+  // producer's separation signal still withholds on that (Q2), not on a missing view.
+  const report = leadingOptionId === null ? mapped(extra, leadingOptionId)
+    : holdLeaderForReport(mapped(extra, leadingOptionId), 'permitted', leadingOptionId)
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report, hash: 'h-keep-carry' } as unknown as StoreState['results'],
     hasCompletedFirstRun: true,

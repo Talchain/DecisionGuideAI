@@ -7,6 +7,7 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { holdLeaderForReport } from '../../runView/__tests__/helpers/leaderTestView'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
@@ -2334,7 +2335,12 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       },
     })
 
-  const mountLeader = (state: ReturnType<typeof makeStoreState>) => {
+  const mountLeader = (raw: ReturnType<typeof makeStoreState>) => {
+    // FAIL CLOSED (15 Oct): a leader is designated only on CEE's word about THIS Run. The producer claim above names
+    // option-1, so CEE's matched view (served shape) licenses and names option-1, as the served build would.
+    const results = raw.results as { status: string; report: Record<string, unknown> | null }
+    const state = { ...raw, currentScenarioId: 'leader-test-scenario',
+      results: { ...results, report: holdLeaderForReport(results.report, 'permitted', 'option-1') } }
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as any))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
