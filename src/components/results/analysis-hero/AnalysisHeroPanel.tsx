@@ -66,6 +66,8 @@ export interface AnalysisHeroPanelProps {
    * which is the correct behaviour for example data.
    */
   comparisonScope?: ComparisonScope | null
+  /** The lens on screen, reported to the container (the range lines say a chance only where no row says it). */
+  onLensChange?: (lens: HeroLens) => void
   /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
   onFocusTarget?: (targetId: string) => void
   /** The ACT step — see `HeroEvidenceDisclosureProps.onReviewValue`. */
@@ -201,6 +203,7 @@ export function AnalysisHeroPanel({
   chatAvailable = false,
   actOnItQueueSlot,
   comparisonScope = null,
+  onLensChange,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
@@ -259,6 +262,9 @@ export function AnalysisHeroPanel({
     )
   })
 
+  // The lens on screen, reported up (a status model shows no lens). Above the status return: hooks run on every render.
+  const shownLens: HeroLens | null = model.kind === 'status' ? null : lensState ?? model.defaultLens
+  useEffect(() => { if (shownLens !== null) onLensChange?.(shownLens) }, [shownLens, onLensChange])
   if (model.kind === 'status') {
     return (
       <section
