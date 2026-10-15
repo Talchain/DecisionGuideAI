@@ -463,6 +463,12 @@ export interface DecisionResultData {
    */
   leaderDesignationPermitted?: boolean
   /**
+   * DL Q3a (15 Oct): which answer decided the Run's leader licence: CEE's `leader_licence` from the canonical view
+   * matched to this Run (`cee-<licence>`), or the no-view fallback admission read. Rendered as `data-leader-licence-source`
+   * so a served journey can measure the real match rate.
+   */
+  leaderLicenceSource?: 'cee-permitted' | 'cee-permitted_with_caveat' | 'cee-withheld' | 'fallback'
+  /**
    * ⭐⭐ HOW MANY OPTIONS THE RUN ITSELF COMPARED — a fact about the REPORT, not
    * about the canvas now.
    *

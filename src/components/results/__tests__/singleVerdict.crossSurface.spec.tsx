@@ -492,26 +492,27 @@ describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the 
       results: { ...state.results, report: { ...state.results.report!, run_id: runId ?? view.run!.run_id } },
     } as never)
   }
-  const designates = (): boolean | undefined => {
+  const readLicence = () => {
     const { result } = renderHook(() => useResultsSectionData())
-    return result.current.recommendation.leaderDesignationPermitted
+    return { permitted: result.current.recommendation.leaderDesignationPermitted,
+      source: result.current.recommendation.leaderLicenceSource }
   }
 
   it('capacity (CEE: permitted_with_caveat): the separated Run may designate its leader', () => {
     expect(servedLicences.capacity.canonical_analysis_view.leader_licence).toBe('permitted_with_caveat')
     bindServed('capacity')
-    expect(designates()).toBe(true)
+    expect(readLicence()).toEqual({ permitted: true, source: 'cee-permitted_with_caveat' })
   })
 
   it('hiring (CEE: withheld, goal_path_unsized): the SAME separated Run designates none, on Results and on the canvas', () => {
     expect(servedLicences.hiring.canonical_analysis_view.leader_licence).toBe('withheld')
     bindServed('hiring')
-    expect(designates()).toBe(false)
+    expect(readLicence()).toEqual({ permitted: false, source: 'cee-withheld' })
     expect(readCanvas(true).claims).toBe(false)
   })
 
   it('IDENTITY: CEE\'s withheld for a DIFFERENT Run does not decide this one (no admission recorded: today\'s behaviour)', () => {
     bindServed('hiring', 'some-other-run')
-    expect(designates()).toBe(true)
+    expect(readLicence()).toEqual({ permitted: true, source: 'fallback' })
   })
 })

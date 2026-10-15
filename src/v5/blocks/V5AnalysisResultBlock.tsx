@@ -503,6 +503,7 @@ function V5AnalysisResultBlockImpl({
     <div
       data-testid="v5-analysis-result"
       data-presentation="card"
+      data-leader-licence-source={ceeLeaderLicence !== null ? `cee-${ceeLeaderLicence}` : 'fallback'}
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
       className="relative rounded-md border border-success/30 bg-panel p-4 space-y-3"

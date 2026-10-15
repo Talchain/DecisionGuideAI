@@ -2859,6 +2859,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       // meaning exactly "did the result separate the arms" (Q2). These two are
       // the NEW question — "may this panel DESIGNATE?" — and its raw evidence.
       leaderDesignationPermitted,
+      // DL Q3a condition (15 Oct): which answer decided the Run's licence, observable to the e2e (`data-leader-licence-source`):
+      // CEE's matched `leader_licence`, or the no-view fallback admission read.
+      leaderLicenceSource: ceeLeaderLicence !== null ? (`cee-${ceeLeaderLicence}` as const) : ('fallback' as const),
       // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
       // can report: both are rebuilt from the CURRENT option nodes, so a deletion
       // makes them say "this run ranked nothing" about a report that ranked two.
