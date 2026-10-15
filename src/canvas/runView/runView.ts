@@ -338,6 +338,16 @@ export function runViewFromParts(
  * A card for an older Run (even one sharing the graph hash), for a Run not known to be current, or stored without its id
  * or hash quotes no chance. Only the stamped id counts: any run id inside the enrichment is overwritten.
  */
+/**
+ * PL @01:26 (15 Oct): a CEE licence NAMES a leader only on a POSITIVE permission ('permitted' | 'permitted_with_caveat');
+ * 'withheld' and any value this build does not know stay unlicensed (unknown stays unknown). `null` (no matched view) is
+ * the caller's fallback, never a licence.
+ */
+export function ceeLicencePermitsLeader(licence: string | null): boolean | null {
+  if (licence === null) return null
+  return licence === 'permitted' || licence === 'permitted_with_caveat'
+}
+
 export function chatCardRunViewOf(
   block: { readonly enrichment?: Record<string, unknown>; readonly computed_against_hash?: string; readonly run_id?: string },
   canonical: CanonicalAnalysisView | null,

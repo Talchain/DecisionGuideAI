@@ -1,5 +1,5 @@
 import { servedSwitchReading } from '../domain/switchFactors'
-import { runViewOf } from '../runView/runView'
+import { ceeLicencePermitsLeader, runViewOf } from '../runView/runView'
 import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
@@ -828,7 +828,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.scenarioId === canonicalScenarioId ? s.view : null)
   const runLeaderLicensed = useMemo(() => {
     const licence = runViewOf(resultsReport, heldCanonical).leaderLicence()
-    return licence === null ? true : licence !== 'withheld'
+    return ceeLicencePermitsLeader(licence) ?? true
   }, [resultsReport, heldCanonical])
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false

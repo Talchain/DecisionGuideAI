@@ -128,7 +128,7 @@ import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
-import { runViewOf, type RunView } from '../../canvas/runView/runView'
+import { ceeLicencePermitsLeader, runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 import type { GoalChanceRange } from './utils/goalChanceRange'
 
@@ -2543,9 +2543,8 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // matching is proven on the served build). Q1 (the CURRENT graph's admission, for
     // an edit made since the Run) stays a conjunct: CEE's licence describes the Run, not the edited model.
     const ceeLeaderLicence = runView.leaderLicence()
-    const runLicensesComparativeClaim = ceeLeaderLicence !== null
-      ? ceeLeaderLicence !== 'withheld'
-      : licensesComparativeLeaderClaim(report?.run_analysis_admission)
+    const runLicensesComparativeClaim = ceeLicencePermitsLeader(ceeLeaderLicence)
+      ?? licensesComparativeLeaderClaim(report?.run_analysis_admission)
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —

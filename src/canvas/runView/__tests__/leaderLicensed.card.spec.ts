@@ -27,3 +27,14 @@ describe('chat card: CEE leader_licence for the card’s own Run', () => {
     expect(chatCardRunViewOf(cardFor(view), null).leaderLicence()).toBeNull()
   })
 })
+
+describe('PL @01:26: only a POSITIVE CEE permission names a leader; unknown stays unknown', () => {
+  it('permitted and permitted_with_caveat license; withheld and an unknown value do not; no view → null (caller fallback)', async () => {
+    const { ceeLicencePermitsLeader } = await import('../runView')
+    expect(ceeLicencePermitsLeader('permitted')).toBe(true)
+    expect(ceeLicencePermitsLeader('permitted_with_caveat')).toBe(true)
+    expect(ceeLicencePermitsLeader('withheld')).toBe(false)
+    expect(ceeLicencePermitsLeader('some_future_value')).toBe(false)
+    expect(ceeLicencePermitsLeader(null)).toBeNull()
+  })
+})

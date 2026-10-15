@@ -65,7 +65,7 @@ import { calibrateUncertaintyCopy } from '../../components/results/utils/uncerta
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
+import { ceeLicencePermitsLeader, chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
 import { CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE, shortfallNoteLabel } from '../../components/results/utils/goalChanceLicence'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 
@@ -357,7 +357,7 @@ function V5AnalysisResultBlockImpl({
   const ceeLeaderLicence = blockRunView.leaderLicence()
   const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const leaderClaimLicensed = verdict.hasLeadingOption
-    && (ceeLeaderLicence !== null ? ceeLeaderLicence !== 'withheld' : modelLicensesComparativeClaim)
+    && (ceeLicencePermitsLeader(ceeLeaderLicence) ?? modelLicensesComparativeClaim)
   // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
   // licence still gates the uncertainty tier.
 
