@@ -93,6 +93,13 @@ export interface RunView {
   /** #2747 r2: true only when this view is held with a matching canonical view known to be current. */
   readonly boundToCurrentCanonical: () => boolean
   /**
+   * ⭐ S9/S11 (DL Q3a, 15 Oct): may this Run NAME a leading option? CEE's own `leader_licence` (canonical-analysis-view
+   * `leader_licence`: leader_claim + separation + admission, composed by CEE), read from the canonical view matched to THIS
+   * Run by identity. FAIL-CLOSED: no matching view, or 'withheld' ⇒ false. 'permitted_with_caveat' names it. The UI no
+   * longer decides this licence itself; WHICH option leads still comes from the Run's own report.
+   */
+  readonly leaderLicensed: () => boolean
+  /**
    * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
    */
@@ -132,6 +139,7 @@ const EMPTY: RunView = {
   mainDriverDetailOf: () => null, servedCellOf: () => null,
   chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), withheldReasonCodesOf: () => [],
   boundToCurrentCanonical: () => false,
+  leaderLicensed: () => false,
   participationOf: () => null,
   goalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
@@ -300,6 +308,7 @@ export function runViewFromParts(
     servedCellOf: (optionId) => current?.options.find(o => o.option_id === optionId)?.cell ?? null,
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     boundToCurrentCanonical: () => current !== null,
+    leaderLicensed: () => held !== null && held.leader_licence !== 'withheld',
     withheldReasonCodesOf: (optionId) => {
       const cell = current?.options.find(o => o.option_id === optionId)?.cell
       return cell?.kind === 'withheld' ? cell.reasons.map(reason => reason.code) : []

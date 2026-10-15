@@ -58,7 +58,6 @@ import {
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { useCanvasStore } from '../../canvas/store'
 import { isRecord } from '../../lib/guards'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
@@ -344,13 +343,17 @@ function V5AnalysisResultBlockImpl({
   // while the results panel — reading the SAME two questions, composed into
   // `leaderDesignationPermitted` — withheld every designation on the same run.
   //
-  // `licensesComparativeLeaderClaim` is imported, never re-spelled: the results
-  // panel imports the same function from the same module. Its absence arm is
-  // `true`, so a pre-admission CEE leaves this card byte-for-byte as it was and
-  // the two services stay deploy-order independent.
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+  // Until 15 Oct this card answered Q1 itself from the admission
+  // (`licensesComparativeLeaderClaim`); CEE now serves the composed answer.
+  //
+  // ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER WE MAY SAY SO is now CEE's own `leader_licence`, read from the canonical view
+  // matched to THIS card's Run by identity (`chatCardRunViewOf`, below). CEE composes it from the leader claim, the
+  // separation and the admission, so the UI no longer re-decides it. FAIL-CLOSED: no matching view, or 'withheld'.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderClaimLicensed = verdict.hasLeadingOption && modelLicensesComparativeClaim
+  const leaderClaimLicensed = verdict.hasLeadingOption && blockRunView.leaderLicensed()
   // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
   // licence still gates the uncertainty tier.
 
@@ -387,9 +390,6 @@ function V5AnalysisResultBlockImpl({
   // ONE authority gate, against the scenario's canonical view matched to THIS
   // card's Run by identity (its stamped run id AND graph hash); a card for an older
   // or not-current Run quotes none.
-  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
-  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
-  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const goalChanceLicence = blockRunView.goalChance
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
   // Recovery Batch C: the Run's words for what the chance is OF, its status quo, each target and its notes, from the

@@ -1,6 +1,7 @@
 import { useCanonicalAnalysisViewStore } from '@/canvas/stores/canonicalAnalysisViewStore'
 import type { CanonicalAnalysisView } from '@/canvas/runView/canonicalAnalysisView'
 import served from '@/canvas/runView/__tests__/fixtures/cee-1c-served-read-464abd0a.json'
+import servedLicences from './fixtures/served-leader-licence-20261014.json'
 import { CHANCE_NOT_SHOWN_YET } from '@/canvas/runView/runView'
 import { CanvasOptionChanceContext } from '../../../canvas/nodes/shared/OptionChanceCellProvider'
 import { optionChanceFixture } from '../../../../tests/helpers/optionChanceFixture'
@@ -475,4 +476,42 @@ it('view-bearing control: singleVerdict Results panel preserves its single verdi
   // panel preserves is now: no denial, and no leader asserted anywhere.
   expect(panel.leaderRow).toBeNull()
   expect(panel.assertsLeader).toBe(false)
+})
+
+// ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER A RUN MAY NAME A LEADER IS CEE'S OWN `leader_licence`, never the UI's reading of
+// the admission. Two served canonical views (both 14 Oct, staging): capacity 'permitted_with_caveat' (UI joined-flow
+// witness, CEE 880b35b4) and hiring 'withheld' (leader_claim goal_path_unsized). The SAME clearly separated Run (72% vs
+// 20%) is bound to each view by the view's own run id, so only CEE's licence differs between the rows.
+describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the Run by identity', () => {
+  const bindServed = (name: 'capacity' | 'hiring', runId?: string): void => {
+    setStore(CLEAR_RUN)
+    const view = servedLicences[name].canonical_analysis_view as unknown as CanonicalAnalysisView
+    useCanonicalAnalysisViewStore.getState().adopt(`q3a-${name}`, view)
+    const state = useCanvasStore.getState()
+    useCanvasStore.setState({ currentScenarioId: `q3a-${name}`,
+      results: { ...state.results, report: { ...state.results.report!, run_id: runId ?? view.run!.run_id } },
+    } as never)
+  }
+  const designates = (): boolean | undefined => {
+    const { result } = renderHook(() => useResultsSectionData())
+    return result.current.recommendation.leaderDesignationPermitted
+  }
+
+  it('capacity (CEE: permitted_with_caveat): the separated Run may designate its leader', () => {
+    expect(servedLicences.capacity.canonical_analysis_view.leader_licence).toBe('permitted_with_caveat')
+    bindServed('capacity')
+    expect(designates()).toBe(true)
+  })
+
+  it('hiring (CEE: withheld, goal_path_unsized): the SAME separated Run designates none, on Results and on the canvas', () => {
+    expect(servedLicences.hiring.canonical_analysis_view.leader_licence).toBe('withheld')
+    bindServed('hiring')
+    expect(designates()).toBe(false)
+    expect(readCanvas(true).claims).toBe(false)
+  })
+
+  it('FAIL-CLOSED: a view for a DIFFERENT Run licenses nothing, even when that view permits', () => {
+    bindServed('capacity', 'some-other-run')
+    expect(designates()).toBe(false)
+  })
 })

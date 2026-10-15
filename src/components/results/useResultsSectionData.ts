@@ -2536,7 +2536,12 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // ⚠ NOT folded into Q1 or `analysisAdmission` below: the refusal's REASON and
     // remedy describe the current graph, and `buildAnalysisNewViewModel` composes
     // them from that published field.
-    const runLicensesComparativeClaim = licensesComparativeLeaderClaim(report?.run_analysis_admission)
+    // ⭐ S9/S11 (DL Q3a, 15 Oct): the DISPLAYED RUN's licence is now CEE's own `leader_licence` for that Run (the
+    // canonical view matched to this report by Run identity; `runView.leaderLicensed`), which CEE composes from the
+    // leader claim, the separation and the Run's admission. It replaces the UI's reading of `run_analysis_admission`.
+    // FAIL-CLOSED: no matching canonical view, or 'withheld', names no leader. Q1 (the CURRENT graph's admission, for
+    // an edit made since the Run) stays a conjunct: CEE's licence describes the Run, not the edited model.
+    const runLicensesComparativeClaim = runView.leaderLicensed()
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —
