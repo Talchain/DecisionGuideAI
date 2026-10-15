@@ -98,10 +98,12 @@
  * field stays for local "does the record still match what's on screen"
  * comparisons only.
  */
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { v5 as uuidv5 } from 'uuid'
 
 import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
+import { listDecisionRecords, type DecisionRecordListItem } from '../../../services/decisionRecordListService'
 
 /**
  * The four reasoning texts CEE can hold on the account, by their WIRE names
@@ -136,8 +138,11 @@ export interface DecisionRecordRemote {
   recordId: string
   /** ISO timestamptz stored on the record. */
   reviewDate: string
-  /** Which rung of CEE's ladder set it — `user_set` means the user chose it. */
-  reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
+  /**
+   * Which rung of CEE's ladder set it — `user_set` means the user chose it. ABSENT on a record read back from CEE's list
+   * (5a), which does not serve it: unknown, never assumed either way (no surface renders it today).
+   */
+  reviewDateSource?: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
   /**
    * The texts CEE CONFIRMED the account holds verbatim (its
    * `stored_text_fields`). ABSENT or empty ⇒ no text is claimed on the
@@ -263,6 +268,12 @@ const BOUNDARY_KEY = `${PREFIX}owner`
 let boundary: Boundary | null = null // unresolved auth must not expose a previous person's record
 let captures: Record<string, string> = {}
 const volatileCaptures = new Set<string>()
+/**
+ * ⭐ S9 (DL 5a, 15 Oct): the newest record CEE holds for each scenario, read back for THIS boundary's owner (memory only,
+ * re-read on each load; cleared with the boundary). Merged with the local record by `preferRecord`.
+ */
+let accountRecords: Record<string, DecisionRecord> = {}
+const readBackRequested = new Set<string>()
 
 function id(): string { return crypto.randomUUID() }
 function readBoundary(): Boundary | null | undefined {
@@ -292,6 +303,8 @@ function invalidate(): void {
   boundary = null
   captures = {}
   volatileCaptures.clear()
+  accountRecords = {}
+  readBackRequested.clear()
   useDecisionRecordStore.setState({ byScenario: {}, isOpen: false })
 }
 function recordKey(epoch: string, scenarioKey: string): string {
@@ -335,7 +348,80 @@ function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
     byScenario[scenarioKey] = { ...stored.record, remote }
     captures[scenarioKey] = stored.clientCommitId
   }
+  for (const [scenarioKey, account] of Object.entries(accountRecords)) {
+    byScenario[scenarioKey] = preferRecord(byScenario[scenarioKey], account)
+  }
   return { byScenario }
+}
+
+/**
+ * ⭐ S9 (DL 5a): which record a scenario shows, when CEE's account holds one.
+ * - No local record → CEE's (a cold reopen, another browser).
+ * - A local record CEE never confirmed (guest, offline, failed or in-flight save) stays, labelled "on this device".
+ * - The SAME record (`record_id`) → CEE's fields outrank the local copy's; only the local display anchors stay.
+ * - A different confirmed record → the newer one.
+ */
+function preferRecord(local: DecisionRecord | undefined, account: DecisionRecord): DecisionRecord {
+  if (local === undefined) return account
+  if (!local.remote?.recordId) return local
+  if (local.remote.recordId === account.remote?.recordId) {
+    const sameOption = !isNotReadyRecord(local) && !isNotReadyRecord(account) && local.optionId === account.optionId
+    return { ...account, analysisHash: local.analysisHash,
+      ...(sameOption ? { optionNumber: (local as OptionDecisionRecord).optionNumber } : {}) } as DecisionRecord
+  }
+  return account.savedAt > local.savedAt ? account : local
+}
+
+/**
+ * CEE's read-back row as this store's record, field for field. Texts are only those CEE holds; every one it returns is
+ * held on the account verbatim, so all four are confirmed (`storedTextFields`): a text it omits is held nowhere and is
+ * never named. Not the local `analysisHash` (a different regime) and no option number (CEE does not keep one).
+ */
+export function recordFromAccount(item: DecisionRecordListItem): DecisionRecord {
+  const common = {
+    rationale: item.rationale ?? '',
+    assumptionToWatch: item.key_assumption ?? '',
+    revisitTrigger: item.revisit_trigger ?? '',
+    ...(item.next_action !== undefined && item.next_action.trim() !== '' ? { nextAction: item.next_action } : {}),
+    analysisHash: null,
+    savedAt: Date.parse(item.created_at),
+    remote: { recordId: item.record_id, reviewDate: item.review_date, storedTextFields: [...DECISION_RECORD_TEXT_FIELDS] },
+  }
+  if (item.position === 'not_ready') return { ...common, position: 'not_ready' }
+  return {
+    ...common,
+    optionId: item.chosen_option_id!,
+    optionLabel: item.chosen_option_label!,
+    optionNumber: null,
+    confidence: item.confidence_0_100!,
+    ...(item.expectation_statement !== undefined ? { expectation: item.expectation_statement } : {}),
+  }
+}
+
+/**
+ * Adopt CEE's newest record for a scenario, ONLY for the owner this boundary belongs to (the read's own account): a read
+ * that lands after a sign-out or a switch of account is discarded.
+ */
+export function adoptAccountRecords(scenarioKey: string, ownerId: string, records: readonly DecisionRecordListItem[]): boolean {
+  if (!boundary || !isActive() || boundary.ownerId !== ownerId || scenarioKey === UNSCOPED_SCENARIO_KEY) return false
+  const newest = records[0]
+  if (newest === undefined) return false
+  accountRecords = { ...accountRecords, [scenarioKey]: recordFromAccount(newest) }
+  useDecisionRecordStore.setState((state) => ({ byScenario: { ...state.byScenario, ...loadPersisted().byScenario } }))
+  return true
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Read the account's records for a scenario once per boundary. Guests make no call (`listDecisionRecords`). */
+export async function readBackDecisionRecords(scenarioId: string | null | undefined): Promise<void> {
+  if (!boundary || boundary.ownerId === null || typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) return
+  const requestKey = `${boundary.epoch}:${scenarioId}`
+  if (readBackRequested.has(requestKey)) return
+  readBackRequested.add(requestKey)
+  const result = await listDecisionRecords(scenarioId)
+  if (result.status !== 'ok') { readBackRequested.delete(requestKey); return }
+  adoptAccountRecords(resolveScenarioKey(scenarioId), result.ownerId, result.records)
 }
 function write(key: string, value: unknown): 'persisted' | false {
   // A write without a readable ownership fence cannot establish retention.
@@ -369,6 +455,8 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
   boundary = next
   captures = {}
   volatileCaptures.clear()
+  accountRecords = {}
+  readBackRequested.clear()
   useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false })
 }
 
@@ -475,6 +563,8 @@ export function closeDecisionRecord(): void {
 export function useDecisionRecordForScenario(
   scenarioId: string | null | undefined,
 ): DecisionRecord | null {
+  // ⭐ S9 (DL 5a): a signed-in scenario reads its record back from the account, so a cold reopen shows it.
+  useEffect(() => { void readBackDecisionRecords(scenarioId) }, [scenarioId])
   return useDecisionRecordStore(
     (s) => s.byScenario[resolveScenarioKey(scenarioId)] ?? null,
   )
