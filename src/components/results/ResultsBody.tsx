@@ -401,7 +401,8 @@ export const ResultsBody = memo(function ResultsBody({
   )
 
   return (
-    <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
+    <div className="flex flex-col gap-4" data-testid="outputs-results-redesign"
+      data-leader-licence-source={resultsSectionData.recommendation.leaderLicenceSource}>
 
       {/* ══ V7 ASSESSMENT SCAFFOLD — GONE, NOT MOVED (adjudicated) ═════════
           HISTORY, because the intermediate state confused readers twice: the

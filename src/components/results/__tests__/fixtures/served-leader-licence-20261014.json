@@ -1,0 +1,143 @@
+{
+ "capacity": {
+  "source": "live/runs-joined/2026-10-14T232318Z reads/04 (UI joined-flow witness, guest, CEE 880b35b4)",
+  "canonical_analysis_view": {
+   "schema": "canonical_analysis_view.v1",
+   "source": "stored_run_facts",
+   "run": {
+    "run_id": "bf2ffe21e897bd9325d008f5720c68f013b222ddf606bca59c099abe886085ae",
+    "graph_hash_at_run": "10965b55c77d96ba",
+    "computed_at": "2026-10-14T23:26:31.249Z"
+   },
+   "staleness": {
+    "stale": false,
+    "revision": 3,
+    "run_revision": 3,
+    "run_revision_source": "recorded",
+    "basis": "analysis_graph_hash_interim",
+    "reason": "graph_hash_match",
+    "limitation": "Hash equality cannot detect brief, framing or stage changes."
+   },
+   "leader_licence": "permitted_with_caveat",
+   "options": [
+    {
+     "option_id": "keep_current_staffing",
+     "cell": {
+      "kind": "withheld",
+      "reasons": [
+       {
+        "code": "GOAL_FIGURES_TARGET_NOT_TESTABLE",
+        "message": "Not shown. Olumi can compare your options, but can't yet test them against your target (at least 100 tickets per week), because it needs today's level of Weekly support capacity. What's today's level of Weekly support capacity?"
+       },
+       {
+        "code": "GOAL_FIGURES_MISSING_CURRENT_LEVEL",
+        "message": "Not shown. Weekly support capacity's current level is missing."
+       }
+      ],
+      "face": "Chance not shown yet",
+      "why": "Not shown. Olumi can compare your options, but can't yet test them against your target (at least 100 tickets per week), because it needs today's level of Weekly support capacity. What's today's level of Weekly support capacity?"
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "add_one_specialist",
+     "cell": {
+      "kind": "withheld",
+      "reasons": [
+       {
+        "code": "GOAL_FIGURES_TARGET_NOT_TESTABLE",
+        "message": "Not shown. Olumi can compare your options, but can't yet test them against your target (at least 100 tickets per week), because it needs today's level of Weekly support capacity. What's today's level of Weekly support capacity?"
+       },
+       {
+        "code": "GOAL_FIGURES_MISSING_CURRENT_LEVEL",
+        "message": "Not shown. Weekly support capacity's current level is missing."
+       }
+      ],
+      "face": "Chance not shown yet",
+      "why": "Not shown. Olumi can compare your options, but can't yet test them against your target (at least 100 tickets per week), because it needs today's level of Weekly support capacity. What's today's level of Weekly support capacity?"
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    }
+   ]
+  },
+  "leader_claim": {
+   "permitted": true,
+   "separation": "separated"
+  }
+ },
+ "hiring": {
+  "source": "live/runs/2026-10-14T185301Z-hiring-t1h-negative-r3 reads/02 (served 14 Oct)",
+  "canonical_analysis_view": {
+   "schema": "canonical_analysis_view.v1",
+   "source": "stored_run_facts",
+   "run": {
+    "run_id": "e0ddef8f1c3ae4dd29f489369c9f8029e2e8414f4c0833ad4fd47e8a28982feb",
+    "graph_hash_at_run": "9abcafc345868f62",
+    "computed_at": "2026-10-14T18:56:36.586Z"
+   },
+   "staleness": {
+    "stale": false,
+    "revision": 3,
+    "run_revision": 3,
+    "run_revision_source": "recorded",
+    "basis": "analysis_graph_hash_interim",
+    "reason": "graph_hash_match",
+    "limitation": "Hash equality cannot detect brief, framing or stage changes."
+   },
+   "leader_licence": "withheld",
+   "options": [
+    {
+     "option_id": "keep_current_team",
+     "cell": {
+      "kind": "none"
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "hire_a_tech_lead",
+     "cell": {
+      "kind": "withheld",
+      "reasons": [
+       {
+        "code": "GOAL_FIGURES_PLACEHOLDER_PATH",
+        "message": "This comparison turns on the links from ‘Developer headcount’ to ‘Productivity’ and from ‘Tech lead headcount’ to ‘Productivity’, whose strengths aren't sized in the model yet. Set them to see how much they matter."
+       }
+      ],
+      "face": "Chance not shown yet",
+      "why": "Not shown. This comparison turns on the links from ‘Developer headcount’ to ‘Productivity’ and from ‘Tech lead headcount’ to ‘Productivity’, whose strengths aren't sized in the model yet. Set them to see how much they matter."
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    },
+    {
+     "option_id": "hire_two_developers",
+     "cell": {
+      "kind": "withheld",
+      "reasons": [
+       {
+        "code": "GOAL_FIGURES_PLACEHOLDER_PATH",
+        "message": "This comparison turns on the links from ‘Developer headcount’ to ‘Productivity’ and from ‘Tech lead headcount’ to ‘Productivity’, whose strengths aren't sized in the model yet. Set them to see how much they matter."
+       }
+      ],
+      "face": "Chance not shown yet",
+      "why": "Not shown. This comparison turns on the links from ‘Developer headcount’ to ‘Productivity’ and from ‘Tech lead headcount’ to ‘Productivity’, whose strengths aren't sized in the model yet. Set them to see how much they matter."
+     },
+     "main_driver": {
+      "kind": "not_recorded"
+     }
+    }
+   ]
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "goal_path_unsized"
+  }
+ }
+}

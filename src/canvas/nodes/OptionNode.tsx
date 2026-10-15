@@ -1,4 +1,6 @@
 import { servedSwitchReading } from '../domain/switchFactors'
+import { ceeLicencePermitsLeader, runViewOf } from '../runView/runView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -819,11 +821,20 @@ export const OptionNode = memo((props: NodeProps) => {
    * True only when this node is the leader, a leading option exists at all, AND
    * the model was admitted to name one.
    */
+  // ⭐ S9/S11 (DL Q3a, 15 Oct): the Run's licence to name a leader is CEE's own `leader_licence`, from the canonical view
+  // matched to this Run by identity (`runViewOf(...).leaderLicensed`), the same answer the Results panel and the chat
+  // card read. A matched 'withheld' puts no badge on any card; with no matched view the admission read below answers alone.
+  const canonicalScenarioId = useCanvasStore(state => state.currentScenarioId)
+  const heldCanonical = useCanonicalAnalysisViewStore(s => s.scenarioId === canonicalScenarioId ? s.view : null)
+  const runLeaderLicensed = useMemo(() => {
+    const licence = runViewOf(resultsReport, heldCanonical).leaderLicence()
+    return ceeLicencePermitsLeader(licence) ?? true
+  }, [resultsReport, heldCanonical])
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
-    if (!modelLicensesComparativeClaim) return false
+    if (!modelLicensesComparativeClaim || !runLeaderLicensed) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, runLeaderLicensed, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   /** The analysis view describes a graph other than the saved one (`analysisViewIsStale`): the saved numbers stand. */

@@ -128,7 +128,7 @@ import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import type { GoalChanceDriverNames, GoalChanceLicence } from './utils/goalChanceLicence'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
-import { runViewOf, type RunView } from '../../canvas/runView/runView'
+import { ceeLicencePermitsLeader, runViewOf, type RunView } from '../../canvas/runView/runView'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 import type { GoalChanceRange } from './utils/goalChanceRange'
 
@@ -2536,7 +2536,15 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // ⚠ NOT folded into Q1 or `analysisAdmission` below: the refusal's REASON and
     // remedy describe the current graph, and `buildAnalysisNewViewModel` composes
     // them from that published field.
-    const runLicensesComparativeClaim = licensesComparativeLeaderClaim(report?.run_analysis_admission)
+    // ⭐ S9/S11 (DL Q3a, 15 Oct): the DISPLAYED RUN's licence is now CEE's own `leader_licence` for that Run (the
+    // canonical view matched to this report by Run identity; `runView.leaderLicensed`), which CEE composes from the
+    // leader claim, the separation and the Run's admission, whenever a canonical view is matched to this Run; 'withheld'
+    // names no leader. With no matched view, the Run's recorded `run_analysis_admission` still answers (until Run-identity
+    // matching is proven on the served build). Q1 (the CURRENT graph's admission, for
+    // an edit made since the Run) stays a conjunct: CEE's licence describes the Run, not the edited model.
+    const ceeLeaderLicence = runView.leaderLicence()
+    const runLicensesComparativeClaim = ceeLicencePermitsLeader(ceeLeaderLicence)
+      ?? licensesComparativeLeaderClaim(report?.run_analysis_admission)
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —
@@ -2850,6 +2858,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
       // meaning exactly "did the result separate the arms" (Q2). These two are
       // the NEW question — "may this panel DESIGNATE?" — and its raw evidence.
       leaderDesignationPermitted,
+      // DL Q3a condition (15 Oct): which answer decided the Run's licence, observable to the e2e (`data-leader-licence-source`):
+      // CEE's matched `leader_licence`, or the no-view fallback admission read.
+      leaderLicenceSource: ceeLeaderLicence !== null ? (`cee-${ceeLeaderLicence}` as const) : ('fallback' as const),
       // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
       // can report: both are rebuilt from the CURRENT option nodes, so a deletion
       // makes them say "this run ranked nothing" about a report that ranked two.

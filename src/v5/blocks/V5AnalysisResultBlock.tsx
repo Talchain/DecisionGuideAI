@@ -46,6 +46,7 @@
  *   - Body: typography.chatBody (13px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { memo, useMemo, type ReactElement } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -58,14 +59,13 @@ import {
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { useCanvasStore } from '../../canvas/store'
 import { isRecord } from '../../lib/guards'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
-import { chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
+import { ceeLicencePermitsLeader, chatCardRunViewOf, licensedGoalChanceDetailLines } from '../../canvas/runView/runView'
 import { CEE_SPREAD_NOTE_WITHOUT_DOWNSIDE, shortfallNoteLabel } from '../../components/results/utils/goalChanceLicence'
 import { useCanonicalAnalysisViewStore } from '../../canvas/stores/canonicalAnalysisViewStore'
 
@@ -344,13 +344,20 @@ function V5AnalysisResultBlockImpl({
   // while the results panel — reading the SAME two questions, composed into
   // `leaderDesignationPermitted` — withheld every designation on the same run.
   //
-  // `licensesComparativeLeaderClaim` is imported, never re-spelled: the results
-  // panel imports the same function from the same module. Its absence arm is
-  // `true`, so a pre-admission CEE leaves this card byte-for-byte as it was and
-  // the two services stay deploy-order independent.
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+  // Until 15 Oct this card answered Q1 itself from the admission
+  // (`licensesComparativeLeaderClaim`); CEE now serves the composed answer.
+  //
+  // ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER WE MAY SAY SO is CEE's own `leader_licence` whenever a canonical view is matched
+  // to THIS card's Run by identity (`chatCardRunViewOf`, below): 'withheld' names no leader. With no matched view the
+  // card keeps its admission read (`licensesComparativeLeaderClaim`) until Run-identity matching is proven on the build.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
+  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderClaimLicensed = verdict.hasLeadingOption && modelLicensesComparativeClaim
+  const ceeLeaderLicence = blockRunView.leaderLicence()
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+  const leaderClaimLicensed = verdict.hasLeadingOption
+    && (ceeLicencePermitsLeader(ceeLeaderLicence) ?? modelLicensesComparativeClaim)
   // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
   // licence still gates the uncertainty tier.
 
@@ -387,9 +394,6 @@ function V5AnalysisResultBlockImpl({
   // ONE authority gate, against the scenario's canonical view matched to THIS
   // card's Run by identity (its stamped run id AND graph hash); a card for an older
   // or not-current Run quotes none.
-  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
-  const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
-  const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const goalChanceLicence = blockRunView.goalChance
   const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
   // Recovery Batch C: the Run's words for what the chance is OF, its status quo, each target and its notes, from the
@@ -499,6 +503,7 @@ function V5AnalysisResultBlockImpl({
     <div
       data-testid="v5-analysis-result"
       data-presentation="card"
+      data-leader-licence-source={ceeLeaderLicence !== null ? `cee-${ceeLeaderLicence}` : 'fallback'}
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
       className="relative rounded-md border border-success/30 bg-panel p-4 space-y-3"

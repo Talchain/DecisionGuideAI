@@ -93,6 +93,13 @@ export interface RunView {
   /** #2747 r2: true only when this view is held with a matching canonical view known to be current. */
   readonly boundToCurrentCanonical: () => boolean
   /**
+   * ⭐ S9/S11 (DL Q3a, 15 Oct): CEE's own `leader_licence` for THIS Run (canonical-analysis-view `leader_licence`: leader
+   * claim + separation + admission, composed by CEE), read from the canonical view matched to this Run by identity.
+   * `null` when no view is matched to this Run. A matched view DECIDES: 'withheld' names no leader, whatever the UI's own
+   * admission reading says. (Fail-closed on `null` waits until Run-identity matching is proven on the served build.)
+   */
+  readonly leaderLicence: () => CanonicalAnalysisView['leader_licence'] | null
+  /**
    * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
    */
@@ -132,6 +139,7 @@ const EMPTY: RunView = {
   mainDriverDetailOf: () => null, servedCellOf: () => null,
   chanceFigureOf: () => null, chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), withheldReasonCodesOf: () => [],
   boundToCurrentCanonical: () => false,
+  leaderLicence: () => null,
   participationOf: () => null,
   goalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
@@ -300,6 +308,7 @@ export function runViewFromParts(
     servedCellOf: (optionId) => current?.options.find(o => o.option_id === optionId)?.cell ?? null,
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     boundToCurrentCanonical: () => current !== null,
+    leaderLicence: () => held?.leader_licence ?? null,
     withheldReasonCodesOf: (optionId) => {
       const cell = current?.options.find(o => o.option_id === optionId)?.cell
       return cell?.kind === 'withheld' ? cell.reasons.map(reason => reason.code) : []
@@ -329,6 +338,16 @@ export function runViewFromParts(
  * A card for an older Run (even one sharing the graph hash), for a Run not known to be current, or stored without its id
  * or hash quotes no chance. Only the stamped id counts: any run id inside the enrichment is overwritten.
  */
+/**
+ * PL @01:26 (15 Oct): a CEE licence NAMES a leader only on a POSITIVE permission ('permitted' | 'permitted_with_caveat');
+ * 'withheld' and any value this build does not know stay unlicensed (unknown stays unknown). `null` (no matched view) is
+ * the caller's fallback, never a licence.
+ */
+export function ceeLicencePermitsLeader(licence: string | null): boolean | null {
+  if (licence === null) return null
+  return licence === 'permitted' || licence === 'permitted_with_caveat'
+}
+
 export function chatCardRunViewOf(
   block: { readonly enrichment?: Record<string, unknown>; readonly computed_against_hash?: string; readonly run_id?: string },
   canonical: CanonicalAnalysisView | null,
