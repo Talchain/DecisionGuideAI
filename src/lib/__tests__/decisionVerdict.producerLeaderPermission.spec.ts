@@ -86,7 +86,9 @@ describe('deriveDecisionVerdict — Q1 (producer permission) is a conjunct, not 
     const verdict = deriveDecisionVerdict(permittedReport())
     expect(verdict.hasLeadingOption).toBe(true)
     expect(verdict.leaderId).toBe(LEADER)
-    expect(verdict.separation).toBe('clear')
+    // DL Q3b (15 Oct): near_tie says not-a-tie and no band states a strength, so the strength is unstated ('ahead'),
+    // never the UI's own 0.65 'clear'. The precondition this row guards (a leader is named) is unchanged.
+    expect(verdict.separation).toBe('ahead')
   })
 
   it('DEFECT SIGNATURE: `permitted:false` withdraws the entitlement', () => {
