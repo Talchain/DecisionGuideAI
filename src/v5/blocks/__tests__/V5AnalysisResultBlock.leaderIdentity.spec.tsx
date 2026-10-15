@@ -29,6 +29,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 afterEach(cleanup)
 
@@ -241,9 +242,10 @@ describe('CONTROL: headline-option resolution was already ID↔ID (refutes brief
     )
     render(
       <V5AnalysisResultBlock
-        block={block({
+        // FAIL CLOSED (15 Oct): CEE's matched view names opt_mac, as served.
+        block={holdLeaderForCard(block({
           enrichment: { option_comparison: withOutcomes, robustness: { level: 'high', near_tie: permittingNearTie() } },
-        })}
+        }), 'permitted', 'opt_mac')}
       />,
     )
     // The near-tie block keeps this a PERMITTED run: the confident tier renders

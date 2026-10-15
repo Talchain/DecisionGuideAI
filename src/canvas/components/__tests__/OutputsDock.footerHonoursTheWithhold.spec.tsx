@@ -43,6 +43,7 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { derivePostFooterStatus } from '../utils/postAnalysisFooter'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
+import { holdLeaderForReport } from '../../runView/__tests__/helpers/leaderTestView'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -166,7 +167,14 @@ function seedPostRun(withheld: boolean) {
     ],
     edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
     graphHealth: { status: 'healthy', score: 100, issues: [] },
-    results: { status: 'complete', report: reportWith(withheld) },
+    results: {
+      status: 'complete',
+      report: withheld
+        // FAIL CLOSED (15 Oct): the producer withheld the leader, so CEE's matched view says 'withheld', as served.
+        ? holdLeaderForReport(reportWith(withheld), 'withheld', null)
+        // FAIL CLOSED (15 Oct): CEE's matched view names opt_segment, as served.
+        : holdLeaderForReport(reportWith(withheld), 'permitted', OPTION_A),
+    },
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: 1 },
     analysisFreshnessDirty: false,
     v5AnalysisFact: null,

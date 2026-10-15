@@ -37,6 +37,7 @@ import {
   PERMITTED_REPORT,
   WITHHELD_REPORT,
 } from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
+import { holdLeaderForReport } from '../../runView/__tests__/helpers/leaderTestView'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -52,6 +53,7 @@ const OPTION_NODES = [
 ]
 
 const makeStoreState = (report: unknown) => ({
+  currentScenarioId: 'leader-test-scenario',
   hoveredOptionId: null,
   nodes: OPTION_NODES,
   edges: [],
@@ -130,10 +132,19 @@ function renderNode(id: string, label: string) {
   )
 }
 
+/**
+ * FAIL CLOSED (15 Oct): a leader is designated only on CEE's matched view of THIS Run. The PERMITTED report is CEE
+ * permitting and naming the leader; the WITHHELD report is CEE withholding, so its view says 'withheld', as served.
+ */
+function holdServedView(report: unknown): unknown {
+  return report === WITHHELD_REPORT
+    ? holdLeaderForReport(report, 'withheld', null) // FAIL CLOSED (15 Oct): CEE's matched view withholds (names none), as served.
+    : holdLeaderForReport(report, 'permitted', LEADER_ID) // FAIL CLOSED (15 Oct): CEE's matched view names opt_mac, as served.
+}
+
 function withStore(report: unknown) {
-  vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    selector(makeStoreState(report) as never),
-  )
+  const state = makeStoreState(holdServedView(report))
+  vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as never))
 }
 
 const COUNTER_CASE_LABEL = 'What would make this wrong?'
@@ -240,9 +251,8 @@ describe('the counter-case door on the leading option', () => {
       { id: LEADER_ID, type: 'option', data: { type: 'option', label: LEADER_LABEL, is_baseline: true } },
       { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', label: RUNNER_UP_LABEL } },
     ]
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector({ ...makeStoreState(PERMITTED_REPORT), nodes: baselineNodes } as never),
-    )
+    const state = { ...makeStoreState(holdServedView(PERMITTED_REPORT)), nodes: baselineNodes }
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as never))
     // ⚠ THE FLAG MUST BE ON THE COMPONENT'S OWN PROPS, not just the store node.
     // `isBaselineOption` reads `props.data.is_baseline` (OptionNode.tsx:583) and
     // only falls back to a label regex when that is absent. My first fixture set

@@ -63,6 +63,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { nodeTypes, rawNodeTypes } from '../registry'
+import { holdLeaderForReport } from '../../runView/__tests__/helpers/leaderTestView'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -70,6 +71,7 @@ vi.mock('@xyflow/react', async () => {
 })
 
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
+  currentScenarioId: 'leader-test-scenario',
   hoveredOptionId: null,
   nodes: [],
   edges: [],
@@ -171,11 +173,12 @@ function renderPostAnalysisOption(nodeId: string, winRate: number) {
     valueOfInformation: null,
     voiRank: null,
   } as never)
-  vi.mocked(useCanvasStore).mockImplementation(((selector: (s: unknown) => unknown) =>
-    selector(makeStoreState({
-      results: { status: 'complete', report: REPORT },
-      nodes: NODES,
-    }))) as never)
+  // FAIL CLOSED (15 Oct): CEE's matched view names option-1, as served.
+  const state = makeStoreState({
+    results: { status: 'complete', report: holdLeaderForReport(REPORT, 'permitted', 'option-1') },
+    nodes: NODES,
+  })
+  vi.mocked(useCanvasStore).mockImplementation(((selector: (s: unknown) => unknown) => selector(state)) as never)
   return render(
     <ReactFlowProvider>
       <OptionNode {...baseProps} id={nodeId} data={{ label: OPTION_LABEL, type: 'option' }} />

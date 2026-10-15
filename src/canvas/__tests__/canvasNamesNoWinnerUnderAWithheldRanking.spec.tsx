@@ -33,6 +33,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import { rankingWasWithheld } from '../../components/results/leaderDesignation'
 import served from './fixtures/served-0303ef5-pricing-withheld-run.json'
 import { optionResultCaption } from '../nodes/shared/runCurrency'
+import { holdLeaderForReport } from '../runView/__tests__/helpers/leaderTestView'
 
 afterEach(() => {
   cleanup()
@@ -113,7 +114,12 @@ describe('the outcome inspector does not rank options whose ranking was withheld
   const BY_SHARE = ['£59 With Next Release', 'Keep £49 Price', '£54 With Next Release']
 
   function seed(opts: { permitted: boolean; canvasOptions?: typeof served.options }) {
-    const report = mapV5AnalysisToReport(served.analysis_result as never, {} as never) as unknown as Record<string, unknown>
+    const mapped = mapV5AnalysisToReport(served.analysis_result as never, {} as never) as unknown as Record<string, unknown>
+    const report = opts.permitted
+      // FAIL CLOSED (15 Oct): CEE's matched view names 59_with_next_release, as served.
+      ? holdLeaderForReport(mapped, 'permitted', '59_with_next_release')
+      // FAIL CLOSED (15 Oct): the served leader_claim is withheld, so CEE's matched view says 'withheld', as served.
+      : holdLeaderForReport(mapped, 'withheld', null)
     useCanvasStore.setState({
       hasCompletedFirstRun: true,
       // ⚠ SEEDED CURRENT, EXPLICITLY (27 Sep, audit F5 — review r2 blocker 3).

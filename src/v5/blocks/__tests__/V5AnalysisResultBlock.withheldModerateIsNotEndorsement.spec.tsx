@@ -32,6 +32,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import { calibrateUncertaintyCopy } from '../../../components/results/utils/uncertaintyCalibration'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 // Kept OUT of `src/v5/__tests__/fixtures/` for the same reason as the 57f903c
 // block beside it: that directory is the whole-turn live-capture corpus.
 import capture from './fixtures/openai-06325c6-pricing-explicit-run.analysis-block.json'
@@ -80,12 +81,14 @@ describe('the served withheld OpenAI pricing Run (CEE 06325c6)', () => {
     // The restored leader's own interval also straddles zero, so MODERATE is expected.
     expect(calibrateUncertaintyCopy({ robustnessLevel: 'high', p10: out.p10 as number, p90: out.p90 as number })?.tier)
       .toBe('moderate')
-    render(<V5AnalysisResultBlock block={asBlock(twin)} />)
+    // FAIL CLOSED (15 Oct): CEE's matched view names raise_pro_to_59, as served.
+    render(<V5AnalysisResultBlock block={holdLeaderForCard(asBlock(twin), 'permitted', RAISE_59)} />)
     expect(screen.getByTestId(COPY_ID)).toHaveTextContent(MODERATE)
   })
 
   it('⭐ the withheld capture renders no "appears to hold" line', () => {
-    render(<V5AnalysisResultBlock block={asBlock(clone())} />)
+    // FAIL CLOSED (15 Oct): the capture's leader_claim is withheld, so CEE's matched view says 'withheld', as served.
+    render(<V5AnalysisResultBlock block={holdLeaderForCard(asBlock(clone()), 'withheld', null)} />)
     expect(screen.queryByText(MODERATE)).toBeNull()
     expect(screen.queryByTestId(COPY_ID)).toBeNull()
     // The producer's own summary still renders: suppression, not a blank card.
