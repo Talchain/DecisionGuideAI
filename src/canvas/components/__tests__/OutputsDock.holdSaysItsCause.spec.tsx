@@ -27,7 +27,6 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { VERDICT_ABSENT_FROM_PAYLOAD } from '../../store/analysisFreshness'
 import * as held from '../../utils/analysisHeldOnInjectedModel'
 import { ANALYSIS_HELD_NOTICE } from '../../utils/analysisHeldOnInjectedModel'
@@ -111,7 +110,6 @@ function ensureMatchMedia() {
 }
 
 function seedVerdict() {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({

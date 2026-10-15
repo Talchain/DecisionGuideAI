@@ -27,7 +27,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { ANALYSIS_HELD_NOTICE } from '../../utils/analysisHeldOnInjectedModel'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
@@ -179,7 +178,6 @@ beforeAll(async () => {
  */
 function seedVerdict(overrides: Partial<typeof BLOCKED_VERDICT> = {}) {
   const verdict = { ...BLOCKED_VERDICT, ...overrides }
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({

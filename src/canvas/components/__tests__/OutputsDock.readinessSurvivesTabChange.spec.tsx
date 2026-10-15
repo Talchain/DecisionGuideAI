@@ -118,7 +118,6 @@ import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
 import { useUIStore } from '../../../stores/uiStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { composeAnalysisBlockedReason, analysisBlockedSentences } from '../../utils/composeBlockedReason'
 import { actionableBlockers } from '../../utils/canRunAnalysis'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
@@ -292,7 +291,6 @@ function seedCanvasWithModel() {
 }
 
 function seedSideCar(verdict: typeof SIDE_CAR_OBJECTS | typeof SIDE_CAR_AGREES) {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({
@@ -633,7 +631,6 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
     // The cold-load / starvation state: the check has not answered YET and has
     // not failed. A fetch that never settles is what produces it honestly —
     // resolving gives a verdict, rejecting gives the outage arm.
-    clearInflightCache()
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     useReadinessStore.setState({
       readiness: null, loading: true, error: null, stale: false, verdictAtMs: null,
@@ -666,7 +663,6 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
   it('OUTAGE — the check failed: the same headline on both, and Retry on both', async () => {
     // A network rejection is what sets `readinessStore.error` and KEEPS it set:
     // the mount fetch fails again rather than clearing it.
-    clearInflightCache()
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
     seedCanvasWithModel()
     useCanvasStore.setState({ analysisStateV1: null } as never)

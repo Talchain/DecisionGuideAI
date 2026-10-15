@@ -62,7 +62,6 @@ import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
-import { clearInflightCache } from '../../../hooks/useGraphReadiness'
 
 const mockFetch = vi.fn()
 
@@ -172,7 +171,6 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockFetch.mockReset()
   useReadinessStore.getState().reset()
-  clearInflightCache()
   useSignalSessionStore.getState().reset()
   useGuidanceStore.setState({ _sendChip: null, _prefillChat: null })
   seedGraph()

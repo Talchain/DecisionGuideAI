@@ -47,7 +47,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -142,7 +141,6 @@ function seedPostRunCanvas({
   dirty = false,
   critique = BLOCKER_CRITIQUE,
 }: SeedOpts = {}) {
-  clearInflightCache()
   // Held in flight: a settling readiness fetch would clear the state under
   // test mid-assertion (same reason as OutputsDock.staleVerdictCopy.spec).
   vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))

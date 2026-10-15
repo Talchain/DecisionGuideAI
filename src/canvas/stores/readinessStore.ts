@@ -1,143 +1,61 @@
 /**
- * Readiness Store — single source of truth for CEE graph-readiness state.
+ * Readiness Store — CEE's readiness verdict, READ FROM THE TURN.
  *
- * Replaces 7+ independent useGraphReadiness() hook instances that each
- * maintained their own debounce timers, refs, and state. Now a single
- * module-level subscription watches the canvas store, debounces 500ms,
- * and makes one fetch per graph change.
+ * ⭐ S10/S11 "NO GRAPH OUT OF THE BROWSER" (DL Q2a, 15 Oct 2026). This store used to POST the canvas graph to
+ * `/bff/cee/graph-readiness` on mount and on every edit, and keep a second verdict beside the one the turn already
+ * carries. That request is deleted. The verdict is now the served `analysis_ready` the turn and the cold read deliver
+ * into `useCanvasStore.ceeAnalysisReady`, the same canonical readiness authority (CEE `assessCanonicalAnalysisReadiness`)
+ * asked about CEE's own persisted graph:
+ *   - `may_run` (three-valued; `'unknown'` kept, never coerced) and `can_run_analysis` = `may_run === true`;
+ *   - `readiness_issues[]`, CEE's own repair sentences with their scope and obligation.
  *
- * Consumers read via useReadinessStore(s => s.readiness) or via the
- * thin wrapper useGraphReadiness() for backward compatibility.
+ * Fields only the deleted endpoint carried (`readiness_score`, `readiness_level`, `confidence_explanation`,
+ * `improvements`, `scaffold_plan`, `blocker_reason`) are ABSENT, never invented: their readers already degrade to
+ * the issues or say nothing. Before the first turn there is no verdict (`null`), never "ready".
+ *
+ * Consumers read via `useReadinessStore(s => s.readiness)` or the thin `useGraphReadiness()` wrapper; the state shape
+ * is unchanged, so no consumer changes.
  */
 import { create } from 'zustand'
-import { buildSessionAuthKey, buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
-import { withSessionReadTimeout } from '../conversation/turnLifecycle'
-import { isBlockedCarrier } from '../domain/usableAnalysisReady'
-import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
-import type { Node, Edge } from '@xyflow/react'
-import { FactorCategory } from '@talchain/schemas'
-import { projectNodeFieldsForWire } from '../registration/buildRegistrationGraph'
 import type {
   GraphReadiness,
-  GraphReadinessLevel,
   GraphImprovement,
   ReadinessIssue,
-  DeduplicatedResponse,
-} from '../hooks/useGraphReadiness'
-import {
-  ACCEPTED_READINESS_LEVELS,
-  ReadinessBodyUnreadableError,
-  __test__ as dedupUtils,
 } from '../hooks/useGraphReadiness'
 
 // Re-export types consumers need
 export type { GraphReadiness, GraphImprovement }
 
-/**
- * Normalise CEE's `readiness_level` onto the accepted pre-analysis vocabulary.
- *
- * The accepted set is `ACCEPTED_READINESS_LEVELS` — CEE's own emitted members
- * (`needs_work | fair | ready`) plus the local-fallback `strong` — and NOT a
- * literal list maintained here. It used to be `['needs_work','fair','strong']`,
- * the POST-analysis `EnrichmentConfidenceTier` members applied to this
- * PRE-analysis field: `ready` was absent, so CEE's top band was silently
- * rewritten to `fair` on every graph scoring >= 70, and `canRunAnalysis`
- * then attached "consider improvements for better results" to the Run button
- * of a model CEE had called ready.
- *
- * The guard itself is deliberately kept: unrecognised input still degrades to
- * `fair` rather than reaching consumers untyped. What changes is (a) the
- * vocabulary it is measured against and (b) that the degrade is no longer
- * silent — a silent coercion is exactly why this survived review.
- */
-function normaliseReadinessLevel(raw: unknown): GraphReadinessLevel {
-  if (
-    typeof raw === 'string' &&
-    (ACCEPTED_READINESS_LEVELS as readonly string[]).includes(raw)
-  ) {
-    return raw as GraphReadinessLevel
-  }
-
-  if (import.meta.env.DEV) {
-    console.warn(
-      `[readinessStore] Unrecognised readiness_level ${JSON.stringify(raw)} — ` +
-        `degrading to 'fair'. Accepted: ${ACCEPTED_READINESS_LEVELS.join(' | ')}. ` +
-        `If CEE now emits this value, widen CEE_READINESS_LEVELS in useGraphReadiness.ts.`,
-    )
-  }
-  return 'fair'
-}
-
-/**
- * ROADMAP 2.339 — a non-ok status that is neither 429 nor 404.
- *
- * Carries the STATUS and nothing else. The response body is logged at the
- * throw site and never travels with the error, so no arm downstream can paste
- * a proxy's HTML error page into user-facing copy — which is exactly what the
- * pristine `HTTP ${status} - ${errorBody}` string did.
- */
-export class ReadinessServiceStatusError extends Error {
-  readonly status: number
-
-  constructor(status: number) {
-    super(`Readiness service responded HTTP ${status}`)
-    this.name = 'ReadinessServiceStatusError'
-    this.status = status
-  }
-}
-
-// ⚠ THE BASE IS A LITERAL, AND THAT IS LOAD-BEARING (ROADMAP 2.710). The
-// env-resolved form shipped this call pointed at PLoT's bearer-authenticated
-// origin (dashboard var, Vite-inlined at build); the `/bff/cee` edge seam
-// injects `X-Olumi-Assist-Key` server-side and CEE serves
-// /assist/v1/graph-readiness behind it. Same-origin now, by construction —
-// see ceeSeamBinding.spec.ts (source-level guard; runtime pins cannot see
-// this defect class).
-const CEE_BASE_URL = '/bff/cee'
-
-// ── Constants ──────────────────────────────────────────────────────
-const DEBOUNCE_DELAY = 500
-const INITIAL_BACKOFF_MS = 1000
-const MAX_BACKOFF_MS = 30000
-const BACKOFF_MULTIPLIER = 2
-
 // ── Store interface ────────────────────────────────────────────────
 
 export interface ReadinessStoreState {
   readiness: GraphReadiness | null
-  /** Opaque auth identity owning the published server verdict. */
+  /** Kept for the state shape; the turn verdict carries no separate auth owner (always null). */
   verdictAuthKey: string | null
+  /** Always false: nothing is fetched. */
   loading: boolean
+  /** Always null: nothing is fetched, so there is no check that can fail. */
   error: string | null
   /**
-   * ROADMAP 2.332 — true when the model has changed in a way the CURRENT
-   * `readiness` verdict was not asked about.
-   *
-   * Set the moment a payload-affecting mutation is detected, cleared only when
-   * a fresh verdict lands. It exists because #564 made failure retain the last
-   * server verdict rather than replace it with a guess — the right call, but it
-   * means a retained verdict can outlive the model it graded. `stale` is what
-   * stops a surface presenting that verdict as current; it never changes the
-   * verdict itself, and never opens or closes the gate.
+   * Always false. The verdict is the turn's own, about CEE's persisted graph, and it is replaced by the next turn's;
+   * there is no local model it can lag behind.
    */
   stale: boolean
-  /** `Date.now()` when `readiness` was last set from an answer. Null until then. */
+  /** `Date.now()` when `readiness` was last published from a turn verdict. Null until then. */
   verdictAtMs: number | null
 }
 
 export interface ReadinessStoreActions {
-  /** Manual re-fetch bypassing debounce (used by PreAnalysisHealth refresh button) */
+  /** Re-read the turn verdict now (no request). */
   refresh: () => void
   /**
-   * Begin watching canvas store for graph changes.
-   * Idempotent — subsequent calls are no-ops.
-   * Returns an unsubscribe function.
+   * Begin watching the canvas store's turn verdict. Ref-counted; returns a release function.
    */
   startListening: () => () => void
-  /** Reset state AND unsubscribe the canvas listener + clear timers. */
+  /** Reset state AND unsubscribe. */
   reset: () => void
-  /** Auth boundary: invalidate work and publication while retaining mounted listeners. */
+  /** Auth boundary: clear the published verdict; mounted listeners stay. */
   resetForAuth: () => void
 }
 
@@ -150,1336 +68,93 @@ const initialState: ReadinessStoreState = {
   verdictAtMs: null,
 }
 
-// ── Module-level singletons ────────────────────────────────────────
-// These replace the per-hook-instance useRef values.
+/**
+ * CEE's `readiness_issues[]`, kept exactly as the producer sent them (field-for-field `RouteReadinessBlocker`).
+ *
+ * ⚠ `[]` IS PRESERVED: "CEE said there is nothing" is not "CEE said nothing". Entries without a usable `message` (the
+ * only rendered field) are dropped, but the array's presence survives. `obligation` is never defaulted: an unknown stays
+ * unknown rather than becoming a demand (INV-P6).
+ */
+export function normaliseReadinessIssues(raw: unknown): ReadinessIssue[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw
+    .filter((issue: any) => issue && typeof issue.message === 'string' && issue.message.trim())
+    .map((issue: any): ReadinessIssue => ({
+      message: issue.message,
+      ...(typeof issue.code === 'string' ? { code: issue.code } : {}),
+      ...(typeof issue.category === 'string' ? { category: issue.category } : {}),
+      ...(typeof issue.repairability === 'string' ? { repairability: issue.repairability } : {}),
+      ...(typeof issue.option_id === 'string' ? { option_id: issue.option_id } : {}),
+      ...(typeof issue.option_label === 'string' ? { option_label: issue.option_label } : {}),
+      ...(typeof issue.factor_id === 'string' ? { factor_id: issue.factor_id } : {}),
+      ...(typeof issue.factor_label === 'string' ? { factor_label: issue.factor_label } : {}),
+      ...(typeof issue.obligation === 'string' ? { obligation: issue.obligation } : {}),
+      ...(typeof issue.waived_by_exclusion === 'boolean' ? { waived_by_exclusion: issue.waived_by_exclusion } : {}),
+    }))
+}
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
+/**
+ * The readiness verdict the TURN served (`analysis_ready`), in the store's shape. `null` before any turn verdict.
+ * Only what CEE said: `may_run` and its `readiness_issues`. Nothing is derived from the canvas.
+ */
+export function readinessFromTurn(analysisReady: unknown): GraphReadiness | null {
+  if (analysisReady === null || typeof analysisReady !== 'object') return null
+  const raw = analysisReady as Record<string, unknown>
+  const mayRun = raw.may_run
+  const may_run = typeof mayRun === 'boolean' || mayRun === 'unknown' ? mayRun : undefined
+  const readiness_issues = normaliseReadinessIssues(raw.readiness_issues)
+  return {
+    can_run_analysis: may_run === true,
+    ...(may_run !== undefined ? { may_run } : {}),
+    ...(readiness_issues !== undefined ? { readiness_issues } : {}),
+  }
+}
+
+// ── Module-level subscription ──────────────────────────────────────
+
 let unsubCanvasStore: (() => void) | null = null
-/** Number of active consumers (hook instances). Subscription tears down at 0. */
 let listenerRefCount = 0
-/**
- * The payload of the last request ATTEMPT, successful or not. The change
- * detector compares against this, so a canvas emission that leaves the payload
- * identical asks nothing — including after a failure, where `lastPayloadHash`
- * is deliberately left unset.
- *
- * These two are NOT a mirror of each other: they answer different questions
- * ("has anything the server would see changed since we last asked?" vs "do we
- * already hold a verdict for exactly this?") and both derive from the SAME
- * `buildReadinessPayload`, so neither can drift from the payload.
- */
-let lastObservedPayload: string | null = null
-/**
- * ROADMAP 2.345 — the payload the CURRENTLY ARMED debounce timer will ask
- * about. Non-null exactly while `debounceTimer` is armed; cleared the instant
- * the timer fires or is torn down.
- *
- * It answers a THIRD question, distinct from the two above: not "has anything
- * changed since we last asked?" (`lastObservedPayload`) and not "do we already
- * hold a verdict for this?" (`lastPayloadHash`), but "is this exact question
- * ALREADY ON ITS WAY?".
- *
- * Without it the debounce could starve itself, and on the deployed canvas it
- * always did. React Flow's ResizeObserver drives a permanent ~100–120 Hz storm
- * of `nodes`-identity commits (measured live: max inter-commit gap 44 ms over
- * 60 s). Every one of those commits rebuilds a payload that is IDENTICAL to
- * the last — and after the cold-load zero-node arm returned without recording
- * anything, `lastObservedPayload` was `null`, which equals no payload at all.
- * So each commit read as a change and cleared + re-armed the 500 ms trailing
- * timer ~100 times a second, forever. The fetch that would have ended the loop
- * by recording `lastObservedPayload` sat behind the timer that never fired: a
- * starvation deadlock, and the reason `graph-readiness` was requested ZERO
- * times in three of four witnessed guest sessions.
- *
- * Tracking the SCHEDULED payload separately is what makes starvation
- * structurally impossible: a given payload can re-arm the timer at most once,
- * so the timer always reaches its deadline. It deliberately does NOT reuse
- * `lastObservedPayload` — recording a payload as observed at SCHEDULE time is
- * the pre-#566 shape, and it makes a question that was scheduled but never
- * actually asked (rate-limit backoff, teardown) look answered forever. Both
- * truths have to hold at once: an unattempted payload is not "asked", and a
- * scheduled payload must not reset its own timer.
- */
-let pendingScheduledPayload: string | null = null
-/** The payload of the last SUCCESSFUL request. Never written on failure. */
-let lastPayloadHash: string | null = null
-/** Auth context of the last successful request; never reuse another session's verdict. */
-let lastAuthKey: string | null = null
-/** One owner/lifecycle fence for pre-dispatch work, responses, failures and finally. */
-interface ReadinessOwner { generation: number; authKey: string | null }
-const ownerFence: ReadinessOwner = { generation: 0, authKey: null }
-function ownsReadiness(check: ReadinessOwner): boolean {
-  return check.generation === ownerFence.generation &&
-    (check.authKey === null || check.authKey === ownerFence.authKey)
-}
 
-let fetchInFlight = false
-/**
- * ROADMAP 2.332 (adversarial review, amendment 1) — a call that arrived while
- * a fetch was in flight and had to be deferred.
- *
- * `fetchReadiness` opens with `if (fetchInFlight) return`. Without this flag
- * that early return DISCARDED the call: a mutation landing during a slow fetch
- * scheduled its refetch, the debounce fired at +500ms into the in-flight
- * guard, and the request vanished with no timer and no record. Whenever
- * readiness latency exceeds `DEBOUNCE_DELAY` — the Render cold-start shape —
- * the mutated model was never asked about at all. That is the 3 Aug walk's own
- * defect, re-created inside the fix for it.
- */
-let fetchQueued = false
-let backoff = { delay: 0, until: 0 }
-let lastLogTime = 0
-/** Ref-counted dedup entry from the shared inflight cache */
-let currentInflightEntry: { refCount: number; controller: AbortController } | null = null
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-function generateCorrelationId(): string {
-  return crypto.randomUUID()
-}
-
-/**
- * ROADMAP 2.332 — the canvas state roots `buildReadinessPayload` reads.
- *
- * This is the change-detection predicate for the canvas subscription. It is
- * kept honest by `readinessStore.invalidation.spec.ts`, which Proxy-wraps the
- * state handed to `buildReadinessPayload`, records every top-level property it
- * reads and asserts the set is a subset of this list — so a payload input
- * added without a watcher fails the suite rather than going quietly dark.
- *
- * ⚠ CLAUDE.md trap 12d, stated rather than assumed: that guard proves this
- * list AGREES with the builder. It cannot prove the PAYLOAD is complete — a
- * field CEE needs that the builder never reads is invisible to both. The only
- * thing that catches that is the corpus of tests driving real mutations
- * (a turn writing `ceeAnalysisReady`, an observed-state edit, a rename, an
- * edge weight, the brief), which is why those exist alongside the guard and
- * neither replaces the other.
- */
-export const WATCHED_ROOTS = [
-  'nodes',
-  'edges',
-  'ceeAnalysisReady',
-  'currentBriefText',
-  // Saving an unsaved canvas changes NOTHING about the model and EVERYTHING
-  // about the question: CEE switches from assessing the request graph to
-  // assessing the persisted scenario. A different question has to be re-asked,
-  // so this root is watched like any other payload input.
-  'currentScenarioId',
-] as const
-
-/** The slice of canvas state the readiness request is a function of. */
-export interface ReadinessPayloadInputs {
-  nodes: Node[]
-  edges: Edge[]
-  /**
-   * ⚠ CARRIES `status` DELIBERATELY. This was `{ options?: unknown[] }`, which is
-   * structurally blind to the only honest discriminator — see the refusal guard
-   * in `buildReadinessPayload`.
-   */
-  ceeAnalysisReady: { options?: unknown[]; status?: string } | null | undefined
-  currentBriefText: string | null | undefined
-  /**
-   * The saved scenario this canvas IS, or `null`/`undefined` when it is not
-   * saved yet. It is an input to the payload because it selects WHICH MODEL
-   * CEE assesses — see the `scenario_id` block in `buildReadinessPayload`.
-   */
-  currentScenarioId: string | null | undefined
-}
-
-/**
- * ⭐ THE NAMED DIFFERENCES between the readiness body and the registration
- * projection (DL ruling 5871843133): the ONE list of node fields readiness does
- * not send. Each is DECLARED by CEE's readiness `Graph` node schema
- * (`src/schemas/graph.ts` `Node`) and so VALIDATED there: a canvas value
- * outside its type fails `safeParse` and returns HTTP 400 for the whole
- * request. Readiness has never sent them, and CEE's admission rules the parity
- * lock covers (`readinessProjection.parity.spec.ts`) do not read them. An
- * undeclared field (e.g. `prior`) rides CEE's `.passthrough()` and is sent.
- */
-export const READINESS_EXCLUDED_NODE_FIELDS: ReadonlySet<string> = new Set([
-  'body',
-  'goal_threshold',
-  'goal_threshold_raw',
-  'goal_threshold_unit',
-  'goal_threshold_cap',
-  'goal_threshold_cap_provenance',
-  'goal_threshold_frame',
-  'goal_baseline',
-  'goal_baseline_raw',
-  'scale_frame',
-])
-
-function omitReadinessExcluded(fields: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(fields)) {
-    if (!READINESS_EXCLUDED_NODE_FIELDS.has(key)) out[key] = value
-  }
-  return out
-}
-
-/**
- * Build the `/graph-readiness` request body. Pure: everything it reads arrives
- * in `s`, nothing is pulled from `useCanvasStore` inside.
- *
- * ROADMAP 2.332 — THIS FUNCTION IS THE SINGLE TRUTH ABOUT WHAT THE VERDICT IS
- * A FUNCTION OF, and both callers use it: the request, and the change detector
- * that decides whether to make one.
- *
- * It replaces `createGraphFingerprint`, a hand-written hash of node
- * `id:type:data.value` plus edge `key:data.confidence`. That hash was a mirror
- * of this payload maintained by memory, and it had drifted BOTH ways:
- *   · it hashed `edge.data.confidence`, which this payload has never carried —
- *     so a change to it entered the fetch, cleared the honest error state and
- *     asked the server a question it had already answered; and
- *   · it did NOT hash `observedState`, node `label`/`kind`, edge
- *     `weight`/`belief`/`direction`, the brief, or `ceeAnalysisReady` — every
- *     one of which this payload DOES carry. That is why the 3 Aug walk's
- *     successful remedy (a turn writing `ceeAnalysisReady` via
- *     `mirrorAnalysisReady`) changed the answer without ever asking for it,
- *     and the gate stayed shut on a verdict eight turns old.
- * A hash derived from the payload cannot drift from the payload, because it IS
- * the payload.
- */
-export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
-  const { nodes, edges, ceeAnalysisReady, currentBriefText, currentScenarioId } = s
-
-  const payload: Record<string, unknown> = {
-    graph: {
-      nodes: nodes.map((n) => {
-        const data = (n.data ?? {}) as any
-        const nodeKind = data?.kind || n.type || 'factor'
-        // ⭐ ONE PROJECTION (DL ruling 5871843133). The body starts from the
-        // node fields registration sends (`projectNodeFieldsForWire`), so a
-        // field the canvas holds reaches readiness unless it is named below.
-        // It was a second hand-kept allow-list, which never sent `prior`:
-        // readiness then read every prior-only external factor as "no level",
-        // while the engine samples that prior, and all 5 starters could not Run.
-        // The rules after the spread are the ONLY differences, each by name.
-        const node: Record<string, unknown> = {
-          ...omitReadinessExcluded(projectNodeFieldsForWire(data)),
-          id: n.id,
-          type: nodeKind,
-          kind: nodeKind,
-          label: data?.label || n.id,
-        }
-        // Readiness reads a factor's level as `data.value` (a registration
-        // node carries it at the top level); only a number is sent, never the
-        // canvas's own `data` bundle, which CEE validates as `NodeData`.
-        delete node.data
-        if (typeof data?.value === 'number') {
-          node.data = { value: data.value }
-        }
-        // ── Factor category: the classification the readiness authority reads ──
-        //
-        // CEE raises the "this option needs a value" blocker for a factor only
-        // when an option could plausibly move it, and it reads `category` to
-        // decide. An ABSENT category is treated as `controllable` — the
-        // conservative default, and the right one for a factor nobody has
-        // classified.
-        //
-        // This projection dropped the field, so EVERY factor arrived looking
-        // controllable, including the ones the model itself had classified as
-        // `external`. The user was then asked to "choose which option changes
-        // Labour Market Conditions and by how much" — a demand to set a value
-        // on something the product had already decided nobody controls.
-        // Measured on four real captured models: restoring this one field, and
-        // nothing else, moved each from `can_run=false` with 3-6 issues to
-        // `can_run=true` with 0.
-        //
-        // The fix belongs HERE, not in CEE: making CEE stop defaulting absent
-        // categories to controllable would LOWER the readiness bar and mask
-        // genuinely unclassified factors. The information was never missing —
-        // the canvas holds it (`FactorNodeDataSchema.category`), the draft
-        // adapter carries it and INFERS it when the model omits it
-        // (`inferMissingCategories`), and the inspector lets the user set it.
-        // Restoring dropped information is honest; loosening the check is not.
-        //
-        // TOP-LEVEL, derived from the producer rather than chosen: CEE's own
-        // wire nodes carry `category` at the top level (`inferMissingCategories`
-        // writes `node.category`), and `mapDraftNodeToCanvas` spreads the wire
-        // rest into canvas `data` — so wire is flat, canvas is nested, and this
-        // converts back. It is also where both siblings sit (`observed_state`,
-        // `interventions`).
-        //
-        // Producer-owned passthrough: carried only when supplied, never
-        // invented, never defaulted, never recomputed — and specifically NOT
-        // back-filled from `controllability`, whose enum admits `partial` and
-        // `unknown`, which the category enum does not. That would be a new
-        // judgement, not a restoration.
-        //
-        // ⚠ VALIDATED, AND THE VALIDATION IS LOAD-BEARING — NOT A TIDINESS
-        // CHECK. CEE's request `Graph` is `.passthrough()`, so an UNDECLARED
-        // key would ride along harmlessly — but `category` is DECLARED, as
-        // `FactorCategory.optional()` (CEE `src/schemas/graph.ts:292`,
-        // re-declared at `cee-v3.ts:168`). A declared field is VALIDATED: any
-        // value outside the three-member enum fails `safeParse` and returns
-        // HTTP 400 `CEE_VALIDATION_FAILED` for the WHOLE request. Forwarding
-        // an unvalidated string would therefore convert a wrong-question
-        // defect into a total readiness outage — strictly worse than the bug
-        // being fixed. An out-of-enum value is dropped instead, which leaves
-        // CEE's conservative absent-category default in force: the safe
-        // direction, and exactly the behaviour we have today.
-        //
-        // The allowlist is DERIVED, never hand-listed: `FactorCategory` is the
-        // shared contract's own enum — the same declaration CEE validates
-        // against — so this guard cannot drift from the values the server will
-        // accept. A hand-copied list here would be the mirror defect that has
-        // cost this estate repeatedly.
-        delete node.category
-        if (nodeKind === 'factor' && FactorCategory.safeParse(data?.category).success) {
-          node.category = data.category
-        }
-        // F4 (A1 GO 21 Jul — CEE widen merged + deploy-verified live): send factor
-        // observed_state so /assist/v1/graph-readiness can report
-        // scaffold_plan.will_scaffold_options (fixes "blocked despite scaffold fired").
-        // Built EXPLICITLY (never spread observedState) so unit/source and any
-        // metadata-shaped key are excluded — a metadata key routes CEE to the strict
-        // constraint branch (needs metadata.operator) → HTTP 400. value REQUIRED (0-1
-        // model scale); raw_value OPTIONAL (display magnitude), only when numeric.
-        delete node.observed_state
-        const observedState = data?.observedState
-        if (nodeKind === 'factor' && typeof observedState?.value === 'number') {
-          node.observed_state = {
-            value: observedState.value,
-            ...(typeof observedState.raw_value === 'number'
-              ? { raw_value: observedState.raw_value }
-              : {}),
-          }
-        }
-        // ── Option interventions: what makes a CONFIGURED option legible ──
-        //
-        // CEE's canonical readiness assessor decides whether an option is
-        // configured by reading its interventions off the GRAPH. Until this
-        // existed, the projection sent none, so a fully-configured canvas model
-        // arrived wire-indistinguishable from an empty one and every option came
-        // back `MISSING_OPTION_VALUE` (measured CEE-side with a contrast
-        // control). That gap is what blocks re-pointing `/graph-readiness` at
-        // the single canonical assessor — see CEE #991.
-        //
-        // TOP-LEVEL, not under `data`, and this is load-bearing: CEE types
-        // option `data` as `OptionData`, whose `interventions` is
-        // `z.record(z.string(), z.number())` — strictly numeric — so writing the
-        // canvas's rich `{ value, source, target_match }` entries there risks
-        // failing the `NodeData` union and returning HTTP 400. The top-level
-        // field survives CEE's `.passthrough()` request parse and is DECLARED by
-        // its `NodeV3` as `z.record(z.string(), z.any())`.
-        //
-        // Numeric-only by construction: CEE's `extractNumericIntervention`
-        // accepts a bare number or `{ value: number }`, and a categorical value
-        // awaiting encoding is not a configured effect — it is dropped rather
-        // than invented into a number. An option with no resolvable value omits
-        // the field entirely, because an empty map would assert
-        // "configured with nothing".
-        delete node.interventions
-        if (nodeKind === 'option') {
-          const raw = data?.interventions
-          if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
-            const interventions: Record<string, number> = {}
-            for (const [factorId, entry] of Object.entries(raw as Record<string, unknown>)) {
-              const value =
-                typeof entry === 'number'
-                  ? entry
-                  : entry != null &&
-                      typeof entry === 'object' &&
-                      typeof (entry as { value?: unknown }).value === 'number'
-                    ? (entry as { value: number }).value
-                    : undefined
-              if (value !== undefined && Number.isFinite(value)) interventions[factorId] = value
-            }
-            if (Object.keys(interventions).length > 0) node.interventions = interventions
-          }
-        }
-        return node
-      }),
-      /**
-       * UI-SEM-011: Default belief injection (belief: 0.8).
-       * UI-SEM-030: Edge defaults for CEE coaching (weight 0.5, belief 0.8, direction 'positive').
-       */
-      edges: edges.map((e) => ({
-        id: e.id,
-        from: e.source,
-        to: e.target,
-        weight: (e.data as any)?.weight ?? 0.5,
-        belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.8,
-        effect_direction: (e.data as any)?.direction ?? 'positive',
-      })),
-    },
-  }
-
-  if (currentBriefText && currentBriefText.length >= 20) {
-    payload.brief = currentBriefText
-  }
-
-  // A REFUSAL IS NOT A READINESS ASSESSMENT. The guard here was
-  // `options?.length` alone — a SHAPE check, and CEE's identity-preserving
-  // refusal (ARM B) populates `options` on purpose, so the shape guard was
-  // satisfied by exactly the payload it needed to exclude. Sending it would
-  // hand CEE's readiness authority its own refusal back as an assessment.
-  if (!isBlockedCarrier(ceeAnalysisReady) && ceeAnalysisReady?.options?.length) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { model_adjustments: _strip, ...analysisReadyForPayload } =
-      ceeAnalysisReady as Record<string, unknown>
-    payload.analysis_ready = analysisReadyForPayload
-  }
-
-  // ── The two readiness authorities must assess the SAME model ──────
-  //
-  // Derived at CEE `cbc3ea3d`, `src/routes/assist.v1.graph-readiness.ts`:
-  //
-  //   scenario_id: z.string().min(1).optional()
-  //   ...
-  //   let assessedGraph = input.graph; let assessedFrom = "request_graph";
-  //   if (input.scenario_id) {
-  //     const persisted = await loadPersistedScenarioStateStrict(input.scenario_id);
-  //     if (persisted.graph != null) { assessedGraph = persisted.graph; assessedFrom = "persisted"; }
-  //   }
-  //
-  // CEE runs ONE predicate (`assessRouteAdmission` →
-  // `assessCanonicalAnalysisReadiness`, the same whole-model authority the TURN
-  // path uses) over one of TWO inputs, and the CALLER picks which. The run path
-  // always reads the persisted scenario. This projection never sent the id, so
-  // the panel was always answered over `request_graph` — the browser's LOCAL
-  // copy. Same predicate, two inputs: that is how the panel can read "3/3
-  // ready" about a model the analysis turn never sees.
-  //
-  // ⚠ STATE-CLASS, and it is a correctness constraint rather than a nicety.
-  // A guest, or a canvas drafted but not yet saved, HAS no scenario. For those
-  // callers `request_graph` is the right input and CEE says so itself ("the
-  // fallback is not a failure path"). So the field is omitted ENTIRELY rather
-  // than sent empty: CEE types it `z.string().min(1)`, so `""` is a validation
-  // failure, not a benign no-op — it would 400 every guest readiness request.
-  //
-  // ⚠ AND WHAT THIS DOES TO THE PANEL, recorded because it reads as a
-  // regression and is not one: where the persisted graph lags the canvas, the
-  // panel starts reporting the value MISSING — which is what the run path has
-  // been seeing all along. Agreement is the point; the lag is fixed by the
-  // coupled CEE `options[]`-sync work, not by a projection that flatters.
-  if (typeof currentScenarioId === 'string' && currentScenarioId.length > 0) {
-    payload.scenario_id = currentScenarioId
-  }
-
-  return JSON.stringify(payload)
-}
-
-/**
- * ── ROADMAP 2.635 (I-1): `calculateFallbackReadiness` was DELETED here ──
- *
- * It was a node/edge-count heuristic that returned a full `GraphReadiness` —
- * score, level and `can_run_analysis` — composed entirely from local state. Its
- * verdict was `can_run_analysis: blockers.length === 0`, where `blockers` came
- * from `graphHealth`, which is `null` until an analysis has already COMPLETED.
- * So on the pre-analysis canvas it never found a blocker and always granted the
- * run, and it was the only writer of `readiness_level: 'strong'` — a band no
- * CEE code path assigns to this field.
- *
- * Its callers were retired one at a time: the transport catch (2.319a), the 404
- * arm (2.329), the 5xx arm (2.339), and finally the 429 arm (this row). With the
- * last caller gone the function is deleted rather than left resident, because a
- * resident fabricator is an invitation: the next failure arm added to this file
- * would have reached for it exactly as the previous four did.
- *
- * The `'strong'` vocabulary went with it — see `useGraphReadiness.ts`. There is
- * now no code path in this repo that can produce a readiness verdict the server
- * did not send.
- */
-
-// ── Core fetch logic ───────────────────────────────────────────────
-
-/**
- * Publish a FAILED readiness check: no verdict is invented, and the error says
- * why. Every failure arm below ends here, so they cannot disagree about what a
- * failure retains.
- *
- * Each arm's own comment states what it keeps: `readiness` "EXACTLY as it was —
- * null on first load … otherwise the last answer the server actually gave".
- * There was a third case that premise missed: the zero-node arm's LOCALLY
- * composed verdict (`can_run_analysis: false`, stamped `verdictAtMs: null`
- * because no request was made). A failure can only follow a request, and a
- * request is only made for a graph WITH nodes — so a local verdict retained
- * here is never about the model the failed check was asked about, and no
- * server ever gave it. (If the canvas is emptied mid-request, dropping it costs
- * nothing: the gate's zero-node rung says the same sentence, and the next
- * fetch re-composes it.)
- *
- * Retaining it closed the run gate on it and, because it was stale, made the
- * gate say "Olumi is checking again" beside a dock saying the check had failed
- * (HTTP 503) — witnessed on `witness/ai-conversation-local`, evidence 08.
- *
- * So a verdict no server gave is not retained past a failed check: the store
- * publishes its own "unknown" state (`readiness: null` + `error`), and the gate
- * applies its documented rule to that — "A `null` verdict is UNKNOWN, and
- * unknown does not object" (`readinessObjectsToRun`, canRunAnalysis.ts). The
- * discriminator is `verdictAtMs`, the one this estate already uses for "set
- * from an ANSWER" (`describeReadinessCheck`). A server answer is untouched:
- * still retained by identity, still stale if the model moved.
- */
-function publishCheckFailure(message: string, check: ReadinessOwner): void {
-  if (!ownsReadiness(check)) return
-  const { readiness, verdictAtMs, verdictAuthKey } = useReadinessStore.getState()
-  const retainOwnVerdict = readiness !== null && verdictAtMs !== null &&
-    check.authKey !== null && verdictAuthKey === check.authKey
-  if (!retainOwnVerdict) {
-    lastPayloadHash = null
-    lastAuthKey = null
-  }
+function publishFromTurn(): void {
+  const readiness = readinessFromTurn(useCanvasStore.getState().ceeAnalysisReady)
   useReadinessStore.setState({
-    error: message,
+    readiness,
+    verdictAuthKey: null,
     loading: false,
-    ...(!retainOwnVerdict ? { readiness: null, verdictAtMs: null, verdictAuthKey: null } : {}),
+    error: null,
+    stale: false,
+    verdictAtMs: readiness === null ? null : Date.now(),
   })
 }
 
-async function fetchReadiness(): Promise<void> {
-  const check: ReadinessOwner = { generation: ownerFence.generation, authKey: null }
-  // ROADMAP 2.332 amendment 1 — defer, never discard. See `fetchQueued`.
-  if (fetchInFlight) {
-    fetchQueued = true
-    return
-  }
-  fetchInFlight = true
-
-  const store = useReadinessStore.getState()
-
-  try {
-    const now = Date.now()
-    // Resolve the canonical session before any owner-specific early return or
-    // publication. The bounded wait covers both cold import and SDK session lock.
-    let identity
-    try {
-      identity = await withSessionReadTimeout(
-        import('../../lib/supabase')
-          .then(({ getSessionIdentity }) => getSessionIdentity())
-          .catch(() => ({ userId: null, accessToken: null })),
-      )
-    } catch {
-      // The bounded race rejects; its late session completion has no write path.
-      // An unconfirmed identity cannot be treated as a guest or retain a verdict.
-      publishCheckFailure('Could not reach the readiness service', check)
-      return
-    }
-    if (!ownsReadiness(check)) return
-    const authKey = await buildSessionAuthKey(identity)
-    if (!ownsReadiness(check)) return
-    const published = useReadinessStore.getState()
-    const ownerChanged = ownerFence.authKey !== authKey
-    check.authKey = authKey
-    ownerFence.authKey = authKey
-    if (ownerChanged) {
-      lastPayloadHash = null
-      lastAuthKey = null
-      backoff = { delay: 0, until: 0 }
-    }
-    // All publications, including local empty-canvas state, have this owner.
-    // Same-owner rate-limit backoff must leave its standing error untouched.
-    // A verdict is cleared when it belongs to someone else, never because this module's
-    // in-memory owner was merely unset (first check on a page). An error carries no owner,
-    // so any owner change clears it.
-    const foreignVerdict = published.readiness !== null && published.verdictAuthKey !== authKey
-    if (foreignVerdict) {
-      useReadinessStore.setState({ readiness: null, error: null, verdictAtMs: null, verdictAuthKey: null })
-    } else if (ownerChanged) {
-      useReadinessStore.setState({ error: null })
-    }
-    if (!ownsReadiness(check)) return
-    const authHeaders = buildTurnAuthHeaders(identity)
-    if (backoff.until > Date.now()) {
-      if (import.meta.env.DEV) {
-        console.warn(
-          `[readinessStore] Rate limited, waiting ${Math.ceil((backoff.until - Date.now()) / 1000)}s`,
-        )
-      }
-      return
-    }
-
-    // ROADMAP 2.635 — `graphHealth` is deliberately NOT destructured here any
-    // more. Its only reader in this module was `calculateFallbackReadiness`,
-    // and reading it into scope was what made a local verdict cheap to compose.
-    // The readiness question is answered by CEE against the payload below;
-    // nothing in this file needs the canvas's own health assessment.
-    const canvasState = useCanvasStore.getState()
-    const {
-      nodes: currentNodes,
-      edges: currentEdges,
-      ceeAnalysisReady: currentCeeAnalysisReady,
-    } = canvasState
-
-    if (currentNodes.length === 0) {
-      // ── ROADMAP 2.345: this arm ANSWERS the question, so record it ──
-      //
-      // The verdict below is composed locally, but it is still an answer to
-      // exactly this payload (the empty graph), which is why the arm can
-      // honestly clear `stale`. Leaving `lastObservedPayload` unrecorded here
-      // was half of the starvation deadlock: on a cold load this is the FIRST
-      // consumer's immediate fetch, so the marker stayed `null` — and `null`
-      // is equal to no payload, so every subsequent canvas emission read as a
-      // change no matter what it contained.
-      //
-      // Recording it also stops a `stale` flap on an empty canvas: payload-
-      // identical emissions (brief typing below the 20-character floor, a
-      // resize) would otherwise mark the verdict outgrown, fire the debounce,
-      // land back in this arm, and clear the mark again — once per pause,
-      // about a verdict that never changed.
-      lastObservedPayload = buildReadinessPayload(canvasState)
-      useReadinessStore.setState({
-        readiness: {
-          readiness_score: 0,
-          readiness_level: 'needs_work',
-          can_run_analysis: false,
-          confidence_explanation: 'Add some nodes to get started',
-          improvements: [],
-        },
-        verdictAuthKey: authKey,
-        loading: false,
-        error: null,
-        // This verdict IS a function of the current payload (zero nodes), so
-        // nothing about it is outgrown — the mark clears honestly.
-        stale: false,
-        // ROADMAP 2.332 amendment 2 — but it is composed HERE, not answered.
-        // `verdictAtMs` means "when `readiness` was last set from an ANSWER",
-        // and no request was made. Stamping it let the footer cite "Showing
-        // the check from HH:MM" for a verdict no server produced — reachable
-        // by adding the first node to an empty canvas while the service is
-        // down. Same invariant the 429 arm is nulled for; this is the branch
-        // that was still breaking it.
-        verdictAtMs: null,
-      })
-      return
-    }
-
-    // ── ROADMAP 2.332: build and compare BEFORE touching store state ──
-    //
-    // The payload-hash check used to sit AFTER `{loading: true, error: null}`,
-    // so a canvas emission that changed nothing the server sees still flashed
-    // `loading` and — once #564 made failure set a truthful `error` — ERASED
-    // that error, with no request in flight to replace it. Composed with
-    // #564 the ordering was the difference between "Could not check readiness"
-    // and a panel that silently went quiet again.
-    //
-    // A no-op now touches NO store state at all: it does not clear the error,
-    // does not flash loading, and does not disturb the stale mark.
-    const payloadJson = buildReadinessPayload(canvasState)
-
-    if (payloadJson === lastPayloadHash && authKey === lastAuthKey) {
-      return
-    }
-
-    // Record the ATTEMPT (not the success): the change detector needs to know
-    // what was last asked, including when the answer never arrived.
-    lastObservedPayload = payloadJson
-
-    // Release previous shared dedup entry
-    if (currentInflightEntry) {
-      currentInflightEntry.refCount--
-      if (currentInflightEntry.refCount <= 0) {
-        currentInflightEntry.controller.abort()
-      }
-      currentInflightEntry = null
-    }
-
-    useReadinessStore.setState({ loading: true, error: null })
-
-    const correlationId = generateCorrelationId()
-
-    try {
-      // Set after successful fetch (not here) so failed fetches don't poison the cache.
-      // See the setState call after response normalization below.
-      const currentPayloadJson = payloadJson
-
-      if (import.meta.env.DEV && now - lastLogTime > 5000) {
-        console.warn('[readinessStore] Fetching readiness:', {
-          nodes: currentNodes.length,
-          edges: currentEdges.length,
-          hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
-        })
-        lastLogTime = now
-      }
-
-      let response: DeduplicatedResponse
-      try {
-        if (!ownsReadiness(check)) return
-        const { promise, entry } = dedupUtils.deduplicatedFetch(
-          `${CEE_BASE_URL}/graph-readiness`,
-          payloadJson,
-          correlationId,
-          // The user's Supabase bearer identifies the scenario owner. The BFF
-          // still supplies the service key; guests retain the empty header set.
-          authHeaders,
-          authKey,
-        )
-        currentInflightEntry = entry
-        response = await promise
-        if (!ownsReadiness(check)) return
-      } catch (fetchErr) {
-        if (!ownsReadiness(check)) return
-        // An abort is a cancellation, not a failure — the outer catch owns it.
-        if ((fetchErr as Error).name === 'AbortError') throw fetchErr
-
-        // ── ROADMAP 2.319(a): no verdict is not a verdict ────────────
-        //
-        // `deduplicatedFetch` performs BOTH the `fetch()` and the
-        // `response.json()` inside one async IIFE, so everything below lands
-        // here as a single rejection:
-        //   · every transport failure — connection reset, cold start, offline,
-        //     DNS, and TLS. ⚠ HISTORY, corrected by ROADMAP 2.710: this call
-        //     WAS cross-origin in the deployed UI (the dashboard set
-        //     `VITE_CEE_BFF_BASE` to PLoT's absolute origin and Vite inlined
-        //     it — established by a crawl of the deployed chunks), which is
-        //     why CORS sat on this list and why the blast radius was wide.
-        //     The base is now the same-origin `/bff/cee` LITERAL (see the
-        //     constant's header), so the cross-origin failure class is gone
-        //     by construction — the fix below never rested on that fact;
-        //     same-origin fetches reject too;
-        //   · jsdom's invalid-relative-URL TypeError, which is the single
-        //     case this catch was originally written for; and
-        //   · a 2xx whose body would not parse as JSON.
-        // A non-2xx response does NOT arrive here — `response.ok` is false and
-        // it is handled immediately below.
-        //
-        // What this used to do is the defect, and it was SYSTEMATIC rather
-        // than transient. It fell through to `calculateFallbackReadiness` — a
-        // node/edge-count heuristic whose verdict is
-        // `can_run_analysis: blockers.length === 0`, where the blockers come
-        // from `graphHealth`. `graphHealth` is `null` in the canvas store's
-        // initial state and is only ever populated from a COMPLETED analysis
-        // report's `graph_quality`. So before the first analysis there are
-        // never any blockers to find, and an unreachable server did not merely
-        // RISK opening the gate — it ALWAYS granted the run, on the most
-        // common path there is.
-        //
-        // And because it OVERWROTE `readiness` while reporting `error: null`,
-        // it also replaced a `can_run_analysis: false` the server had already
-        // given (the ROADMAP 2.308 blocked state) with a locally invented
-        // `true` that no consumer could distinguish from the server's own
-        // answer.
-        //
-        // So: publish no verdict, and say why.
-        //   · `readiness` is left EXACTLY as it was. On first load that is
-        //     `null`, which — alongside a non-null `error` — is the store's
-        //     OWN pre-existing "unknown" state, and it already has a rendered
-        //     surface: PreAnalysisHealth shows "Could not check graph health"
-        //     with a Retry button on `error && !readiness`. That branch was
-        //     UNREACHABLE on this path precisely because the fallback always
-        //     populated `readiness`. Nothing new is introduced here; a dormant
-        //     honest path is restored.
-        //   · Otherwise it is the last answer the server actually gave, which
-        //     a local guess is not entitled to replace.
-        //   · `lastPayloadHash` is deliberately still unset, so the identical
-        //     graph can be re-requested — a failure here must not be sticky.
-        //
-        // Two alternatives were considered and rejected, recorded here because
-        // the next reader will reach for one of them:
-        //   · Threading a tri-state `can_run_analysis` ('yes' | 'no' |
-        //     'unknown') through its SIX non-test consumers — PreAnalysisHealth,
-        //     usePreAnalysisData, usePreAnalysisModel, canRunAnalysis,
-        //     composeBlockedReason and the two gate call sites. That is the
-        //     hand-maintained-mirror shape (CLAUDE.md trap 12): a consumer
-        //     missed keeps reading a boolean and fails SILENTLY, in the
-        //     permissive direction. A state the store cannot lie about beats a
-        //     state six readers must each remember to honour.
-        //   · Setting `can_run_analysis: false` here. It is equally a locally
-        //     invented verdict, just in the blocking direction — and with no
-        //     prior server answer it strands the user behind a disabled Run
-        //     button with copy composed from verdict fields that do not exist,
-        //     which is exactly the permanent-dead-end class ROADMAP 2.308 was
-        //     opened to fix. Trading a false "yes" for a false "no" is not a
-        //     fix; refusing to answer is.
-        const message =
-          fetchErr instanceof ReadinessBodyUnreadableError
-            ? 'Could not read the readiness service response'
-            : 'Could not reach the readiness service'
-        console.warn(`[readinessStore] ${message} — publishing no verdict:`, fetchErr)
-        publishCheckFailure(message, check)
-        return
-      }
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          const backoffDelay = response.retryAfterHeader
-            ? parseInt(response.retryAfterHeader, 10) * 1000
-            : Math.min(
-                backoff.delay > 0 ? backoff.delay * BACKOFF_MULTIPLIER : INITIAL_BACKOFF_MS,
-                MAX_BACKOFF_MS,
-              )
-
-          backoff = { delay: backoffDelay, until: Date.now() + backoffDelay }
-
-          console.warn(
-            `[readinessStore] Rate limited (429), backing off for ${backoffDelay / 1000}s`,
-          )
-
-          // ── ROADMAP 2.635 (I-1): the LAST fabrication limb, retired ──
-          //
-          // ROADMAP 2.332 left this arm publishing `calculateFallbackReadiness`
-          // and said so: "this arm's BEHAVIOUR is deliberately unchanged …
-          // retiring that is a separate row". This is that row, and the arm now
-          // does exactly what its transport / 404 / 5xx siblings do.
-          //
-          // What it used to do: publish a node/edge-count heuristic INTO
-          // `readiness`, whose verdict is `can_run_analysis: blockers.length === 0`
-          // with `blockers` drawn from `graphHealth` — `null` until an analysis
-          // has already COMPLETED. So before the first analysis there were never
-          // any blockers to find, and a rate limit did not merely RISK opening
-          // the gate: it always granted the run. And because it OVERWROTE
-          // `readiness`, it could replace a `can_run_analysis: false` the server
-          // had already given with a locally invented `true` that no consumer
-          // could distinguish from the server's own answer. It could also print
-          // `readiness_level: 'strong'` — a band NO CEE code path assigns to
-          // this field.
-          //
-          // A rate limit is a statement about the SERVICE, not about the model.
-          // So: publish no verdict, and say that. `readiness` is left EXACTLY as
-          // it was — `null` on first load (the store's own "unknown" state,
-          // which already has a rendered surface), otherwise the last answer the
-          // server actually gave, which a local guess is not entitled to
-          // replace. `verdictAtMs` stays untouched for the same reason it was
-          // explicitly nulled here before: it means "when `readiness` was last
-          // set from an ANSWER", and this is not one.
-          //
-          // The backoff above is UNCHANGED — this row retires the fabrication,
-          // not the rate-limit handling. `lastPayloadHash` is likewise still
-          // unset, so the identical graph can be re-asked once the window
-          // clears; a failure here must not be sticky.
-          publishCheckFailure('Could not check readiness right now — the service is rate limited', check)
-          return
-        }
-
-        // ── ROADMAP 2.329: a 404 here is an OUTAGE, not a deployment choice ──
-        //
-        // This branch used to publish `calculateFallbackReadiness` with NO
-        // error — the same defect 2.319(a) fixed one level up, on the path
-        // that was left out of it pending adjudication. The adjudication is
-        // now derived at the deployed bytes
-        // (PHASE0-EVIDENCE-2026-07-28/adjudication-2329-404-branch.md):
-        //
-        //   · NO deployed configuration produces a 404 on this path BY DESIGN.
-        //     On PLoT's deploy branch the route is registered UNCONDITIONALLY
-        //     — `createServer` → `registerV1Routes` → `registerCeeProxyRoutes`
-        //     → `app.post('/v1/cee/graph-readiness', …)`, no guard at any hop —
-        //     and a missing CEE_BASE_URL/CEE_API_KEY yields an error RESPONSE
-        //     from a registered handler, never a 404. Staging answers 401
-        //     (registered, auth-gated) where a control path answers 404.
-        //   · The `'/bff/cee'` same-origin fallback does not survive
-        //     minification in either deployed bundle (zero literals across an
-        //     81-chunk staging crawl and a 40-chunk production crawl), so the
-        //     "dead SPA redirect returns index.html" 404 vector is unreachable
-        //     in the shipped artifacts.
-        //   · One deployed configuration DOES 404 in steady state: production,
-        //     whose PLoT predates the route by ~6.5 months while its paired UI
-        //     bundle (built two months AFTER the route landed) bakes the call
-        //     in. That is deploy drift — the outage class — and this branch is
-        //     precisely what kept it invisible for those months.
-        //
-        // So there is no configuration this branch could be serving. Treat it
-        // exactly as a transport failure is treated: publish no verdict, set a
-        // truthful error, leave `lastPayloadHash` unset so a redeploy is picked
-        // up on the next request. `readiness` is left EXACTLY as it was — null
-        // on first load (the store's own "unknown" state), otherwise the last
-        // answer the server actually gave, which a local guess is not entitled
-        // to replace.
-        //
-        // Deliberately NOT a third state, and deliberately not `false`: both
-        // were considered and rejected at the transport catch above, for the
-        // same reasons (trap-12 tri-state threading; a false "no" is still a
-        // locally invented verdict).
-        //
-        // Consequence, stated rather than buried: shipped to production as-is
-        // against today's production PLoT, readiness would report a permanent,
-        // TRUTHFUL "could not check" until prod PLoT redeploys. That is a real
-        // outage becoming visible, not a regression introduced here.
-        if (response.status === 404) {
-          const message = 'Could not find the readiness service'
-          console.warn(
-            `[readinessStore] ${message} (HTTP 404) — publishing no verdict:`,
-            response.errorBody,
-          )
-          publishCheckFailure(message, check)
-          return
-        }
-
-        // ── ROADMAP 2.339: every remaining non-ok status ─────────────
-        //
-        // 500, 502, 503, 401, 403 — everything that is not 429 or 404. The
-        // body is logged, never carried: the pristine error string was
-        // `HTTP ${status} - ${errorBody}`, which for the outage shape that
-        // matters most (a proxy's HTML error page) put a page of markup where
-        // the UI expected a sentence.
-        console.error('[readinessStore] CEE error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: response.errorBody,
-        })
-        throw new ReadinessServiceStatusError(response.status)
-      }
-
-      backoff = { delay: 0, until: 0 }
-
-      const data = response.data
-
-      // ── ROADMAP 2.635 (I-2): a 200 that does not answer is not a "yes" ──
-      //
-      // This field used to default to `true`:
-      //
-      //     typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true
-      //
-      // `can_run_analysis` is the ONE gating field on the whole response. A 2xx
-      // whose body omits it — a partial write, a proxy that rewrote the body, a
-      // producer that renamed the field, a CEE on an older contract — therefore
-      // GRANTED the run, stamped `verdictAtMs`, and reported `error: null`.
-      // Downstream that is indistinguishable from the server's own assessment.
-      // It is the same fabrication class as the 429 arm above, spelled as a
-      // default rather than a heuristic, and strictly harder to notice because
-      // nothing about it was labelled.
-      //
-      // The fail direction is a stated decision, not a fall-through: a malformed
-      // 200 is UNKNOWN, and unknown is a state this store already has. Publish
-      // no verdict, retain whatever the server last actually said, set a
-      // truthful error. What the run GATE does with an unknown verdict is
-      // `canRunAnalysis`'s decision and is unchanged — a readiness check that
-      // cannot be obtained does not brick the Run button for a healthy user, it
-      // is disclosed. All this branch does is stop INVENTING the answer.
-      //
-      // Note the ordering: this is checked BEFORE `normalized` is built, so no
-      // half-invented verdict can exist even transiently. `lastPayloadHash` is
-      // left unset (as on the other no-verdict arms) so the identical graph can
-      // be re-asked once the service answers properly.
-      if (typeof data.can_run_analysis !== 'boolean') {
-        console.warn(
-          '[readinessStore] Readiness response carried no can_run_analysis boolean — publishing no verdict:',
-          { received: typeof data.can_run_analysis },
-        )
-        publishCheckFailure('Could not read the readiness service response', check)
-        return
-      }
-
-      const normalized: GraphReadiness = {
-        readiness_score:
-          typeof data.readiness_score === 'number'
-            ? Math.max(0, Math.min(100, data.readiness_score))
-            : 50,
-        readiness_level: normaliseReadinessLevel(data.readiness_level),
-        can_run_analysis: data.can_run_analysis,
-        confidence_explanation:
-          typeof data.confidence_explanation === 'string'
-            ? data.confidence_explanation
-            : 'Analysis available',
-        /**
-         * ⭐ THE COACHING ARRIVES AS `quality_factors`, AND THIS READ ONLY
-         * NAMED `improvements` — so six ranked recommendations were dropped.
-         *
-         * Measured on the wire, deployed staging `515214b8`: the
-         * `/bff/cee/graph-readiness` response carries NO `improvements` key at
-         * all. It carries `quality_factors`, six entries deep, each with a
-         * `recommendation`, an `impact` and a `potential_improvement` —
-         * "Connect outcomes to goals so analysis can measure success against
-         * objectives", "Link risk nodes to the options they affect". So
-         * `Array.isArray(data.improvements)` was false on every real response
-         * and the tier below it received `[]`.
-         *
-         * This function's own comments name the mechanism twice: it "builds an
-         * explicit object, so a field not named here is silently dropped before
-         * any UI code can see it". `quality_factors` was such a field. Two names
-         * for one concept, which is this estate's chronic defect — and here the
-         * consumer read the name the producer does not send.
-         *
-         * ⭐ THE PER-ITEM MAPPER ALREADY SPEAKS THIS SHAPE — it was written for
-         * it and only the array was never wired: `imp.recommendation` feeds
-         * `action`, `imp.potential_improvement` feeds `quality_impact`, and
-         * `imp.impact` feeds `priority`. The single missing field is the
-         * category, which a quality factor spells `factor`.
-         *
-         * ⛔ PRECEDENCE, NOT REPLACEMENT. A response that genuinely carries
-         * `improvements` still wins: that is the richer shape (it can name
-         * affected nodes and edges) and a future CEE build may send it. This
-         * only stops an EMPTY list being published when the coaching is
-         * present under the other name.
-         */
-        improvements: (() => {
-          // ⚠ `.length > 0`, NOT `Array.isArray` — an EMPTY `improvements`
-          // array beside a populated `quality_factors` would otherwise win and
-          // publish `[]`: the exact state this exists to end, reached by the
-          // other door. Unreachable on today's producer, which sends no
-          // `improvements` key at all; guarded because a producer that starts
-          // sending an empty one would silently reinstate the defect.
-          const fromImprovements = Array.isArray(data.improvements) && data.improvements.length > 0
-          /**
-           * ⛔ A QUALITY FACTOR WITH NO REMEDY IS DROPPED, NOT FABRICATED OVER.
-           *
-           * The per-item mapper below turns an entry carrying neither `action`
-           * nor `recommendation` into `IMPROVEMENT_ACTION_PLACEHOLDER` so the
-           * improvements LIST still renders a row — deliberate, and pinned by
-           * `readinessStore.improvementFabrication.spec.ts`. `composeBlockedReason`
-           * REFUSES that value, so on the path that fabrication was written for
-           * it is caught downstream.
-           *
-           * ⚠ BUT THIS CHANGE SWITCHES ON TWO CONSUMERS THAT HAVE NEVER RECEIVED
-           * ANYTHING, and only one of the three readers filters the placeholder:
-           * `composeBlockedReason.ts:430` does; `PreAnalysisHealth.tsx:169-176`
-           * and `useUnifiedActions.ts:176-177` do not. Making a previously-empty
-           * list non-empty therefore makes an unfiltered "Review this area"
-           * reachable AS IF IT WERE the producer's coaching. Raised by review of
-           * this PR; latent today because all six captured factors carry a
-           * `recommendation`.
-           *
-           * Filtering HERE rather than at the two readers keeps the fabrication
-           * exactly where it was written for — the `improvements` path is
-           * untouched, so its pin still holds — while ensuring nothing this arm
-           * introduces can be spoken as a remedy. A quality factor with no
-           * recommendation has no coaching to give; a row saying "Review this
-           * area" is worse than no row.
-           */
-          const usableQualityFactors = Array.isArray(data.quality_factors)
-            ? data.quality_factors.filter(
-                (q: any) => typeof q?.recommendation === 'string' && q.recommendation.trim().length > 0,
-              )
-            : null
-          const raw: unknown = fromImprovements
-            ? data.improvements
-            : usableQualityFactors && usableQualityFactors.length > 0
-              ? usableQualityFactors
-              : null
-          return Array.isArray(raw)
-          ? raw.map((imp: any): GraphImprovement => ({
-              category: imp.category || imp.factor || 'general',
-              action: imp.action || imp.recommendation || IMPROVEMENT_ACTION_PLACEHOLDER,
-              current_gap: imp.current_gap || '',
-              quality_impact:
-                typeof imp.quality_impact === 'number'
-                  ? imp.quality_impact
-                  : typeof imp.potential_improvement === 'number'
-                    ? imp.potential_improvement
-                    : 5,
-              target_quality:
-                typeof imp.target_quality === 'number'
-                  ? imp.target_quality
-                  : typeof imp.target_score === 'number'
-                    ? imp.target_score
-                    : 70,
-              priority: ['high', 'medium', 'low'].includes(imp.priority)
-                ? imp.priority
-                : imp.impact || 'medium',
-              effort_minutes: typeof imp.effort_minutes === 'number' ? imp.effort_minutes : 5,
-              affected_nodes: Array.isArray(imp.affected_nodes)
-                ? imp.affected_nodes
-                : Array.isArray(imp.affected_node_ids)
-                  ? imp.affected_node_ids
-                  : undefined,
-              affected_edges: Array.isArray(imp.affected_edges)
-                ? imp.affected_edges
-                : Array.isArray(imp.affected_edge_ids)
-                  ? imp.affected_edge_ids
-                  : undefined,
-              suggested_node_type: imp.suggested_node_type || undefined,
-              current_score:
-                typeof imp.current_score === 'number' ? imp.current_score : undefined,
-            }))
-          : []
-        })(),
-        // UI-SEM-091 (CEE #612): forward the scaffold intent verbatim. Without
-        // this explicit forward the field would be silently dropped by the
-        // normaliser (the schema-skew hazard). Absent/malformed ⇒ undefined,
-        // which is fail-safe (gate collapses to can_run_analysis).
-        scaffold_plan:
-          data.scaffold_plan && typeof data.scaffold_plan.will_scaffold_options === 'boolean'
-            ? {
-                will_scaffold_options: data.scaffold_plan.will_scaffold_options,
-                ...(typeof data.scaffold_plan.option_count === 'number'
-                  ? { option_count: data.scaffold_plan.option_count }
-                  : {}),
-              }
-            : undefined,
-        // Structured V3 verdict fields — the SAME schema-skew hazard as
-        // scaffold_plan above: this normaliser builds an explicit object, so a
-        // field not named here is silently dropped before any UI code can see
-        // it. The blocked-state copy is composed from these three (see
-        // utils/composeBlockedReason.ts); without the explicit forward it would
-        // have only the engine's prose to work from, which is precisely the
-        // defect being fixed. Wrong type ⇒ undefined ⇒ the composer degrades to
-        // less specific TRUE copy.
-        options_ready: typeof data.options_ready === 'number' ? data.options_ready : undefined,
-        options_total: typeof data.options_total === 'number' ? data.options_total : undefined,
-        goal_node_valid:
-          typeof data.goal_node_valid === 'boolean' ? data.goal_node_valid : undefined,
-        // ── The producer's WRITTEN REFUSAL and its NAMED REPAIRS ──
-        //
-        // Same explicit-keep-list hazard as the three fields above, and this is
-        // where it cost the most: CEE composes a refusal sentence and a list of
-        // per-option repairs, and BOTH died on this line. Measured at the
-        // DEPLOYED staging bundle `8f5b7a0e` (71 chunks, 5.7 MB): `blocker_reason`
-        // 0 occurrences, `readiness_issues` 0 — against seven same-response
-        // CONTRAST CONTROLS that are all present in the same crawl
-        // (`blocked_reason` 1, `options_ready` 1, `options_total` 1,
-        // `goal_node_valid` 1, `can_run_analysis` 2, `scaffold_plan` 2,
-        // `confidence_explanation` 2). Absence proven by discrimination, not by
-        // a probe that might simply be blind.
-        //
-        // ⚠ THE TWIN. `blocker_reason` (singular "blocker", PROSE, this route)
-        // is not `blocked_reason` (a bare CODE on `analysis_ready`, 24 files and
-        // perfectly healthy). Grepping the wrong one reads green.
-        // CEE's admission verdict. Three-valued on the wire; `'unknown'` is
-        // PRESERVED rather than coerced, because "we could not ask" is not
-        // "we were refused". Anything else ⇒ undefined.
-        may_run:
-          typeof data.may_run === 'boolean' || data.may_run === 'unknown'
-            ? data.may_run
-            : undefined,
-        blocker_reason: typeof data.blocker_reason === 'string' ? data.blocker_reason : undefined,
-        // ⚠ `[]` IS PRESERVED, NOT COLLAPSED TO `undefined`. "CEE said nothing"
-        // and "CEE said there is nothing" are different facts and the type
-        // distinguishes them, so the normaliser must not erase the difference
-        // here. A non-array (absent/malformed/older CEE) ⇒ undefined.
-        //
-        // Entries are filtered to those carrying a usable `message` — the only
-        // field rendered — but the ARRAY's presence survives even if every entry
-        // is dropped, because that is still "CEE answered".
-        readiness_issues: Array.isArray(data.readiness_issues)
-          ? data.readiness_issues
-              .filter(
-                (issue: any) => issue && typeof issue.message === 'string' && issue.message.trim(),
-              )
-              .map((issue: any): ReadinessIssue => ({
-                message: issue.message,
-                ...(typeof issue.code === 'string' ? { code: issue.code } : {}),
-                ...(typeof issue.category === 'string' ? { category: issue.category } : {}),
-                ...(typeof issue.repairability === 'string'
-                  ? { repairability: issue.repairability }
-                  : {}),
-                ...(typeof issue.option_id === 'string' ? { option_id: issue.option_id } : {}),
-                ...(typeof issue.option_label === 'string'
-                  ? { option_label: issue.option_label }
-                  : {}),
-                ...(typeof issue.factor_id === 'string' ? { factor_id: issue.factor_id } : {}),
-                ...(typeof issue.factor_label === 'string'
-                  ? { factor_label: issue.factor_label }
-                  : {}),
-                // Carried because INV-P6 is decided on it. A missing/malformed
-                // obligation stays `undefined` and is NOT defaulted to
-                // 'required' — defaulting would turn an unknown into a demand,
-                // which is the direction of the harm.
-                ...(typeof issue.obligation === 'string' ? { obligation: issue.obligation } : {}),
-                ...(typeof issue.waived_by_exclusion === 'boolean'
-                  ? { waived_by_exclusion: issue.waived_by_exclusion }
-                  : {}),
-              }))
-          : undefined,
-      }
-
-      // Only cache the payload hash after a successful fetch — failed fetches
-      // should allow retry on the same payload.
-      if (!ownsReadiness(check)) return
-      lastPayloadHash = currentPayloadJson
-      lastAuthKey = authKey
-      // ── ROADMAP 2.332 amendment 1: an answer clears only its OWN mark ──
-      //
-      // `stale: false` was unconditional here, and that let an answer launder
-      // a mark raised AFTER it was sent: mutate during a slow fetch, the
-      // in-flight answer lands, and the mark for a model it never saw is wiped.
-      // The queue-on-drop repair above guarantees the mutated model IS asked
-      // about, but the deferred request has not returned yet at this instant —
-      // so without this the store would report "current" about a model whose
-      // honest answer is still in the air.
-      //
-      // Derived, not tracked: rebuild the payload from the canvas as it stands
-      // NOW and compare with what this response answered. Same function as the
-      // request and the change detector, so it cannot disagree with either.
-      const answersCurrentModel =
-        buildReadinessPayload(useCanvasStore.getState()) === currentPayloadJson
-      if (!ownsReadiness(check)) return
-      useReadinessStore.setState({
-        readiness: normalized,
-        verdictAuthKey: authKey,
-        loading: false,
-        error: null,
-        // Cleared only when this verdict describes the model on the canvas.
-        // When it does not, the mark stands until the deferred answer arrives.
-        ...(answersCurrentModel ? { stale: false } : {}),
-        verdictAtMs: Date.now(),
-      })
-    } catch (err) {
-      if (!ownsReadiness(check)) return
-      if ((err as Error).name === 'AbortError') return
-
-      // ── ROADMAP 2.339: the last fabrication path in this file ────
-      //
-      // This catch used to publish `calculateFallbackReadiness` as the
-      // readiness verdict. #564 closed that on the transport limb and 2.329
-      // closed it on the 404 limb; the #564 PR body then said "only 429
-      // remains untouched", and the review refuted it at the bytes — EVERY
-      // other non-ok status (500/502/503/401/403) was thrown into here and
-      // answered with the heuristic.
-      //
-      // It is the same defect with the same two teeth. The heuristic's verdict
-      // is `can_run_analysis: blockers.length === 0`, the blockers come from
-      // `graphHealth`, and `graphHealth` is null until an analysis has already
-      // run — so before the first analysis a 502 did not merely RISK opening
-      // the gate, it ALWAYS granted the run. And because it overwrote
-      // `readiness`, it could replace a `can_run_analysis: false` the server
-      // had already given with a locally invented `true` no consumer could
-      // tell from the server's own answer.
-      //
-      // A Render cold start answers 502. This is the most likely real outage
-      // shape there is, and it was the one limb with no test at all.
-      //
-      // So: publish no verdict, and say why — the mechanism #564 established.
-      //   · `readiness` is left EXACTLY as it was: null on first load (the
-      //     store's own "unknown" state, alongside a non-null `error`), and
-      //     otherwise the last answer the server actually gave, which a local
-      //     guess is not entitled to replace.
-      //   · `stale` is deliberately NOT touched. If the model changed since
-      //     that retained verdict, it is still stale, and saying so is the
-      //     truth; clearing it here would launder an outgrown verdict into a
-      //     current-looking one.
-      //   · `lastPayloadHash` stays unset, so the identical graph can be
-      //     re-requested the moment the service recovers.
-      //   · The message names the failure and carries the status. It never
-      //     carries the response body (see the throw site above).
-      //
-      // The alternatives were considered and rejected at the transport catch
-      // for reasons that apply here unchanged: a tri-state threaded through
-      // six consumers is the hand-maintained-mirror shape (CLAUDE.md trap 12),
-      // and `can_run_analysis: false` is equally a locally invented verdict,
-      // just in the blocking direction.
-      const message =
-        err instanceof ReadinessServiceStatusError
-          ? `The readiness service could not answer (HTTP ${err.status})`
-          : 'Could not complete the readiness check'
-      console.warn(`[readinessStore] ${message} — publishing no verdict:`, err)
-      publishCheckFailure(message, check)
-    }
-  } catch {
-    publishCheckFailure('Could not complete the readiness check', check)
-  } finally {
-    // A retired operation must not release or drain a newer generation's guard.
-    if (ownsReadiness(check)) {
-      fetchInFlight = false
-      // Drain exactly one deferred call. Re-entry is bounded, not a loop: the
-      // flag is cleared BEFORE the re-invoke, and the re-invoked fetch returns
-      // without a request whenever the payload already has a verdict.
-      if (fetchQueued) {
-        fetchQueued = false
-        fetchReadiness().catch(() => {
-          // Swallow — fetchReadiness handles its own errors internally.
-        })
-      }
-    }
-  }
-}
-
-// ── Store definition ───────────────────────────────────────────────
-
-export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActions>((set, get) => ({
+export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActions>((set) => ({
   ...initialState,
 
   refresh: () => {
-    lastPayloadHash = null
-    lastObservedPayload = null
-    fetchReadiness().catch(() => {
-      // Swallow — fetchReadiness handles errors internally
-    })
+    publishFromTurn()
   },
 
   startListening: () => {
     listenerRefCount++
-
     if (!unsubCanvasStore) {
-      // First consumer — create the subscription
       unsubCanvasStore = useCanvasStore.subscribe((state, prevState) => {
-        // ── ROADMAP 2.332: derive the change signal from the payload ──
-        //
-        // Step 1, cheap: did any root the payload is built from change
-        // IDENTITY? Same early-out the pristine code had, widened from
-        // `nodes`/`edges` to the full watched set — `ceeAnalysisReady` (where
-        // the 3 Aug walk's successful remedy landed, via
-        // `mirrorAnalysisReady → setCeeAnalysisReady`, and was never seen) and
-        // `currentBriefText` (never watched at all).
-        const rootChanged = WATCHED_ROOTS.some(
-          (root) =>
-            (state as unknown as Record<string, unknown>)[root] !==
-            (prevState as unknown as Record<string, unknown>)[root],
-        )
-        if (!rootChanged) return
-
-        // Step 2: did anything the SERVER would see actually change? Built by
-        // the same function the request uses, so it cannot answer differently
-        // from the request. A node drag produces new identities and an
-        // identical payload — no mark, no request, and (critically, composing
-        // with #564) no disturbance to a standing error.
-        const nextPayload = buildReadinessPayload(state as unknown as ReadinessPayloadInputs)
-        if (nextPayload === lastObservedPayload) return
-
-        // ── ROADMAP 2.345: a question already in the timer cannot re-arm it ──
-        //
-        // Step 3. The two steps above ask whether anything CHANGED. Neither
-        // asks whether this exact change is already scheduled — and on the
-        // deployed canvas it always is, because React Flow re-emits a
-        // payload-identical `nodes` array ~100 times a second for the life of
-        // the graph. Each of those emissions used to clear and re-arm the
-        // trailing timer, so the deadline moved faster than time passed and
-        // the fetch was never made: zero `graph-readiness` requests per
-        // session, the gate composed from a cold-load local verdict, and every
-        // surface #566 built to be honest about an outage sitting behind a
-        // request that never went out.
-        //
-        // With the scheduled payload tracked, a payload can arm the timer at
-        // most once, so the deadline is always reached. Storm-independent by
-        // construction: it does not care how fast the churn is, only that the
-        // churn is asking the same question. A max-wait deadline was rejected
-        // as the primary fix — under permanent churn it re-fires forever and
-        // has to be tuned against the dedup window, where this cannot fire
-        // twice for one payload at all.
-        //
-        // The `stale` mark is not skipped by this return: it was set when this
-        // payload was first scheduled, and nothing between then and the timer
-        // firing can clear it (only a fresh verdict does, and a fresh verdict
-        // sets `lastObservedPayload`, which the step above catches first).
-        if (nextPayload === pendingScheduledPayload) return
-
-        // The verdict currently on screen was not asked about this model.
-        // Marked synchronously — before the debounce, before the request — so
-        // there is no window in which an outgrown verdict looks current.
-        useReadinessStore.setState({ stale: true })
-
-        pendingScheduledPayload = nextPayload
-        if (debounceTimer) clearTimeout(debounceTimer)
-        const scheduledGeneration = ownerFence.generation
-        debounceTimer = setTimeout(() => {
-          if (scheduledGeneration !== ownerFence.generation) return
-          debounceTimer = null
-          // Cleared BEFORE the fetch: from here the question is being asked,
-          // not scheduled, and `lastObservedPayload` takes over as the record
-          // the moment the attempt runs. Left set, a payload that had been
-          // scheduled once could never be scheduled again — which is how a
-          // rate-limited or torn-down attempt would become permanently sticky.
-          pendingScheduledPayload = null
-          fetchReadiness().catch(() => {
-            // Swallow — fetchReadiness handles errors internally
-          })
-        }, DEBOUNCE_DELAY)
+        if (state.ceeAnalysisReady !== prevState.ceeAnalysisReady) publishFromTurn()
       })
-
-      // Fire immediately on first listen
-      fetchReadiness().catch(() => {
-        // Swallow — fetchReadiness handles its own errors internally.
-        // This catch prevents unhandled rejection in test environments
-        // where fetch() rejects due to relative URL in jsdom.
-      })
+      publishFromTurn()
     }
-
-    // Return a release function. Subscription only tears down when
-    // the last consumer releases (refCount drops to 0).
     const subscription = unsubCanvasStore
     let released = false
     return () => {
       if (released || subscription !== unsubCanvasStore) return
       released = true
       listenerRefCount--
-      if (listenerRefCount <= 0) {
-        stopListening()
-      }
+      if (listenerRefCount <= 0) stopListening()
     }
   },
 
   resetForAuth: () => {
-    invalidateReadinessOwner()
+    set(initialState)
+    if (unsubCanvasStore) publishFromTurn()
   },
 
   reset: () => {
@@ -1488,43 +163,13 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
   },
 }))
 
-/** Clean up subscription, timers, and module-level state. */
+/** Clean up the subscription and module-level state. */
 function stopListening(): void {
-  invalidateReadinessOwner()
   listenerRefCount = 0
   if (unsubCanvasStore) {
     unsubCanvasStore()
     unsubCanvasStore = null
   }
-}
-
-/** Invalidate the same fence on auth boundaries and last-listener teardown. */
-function invalidateReadinessOwner(): void {
-  ownerFence.generation++
-  ownerFence.authKey = null
-  dedupUtils.clearInflightCache()
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-    debounceTimer = null
-  }
-  // ROADMAP 2.345 — the timer is gone, so nothing is scheduled. Held past a
-  // teardown it would suppress the re-scheduling of that same payload after a
-  // remount, which is the shape the last consumer unmounting actually produces.
-  pendingScheduledPayload = null
-  if (currentInflightEntry) {
-    currentInflightEntry.refCount--
-    if (currentInflightEntry.refCount <= 0) {
-      currentInflightEntry.controller.abort()
-    }
-    currentInflightEntry = null
-  }
-  lastObservedPayload = null
-  lastPayloadHash = null
-  lastAuthKey = null
-  fetchInFlight = false
-  fetchQueued = false
-  backoff = { delay: 0, until: 0 }
-  lastLogTime = 0
   useReadinessStore.setState(initialState)
 }
 
@@ -1532,64 +177,20 @@ function invalidateReadinessOwner(): void {
 export const selectReadiness = (state: ReadinessStoreState) => state.readiness
 export const selectReadinessLoading = (state: ReadinessStoreState) => state.loading
 export const selectReadinessError = (state: ReadinessStoreState) => state.error
-/** ROADMAP 2.332 — true when the model has moved on from the verdict on screen. */
 export const selectReadinessStale = (state: ReadinessStoreState) => state.stale
-/** ROADMAP 2.332 — when the verdict on screen was taken. */
 export const selectReadinessVerdictAtMs = (state: ReadinessStoreState) => state.verdictAtMs
 
 /**
  * ⭐ IS THE RUN GOING TO LEAVE THIS OPTION OUT — and if so, in CEE's words.
  *
- * WHAT THIS CLOSES. CEE has been stamping `waived_by_exclusion` on the served
- * path for some time; measured across 32 real staging turn responses it is
- * present on 30/32 with 14 `true` and 7 `false`, so it genuinely discriminates.
- * This repo already PARSES it (`:1113` above), and already uses it to decide
- * NOT to block the run (`composeBlockedReason.ts:551`). What it has never done
- * is TELL ANYONE ON THE BOARD. The user was informed in prose in the results
- * dock — *"Analysis can run, leaving out one option you have not set values
- * for"* — while the option itself sat on the canvas looking exactly like the
- * options that ARE in the analysis. The fact arrived, was acted upon, and was
- * never shown.
- *
- * ⛔ ONE AUTHORITATIVE ADMISSION DECISION, AND IT IS NOT THIS REPO'S.
- * `waived_by_exclusion` is stamped by CEE
- * (`orchestrator-v5/admission/analysis-admission.ts:954`). The canvas READS it
- * and must never re-derive it. *"Not connected"*, *"no values set"* and
- * *"excluded from this calculation"* are THREE different facts, and an option
- * can be any combination of them; deriving the third from the first two here
- * would put a second authority on screen disagreeing with the first — the
- * defect this codebase has paid for repeatedly (trap 21).
- *
- * ⚠ RETURNS A PRIMITIVE, DELIBERATELY. A selector building a `Set` or returning
- * the issue object hands zustand a fresh identity every call and re-renders the
- * subscriber for ever. `null` means NOT EXCLUDED; a string means excluded and
- * carries the producer's own sentence (empty when it sent none — still excluded,
- * so the caller must test against `null`, never truthiness).
- *
- * ⚠ AND IT REQUIRES BOTH FIELDS. An entry with `waived_by_exclusion: true` and
- * no `option_id` names no option, so it cannot mark one — measured 14/14 true
- * entries DID carry a real id, but an entry that does not must fall through
- * rather than mark an arbitrary node.
+ * `waived_by_exclusion` is stamped by CEE (`orchestrator-v5/admission/analysis-admission.ts`); the canvas READS it and
+ * never re-derives it. Returns a primitive (a fresh identity would re-render the subscriber for ever): `null` means NOT
+ * EXCLUDED; a string means excluded and carries the producer's own sentence (empty when it sent none). An entry with no
+ * `option_id` names no option, so it marks none. A stale verdict marks nothing.
  */
 export const selectOptionExclusionMessage =
   (optionId: string) =>
   (state: ReadinessStoreState): string | null => {
-    // ⛔ A STALE VERDICT MAY NOT MARK A NODE. Found by adversarial self-review
-    // before merge, not by a reviewer.
-    //
-    // `stale` means "the model has moved on from the verdict on screen"
-    // (ROADMAP 2.332). This pill is a claim about what the run WILL do, so a
-    // stale one asserts a future that is no longer predicted. The reachable
-    // harm is precise and it is the user's own fix being ignored: they see
-    // "Not in this analysis", set values on that option, and the marker keeps
-    // saying it is excluded until readiness refetches — the product telling
-    // them their correction did not count.
-    //
-    // ⚠ SILENCE RATHER THAN A CAVEAT, and the reason is the affordance. This
-    // module's standing ruling elsewhere is "caveat, never hide", but a PILL
-    // has no room to carry one and its presence IS the assertion. There is no
-    // wording of "Not in this analysis" that also says "and this may no longer
-    // be true". Absence is the only honest rendering available to it.
     if (state.stale) return null
     const issues = state.readiness?.readiness_issues
     if (!Array.isArray(issues)) return null
@@ -1605,24 +206,10 @@ export const selectOptionExclusionMessage =
 
 /** @internal — exposed for unit testing. Not part of public API. */
 export const __test__ = {
-  fetchReadiness,
+  publishFromTurn,
   getModuleState: () => ({
-    lastObservedPayload,
-    lastPayloadHash,
-    lastAuthKey,
-    generation: ownerFence.generation,
-    fetchInFlight,
-    fetchQueued,
-    backoff,
     listenerRefCount,
     hasSubscription: unsubCanvasStore !== null,
-    hasDebounceTimer: debounceTimer !== null,
-    /**
-     * ROADMAP 2.345 — whether an armed timer is currently claiming a question.
-     * The invariant is `hasDebounceTimer === hasPendingScheduledPayload`; a
-     * claim outliving its timer is exactly what makes a payload unaskable.
-     */
-    hasPendingScheduledPayload: pendingScheduledPayload !== null,
   }),
   resetModuleState: () => {
     stopListening()

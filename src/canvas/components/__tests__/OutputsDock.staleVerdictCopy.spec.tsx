@@ -29,7 +29,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
@@ -169,7 +168,6 @@ function seedCeeAnalysisReady(notReadyIds: string[]) {
  * the wrong state.
  */
 function seedVerdict({ stale }: { stale: boolean }) {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(() => new Promise(() => {})),

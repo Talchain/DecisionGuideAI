@@ -43,7 +43,6 @@ import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
-import { clearInflightCache } from '../../../hooks/useGraphReadiness'
 
 const mockFetch = vi.fn()
 
@@ -125,7 +124,6 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockFetch.mockReset()
   useReadinessStore.getState().reset()
-  clearInflightCache()
   useSignalSessionStore.getState().reset()
   useGuidanceStore.setState({ _sendChip: null, _prefillChat: null })
   seedGraph()
@@ -185,7 +183,6 @@ describe('pre-analysis panel — an unchecked model is never presented as a chec
 
       const retry = screen.getByRole('button', { name: /retry readiness check/i })
 
-      clearInflightCache()
       mockFetch.mockResolvedValue(openServerResponse())
       await act(async () => {
         fireEvent.click(retry)
@@ -220,7 +217,6 @@ describe('pre-analysis panel — an unchecked model is never presented as a chec
       // The service drops, then the model changes underneath the verdict — the
       // walk's exact sequence, with `ceeAnalysisReady` written by a turn.
       mockFetch.mockImplementation(() => networkRejection())
-      clearInflightCache()
       await act(async () => {
         useCanvasStore.setState({
           ceeAnalysisReady: {

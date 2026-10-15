@@ -43,7 +43,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
 import { RUN_LICENCE_SUPERSEDED_REFUSAL } from '../../utils/canRunAnalysis'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -192,7 +191,6 @@ function seedPreRunCanvas() {
 
 /** Hold the licensing verdict; the transport never settles so nothing else lands. */
 function seedLicensingVerdict() {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(() => new Promise(() => {})),
