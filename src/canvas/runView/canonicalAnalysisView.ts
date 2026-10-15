@@ -32,7 +32,7 @@ export interface CanonicalAnalysisView {
    * is the comparative leader only where the licence permits naming one and the Run is current, else null. Absent from
    * an older CEE, and dropped here when malformed (the rest of the view still stands).
    */
-  readonly leader?: CanonicalRunLeader
+  leader?: CanonicalRunLeader
 }
 export interface CanonicalRunLeader {
   readonly licence: CanonicalAnalysisView['leader_licence']
