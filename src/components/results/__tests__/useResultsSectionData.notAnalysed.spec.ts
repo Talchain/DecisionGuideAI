@@ -64,6 +64,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { OptionResult } from '../types'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 // ── Identities ────────────────────────────────────────────────────────────
 const HIRE = 'opt_hire'
@@ -173,7 +174,8 @@ function seedStore({
   analysed = ANALYSED,
   edges = INTERVENTION_EDGES,
 }: SeedOptions = {}): void {
-  const report = mapV2ResponseToReportV1(makeV2Response(analysed), { seed: 42 })
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hire (the producer's top_option_id), as served.
+  const report = holdLeaderForReport(mapV2ResponseToReportV1(makeV2Response(analysed), { seed: 42 }), 'permitted', HIRE)
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as never,
     runMeta: {} as never,

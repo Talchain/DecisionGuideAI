@@ -39,8 +39,24 @@ import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysi
 import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 
 import {
-  admission, setStore, render, resetStore, invalidateByLocalEdit,
+  admission, setStore as harnessSetStore, render, resetStore, invalidateByLocalEdit, OPT_HEDGE,
 } from './helpers/admissionGatesHarness'
+import { useCanvasStore } from '../../../canvas/store'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
+
+/**
+ * Every arm here is about the CURRENT graph's admission (`ceeAnalysisReady`, Q1) and the result's separation (Q2); the
+ * harness records no Run admission. So each arm holds CEE's matched view for the Run with a POSITIVE licence, and Q1 or
+ * Q2 is what withholds — exactly the conjunct each arm names.
+ */
+function setStore(opts: Parameters<typeof harnessSetStore>[0]) {
+  harnessSetStore(opts)
+  const s = useCanvasStore.getState() as unknown as { results: { report: Record<string, unknown> } }
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hedge, as served.
+  useCanvasStore.setState({
+    results: { ...s.results, report: holdLeaderForReport(s.results.report, 'permitted', OPT_HEDGE) },
+  } as never)
+}
 
 describe('permitted_analysis_mode gates leader designation — the two questions, composed', () => {
   beforeEach(resetStore)

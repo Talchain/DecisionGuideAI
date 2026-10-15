@@ -70,10 +70,26 @@ import {
   OPT_HEDGE_LABEL,
   admission,
   resetStore,
-  setStore,
+  setStore as harnessSetStore,
 } from '../../__tests__/helpers/admissionGatesHarness'
+import { useCanvasStore } from '../../../../canvas/store'
+import { holdLeaderForReport } from '../../../../canvas/runView/__tests__/helpers/leaderTestView'
 import { scanForOptionNaming } from '../../__tests__/helpers/leaderNamingScan'
 import type { PermittedAnalysisMode } from '../../../../adapters/cee/types'
+
+/**
+ * The admission these arms vary is the CURRENT graph's (`ceeAnalysisReady`, Q1); the harness records no Run admission.
+ * Each arm therefore holds CEE's matched view for the Run with a POSITIVE licence, so Q1 or the producer's tie is what
+ * withholds.
+ */
+function setStore(opts: Parameters<typeof harnessSetStore>[0]) {
+  harnessSetStore(opts)
+  const s = useCanvasStore.getState() as unknown as { results: { report: Record<string, unknown> } }
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hedge, as served.
+  useCanvasStore.setState({
+    results: { ...s.results, report: holdLeaderForReport(s.results.report, 'permitted', OPT_HEDGE) },
+  } as never)
+}
 
 /**
  * The matrix is a CARTESIAN PRODUCT, not a written-out table: three admission

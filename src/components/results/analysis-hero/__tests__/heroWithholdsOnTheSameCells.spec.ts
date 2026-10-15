@@ -2,7 +2,22 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { buildHeroModel } from '../buildHeroModel'
-import { OPT_HEDGE, admission, resetStore, setStore } from '../../__tests__/helpers/admissionGatesHarness'
+import { OPT_HEDGE, admission, resetStore, setStore as harnessSetStore } from '../../__tests__/helpers/admissionGatesHarness'
+import { useCanvasStore } from '../../../../canvas/store'
+import { holdLeaderForReport } from '../../../../canvas/runView/__tests__/helpers/leaderTestView'
+
+/**
+ * Each cell holds CEE's matched view for the Run with a POSITIVE licence, so what withholds is the cell's own premise
+ * (the patched verdict, or the CURRENT graph's admission), not the absence of a view.
+ */
+function setStore(opts: Parameters<typeof harnessSetStore>[0]) {
+  harnessSetStore(opts)
+  const s = useCanvasStore.getState() as unknown as { results: { report: Record<string, unknown> } }
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_hedge, as served.
+  useCanvasStore.setState({
+    results: { ...s.results, report: holdLeaderForReport(s.results.report, 'permitted', OPT_HEDGE) },
+  } as never)
+}
 
 /**
  * ⚠ THIS FILE EXISTS BECAUSE OF A BOUNDARY, AND THE BOUNDARY IS RIGHT.

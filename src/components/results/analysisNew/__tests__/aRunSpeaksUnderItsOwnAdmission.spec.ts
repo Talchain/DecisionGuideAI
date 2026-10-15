@@ -39,6 +39,7 @@ import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { buildStrengthenInputsForAnalysisNew } from '../buildStrengthenInputsForAnalysisNew'
 import { buildRecommendations } from '../../strengthen/buildRecommendations'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../../../adapters/cee/types'
+import { holdLeaderForReport } from '../../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 const NODES = [
   { id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Expand into Germany' } },
@@ -177,6 +178,19 @@ function expectTheOldRunIsStillDisplayed(hash: string, liveMode: PermittedAnalys
   ).toBe(liveMode === 'absent' ? undefined : liveMode)
 }
 
+/**
+ * CEE's matched view for the DISPLAYED run, as served: a run admitted at `comparative_leader` that separates gets
+ * `leader_licence: 'permitted'` naming its leader. Held on the displayed report after the edit turn, so the CURRENT
+ * admission (Q1) is what the arm varies.
+ */
+function holdCeeViewForTheDisplayedRun(licence: 'permitted' | 'withheld' = 'permitted') {
+  const s = useCanvasStore.getState() as unknown as { results: { report: Record<string, unknown> } }
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_a (or, withheld, none), as served.
+  useCanvasStore.setState({
+    results: { ...s.results, report: holdLeaderForReport(s.results.report, licence, 'opt_a') },
+  } as never)
+}
+
 beforeEach(() => {
   localStorage.clear()
   useCanvasStore.setState({
@@ -209,6 +223,9 @@ describe('a run speaks under its own admission', () => {
 
     editAFactorValue('comparative_leader')
     expectTheOldRunIsStillDisplayed(hash, 'comparative_leader')
+    // FAIL CLOSED (15 Oct): CEE composes this Run's own `quantified_provisional` admission into its leader licence, so
+    // its matched view says 'withheld', as served; the later licence about the edited graph does not change it.
+    holdCeeViewForTheDisplayedRun('withheld')
 
     const after = readTheReasoningTab()
     expect(after.rec?.verdict?.hasLeadingOption, 'Q2 is untouched by the edit').toBe(true)
@@ -225,6 +242,7 @@ describe('a run speaks under its own admission', () => {
     const hash = runTheAnalysis('comparative_leader')
     editAFactorValue('comparative_leader')
     expectTheOldRunIsStillDisplayed(hash, 'comparative_leader')
+    holdCeeViewForTheDisplayedRun()
 
     const after = readTheReasoningTab()
     expect(after.rec?.verdict?.hasLeadingOption).toBe(true)
@@ -238,6 +256,7 @@ describe('a run speaks under its own admission', () => {
     const hash = runTheAnalysis('comparative_leader')
     editAFactorValue('quantified_provisional')
     expectTheOldRunIsStillDisplayed(hash, 'quantified_provisional')
+    holdCeeViewForTheDisplayedRun()
 
     const after = readTheReasoningTab()
     expect(after.rec?.verdict?.hasLeadingOption).toBe(true)
@@ -253,6 +272,9 @@ describe('a run speaks under its own admission', () => {
 
     editAFactorValue('comparative_leader')
     expectTheOldRunIsStillDisplayed(hash, 'comparative_leader')
+    // FAIL CLOSED (15 Oct): an older producer's Run (no admission recorded) gets CEE's matched view, as served now;
+    // the recorded admission's ABSENCE is still never a refusal.
+    holdCeeViewForTheDisplayedRun()
 
     const after = readTheReasoningTab()
     expect(after.glanceWord).toBe('Sensitive')
@@ -265,6 +287,9 @@ describe('a run speaks under its own admission', () => {
     const hash = runTheAnalysis('absent')
     editAFactorValue('absent')
     expectTheOldRunIsStillDisplayed(hash, 'absent')
+    // FAIL CLOSED (15 Oct): an older producer's Run (no admission recorded) gets CEE's matched view, as served now;
+    // the recorded admission's ABSENCE is still never a refusal.
+    holdCeeViewForTheDisplayedRun()
 
     const after = readTheReasoningTab()
     expect(after.glanceWord).toBe('Sensitive')

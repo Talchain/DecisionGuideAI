@@ -68,6 +68,7 @@ import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 /** First-appearance order A, B, C — the order run 1 freezes ordinals in. */
 const OPTIONS = [
@@ -126,7 +127,8 @@ function makeV2Response(win: Record<string, number>, leaderId: string): V2RunRes
 }
 
 function seedRun(win: Record<string, number>, leaderId: string): void {
-  const report = mapV2ResponseToReportV1(makeV2Response(win, leaderId), { seed: 42 })
+  // FAIL CLOSED (15 Oct): CEE's matched view names <leaderId> (the producer's top_option_id for this run), as served.
+  const report = holdLeaderForReport(mapV2ResponseToReportV1(makeV2Response(win, leaderId), { seed: 42 }), 'permitted', leaderId)
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as never,
     runMeta: {} as never,

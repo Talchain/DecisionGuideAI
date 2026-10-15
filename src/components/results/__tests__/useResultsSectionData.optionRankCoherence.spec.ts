@@ -44,6 +44,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
+import { holdLeaderForReport } from '../../../canvas/runView/__tests__/helpers/leaderTestView'
 
 /**
  * The verified screenshot shape: expected-value order (launch, partner,
@@ -137,7 +138,8 @@ function optionNodesFor(options: OptionShape[]) {
 }
 
 function setStoreWithMappedReport(options: OptionShape[]): void {
-  const report = mapV2ResponseToReportV1(makeV2Response(options), { seed: 42 })
+  // FAIL CLOSED (15 Oct): CEE's matched view names opt_launch (the producer's top_option_id), as served.
+  const report = holdLeaderForReport(mapV2ResponseToReportV1(makeV2Response(options), { seed: 42 }), 'permitted', 'opt_launch')
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report } as any,
     runMeta: {} as any,
