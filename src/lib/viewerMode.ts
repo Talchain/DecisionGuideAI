@@ -89,7 +89,8 @@ const STATE_CHANGING_CEE_ROUTES: readonly RegExp[] = [
   /^\/bff\/cee\/scenarios\/[^/]+\/graph\/register$/,
   /^\/bff\/cee\/scenarios\/[^/]+\/versions\/(?:save|restore)$/,
   /^\/bff\/cee\/scenarios\/[^/]+\/copy$/,
-  /^\/bff\/cee\/decision-records\//,
+  // `/list` is the READ-BACK (S9 5a): it changes nothing, so a viewer may read.
+  /^\/bff\/cee\/decision-records\/(?!list$)/,
 ]
 
 function pathnameOf(input: RequestInfo | URL): string | null {

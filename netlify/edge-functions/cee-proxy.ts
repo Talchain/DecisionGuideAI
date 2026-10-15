@@ -162,6 +162,7 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   // `authorization` is forwarded as the user-token slot; CEE verifies it. ON-LIST case in the allowlist spec.
   /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
   /^\/assist\/v1\/decision-records\/commit$/,
+  /^\/assist\/v1\/decision-records\/list$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
   // Explain-diff (CEE #1082). Backs the "Why these changes?" affordance on the
   // applied-edit receipt card. REQUIRES CEE #1082 to be serving — that PR adds
