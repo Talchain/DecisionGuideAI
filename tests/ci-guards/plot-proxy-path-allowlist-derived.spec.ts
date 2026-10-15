@@ -258,7 +258,8 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // the two numbers are equal, and that equality is itself the check: if a
     // future call site stops resolving, `resolved` drops below `sites` and the
     // dedicated resolve test REDs by name.
-    expect(sites.length).toBeGreaterThanOrEqual(8)
+    // 8 → 7 (#2799, DL Q2b): the pre-run `/v1/pre-analysis-sensitivity` caller was DELETED (no graph out of the browser).
+    expect(sites.length).toBeGreaterThanOrEqual(7)
     expect(resolved.length).toBe(sites.length)
   })
 
@@ -271,7 +272,8 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // `ALLOWLIST ⊇ DERIVED` and 404s users at our own edge, and a caller left
     // behind REDs `DERIVED ⊇ ALLOWLIST` instead. Lower it only alongside a
     // deletion that earns it.
-    expect(allowlist.length).toBeGreaterThanOrEqual(7)
+    // 7 → 6 (#2799, DL Q2b): `/v1/pre-analysis-sensitivity` left with its deleted caller, the deletion that earns it.
+    expect(allowlist.length).toBeGreaterThanOrEqual(6)
     // Bound by identity to a route that must always be there, so a parse returning
     // junk regexes cannot pass.
     expect(allowlist.some((re) => re.test('/v1/cee/draft-graph'))).toBe(true)
