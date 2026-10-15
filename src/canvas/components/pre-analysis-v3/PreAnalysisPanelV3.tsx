@@ -14,7 +14,6 @@ import { FOOTER_COPY, SPARK_PROMPTS } from './constants'
 import { guardCeeText } from './signals/ceeTextGuard'
 import { usePreAnalysisModel } from './hooks/usePreAnalysisModel'
 import { useConversationActions } from './hooks/useConversationActions'
-import { useSensitivityRanking } from './hooks/useSensitivityRanking'
 import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
 import type { GateBlockedListing } from '../../utils/canRunAnalysis'
@@ -69,7 +68,6 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
   const showToast = useShowToast()
-  useSensitivityRanking(true)
 
   // The ladder gates on CEE readiness, but OutputsDock's gate also covers
   // validation blockers and in-flight runs — a "run" action against a closed
