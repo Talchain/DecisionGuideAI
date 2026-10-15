@@ -469,7 +469,7 @@ export const RiskNode = memo((props: NodeProps) => {
   const riskMatrix = <CardMark id="risk-unset" testId={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'} words={isDetailed ? exposureFull : exposureReadout || RISK_EXPOSURE_UNSET_LINE} description={exposureFull} cell={typeof probability === 'number' && impact ? (probability >= .5 ? 2 : 0) + (impact === 'low' ? 0 : 1) : null} />
   // ⭐ OLUMI'S RISK IS NAMED AS OLUMI'S (CEE #2854; DL 8 Oct): the same tag the option card uses, its own line, both views.
   const olumiSuggestionLine = props.data?.proposed_by === 'olumi' && isRetainedExcludedFromAnalysis(props.data) ? (
-    <div className={`${typography.edgeLabel} text-text-light whitespace-nowrap`} title={OLUMI_RISK_SUGGESTION_WHY} data-testid={`risk-olumi-suggestion-${props.id}`}>
+    <div className={`${typography.edgeLabel} text-text-light truncate`} title={OLUMI_RISK_SUGGESTION_WHY} data-testid={`risk-olumi-suggestion-${props.id}`}>
       <span aria-hidden="true">{OLUMI_SUGGESTION_TAG} · {OLUMI_RISK_NOT_IN_CHANCE_SUFFIX}</span>
       <span className={typography.screenReaderOnly}>{OLUMI_RISK_SUGGESTION_WHY}</span>
     </div>
