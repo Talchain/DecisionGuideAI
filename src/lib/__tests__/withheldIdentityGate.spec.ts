@@ -123,7 +123,8 @@ describe('S8b — a stripped leader identity is WITHHELD, not silence', () => {
     // a permitted turn ALWAYS carries `top_option_id`.
     const verdict = deriveDecisionVerdict(CEE_PERMITTED_REPORT)
     expect(verdict.hasLeadingOption).toBe(true)
-    expect(verdict.separation).toBe('clear')
+    // DL Q3b (15 Oct): a producer not-a-tie with no band states no strength: 'ahead', never the UI's own 0.65 grade.
+    expect(verdict.separation).toBe('ahead')
     expect(verdict.leaderId).toBe(HIRE)
     expect(verdict.source).toBe('producer_near_tie')
   })
