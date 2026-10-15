@@ -134,6 +134,18 @@ describe('registerScenarioGraph — refusals and retries', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  // ⭐ S10 (CEE #3190, 15 Oct): the scenario already holds a saved model.
+  it('409 MODEL_ALREADY_SAVED → alreadySaved (the caller re-reads CEE), never retried', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(409, { schema: 'error.v1', code: 'CONFLICT', details: { code: 'MODEL_ALREADY_SAVED' } }))
+    expect((await registerScenarioGraph(SCENARIO, GRAPH, { retryDelayMs: 0 })).status).toBe('alreadySaved')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('CONTRAST: a 409 with any other code (or none) stays a plain conflict', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(409, { details: { code: 'GRAPH_MOVED' } }))
+    expect((await registerScenarioGraph(SCENARIO, GRAPH, { retryDelayMs: 0 })).status).toBe('conflict')
+  })
+
   it('surfaces a 422 refusal with its code and node ids, and does not retry', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(422, {
