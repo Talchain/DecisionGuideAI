@@ -823,14 +823,14 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   // ⭐ S9/S11 (DL Q3a, 15 Oct): the Run's licence to name a leader is CEE's own `leader_licence`, from the canonical view
   // matched to this Run by identity (`runViewOf(...).leaderLicensed`), the same answer the Results panel and the chat
-  // card read. A matched 'withheld' puts no badge on any card; with no matched view the admission read below answers alone.
+  // card read. A matched 'withheld' puts no badge on any card, and with no matched view none either (fail closed, 15 Oct).
   const canonicalScenarioId = useCanvasStore(state => state.currentScenarioId)
   const heldCanonical = useCanonicalAnalysisViewStore(s => s.scenarioId === canonicalScenarioId ? s.view : null)
   const runLeaderView = useMemo(() => runViewOf(resultsReport, heldCanonical), [resultsReport, heldCanonical])
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
     // S7 (DL #2800 follow-up): CEE's licence AND its leader identity, read behind the compute-status gate above.
-    if (!modelLicensesComparativeClaim || !(ceeLeaderPermits(runLeaderView, verdict.leaderId) ?? true)) return false
+    if (!modelLicensesComparativeClaim || !(ceeLeaderPermits(runLeaderView, verdict.leaderId) ?? false)) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, runLeaderView, verdict, props.id])
 

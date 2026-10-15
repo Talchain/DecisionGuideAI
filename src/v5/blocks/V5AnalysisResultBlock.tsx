@@ -46,7 +46,6 @@
  *   - Body: typography.chatBody (13px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { memo, useMemo, type ReactElement } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -348,16 +347,15 @@ function V5AnalysisResultBlockImpl({
   // (`licensesComparativeLeaderClaim`); CEE now serves the composed answer.
   //
   // ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER WE MAY SAY SO is CEE's own `leader_licence` whenever a canonical view is matched
-  // to THIS card's Run by identity (`chatCardRunViewOf`, below): 'withheld' names no leader. With no matched view the
-  // card keeps its admission read (`licensesComparativeLeaderClaim`) until Run-identity matching is proven on the build.
+  // to THIS card's Run by identity (`chatCardRunViewOf`, below): 'withheld' names no leader, and CEE's `leader` must name
+  // this card's leader (#2804). FAIL CLOSED (15 Oct, matching witnessed on the served build): no matched view, no leader.
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
   const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
   const ceeLeaderLicence = blockRunView.leaderLicence()
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const leaderClaimLicensed = verdict.hasLeadingOption
-    && (ceeLeaderPermits(blockRunView, verdict.leaderId) ?? modelLicensesComparativeClaim)
+    && (ceeLeaderPermits(blockRunView, verdict.leaderId) ?? false) // FAIL CLOSED: no matched CEE view, no leader
   // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
   // licence still gates the uncertainty tier.
 

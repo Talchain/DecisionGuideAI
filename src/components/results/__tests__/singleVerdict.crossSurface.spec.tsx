@@ -513,9 +513,11 @@ describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the 
     expect(readCanvas(true).claims).toBe(false)
   })
 
-  it('IDENTITY: CEE\'s withheld for a DIFFERENT Run does not decide this one (no admission recorded: today\'s behaviour)', () => {
+  it('IDENTITY + FAIL CLOSED: another Run\'s view decides nothing for this one, and with no matched view no leader is named', () => {
+    // DL (15 Oct): until served matching was witnessed, an unmatched Run fell back to its admission and named a leader.
+    // It now names none; `source: 'fallback'` still records that no CEE verdict was borrowed from the other Run.
     bindServed('hiring', 'some-other-run')
-    expect(readLicence()).toEqual({ permitted: true, source: 'fallback' })
+    expect(readLicence()).toEqual({ permitted: false, source: 'fallback' })
   })
 
   // ⭐ DL #2800 follow-up (15 Oct): WHO leads is CEE's own `leader.option_id` (CEE #3192, `run-facts.ts` `RunLeader`, the

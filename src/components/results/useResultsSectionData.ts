@@ -2544,8 +2544,9 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // an edit made since the Run) stays a conjunct: CEE's licence describes the Run, not the edited model.
     const ceeLeaderLicence = runView.leaderLicence()
     // S7 (DL #2800 follow-up): and WHO is CEE's own `leader.option_id`, which must be the option this panel designates.
-    const runLicensesComparativeClaim = ceeLeaderPermits(runView, leaderVerdict.leaderId)
-      ?? licensesComparativeLeaderClaim(report?.run_analysis_admission)
+    // FAIL CLOSED (DL, 15 Oct; served matching witnessed on the 05:3x captures): with no CEE view matched to this Run, no
+    // leader is designated. The admission read no longer stands in for CEE's licence.
+    const runLicensesComparativeClaim = ceeLeaderPermits(runView, leaderVerdict.leaderId) ?? false
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —
