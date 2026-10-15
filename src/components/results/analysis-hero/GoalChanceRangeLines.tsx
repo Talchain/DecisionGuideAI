@@ -13,15 +13,31 @@ export interface GoalChanceRangeLinesProps {
   faceOf: (optionId: string) => string | null
   /** The hero already rendered the licence's clause. */
   heroHorizonShown?: boolean
+  /**
+   * DL (15 Oct, capacity e2e judge item 8): the option's label when ITS hero row already says this exact face, else null.
+   * The face is then said once, in the row: this line keeps only the action, as a compact reference to that row.
+   */
+  heroSaidLabelOf?: (optionId: string, face: string) => string | null
 }
 
-export function GoalChanceRangeLines({ range, faceOf, heroHorizonShown = false }: GoalChanceRangeLinesProps) {
+export function GoalChanceRangeLines({ range, faceOf, heroHorizonShown = false, heroSaidLabelOf }: GoalChanceRangeLinesProps) {
   if (range === null) return null
   const horizonLine = heroHorizonShown ? null : range.horizonLine
   const lines = range.optionIds.flatMap((id) => {
     const entry = range.rangeByOption[id]
     const face = faceOf(id)
     if (face === null) return []
+    const heroLabel = heroSaidLabelOf?.(id, face) ?? null
+    if (heroLabel !== null) {
+      // Said once: the hero row carries the sentence. A stated-time range has no action to keep, so nothing is repeated.
+      if (entry.kind === 'stated_time') return []
+      return [
+        <p key={id} data-testid="goal-chance-range-line" data-option-id={id} data-said-in-hero="true">
+          {`‘${heroLabel}’: `}
+          <GraphLink edgeRef={{ fromId: entry.from, toId: entry.to }} label={GOAL_CHANCE_RANGE_ACTION[entry.kind]} opensInspector />
+        </p>,
+      ]
+    }
     return [
       <p key={id} data-testid="goal-chance-range-line" data-option-id={id}>
         {face}

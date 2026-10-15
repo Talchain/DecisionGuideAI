@@ -15,7 +15,7 @@
  * deployment ever rendered. That fork, those components and that flag are
  * deleted, so nothing a user loads changed.
  */
-import { useCallback, useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
@@ -23,6 +23,7 @@ import { OLUMI_TEXT_CHIP_IDS } from '../../../canvas/conversation/chipMeta'
 import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
+import type { HeroLens, HeroModel } from './heroTypes'
 import { useAnalysisHero } from './useAnalysisHero'
 import { HERO_COPY } from './heroCopy'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
@@ -168,6 +169,8 @@ export function AnalysisHeroContainer({
   // ⚠ MUST STAY ABOVE the empty-model early return below: a hook called after
   // a conditional return changes hook order between renders
   // (react-hooks/rules-of-hooks — caught by lint, not by the test suite).
+  // The lens the panel shows (its own state, reported up): the range lines repeat no sentence a row already says.
+  const [shownLens, setShownLens] = useState<HeroLens | null>(null)
   const comparisonScope = useMemo(
     () => deriveComparisonScope(data.recommendation?.allOptions),
     [data.recommendation?.allOptions],
@@ -182,6 +185,7 @@ export function AnalysisHeroContainer({
         return cell?.kind === 'range' ? cell.face ?? null : null
       }}
       heroHorizonShown={model.kind === 'chart' && model.goalChanceHorizonLine != null}
+      heroSaidLabelOf={(id, face) => heroRowSaysFace(model, shownLens, id, face)}
     /><GoalOptionWithheldLines coverage={model.kind === 'chart' ? model.goalOptionCoverage : undefined} /></>
   )
 
@@ -218,6 +222,7 @@ export function AnalysisHeroContainer({
       <AnalysisHeroPanel
         model={model}
         comparisonScope={comparisonScope}
+        onLensChange={setShownLens}
         rerunDisabled={rerunDisabled}
         focusPanelSelector={focusPanelSelector}
         nextRecommendation={nextRecommendation}
@@ -237,5 +242,17 @@ export function AnalysisHeroContainer({
 }
 
 export default AnalysisHeroContainer
+
+/**
+ * DL (15 Oct, capacity e2e judge item 8): the option's label when ITS hero row is showing this exact sentence, else null.
+ * Only the goal lens prints a row's goal readout (CEE's cell text), so on any other lens, or with no row, it is null.
+ */
+export function heroRowSaysFace(
+  model: HeroModel, shownLens: HeroLens | null, optionId: string, face: string,
+): string | null {
+  if (model.kind !== 'chart' || (shownLens ?? model.defaultLens) !== 'goal') return null
+  const row = model.rows.find((r) => r.id === optionId)
+  return row !== undefined && row.goal.readout === face ? row.label : null
+}
 
 import { GoalOptionWithheldLines } from './goalOptionCoverage'
