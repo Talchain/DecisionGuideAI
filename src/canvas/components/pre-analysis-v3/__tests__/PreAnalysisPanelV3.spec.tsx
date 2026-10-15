@@ -1266,3 +1266,20 @@ describe('option differentiation reaches the mounted panel', () => {
     )
   })
 })
+
+// ⭐ NO GRAPH OUT OF THE BROWSER (DL Q2b, 15 Oct): the pre-run panel used to POST the canvas graph to PLoT's
+// /v1/pre-analysis-sensitivity to rank estimates. That ranked a UI-built graph that could disagree with CEE's model, on
+// a second analysis path. Removed: the ranking keeps its existing structural fallback; post-Run sensitivity comes from
+// CEE's analysis_result.
+describe('no graph out of the browser: the pre-run panel asks PLoT for nothing', () => {
+  it('mounted with a goal and factors, past the old 500 ms debounce, no request reaches pre-analysis-sensitivity', async () => {
+    const spy = fetch as unknown as ReturnType<typeof vi.fn>
+    spy.mockClear()
+    // No stored sensitivity: the state in which the old hook fetched (with one stored for these factors it stayed quiet).
+    useCanvasStore.setState({ preAnalysisSensitivity: null } as never)
+    renderPanel()
+    await new Promise((r) => setTimeout(r, 900))
+    const urls = spy.mock.calls.map((c) => String(c[0]))
+    expect(urls.filter((u) => u.includes('pre-analysis-sensitivity'))).toEqual([])
+  })
+})
