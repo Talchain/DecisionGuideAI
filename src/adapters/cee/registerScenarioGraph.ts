@@ -67,6 +67,11 @@ export type RegisterScenarioGraphResult =
   | { status: 'rejected'; code: string; message: string; nodeIds: readonly string[] }
   /** 409 — the server graph moved. NEVER retried; nothing was written. */
   | { status: 'conflict' }
+  /**
+   * ⭐ S10 (CEE #3190, 15 Oct): 409 `MODEL_ALREADY_SAVED`. The scenario already holds a saved model, so CEE refuses a
+   * client whole-model register over it; nothing was written. The caller re-reads CEE's model (it is the authority).
+   */
+  | { status: 'alreadySaved' }
   /** 404 — absent ∪ not-yours ∪ oracle-unresolvable. */
   | { status: 'notRegistrable' }
   /** 503 after every attempt, or a transport failure. Unknown; try later. */
@@ -200,7 +205,14 @@ export async function registerScenarioGraph(
 
     // NEVER retried: the server graph moved, and re-sending would be the
     // silent clobber CEE's CAS just refused.
-    if (response.status === 409) return { status: 'conflict' }
+    if (response.status === 409) {
+      // S10 (#3190): the saved model wins. Its code is the only thing read from the body; anything else stays `conflict`.
+      try {
+        const body = (await response.json()) as { details?: { code?: unknown } } | null
+        if (body?.details?.code === 'MODEL_ALREADY_SAVED') return { status: 'alreadySaved' }
+      } catch { /* unreadable body: still a conflict */ }
+      return { status: 'conflict' }
+    }
 
     if (response.status === 404) return { status: 'notRegistrable' }
 

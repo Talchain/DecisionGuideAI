@@ -43,6 +43,7 @@ import { getSessionIdentity } from '../../lib/supabase'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
+import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import { useCanvasStore } from '../store'
 import { scenarioIdWrite } from '../stores/unboundModelBinding'
 import {
@@ -376,6 +377,23 @@ export function useImportRegistration(): void {
         initialBriefText,
       })
       if (cancelled) return
+
+      // ⭐ S10 (CEE #3190, 15 Oct): CEE refused because the scenario ALREADY HOLDS A SAVED MODEL (MODEL_ALREADY_SAVED);
+      // nothing was written. That saved model is the authority, so it is re-read now instead of holding "can't confirm"
+      // for the life of the page. The import hold is released first (hydration refuses to merge while an import is
+      // pending), and the cold read then replaces the canvas with what CEE holds. Never marked acknowledged: it was not.
+      if (result.status === 'alreadySaved') {
+        logger.info('import_registration.model_already_saved_reread', { scenarioId })
+        releaseImportRegistration(nodes, edges)
+        useCanvasStore.setState({ importPendingServerRegistration: false })
+        void hydrateCanvasFromServer(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
+          .catch((error: unknown) => {
+            logger.warn('import_registration.model_already_saved_reread_failed', {
+              scenarioId, error: error instanceof Error ? error.message : String(error),
+            })
+          })
+        return
+      }
 
       if (result.status !== 'registered') {
         const failure: ImportRegistrationFailure =
