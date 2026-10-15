@@ -67,23 +67,10 @@
  * original key until explicit auth cleanup, rather than being assigned to the
  * next account or silently erased by an ordinary reload.
  *
- * ⚠⚠ THE DURABLE HALF CANNOT BE READ BACK EITHER — BUT STATE THAT AT THE SCOPE
- * IT WAS DERIVED AT. What is measured is about THIS REPO: the only
- * `decision-records` path anywhere in `src/` is
- * `decisionRecordCommitService.ts:40`'s `/decision-records/commit`, a WRITE —
- * and the sweep is not blind, because the same sweep finds the sibling
- * `/bff/cee/*` route families. So the UI has no read path, and no surface here
- * can render an account-held record.
- *
- * ⚠ IT IS NOT A CLAIM THAT CEE HAS NO SUCH ENDPOINT. An earlier draft of this
- * paragraph said there is "no read/list endpoint on CEE"; that was not derived
- * and is WITHDRAWN. An unauthenticated probe cannot settle it —
- * `/decision-records/list` on `cee-staging` returns 401 and so does a
- * deliberately FABRICATED control route, so the auth gate sits in front of
- * routing and 401 proves nothing about registration (measured 7 Sep 2026).
- * The consequence for this store is identical either way, which is why the
- * narrower claim is the one worth having: CROSS-DEVICE READ-BACK IS NOT
- * AVAILABLE TO THIS UI, AND NO SURFACE MAY IMPLY IT IS.
+ * ⭐ THE DURABLE HALF IS READ BACK (S9, DL 5a, 15 Oct 2026). ~~"Cross-device read-back is not available to this UI"~~
+ * held until CEE's `/decision-records/list` (#2519) had a caller. `readBackDecisionRecords` now reads the account's
+ * newest record for a signed-in scenario (`decisionRecordListService.ts`) and `preferRecord` decides what shows: an
+ * unconfirmed local record stays "on this device"; otherwise the account's. Guests make no call (DR001).
  *
  * ⚠ THE SIBLING STORES ARE UNCHANGED. `successMeasureStore` stays on
  * sessionStorage; this file is not a template for it, and `scenarioKey.ts`'s
