@@ -47,7 +47,7 @@ import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, merg
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from './responseParser'
-import { parseCanonicalAnalysisView, type CanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
+import { parseCanonicalAnalysisView, stampCanonicalRunId, type CanonicalAnalysisView } from '../canvas/runView/canonicalAnalysisView'
 import type { TurnCanonicalRun } from './blocks/mapV5Blocks'
 import { useCanonicalAnalysisViewStore } from '../canvas/stores/canonicalAnalysisViewStore'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../canvas/state/storedRunDelta'
@@ -2413,9 +2413,9 @@ export function applyV5State(
       // The parser preserves undeclared top-level fields in its existing additive sidecar.
       // Absence or invalid bytes retain the held READ/TURN view. Bind to dispatch AND current scenario.
       const scenarioId = options?.turnScenarioId
+      const turnCanonical = turnCanonicalViewOf(response)
       if (scenarioId && scenarioId === store.currentScenarioId) {
-        const canonical = turnCanonicalViewOf(response)
-        if (canonical !== null) useCanonicalAnalysisViewStore.getState().adopt(scenarioId, canonical)
+        if (turnCanonical !== null) useCanonicalAnalysisViewStore.getState().adopt(scenarioId, turnCanonical)
       }
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
       const report = mapV5AnalysisToReport(analysisBlock, {
@@ -2423,6 +2423,8 @@ export function applyV5State(
         goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
         optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
       })
+      // DL #2800 follow-up: the Run id of the canonical view this turn delivered WITH the block, so Results binds by identity.
+      stampCanonicalRunId(report as unknown as Record<string, unknown>, turnCanonical)
       const hash = report.model_card.response_hash
       // CEE #3046: the turn that ran the Run names the identities it evaluated; absent = not attested, nothing recorded.
       const identityEvaluated = identityEvaluatedFromResponse(response)
