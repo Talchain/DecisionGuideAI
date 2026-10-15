@@ -137,7 +137,6 @@ function getCorsHeaders(requestOrigin: string): Record<string, string> {
  */
 const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/health$/,
-  /^\/assist\/v1\/graph-readiness$/,
   /^\/assist\/v1\/ask$/,
   /^\/assist\/v1\/bias-check$/,
   /^\/assist\/v1\/sensitivity-coach$/,

@@ -82,12 +82,20 @@ afterEach(() => {
 
 /* ── /bff/cee/* → /assist/v1/* — the HIGH blast-radius seam ─────────────────── */
 describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
-  it('ON-LIST /bff/cee/graph-readiness forwards to /assist/v1/graph-readiness WITH the injected key', async () => {
-    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/graph-readiness' })
+  // DL Q2a-A (15 Oct): the browser's graph-readiness POST was DELETED (readiness is the turn's served verdict), so its
+  // entry left the allowlist with its caller; the injected-key positive now rides a live route (prompt-preloader).
+  it('ON-LIST /bff/cee/prompts/warm forwards to /assist/v1/prompts/warm WITH the injected key', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/prompts/warm' })
     expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/graph-readiness')
+    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/prompts/warm')
     expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
     expect(r.status).toBe(200)
+  })
+
+  it('OFF-LIST since Q2a-A: /bff/cee/graph-readiness (no graph out of the browser) is refused and no key leaves', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/graph-readiness' })
+    expect(r.fetchCalled).toBe(false)
+    expect(r.status).toBe(404)
   })
 
   it('ON-LIST /bff/cee/scenarios/{uuid}/graph forwards (dynamic id honoured)', async () => {
