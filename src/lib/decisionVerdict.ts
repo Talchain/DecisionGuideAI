@@ -140,14 +140,16 @@ export function normalizeHeadlineBanded(raw: unknown): HeadlineBanded | null {
 /**
  * How far apart the top options are.
  *
- * - `clear`   — a leading option exists and is well ahead
- * - `slight`  — a leading option exists but the margin is modest
+ * - `clear`   — a leading option exists and the PRODUCER's band says it is well ahead (`clearly_ahead`)
+ * - `slight`  — a leading option exists and the PRODUCER's band says the margin is modest (`slightly_ahead`)
+ * - `ahead`   — a leading option exists (the producer's `near_tie` says not a tie) and the producer stated NO strength.
+ *               DL Q3b (15 Oct): the UI no longer grades it clear or slight on a 0.65 win-share cut of its own.
  * - `tied`    — no clear leading option; the top options are within noise
  * - `unknown` — not determinable (fewer than two comparable options, or the
  *               producer sent no win probabilities). Surfaces must make NO
  *               claim either way.
  */
-export type LeaderSeparation = 'clear' | 'slight' | 'tied' | 'unknown'
+export type LeaderSeparation = 'clear' | 'slight' | 'ahead' | 'tied' | 'unknown'
 
 export interface DecisionVerdict {
   /**
@@ -180,17 +182,6 @@ export interface DecisionVerdict {
    */
   source: 'producer_near_tie' | 'producer_band' | 'none'
 }
-
-/**
- * Win probability at or above which the leader is "clear" rather than merely
- * "slight". Same 0.65 the analysis-hero already used for its "most likely to
- * be strongest overall" claim, so no surface changes its mind about a run it
- * previously called clear.
- */
-export const LEADER_CLEAR_WIN_PROBABILITY = 0.65
-
-/** Tolerance for IEEE-754 subtraction noise at the band boundaries. */
-const FP_EPSILON = 1e-9
 
 /**
  * The PRODUCER'S OWN PERMISSION to name a leading option, bound to the report
@@ -550,18 +541,17 @@ export function deriveDecisionVerdict(
     return {
       leaderId,
       separation,
-      hasLeadingOption: separation === 'clear' || separation === 'slight',
+      hasLeadingOption: separation === 'clear' || separation === 'slight' || separation === 'ahead',
       gapPp,
       source: 'producer_band',
     }
   }
 
   // Authority 1 said "not a tie" and there is no band to refine it: a leading
-  // option exists. Grade it on the leader's own win probability.
+  // option exists, and the producer stated no strength. ⭐ DL Q3b (15 Oct, S11): it is NOT graded clear or slight here.
+  // A 0.65 win-share cut of the UI's own used to do that; no producer said it, so the strength stays unstated.
   if (nearTieApplies && !nearTie!.isTie) {
-    const separation: LeaderSeparation =
-      top1.win >= LEADER_CLEAR_WIN_PROBABILITY - FP_EPSILON ? 'clear' : 'slight'
-    return { leaderId, separation, hasLeadingOption: true, gapPp, source: 'producer_near_tie' }
+    return { leaderId, separation: 'ahead', hasLeadingOption: true, gapPp, source: 'producer_near_tie' }
   }
 
   // ── No applicable producer signal ⇒ NO CLAIM ────────────────────────────

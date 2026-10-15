@@ -247,7 +247,8 @@ describe('checks-winner: no denial without authority', () => {
   it('producer says NOT a tie, shares apart → the leader row is NOT DRAWN (no leader claim from a win share)', () => {
     setStore({ isTie: false })
     const { label, footerText, separation, permitted } = probeWinnerCheck()
-    expect(separation).toBe('clear')
+    // DL Q3b (15 Oct): a producer not-a-tie with no band states no strength: 'ahead', never the UI's own 0.65 grade.
+    expect(separation).toBe('ahead')
     expect(permitted).toBe(true)
     // Run-4 judge (DL 12 Oct, the class): "one option was supported by more runs than any other" is removed; nothing
     // replaces it.
@@ -269,7 +270,8 @@ describe('checks-winner: no denial without authority', () => {
     const { label, footerText, separation, gapPp, permitted } = probeWinnerCheck()
     // PRECONDITION: a permitted leader (the producer said not a tie) at a 4-pt gap — the state J4 witnessed.
     expect(permitted).toBe(true)
-    expect(separation).toBe('slight')
+    // DL Q3b (15 Oct): a producer not-a-tie with no band states no strength: 'ahead', never the UI's own 0.65 grade.
+    expect(separation).toBe('ahead')
     expect(gapPp).toBe(4)
     // Run-4 judge (DL 12 Oct, the class): "the options were supported by similar shares of runs" is removed; nothing
     // replaces it.
@@ -331,7 +333,9 @@ describe('checks-winner: no denial without authority', () => {
 
     // The probe is not answering the same for every item because it is blind: each read pinned the footer and its
     // robustness row (contrast control, inside `probeWinnerCheck`), and the four inputs reach four different states.
-    expect([clear, tied, unknown, similar].map((p) => p.separation)).toEqual(['clear', 'tied', 'unknown', 'slight'])
+    // DL Q3b (15 Oct): the two not-a-tie inputs are now the SAME state ('ahead': the UI no longer grades strength on a
+    // 0.65 cut of its own), so three distinct states remain, which still shows the probe is not blind.
+    expect([clear, tied, unknown, similar].map((p) => p.separation)).toEqual(['ahead', 'tied', 'unknown', 'ahead'])
     // Run-4 judge (DL 12 Oct, the class): every state the row could say is removed; nothing replaces it.
     expect({ clear: clear.label, tied: tied.label, unknown: unknown.label, similar: similar.label }).toEqual({
       clear: null,

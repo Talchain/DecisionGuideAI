@@ -81,6 +81,20 @@ describe('deriveDecisionVerdict — producer authority', () => {
     expect(v.source).toBe('producer_near_tie')
   })
 
+  it('DL Q3b: near_tie\'s not-a-tie with no band states NO strength — no UI win-share cut grades it clear or slight', () => {
+    // The same producer claim at a 72% and a 52% leader: before Q3b the UI's own 0.65 cut called the first 'clear' and
+    // the second 'slight'. Neither strength was the producer's; both are now the same unstated 'ahead'.
+    for (const [top, rival] of [[0.72, 0.20], [0.52, 0.48], [0.65, 0.30]] as const) {
+      const v = deriveDecisionVerdict(twoOptions(top, rival, nearTie(false)))
+      expect(v.separation, String(top)).toBe('ahead')
+      expect(v.hasLeadingOption).toBe(true)
+    }
+    // CONTROL: the producer's own band still states a strength.
+    const banded = deriveDecisionVerdict(twoOptions(0.72, 0.20, {
+      decision_brief: { headline_banded: { band: 'clearly_ahead', leader_option_id: 'opt_a' } } }))
+    expect(banded.separation).toBe('clear')
+  })
+
   it('IDENTITY GATE: a near_tie naming a different top option is not applied — and nothing replaces it', () => {
     // A producer claim about option X is never re-pointed at option Y. With
     // the signal inapplicable there is now no second authority to fall back

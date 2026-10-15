@@ -634,7 +634,7 @@ export function buildHeroModel(
     leaderBand =
       sharedVerdict!.separation === 'clear'
         ? 'strong'
-        : sharedVerdict!.separation === 'slight'
+        : sharedVerdict!.separation === 'slight' || sharedVerdict!.separation === 'ahead'
           ? 'ahead'
           : 'none'
   } else if (producerBandApplies) {
