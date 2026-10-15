@@ -114,8 +114,17 @@ function servedRangeLines(data: ReturnType<typeof fromTurn>, captured: typeof ca
   return captured.dom.range_lines.map(r => {
     const face = capturedFace(r.text)
     expect(data.runView!.servedCellOf(r.option_id)).toMatchObject({ kind: 'range', face })
-    return { id: r.option_id, text: `${face} ${r.buttons[0].text}` }
+    return expectedRangeLine(r.option_id, face, r.buttons[0].text)
   })
+}
+/**
+ * DL (15 Oct, capacity e2e judge item 8): said ONCE. Where this option's own hero row (by identity) is showing the exact
+ * sentence, the line keeps only the action after the option's name; elsewhere it says the sentence, then the action.
+ */
+function expectedRangeLine(id: string, face: string, action: string) {
+  const row = document.querySelector(`[data-testid^="hero-option-row-"][data-option-id="${id}"]`)
+  const saidInRow = row?.querySelector('.text-right > span')?.textContent === face
+  return { id, text: saidInRow ? `${face.slice(0, face.indexOf('’: ') + 3)}${action}` : `${face} ${action}` }
 }
 const COMPOSED_RANGE_WORDS = /depends most on|isn’t sized in the model yet|which Olumi assumed/
 function expectNoComposedRangeWords() {
@@ -274,7 +283,7 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
       const face = capturedFace(r.text).replace(`‘${data.recommendation.allOptions.find(o => o.id === before[i])!.label}’:`,
         `‘${data.recommendation.allOptions.find(o => o.id === after[i])!.label}’:`)
       expect(data.runView!.servedCellOf(after[i])).toMatchObject({ kind: 'range', face })
-      return { id: after[i], text: `${face} ${r.buttons[0].text}` }
+      return expectedRangeLine(after[i], face, r.buttons[0].text)
     }))
     expectNoComposedRangeWords()
     expectWithheld(data, before, producerReason(data))

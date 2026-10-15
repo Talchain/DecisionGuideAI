@@ -262,6 +262,9 @@ export function AnalysisHeroPanel({
     )
   })
 
+  // The lens on screen, reported up (a status model shows no lens). Above the status return: hooks run on every render.
+  const shownLens: HeroLens | null = model.kind === 'status' ? null : lensState ?? model.defaultLens
+  useEffect(() => { if (shownLens !== null) onLensChange?.(shownLens) }, [shownLens, onLensChange])
   if (model.kind === 'status') {
     return (
       <section
@@ -298,7 +301,6 @@ export function AnalysisHeroPanel({
   // lenses show the explained empty body), so the remembered lens only
   // falls back to the model default when nothing has been chosen yet.
   const lens: HeroLens = lensState ?? model.defaultLens
-  useEffect(() => { onLensChange?.(lens) }, [lens, onLensChange])
   const lensAvailable = model.lenses.includes(lens)
 
   // Axis labels per lens: the goal lens draws NO tracks (prototype v6
