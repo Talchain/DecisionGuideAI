@@ -105,44 +105,6 @@ function neverAnswers() {
   return new Promise<never>(() => {})
 }
 
-function healthyOpenResponse() {
-  return {
-    ok: true,
-    status: 200,
-    statusText: 'OK',
-    json: () =>
-      Promise.resolve({
-        readiness_score: 88,
-        readiness_level: 'ready',
-        can_run_analysis: true,
-        confidence_explanation: 'Ready to analyse',
-        improvements: [],
-      }),
-    text: () => Promise.resolve(''),
-    headers: new Headers(),
-  }
-}
-
-function refusingResponse() {
-  return {
-    ok: true,
-    status: 200,
-    statusText: 'OK',
-    json: () =>
-      Promise.resolve({
-        readiness_score: 30,
-        readiness_level: 'needs_work',
-        can_run_analysis: false,
-        confidence_explanation: 'Options need intervention values',
-        improvements: [],
-        options_ready: 0,
-        options_total: 2,
-      }),
-    text: () => Promise.resolve(''),
-    headers: new Headers(),
-  }
-}
-
 function renderPanel() {
   return render(
     <ToastProvider>
@@ -237,7 +199,8 @@ describe('pre-analysis panel — an unanswered readiness check is not an availab
   // removal passes every assertion above and fails both of these.
   describe('an answered check is unaffected', () => {
     it('still prints the availability headline when the server says the model is ready', async () => {
-      mockFetch.mockResolvedValue(healthyOpenResponse())
+      // DL Q2a-A (15 Oct): the verdict is the turn's, so the answer arrives as the turn's may_run.
+      useCanvasStore.setState({ ceeAnalysisReady: { status: 'ready', may_run: true } as any })
       renderPanel()
       await settle()
 
@@ -250,7 +213,8 @@ describe('pre-analysis panel — an unanswered readiness check is not an availab
     })
 
     it('still prints the not-ready copy when the server refuses the model', async () => {
-      mockFetch.mockResolvedValue(refusingResponse())
+      useCanvasStore.setState({ ceeAnalysisReady: { status: 'needs_user_input', may_run: false,
+        readiness_issues: [{ message: 'Options need intervention values', obligation: 'required' }] } as any })
       renderPanel()
       await settle()
 

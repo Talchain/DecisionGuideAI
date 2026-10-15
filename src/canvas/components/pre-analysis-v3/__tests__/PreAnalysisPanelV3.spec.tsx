@@ -115,6 +115,11 @@ function seedReadiness(canRun = true, explanation = 'Looks consistent.') {
     loading: false,
     error: null,
   })
+  // DL Q2a-A (15 Oct): readiness is the TURN's verdict, so the same answer is stated where it now comes from: may_run,
+  // and the not-ready sentence as CEE's one owed repair.
+  const ar = useCanvasStore.getState().ceeAnalysisReady as Record<string, unknown> | null
+  useCanvasStore.setState({ ceeAnalysisReady: { ...(ar ?? {}), may_run: canRun,
+    readiness_issues: canRun ? [] : [{ message: explanation, obligation: 'required' }] } } as never)
 }
 
 function renderPanel(
@@ -147,8 +152,9 @@ beforeAll(() => {
 beforeEach(() => {
   useSignalSessionStore.getState().reset()
   useGuidanceStore.setState({ _sendChip: null, _prefillChat: null })
-  seedReadiness()
   seedGraph()
+  // After the graph: readiness is now stated on the turn (`ceeAnalysisReady`), which the graph seed resets.
+  seedReadiness()
 })
 
 describe('setup state', () => {
@@ -632,23 +638,21 @@ describe('footer readiness', () => {
     expect(footer).toHaveTextContent('Two options need target values before analysis.')
   })
 
-  // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
-  // remaining options — the footer discloses the draft, never the not-ready
-  // copy, so it agrees with the (enabled) run gate.
-  it('discloses the scaffold draft instead of the not-ready copy when CEE will draft the options', () => {
+  // UI-SEM-091 (FLIPPED, DL Q2a-A 15 Oct): the "Olumi will draft the remaining N options" disclosure read
+  // `scaffold_plan`, which only the deleted graph-readiness POST carried. The TURN's verdict carries no scaffold plan
+  // (served turn keys, 14 Oct: options, goal_node_id, status, blockers, readiness_issues, may_run, analysis_admission,
+  // …), so the footer may not promise a draft it cannot see: it says CEE's own not-ready words. CEE gap, routed: serve
+  // the scaffold intent on analysis_ready if the disclosure is wanted back.
+  it('promises no option draft from a verdict that carries no scaffold plan; says CEE\'s own words instead', () => {
     seedReadiness(false, 'Two options need target values before analysis.')
-    useReadinessStore.setState({
-      readiness: {
-        ...useReadinessStore.getState().readiness!,
-        scaffold_plan: { will_scaffold_options: true, option_count: 2 },
-      },
-    })
-    // canRun mirrors the run gate (canRunAnalysis util), which ORs the scaffold.
-    renderPanel({ canRun: true })
+    // Even a turn verdict that DID carry the old field is read only for may_run and its issues: nothing promises a draft.
+    useCanvasStore.setState({ ceeAnalysisReady: { ...(useCanvasStore.getState().ceeAnalysisReady as object),
+      scaffold_plan: { will_scaffold_options: true, option_count: 2 } } } as never)
+    renderPanel()
+    expect(useReadinessStore.getState().readiness?.scaffold_plan).toBeUndefined()
     const footer = screen.getByTestId('pre-analysis-v3-footer')
-    expect(footer).toHaveTextContent('Olumi will draft the remaining 2 options')
-    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
-    expect(footer).not.toHaveTextContent('Two options need target values before analysis.')
+    expect(footer).not.toHaveTextContent('Olumi will draft the remaining 2 options')
+    expect(footer).toHaveTextContent('Two options need target values before analysis.')
   })
 
   it('the analyse button obeys the external gate authority (canRun)', () => {

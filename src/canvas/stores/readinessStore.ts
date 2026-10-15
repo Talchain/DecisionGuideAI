@@ -101,11 +101,13 @@ export function readinessFromTurn(analysisReady: unknown): GraphReadiness | null
   if (analysisReady === null || typeof analysisReady !== 'object') return null
   const raw = analysisReady as Record<string, unknown>
   const mayRun = raw.may_run
-  const may_run = typeof mayRun === 'boolean' || mayRun === 'unknown' ? mayRun : undefined
+  // ⚠ ABSENT `may_run` IS "CEE DID NOT SAY", NEVER "NO" (`CEEAnalysisReady.may_run`): no verdict is published, exactly
+  // the state before a check answered, so every reader keeps its existing no-verdict path. Served CEE always sends it.
+  if (!(typeof mayRun === 'boolean' || mayRun === 'unknown')) return null
   const readiness_issues = normaliseReadinessIssues(raw.readiness_issues)
   return {
-    can_run_analysis: may_run === true,
-    ...(may_run !== undefined ? { may_run } : {}),
+    can_run_analysis: mayRun === true,
+    may_run: mayRun,
     ...(readiness_issues !== undefined ? { readiness_issues } : {}),
   }
 }

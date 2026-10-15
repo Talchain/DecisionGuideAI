@@ -56,6 +56,8 @@ describe('readiness is the turn’s served verdict (served capacity, two turns)'
 
   it('before any turn there is no verdict (null), never “ready”; may_run “unknown” is kept, and an unknown obligation is never defaulted', () => {
     expect(readinessFromTurn(null)).toBeNull()
+    // A verdict that does not state may_run (an older producer) is not a refusal: no verdict at all.
+    expect(readinessFromTurn({ status: 'ready', readiness_issues: [] })).toBeNull()
     const r = readinessFromTurn({ may_run: 'unknown', readiness_issues: [{ message: 'Say X.' }] })!
     expect(r.may_run).toBe('unknown')
     expect(r.can_run_analysis).toBe(false)

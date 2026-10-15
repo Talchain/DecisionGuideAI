@@ -157,6 +157,8 @@ function seedCeeAnalysisReady(notReadyIds: string[]) {
     ceeAnalysisReady: {
       goal_node_id: 'g1',
       status: 'needs_input',
+      // The journey's verdict, stated on the turn (DL Q2a-A: readiness is the turn's verdict): CEE refused the Run.
+      may_run: false,
       options: Object.keys(OPTION_LABELS).map((id) => ({
         id,
         status: notReadyIds.includes(id) ? 'needs_encoding' : 'ready',
@@ -190,6 +192,9 @@ function seedVerdict(overrides: Partial<typeof BLOCKED_VERDICT> = {}) {
     })),
   )
   useReadinessStore.setState({ readiness: verdict, loading: false, error: null })
+  // DL Q2a-A (15 Oct): readiness is the TURN's verdict now, so the same answer is stated where it comes from.
+  const ar = useCanvasStore.getState().ceeAnalysisReady as Record<string, unknown> | null
+  useCanvasStore.setState({ ceeAnalysisReady: { ...(ar ?? {}), may_run: verdict.can_run_analysis } } as never)
 }
 
 beforeEach(() => {

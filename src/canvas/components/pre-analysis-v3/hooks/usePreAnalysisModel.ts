@@ -12,7 +12,7 @@ import { useEffect, useMemo } from 'react'
 import { resolveEffectiveDraftCoaching } from '../../../domain/effectiveDraftCoaching'
 import { goalLabelIsUnconfirmedBriefExtract } from '../../../domain/goalLabelProvenance'
 import { useCanvasStore } from '../../../store'
-import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
+import { useGraphReadiness, type GraphReadiness } from '../../../hooks/useGraphReadiness'
 import {
   actionableBlockers,
   readinessObjectsToRun,
@@ -20,7 +20,7 @@ import {
 } from '../../../utils/canRunAnalysis'
 import { useAnalysisReadinessAuthority } from '../../../state/analysisStateSelector'
 import { useAnalysisMayRun } from '../../../hooks/useAnalysisReady'
-import { composeAnalysisBlockedReason } from '../../../utils/composeBlockedReason'
+import { composeAnalysisBlockedReason, readinessAuthoredRefusalItems } from '../../../utils/composeBlockedReason'
 import { resolveStarterId } from '../../../starters/loadStarter'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
@@ -161,6 +161,19 @@ export interface PreAnalysisModel {
    * one with no `PreAnalysisModel` to read it from.
    */
   nothingHasAnswered: boolean
+}
+
+/**
+ * ⭐ DL Q2a-A (15 Oct): CEE's own words for why the model cannot be analysed yet. The verdict is now the TURN's, which
+ * carries no `confidence_explanation`; its owed repairs (`readiness_issues`, required and not waived) ARE CEE's
+ * sentences, quoted verbatim through the one reader (`readinessAuthoredRefusalItems`). A legacy verdict's explanation
+ * still wins when present. Nothing is composed here; with neither, the caller's fallback copy speaks.
+ */
+function readinessExplanationOf(readiness: GraphReadiness | null | undefined): string | null {
+  const legacy = readiness?.confidence_explanation?.trim()
+  if (legacy) return legacy
+  const owed = readinessAuthoredRefusalItems(readiness)
+  return owed === null || owed.length === 0 ? null : owed.map((item) => item.text).join(' ')
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
@@ -319,8 +332,8 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         topUncalibrated: top,
         // The one value, not a second read of the side-car field.
         canRunAnalysis: canRun,
-        readinessExplanation: readiness?.confidence_explanation
-          ? guardCeeText(readiness.confidence_explanation, LADDER_COPY.readiness_fallback).text
+        readinessExplanation: readinessExplanationOf(readiness)
+          ? guardCeeText(readinessExplanationOf(readiness)!, LADDER_COPY.readiness_fallback).text
           : null,
         willScaffoldOptions,
         scaffoldOptionCount,
@@ -509,7 +522,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
           ),
         }
       }
-      const explanation = readiness?.confidence_explanation?.trim()
+      const explanation = readinessExplanationOf(readiness)
       return {
         dot: 'muted' as const,
         headline: '',
@@ -544,9 +557,8 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     // `canRun` already tracks it (null → boolean), but depending on the
     // verdict itself keeps the memo's inputs honest rather than relying on a
     // derived value to stand in for it.
+    // (Its fields are read through `readiness` itself; each turn verdict is a fresh object, so it is the dependency.)
     readiness,
-    readiness?.can_run_analysis,
-    readiness?.confidence_explanation,
   ])
 
   // Memoised slices so the memo()'d sections actually bail out when their
