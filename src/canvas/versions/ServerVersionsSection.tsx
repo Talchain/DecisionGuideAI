@@ -52,6 +52,7 @@ import { ServerVersionDiff, formatTimestamp } from './ServerVersionDiff'
 import { VersionResultDiff } from './VersionResultDiff'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { applyRestoredGraph, settleRestoredModel } from './applyRestoredModel'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
 import { newRestoreMutationId } from './restoreMutationId'
 import { logger } from '../../lib/logger'
@@ -707,6 +708,10 @@ export function ServerVersionsSection() {
         // gated on acknowledged elements; and it forgets restored elements from
         // the proven-deletion record. One path for every restore, Undo included.
         const applied = applyRestoredGraph(result.graph)
+        // The restored model gets its own fresh analysis, exactly as an Undo's restore does (undoCommand.ts): the
+        // UI's after-change Run is the one owner (CEE's restore runs none, #3049). A deduped restore changed nothing.
+        // Noted even when the canvas reconcile mismatched below: the Run reads CEE's persisted graph, not the canvas.
+        if (!result.deduped) noteCanvasLocalCommit(result.version.versionId, 'restore')
 
         // The success claim is EARNED, not assumed. The counts below say the
         // apply DID something; only this says it did the right thing, and it is

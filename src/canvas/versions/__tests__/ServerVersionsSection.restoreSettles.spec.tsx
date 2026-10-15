@@ -53,6 +53,7 @@ vi.mock('../../../lib/supabase', async (importOriginal) => ({
 import { ServerVersionsSection, SERVER_VERSIONS_DISCLOSURE } from '../ServerVersionsSection'
 import { useCanvasStore } from '../../store'
 import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
+import { ANALYSE_AFTER_CHANGE_SOURCE, useAnalyseAfterCommittedChange } from '../../analysis/useAnalyseAfterCommittedChange'
 
 const TWO_VERSIONS = [
   {
@@ -171,5 +172,41 @@ describe('Version-history restore — it settles through the cold-open read', ()
 
     expect(hydrateCanvasFromServer).not.toHaveBeenCalled()
     expect(factorData().observedState).toEqual(CHURN_SET)
+  })
+})
+
+// ⭐ ONE OWNER, AS UNDO (DL Q1, 15 Oct): a Version-history restore gets the restored model its own fresh analysis through
+// the UI's after-change Run, exactly as Undo's restore does (undoCommand.ts); CEE's restore runs none (#3049).
+describe('Version-history restore — the restored model gets its own fresh analysis, as Undo does', () => {
+  function withAnalyseHost(run: Parameters<typeof useAnalyseAfterCommittedChange>[0]['run']) {
+    function Host() {
+      useAnalyseAfterCommittedChange({ run, idle: true, hasRunOnRecord: true })
+      return null
+    }
+    render(<Host />)
+  }
+
+  it('a restore runs the analysis exactly once, through the after-change source', async () => {
+    seedCanvas([wireFactor({ observed_state: CHURN_SET }), wireOption()])
+    const run = vi.fn(async () => ({ status: 'dispatched' as const }))
+    withAnalyseHost(run)
+    restoreModelVersion.mockResolvedValue(restored([wireFactor(), wireOption()]))
+
+    await restoreVersionOne()
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    expect(run).toHaveBeenCalledWith({ source: ANALYSE_AFTER_CHANGE_SOURCE })
+    await waitFor(() => expect(hydrateCanvasFromServer).toHaveBeenCalledTimes(1))
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('a deduped restore (the model was already at that version) runs nothing', async () => {
+    seedCanvas([wireFactor(), wireOption()])
+    const run = vi.fn(async () => ({ status: 'dispatched' as const }))
+    withAnalyseHost(run)
+    restoreModelVersion.mockResolvedValue({ ...restored([wireFactor(), wireOption()]), deduped: true })
+
+    await restoreVersionOne()
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toHaveTextContent('already at that version'))
+    expect(run).not.toHaveBeenCalled()
   })
 })
