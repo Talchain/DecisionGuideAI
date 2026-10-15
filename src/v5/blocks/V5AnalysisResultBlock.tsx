@@ -46,6 +46,7 @@
  *   - Body: typography.chatBody (13px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { memo, useMemo, type ReactElement } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -346,14 +347,17 @@ function V5AnalysisResultBlockImpl({
   // Until 15 Oct this card answered Q1 itself from the admission
   // (`licensesComparativeLeaderClaim`); CEE now serves the composed answer.
   //
-  // ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER WE MAY SAY SO is now CEE's own `leader_licence`, read from the canonical view
-  // matched to THIS card's Run by identity (`chatCardRunViewOf`, below). CEE composes it from the leader claim, the
-  // separation and the admission, so the UI no longer re-decides it. FAIL-CLOSED: no matching view, or 'withheld'.
+  // ⭐ S9/S11 (DL Q3a, 15 Oct): WHETHER WE MAY SAY SO is CEE's own `leader_licence` whenever a canonical view is matched
+  // to THIS card's Run by identity (`chatCardRunViewOf`, below): 'withheld' names no leader. With no matched view the
+  // card keeps its admission read (`licensesComparativeLeaderClaim`) until Run-identity matching is proven on the build.
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const canonical = useCanonicalAnalysisViewStore(s => s.scenarioId === currentScenarioId ? s.view : null)
   const blockRunView = useMemo(() => chatCardRunViewOf(block, canonical), [block, canonical])
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderClaimLicensed = verdict.hasLeadingOption && blockRunView.leaderLicensed()
+  const ceeLeaderLicence = blockRunView.leaderLicence()
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+  const leaderClaimLicensed = verdict.hasLeadingOption
+    && (ceeLeaderLicence !== null ? ceeLeaderLicence !== 'withheld' : modelLicensesComparativeClaim)
   // #2747 re-scope 2: the win-share pill row this licence ordered and crowned is gone (DL ruling (A), below); the
   // licence still gates the uncertainty tier.
 

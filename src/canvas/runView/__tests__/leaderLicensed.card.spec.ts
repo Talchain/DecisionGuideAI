@@ -13,17 +13,17 @@ const cardFor = (view: CanonicalAnalysisView, runId = view.run!.run_id!, hash = 
   ({ enrichment: {}, run_id: runId, computed_against_hash: hash })
 
 describe('chat card: CEE leader_licence for the card’s own Run', () => {
-  it('capacity (permitted_with_caveat) → the card may name its leader', () => {
+  it('capacity → the card’s own Run licence is CEE’s permitted_with_caveat', () => {
     const view = viewOf('capacity')
-    expect(chatCardRunViewOf(cardFor(view), view).leaderLicensed()).toBe(true)
+    expect(chatCardRunViewOf(cardFor(view), view).leaderLicence()).toBe('permitted_with_caveat')
   })
-  it('hiring (withheld) → the card names none', () => {
+  it('hiring → the card’s own Run licence is CEE’s withheld', () => {
     const view = viewOf('hiring')
-    expect(chatCardRunViewOf(cardFor(view), view).leaderLicensed()).toBe(false)
+    expect(chatCardRunViewOf(cardFor(view), view).leaderLicence()).toBe('withheld')
   })
-  it('FAIL-CLOSED: an older card (another Run id, same graph hash) or no view licenses nothing', () => {
+  it('IDENTITY: an older card (another Run id, same graph hash) or no view gets no CEE licence (null), never another Run’s', () => {
     const view = viewOf('capacity')
-    expect(chatCardRunViewOf(cardFor(view, 'an-older-run'), view).leaderLicensed()).toBe(false)
-    expect(chatCardRunViewOf(cardFor(view), null).leaderLicensed()).toBe(false)
+    expect(chatCardRunViewOf(cardFor(view, 'an-older-run'), view).leaderLicence()).toBeNull()
+    expect(chatCardRunViewOf(cardFor(view), null).leaderLicence()).toBeNull()
   })
 })

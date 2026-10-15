@@ -2538,10 +2538,14 @@ export function useResultsSectionData({ registerCanvasRows = true }: { registerC
     // them from that published field.
     // ⭐ S9/S11 (DL Q3a, 15 Oct): the DISPLAYED RUN's licence is now CEE's own `leader_licence` for that Run (the
     // canonical view matched to this report by Run identity; `runView.leaderLicensed`), which CEE composes from the
-    // leader claim, the separation and the Run's admission. It replaces the UI's reading of `run_analysis_admission`.
-    // FAIL-CLOSED: no matching canonical view, or 'withheld', names no leader. Q1 (the CURRENT graph's admission, for
+    // leader claim, the separation and the Run's admission, whenever a canonical view is matched to this Run; 'withheld'
+    // names no leader. With no matched view, the Run's recorded `run_analysis_admission` still answers (until Run-identity
+    // matching is proven on the served build). Q1 (the CURRENT graph's admission, for
     // an edit made since the Run) stays a conjunct: CEE's licence describes the Run, not the edited model.
-    const runLicensesComparativeClaim = runView.leaderLicensed()
+    const ceeLeaderLicence = runView.leaderLicence()
+    const runLicensesComparativeClaim = ceeLeaderLicence !== null
+      ? ceeLeaderLicence !== 'withheld'
+      : licensesComparativeLeaderClaim(report?.run_analysis_admission)
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
     // of the RUN. Quoted VERBATIM from the one module entitled to answer it —

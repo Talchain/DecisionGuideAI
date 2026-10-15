@@ -510,8 +510,8 @@ describe('S9/S11 Q3a: the leader licence is CEE\'s leader_licence, bound to the 
     expect(readCanvas(true).claims).toBe(false)
   })
 
-  it('FAIL-CLOSED: a view for a DIFFERENT Run licenses nothing, even when that view permits', () => {
-    bindServed('capacity', 'some-other-run')
-    expect(designates()).toBe(false)
+  it('IDENTITY: CEE\'s withheld for a DIFFERENT Run does not decide this one (no admission recorded: today\'s behaviour)', () => {
+    bindServed('hiring', 'some-other-run')
+    expect(designates()).toBe(true)
   })
 })
