@@ -37,7 +37,10 @@ export function canonicalTestCellsOf(data: ResultsSectionDataReturn, run: Canoni
     run,
     staleness: { stale: false, revision: null, run_revision: null, basis: 'analysis_graph_hash_interim', reason: null,
       limitation: 'Hash equality cannot detect brief, framing or stage changes.' },
-    leader_licence: 'withheld',
+    // DL Q3a (15 Oct): `leader_licence` is now READ (RunView.leaderLicence decides when matched). A fixture's view
+    // mirrors the fixture's own licence, never a fixed placeholder: withheld only where the fixture's data (computed
+    // without a view, so from its admission) already withheld the designation.
+    leader_licence: data.recommendation.leaderDesignationPermitted === false ? 'withheld' : 'permitted',
     options: options.map(option => {
       const entry = range?.rangeByOption[option.id]
       const rangeText = entry ? fixtureRangeFace(entry, labelOf(option.id), statedFaces[option.id]) : null
