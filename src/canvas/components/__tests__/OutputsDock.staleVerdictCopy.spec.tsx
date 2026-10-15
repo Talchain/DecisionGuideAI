@@ -29,7 +29,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
@@ -149,6 +148,8 @@ function seedCeeAnalysisReady(notReadyIds: string[]) {
         id,
         status: notReadyIds.includes(id) ? 'needs_encoding' : 'ready',
       })),
+      // DL Q2a-A: the turn's own verdict, which the readiness store now publishes.
+      may_run: notReadyIds.length === 0,
     },
   } as never)
 }
@@ -169,7 +170,6 @@ function seedCeeAnalysisReady(notReadyIds: string[]) {
  * the wrong state.
  */
 function seedVerdict({ stale }: { stale: boolean }) {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(() => new Promise(() => {})),
@@ -235,54 +235,9 @@ describe('OutputsDock → the blocked footer, when the verdict is stale (I-3)', 
     expect(footer).toHaveTextContent(SPECIFIC_SENTENCE)
   }, 40_000)
 
-  it('a stale verdict does not name the option it graded', async () => {
-    seedPreRunCanvas()
-    seedCeeAnalysisReady(['opt_extend'])
-    seedVerdict({ stale: true })
-
-    render(
-      <ToastProvider>
-        <OutputsDock />
-      </ToastProvider>,
-    )
-
-    const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
-    // The user may have just described this very option. Naming it again, from
-    // a verdict that was never re-asked, is the false reason PC1 forbids.
-    expect(footer).not.toHaveTextContent('Partner with a consultancy')
-    expect(footer).not.toHaveTextContent(SPECIFIC_SENTENCE)
-  }, 40_000)
-
-  it('a stale verdict says the model changed and the check is being redone', async () => {
-    seedPreRunCanvas()
-    seedCeeAnalysisReady(['opt_extend'])
-    seedVerdict({ stale: true })
-
-    render(
-      <ToastProvider>
-        <OutputsDock />
-      </ToastProvider>,
-    )
-
-    const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
-    expect(footer).toHaveTextContent(BLOCKED_REASON_COPY.staleRecheck)
-  }, 40_000)
-
-  it('the Run button carries the same stale sentence — one state, one story', async () => {
-    seedPreRunCanvas()
-    seedCeeAnalysisReady(['opt_extend'])
-    seedVerdict({ stale: true })
-
-    render(
-      <ToastProvider>
-        <OutputsDock />
-      </ToastProvider>,
-    )
-
-    const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
-    // Still disabled: staleness does not open the gate (that would be inventing
-    // a verdict in the permissive direction). Only the CLAIM changes.
-    expect(analyse).toBeDisabled()
-    expect(analyse).toHaveAttribute('title', BLOCKED_REASON_COPY.staleRecheck)
-  }, 40_000)
+  // DL Q2a-A (15 Oct 2026): DELETED — the three stale-verdict rows ("does not name the option it graded", "says the model
+  // changed and the check is being redone", "the Run button carries the same stale sentence"). Readiness is now the
+  // TURN's verdict about CEE's persisted graph; the next turn replaces it and no local model edit can outgrow it, so the
+  // store's `stale` is always false and that state cannot arise. The control above (a current verdict names the option)
+  // is kept.
 })

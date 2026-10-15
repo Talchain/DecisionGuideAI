@@ -23,7 +23,8 @@
  * Audit trail (all endpoints verified served by CEE under /assist/v1 at
  * CEE `4c835ced`, reachable through the edge rewrite):
  *   prompt-preloader   /prompts/warm            → /bff/cee (probed 200)
- *   readinessStore     /graph-readiness         → /bff/cee
+ *   (readinessStore's /graph-readiness POST was DELETED, DL Q2a-A 15 Oct: readiness is the turn's served
+ *    verdict, so no graph leaves the browser; its row went with the call.)
  *   (useFormRecommendations was DELETED with the dead browser->PLoT chains;
  *    its /suggest-edge-function consumer row went with the file, not for
  *    tidiness — a list entry for a missing file ENOENTs the whole suite.)
@@ -53,7 +54,6 @@ function stripComments(code: string): string {
 
 const CONSUMERS: ReadonlyArray<{ rel: string; mustUseLiteral: string }> = [
   { rel: 'lib/prompt-preloader.ts', mustUseLiteral: "'/bff/cee'" },
-  { rel: 'canvas/stores/readinessStore.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'hooks/useAsk.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'lib/service-health.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'adapters/cee/client.ts', mustUseLiteral: "'/bff/cee'" },

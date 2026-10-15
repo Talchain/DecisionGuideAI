@@ -1,0 +1,32 @@
+{
+ "blocked": {
+  "source": "live/runs-joined/2026-10-14T230726Z turns/01 (guest, CEE 358132d8)",
+  "analysis_ready": {
+   "status": "needs_user_input",
+   "may_run": false,
+   "readiness_issues": [
+    {
+     "issue_id": "level_1",
+     "code": "MISSING_FACTOR_LEVEL",
+     "category": "option_values",
+     "message": "How likely or how large is \"Specialist availability risk\" today? Olumi can’t run the numbers until this risk has a figure.",
+     "repairability": "human_input_required",
+     "factor_id": "specialist_availability_risk",
+     "factor_label": "Specialist availability risk",
+     "provenance": "unattributed",
+     "obligation": "required"
+    }
+   ],
+   "goal_node_id": "weekly_support_capacity"
+  },
+  "note": "message apostrophe restored to U+2019: the capture script mis-decoded it; the served footer showed it correctly (run 230726Z row 0)."
+ },
+ "ready": {
+  "source": "live/runs-joined/2026-10-14T232318Z turns/01 (guest, CEE 880b35b4)",
+  "analysis_ready": {
+   "status": "ready",
+   "may_run": true,
+   "goal_node_id": "weekly_support_capacity"
+  }
+ }
+}

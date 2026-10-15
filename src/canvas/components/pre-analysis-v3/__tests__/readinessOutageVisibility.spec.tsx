@@ -34,7 +34,7 @@
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, act, fireEvent } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { PreAnalysisPanelV3 } from '../PreAnalysisPanelV3'
 import { FOOTER_COPY } from '../constants'
@@ -43,7 +43,6 @@ import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
-import { clearInflightCache } from '../../../hooks/useGraphReadiness'
 
 const mockFetch = vi.fn()
 
@@ -78,28 +77,6 @@ function seedGraph() {
   })
 }
 
-function openServerResponse() {
-  return {
-    ok: true,
-    status: 200,
-    statusText: 'OK',
-    json: () =>
-      Promise.resolve({
-        readiness_score: 88,
-        readiness_level: 'ready',
-        can_run_analysis: true,
-        confidence_explanation: 'Ready to analyse',
-        improvements: [],
-      }),
-    text: () => Promise.resolve(''),
-    headers: new Headers(),
-  }
-}
-
-function networkRejection() {
-  return Promise.reject(new TypeError('Failed to fetch'))
-}
-
 function renderPanel() {
   return render(
     <ToastProvider>
@@ -125,7 +102,6 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockFetch.mockReset()
   useReadinessStore.getState().reset()
-  clearInflightCache()
   useSignalSessionStore.getState().reset()
   useGuidanceStore.setState({ _sendChip: null, _prefillChat: null })
   seedGraph()
@@ -137,198 +113,41 @@ afterEach(() => {
 })
 
 describe('pre-analysis panel — an unchecked model is never presented as a checked one', () => {
+  // DL Q2a-A (15 Oct 2026): readiness is the TURN's verdict (`ceeAnalysisReady.may_run`), no longer a graph-readiness
+  // POST. The rows that drove that request's failures (network rejection, 429, 502, retry, a retained verdict marked
+  // stale behind an outage, a locally composed verdict with no time) are deleted with the request: none of those states
+  // can arise. What survives is the invariant this file exists for, now driven by the turn.
+
   // ── Negative control, stated first ───────────────────────────────
-  //
-  // Everything below asserts that something NEW appears. This proves it does
-  // not appear when the service is healthy — without it, a component that
-  // always rendered the outage row would pass every test in this file.
-  describe('a healthy readiness check renders nothing new', () => {
-    it('shows the ordinary footer and no outage row when the server answers', async () => {
-      mockFetch.mockResolvedValue(openServerResponse())
+  describe('a healthy turn verdict renders nothing new', () => {
+    it('shows the ordinary footer and no outage row when the turn says the model may run, and asks nobody', async () => {
+      useCanvasStore.setState({ ceeAnalysisReady: { status: 'ready', may_run: true } as any })
       renderPanel()
       await settle()
 
       expect(useReadinessStore.getState().readiness?.can_run_analysis).toBe(true)
       expect(useReadinessStore.getState().error).toBeNull()
-
       expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(FOOTER_COPY.ready)
       expect(screen.queryByTestId('pre-analysis-v3-readiness-outage')).toBeNull()
-      expect(screen.queryByRole('button', { name: /retry readiness check/i })).toBeNull()
+      expect(mockFetch).not.toHaveBeenCalled()
     })
   })
 
-  // ── (a) The user can SEE "could not check", and can act on it ────
-  describe('an unreachable readiness service is visible where readiness renders', () => {
-    it('shows a could-not-check row instead of an availability claim', async () => {
-      mockFetch.mockImplementation(() => networkRejection())
+  describe('before any turn verdict, nothing claims the model was checked', () => {
+    it('publishes no verdict, prints no availability claim, sends no request, and leaves the run gate to its owner', async () => {
       renderPanel()
       await settle()
-
-      // The store reached the honest state #564 installed…
-      const state = useReadinessStore.getState()
-      expect(state.readiness).toBeNull()
-      expect(state.error).not.toBeNull()
-
-      // …and the panel now says so, instead of "Analysis available".
-      const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')
-      expect(outage).toHaveTextContent(/could not check/i)
-      expect(screen.getByTestId('pre-analysis-v3-footer')).not.toHaveTextContent(
-        FOOTER_COPY.ready,
-      )
-    })
-
-    it('offers a retry control that issues a real second request', async () => {
-      mockFetch.mockImplementation(() => networkRejection())
-      renderPanel()
-      await settle()
-      expect(mockFetch).toHaveBeenCalledTimes(1)
-
-      const retry = screen.getByRole('button', { name: /retry readiness check/i })
-
-      clearInflightCache()
-      mockFetch.mockResolvedValue(openServerResponse())
-      await act(async () => {
-        fireEvent.click(retry)
-        await vi.runAllTimersAsync()
-      })
-
-      expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(useReadinessStore.getState().readiness?.can_run_analysis).toBe(true)
-      expect(screen.queryByTestId('pre-analysis-v3-readiness-outage')).toBeNull()
-    })
-
-    it('does not gate the run locally — the verdict stays the server’s', async () => {
-      mockFetch.mockImplementation(() => networkRejection())
-      renderPanel()
-      await settle()
-
-      // Visibility is the deliverable; the run gate is OutputsDock's and is
-      // deliberately untouched by this slice. `canRun` is passed true here, so
-      // an Analyse button that had become locally disabled would fail this.
-      expect(screen.getByTestId('pre-analysis-v3-analyse')).not.toBeDisabled()
-    })
-  })
-
-  // ── (b) The stale marking on a RETAINED verdict ──────────────────
-  describe('a verdict the model has outgrown is marked, with the service unreachable', () => {
-    it('keeps the served verdict and says it predates the current model', async () => {
-      mockFetch.mockResolvedValue(openServerResponse())
-      renderPanel()
-      await settle()
-      expect(screen.queryByTestId('pre-analysis-v3-readiness-outage')).toBeNull()
-
-      // The service drops, then the model changes underneath the verdict — the
-      // walk's exact sequence, with `ceeAnalysisReady` written by a turn.
-      mockFetch.mockImplementation(() => networkRejection())
-      clearInflightCache()
-      await act(async () => {
-        useCanvasStore.setState({
-          ceeAnalysisReady: {
-            options: [{ id: 'opt_retention', label: 'Retention push', status: 'ready' }],
-            goal_node_id: 'g1',
-            status: 'ready',
-          } as any,
-        })
-        await vi.runAllTimersAsync()
-      })
-
-      const store = useReadinessStore.getState()
-      expect(store.readiness?.can_run_analysis).toBe(true)
-      expect(store.error).not.toBeNull()
-      expect(store.stale).toBe(true)
-
-      const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')
-      expect(outage).toHaveTextContent(/changed since/i)
-      // …and the retained answer is cited with the time it was taken, not
-      // presented as if it described the model now on the canvas.
-      expect(outage).toHaveTextContent(/showing the check from/i)
-      expect(outage).toHaveTextContent(/could not reach/i)
-      // The retained verdict is still the server's, and the panel does not
-      // reprint it as a current availability claim.
-      expect(screen.getByTestId('pre-analysis-v3-footer')).not.toHaveTextContent(
-        FOOTER_COPY.ready,
-      )
-      expect(
-        screen.getByRole('button', { name: /retry readiness check/i }),
-      ).toBeInTheDocument()
-    })
-  })
-
-  // ── A locally-composed verdict is never cited with a time ────────
-  //
-  // The adversarial review's amendment 2, at the surface where it does harm:
-  // the empty-canvas arm composes its verdict locally and used to stamp
-  // `verdictAtMs`. Add the first node while the service is down and the footer
-  // cited "Showing the check from HH:MM" for a verdict no server produced.
-  describe('a verdict composed locally is never cited as a timed server check', () => {
-    it('names the failure without a timestamp after the first node on an empty canvas', async () => {
-      useCanvasStore.setState({ nodes: [] as any, edges: [] as any })
-      mockFetch.mockImplementation(() => networkRejection())
-      renderPanel()
-      await settle()
-
-      // The first node arrives while the service is unreachable.
+      // An edit on the canvas asks nobody anything.
       await act(async () => {
         seedGraph()
         await vi.runAllTimersAsync()
       })
 
-      const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')
-      expect(outage).toHaveTextContent(/could not reach/i)
-      expect(outage).not.toHaveTextContent(/showing the check from/i)
-    })
-  })
-
-  // ── The 429 limb: no local fallback exists to cite (ROADMAP 2.635) ─
-  //
-  // This block used to assert `readiness` was NON-null after a 429 — the local
-  // heuristic's verdict — while insisting the surface not print "Showing the
-  // check from HH:MM" over it. That was the best available compromise while a
-  // fabricated verdict was on screen. 2.635 removed the fabrication instead:
-  // the arm publishes nothing, so the panel reaches the SAME honest
-  // never-checked surface as the transport, 404 and 5xx limbs, and the
-  // timestamp problem cannot arise because there is no local verdict.
-  describe('a rate-limited check is named as one, and cites no server time', () => {
-    it('shows the rate-limit reason and publishes no verdict to timestamp', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 429,
-        statusText: 'Too Many Requests',
-        json: () => Promise.reject(new Error('not json')),
-        text: () => Promise.resolve('rate limited'),
-        headers: new Headers(),
-      })
-      renderPanel()
-      await settle()
-
       expect(useReadinessStore.getState().readiness).toBeNull()
       expect(useReadinessStore.getState().verdictAtMs).toBeNull()
-
-      const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')
-      expect(outage).toHaveTextContent(/rate limited/i)
-      expect(outage).not.toHaveTextContent(/showing the check from/i)
-    })
-  })
-
-  // ── The 2.339 limb reaches the same surface ──────────────────────
-  describe('a 5xx from the readiness service reaches the same honest surface', () => {
-    it('shows the could-not-check row on a 502 rather than a fabricated verdict', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 502,
-        statusText: 'Bad Gateway',
-        json: () => Promise.reject(new Error('not json')),
-        text: () => Promise.resolve('<html>502 Bad Gateway</html>'),
-        headers: new Headers(),
-      })
-      renderPanel()
-      await settle()
-
-      expect(useReadinessStore.getState().readiness).toBeNull()
-      const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')
-      expect(outage).toHaveTextContent(/could not check/i)
-      // The response body never reaches the surface.
-      expect(outage).not.toHaveTextContent(/html/i)
+      expect(screen.getByTestId('pre-analysis-v3-footer')).not.toHaveTextContent(FOOTER_COPY.ready)
+      expect(screen.getByTestId('pre-analysis-v3-analyse')).not.toBeDisabled()
+      expect(mockFetch).not.toHaveBeenCalled()
     })
   })
 })

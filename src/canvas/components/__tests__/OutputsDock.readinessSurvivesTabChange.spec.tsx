@@ -118,7 +118,6 @@ import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
 import { useUIStore } from '../../../stores/uiStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { composeAnalysisBlockedReason, analysisBlockedSentences } from '../../utils/composeBlockedReason'
 import { actionableBlockers } from '../../utils/canRunAnalysis'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
@@ -292,7 +291,6 @@ function seedCanvasWithModel() {
 }
 
 function seedSideCar(verdict: typeof SIDE_CAR_OBJECTS | typeof SIDE_CAR_AGREES) {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({
@@ -633,7 +631,6 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
     // The cold-load / starvation state: the check has not answered YET and has
     // not failed. A fetch that never settles is what produces it honestly —
     // resolving gives a verdict, rejecting gives the outage arm.
-    clearInflightCache()
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     useReadinessStore.setState({
       readiness: null, loading: true, error: null, stale: false, verdictAtMs: null,
@@ -663,43 +660,9 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
     expect(barHeadline).not.toBe(FOOTER_COPY.ready)
   }, 30_000)
 
-  it('OUTAGE — the check failed: the same headline on both, and Retry on both', async () => {
-    // A network rejection is what sets `readinessStore.error` and KEEPS it set:
-    // the mount fetch fails again rather than clearing it.
-    clearInflightCache()
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
-    seedCanvasWithModel()
-    useCanvasStore.setState({ analysisStateV1: null } as never)
-
-    render(<Wrapper><OutputsDock /></Wrapper>)
-
-    const outageRow = await screen.findByTestId(
-      'pre-analysis-v3-readiness-outage', {}, { timeout: 20_000 },
-    )
-    // Precondition pinned in-test: the store really is in the failed state.
-    expect(useReadinessStore.getState().error).not.toBeNull()
-    expect(useReadinessStore.getState().readiness).toBeNull()
-    expect(outageRow).toBeInTheDocument()
-    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
-    expect(footerHeadline.length).toBeGreaterThan(0)
-
-    clickOlumiTab()
-    expect(olumiIsFronted()).toBe(true)
-
-    expect(screen.getByTestId('analysis-readiness-bar-outage')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
-      footerHeadline,
-    )
-    // The gate stays OPEN through an outage (`canRunAnalysis` blocks only on
-    // `readiness && !can_run_analysis`), which is exactly why the bar would
-    // otherwise have rendered a green "Analysis available" here.
-    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').not.toBe(
-      FOOTER_COPY.ready,
-    )
-    // The recovery goes with the claim: the route stays usable on whichever
-    // surface the user is standing on.
-    expect(screen.getByTestId('analysis-readiness-bar-retry')).toBeEnabled()
-  }, 30_000)
+  // DL Q2a-A (15 Oct 2026): OUTAGE DELETED. It drove a rejected graph-readiness POST to set `readinessStore.error`.
+  // That request is deleted: readiness is the turn's verdict, nothing is fetched, so `error` is always null and the
+  // outage arm cannot arise. PENDING (no verdict yet), BLOCKED and RESTING still hold the two surfaces equal.
 
   it('BLOCKED — the gate arm too, so the guard is not pinned to the new arms alone', async () => {
     seedSideCar(SIDE_CAR_OBJECTS)
@@ -744,6 +707,8 @@ describe('THE TWO SURFACES AGREE — the resting arm too', () => {
     seedCanvasWithModel()
     useCanvasStore.setState({
       analysisStateV1: analysisState({ status: 'ready', blockers: [] } as AnalysisStateV1['readiness']),
+      // DL Q2a-A: the verdict is the turn's, so "a verdict exists and nothing objects" is the turn saying may_run.
+      ceeAnalysisReady: { ...(useCanvasStore.getState().ceeAnalysisReady as object), may_run: true },
     } as never)
 
     render(<Wrapper><OutputsDock /></Wrapper>)

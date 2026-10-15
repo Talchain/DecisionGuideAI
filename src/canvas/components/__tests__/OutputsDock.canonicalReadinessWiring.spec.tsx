@@ -46,7 +46,6 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
@@ -175,6 +174,9 @@ function seedCapturedCanvas() {
       goal_node_id: 'g1',
       status: 'ready',
       options: Object.keys(OPTION_LABELS).map((id) => ({ id, status: 'ready' })),
+      // DL Q2a-A (15 Oct): the competing verdict that OBJECTS (the side-car's `can_run_analysis: false`) now rides on the
+      // turn, the readiness store's only source. Without it the store holds no verdict and nothing competes.
+      may_run: false,
     },
   } as never)
 }
@@ -186,7 +188,6 @@ function seedCapturedCanvas() {
  * point is that this verdict OBJECTS throughout).
  */
 function seedObjectingSideCar() {
-  clearInflightCache()
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({

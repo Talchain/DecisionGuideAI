@@ -1,195 +1,13 @@
 /**
  * useGraphReadiness Hook — thin wrapper over readinessStore.
  *
- * All fetch logic, debouncing, and state management now live in
- * src/canvas/stores/readinessStore.ts. This file re-exports types
- * for backward compatibility and provides the hook interface that
- * existing consumers expect.
- *
- * The readiness store is initialised lazily on first hook mount —
- * startListening() is ref-counted so the subscription stays alive
- * until the last consumer unmounts.
+ * The verdict is the TURN's served `analysis_ready` (readinessStore.readinessFromTurn); nothing is fetched (DL Q2a,
+ * 15 Oct: no graph out of the browser). This file holds the types and the hook interface existing consumers expect.
+ * `startListening()` is ref-counted so the subscription stays alive until the last consumer unmounts.
  */
 
 import { useEffect } from 'react'
 import { useReadinessStore } from '../stores/readinessStore'
-
-// ── Module-level request deduplication ──────────────────────────────
-// Retained here because readinessStore.ts imports __test__.deduplicatedFetch.
-// The cache is shared across the module boundary via the singleton Map.
-
-const DEDUP_WINDOW_MS = 750
-
-/**
- * Pre-parsed response shared between dedup consumers.
- * The Response body is consumed exactly once; all consumers read from this.
- */
-export interface DeduplicatedResponse {
-  ok: boolean
-  status: number
-  statusText: string
-  /** Parsed JSON body on success, null on error */
-  data: any
-  /** Text body for error responses */
-  errorBody: string
-  /** Retry-After header value (for 429 handling) */
-  retryAfterHeader: string | null
-}
-
-/**
- * The server answered, but its body could not be read as JSON.
- *
- * This type exists to keep two different facts apart at the ONE catch site
- * that sees both. `deduplicatedFetch` performs the `fetch()` and the
- * `response.json()` inside a single async IIFE, so a caller awaiting the
- * returned promise cannot otherwise distinguish "I never reached the server"
- * from "I reached it and could not read its reply". Neither is a readiness
- * verdict — but they are different things to report, and conflating them is
- * how a transport failure came to be presented as a model assessment
- * (ROADMAP 2.319a).
- *
- * Transport rejections are deliberately NOT wrapped: they propagate exactly
- * as `fetch()` threw them, so a caller can still read the underlying cause.
- */
-export class ReadinessBodyUnreadableError extends Error {
-  /** HTTP status of the response whose body would not parse. */
-  readonly status: number
-  /** The original `response.json()` rejection. */
-  readonly parseError: unknown
-
-  constructor(status: number, parseError: unknown) {
-    super(`Readiness response body was not readable JSON (HTTP ${status})`)
-    this.name = 'ReadinessBodyUnreadableError'
-    this.status = status
-    this.parseError = parseError
-  }
-}
-
-interface InflightEntry {
-  promise: Promise<DeduplicatedResponse>
-  timestamp: number
-  controller: AbortController
-  /** Number of hook instances sharing this entry */
-  refCount: number
-  /** True once the fetch promise has settled (resolved or rejected) */
-  settled: boolean
-}
-const inflightCache = new Map<string, InflightEntry>()
-let unkeyedRequest = 0
-
-/**
- * Deduplicated fetch: reuses an in-flight (or recently resolved) request
- * for the same endpoint + payload body + opaque auth key. Returns a pre-parsed response so
- * multiple consumers can safely read the result without "body stream already
- * read" errors. Uses refCount to prevent one consumer's unmount from
- * aborting a request shared by other consumers.
- */
-function deduplicatedFetch(
-  url: string,
-  payloadJson: string,
-  correlationId: string,
-  extraHeaders: Record<string, string> = {},
-  authKey?: string,
-): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
-  // Never retain a bearer in a Map key. Production supplies the SHA-256
-  // fingerprint built from its session. A caller with headers but no opaque
-  // key is deliberately unshared; forgetting the key cannot mix identities.
-  const scope = authKey ?? (Object.keys(extraHeaders).length ? `unkeyed:${++unkeyedRequest}` : 'guest')
-  const cacheKey = JSON.stringify([url, payloadJson, scope])
-  const existing = inflightCache.get(cacheKey)
-  if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
-    existing.refCount++
-    return { promise: existing.promise, entry: existing, isReused: true }
-  }
-
-  const controller = new AbortController()
-
-  // Parse the response body exactly once, then share the parsed result.
-  // The async IIFE ensures fetch() rejection is captured within the promise
-  // chain rather than triggering Node.js "unhandled rejection" in test
-  // environments where relative URLs are invalid (jsdom).
-  const promise = (async (): Promise<DeduplicatedResponse> => {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': correlationId,
-        ...extraHeaders,
-      },
-      body: payloadJson,
-      signal: controller.signal,
-    })
-    if (response.ok) {
-      // Tag a parse failure so the caller can tell it from a transport
-      // failure. Both mean "no verdict", but only one of them means the
-      // server was never reached — see ReadinessBodyUnreadableError.
-      let data: unknown
-      try {
-        data = await response.json()
-      } catch (parseErr) {
-        throw new ReadinessBodyUnreadableError(response.status, parseErr)
-      }
-      return {
-        ok: true,
-        status: response.status,
-        statusText: response.statusText,
-        data,
-        errorBody: '',
-        retryAfterHeader: null,
-      }
-    }
-    const errorBody = await response.text().catch(() => 'Unable to read response body')
-    return {
-      ok: false,
-      status: response.status,
-      statusText: response.statusText,
-      data: null,
-      errorBody,
-      retryAfterHeader: response.headers.get('Retry-After'),
-    }
-  })()
-
-  const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
-  inflightCache.set(cacheKey, entry)
-  // Suppress unhandled rejection — callers still get the rejection via `promise`.
-  // `.finally()` returns a NEW, distinct promise that adopts the original's
-  // rejection (it does not swallow errors). That derived promise must also
-  // have a rejection handler, or it surfaces as its own unhandled rejection
-  // independently of the `.catch(() => {})` above (#248).
-  promise.catch(() => {})
-  promise
-    .finally(() => {
-      entry.settled = true
-      setTimeout(() => {
-        if (inflightCache.get(cacheKey) === entry) {
-          inflightCache.delete(cacheKey)
-        }
-      }, DEDUP_WINDOW_MS)
-    })
-    .catch(() => {})
-
-  return { promise, entry, isReused: false }
-}
-
-/**
- * Release a ref to a shared inflight entry. Only aborts the underlying
- * request when the last consumer releases (refCount drops to 0).
- */
-function releaseInflightEntry(entry: InflightEntry | null): void {
-  if (!entry) return
-  entry.refCount--
-  if (entry.refCount <= 0) {
-    entry.controller.abort()
-  }
-}
-
-/** Clear inflight cache — exposed for testing */
-export function clearInflightCache(): void {
-  inflightCache.clear()
-}
-
-/** @internal — exposed for unit testing dedup logic and readinessStore. */
-export const __test__ = { deduplicatedFetch, releaseInflightEntry, clearInflightCache }
 
 // ── Types (re-exported for all consumers) ──────────────────────────
 
@@ -344,11 +162,16 @@ export interface ReadinessIssue {
 }
 
 export interface GraphReadiness {
-  readiness_score: number // 0-100
-  readiness_level: GraphReadinessLevel
+  /**
+   * ⭐ DL Q2a (15 Oct): the verdict is now the TURN's `analysis_ready` (`readinessFromTurn`), which carries no score,
+   * level, prose explanation or improvements list; those came only from the deleted graph-readiness POST and are ABSENT,
+   * never invented. Kept optional so a reader degrades to the issues or says nothing.
+   */
+  readiness_score?: number // 0-100
+  readiness_level?: GraphReadinessLevel
   can_run_analysis: boolean
-  confidence_explanation: string
-  improvements: GraphImprovement[]
+  confidence_explanation?: string
+  improvements?: GraphImprovement[]
   /**
    * UI-SEM-091 input. Optional — absent on older CEE builds and on the local
    * 404/429 fallback, so its absence is fail-safe: the gate collapses to
