@@ -150,7 +150,6 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/v1\/limits$/,
   /^\/v1\/templates$/,
   /^\/v1\/templates\/[^/]+\/graph$/,
-  /^\/v1\/pre-analysis-sensitivity$/,
 
   // --- Analysis routes still reachable from the browser. TWO remain, each
   // because a LIVE call site still demands it. This list shrank from twelve by
