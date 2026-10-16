@@ -515,7 +515,14 @@ export function mergeServerGraphOnHydrate(
     if (!serverNode) return n
 
     const userStamps = captureUserProvenance(n.data)
-    const overlaid = overlayNode(n, serverNode, opts)
+    let overlaid = overlayNode(n, serverNode, opts)
+    // This accepted read is the complete server node. A previous revision's
+    // scale must not survive its absence and override the new observed-state cap.
+    if (!Object.prototype.hasOwnProperty.call(serverNode, 'scale_frame') &&
+        Object.prototype.hasOwnProperty.call(overlaid.data ?? {}, 'scale_frame')) {
+      const { scale_frame: _previousScale, ...data } = overlaid.data
+      overlaid = { ...overlaid, data }
+    }
     if (overlaid === n) return n
 
     const nextData = observedValueUnchanged(n.data, overlaid.data)
