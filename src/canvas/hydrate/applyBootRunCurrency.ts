@@ -228,10 +228,10 @@ export function bootReadRunFact(input: {
  * #1936), so under that proof it describes the model on screen, and a
  * "blocked" from it is true, not stale.
  *
- * Only the kinds `applyBootAnalysisVerdict` already restores
- * (`isBootRestorableRunState`, i.e. `complete_stale`), and only a verdict that
- * DOES close the gate: every other verdict is that function's or the currency
- * leg's, so the three legs never write the same slice for one read.
+ * The blocked kind and the stale kinds `applyBootAnalysisVerdict` already
+ * restores, and only a verdict that DOES close the gate. The canvas/read
+ * equality and no-local-edit checks below bind that live assessment to the
+ * model on screen; current-result currency still belongs to the currency leg.
  * FAIL-CLOSED: a decline writes nothing and says which rule declined.
  */
 export const BOOT_BLOCKED_VERDICT_DECLINE_REASONS = [
@@ -271,7 +271,7 @@ export function applyBootBlockedVerdict(input: {
 }): BootBlockedVerdictOutcome {
   const verdict = input.analysisState
   if (verdict == null) return { outcome: 'declined', reason: 'no_verdict' }
-  if (!input.isRestorableKind(verdict.run_state.kind)) return { outcome: 'declined', reason: 'not_restorable' }
+  if (verdict.run_state.kind !== 'blocked' && !input.isRestorableKind(verdict.run_state.kind)) return { outcome: 'declined', reason: 'not_restorable' }
   if (!readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict), input.admitted === true ? true : undefined)) {
     return { outcome: 'declined', reason: 'does_not_close_gate' }
   }

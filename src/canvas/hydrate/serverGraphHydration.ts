@@ -260,6 +260,12 @@ async function readAndMergeServerGraph(
   // A response body can finish after fetch was aborted. Check at the write
   // boundary too, including caller-specific turn/canvas ownership.
   if (opts.signal?.aborted || opts.canApply?.() === false) return 'skipped'
+  // A newer revision may land before its boot-slot notification. The old
+  // response must not merge values or restore a verdict over that revision.
+  if (useCanvasStore.getState().lastServerGraphHash !== baseAtDispatch) {
+    logger.debug('server_graph_hydration.revision_moved', { scenarioId })
+    return 'skipped'
+  }
   if (opts.requireServedScenario === true && result.status === 'graph' && result.scenarioId !== scenarioId) {
     logger.warn('server_graph_hydration.foreign_scenario_refused', { requestedScenarioId: scenarioId, servedScenarioId: result.scenarioId ?? null })
     return 'skipped'
@@ -583,7 +589,9 @@ async function readAndMergeServerGraph(
       canvasProvenEqualToRead: notProvenEqual === null,
       isRestorableKind: isBootRestorableRunState,
       store: {
-        analysisFreshnessDirty: useCanvasStore.getState().analysisFreshnessDirty,
+        // The accepted read's own merge is not an intervening local edit.
+        // Use the same equality-bound proof as the currency leg above.
+        analysisFreshnessDirty: markIsThisReadsOwn ? false : useCanvasStore.getState().analysisFreshnessDirty,
         setAnalysisStateV1: (v) => { recordAnalysisStaleReasonWords(v, result.staleReasonWords); useCanvasStore.getState().setAnalysisStateV1(v) },
       },
     })

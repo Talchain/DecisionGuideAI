@@ -1,0 +1,1492 @@
+{
+  "schema": "scenario_graph.v1",
+  "changed_since_run": {
+    "version": 1,
+    "since_run_id": "7a75942adfd53e81ceb3e38392d81fb3ac11317d835db2fb2dea932ad16dd171",
+    "node_ids": [],
+    "links": [],
+    "unattributed_changes": 0,
+    "complete": false
+  },
+  "scenario_id": "d282a850-ec5b-4a87-a2be-d9112dabfa2a",
+  "graph": {
+    "edges": [
+      {
+        "to": "investor_outreach_focus",
+        "from": "i_need_to_determine_what_i_should_prioritise_and_how_i_should_spend_my_time_across_these",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "founder_investor_outreach_time",
+        "from": "investor_outreach_focus",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "founder_poc_testing_time",
+        "from": "investor_outreach_focus",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "founder_job_specification_time",
+        "from": "investor_outreach_focus",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "funding_secured",
+        "from": "weekly_founder_hours_available",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "investor_meetings_requested",
+        "from": "founder_investor_outreach_time",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "funding_delay",
+        "from": "founder_investor_outreach_time",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "funding_secured",
+        "from": "investor_meetings_requested",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "poc_readiness_for_investor_meetings",
+        "from": "founder_poc_testing_time",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "brief_extraction",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "funding_secured",
+        "from": "poc_readiness_for_investor_meetings",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "funding_delay",
+        "from": "poc_readiness_for_investor_meetings",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "job_specifications_completed",
+        "from": "founder_job_specification_time",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "brief_extraction",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "recruitment_process_started",
+        "from": "job_specifications_completed",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "brief_extraction",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "poc_readiness_for_investor_meetings",
+        "from": "recruitment_process_started",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "funding_secured",
+        "from": "funding_delay",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis",
+          "magnitude": "olumi_placeholder",
+          "mean_projected": true
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      }
+    ],
+    "nodes": [
+      {
+        "id": "i_need_to_determine_what_i_should_prioritise_and_how_i_should_spend_my_time_across_these",
+        "ref": "D1",
+        "kind": "decision",
+        "label": "I need to determine what I should prioritise and how I should spend my time…",
+        "provenance": "from_brief",
+        "description": "I need to determine what I should prioritise and how I should spend my time across these."
+      },
+      {
+        "id": "funding_secured",
+        "ref": "G2",
+        "kind": "goal",
+        "label": "Funding secured",
+        "provenance": "from_brief",
+        "user_statements": [
+          {
+            "field": "measure",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I need to determine what I should prioritise and how I should spend my time across these.",
+                "source": "I need to determine what I should prioritise and how I should spend my time across these.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "goal|funding secured|||measure"
+                }
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "goal|funding_secured|||measure"
+          },
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "Once funding is secured, then that changes this question completely.",
+                "source": "Once funding is secured, then that changes this question completely. Securing funding is an outcome that would result in a new decision, not influence this decision.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "goal|funding secured|||relation"
+                },
+                "conditions": "once funding is secured"
+              },
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "Securing funding is an outcome that would result in a new decision, not influence this decision.",
+                "source": "Once funding is secured, then that changes this question completely. Securing funding is an outcome that would result in a new decision, not influence this decision.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "goal|funding secured|||relation"
+                },
+                "qualifier": "The funding outcome is not a causal input into the current decision.",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "goal|funding_secured|||relation"
+          },
+          {
+            "field": "target",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "low": 250000,
+                "form": "lower_bound",
+                "unit": "GBP",
+                "quote": "If I could secure angel funding of even £250,000, that would buy me the breathing space to bring in technical resource and allow me to have more time.",
+                "source": "If I could secure angel funding of even £250,000, that would buy me the breathing space to bring in technical resource and allow me to have more time.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "goal|funding secured|||target"
+                },
+                "qualifier": "even; conditional on securing angel funding",
+                "conditions": "would buy breathing space to bring in technical resource and allow more time",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "goal|funding_secured|||target"
+          }
+        ],
+        "goal_threshold_unit": "currency unspecified",
+        "goal_threshold_frame": "level"
+      },
+      {
+        "id": "investor_outreach_focus",
+        "ref": "O12",
+        "kind": "option",
+        "label": "Investor outreach focus",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "weekly_founder_hours_available",
+        "ref": "F10",
+        "kind": "factor",
+        "label": "Weekly founder hours available",
+        "category": "external",
+        "provenance": "unverified_brief",
+        "observed_state": {
+          "cap": 100,
+          "unit": "hours per week",
+          "value": 0.6,
+          "source": "cee_inference",
+          "raw_value": 60,
+          "declared_scale": "unit_interval",
+          "extractionType": "inferred",
+          "user_material_unverified": true
+        },
+        "user_statements": [
+          {
+            "field": "level",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "low": 60,
+                "form": "point",
+                "high": 60,
+                "unit": "hours per week",
+                "quote": "Let's assume 60 and possibly more if I needed to.",
+                "source": "Let's assume 60 and possibly more if I needed to.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|weekly founder hours available|||level"
+                },
+                "qualifier": "and possibly more if I needed to",
+                "qualifier_in_quote": true
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|weekly_founder_hours_available|||level"
+          }
+        ]
+      },
+      {
+        "id": "founder_investor_outreach_time",
+        "ref": "F5",
+        "kind": "factor",
+        "label": "Founder investor outreach time",
+        "category": "controllable",
+        "provenance": "from_brief",
+        "scale_frame": 60,
+        "user_statements": [
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I probably need a PoC as soon as I have an interview/meeting with an investor, but I obviously need to get investors to ask to speak to me first.",
+                "source": "I feel like you're going down the wrong route. We have no funding. I cannot carry on as I am now. I need to get funding as soon as possible. I probably need a PoC as soon as I have an interview/meeting with an investor, but I obviously need to get investors to ask to speak to me first.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "link|founder investor outreach time|investor meetings requested||relation"
+                },
+                "conditions": "as soon as the user has an interview/meeting with an investor"
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "link|founder_investor_outreach_time|investor_meetings_requested||relation"
+          }
+        ]
+      },
+      {
+        "id": "founder_poc_testing_time",
+        "ref": "F2",
+        "kind": "factor",
+        "label": "Founder PoC testing time",
+        "category": "controllable",
+        "provenance": "ai_inferred",
+        "observed_state": {
+          "cap": 60,
+          "unit": "hours per week",
+          "value": 0.8,
+          "source": "cee_inference",
+          "raw_value": 48,
+          "declared_scale": "unit_interval",
+          "extractionType": "inferred"
+        },
+        "user_statements": [
+          {
+            "field": "measure",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I need to complete the PoC.",
+                "source": "I need to complete the PoC. I have AI working on it, so I don't need to be on it all of the time, but the more time I spend testing and improving it, the better it is.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder poc testing time|||measure"
+                }
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|founder_poc_testing_time|||measure"
+          },
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I have AI working on it, so I don't need to be on it all of the time, but the more time I spend testing and improving it, the better it is.",
+                "source": "I need to complete the PoC. I have AI working on it, so I don't need to be on it all of the time, but the more time I spend testing and improving it, the better it is.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "link|founder poc testing time|poc readiness for investor meetings||relation"
+                },
+                "conditions": "more founder time spent testing and improving it"
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "link|founder_poc_testing_time|poc_readiness_for_investor_meetings||relation"
+          },
+          {
+            "field": "level",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "low": 80,
+                "form": "point",
+                "high": 80,
+                "unit": "% of founder time",
+                "quote": "I have been spending probably 80% of my time on it, and it's not complete, so I assume I would need to continue that amount of time to complete it quickly.",
+                "source": "I have been spending probably 80% of my time on it, and it's not complete, so I assume I would need to continue that amount of time to complete it quickly. Or, if I was to complete it more slowly, I could spend less time on it.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder poc testing time|||level"
+                },
+                "qualifier": "probably; the PoC is not complete",
+                "conditions": "to complete it quickly",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|founder_poc_testing_time|||level"
+          },
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "Or, if I was to complete it more slowly, I could spend less time on it.",
+                "source": "I have been spending probably 80% of my time on it, and it's not complete, so I assume I would need to continue that amount of time to complete it quickly. Or, if I was to complete it more slowly, I could spend less time on it.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder poc testing time|||relation"
+                },
+                "qualifier": "Less time on the PoC would mean completing it more slowly.",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|founder_poc_testing_time|||relation"
+          }
+        ]
+      },
+      {
+        "id": "founder_job_specification_time",
+        "ref": "F11",
+        "kind": "factor",
+        "label": "Founder job-specification time",
+        "category": "controllable",
+        "provenance": "from_brief",
+        "scale_frame": 60,
+        "user_statements": [
+          {
+            "field": "measure",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I need to put job specs out for the resource we need.",
+                "source": "I need to put job specs out for the resource we need.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder job-specification time|||measure"
+                }
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|founder_job_specification_time|||measure"
+          },
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "They need to be really good to attract talent, but the more time I spend on them, the less I can spend on other things.",
+                "source": "Yes, it's really bad that this risk was generated, but it connects to nothing, so it's pretty much useless. I haven't started the job specifications, and if they're not completed, I cannot perform the recruitment process. They need to be really good to attract talent, but the more time I spend on them, the less I can spend on other things. I feel like all of this should be pretty obvious to you.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder job-specification time|||relation"
+                }
+              },
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "The job specification is just the work I would be doing if I was focusing on that, so I'm not sure we should be focusing on it.",
+                "source": "The job specification is just the work I would be doing if I was focusing on that, so I'm not sure we should be focusing on it. The question I'm trying to answer is how to best divide my time.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "factor|founder job-specification time|||relation"
+                }
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "factor|founder_job_specification_time|||relation"
+          }
+        ]
+      },
+      {
+        "id": "funding_delay",
+        "ref": "R1",
+        "kind": "risk",
+        "label": "Funding delay",
+        "provenance": "from_brief",
+        "user_statements": [
+          {
+            "field": "holds_now",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "holds_now",
+                "unit": "",
+                "quote": "We have no funding. I cannot carry on as I am now.",
+                "source": "I feel like you're going down the wrong route. We have no funding. I cannot carry on as I am now. I need to get funding as soon as possible. I probably need a PoC as soon as I have an interview/meeting with an investor, but I obviously need to get investors to ask to speak to me first.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "risk|funding delay|||holds_now"
+                }
+              },
+              {
+                "form": "holds_now",
+                "unit": "",
+                "quote": "I need to get funding as soon as possible.",
+                "source": "I feel like you're going down the wrong route. We have no funding. I cannot carry on as I am now. I need to get funding as soon as possible. I probably need a PoC as soon as I have an interview/meeting with an investor, but I obviously need to get investors to ask to speak to me first.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "risk|funding delay|||holds_now"
+                },
+                "qualifier": "Urgency of funding need.",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "risk|funding_delay|||holds_now"
+          }
+        ],
+        "already_true_quote": "We have no funding. I cannot carry on as I am now."
+      },
+      {
+        "id": "investor_meetings_requested",
+        "kind": "outcome",
+        "label": "Investor meetings requested",
+        "provenance": "ai_inferred",
+        "scale_frame": 100
+      },
+      {
+        "id": "poc_readiness_for_investor_meetings",
+        "kind": "outcome",
+        "label": "PoC readiness for investor meetings",
+        "provenance": "ai_inferred",
+        "scale_frame": 100
+      },
+      {
+        "id": "job_specifications_completed",
+        "ref": "OC5",
+        "kind": "outcome",
+        "label": "Job specifications completed",
+        "provenance": "ai_inferred",
+        "scale_frame": 100,
+        "user_statements": [
+          {
+            "field": "relation",
+            "attest": {
+              "recorded_by": "construction"
+            },
+            "statements": [
+              {
+                "form": "describes",
+                "unit": "",
+                "quote": "I haven't started the job specifications, and if they're not completed, I cannot perform the recruitment process.",
+                "source": "Yes, it's really bad that this risk was generated, but it connects to nothing, so it's pretty much useless. I haven't started the job specifications, and if they're not completed, I cannot perform the recruitment process. They need to be really good to attract talent, but the more time I spend on them, the less I can spend on other things. I feel like all of this should be pretty obvious to you.",
+                "reading": "olumi",
+                "speaker": "user",
+                "subject": {
+                  "quantity": "link|job specifications completed|recruitment process started||relation"
+                },
+                "qualifier": "Job specifications have not been started.",
+                "conditions": "if job specifications are not completed",
+                "qualifier_in_quote": false
+              }
+            ],
+            "recorded_at": "2026-10-16T07:07:03.298Z",
+            "subject_key": "link|job_specifications_completed|recruitment_process_started||relation"
+          }
+        ]
+      },
+      {
+        "id": "recruitment_process_started",
+        "ref": "OC6",
+        "kind": "outcome",
+        "label": "Recruitment process started",
+        "provenance": "ai_inferred",
+        "scale_frame": 100
+      },
+      {
+        "id": "larger_fund_secured",
+        "ref": "OC2",
+        "kind": "outcome",
+        "label": "Larger fund secured",
+        "provenance": "from_brief",
+        "scale_frame": 10
+      }
+    ],
+    "ref_high_water": {
+      "D": 1,
+      "F": 11,
+      "G": 2,
+      "O": 12,
+      "R": 5,
+      "OC": 6
+    },
+    "goal_constraints": [
+      {
+        "role": "goal_target",
+        "unit": "million (currency unspecified)",
+        "label": "Larger fund secured",
+        "value": 1.3,
+        "node_id": "larger_fund_secured",
+        "operator": ">=",
+        "provenance": "inferred",
+        "value_frame": "level",
+        "constraint_id": "agent-lane:larger_fund_secured:>=",
+        "retained_unresolved_limit": {
+          "role": "original",
+          "state": "unscored",
+          "reason": "retained_limit_quantity_unresolved",
+          "question": "What forecast and basis should be used to evaluate this retained limit?",
+          "previous_constraint_id": "agent-lane:larger_fund_secured:>=",
+          "proposed_constraint_ids": []
+        }
+      },
+      {
+        "role": "goal_target",
+        "unit": "£",
+        "label": "Funding secured",
+        "value": 250000,
+        "node_id": "funding_secured",
+        "operator": ">=",
+        "provenance": "inferred",
+        "value_frame": "level",
+        "constraint_id": "agent-lane:funding_secured:>="
+      }
+    ]
+  },
+  "graph_present": true,
+  "brief_text": "I need to decide how best to split my attention as the main founder working on Olumi at the moment.\nI urgently need to secure funding: both fast-paced angel and, eventually, a larger fund of at least 1.3 million.\nI need to complete the PoC. I have AI working on it, so I don't need to be on it all of the time, but the more time I spend testing and improving it, the better it is.\nI need to put job specs out for the resource we need.\n\nI need to determine what I should prioritise and how I should spend my time across these.",
+  "scenario_created_at": "2026-10-16T06:53:49.556048+00:00",
+  "graph_identity_hash": {
+    "kind": "graph_identity_hash",
+    "value": "1988f25714e2020ed94e929656c42c689a39cd7fead741671017957d89fd95e7",
+    "algorithm": "sha256",
+    "projection_version": "identity.v1",
+    "graph_schema_version": "graph_v3",
+    "normaliser_version": "1"
+  },
+  "graph_hash": "6e659ae89dee567d",
+  "layout_present": false,
+  "not_modelled": {
+    "schema": "not_modelled.v1",
+    "status": "derived",
+    "unavailable_reason": null,
+    "scope": {
+      "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+      "model_surface": [
+        "node and option values, caps, units, labels and encoding maps"
+      ],
+      "prose_surface": [
+        "coaching cards",
+        "draft warnings",
+        "validation warnings"
+      ],
+      "excluded_from_search": [
+        "bare numbers carrying no unit, currency or percent sign",
+        "everything in not_tracked"
+      ]
+    },
+    "quantities": {
+      "total": 0,
+      "in_model": 0,
+      "in_model_anchored": 0,
+      "in_model_unanchored": 0,
+      "prose_only": 0,
+      "absent": 0,
+      "truncated": false,
+      "items": []
+    },
+    "stated_kinds": {
+      "status": "derived",
+      "tally": {
+        "goal": 0,
+        "option": 0,
+        "constraint": 0,
+        "figure": 0,
+        "evidence": 0,
+        "assumption": 0,
+        "disagreement": 0,
+        "correction": 0
+      },
+      "sourced": [
+        "constraint",
+        "figure"
+      ],
+      "unsourced": [
+        "goal",
+        "option",
+        "evidence",
+        "assumption",
+        "disagreement",
+        "correction"
+      ],
+      "producers": {
+        "figure": "extractStatedQuantities (this module) — quantities stated in the brief",
+        "constraint": "graph.goal_constraints[] with source_quote (draft/anthropic-graph-schema.ts:447-467)"
+      }
+    },
+    "declared_exclusions": {
+      "status": "not_recorded",
+      "items": []
+    },
+    "inferred_factors": {
+      "status": "derived",
+      "items": [
+        {
+          "node_id": "weekly_founder_hours_available",
+          "label": "Weekly founder hours available"
+        },
+        {
+          "node_id": "founder_poc_testing_time",
+          "label": "Founder PoC testing time"
+        }
+      ]
+    },
+    "not_tracked": [
+      "competing_or_dissenting_proposals",
+      "corrections_and_second_thoughts",
+      "named_evidence_sources_and_their_pedigree",
+      "qualitative_constraints_and_rules",
+      "stated_confidence_and_self_flagged_weakness",
+      "statements_the_drafting_model_did_not_report_discarding"
+    ]
+  },
+  "analysis_state": {
+    "run_state": {
+      "kind": "complete_stale",
+      "computed_at": "2026-10-16T06:55:07.472Z",
+      "cause": "graph_changed"
+    },
+    "readiness": {
+      "status": "blocked",
+      "blockers": [
+        {
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder investor outreach time\" needs a numeric value for option \"Investor outreach focus\""
+        },
+        {
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_poc_testing_time",
+          "factor_label": "Founder PoC testing time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder PoC testing time\" is currently 48 hours per week (Olumi's estimate). What should option \"Investor outreach focus\" set it to?"
+        },
+        {
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder job-specification time\" needs a numeric value for option \"Investor outreach focus\""
+        },
+        {
+          "code": "MISSING_FACTOR_LEVEL",
+          "category": "option_values",
+          "message": "What is \"Founder investor outreach time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "repairability": "human_input_required",
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time"
+        },
+        {
+          "code": "MISSING_FACTOR_LEVEL",
+          "category": "option_values",
+          "message": "What is \"Founder job-specification time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "repairability": "human_input_required",
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time"
+        }
+      ]
+    },
+    "leader_claim": {
+      "permitted": false,
+      "withheld_reason": "unrequested_analysis_withheld"
+    },
+    "robustness": {},
+    "usable_for_prose": true,
+    "usable_for_chips": false,
+    "usable_for_followup": true,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+  },
+  "analysis_result": null,
+  "canonical_analysis_view": {
+    "schema": "canonical_analysis_view.v1",
+    "source": "stored_run_facts",
+    "question": {
+      "run_id": "7a75942adfd53e81ceb3e38392d81fb3ac11317d835db2fb2dea932ad16dd171",
+      "fact_row_id": "8fa5fb2f-e081-4200-9cde-e311533dac4f",
+      "evaluated_scenario_revision": 2,
+      "asked": null,
+      "calculated": {
+        "quantity": {
+          "node_id": "funding_poc_and_hiring_progress",
+          "label": "Funding, PoC and hiring progress"
+        },
+        "unit": "progress",
+        "frame": "level",
+        "option_ids": [
+          "current_allocation",
+          "funding_led_focus",
+          "poc_led_focus",
+          "hiring_led_focus"
+        ]
+      },
+      "omitted": [
+        {
+          "field": "historical_model_at_evaluated_revision",
+          "reason": "not_recorded"
+        },
+        {
+          "field": "asked_horizon_and_reference_at_evaluated_revision",
+          "reason": "not_recorded"
+        },
+        {
+          "field": "asked_options_at_evaluated_revision",
+          "reason": "not_recorded"
+        },
+        {
+          "field": "dispatched_goal_threshold",
+          "reason": "not_recorded"
+        },
+        {
+          "field": "dispatched_goal_baseline",
+          "reason": "not_recorded"
+        }
+      ],
+      "scope": {
+        "status": "unverified",
+        "can_show_goal_chance": false,
+        "reasons": [
+          "evaluated_question_not_fully_recorded"
+        ]
+      },
+      "evidence": {
+        "status": "partial",
+        "missing": [
+          "historical_model_at_evaluated_revision",
+          "asked_horizon_and_reference_at_evaluated_revision",
+          "asked_options_at_evaluated_revision",
+          "dispatched_goal_threshold",
+          "dispatched_goal_baseline"
+        ],
+        "dispatched_input_digest": "a65beec032410c11518481258dd113c88376c6478f9ff3c82f803fa5d2414063"
+      }
+    },
+    "face_when_stale": "Run the analysis again to see the chance.",
+    "run": {
+      "run_id": "7a75942adfd53e81ceb3e38392d81fb3ac11317d835db2fb2dea932ad16dd171",
+      "graph_hash_at_run": "795e77718d9a0dda",
+      "computed_at": "2026-10-16T06:55:07.472Z"
+    },
+    "staleness": {
+      "stale": true,
+      "revision": 6,
+      "run_revision": 2,
+      "run_revision_source": "recorded",
+      "basis": "analysis_graph_hash_interim",
+      "reason": "graph_hash_diverged",
+      "limitation": "Hash equality cannot detect brief, framing or stage changes."
+    },
+    "leader_licence": "withheld",
+    "leader": {
+      "licence": "withheld",
+      "option_id": null,
+      "goal_chance_leader": null,
+      "similar_option_ids": [],
+      "near_tie": false,
+      "robustness": null
+    },
+    "options": []
+  },
+  "current_read": {
+    "analysis_ready": {
+      "options": [
+        {
+          "option_id": "investor_outreach_focus",
+          "label": "Investor outreach focus",
+          "status": "needs_encoding",
+          "interventions": {},
+          "is_baseline": false,
+          "status_reason": "Connected to 3 factor(s); awaiting effect value(s)",
+          "user_questions": [
+            "Which factor(s) does \"Investor outreach focus\" change, and what value should each be set to?"
+          ]
+        }
+      ],
+      "goal_node_id": "funding_secured",
+      "status": "blocked",
+      "blockers": [
+        {
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time",
+          "blocker_type": "missing_value",
+          "message": "Factor \"Founder investor outreach time\" needs a numeric value for option \"Investor outreach focus\"",
+          "suggested_action": "add_value"
+        },
+        {
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_poc_testing_time",
+          "factor_label": "Founder PoC testing time",
+          "blocker_type": "missing_value",
+          "message": "Factor \"Founder PoC testing time\" is currently 48 hours per week (Olumi's estimate). What should option \"Investor outreach focus\" set it to?",
+          "suggested_action": "add_value"
+        },
+        {
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time",
+          "blocker_type": "missing_value",
+          "message": "Factor \"Founder job-specification time\" needs a numeric value for option \"Investor outreach focus\"",
+          "suggested_action": "add_value"
+        },
+        {
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time",
+          "blocker_type": "missing_value",
+          "message": "What is \"Founder investor outreach time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "suggested_action": "add_value"
+        },
+        {
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time",
+          "blocker_type": "missing_value",
+          "message": "What is \"Founder job-specification time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "suggested_action": "add_value"
+        }
+      ],
+      "bias_findings": [],
+      "blocked_reason": "FEWER_THAN_TWO_OPTIONS",
+      "readiness_issues": [
+        {
+          "issue_id": "structural_1",
+          "code": "FEWER_THAN_TWO_OPTIONS",
+          "category": "graph_structure",
+          "message": "The model has fewer than two options.",
+          "repairability": "human_input_required",
+          "provenance": "unattributed",
+          "obligation": "required"
+        },
+        {
+          "issue_id": "structural_2",
+          "code": "ORPHAN_NODE",
+          "category": "graph_structure",
+          "message": "A part of the model has no connections.",
+          "repairability": "human_input_required",
+          "provenance": "unattributed",
+          "obligation": "required"
+        },
+        {
+          "issue_id": "semantic_3",
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder investor outreach time\" needs a numeric value for option \"Investor outreach focus\"",
+          "provenance": "unattributed",
+          "obligation": "offered"
+        },
+        {
+          "issue_id": "semantic_4",
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_poc_testing_time",
+          "factor_label": "Founder PoC testing time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder PoC testing time\" is currently 48 hours per week (Olumi's estimate). What should option \"Investor outreach focus\" set it to?",
+          "provenance": "unattributed",
+          "obligation": "offered"
+        },
+        {
+          "issue_id": "semantic_5",
+          "repairability": "human_input_required",
+          "option_id": "investor_outreach_focus",
+          "option_label": "Investor outreach focus",
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time",
+          "code": "MISSING_OPTION_VALUE",
+          "category": "option_values",
+          "message": "Factor \"Founder job-specification time\" needs a numeric value for option \"Investor outreach focus\"",
+          "provenance": "unattributed",
+          "obligation": "offered"
+        },
+        {
+          "issue_id": "level_1",
+          "code": "MISSING_FACTOR_LEVEL",
+          "category": "option_values",
+          "message": "What is \"Founder investor outreach time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "repairability": "human_input_required",
+          "factor_id": "founder_investor_outreach_time",
+          "factor_label": "Founder investor outreach time",
+          "provenance": "unattributed",
+          "obligation": "required"
+        },
+        {
+          "issue_id": "level_2",
+          "code": "MISSING_FACTOR_LEVEL",
+          "category": "option_values",
+          "message": "What is \"Founder job-specification time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+          "repairability": "human_input_required",
+          "factor_id": "founder_job_specification_time",
+          "factor_label": "Founder job-specification time",
+          "provenance": "unattributed",
+          "obligation": "required"
+        }
+      ],
+      "repair_proposal": {
+        "proposal_version": "readiness_repair_v1",
+        "complete": true,
+        "issue_ids": [
+          "structural_1",
+          "structural_2",
+          "semantic_3",
+          "semantic_4",
+          "semantic_5",
+          "level_1",
+          "level_2"
+        ],
+        "changes": [],
+        "unresolved_inputs": [
+          {
+            "issue_id": "structural_1",
+            "kind": "model_structure",
+            "prompt": "The model has fewer than two options.",
+            "obligation": "required",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "structural_2",
+            "kind": "model_structure",
+            "prompt": "A part of the model has no connections.",
+            "obligation": "required",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "semantic_3",
+            "kind": "option_effect_value",
+            "prompt": "Factor \"Founder investor outreach time\" needs a numeric value for option \"Investor outreach focus\"",
+            "option_id": "investor_outreach_focus",
+            "factor_id": "founder_investor_outreach_time",
+            "obligation": "offered",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "semantic_4",
+            "kind": "option_effect_value",
+            "prompt": "Factor \"Founder PoC testing time\" is currently 48 hours per week (Olumi's estimate). What should option \"Investor outreach focus\" set it to?",
+            "option_id": "investor_outreach_focus",
+            "factor_id": "founder_poc_testing_time",
+            "obligation": "offered",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "semantic_5",
+            "kind": "option_effect_value",
+            "prompt": "Factor \"Founder job-specification time\" needs a numeric value for option \"Investor outreach focus\"",
+            "option_id": "investor_outreach_focus",
+            "factor_id": "founder_job_specification_time",
+            "obligation": "offered",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "level_1",
+            "kind": "option_effect_value",
+            "prompt": "What is \"Founder investor outreach time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+            "factor_id": "founder_investor_outreach_time",
+            "obligation": "required",
+            "provenance": "unattributed"
+          },
+          {
+            "issue_id": "level_2",
+            "kind": "option_effect_value",
+            "prompt": "What is \"Founder job-specification time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+            "factor_id": "founder_job_specification_time",
+            "obligation": "required",
+            "provenance": "unattributed"
+          }
+        ]
+      },
+      "may_run": false,
+      "analysis_admission": {
+        "structurally_analysable": false,
+        "missing_important_inputs": [
+          {
+            "issue_id": "structural_1",
+            "code": "FEWER_THAN_TWO_OPTIONS",
+            "why_it_matters": "The model has fewer than two options.",
+            "obligation": "required",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "structural_2",
+            "code": "ORPHAN_NODE",
+            "why_it_matters": "A part of the model has no connections.",
+            "obligation": "required",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "semantic_3",
+            "code": "MISSING_OPTION_VALUE",
+            "option_id": "investor_outreach_focus",
+            "option_label": "Investor outreach focus",
+            "factor_id": "founder_investor_outreach_time",
+            "factor_label": "Founder investor outreach time",
+            "why_it_matters": "Factor \"Founder investor outreach time\" needs a numeric value for option \"Investor outreach focus\"",
+            "obligation": "offered",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "semantic_4",
+            "code": "MISSING_OPTION_VALUE",
+            "option_id": "investor_outreach_focus",
+            "option_label": "Investor outreach focus",
+            "factor_id": "founder_poc_testing_time",
+            "factor_label": "Founder PoC testing time",
+            "why_it_matters": "Factor \"Founder PoC testing time\" is currently 48 hours per week (Olumi's estimate). What should option \"Investor outreach focus\" set it to?",
+            "obligation": "offered",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "semantic_5",
+            "code": "MISSING_OPTION_VALUE",
+            "option_id": "investor_outreach_focus",
+            "option_label": "Investor outreach focus",
+            "factor_id": "founder_job_specification_time",
+            "factor_label": "Founder job-specification time",
+            "why_it_matters": "Factor \"Founder job-specification time\" needs a numeric value for option \"Investor outreach focus\"",
+            "obligation": "offered",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "level_1",
+            "code": "MISSING_FACTOR_LEVEL",
+            "factor_id": "founder_investor_outreach_time",
+            "factor_label": "Founder investor outreach time",
+            "why_it_matters": "What is \"Founder investor outreach time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+            "obligation": "required",
+            "waived_by_exclusion": false
+          },
+          {
+            "issue_id": "level_2",
+            "code": "MISSING_FACTOR_LEVEL",
+            "factor_id": "founder_job_specification_time",
+            "factor_label": "Founder job-specification time",
+            "why_it_matters": "What is \"Founder job-specification time\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+            "obligation": "required",
+            "waived_by_exclusion": false
+          }
+        ],
+        "semantic_quality_sufficient": false,
+        "permitted_analysis_mode": "none",
+        "reasons": [
+          {
+            "field": "structurally_analysable",
+            "code": "MODEL_HAS_BLOCKERS",
+            "message": "Review all 7 readiness issues together before analysis."
+          },
+          {
+            "field": "missing_important_inputs",
+            "code": "MODEL_HAS_BLOCKERS",
+            "message": "4 inputs are still needed from you."
+          },
+          {
+            "field": "semantic_quality_sufficient",
+            "code": "NO_COMPARISON_SUBSTRATE",
+            "message": "Nothing in this model connects the options to your goal, so there is no comparison to draw a leader from."
+          },
+          {
+            "field": "permitted_analysis_mode",
+            "code": "MODEL_HAS_BLOCKERS",
+            "message": "This model cannot be analysed yet."
+          }
+        ],
+        "graph_hash": "6e659ae89dee567da08882f38ceb96c8334208e4dfaa19692340a78dd770bbb7",
+        "semantic_signals": {
+          "confidence_parameters_total": 22,
+          "confidence_parameters_user_stated": 0,
+          "confidence_parameters_machine_authored": 12,
+          "confidence_parameters_unattributed": 10,
+          "material_parameters_total": 0,
+          "material_parameters_user_stated": 0,
+          "intervened_factor_baselines_total": 0,
+          "intervened_factor_baselines_user_stated": 0,
+          "material_parameters_awaiting_user_node_ids": [],
+          "goal_target_stated": false
+        }
+      },
+      "freshness": "stale",
+      "freshness_reason": "agent_readback_run_state_stale",
+      "current_graph_hash": "6e659ae89dee567d"
+    },
+    "run_state": {
+      "kind": "complete_stale",
+      "computed_at": "2026-10-16T06:55:07.472Z",
+      "cause": "graph_changed"
+    },
+    "computed_against_hash": "795e77718d9a0dda",
+    "current_analysis_hash": "6e659ae89dee567d",
+    "figures": []
+  },
+  "analysis_identity_run_use": {
+    "withdrawn_node_ids": []
+  },
+  "analysis_admission": {
+    "admitted": false,
+    "permitted_analysis_mode": "none",
+    "semantic_quality_sufficient": false,
+    "reason_codes": [
+      "MODEL_HAS_BLOCKERS",
+      "NO_COMPARISON_SUBSTRATE"
+    ],
+    "missing_input_codes": [
+      "FEWER_THAN_TWO_OPTIONS",
+      "ORPHAN_NODE",
+      "MISSING_OPTION_VALUE",
+      "MISSING_FACTOR_LEVEL"
+    ],
+    "missing_input_count": 7,
+    "inputs_demanded_of_user": 7,
+    "inputs_waived_by_exclusion": 0,
+    "graph_hash": "6e659ae89dee567da08882f38ceb96c8334208e4dfaa19692340a78dd770bbb7",
+    "semantic_signals": {
+      "material_parameters_awaiting_user_node_ids": []
+    }
+  },
+  "action_bar": {
+    "v": 1,
+    "state_key": "a31912ebfb4a178f",
+    "revision": {
+      "graph_hash": "6e659ae89dee567d",
+      "run_key": null
+    },
+    "priority": [],
+    "standard": [
+      {
+        "action_id": "review",
+        "label": "Review",
+        "icon": "ListChecks",
+        "group": "review",
+        "press_id": "agent-next-review-decision",
+        "user_line": "Review this model: what should I check before relying on it?",
+        "enabled": false,
+        "disabled_reason": "Needs a current analysis.",
+        "offer_key": "8ca93336a7c50555"
+      },
+      {
+        "action_id": "what_changes",
+        "label": "What changes",
+        "icon": "SlidersHorizontal",
+        "group": "method",
+        "press_id": "agent-next-what-would-change",
+        "user_line": "What would most likely change this result?",
+        "enabled": false,
+        "disabled_reason": "Needs a current analysis.",
+        "offer_key": "07e42077fe108b6a"
+      },
+      {
+        "action_id": "strengthen",
+        "label": "Strengthen",
+        "icon": "ShieldCheck",
+        "group": "review",
+        "press_id": "agent-next-strengthen",
+        "user_line": "What would most strengthen this model?",
+        "enabled": false,
+        "disabled_reason": "Needs a current analysis.",
+        "offer_key": "7b20f1c2bf9b89db"
+      },
+      {
+        "action_id": "pre_mortem",
+        "label": "Pre-mortem",
+        "icon": "ClipboardList",
+        "group": "method",
+        "press_id": "agent-next-pre-mortem",
+        "user_line": "Run a pre-mortem with me: imagine we went ahead and it went badly. What most plausibly went wrong?",
+        "enabled": true,
+        "why_now": "Imagine this went badly and find the most likely causes.",
+        "offer_key": "bcfee16f3e7e385e"
+      }
+    ],
+    "more": [
+      {
+        "action_id": "more_options",
+        "label": "More options",
+        "icon": "GitFork",
+        "group": "gap",
+        "press_id": "agent-next-widen",
+        "user_line": "Suggest options I haven’t considered.",
+        "enabled": true,
+        "why_now": "Find options you haven’t considered yet.",
+        "offer_key": "4dcfdf76bdf926de"
+      },
+      {
+        "action_id": "frame_brief",
+        "label": "Frame brief",
+        "icon": "FileText",
+        "group": "gap",
+        "press_id": "act:frame_brief",
+        "user_line": "Help me frame my brief: what is missing from it?",
+        "enabled": true,
+        "why_now": "See what your brief has and what it is missing.",
+        "offer_key": "422ac490a9613f61"
+      },
+      {
+        "action_id": "more_risks",
+        "label": "More risks",
+        "icon": "ShieldAlert",
+        "group": "gap",
+        "press_id": "agent-next-suggest-risks",
+        "user_line": "Suggest risks I haven't considered.",
+        "enabled": true,
+        "why_now": "Find risks you haven’t considered yet.",
+        "offer_key": "b14d548c60144f35"
+      },
+      {
+        "action_id": "bias_check",
+        "label": "Bias check",
+        "icon": "ScanSearch",
+        "group": "method",
+        "press_id": "act:bias_check",
+        "user_line": "Where could a common reasoning pattern bite in this model?",
+        "enabled": true,
+        "why_now": "See where common reasoning patterns could bite in this model.",
+        "offer_key": "a7ab704718630e89"
+      }
+    ],
+    "bias_risk": {
+      "v": 1,
+      "items": [
+        {
+          "claim_id": "DSK-B-007",
+          "name": "Narrow framing",
+          "why": "‘Investor outreach focus’ is the only option on the table, which can hide other routes.",
+          "action_id": "more_options",
+          "press_id": "agent-next-widen",
+          "offer_key": "4dcfdf76bdf926de",
+          "science": {
+            "claim_id": "DSK-B-007",
+            "claim_title": "Narrow framing and insufficient option generation",
+            "evidence_strength": "medium"
+          }
+        }
+      ]
+    }
+  },
+  "request_id": "3d8520f2-309e-4d9e-a2df-ee707013cc56"
+}
