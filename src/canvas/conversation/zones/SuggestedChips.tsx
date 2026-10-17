@@ -492,7 +492,7 @@ export function SuggestedChips({
     && visible.some(c => c.id === p.approve_action.id))
 
   function handleClick(chip: ProposalPanelAction) {
-    if (disabled) return
+    if (disabled || (isConsentChip(chip) && (typeof chip.detail !== 'string' || chip.detail.trim().length === 0))) return
     const isRunChip = isRunAnalysisAffordance(chip)
     // Belt-and-braces: a gated Run chip is `disabled`, so no pointer or keyboard
     // activation reaches here. A programmatic path that did would still start
@@ -555,17 +555,15 @@ export function SuggestedChips({
       {guidedProgressLine !== undefined && (
         <p className={typography.chatMeta} data-testid="guided-sizing-progress">{guidedProgressLine}</p>
       )}
-      {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
-          row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
+      {/* Research disclosures keep their panel; each approval's complete text sits immediately before its button. */}
       {visible.map((chip, i) => {
         const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
-        if (!disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
+        if (isConsentChip(chip) || !disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
         return (
           <div key={`disclosure-${chip.id}`} className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }}>
             <p
               id={`${disclosureIdBase}-${i}`}
-              // `whitespace-pre-line`: the producer's own line breaks show as sent (a multi-part consent is one change per
-              // line, CEE #2094). Presentation only: nothing is split or parsed here (thin UI, #70 5855577789).
+              // Preserve the producer's line breaks without splitting or parsing the text.
               className={`${styles.reasoningPanelBody} whitespace-pre-line`}
               data-testid={`suggested-chip-disclosure-${chip.id}`}
             >
@@ -582,41 +580,18 @@ export function SuggestedChips({
           // Presentation only: rewriting a label-only chip can erase the identity
           // the run gate and host detector need. Freeze this verdict with the row.
           const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : chip.label
-          // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
-          //
-          // CEE's readiness repair offer arrives here as an ordinary
-          // `suggested_actions` entry — the readiness arm emits no
-          // `held_proposal` block, so it can never reach `V5HeldProposalBlock`,
-          // the one surface that already honoured this field. Its label counts
-          // the changes ("Apply 3 safe model fixes"); `detail` is the only
-          // place their descriptions — which NAME THE OPTIONS being altered —
-          // appear. The user was being asked to authorise a mutation of their
-          // own reasoning model with that list discarded on arrival.
-          //
-          // The rule is `V5HeldProposalBlock.tsx:209-216`'s, reused rather than
-          // reinvented: trim; empty or equal to the label ⇒ the label already
-          // says everything, so nothing is added; otherwise the accessible name
-          // extends to `${visible}: ${detail}`. It EXTENDS the label, never
-          // replaces it, and composes with the role prefix instead of
-          // displacing it.
-          //
-          // Deliberately the accessible name + `title`, NOT a new visible row:
-          // this file's chip grammar is owned by `CHIP_CLASS`, and a jsdom
-          // suite cannot see a pixel, so a layout change here would be an
-          // unmeasured one. Only the existing-analysis Run control uses the shared Rerun name.
+          // Approval text is the producer's exact detail, including when it equals the label.
+          // Suggestions and research controls retain their existing disclosure behaviour.
+          const approval = isConsentChip(chip)
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
-          // ⭐ A RESEARCH CONTROL SHOWS WHAT IT SENDS (CEE #2042). Pressing it sends
-          // its query to a public web search, so the query must be readable before
-          // the click, not only on hover: its `detail` is rendered below the row and
-          // describes the chip, instead of extending the accessible name.
-          const disclosed = detailAdds && disclosesDetail(chip)
+          const disclosed = approval || (detailAdds && disclosesDetail(chip))
           const ariaLabel = detailAdds && !disclosed ? `${baseLabel}: ${detailText}` : baseLabel
-          // Only Run chips answer to the run gate; every other chip stays live.
+          // The run gate applies only to Run chips; approvals also require their own detail.
           const runGated = runGateClosed && isRunAnalysisAffordance(chip)
-          const chipDisabled = disabled || runGated
+          const chipDisabled = disabled || runGated || (approval && detailText.length === 0)
 
-          return (
+          const button = (
             <button
               key={chip.id ?? `chip-${i}`}
               type="button"
@@ -660,6 +635,20 @@ export function SuggestedChips({
             >
               {baseLabel}
             </button>
+          )
+          if (!approval) return button
+          return (
+            <div key={chip.id} className="flex min-w-0 w-full flex-col items-start gap-2">
+              <p
+                id={`${disclosureIdBase}-${i}`}
+                className={`${typography.chatBody} whitespace-pre-line`}
+                style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                data-testid={detailText.length > 0 ? `suggested-chip-disclosure-${chip.id}` : undefined}
+              >
+                {detailText.length > 0 ? chip.detail : 'The details of this change are missing, so it cannot be approved.'}
+              </p>
+              {button}
+            </div>
           )
         })}
       </div>

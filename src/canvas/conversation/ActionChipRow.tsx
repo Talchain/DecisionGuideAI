@@ -9,7 +9,7 @@
  * not rendered as visible text or indicators.
  */
 
-import { memo } from 'react'
+import { memo, useId } from 'react'
 import { isChipRenderable } from './chipDispatch'
 import type { ActionChip } from './types'
 import styles from './Conversation.module.css'
@@ -35,6 +35,7 @@ export const ActionChipRow = memo(function ActionChipRow({
   onChipClick,
   disabled = false,
 }: ActionChipRowProps) {
+  const detailId = useId()
   // Central guard: only render chips that can actually dispatch.
   // ROADMAP 2.138 — shared with SuggestedChips and ChatThread (`chipDispatch.ts`).
   // The guard used to be inlined here as `intent === 'undo' || !!c.message`,
@@ -56,20 +57,34 @@ export const ActionChipRow = memo(function ActionChipRow({
           : null
         const ariaLabel = roleLabel ? `${roleLabel}: ${chip.label}` : undefined
 
-        return (
+        const approval = typeof chip.id === 'string' && chip.id.startsWith('agent-approve-proposal:')
+        const hasDetail = typeof chip.detail === 'string' && chip.detail.trim().length > 0
+        const chipDisabled = disabled || (approval && !hasDetail)
+        const descriptionId = approval ? `${detailId}-${i}` : undefined
+        const button = (
           <button
             key={chip.id ?? `chip-${i}`}
             type="button"
             className={INTENT_STYLES[chip.intent]}
-            onClick={() => !disabled && onChipClick(chip)}
-            disabled={disabled}
-            aria-disabled={disabled}
+            onClick={() => !chipDisabled && onChipClick(chip)}
+            disabled={chipDisabled}
+            aria-disabled={chipDisabled}
+            aria-describedby={descriptionId}
             aria-label={ariaLabel}
             data-testid={`chip-${chip.id}`}
             data-chip-role={chip.role ?? undefined}
           >
             {chip.label}
           </button>
+        )
+        if (!approval) return button
+        return (
+          <div key={chip.id} className="flex min-w-0 w-full flex-col items-start gap-2">
+            <p id={descriptionId} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              {hasDetail ? chip.detail : 'The details of this change are missing, so it cannot be approved.'}
+            </p>
+            {button}
+          </div>
         )
       })}
     </div>
