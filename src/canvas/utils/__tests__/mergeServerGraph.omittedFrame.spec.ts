@@ -26,6 +26,11 @@ describe('accepted server merge owns the saved frame', () => {
     expect(local().data.scale_frame).toBe(60)
     expect(local().position).toEqual(position)
   })
+  it('a read without authoritative identity cannot clear an omitted frame', () => {
+    expect(mergeServerGraphOnHydrate(server(), { authoritativeRead: false }).accepted).toBe(true)
+    expect(local().data.scale_frame).toBe(80)
+    expect(local().position).toEqual(position)
+  })
   it('a refused merge cannot drop a local frame', () => {
     expect(mergeServerGraphOnHydrate({ nodes: [], edges: [] }).accepted).toBe(false)
     expect(local().data.scale_frame).toBe(80)

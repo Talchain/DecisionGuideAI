@@ -17,7 +17,13 @@
  * with the served graph and verdict. No model calls.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, render, screen } from '@testing-library/react'
+import { createElement } from 'react'
+import cold from './fixtures/lane-b-e625-cold-read.json'
+import { PanelFooter } from '../../components/pre-analysis-v3/footer/PanelFooter'
+import { readinessNothingHasAnswered } from '../../components/pre-analysis-v3/footer/readinessDisplay'
+import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
+import { readinessObjectsToRun } from '../../utils/canRunAnalysis'
 
 import served from './fixtures/served-chip-2105-exists-defaulted.json'
 import { useCanvasStore } from '../../store'
@@ -55,7 +61,7 @@ const readBody = () => ({
   analysis_result: RESULT,
 })
 
-let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void }
+let warnSpy: { mock: { calls: unknown[][] }; mockClear: () => void; mockRestore: () => void }
 beforeEach(() => {
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID, nodes: [], edges: [], lastAuthoritativeGraph: null, serverGraphIdentity: null,
@@ -83,6 +89,42 @@ const declineLog = () =>
     | undefined
 
 describe('W4: a metadata edge key CEE adds never declines a reload (served chip-2105)', () => {
+  it.each(['nonadvanced', 'missing_hash', 'foreign'] as const)('a recovery %s read cannot restore current currency from its structural merge', async kind => {
+    useCanvasStore.setState({ lastServerGraphHash: S.graph_hash } as never)
+    const body = { ...readBody(), ...(kind === 'missing_hash' ? { graph_hash: null } : {}),
+      ...(kind === 'foreign' ? { scenario_id: '22222222-2222-4333-8444-555555555555' } : {}) }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    const outcome = await hydrateCanvasFromServer(SCENARIO_ID, { reapplyServerGraph: true, requireServedScenario: true })
+    expect(outcome).toBe(kind === 'foreign' ? 'skipped' : 'merged') // structural acceptance is a different fact
+    expect(runCardCurrency()).not.toBe('current')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).not.toBe(S.graph_hash)
+  })
+
+  it.each(['nonadvanced', 'missing_hash'] as const)('a recovery %s read cannot retain a previously current verdict', async kind => {
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(runCardCurrency()).toBe('current')
+    const body = { ...readBody(), ...(kind === 'missing_hash' ? { graph_hash: null } : {}) }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID, { reapplyServerGraph: true, requireServedScenario: true })).toBe('merged')
+    expect(runCardCurrency()).not.toBe('current')
+    expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).not.toBe('complete_current')
+  })
+
+  it.each(['raw_value', 'unit', 'source'] as const)('a changed observed-state %s remains part of the currency proof', async field => {
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(runCardCurrency()).toBe('current')
+    useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    warnSpy.mockClear()
+    const observed = readGraph.nodes.find(n => n.id === 'pro_plan_price')!.observed_state
+    expect(observed).toMatchObject({ raw_value: 49, unit: 'GBP/month', source: 'brief_extraction' })
+    if (field === 'raw_value') observed.raw_value += 1
+    else observed[field] = 'incompatible test value'
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('unchanged')
+    expect(declineLog()?.reason).toBe('canvas_not_proven_equal')
+    expect(declineLog()?.unproven).toMatch(/observed_state:differs/)
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
   it('PRECONDITION: the read carries `exists_defaulted` on the written edge; the canvas holds no such key; the verdict is complete_current', () => {
     expect(WRITTEN(readGraph).exists_defaulted).toBe(true)
     expect(useCanvasStore.getState().edges.some((e) => 'exists_defaulted' in ((e as { data?: object }).data ?? {}) || 'exists_defaulted' in (e as object))).toBe(false)
@@ -155,4 +197,66 @@ describe('CONTRASTS: every field the analysis hash counts still declines', () =>
     expect(declineLog()?.unproven ?? '').not.toMatch(/exists_defaulted/)
     expect(runCardCurrency()).not.toBe('current')
   })
+})
+
+// Exact saved-read and cached node facts from the existing e625 capture; only layout coordinates are harness values.
+function prepareCapturedColdRead() {
+  useCanvasStore.setState({ currentScenarioId: cold.read.scenario_id, nodes: [], edges: [],
+    importPendingServerRegistration: false, pendingEmittedEdits: 0, serverGraphIdentity: null,
+    lastAuthoritativeGraph: null, analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+  applyDraftResult(cold.read.graph as never, { skipHistory: true, skipAutosave: true })
+  const cached = cold.cached_node_data as Record<string, Record<string, unknown>>
+  useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => ({ ...n,
+    data: structuredClone(cached[n.id] ?? n.data), position: { x: 123, y: 456 } })),
+    analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false,
+    serverGraphIdentity: null, lastAuthoritativeGraph: null, lastServerGraphHash: cold.read.graph_hash } as never)
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(cold.read), { status: 200 }))
+}
+
+it('e625 cold read: saved semantic absence replaces the cached frame; the actual footer shows the supplied blocked verdict', async () => {
+  prepareCapturedColdRead()
+  const goal = () => useCanvasStore.getState().nodes.find(n => n.id === 'angel_funding_secured')!
+  expect(goal().data.scale_frame).toBe(5000000)
+  expect(cold.read.graph.nodes.find(n => n.id === 'angel_funding_secured')).not.toHaveProperty('scale_frame')
+  expect(await hydrateCanvasFromServer(cold.read.scenario_id)).toBe('merged')
+  expect(goal().data).not.toHaveProperty('scale_frame')
+  expect(goal().position).toEqual({ x: 123, y: 456 })
+  const verdict = useCanvasStore.getState().analysisStateV1
+  expect(verdict?.readiness).toEqual(cold.read.analysis_state.readiness)
+  const readiness = selectAnalysisReadinessAuthority(verdict)
+  expect(cold.read.current_read.analysis_ready.blocked_reason).toBe('NO_PATH_TO_GOAL')
+  // The full wire assessment carries level blockers, while current_read's separate reason is NO_PATH. Preserve both;
+  // do not manufacture a different blocker in the strict analysis_state schema for a green assertion.
+  expect(readiness?.status).toBe('blocked')
+  render(createElement(PanelFooter, { footer: { dot: 'warning', headline: 'Readiness not checked yet', subline: '' },
+    onAnalyse: () => {}, isAnalysing: false, canRun: !readinessObjectsToRun(null, readiness),
+    nothingHasAnswered: readinessNothingHasAnswered(null, readiness) }))
+  expect(screen.queryByText('Readiness not checked yet')).toBeNull()
+  expect(screen.getByText(readiness!.blockers[0]!.message)).toBeTruthy()
+})
+
+it.each(['target', 'comparator'] as const)('a changed %s under a reused read identity cannot restore the captured verdict', async field => {
+  prepareCapturedColdRead()
+  expect(await hydrateCanvasFromServer(cold.read.scenario_id)).toBe('merged')
+  expect(useCanvasStore.getState().analysisStateV1?.readiness.status).toBe('blocked')
+  useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+  warnSpy.mockClear()
+  const body = structuredClone(cold.read)
+  const goal = body.graph.nodes.find(n => n.id === 'angel_funding_secured')! as Record<string, any>
+  expect(Number.isFinite(goal.goal_threshold_raw)).toBe(true)
+  if (field === 'target') goal.goal_threshold_raw += 1
+  if (field === 'comparator') goal.goal_direction = '<='
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+  expect(await hydrateCanvasFromServer(cold.read.scenario_id)).toBe('unchanged')
+  expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+  expect(declineLog()?.unproven).toMatch(/(goal_threshold_raw|goal_direction|observed_state):differs/)
+})
+
+it('a genuinely pending, unrefused edit survives the captured server read without a current verdict', async () => {
+  prepareCapturedColdRead()
+  const before = structuredClone(useCanvasStore.getState().nodes)
+  useCanvasStore.setState({ pendingEmittedEdits: 1, analysisFreshnessDirty: true } as never)
+  expect(await hydrateCanvasFromServer(cold.read.scenario_id)).toBe('mergeRefused')
+  expect(useCanvasStore.getState().nodes).toEqual(before)
+  expect(useCanvasStore.getState().analysisStateV1).toBeNull()
 })

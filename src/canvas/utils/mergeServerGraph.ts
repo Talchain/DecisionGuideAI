@@ -208,6 +208,8 @@ export type MergeServerGraphRefusal =
    *   Symptom and cause are closed by the same train.
    */
   | 'importUnregistered'
+  /** A local edit still awaits a confirmed outcome; a read cannot replace it. */
+  | 'editPending'
 
 export interface MergeServerGraphResult {
   addedNodeCount: number
@@ -354,7 +356,7 @@ function onlyAcquiredNodeMetadataDiffers(previous: unknown, incoming: unknown): 
  */
 export function mergeServerGraphOnHydrate(
   serverGraph: unknown,
-  opts?: { dropOmittedDisplay?: boolean },
+  opts?: { dropOmittedDisplay?: boolean; authoritativeRead?: boolean },
 ): MergeServerGraphResult {
   if (serverGraph === null || typeof serverGraph !== 'object') return refused('unusableShape')
 
@@ -391,6 +393,7 @@ export function mergeServerGraphOnHydrate(
     })
     return refused('importUnregistered')
   }
+  if (editDeliveryHold(store as unknown as EditDeliveryState) !== null) return refused('editPending')
   const existingNodeIds = new Set(store.nodes.map((n: any) => n.id))
   const existingEdgeIds = new Set(store.edges.map((e: any) => e.id))
 
@@ -518,7 +521,7 @@ export function mergeServerGraphOnHydrate(
     let overlaid = overlayNode(n, serverNode, opts)
     // This accepted read is the complete server node. A previous revision's
     // scale must not survive its absence and override the new observed-state cap.
-    if (!Object.prototype.hasOwnProperty.call(serverNode, 'scale_frame') &&
+    if (opts?.authoritativeRead !== false && !Object.prototype.hasOwnProperty.call(serverNode, 'scale_frame') &&
         Object.prototype.hasOwnProperty.call(overlaid.data ?? {}, 'scale_frame')) {
       const { scale_frame: _previousScale, ...data } = overlaid.data
       overlaid = { ...overlaid, data }
