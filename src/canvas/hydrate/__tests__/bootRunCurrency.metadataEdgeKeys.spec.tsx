@@ -30,6 +30,8 @@ import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { logger } from '../../../lib/logger'
+import { markFactorEditInFlight, pendingFactorEditValue, settleFactorEditInFlight } from '../../conversation/pendingFactorEdit'
+import { markEdgeEditInFlight, settleEdgeEdit, unconfirmedEdgeEditOnGraph } from '../../conversation/pendingEdgeEdit'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
@@ -89,6 +91,13 @@ const declineLog = () =>
     | undefined
 
 describe('W4: a metadata edge key CEE adds never declines a reload (served chip-2105)', () => {
+  it('a hash-less boot cannot mint a current Run from a descriptive verdict', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ...readBody(), graph_hash: null }), { status: 200 }))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(runCardCurrency()).not.toBe('current')
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+  })
+
   it.each(['nonadvanced', 'missing_hash', 'foreign'] as const)('a recovery %s read cannot restore current currency from its structural merge', async kind => {
     useCanvasStore.setState({ lastServerGraphHash: S.graph_hash } as never)
     const body = { ...readBody(), ...(kind === 'missing_hash' ? { graph_hash: null } : {}),
@@ -252,11 +261,35 @@ it.each(['target', 'comparator'] as const)('a changed %s under a reused read ide
   expect(declineLog()?.unproven).toMatch(/(goal_threshold_raw|goal_direction|observed_state):differs/)
 })
 
-it('a genuinely pending, unrefused edit survives the captured server read without a current verdict', async () => {
-  prepareCapturedColdRead()
-  const before = structuredClone(useCanvasStore.getState().nodes)
+it.each(['factor', 'edge'] as const)('a pending %s survives while an unrelated saved update merges, without a current verdict', async kind => {
+  const nodeId = 'pro_plan_price'
+  const edge = useCanvasStore.getState().edges.find(e => e.source === nodeId && e.target === 'mrr')!
+  const pendingValue = 0.3
+  if (kind === 'factor') {
+    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => n.id === nodeId
+      ? { ...n, data: { ...n.data, observedState: { ...(n.data.observedState as object), value: pendingValue } } } : n) } as never)
+    markFactorEditInFlight(nodeId, pendingValue)
+  } else {
+    markEdgeEditInFlight(edge.id, pendingValue, edge.data as Record<string, unknown>)
+    useCanvasStore.setState({ edges: useCanvasStore.getState().edges.map(e => e.id === edge.id
+      ? { ...e, data: { ...e.data, weight: pendingValue } } : e) } as never)
+  }
+  const before = structuredClone(kind === 'factor'
+    ? useCanvasStore.getState().nodes.find(n => n.id === nodeId)!
+    : useCanvasStore.getState().edges.find(e => e.id === edge.id)!)
+  readGraph.nodes.find(n => n.id === 'mrr')!.label = 'Saved revenue label'
   useCanvasStore.setState({ pendingEmittedEdits: 1, analysisFreshnessDirty: true } as never)
-  expect(await hydrateCanvasFromServer(cold.read.scenario_id)).toBe('mergeRefused')
-  expect(useCanvasStore.getState().nodes).toEqual(before)
-  expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+  try {
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(kind === 'factor' ? useCanvasStore.getState().nodes.find(n => n.id === nodeId)
+      : useCanvasStore.getState().edges.find(e => e.id === edge.id)).toEqual(before)
+    expect(kind === 'factor' ? pendingFactorEditValue(nodeId)
+      : unconfirmedEdgeEditOnGraph(useCanvasStore.getState().edges)).not.toBeNull()
+    expect(useCanvasStore.getState().nodes.find(n => n.id === 'mrr')!.data.label).toBe('Saved revenue label')
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(runCardCurrency()).not.toBe('current')
+  } finally {
+    if (kind === 'factor') settleFactorEditInFlight(nodeId, pendingValue)
+    else settleEdgeEdit(edge.id, pendingValue)
+  }
 })

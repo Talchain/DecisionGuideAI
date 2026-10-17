@@ -117,6 +117,8 @@ import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
+import { pendingFactorEditValue } from '../conversation/pendingFactorEdit'
+import { unconfirmedEdgeEditOnGraph } from '../conversation/pendingEdgeEdit'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import { linkEndsOf } from '../domain/heldUserLink'
@@ -208,8 +210,6 @@ export type MergeServerGraphRefusal =
    *   Symptom and cause are closed by the same train.
    */
   | 'importUnregistered'
-  /** A local edit still awaits a confirmed outcome; a read cannot replace it. */
-  | 'editPending'
 
 export interface MergeServerGraphResult {
   addedNodeCount: number
@@ -393,7 +393,6 @@ export function mergeServerGraphOnHydrate(
     })
     return refused('importUnregistered')
   }
-  if (editDeliveryHold(store as unknown as EditDeliveryState) !== null) return refused('editPending')
   const existingNodeIds = new Set(store.nodes.map((n: any) => n.id))
   const existingEdgeIds = new Set(store.edges.map((e: any) => e.id))
 
@@ -516,6 +515,9 @@ export function mergeServerGraphOnHydrate(
   const mergedNodes = survivingNodes.map((n: any) => {
     const serverNode = serverNodeById.get(n.id)
     if (!serverNode) return n
+    // The pending register owns only this unconfirmed element, not the whole read. Unrelated saved updates still merge.
+    const pendingValue = pendingFactorEditValue(n.id)
+    if (pendingValue !== null && (n.data?.observedState ?? n.data?.observed_state)?.value === pendingValue) return n
 
     const userStamps = captureUserProvenance(n.data)
     let overlaid = overlayNode(n, serverNode, opts)
@@ -553,6 +555,7 @@ export function mergeServerGraphOnHydrate(
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
+    if (unconfirmedEdgeEditOnGraph([e]) !== null) return e
 
     // ⚠ PRESENCE, NOT EQUALITY-WITH-DEFAULT (L61). A server `strength.mean: 0.5`
     // (== the default weight) or an explicit default-positive `effect_direction`

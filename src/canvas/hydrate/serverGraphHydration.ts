@@ -332,10 +332,11 @@ async function readAndMergeServerGraph(
     answerOpen(false)
     return 'skipped'
   }
-  // A recovery read must advance beyond the refused base to establish a new current model. Neither a successful HTTP
-  // response nor a structural merge establishes that. No value is supplied from another tab or a remembered answer.
-  const authoritativeRead = result.scenarioId === scenarioId && result.graphHash !== null
-    && (opts.reapplyServerGraph !== true || result.graphHash !== baseAtDispatch)
+  // A scenario-bound boot may restore a descriptive stale verdict even on the reader's legacy hash-less shape.
+  // Recovery after a refused write must also advance its hash. Current-Run restoration still requires its own hash
+  // inside applyBootRunCurrency; neither a structural merge nor a descriptive verdict grants that currency.
+  const authoritativeRead = result.scenarioId === scenarioId
+    && (opts.reapplyServerGraph !== true || (result.graphHash !== null && result.graphHash !== baseAtDispatch))
 
   // ── ROADMAP 2.973 — record what we were given, and what CEE says it kept ──
   //
@@ -369,7 +370,7 @@ async function readAndMergeServerGraph(
   }
   if (result.scenarioId === scenarioId) {
     useCanonicalAnalysisViewStore.getState().adopt(scenarioId,
-      parseCanonicalAnalysisView(authoritativeRead ? result.canonicalAnalysisView : undefined))
+      parseCanonicalAnalysisView(authoritativeRead && result.graphHash !== null ? result.canonicalAnalysisView : undefined))
   }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
@@ -486,7 +487,8 @@ async function readAndMergeServerGraph(
       recordBootReadAdmission(null)
       const st = useCanvasStore.getState()
       st.setBootAdmittedRevision?.(null)
-      st.setAnalysisStateV1(null)
+      // Withdraw a current claim, not a previously accepted historical/stale assessment or its named reason.
+      if (st.analysisStateV1?.run_state.kind === 'complete_current') st.setAnalysisStateV1(null)
       useCanvasStore.setState({ analysisFreshness: null })
       return
     }
