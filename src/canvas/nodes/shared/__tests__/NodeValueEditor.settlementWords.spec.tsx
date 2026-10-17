@@ -185,7 +185,7 @@ describe('a refusal on a moved base reads the saved model; nothing else changes'
     expect(word()?.textContent).toMatch(/^Not saved\./)
   })
 
-  it('a moved-base refusal whose saved model is never read ends on "Could not confirm", never "Not saved"', () => {
+  it('a moved-base refusal remains a definite non-save of this attempt when the current model cannot be read', () => {
     vi.useFakeTimers()
     try {
       const { onCommit, settles } = dispatchingAuthority()
@@ -194,7 +194,8 @@ describe('a refusal on a moved base reads the saved model; nothing else changes'
       act(() => settles[0]('refused', { refusal: 'conflict', conflictCategory: 'stale_base_graph_hash' }))
       expect(word()?.textContent).toBe('Checking the saved model…')
       act(() => { vi.advanceTimersByTime(SAVED_MODEL_READ_TIMEOUT_MS) })
-      expect(word()?.textContent).toBe('Could not confirm. It may not have reached the model.')
+      expect(word()?.textContent).toBe('Not saved on this attempt. The latest model could not be refreshed. Reload it before editing again.')
+      expect(word()?.textContent).not.toMatch(/kept its previous value|may not have reached/)
     } finally {
       vi.useRealTimers()
     }

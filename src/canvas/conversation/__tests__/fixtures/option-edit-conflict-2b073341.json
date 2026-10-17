@@ -1,0 +1,1574 @@
+{
+  "before": {
+    "schema": "scenario_graph.v1",
+    "scenario_id": "2baf7457-03ff-4cb4-aa80-3a7cb08dac9b",
+    "graph": {
+      "edges": [
+        {
+          "to": "keep_current_staffing",
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "add_one_specialist",
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "number_of_additional_specialists",
+          "from": "add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "number_of_additional_specialists",
+          "from": "keep_current_staffing",
+          "origin": "repair",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis",
+            "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "additional_specialist_capacity",
+          "from": "number_of_additional_specialists",
+          "strength": {
+            "std": 0.3333333333333333,
+            "mean": 0.6666666666666666
+          },
+          "defaulted": true,
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+            "natural_effect": {
+              "amount": 20,
+              "amount_unit": "tickets per week",
+              "stated_range": {
+                "end": "centre",
+                "low": 10,
+                "high": 30,
+                "text": "between 10 and 30"
+              },
+              "strength_mean": 0.6666666666666666,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "specialists"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 0.8
+        },
+        {
+          "to": "additional_specialist_capacity",
+          "from": "specialist_capacity_variation",
+          "strength": {
+            "std": 0.125,
+            "mean": -0.5
+          },
+          "defaulted": true,
+          "provenance": {
+            "source": "cee_hypothesis",
+            "magnitude": "olumi_placeholder",
+            "mean_projected": true
+          },
+          "effect_direction": "negative",
+          "exists_probability": 0.8
+        },
+        {
+          "to": "weekly_support_capacity",
+          "from": "existing_team_weekly_support_capacity",
+          "strength": {
+            "std": 0.000125,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "strength_mean": 1,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "tickets per week"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "weekly_support_capacity",
+          "from": "additional_specialist_capacity",
+          "strength": {
+            "std": 0.000125,
+            "mean": 0.3
+          },
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "strength_mean": 0.3,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "tickets per week"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        }
+      ],
+      "nodes": [
+        {
+          "id": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "ref": "D1",
+          "kind": "decision",
+          "label": "We are comparing two staffing options, labelled exactly \"Keep current…",
+          "provenance": "from_brief",
+          "description": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\"."
+        },
+        {
+          "id": "weekly_support_capacity",
+          "ref": "G1",
+          "kind": "goal",
+          "label": "Weekly support capacity",
+          "provenance": "from_brief",
+          "goal_direction": ">=",
+          "goal_threshold": 0.1,
+          "observed_state": {
+            "cap": 1000,
+            "unit": "tickets per week",
+            "value": 0.08,
+            "source": "brief_extraction",
+            "baseline": 0.08,
+            "raw_value": 80,
+            "extractionType": "explicit"
+          },
+          "user_statements": [
+            {
+              "field": "relation",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "form": "describes",
+                  "unit": "tickets per week",
+                  "quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||relation"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||relation"
+            },
+            {
+              "field": "target",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 100,
+                  "form": "lower_bound",
+                  "unit": "tickets per week",
+                  "quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||target"
+                  },
+                  "conditions": "no deadline"
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||target"
+            }
+          ],
+          "threshold_source": "brief_extraction",
+          "goal_threshold_cap": 1000,
+          "goal_threshold_raw": 100,
+          "nonlinear_identity": {
+            "operation": "sum",
+            "factor_ids": [
+              "existing_team_weekly_support_capacity",
+              "additional_specialist_capacity"
+            ],
+            "stated_in_brief": true
+          },
+          "goal_threshold_unit": "tickets per week",
+          "goal_threshold_frame": "level",
+          "goal_threshold_cap_provenance": "stated_effect_fit"
+        },
+        {
+          "id": "keep_current_staffing",
+          "ref": "O1",
+          "kind": "option",
+          "label": "Keep current staffing",
+          "provenance": "from_brief",
+          "is_baseline": true
+        },
+        {
+          "id": "add_one_specialist",
+          "ref": "O2",
+          "kind": "option",
+          "label": "Add one specialist",
+          "provenance": "from_brief",
+          "interventions": {
+            "number_of_additional_specialists": {
+              "cap": 10,
+              "unit": "specialists",
+              "value": 0.2,
+              "source": "user_specified",
+              "raw_value": 2,
+              "target_match": {
+                "node_id": "number_of_additional_specialists",
+                "confidence": "high",
+                "match_type": "exact_id"
+              }
+            }
+          }
+        },
+        {
+          "id": "existing_team_weekly_support_capacity",
+          "ref": "F1",
+          "kind": "factor",
+          "label": "Existing team weekly support capacity",
+          "category": "observable",
+          "provenance": "from_brief",
+          "observed_state": {
+            "cap": 1000,
+            "unit": "tickets per week",
+            "value": 0.08,
+            "source": "brief_extraction",
+            "raw_value": 80,
+            "declared_scale": "unit_interval",
+            "extractionType": "explicit"
+          },
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 80,
+                  "form": "point",
+                  "high": 80,
+                  "unit": "tickets per week",
+                  "quote": "Our existing team resolves 80 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "factor|existing team weekly support capacity|||level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|existing_team_weekly_support_capacity|||level"
+            }
+          ]
+        },
+        {
+          "id": "number_of_additional_specialists",
+          "ref": "F2",
+          "kind": "factor",
+          "label": "Number of additional specialists",
+          "category": "controllable",
+          "provenance": "unverified_brief",
+          "observed_state": {
+            "cap": 10,
+            "unit": "specialists",
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "declared_scale": "unit_interval",
+            "extractionType": "inferred",
+            "user_material_unverified": true
+          },
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 1,
+                  "form": "point",
+                  "high": 1,
+                  "unit": "specialists",
+                  "quote": "Add one specialist adds one specialist.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "option|add one specialist||number of additional specialists|level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|number_of_additional_specialists||add_one_specialist|level"
+            },
+            {
+              "field": "effect",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 10,
+                  "form": "range",
+                  "high": 30,
+                  "unit": "tickets per week per specialist",
+                  "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "link|number of additional specialists|additional specialist capacity||effect"
+                  },
+                  "qualifier": "about",
+                  "qualifier_in_quote": true
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "link|number_of_additional_specialists|additional_specialist_capacity||effect"
+            }
+          ]
+        },
+        {
+          "id": "additional_specialist_capacity",
+          "ref": "F3",
+          "kind": "factor",
+          "label": "Additional specialist capacity",
+          "category": "observable",
+          "provenance": "unverified_brief",
+          "observed_state": {
+            "cap": 300,
+            "unit": "tickets per week",
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "declared_scale": "unit_interval",
+            "extractionType": "inferred",
+            "user_material_unverified": true
+          }
+        },
+        {
+          "id": "specialist_capacity_variation",
+          "ref": "R1",
+          "kind": "risk",
+          "label": "Specialist capacity variation",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "specialist_hiring_delay",
+          "ref": "R2",
+          "kind": "risk",
+          "label": "Specialist hiring delay",
+          "provenance": "ai_inferred",
+          "proposed_by": "olumi",
+          "draft_widening": {
+            "hits": {
+              "id": "add_one_specialist",
+              "kind": "option",
+              "label": "Add one specialist"
+            },
+            "affects": {
+              "id": "weekly_support_capacity",
+              "label": "Weekly support capacity",
+              "direction": "negative"
+            },
+            "through": {
+              "id": "number_of_additional_specialists",
+              "label": "Number of additional specialists",
+              "direction": "negative"
+            },
+            "mechanism": "relies_on",
+            "relies_on": "Hiring for Add one specialist",
+            "watch_for": "Vacancy remains open",
+            "provenance": "ai_suggested_widen"
+          },
+          "analysis_participation": "retained_excluded"
+        }
+      ],
+      "ref_high_water": {
+        "D": 1,
+        "F": 3,
+        "G": 1,
+        "O": 2,
+        "R": 2
+      }
+    },
+    "graph_present": true,
+    "graph_identity_hash": {
+      "kind": "graph_identity_hash",
+      "value": "e18f4356b3e09fa5c9be42883c64e9af0297506b7dad5347516059f76d7e56bb",
+      "algorithm": "sha256",
+      "projection_version": "identity.v1",
+      "graph_schema_version": "graph_v3",
+      "normaliser_version": "1"
+    },
+    "graph_hash": "b275a016a5ee2e9c",
+    "layout_present": false
+  },
+  "after": {
+    "schema": "scenario_graph.v1",
+    "scenario_id": "2baf7457-03ff-4cb4-aa80-3a7cb08dac9b",
+    "graph": {
+      "edges": [
+        {
+          "to": "keep_current_staffing",
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "add_one_specialist",
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "number_of_additional_specialists",
+          "from": "add_one_specialist",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "number_of_additional_specialists",
+          "from": "keep_current_staffing",
+          "origin": "repair",
+          "strength": {
+            "std": 0.01,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "cee_hypothesis",
+            "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "additional_specialist_capacity",
+          "from": "number_of_additional_specialists",
+          "strength": {
+            "std": 0.3333333333333333,
+            "mean": 0.6666666666666666
+          },
+          "defaulted": true,
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+            "natural_effect": {
+              "amount": 20,
+              "amount_unit": "tickets per week",
+              "stated_range": {
+                "end": "centre",
+                "low": 10,
+                "high": 30,
+                "text": "between 10 and 30"
+              },
+              "strength_mean": 0.6666666666666666,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "specialists"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 0.8
+        },
+        {
+          "to": "additional_specialist_capacity",
+          "from": "specialist_capacity_variation",
+          "strength": {
+            "std": 0.125,
+            "mean": -0.5
+          },
+          "defaulted": true,
+          "provenance": {
+            "source": "cee_hypothesis",
+            "magnitude": "olumi_placeholder",
+            "mean_projected": true
+          },
+          "effect_direction": "negative",
+          "exists_probability": 0.8
+        },
+        {
+          "to": "weekly_support_capacity",
+          "from": "existing_team_weekly_support_capacity",
+          "strength": {
+            "std": 0.000125,
+            "mean": 1
+          },
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "strength_mean": 1,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "tickets per week"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        },
+        {
+          "to": "weekly_support_capacity",
+          "from": "additional_specialist_capacity",
+          "strength": {
+            "std": 0.000125,
+            "mean": 0.3
+          },
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "strength_mean": 0.3,
+              "per_source_change": 1,
+              "strength_mean_frame": "edge_strength",
+              "per_source_change_unit": "tickets per week"
+            }
+          },
+          "effect_direction": "positive",
+          "exists_probability": 1
+        }
+      ],
+      "nodes": [
+        {
+          "id": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "ref": "D1",
+          "kind": "decision",
+          "label": "We are comparing two staffing options, labelled exactly \"Keep current…",
+          "provenance": "from_brief",
+          "description": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\"."
+        },
+        {
+          "id": "weekly_support_capacity",
+          "ref": "G1",
+          "kind": "goal",
+          "label": "Weekly support capacity",
+          "provenance": "from_brief",
+          "goal_direction": ">=",
+          "goal_threshold": 0.1,
+          "observed_state": {
+            "cap": 1000,
+            "unit": "tickets per week",
+            "value": 0.08,
+            "source": "brief_extraction",
+            "baseline": 0.08,
+            "raw_value": 80,
+            "extractionType": "explicit"
+          },
+          "user_statements": [
+            {
+              "field": "relation",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "form": "describes",
+                  "unit": "tickets per week",
+                  "quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||relation"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||relation"
+            },
+            {
+              "field": "target",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 100,
+                  "form": "lower_bound",
+                  "unit": "tickets per week",
+                  "quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||target"
+                  },
+                  "conditions": "no deadline"
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||target"
+            }
+          ],
+          "threshold_source": "brief_extraction",
+          "goal_threshold_cap": 1000,
+          "goal_threshold_raw": 100,
+          "nonlinear_identity": {
+            "operation": "sum",
+            "factor_ids": [
+              "existing_team_weekly_support_capacity",
+              "additional_specialist_capacity"
+            ],
+            "stated_in_brief": true
+          },
+          "goal_threshold_unit": "tickets per week",
+          "goal_threshold_frame": "level",
+          "goal_threshold_cap_provenance": "stated_effect_fit"
+        },
+        {
+          "id": "keep_current_staffing",
+          "ref": "O1",
+          "kind": "option",
+          "label": "Keep current staffing",
+          "provenance": "from_brief",
+          "is_baseline": true
+        },
+        {
+          "id": "add_one_specialist",
+          "ref": "O2",
+          "kind": "option",
+          "label": "Add one specialist",
+          "provenance": "from_brief",
+          "interventions": {
+            "number_of_additional_specialists": {
+              "cap": 10,
+              "unit": "specialists",
+              "value": 0.5,
+              "source": "user_specified",
+              "raw_value": 5,
+              "target_match": {
+                "node_id": "number_of_additional_specialists",
+                "confidence": "high",
+                "match_type": "exact_id"
+              }
+            }
+          }
+        },
+        {
+          "id": "existing_team_weekly_support_capacity",
+          "ref": "F1",
+          "kind": "factor",
+          "label": "Existing team weekly support capacity",
+          "category": "observable",
+          "provenance": "from_brief",
+          "observed_state": {
+            "cap": 1000,
+            "unit": "tickets per week",
+            "value": 0.08,
+            "source": "brief_extraction",
+            "raw_value": 80,
+            "declared_scale": "unit_interval",
+            "extractionType": "explicit"
+          },
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 80,
+                  "form": "point",
+                  "high": 80,
+                  "unit": "tickets per week",
+                  "quote": "Our existing team resolves 80 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "factor|existing team weekly support capacity|||level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|existing_team_weekly_support_capacity|||level"
+            }
+          ]
+        },
+        {
+          "id": "number_of_additional_specialists",
+          "ref": "F2",
+          "kind": "factor",
+          "label": "Number of additional specialists",
+          "category": "controllable",
+          "provenance": "unverified_brief",
+          "observed_state": {
+            "cap": 10,
+            "unit": "specialists",
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "declared_scale": "unit_interval",
+            "extractionType": "inferred",
+            "user_material_unverified": true
+          },
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 1,
+                  "form": "point",
+                  "high": 1,
+                  "unit": "specialists",
+                  "quote": "Add one specialist adds one specialist.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "option|add one specialist||number of additional specialists|level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|number_of_additional_specialists||add_one_specialist|level"
+            },
+            {
+              "field": "effect",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 10,
+                  "form": "range",
+                  "high": 30,
+                  "unit": "tickets per week per specialist",
+                  "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "link|number of additional specialists|additional specialist capacity||effect"
+                  },
+                  "qualifier": "about",
+                  "qualifier_in_quote": true
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "link|number_of_additional_specialists|additional_specialist_capacity||effect"
+            }
+          ]
+        },
+        {
+          "id": "additional_specialist_capacity",
+          "ref": "F3",
+          "kind": "factor",
+          "label": "Additional specialist capacity",
+          "category": "observable",
+          "provenance": "unverified_brief",
+          "observed_state": {
+            "cap": 300,
+            "unit": "tickets per week",
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "declared_scale": "unit_interval",
+            "extractionType": "inferred",
+            "user_material_unverified": true
+          }
+        },
+        {
+          "id": "specialist_capacity_variation",
+          "ref": "R1",
+          "kind": "risk",
+          "label": "Specialist capacity variation",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "specialist_hiring_delay",
+          "ref": "R2",
+          "kind": "risk",
+          "label": "Specialist hiring delay",
+          "provenance": "ai_inferred",
+          "proposed_by": "olumi",
+          "draft_widening": {
+            "hits": {
+              "id": "add_one_specialist",
+              "kind": "option",
+              "label": "Add one specialist"
+            },
+            "affects": {
+              "id": "weekly_support_capacity",
+              "label": "Weekly support capacity",
+              "direction": "negative"
+            },
+            "through": {
+              "id": "number_of_additional_specialists",
+              "label": "Number of additional specialists",
+              "direction": "negative"
+            },
+            "mechanism": "relies_on",
+            "relies_on": "Hiring for Add one specialist",
+            "watch_for": "Vacancy remains open",
+            "provenance": "ai_suggested_widen"
+          },
+          "analysis_participation": "retained_excluded"
+        }
+      ],
+      "ref_high_water": {
+        "D": 1,
+        "F": 3,
+        "G": 1,
+        "O": 2,
+        "R": 2
+      }
+    },
+    "graph_present": true,
+    "graph_identity_hash": {
+      "kind": "graph_identity_hash",
+      "value": "2d6f3cb33939f034955aa2b03b618af4ddff26b65c6e88055093b27e69be519f",
+      "algorithm": "sha256",
+      "projection_version": "identity.v1",
+      "graph_schema_version": "graph_v3",
+      "normaliser_version": "1"
+    },
+    "graph_hash": "ef0305dcef9ba79b",
+    "layout_present": false
+  },
+  "conflict": {
+    "error": "GRAPH_DIVERGED",
+    "boundary": "B1",
+    "direction": "egress",
+    "validator": "turn_commit",
+    "details": {
+      "retryable": false,
+      "reason": "graph_write_conflict",
+      "failure_type": "GRAPH_DIVERGED",
+      "event_kind": "option_intervention_edit",
+      "recovery_action": "refresh_and_reconfirm",
+      "conflict_category": "revision_conflict",
+      "expected_base_graph_hash": null,
+      "stage": "analyse",
+      "code": "revision_conflict"
+    },
+    "request_id": "2e447f27-2a42-472c-9a93-5246c6a5e5f1",
+    "retryable": false,
+    "code": "revision_conflict",
+    "message": "The scenario changed while I was saving, so nothing was saved. Try again.",
+    "_diagnostic_trace": {
+      "exit_path": "agent_lane_forwarded",
+      "forwarded_kind": "system_event"
+    },
+    "_provider_calls": []
+  },
+  "applied": {
+    "response_version": 2,
+    "assistant_text": "\"Add one specialist\" now sets \"Number of additional specialists\" to 5 specialists.",
+    "blocks": [],
+    "suggested_actions": [
+      {
+        "id": "agent-approve-proposal:prop_41eff522c3032f308f581339b5f908e8",
+        "label": "Rename it",
+        "message": "Yes, rename it.",
+        "detail": "‘Add one specialist’ now sets ‘Number of additional specialists’ to 5 specialists, but its name still says one. Rename it ‘Add five specialists’?"
+      },
+      {
+        "id": "agent-amend-proposal",
+        "label": "Change something first",
+        "message": "Before you apply it, I want to change some of it."
+      }
+    ],
+    "insights": [],
+    "stage_indicator": "analyse",
+    "graph_hash": "ef0305dcef9ba79b",
+    "draft_graph": {
+      "nodes": [
+        {
+          "id": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "kind": "decision",
+          "label": "We are comparing two staffing options, labelled exactly \"Keep current…",
+          "description": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\".",
+          "ref": "D1",
+          "provenance": "from_brief"
+        },
+        {
+          "id": "weekly_support_capacity",
+          "kind": "goal",
+          "label": "Weekly support capacity",
+          "ref": "G1",
+          "observed_state": {
+            "value": 0.08,
+            "baseline": 0.08,
+            "unit": "tickets per week",
+            "source": "brief_extraction",
+            "raw_value": 80,
+            "cap": 1000,
+            "extractionType": "explicit"
+          },
+          "goal_threshold": 0.1,
+          "goal_threshold_raw": 100,
+          "goal_threshold_unit": "tickets per week",
+          "goal_threshold_cap": 1000,
+          "goal_threshold_cap_provenance": "stated_effect_fit",
+          "goal_threshold_frame": "level",
+          "threshold_source": "brief_extraction",
+          "goal_direction": ">=",
+          "provenance": "from_brief",
+          "nonlinear_identity": {
+            "operation": "sum",
+            "factor_ids": [
+              "existing_team_weekly_support_capacity",
+              "additional_specialist_capacity"
+            ],
+            "stated_in_brief": true
+          },
+          "user_statements": [
+            {
+              "field": "relation",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "form": "describes",
+                  "unit": "tickets per week",
+                  "quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||relation"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||relation"
+            },
+            {
+              "field": "target",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 100,
+                  "form": "lower_bound",
+                  "unit": "tickets per week",
+                  "quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "goal|weekly support capacity|||target"
+                  },
+                  "conditions": "no deadline"
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "goal|weekly_support_capacity|||target"
+            }
+          ]
+        },
+        {
+          "id": "keep_current_staffing",
+          "kind": "option",
+          "label": "Keep current staffing",
+          "ref": "O1",
+          "is_baseline": true,
+          "provenance": "from_brief"
+        },
+        {
+          "id": "add_one_specialist",
+          "kind": "option",
+          "label": "Add one specialist",
+          "ref": "O2",
+          "interventions": {
+            "number_of_additional_specialists": {
+              "cap": 10,
+              "unit": "specialists",
+              "value": 0.5,
+              "source": "user_specified",
+              "raw_value": 5,
+              "target_match": {
+                "node_id": "number_of_additional_specialists",
+                "confidence": "high",
+                "match_type": "exact_id"
+              }
+            }
+          },
+          "provenance": "from_brief"
+        },
+        {
+          "id": "existing_team_weekly_support_capacity",
+          "kind": "factor",
+          "label": "Existing team weekly support capacity",
+          "ref": "F1",
+          "observed_state": {
+            "value": 0.08,
+            "unit": "tickets per week",
+            "source": "brief_extraction",
+            "raw_value": 80,
+            "cap": 1000,
+            "extractionType": "explicit",
+            "declared_scale": "unit_interval"
+          },
+          "category": "observable",
+          "provenance": "from_brief",
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 80,
+                  "form": "point",
+                  "high": 80,
+                  "unit": "tickets per week",
+                  "quote": "Our existing team resolves 80 tickets per week.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "factor|existing team weekly support capacity|||level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|existing_team_weekly_support_capacity|||level"
+            }
+          ]
+        },
+        {
+          "id": "number_of_additional_specialists",
+          "kind": "factor",
+          "label": "Number of additional specialists",
+          "ref": "F2",
+          "observed_state": {
+            "value": 0,
+            "unit": "specialists",
+            "source": "cee_inference",
+            "user_material_unverified": true,
+            "raw_value": 0,
+            "cap": 10,
+            "extractionType": "inferred",
+            "declared_scale": "unit_interval"
+          },
+          "category": "controllable",
+          "provenance": "unverified_brief",
+          "user_statements": [
+            {
+              "field": "level",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 1,
+                  "form": "point",
+                  "high": 1,
+                  "unit": "specialists",
+                  "quote": "Add one specialist adds one specialist.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "option|add one specialist||number of additional specialists|level"
+                  }
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "factor|number_of_additional_specialists||add_one_specialist|level"
+            },
+            {
+              "field": "effect",
+              "attest": {
+                "recorded_by": "construction"
+              },
+              "statements": [
+                {
+                  "low": 10,
+                  "form": "range",
+                  "high": 30,
+                  "unit": "tickets per week per specialist",
+                  "quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30.",
+                  "source": "We are comparing two staffing options, labelled exactly \"Keep current staffing\" and \"Add one specialist\". Use the exact goal label \"Weekly support capacity\". Our existing team resolves 80 tickets per week. Keep current staffing adds no specialist. Add one specialist adds one specialist. Each additional specialist resolves about 20 tickets per week, between 10 and 30. Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity. Goal: weekly support capacity of at least 100 tickets per week. This target is an absolute level, with no deadline.",
+                  "reading": "olumi",
+                  "speaker": "user",
+                  "subject": {
+                    "quantity": "link|number of additional specialists|additional specialist capacity||effect"
+                  },
+                  "qualifier": "about",
+                  "qualifier_in_quote": true
+                }
+              ],
+              "recorded_at": "2026-10-17T05:23:21.693Z",
+              "subject_key": "link|number_of_additional_specialists|additional_specialist_capacity||effect"
+            }
+          ]
+        },
+        {
+          "id": "additional_specialist_capacity",
+          "kind": "factor",
+          "label": "Additional specialist capacity",
+          "ref": "F3",
+          "observed_state": {
+            "value": 0,
+            "unit": "tickets per week",
+            "source": "cee_inference",
+            "user_material_unverified": true,
+            "raw_value": 0,
+            "cap": 300,
+            "extractionType": "inferred",
+            "declared_scale": "unit_interval"
+          },
+          "category": "observable",
+          "provenance": "unverified_brief"
+        },
+        {
+          "id": "specialist_capacity_variation",
+          "kind": "risk",
+          "label": "Specialist capacity variation",
+          "ref": "R1",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "specialist_hiring_delay",
+          "kind": "risk",
+          "label": "Specialist hiring delay",
+          "ref": "R2",
+          "analysis_participation": "retained_excluded",
+          "proposed_by": "olumi",
+          "draft_widening": {
+            "provenance": "ai_suggested_widen",
+            "hits": {
+              "id": "add_one_specialist",
+              "label": "Add one specialist",
+              "kind": "option"
+            },
+            "through": {
+              "id": "number_of_additional_specialists",
+              "label": "Number of additional specialists",
+              "direction": "negative"
+            },
+            "affects": {
+              "id": "weekly_support_capacity",
+              "label": "Weekly support capacity",
+              "direction": "negative"
+            },
+            "mechanism": "relies_on",
+            "relies_on": "Hiring for Add one specialist",
+            "watch_for": "Vacancy remains open"
+          },
+          "provenance": "ai_inferred"
+        }
+      ],
+      "edges": [
+        {
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "to": "keep_current_staffing",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          }
+        },
+        {
+          "from": "we_are_comparing_two_staffing_options_labelled_exactly_keep_current_staffing_and_add_one_specialist",
+          "to": "add_one_specialist",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          }
+        },
+        {
+          "from": "add_one_specialist",
+          "to": "number_of_additional_specialists",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          }
+        },
+        {
+          "from": "keep_current_staffing",
+          "to": "number_of_additional_specialists",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis",
+            "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+          },
+          "origin": "repair"
+        },
+        {
+          "from": "number_of_additional_specialists",
+          "to": "additional_specialist_capacity",
+          "strength": {
+            "mean": 0.6666666666666666,
+            "std": 0.3333333333333333
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "natural_effect": {
+              "amount": 20,
+              "amount_unit": "tickets per week",
+              "per_source_change": 1,
+              "per_source_change_unit": "specialists",
+              "strength_mean": 0.6666666666666666,
+              "strength_mean_frame": "edge_strength",
+              "stated_range": {
+                "low": 10,
+                "high": 30,
+                "text": "between 10 and 30",
+                "end": "centre"
+              }
+            },
+            "source_quote": "Each additional specialist resolves about 20 tickets per week, between 10 and 30."
+          },
+          "defaulted": true
+        },
+        {
+          "from": "specialist_capacity_variation",
+          "to": "additional_specialist_capacity",
+          "strength": {
+            "mean": -0.5,
+            "std": 0.125
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis",
+            "magnitude": "olumi_placeholder",
+            "mean_projected": true
+          },
+          "defaulted": true
+        },
+        {
+          "from": "existing_team_weekly_support_capacity",
+          "to": "weekly_support_capacity",
+          "strength": {
+            "mean": 1,
+            "std": 0.000125
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "per_source_change": 1,
+              "per_source_change_unit": "tickets per week",
+              "strength_mean": 1,
+              "strength_mean_frame": "edge_strength"
+            },
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity."
+          }
+        },
+        {
+          "from": "additional_specialist_capacity",
+          "to": "weekly_support_capacity",
+          "strength": {
+            "mean": 0.3,
+            "std": 0.000125
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "brief_extraction",
+            "magnitude": "user_stated",
+            "natural_effect": {
+              "amount": 1,
+              "amount_unit": "tickets per week",
+              "per_source_change": 1,
+              "per_source_change_unit": "tickets per week",
+              "strength_mean": 0.3,
+              "strength_mean_frame": "edge_strength"
+            },
+            "definitional": true,
+            "source_quote": "Total weekly support capacity is defined as the existing 80 tickets per week plus the additional specialist capacity."
+          }
+        }
+      ],
+      "node_count": 9,
+      "edge_count": 8,
+      "options": [
+        {
+          "option_id": "keep_current_staffing",
+          "label": "Keep current staffing",
+          "status": "ready",
+          "interventions": {},
+          "is_baseline": true,
+          "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+        },
+        {
+          "option_id": "add_one_specialist",
+          "label": "Add one specialist",
+          "status": "ready",
+          "interventions": {
+            "number_of_additional_specialists": 0.5
+          },
+          "is_baseline": false,
+          "intervention_details": {
+            "number_of_additional_specialists": {
+              "display_value": "5 specialists",
+              "normalised_value": 0.5,
+              "raw_value": 5,
+              "unit": "specialists"
+            }
+          },
+          "raw_interventions": {
+            "number_of_additional_specialists": 5
+          },
+          "status_reason": "1 intervention(s) ready for analysis"
+        }
+      ],
+      "goal_node_id": "weekly_support_capacity",
+      "goal_constraints": []
+    },
+    "analysis_ready": {
+      "options": [
+        {
+          "option_id": "keep_current_staffing",
+          "label": "Keep current staffing",
+          "status": "ready",
+          "interventions": {},
+          "is_baseline": true,
+          "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+        },
+        {
+          "option_id": "add_one_specialist",
+          "label": "Add one specialist",
+          "status": "ready",
+          "interventions": {
+            "number_of_additional_specialists": 0.5
+          },
+          "is_baseline": false,
+          "intervention_details": {
+            "number_of_additional_specialists": {
+              "display_value": "5 specialists",
+              "normalised_value": 0.5,
+              "raw_value": 5,
+              "unit": "specialists"
+            }
+          },
+          "raw_interventions": {
+            "number_of_additional_specialists": 5
+          },
+          "status_reason": "1 intervention(s) ready for analysis"
+        }
+      ],
+      "goal_node_id": "weekly_support_capacity",
+      "status": "ready",
+      "goal_threshold": 0.1,
+      "goal_threshold_raw": 100,
+      "goal_threshold_unit": "tickets per week",
+      "goal_threshold_cap": 1000,
+      "goal_threshold_cap_provenance": "stated_effect_fit",
+      "bias_findings": [],
+      "may_run": true,
+      "analysis_admission": {
+        "structurally_analysable": true,
+        "missing_important_inputs": [],
+        "semantic_quality_sufficient": true,
+        "permitted_analysis_mode": "comparative_leader",
+        "reasons": [
+          {
+            "field": "structurally_analysable",
+            "code": "READY_TO_COMPARE",
+            "message": "Analysis can run on this model as it stands."
+          },
+          {
+            "field": "semantic_quality_sufficient",
+            "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+            "message": "The sizes of the links that decide it are yours, from your brief. How uncertain they are, and whether each link holds, are Olumi's assumptions."
+          },
+          {
+            "field": "permitted_analysis_mode",
+            "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+            "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+          }
+        ],
+        "graph_hash": "ef0305dcef9ba79b00afea0469196aa936a0446fb08dfbfd93c10bbdeef6a063",
+        "semantic_signals": {
+          "confidence_parameters_total": 10,
+          "confidence_parameters_user_stated": 5,
+          "confidence_parameters_machine_authored": 1,
+          "confidence_parameters_unattributed": 4,
+          "material_parameters_total": 4,
+          "material_parameters_user_stated": 2,
+          "intervened_factor_baselines_total": 1,
+          "intervened_factor_baselines_user_stated": 0,
+          "material_parameters_awaiting_user_node_ids": [
+            "number_of_additional_specialists",
+            "additional_specialist_capacity"
+          ],
+          "goal_target_stated": true
+        }
+      },
+      "computed_at": "2026-10-17T05:26:33.474Z",
+      "freshness": "stale",
+      "freshness_reason": "graph_hash_diverged",
+      "graph_hash_at_run": "b275a016a5ee2e9c",
+      "current_graph_hash": "ef0305dcef9ba79b"
+    },
+    "analysis_state": {
+      "run_state": {
+        "kind": "complete_stale",
+        "computed_at": "2026-10-17T05:26:33.474Z",
+        "cause": "graph_changed"
+      },
+      "readiness": {
+        "status": "ready",
+        "blockers": []
+      },
+      "leader_claim": {
+        "permitted": false,
+        "withheld_reason": "analysis_out_of_date"
+      },
+      "robustness": {},
+      "usable_for_prose": true,
+      "usable_for_chips": false,
+      "usable_for_followup": true,
+      "requires_rerun": true,
+      "blocked_unusable": false,
+      "contradictions": []
+    },
+    "_diagnostic_trace": {
+      "llm_calls": [],
+      "prompt_identity": [],
+      "zone2_assembly": null,
+      "tool_policy": null,
+      "provider_resolution": [],
+      "structured_output_config": null,
+      "streaming_metrics": null,
+      "fallback_trace": [],
+      "benchmarking": {
+        "total_duration_ms": 3587,
+        "substage_timings": {
+          "finalisation_ms": 7
+        }
+      },
+      "correlation_ids": {
+        "request_id": "5b5afefb-d5e2-472e-b6ed-4a4301f735a1",
+        "scenario_id": "2baf7457-03ff-4cb4-aa80-3a7cb08dac9b",
+        "turn_id": "8d7263fb-0d02-4eed-b6ab-81a5750ab60f",
+        "graph_hash": "ef0305dcef9ba79b",
+        "response_hash": "04dd343ae510"
+      },
+      "environment": {
+        "build_sha": "2b07334",
+        "environment": "staging"
+      },
+      "exit_path": "agent_lane_forwarded",
+      "trace_version": 1,
+      "claim_safety": {
+        "may_name_leading_option": false,
+        "verdict_provenance": "fail_closed_no_turn_context",
+        "withheld_projection_reason": null
+      },
+      "forwarded_kind": "system_event"
+    },
+    "_provider_calls": []
+  }
+}

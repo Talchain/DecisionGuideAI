@@ -29,7 +29,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { ConversationProvider } from '../ConversationContext'
+import { OptionNode } from '../../nodes/OptionNode'
+import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
+import { REVISION_CONFLICT_NOTICE } from '../../../v5/failureTypeRetryability'
+import conflictCapture from './fixtures/option-edit-conflict-2b073341.json'
+import { scenarioGraphUrl } from '../../../adapters/cee/scenarioGraph'
 import { useConversation, SystemEventSendError } from '../useConversation'
 import {
   settleSystemEventSend,
@@ -62,6 +70,137 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
 })
 
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+vi.mock('@xyflow/react', async original => ({
+  ...await original<typeof import('@xyflow/react')>(), Handle: () => null,
+}))
+
+/** G2 2b073341 row 7b: use the real option card, authority, dispatcher, parser,
+ * settlement, recovery reader and store. Only the HTTP/session seams are fake. */
+describe('option-card outcomes through the real send and canonical refresh', () => {
+  const optionId = 'add_one_specialist'
+  const factorId = 'number_of_additional_specialists'
+  const editorId = `option-value-editor-${optionId}-${factorId}`
+  let mode: 'conflict' | 'drop' | 'saved'
+  let writes: number
+  let posts: Array<Record<string, unknown>>
+  let reads: number
+  let failRead: boolean
+  let serverGraph: typeof conflictCapture.before
+
+  function LiveOption() {
+    const option = useCanvasStore(state => state.nodes.find(node => node.id === optionId))!
+    return createElement(OptionNode, {
+      id: option.id, data: option.data, type: 'option', position: option.position,
+      selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0,
+      dragging: false, zIndex: 0, deletable: true, selectable: true, draggable: true,
+    } as never)
+  }
+  function typeValue(value: string) {
+    fireEvent.click(screen.getByTestId(editorId))
+    const input = screen.getByTestId(`${editorId}-input`) as HTMLInputElement
+    fireEvent.change(input, { target: { value } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+  }
+  const word = () => screen.queryByTestId(`${editorId}-settlement`)?.textContent
+
+  beforeEach(() => {
+    mode = 'conflict'; writes = 0; posts = []; reads = 0; failRead = false
+    useCanvasStore.setState({ currentScenarioId: conflictCapture.before.scenario_id,
+      nodes: [], edges: [], importPendingServerRegistration: false, serverGraphIdentity: null,
+      analysisFreshnessDirty: false, ceeAnalysisReady: null, lastServerGraphHash: null } as never)
+    expect(mergeServerGraphOnHydrate(conflictCapture.before.graph).accepted).toBe(true)
+    // The captured losing tab opened on this canonical graph/hash; no optimistic write is introduced.
+    useCanvasStore.setState({ lastServerGraphHash: conflictCapture.before.graph_hash })
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url) === scenarioGraphUrl(conflictCapture.before.scenario_id)) {
+        reads += 1
+        if (failRead) return new Response('{}', { status: 500 })
+        return new Response(JSON.stringify(serverGraph), { status: 200 })
+      }
+      if (init?.method === 'POST') {
+        const request = JSON.parse(String(init.body)) as Record<string, unknown>
+        posts.push(request)
+        const event = request.event as { base_graph_hash?: unknown }
+        if (event.base_graph_hash !== serverGraph.graph_hash) {
+          return new Response(JSON.stringify(conflictCapture.conflict), { status: 409 })
+        }
+        serverGraph = conflictCapture.after
+        if (mode === 'drop') { writes += 1; throw new TypeError('response dropped after server commit') }
+        if (mode === 'saved') { writes += 1; return new Response(JSON.stringify(conflictCapture.applied), { status: 200 }) }
+        return new Response(JSON.stringify(conflictCapture.conflict), { status: 409 })
+      }
+      throw new Error(`Unexpected HTTP boundary: ${String(url)}`)
+    }))
+  })
+
+  function openCard() {
+    // A conflict begins after the other tab's write; a successful/dropped send begins on the captured old base.
+    serverGraph = mode === 'conflict' ? conflictCapture.after : conflictCapture.before
+    render(createElement(ReactFlowProvider, null,
+      createElement(ConversationProvider, null, createElement(LiveOption))))
+    fireEvent.click(screen.getByTestId(editorId))
+    expect((screen.getByTestId(`${editorId}-input`) as HTMLInputElement).value).toBe('2')
+    fireEvent.keyDown(screen.getByTestId(`${editorId}-input`), { key: 'Escape' })
+  }
+
+  it('G2 409: says definitely not saved, reads the winner’s 5, and reopens on 5 without another write', async () => {
+    openCard(); typeValue('4')
+    await waitFor(() => expect(word()).toBe(REVISION_CONFLICT_NOTICE))
+    expect(reads).toBe(1)
+    expect(posts).toHaveLength(1)
+    expect(posts[0].event).toEqual({ kind: 'option_intervention_edit', option_id: optionId, factor_id: factorId,
+      value: 0.4, base_graph_hash: conflictCapture.before.graph_hash })
+    expect(writes).toBe(0)
+    expect(screen.getByTestId(editorId).textContent).toMatch(/5 specialists/)
+    fireEvent.click(screen.getByTestId(editorId))
+    expect((screen.getByTestId(`${editorId}-input`) as HTMLInputElement).value).toBe('5')
+    expect(useCanvasStore.getState().lastServerGraphHash).toBe(conflictCapture.after.graph_hash)
+    const held = useCanvasStore.getState().nodes.find(node => node.id === optionId)!.data.interventions as Record<string, { value: number; source: string }>
+    expect(held[factorId].value).toBe(0.5)
+    expect(held[factorId].source).toBe('user_specified')
+  })
+
+  it('dropped response stays unknown; retry reads the already-saved value without a duplicate write', async () => {
+    mode = 'drop'; openCard(); typeValue('5')
+    await waitFor(() => expect(word()).toBe('Could not confirm. It may not have reached the model.'))
+    expect(reads).toBe(0)
+    mode = 'conflict'; typeValue('5')
+    await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
+    expect(posts).toHaveLength(2)
+    expect(writes).toBe(1)
+    expect(reads).toBe(1)
+    expect(screen.getByTestId(editorId).textContent).toMatch(/5 specialists/)
+  })
+
+  it('200 applies the server’s 5 once and shows it, with no refusal or unknown-delivery claim', async () => {
+    mode = 'saved'; openCard(); typeValue('5')
+    await waitFor(() => expect(screen.getByTestId(editorId).textContent).toMatch(/5 specialists/))
+    expect(posts).toHaveLength(1)
+    expect(writes).toBe(1)
+    expect(reads).toBe(0)
+    expect(word()).toBeUndefined()
+  })
+
+  it('a failed refresh never turns the confirmed 409 non-save into an unknown send', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      failRead = true
+      openCard(); typeValue('4')
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(word()).toBe('Checking the saved model…')
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_001) })
+      expect(word()).toBe('Not saved on this attempt. The latest model could not be refreshed. Reload it before editing again.')
+      expect(posts).toHaveLength(1)
+      expect(writes).toBe(0)
+      expect(reads).toBe(1)
+      expect(screen.getByTestId(editorId).textContent).toMatch(/2 specialists/)
+      expect(screen.queryByText('Could not confirm. It may not have reached the model.')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
 
 /** CEE's `buildCommitFailureBoundaryError` shape, at the served SHA. */
 function commitFailureEnvelope(opts: {

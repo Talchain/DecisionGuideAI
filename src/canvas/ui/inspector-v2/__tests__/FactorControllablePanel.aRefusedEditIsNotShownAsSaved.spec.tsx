@@ -103,6 +103,38 @@ describe('a refused value edit is not shown as saved', () => {
   })
   afterEach(() => cleanup())
 
+  it('a refused save with no fresh read stays a confirmed non-save, never an unknown send', async () => {
+    vi.useFakeTimers()
+    useCanvasStore.setState({ lastServerGraphHash: 'revision-3' })
+    try {
+      sendSystemEvent.mockImplementation(async (_event: unknown, opts?: { optimisticFactorEdit?: OptimisticFactorEdit }) => {
+        if (opts?.optimisticFactorEdit) revertOptimisticFactorEdit(opts.optimisticFactorEdit)
+        throw new SystemEventSendError('server', { conflictCategory: 'revision_conflict' })
+      })
+      render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+      commit(String(ACCEPTED_RAW))
+      await flush()
+      act(() => { vi.advanceTimersByTime(30_001) })
+      expect(screen.getByTestId('factor-value-not-saved').textContent).toBe(
+        'Not saved on this attempt. The latest model could not be refreshed. Reload it before editing again.',
+      )
+      expect(screen.queryByTestId('factor-value-unconfirmed')).toBeNull()
+      expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+      useCanvasStore.setState({ lastServerGraphHash: null })
+    }
+  })
+
+  it('a genuinely unknown send still keeps its uncertainty, with no non-save claim', async () => {
+    sendSystemEvent.mockRejectedValue(new SystemEventSendError('transport'))
+    render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={noop} onNavigate={noop} />)
+    commit(String(ACCEPTED_RAW))
+    await flush()
+    expect(screen.getByTestId('factor-value-unconfirmed').textContent).toBe('Could not confirm. It may not have reached the model.')
+    expect(screen.queryByTestId('factor-value-not-saved')).toBeNull()
+  })
+
   it('revision refusal reads the saved model, then shows what it holds and only the exact notice', async () => {
     // Batch R3 (capacity run 2, row 6): a revision race is a moved base. The panel reads the saved model before it
     // speaks; here another change got in first (90,000), so the notice is the true reason and the field shows 90,000.

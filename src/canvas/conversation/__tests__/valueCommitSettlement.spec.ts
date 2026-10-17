@@ -71,12 +71,14 @@ describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
     const said = new Set(Object.values(VALUE_COMMIT_SETTLEMENT_COPY).map((c) => c.message))
     // Seven words since recovery Batch B added the moved-base read ('checking' and 'saved'); eight since Batch R3 split
     // the no-reply refusal ('refused') from the 200 that wrote nothing ('not_applied').
-    expect(said.size).toBe(8)
+    // The failed-read state retains the server's no-write guarantee, separately from an unknown send.
+    expect(said.size).toBe(9)
   })
 
   it('role=alert on a confirmed refusal, never the uncertain states', () => {
     expect(VALUE_COMMIT_SETTLEMENT_COPY.not_applied.role).toBe('alert')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.role).toBe('alert')
+    expect(VALUE_COMMIT_SETTLEMENT_COPY.refused_unread.role).toBe('alert')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.saving.role).toBe('status')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.unconfirmed.role).toBe('status')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.checking.role).toBe('status')
@@ -133,5 +135,24 @@ describe('a refusal claims no reply, and a moved-base read says what the model h
     // Run 2: tab B typed 5 (0.25) over 2 (0.1); tab A's 4 (0.2) got in first.
     expect(readSettlesOn(0.2, { beforeCommit: 0.1, committedTo: 0.25 })).toBe('revision_conflict')
     expect(VALUE_COMMIT_SETTLEMENT_COPY.revision_conflict.message).toBe('The scenario changed while I was saving, so nothing was saved. Try again.')
+  })
+
+  it.each([[2, 4], [70000, 90000]])('a failed read preserves definite non-save without claiming what the model holds (%s → %s)', (beforeCommit, committedTo) => {
+    vi.useFakeTimers()
+    try {
+      const onWord = vi.fn()
+      awaitSavedModelRead({ baseBeforeRead: 'known-base', readBase: () => 'known-base',
+        subscribe: () => () => undefined, beforeCommit, committedTo,
+        readNow: () => { throw new Error('no fresh read is available'); }, onWord, timeoutMs: 1 })
+      vi.advanceTimersByTime(2)
+      expect(onWord).toHaveBeenCalledTimes(1)
+      expect(onWord).toHaveBeenCalledWith('refused_unread')
+      expect(VALUE_COMMIT_SETTLEMENT_COPY.refused_unread.message).toBe(
+        'Not saved on this attempt. The latest model could not be refreshed. Reload it before editing again.',
+      )
+      expect(valueCommitSettlementWord('unverified', beforeCommit, committedTo, () => beforeCommit)).toBe('unconfirmed')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
