@@ -34,6 +34,7 @@ export type ValueCommitSettlementWord =
   | 'checking'
   | 'saved'
   | 'refused'
+  | 'refused_unread'
 
 /**
  * Did an optimistic write REVERT?
@@ -99,6 +100,10 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
    * the reply came.
    */
   refused: { message: 'Not saved. The model kept its previous value.', role: 'alert' },
+  refused_unread: {
+    message: 'Not saved on this attempt. The latest model could not be refreshed. Reload it before editing again.',
+    role: 'alert',
+  },
   unconfirmed: {
     message: 'Could not confirm. It may not have reached the model.',
     role: 'status',
@@ -150,9 +155,9 @@ export function needsSavedModelRead(
 }
 
 /** What a moved-base refusal says once the saved model has been read, or could not be. */
-export type SavedModelReadWord = 'saved' | 'refused' | 'revision_conflict' | 'unconfirmed'
+export type SavedModelReadWord = 'saved' | 'refused' | 'revision_conflict' | 'refused_unread'
 
-/** How long a moved-base refusal waits for the saved model to be read before it says it could not confirm. */
+/** How long a moved-base refusal waits before reporting that the current model could not be refreshed. */
 export const SAVED_MODEL_READ_TIMEOUT_MS = 30_000
 
 /**
@@ -165,8 +170,9 @@ export const SAVED_MODEL_READ_TIMEOUT_MS = 30_000
  *   the model holds the committed value → `saved` (no second write: a 409 on the retry means it was already applied) ·
  *   it holds the value from before the commit → `refused` (a genuine refusal; nothing moved for this field) ·
  *   it holds a third value → `revision_conflict` (another change got in first: "The scenario changed while I was
- *   saving, so nothing was saved", CEE's own 409 sentence) · no read within the timeout → `unconfirmed`, never
- *   "not saved". None of these claims a reply: a refused send has none.
+ *   saving, so nothing was saved", CEE's own 409 sentence) · no read within the timeout → `refused_unread`: this
+ *   attempt was refused, while the latest held value remains unknown. A failed read cannot undo the server's no-write
+ *   guarantee or claim that an earlier attempt did not land. None of these claims a reply: a refused send has none.
  * The value is read one task after the base moves, so a writer that sets the hash and the graph in separate store
  * updates is read whole.
  */
@@ -191,7 +197,7 @@ export function awaitSavedModelRead(opts: {
     cancel()
     opts.onWord(word)
   }
-  const deadline = setTimeout(() => finish('unconfirmed'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
+  const deadline = setTimeout(() => finish('refused_unread'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
   const check = () => {
     if (done || readTimer !== undefined || opts.readBase() === opts.baseBeforeRead) return
     readTimer = setTimeout(() => finish(wordFromRead(opts.readNow())), 0)

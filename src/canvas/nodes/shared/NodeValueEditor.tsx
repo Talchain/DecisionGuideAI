@@ -72,8 +72,8 @@
  *   refused on a MOVED base → "Checking the saved model…", then "Saved" if the
  *                                  saved model holds the value, "Not saved" if it
  *                                  still holds the old one, the revision notice if
- *                                  another change got in first, "Could not confirm"
- *                                  if it cannot be read (`awaitSavedModelRead`: after
+ *                                  another change got in first, "Not saved on this attempt"
+ *                                  if the current model cannot be read (`awaitSavedModelRead`: after
  *                                  a lost reply the model often already holds this
  *                                  edit; `revision_conflict` included, capacity row 6)
  *   sent + reverted → "Not saved"  (a 200 that wrote nothing)

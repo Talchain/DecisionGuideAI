@@ -144,7 +144,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    */
   // ⚠ THIS STATE DRIVES THE TRANSIENT NOTICE COPY ONLY ("Sending…", "Sent",
   // "Not sent", "not applied") — never the provenance pill. See below.
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | 'refused' | 'revision_conflict' | 'unconfirmed' | 'checking' | 'saved' | null>(null)
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | 'refused' | 'refused_unread' | 'revision_conflict' | 'unconfirmed' | 'checking' | 'saved' | null>(null)
   /**
    * ⚠⚠ A4b: the window during which the context pill must not read `source` —
    * the edit has moved the value locally but has not yet earned (or been
@@ -882,7 +882,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 Reported to the guard's owner rather than left as a near-miss.
                 The label now states what this app did, which is the part we
                 can actually vouch for. */}
-            {valueCommitOutcome === 'not_applied' || valueCommitOutcome === 'refused' || valueCommitOutcome === 'revision_conflict' ? (
+            {valueCommitOutcome === 'not_applied' || valueCommitOutcome === 'refused' || valueCommitOutcome === 'refused_unread' || valueCommitOutcome === 'revision_conflict' ? (
               // Nothing was saved. Persistent, not a fading notice: the field has
               // just changed under the person's hands. Only `not_applied` (a 200
               // that wrote nothing) points at Olumi's reply; a refusal has none.
