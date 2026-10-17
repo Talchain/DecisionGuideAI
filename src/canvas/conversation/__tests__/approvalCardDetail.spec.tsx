@@ -1,4 +1,4 @@
-/** Stage 1: proposal-bound approval shows the producer's complete change before consent. */
+/** Approval detail uses each surface's existing disclosure layout before consent. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ActionChipRow } from '../ActionChipRow'
@@ -16,7 +16,6 @@ const approval = (overrides: Partial<ActionChip> = {}): ActionChip => ({
 const SUGGESTION: ActionChip = {
   id: 'agent-next-strengthen', label: 'Strengthen the model', intent: 'secondary', message: 'What would strengthen the model?',
 }
-const REASON = 'The details of this change are missing, so it cannot be approved.'
 const RUN = { runNotCurrent: false, currentRunComputedAt: null }
 const TURN = { turn_id: 'proposal-turn', created_at: '2026-10-17T14:01:00Z', user_message: 'Correct the target', assistant_message: 'Review this change.' }
 const PID = 'gmh_0123456789ab'
@@ -26,84 +25,119 @@ const offer = { turn_id: TURN.turn_id, proposal_id: PID, suggested_actions: [wir
 
 afterEach(cleanup)
 
-for (const surface of ['ActionChipRow', 'SuggestedChips'] as const) {
+describe('ActionChipRow: approval detail', () => {
   const mount = (chips: ActionChip[], disabled = false) => {
     const press = vi.fn(async (_chip: ActionChip) => {})
-    const view = render(surface === 'ActionChipRow'
-      ? <ActionChipRow chips={chips} onChipClick={press} disabled={disabled} />
-      : <SuggestedChips chips={chips} onChipClick={press} isThinking={disabled} proposalFields={null} />)
+    const view = render(<ActionChipRow chips={chips} onChipClick={press} disabled={disabled} />)
     return { ...view, press }
   }
 
-  describe(`${surface}: approval detail`, () => {
-    it('shows the full, plain detail immediately before its button and describes that button', () => {
-      const chip = approval()
-      const { press } = mount([chip])
-      const button = screen.getByRole('button', { name: chip.label })
-      const detail = button.previousElementSibling!
-      expect(detail.tagName).toBe('P')
-      expect(detail.textContent).toBe(DETAIL)
-      expect(detail.childElementCount).toBe(0)
-      expect(button).toHaveAttribute('aria-describedby', detail.id)
-      expect(button).not.toHaveAttribute('title')
-      expect(button).toBeEnabled()
-      fireEvent.click(button)
-      expect(press).toHaveBeenCalledWith(chip)
-    })
-
-    it('still shows detail when its complete text equals the button label', () => {
-      const chip = approval({ detail: 'Apply this change' })
-      mount([chip])
-      const button = screen.getByRole('button', { name: chip.label })
-      expect(button.previousElementSibling?.textContent).toBe(chip.detail)
-      expect(button).toBeEnabled()
-    })
-
-    it.each([undefined, '', ' \n\t '])('withholds approval for missing or blank detail (%j)', detail => {
-      const { press } = mount([approval({ detail })])
-      const button = screen.getByRole('button', { name: 'Apply this change' })
-      expect(button).toBeDisabled()
-      expect(button.previousElementSibling?.textContent).toBe(REASON)
-      expect(button).toHaveAttribute('aria-describedby', screen.getByText(REASON).id)
-      fireEvent.click(button)
-      expect(press).not.toHaveBeenCalled()
-    })
-
-    it('leaves suggested replies unchanged', () => {
-      const { press } = mount([SUGGESTION])
-      const button = screen.getByRole('button', { name: SUGGESTION.label })
-      expect(button.textContent).toBe(SUGGESTION.label)
-      expect(button).toBeEnabled()
-      expect(button).not.toHaveAttribute('aria-describedby')
-      expect(screen.queryByText(REASON)).toBeNull()
-      fireEvent.click(button)
-      expect(press).toHaveBeenCalledWith(SUGGESTION)
-    })
-
-    it('never borrows another chip’s detail to enable an approval', () => {
-      const sibling = { ...SUGGESTION, detail: 'An unrelated growth estimate is 30%.' }
-      const { press } = mount([sibling, approval({ detail: undefined })])
-      const approve = screen.getByRole('button', { name: 'Apply this change' })
-      expect(approve).toBeDisabled()
-      expect(approve.previousElementSibling?.textContent).toBe(REASON)
-      fireEvent.click(approve)
-      expect(press).not.toHaveBeenCalled()
-      const suggestion = screen.getByRole('button', { name: /Strengthen the model/ })
-      expect(suggestion).toBeEnabled()
-      fireEvent.click(suggestion)
-      expect(press).toHaveBeenCalledWith(sibling)
-    })
-
-    it('keeps an in-flight or disabled card non-interactive even with complete detail', () => {
-      const { press } = mount([approval()], true)
-      const button = screen.getByRole('button', { name: 'Apply this change' })
-      expect(button).toBeDisabled()
-      expect(button.previousElementSibling?.textContent).toBe(DETAIL)
-      fireEvent.click(button)
-      expect(press).not.toHaveBeenCalled()
-    })
+  it('shows the full, plain detail immediately before its button and describes that button', () => {
+    const chip = approval()
+    const { press } = mount([chip])
+    const button = screen.getByRole('button', { name: chip.label })
+    const detail = button.previousElementSibling!
+    expect(detail.tagName).toBe('P')
+    expect(detail.textContent).toBe(DETAIL)
+    expect(detail.childElementCount).toBe(0)
+    expect(button).toHaveAttribute('aria-describedby', detail.id)
+    expect(button).not.toHaveAttribute('title')
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(press).toHaveBeenCalledWith(chip)
   })
-}
+
+  it('still shows detail when its complete text equals the button label', () => {
+    const chip = approval({ detail: 'Apply this change' })
+    mount([chip])
+    const button = screen.getByRole('button', { name: chip.label })
+    expect(button.previousElementSibling?.textContent).toBe(chip.detail)
+    expect(button).toBeEnabled()
+  })
+
+  it.each([undefined, '', ' \n\t '])('keeps approval enabled without a disclosure for absent or blank detail (%j)', detail => {
+    const { press } = mount([approval({ detail })])
+    const button = screen.getByRole('button', { name: 'Apply this change' })
+    expect(button).toBeEnabled()
+    expect(button.previousElementSibling).toBeNull()
+    expect(button).not.toHaveAttribute('aria-describedby')
+    fireEvent.click(button)
+    expect(press).toHaveBeenCalledWith(approval({ detail }))
+  })
+
+  it('leaves suggested replies unchanged', () => {
+    const { press } = mount([SUGGESTION])
+    const button = screen.getByRole('button', { name: SUGGESTION.label })
+    expect(button.textContent).toBe(SUGGESTION.label)
+    expect(button).toBeEnabled()
+    expect(button).not.toHaveAttribute('aria-describedby')
+    fireEvent.click(button)
+    expect(press).toHaveBeenCalledWith(SUGGESTION)
+  })
+
+  it('never borrows another chip’s detail as the approval disclosure', () => {
+    const sibling = { ...SUGGESTION, detail: 'An unrelated growth estimate is 30%.' }
+    const { press } = mount([sibling, approval({ detail: undefined })])
+    const approve = screen.getByRole('button', { name: 'Apply this change' })
+    expect(approve).toBeEnabled()
+    expect(approve).not.toHaveAttribute('aria-describedby')
+    expect(approve).not.toHaveAttribute('title')
+    expect(approve.parentElement?.querySelector('p')).toBeNull()
+    fireEvent.click(approve)
+    expect(press).toHaveBeenCalledWith(approval({ detail: undefined }))
+    const suggestion = screen.getByRole('button', { name: /Strengthen the model/ })
+    expect(suggestion).toBeEnabled()
+    fireEvent.click(suggestion)
+    expect(press).toHaveBeenCalledWith(sibling)
+  })
+
+  it('keeps an in-flight or disabled card non-interactive even with complete detail', () => {
+    const { press } = mount([approval()], true)
+    const button = screen.getByRole('button', { name: 'Apply this change' })
+    expect(button).toBeDisabled()
+    expect(button.previousElementSibling?.textContent).toBe(DETAIL)
+    fireEvent.click(button)
+    expect(press).not.toHaveBeenCalled()
+  })
+})
+
+describe('SuggestedChips: staging consent panel', () => {
+  it('shows the complete approval detail in the panel above the row without reordering chips', () => {
+    const chip = approval()
+    const press = vi.fn(async (_chip: ActionChip) => {})
+    render(<SuggestedChips chips={[SUGGESTION, chip]} onChipClick={press} proposalFields={null} />)
+    const row = screen.getByTestId('suggested-chips')
+    const detail = screen.getByTestId(`suggested-chip-disclosure-${chip.id}`)
+    const button = screen.getByRole('button', { name: chip.label })
+    expect(detail.textContent).toBe(DETAIL.trim())
+    expect(detail.parentElement?.nextElementSibling).toBe(row)
+    expect(row.querySelectorAll('button')[0].textContent).toBe(SUGGESTION.label)
+    expect(button).toHaveAttribute('aria-describedby', detail.id)
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(press).toHaveBeenCalledWith(chip)
+  })
+
+  it.each([undefined, '', ' \n\t '])('keeps approval enabled without borrowing unrelated detail (%j)', detail => {
+    const chip = approval({ detail })
+    const sibling = { ...SUGGESTION, detail: 'An unrelated growth estimate is 30%.' }
+    const press = vi.fn(async (_chip: ActionChip) => {})
+    render(<SuggestedChips chips={[sibling, chip]} onChipClick={press} proposalFields={null} />)
+    const button = screen.getByRole('button', { name: chip.label })
+    expect(button).toBeEnabled()
+    expect(button).not.toHaveAttribute('aria-describedby')
+    expect(screen.queryByTestId(`suggested-chip-disclosure-${chip.id}`)).toBeNull()
+    fireEvent.click(button)
+    expect(press).toHaveBeenCalledWith(chip)
+  })
+
+  it('uses the button label itself when detail equals the label', () => {
+    const chip = approval({ detail: 'Apply this change' })
+    render(<SuggestedChips chips={[chip]} onChipClick={vi.fn(async () => {})} proposalFields={null} />)
+    expect(screen.queryByTestId(`suggested-chip-disclosure-${chip.id}`)).toBeNull()
+    expect(screen.getByRole('button', { name: chip.label })).toBeEnabled()
+  })
+})
 
 describe('V5 mapping and live-card reload retain the same detail', () => {
   it('maps each action’s own detail verbatim without moving it to a sibling', () => {
@@ -118,7 +152,7 @@ describe('V5 mapping and live-card reload retain the same detail', () => {
     expect(reply.actionChips?.[0].detail).toBe(DETAIL)
     render(<SuggestedChips chips={reply.actionChips!} onChipClick={vi.fn(async () => {})} proposalFields={null} />)
     const button = screen.getByRole('button', { name: wireAction.label })
-    expect(button.previousElementSibling?.textContent).toBe(DETAIL)
+    expect(screen.getByTestId(`suggested-chip-disclosure-${wireAction.id}`).textContent).toBe(DETAIL.trim())
     expect(button).toBeEnabled()
   })
 
@@ -132,7 +166,7 @@ describe('V5 mapping and live-card reload retain the same detail', () => {
     expect(chips[0].detail).toBe(expected.detail)
     render(<SuggestedChips chips={chips} onChipClick={vi.fn(async () => {})} proposalFields={fields} />)
     const button = screen.getByRole('button', { name: expected.label })
-    expect(button.previousElementSibling?.textContent).toBe(expected.detail)
+    expect(screen.getByTestId(`suggested-chip-disclosure-${expected.id}`).textContent).toBe(expected.detail)
     expect(button).toBeEnabled()
   })
 

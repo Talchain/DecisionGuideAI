@@ -59,16 +59,15 @@ export const ActionChipRow = memo(function ActionChipRow({
 
         const approval = typeof chip.id === 'string' && chip.id.startsWith('agent-approve-proposal:')
         const hasDetail = typeof chip.detail === 'string' && chip.detail.trim().length > 0
-        const chipDisabled = disabled || (approval && !hasDetail)
-        const descriptionId = approval ? `${detailId}-${i}` : undefined
+        const descriptionId = approval && hasDetail ? `${detailId}-${i}` : undefined
         const button = (
           <button
             key={chip.id ?? `chip-${i}`}
             type="button"
             className={INTENT_STYLES[chip.intent]}
-            onClick={() => !chipDisabled && onChipClick(chip)}
-            disabled={chipDisabled}
-            aria-disabled={chipDisabled}
+            onClick={() => !disabled && onChipClick(chip)}
+            disabled={disabled}
+            aria-disabled={disabled}
             aria-describedby={descriptionId}
             aria-label={ariaLabel}
             data-testid={`chip-${chip.id}`}
@@ -77,11 +76,11 @@ export const ActionChipRow = memo(function ActionChipRow({
             {chip.label}
           </button>
         )
-        if (!approval) return button
+        if (!approval || !hasDetail) return button
         return (
           <div key={chip.id} className="flex min-w-0 w-full flex-col items-start gap-2">
             <p id={descriptionId} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {hasDetail ? chip.detail : 'The details of this change are missing, so it cannot be approved.'}
+              {chip.detail}
             </p>
             {button}
           </div>
