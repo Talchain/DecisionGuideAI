@@ -117,6 +117,8 @@ import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
+import { pendingFactorEditValue } from '../conversation/pendingFactorEdit'
+import { unconfirmedEdgeEditOnGraph } from '../conversation/pendingEdgeEdit'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import { linkEndsOf } from '../domain/heldUserLink'
@@ -354,7 +356,7 @@ function onlyAcquiredNodeMetadataDiffers(previous: unknown, incoming: unknown): 
  */
 export function mergeServerGraphOnHydrate(
   serverGraph: unknown,
-  opts?: { dropOmittedDisplay?: boolean },
+  opts?: { dropOmittedDisplay?: boolean; authoritativeRead?: boolean },
 ): MergeServerGraphResult {
   if (serverGraph === null || typeof serverGraph !== 'object') return refused('unusableShape')
 
@@ -513,12 +515,15 @@ export function mergeServerGraphOnHydrate(
   const mergedNodes = survivingNodes.map((n: any) => {
     const serverNode = serverNodeById.get(n.id)
     if (!serverNode) return n
+    // The pending register owns only this unconfirmed element, not the whole read. Unrelated saved updates still merge.
+    const pendingValue = pendingFactorEditValue(n.id)
+    if (pendingValue !== null && (n.data?.observedState ?? n.data?.observed_state)?.value === pendingValue) return n
 
     const userStamps = captureUserProvenance(n.data)
     let overlaid = overlayNode(n, serverNode, opts)
     // This accepted read is the complete server node. A previous revision's
     // scale must not survive its absence and override the new observed-state cap.
-    if (!Object.prototype.hasOwnProperty.call(serverNode, 'scale_frame') &&
+    if (opts?.authoritativeRead !== false && !Object.prototype.hasOwnProperty.call(serverNode, 'scale_frame') &&
         Object.prototype.hasOwnProperty.call(overlaid.data ?? {}, 'scale_frame')) {
       const { scale_frame: _previousScale, ...data } = overlaid.data
       overlaid = { ...overlaid, data }
@@ -550,6 +555,7 @@ export function mergeServerGraphOnHydrate(
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
+    if (unconfirmedEdgeEditOnGraph([e]) !== null) return e
 
     // ⚠ PRESENCE, NOT EQUALITY-WITH-DEFAULT (L61). A server `strength.mean: 0.5`
     // (== the default weight) or an explicit default-positive `effect_direction`

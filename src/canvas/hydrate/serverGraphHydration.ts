@@ -332,6 +332,11 @@ async function readAndMergeServerGraph(
     answerOpen(false)
     return 'skipped'
   }
+  // A scenario-bound boot may restore a descriptive stale verdict even on the reader's legacy hash-less shape.
+  // Recovery after a refused write must also advance its hash. Current-Run restoration still requires its own hash
+  // inside applyBootRunCurrency; neither a structural merge nor a descriptive verdict grants that currency.
+  const authoritativeRead = result.scenarioId === scenarioId
+    && (opts.reapplyServerGraph !== true || (result.graphHash !== null && result.graphHash !== baseAtDispatch))
 
   // ── ROADMAP 2.973 — record what we were given, and what CEE says it kept ──
   //
@@ -364,7 +369,8 @@ async function readAndMergeServerGraph(
     useActionBarStore.getState().setBar(scenarioId, parseActionBar(result.actionBar, reportActionBarIssue))
   }
   if (result.scenarioId === scenarioId) {
-    useCanonicalAnalysisViewStore.getState().adopt(scenarioId, parseCanonicalAnalysisView(result.canonicalAnalysisView))
+    useCanonicalAnalysisViewStore.getState().adopt(scenarioId,
+      parseCanonicalAnalysisView(authoritativeRead && result.graphHash !== null ? result.canonicalAnalysisView : undefined))
   }
   const serverTurns = readServerConversationTurns(result.conversationTurns)
   if (opts.includeConversationTurns === true || serverTurns !== null) {
@@ -414,6 +420,7 @@ async function readAndMergeServerGraph(
   // comment — a disjointness that only a comment asserts is one refactor from
   // being false.
   const restoreVerdict = (): void => {
+    if (!authoritativeRead) return
     const verdictOutcome = applyBootAnalysisVerdict({
       analysisState: result.analysisState,
       // RT-10 B′: the read's own reason sentence rides WITH its verdict (kept only while that verdict is complete_stale).
@@ -475,6 +482,16 @@ async function readAndMergeServerGraph(
     mergeChanged: boolean | null,
     dirtyBeforeMerge: boolean | null = null,
   ): void => {
+    if (!authoritativeRead) {
+      // The accepted read cannot attest currentness. Keep the saved result, but withdraw any earlier currency claim.
+      recordBootReadAdmission(null)
+      const st = useCanvasStore.getState()
+      st.setBootAdmittedRevision?.(null)
+      // Withdraw a current claim, not a previously accepted historical/stale assessment or its named reason.
+      if (st.analysisStateV1?.run_state.kind === 'complete_current') st.setAnalysisStateV1(null)
+      useCanvasStore.setState({ analysisFreshness: null })
+      return
+    }
     const st = useCanvasStore.getState()
     // BOTH directions: the canvas carries every value the read carries (the
     // acknowledgement's proof) AND the read carries nothing the canvas lacks.
@@ -683,7 +700,9 @@ async function readAndMergeServerGraph(
 
   // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
   const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
-  const merge = mergeServerGraphOnHydrate(result.graph, { dropOmittedDisplay: opts.reapplyServerGraph === true })
+  const merge = mergeServerGraphOnHydrate(result.graph, {
+    dropOmittedDisplay: opts.reapplyServerGraph === true, authoritativeRead,
+  })
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
   //
@@ -1069,8 +1088,10 @@ type GraphNormaliser = (graph: unknown) => unknown
  * write, a different question).
  */
 const NOT_ANALYSIS_AFFECTING = {
-  node: new Set(['description', 'display_value', 'provenance', 'provenance_display', 'origin']),
-  observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']),
+  node: new Set(['description', 'display_value', 'provenance', 'provenance_display', 'origin', 'ref']
+    .filter(key => !new Set<string>(CANONICAL_GRAPH_HASH_NESTED_PROJECTION.node.fields).has(key))),
+  observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']
+    .filter(key => !new Set<string>(CANONICAL_GRAPH_HASH_NESTED_PROJECTION.node.observed_state_fields).has(key))),
   intervention: new Set(['unit', 'source', 'reasoning', 'value_confidence', 'display_value']),
   targetMatch: new Set(['match_type', 'confidence']),
 } as const
