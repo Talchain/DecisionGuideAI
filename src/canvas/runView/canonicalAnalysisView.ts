@@ -21,8 +21,14 @@ export interface CanonicalAnalysisView {
     readonly reason: string | null
     readonly limitation: 'Hash equality cannot detect brief, framing or stage changes.'
       | 'No analysis hash was available; only the scenario revision was compared.'
+      | 'Currentness is unknown because an analysis hash is unavailable.'
   }
   readonly face_when_stale?: string
+  /** R4: only the selected Run's recorded words/labels/displays; never current chance authority. */
+  readonly historical_figures?: {
+    readonly chance_words?: string
+    readonly options: readonly { readonly option_id: string; readonly option_label?: string; readonly display: string }[]
+  }
   readonly leader_licence: 'permitted' | 'permitted_with_caveat' | 'withheld'
   readonly options: readonly { readonly option_id: string; readonly cell: CanonicalAnalysisCell; readonly main_driver: CanonicalMainDriver }[]
   /** Recovery Batch C (CEE `canonicalGoalChanceDetail`): what the chance is a chance OF, and the lines said once beside it. */
@@ -95,7 +101,8 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
       || ('run_revision_source' in staleness && !(staleness.run_revision_source === 'recorded' && typeof staleness.run_revision === 'number')
         && !(staleness.run_revision_source === 'legacy_unknown' && staleness.run_revision === null))
       || !nullableString(staleness.reason)
-      || !(staleness.basis === 'analysis_graph_hash_interim' && staleness.limitation === 'Hash equality cannot detect brief, framing or stage changes.')
+      || !(staleness.basis === 'analysis_graph_hash_interim' && (staleness.limitation === 'Hash equality cannot detect brief, framing or stage changes.'
+        || staleness.stale === null && staleness.limitation === 'Currentness is unknown because an analysis hash is unavailable.'))
         && !(staleness.basis === 'recorded_run_revision' && staleness.limitation === 'No analysis hash was available; only the scenario revision was compared.')) return null
     if (v.face_when_stale !== undefined && typeof v.face_when_stale !== 'string') return null
     const ids = new Set<string>()
@@ -120,13 +127,18 @@ export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | 
           && typeof reason.code === 'string' && nullableString(reason.message))) return null
       } else if (cell.kind !== 'none') return null
     }
-    const { goal_chance: goalChanceRaw, leader: leaderRaw, ...view } = v
+    const { goal_chance: goalChanceRaw, leader: leaderRaw, historical_figures: historicalRaw, ...view } = v
     const goalChance = parseCanonicalGoalChance(goalChanceRaw)
     const leader = parseCanonicalRunLeader(leaderRaw)
+    const historical = rec(historicalRaw) && (historicalRaw.chance_words === undefined || sayable(historicalRaw.chance_words))
+      && Array.isArray(historicalRaw.options) && historicalRaw.options.every(o => rec(o) && sayable(o.option_id)
+        && (o.option_label === undefined || sayable(o.option_label)) && sayable(o.display))
+      && new Set(historicalRaw.options.map(o => o.option_id)).size === historicalRaw.options.length ? historicalRaw : undefined
     return {
       ...view,
       ...(goalChance === undefined ? {} : { goal_chance: goalChance }),
       ...(leader === undefined ? {} : { leader }),
+      ...(historical === undefined ? {} : { historical_figures: historical }),
     } as unknown as CanonicalAnalysisView
   } catch { return null }
 }

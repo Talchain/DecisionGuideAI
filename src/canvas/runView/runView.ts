@@ -36,6 +36,7 @@ export interface ChanceFigure { readonly pct: number; readonly words: string }
 
 /** The chance cell shared by Results and both canvas option-card zoom levels. No-source cells have no copy. */
 export type OptionChanceCell =
+  /** `withheld` also carries R4's historical display beside CEE's earlier-Run face, never a current figure cell. */
   | { readonly kind: 'figure' | 'range' | 'withheld'; readonly text: string; readonly why?: string }
   | { readonly kind: 'none'; readonly text: null }
 
@@ -209,9 +210,14 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
     }
     return NO_CELL
   }
-  if (canonical.staleness.stale === null) return NO_CELL
-  if (canonical.staleness.stale === true && canonical.run !== null) {
-    return canonical.face_when_stale === undefined ? NO_CELL : { kind: 'withheld', text: canonical.face_when_stale }
+  if (view.chancesNotCurrent()) {
+    const face = view.notCurrentLine()
+    if (face === null) return NO_CELL
+    const historical = canonical.staleness.stale === null ? canonical.historical_figures : undefined
+    const option = historical?.options.find(o => o.option_id === optionId)
+    // Keep the earlier-Run sentence with every display; never borrow today's option label/target or parse a number.
+    return { kind: 'withheld', text: option === undefined ? face
+      : [face, historical?.chance_words, option.option_label, option.display].filter(line => line !== undefined).join('\n') }
   }
   const cell = canonical.options.find(option => option.option_id === optionId)?.cell
   if (cell?.kind === 'figure' || cell?.kind === 'range') {
@@ -331,7 +337,7 @@ export function runViewFromParts(
     },
     notCurrentLine: () => {
       const held = canonicalByView.get(view)
-      return held !== undefined && held.staleness.stale === true && held.run !== null ? held.face_when_stale ?? null : null
+      return view.chancesNotCurrent() && held?.run != null ? held.face_when_stale ?? null : null
     },
   }
   if (held !== null) canonicalByView.set(view, held)
