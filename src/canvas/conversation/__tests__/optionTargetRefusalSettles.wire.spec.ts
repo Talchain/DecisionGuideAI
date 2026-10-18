@@ -45,16 +45,30 @@ import {
   type SystemEventSendSettlementDetail,
 } from '../settleSystemEventSend'
 import { useCanvasStore } from '../../store'
+import { noteCanvasLocalCommit, useAnalyseAfterCommittedChange } from '../../analysis/useAnalyseAfterCommittedChange'
+import type { CanonicalRunOptions, CanonicalRunOutcome } from '../../analysis/canonicalRunRegistry'
+import { modelVersionsUrl } from '../../../adapters/cee/modelVersions'
+import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
+import { useUndoJournalStore } from '../../undo/captureUndoReceipt'
+import { EMPTY_UNDO_JOURNAL } from '../../undo/undoJournal'
+import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
+import lostReply from './fixtures/option-edit-lost-reply-8e9132fc.json'
 
 vi.mock('../turnService', () => ({
   callOrchestratorTurn: vi.fn(),
   streamOrchestratorTurn: vi.fn(),
   OrchestratorError: class OrchestratorError extends Error {},
 }))
+/** A guest unless a row signs in. */
+const session = vi.hoisted(() => ({ identity: { userId: null as string | null, accessToken: null as string | null } }))
 vi.mock('../../../lib/supabase', () => ({
-  getUserId: async () => null,
-  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+  getUserId: async () => session.identity.userId,
+  getSessionIdentity: async () => session.identity,
 }))
+vi.mock('../../analysis/useAnalyseAfterCommittedChange', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../analysis/useAnalyseAfterCommittedChange')>()
+  return { ...actual, noteCanvasLocalCommit: vi.fn(actual.noteCanvasLocalCommit) }
+})
 vi.mock('../../../services/scenarioService', () => ({
   loadScenario: async () => null,
   storeAnalysis: async () => undefined,
@@ -199,6 +213,255 @@ describe('option-card outcomes through the real send and canonical refresh', () 
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+/**
+ * ⭐ C3: A SAVE THAT ONLY THE READ-BACK PROVES STILL STARTS ITS AUTOMATIC RUN (served capture
+ * 2026-10-18T034045Z, DGAI e7eb7cd5 / CEE 8e9132fc, turns 03–04). CEE committed "Add one specialist" 1 → 2 and its 200
+ * was lost ("Failed to fetch"); the re-entry got 409 `stale_base_graph_hash`; the card read the saved model and said
+ * "Saved. The model holds this value." — and no Run followed, because the only note of a canvas edit's commit rode the
+ * lost 200.
+ *
+ * ⛔ AND ONLY WHEN THAT SAVE IS THIS CARD'S (PL-C3-FOREIGN-COMMIT-0505, Codex BLOCK on #2817@bfb174db): the value never
+ * says who saved it. The current version's `creation.source_turn_id` does — the served list for this scenario records
+ * turn 03's own `turn_id` on version 2c9b40a1 — so the commit is noted only when it names one of this card's own lost
+ * sends. Every body below is the capture's, verbatim; the fake CEE writes, refuses and records the writing turn the way
+ * the served one did. The REAL `useAnalyseAfterCommittedChange` decides the Run.
+ */
+describe('a saved edit confirmed by read-back after a lost reply starts exactly one automatic Run (served 8e9132fc)', () => {
+  type Run = (opts?: CanonicalRunOptions) => Promise<CanonicalRunOutcome>
+  const sent = lostReply.turn03.request_body.event
+  const editorId = `option-value-editor-${sent.option_id}-${sent.factor_id}`
+  const scenarioId = lostReply.before.scenario_id
+  /** The version turn 03 wrote, as the served list shows it (written by turn 75028e02). */
+  const servedHead = lostReply.versionsList.versions.find(version => version.sequence === 2)!
+  const tabATurn = lostReply.turn03.request_body.turn_id
+  const signedIn = { userId: 'b6c10033-1330-43d7-86c8-f8b85b1702ad', accessToken: 'test-access-token' }
+  let serverGraph: { readonly graph_hash: string }
+  /** The turn that wrote the saved model's current version, or null before any write. */
+  let writtenBy: string | null
+  let conflict: unknown
+  /** The network loses the reply to the next send, after CEE has handled it. */
+  let loseNextReply: boolean
+  let posts: Array<{ event: unknown; turn_id: string }>
+  let writes: number
+  let reads: number
+  let versionReads: number
+  let run: ReturnType<typeof vi.fn<Parameters<Run>, ReturnType<Run>>>
+  /** The model the canvas held when each Run started. */
+  let hashAtRun: Array<string | null>
+
+  function LiveOption() {
+    const option = useCanvasStore(state => state.nodes.find(node => node.id === sent.option_id))!
+    return createElement(OptionNode, {
+      id: option.id, data: option.data, type: 'option', position: option.position,
+      selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0,
+      dragging: false, zIndex: 0, deletable: true, selectable: true, draggable: true,
+    } as never)
+  }
+  function AutoRun() {
+    useAnalyseAfterCommittedChange({ run, idle: true, hasRunOnRecord: true })
+    return null
+  }
+  /** The tab opens on `model`, as the capture's tab did. */
+  function openOn(model: { readonly graph: unknown; readonly graph_hash: string }) {
+    expect(mergeServerGraphOnHydrate(model.graph as never).accepted).toBe(true)
+    useCanvasStore.setState({ lastServerGraphHash: model.graph_hash })
+    render(createElement(ReactFlowProvider, null,
+      createElement(ConversationProvider, null, createElement(LiveOption), createElement(AutoRun))))
+  }
+  function typeValue(value: string) {
+    fireEvent.click(screen.getByTestId(editorId))
+    const input = screen.getByTestId(`${editorId}-input`) as HTMLInputElement
+    fireEvent.change(input, { target: { value } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+  }
+  const word = () => screen.queryByTestId(`${editorId}-settlement`)?.textContent
+  /** Lets any Run the last change would start get started, so a count of 0 is not just "not yet". */
+  const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+
+  /** A send whose reply the network lost: "Could not confirm", and nothing runs. */
+  async function sendLost(value: string) {
+    loseNextReply = true
+    typeValue(value)
+    await waitFor(() => expect(word()).toBe('Could not confirm. It may not have reached the model.'))
+    await settle()
+    expect(run).not.toHaveBeenCalled()
+  }
+  /** Turns 03–04: the 200 is lost after CEE saved 2; the user re-enters 2; the 409; the read finds 2 saved. */
+  async function lostReplyThenReentry() {
+    openOn(lostReply.before)
+    await sendLost('2')
+    typeValue('2')
+    await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
+    await settle()
+  }
+  /** Tab A's turn 03 already saved 2: the canvas still opens on the model before it. */
+  function afterTabASaved2() {
+    serverGraph = lostReply.after; writtenBy = tabATurn
+  }
+
+  beforeEach(() => {
+    session.identity = signedIn
+    serverGraph = lostReply.before; writtenBy = null; conflict = lostReply.turn04.response_body; loseNextReply = false
+    posts = []; writes = 0; reads = 0; versionReads = 0; hashAtRun = []
+    run = vi.fn<Parameters<Run>, ReturnType<Run>>(async () => {
+      hashAtRun.push(useCanvasStore.getState().lastServerGraphHash)
+      return { status: 'dispatched' }
+    })
+    useUndoJournalStore.setState({ journal: EMPTY_UNDO_JOURNAL })
+    // A Run on record (turn 03's `analysis_ready`: computed 03:42:09, stale against the moved model).
+    useCanvasStore.setState({ currentScenarioId: scenarioId,
+      nodes: [], edges: [], importPendingServerRegistration: false, serverGraphIdentity: null,
+      analysisFreshnessDirty: false, ceeAnalysisReady: null, lastServerGraphHash: null, hasCompletedFirstRun: true,
+      analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_hash_diverged', computedAt: '2026-10-18T03:42:09.883Z' },
+    } as never)
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url) === scenarioGraphUrl(scenarioId)) {
+        reads += 1
+        return new Response(JSON.stringify(serverGraph), { status: 200 })
+      }
+      if (String(url) === modelVersionsUrl(scenarioId)) {
+        versionReads += 1
+        // CEE's list, newest first: the current version records the turn that wrote it.
+        const head = { ...servedHead, creation: { ...servedHead.creation, source_turn_id: writtenBy } }
+        return new Response(JSON.stringify({ ...lostReply.versionsList, current_version_id: head.version_id,
+          versions: [head], next_cursor: null }), { status: 200 })
+      }
+      if (init?.method === 'POST') {
+        const request = JSON.parse(String(init.body)) as { event: { base_graph_hash?: unknown }; turn_id: string }
+        posts.push(request)
+        const lost = loseNextReply
+        loseNextReply = false
+        let reply: Response
+        // CEE's compare-and-swap: a send on any base but the saved one writes nothing.
+        if (request.event.base_graph_hash !== serverGraph.graph_hash) {
+          reply = new Response(JSON.stringify(conflict), { status: 409 })
+        } else {
+          writes += 1
+          serverGraph = lostReply.after
+          writtenBy = request.turn_id
+          reply = new Response(JSON.stringify(lostReply.turn03.response_body), { status: 200 })
+        }
+        if (lost) throw new TypeError('Failed to fetch')
+        return reply
+      }
+      throw new Error(`Unexpected HTTP boundary: ${String(url)}`)
+    }))
+  })
+  afterEach(() => { session.identity = { userId: null, accessToken: null } })
+
+  it('⭐ ROW: lost 200 → re-entry → 409 stale base → the read holds 2, written by the lost send → exactly ONE Run, on the saved model', async () => {
+    await lostReplyThenReentry()
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    await settle()
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(hashAtRun).toEqual([lostReply.after.graph_hash])
+    // Noted as the version the lost send wrote, by identity.
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(noteCanvasLocalCommit).toHaveBeenCalledWith(servedHead.version_id)
+    expect(posts.map(post => post.event)).toEqual([lostReply.turn03.request_body.event, lostReply.turn04.request_body.event])
+    expect(writtenBy).toBe(posts[0].turn_id)
+    expect(writes).toBe(1)
+    expect(reads).toBe(1)
+    expect(versionReads).toBe(1)
+  })
+
+  it('NO DOUBLE: a second read of the same saved model leaves it at one Run', async () => {
+    await lostReplyThenReentry()
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+
+    await act(async () => { await hydrateCanvasFromServer(scenarioId) })
+    await settle()
+
+    expect(reads).toBe(2)
+    expect(useCanvasStore.getState().lastServerGraphHash).toBe(lostReply.after.graph_hash)
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ FOREIGN: another tab already saved the same 2; this tab’s 409 read holds 2 over a stale analysis → NO Run and no commit noted', async () => {
+    afterTabASaved2()
+    openOn(lostReply.before); typeValue('2')
+    await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
+    await settle(); await settle()
+
+    // The analysis on record is NOT current, so a noted commit WOULD run: the identity is what stops it.
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    // Control, asserted last so it never masks the two above: the writer WAS asked, and it was tab A's turn.
+    expect(versionReads).toBe(1)
+    expect(posts.map(post => post.event)).toEqual([lostReply.turn04.request_body.event])
+    expect(writes).toBe(0)
+  })
+
+  it('⛔ FOREIGN, this tab’s own reply lost too: its send was refused, the other tab’s 2 is saved → NO Run and no commit noted', async () => {
+    afterTabASaved2()
+    openOn(lostReply.before)
+    await sendLost('2')
+    typeValue('2')
+    await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
+    await settle(); await settle()
+
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    expect(versionReads).toBe(1)
+    expect(writes).toBe(0)
+    expect(writtenBy).toBe(tabATurn)
+  })
+
+  it('GUEST (no versions to read): the lost reply is still read back as saved, honestly, and nothing runs', async () => {
+    session.identity = { userId: null, accessToken: null }
+    await lostReplyThenReentry()
+
+    expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    expect(writes).toBe(1)
+    expect(versionReads).toBe(0)
+  })
+
+  it('CONTRAST: the reply arrives (turn 03’s 200 with its receipt) → one Run from the receipt, and no read', async () => {
+    expect(lostReply.turn03.response_body.model_version_receipt.version_id).toBe(servedHead.version_id)
+    openOn(lostReply.before); typeValue('2')
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    await settle()
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(noteCanvasLocalCommit).toHaveBeenCalledTimes(1)
+    expect(noteCanvasLocalCommit).toHaveBeenCalledWith(servedHead.version_id)
+    expect(hashAtRun).toEqual([lostReply.turn03.response_body.graph_hash])
+    expect(posts.map(post => post.event)).toEqual([lostReply.turn03.request_body.event])
+    expect(reads).toBe(0)
+    expect(versionReads).toBe(0)
+    expect(word()).toBeUndefined()
+  })
+
+  it('CONTRAST: tab B (turn 06) — 409 revision_conflict, the read holds tab A’s 4, not B’s 5 → the revision notice and NO Run', async () => {
+    serverGraph = lostReply.tabBRead; conflict = lostReply.turn06.response_body
+    openOn(lostReply.after); typeValue('5')
+    await waitFor(() => expect(word()).toBe(REVISION_CONFLICT_NOTICE))
+    await settle()
+
+    expect(posts.map(post => post.event)).toEqual([lostReply.turn06.request_body.event])
+    expect(writes).toBe(0)
+    expect(reads).toBe(1)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST: a genuine refusal — 409 stale base, the read still holds 1 → "Not saved…" and NO Run', async () => {
+    // The capture's pre-edit model, with ONLY its hash moved: another writer changed something else, not this value.
+    serverGraph = { ...lostReply.before, graph_hash: 'f0f0f0f0f0f0f0f0' }
+    openOn(lostReply.before); typeValue('2')
+    await waitFor(() => expect(word()).toBe('Not saved. The model kept its previous value.'))
+    await settle()
+
+    expect(posts.map(post => post.event)).toEqual([lostReply.turn03.request_body.event])
+    expect(writes).toBe(0)
+    expect(reads).toBe(1)
+    expect(run).not.toHaveBeenCalled()
   })
 })
 

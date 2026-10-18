@@ -22,6 +22,9 @@
  * apart (a slow-but-successful commit from a lost one).
  */
 import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
+import { listModelVersions } from '../../adapters/cee/modelVersions'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
+import { useCanvasStore } from '../store'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from './settleSystemEventSend'
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
@@ -184,6 +187,11 @@ export function awaitSavedModelRead(opts: {
   committedTo: number | null | undefined
   readNow: () => number | null | undefined
   onWord: (word: SavedModelReadWord) => void
+  /**
+   * Takes back one of this editor's own sends whose outcome is unknown, by its `turn_id`: true once, if it is one.
+   * Only a `saved` read whose current version that send wrote is this editor's commit (`ownSavedVersion`).
+   */
+  claimOwnSend?: (turnId: string) => boolean
   timeoutMs?: number
 }): () => void {
   let done = false
@@ -195,6 +203,7 @@ export function awaitSavedModelRead(opts: {
     if (done) return
     done = true
     cancel()
+    if (word === 'saved' && opts.claimOwnSend) noteOwnSavedVersion(opts.readBase(), opts.claimOwnSend)
     opts.onWord(word)
   }
   const deadline = setTimeout(() => finish('refused_unread'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
@@ -212,6 +221,39 @@ export function awaitSavedModelRead(opts: {
   unsubscribe = opts.subscribe(check)
   check()
   return cancel
+}
+
+/**
+ * The version this editor's own earlier send wrote, when the scenario's current version is it; else `null`.
+ *
+ * ⛔ THE VALUE NEVER PROVES WHO SAVED IT (PL-C3-FOREIGN-COMMIT-0505). A 409 proves only that the retry wrote nothing,
+ * and another tab saving the same value leaves the same model. The current version's `creation.source_turn_id` is the
+ * turn that wrote it, in the UI's own `turn_id` space (served list, scenario 91be5d76: version 2c9b40a1 ↔ turn 75028e02,
+ * the send whose reply was lost). Only an id `claim` takes back counts. A guest has no versions, so never counts.
+ */
+async function ownSavedVersion(scenarioId: string, claim: (turnId: string) => boolean): Promise<string | null> {
+  // Lazily, as `captureAgentTurnForUndo` does: the session client is needed only on this rare path.
+  const { getSessionIdentity } = await import('../../lib/supabase')
+  const identity = await getSessionIdentity()
+  if (!identity.accessToken) return null
+  const listed = await listModelVersions(scenarioId, { userId: identity.userId, accessToken: identity.accessToken, limit: 1 })
+  if (listed.status !== 'list') return null
+  const head = listed.versions.find(version => version.id === listed.currentVersionId)
+  return head?.sourceTurnId && claim(head.sourceTurnId) ? head.id : null
+}
+
+/**
+ * A lost reply's write, proven this editor's by `ownSavedVersion`, is noted as its commit, once, so its automatic Run
+ * follows (served C3, 2026-10-18T034045Z turns 03–04: no response will note it). Only while the canvas still holds the
+ * model that read found.
+ */
+function noteOwnSavedVersion(landed: string | null, claim: (turnId: string) => boolean): void {
+  const scenarioId = useCanvasStore.getState().currentScenarioId
+  if (!landed || !scenarioId) return
+  void ownSavedVersion(scenarioId, claim).then(versionId => {
+    const now = useCanvasStore.getState()
+    if (versionId && now.currentScenarioId === scenarioId && now.lastServerGraphHash === landed) noteCanvasLocalCommit(versionId)
+  }, () => undefined)
 }
 
 /**

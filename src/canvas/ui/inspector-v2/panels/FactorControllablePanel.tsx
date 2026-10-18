@@ -177,6 +177,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   shownNodeIdRef.current = nodeId
   /** Cancels a pending read of the saved model (`awaitSavedModelRead`); a new commit or an unmount retires it. */
   const cancelSavedReadRef = useRef<(() => void) | null>(null)
+  /** The `turn_id`s of value sends whose reply was lost: a saved version only one of them wrote is this panel's. */
+  const unconfirmedTurnIdsRef = useRef(new Set<string>())
   useEffect(() => () => { cancelSavedReadRef.current?.() }, [])
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -487,6 +489,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       setValueCommitOutcome('sending')
       // Settle through the shared send authority: received refusals are not unsent.
       const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
+        if (settlement === 'unverified' && detail.turnId !== undefined) unconfirmedTurnIdsRef.current.add(detail.turnId)
         if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
         if (settlement === 'blocked') return setValueCommitOutcome('local_only')
         if (settlement === 'unverified') return setValueCommitOutcome('unconfirmed')
@@ -512,6 +515,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               const seedRead = readSeed()
               if (!valueFieldFocusedRef.current) setDraftValue(seedRead != null ? String(seedRead) : '')
             },
+            claimOwnSend: turnId => unconfirmedTurnIdsRef.current.delete(turnId),
           })
           return
         }

@@ -2630,11 +2630,16 @@ export class SystemEventSendError extends Error {
    * deferral queue asks it for exactly that (`flushDeferredSystemSends`).
    */
   readonly retryable?: boolean
+  /**
+   * The `turn_id` this send went out as. A send whose outcome is unknown may still have written, and the version it
+   * wrote records this id as its `source_turn_id`: it is how a later read tells this send's write from another tab's.
+   */
+  readonly turnId?: string
   /** Recovery wake-up after a carrier has completed its refusal rollback/copy. Never wire data. */
   onRefusedGraphSettled?: () => void
   constructor(
     kind: 'transport' | 'server',
-    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean },
+    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean; turnId?: string },
   ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
@@ -2643,6 +2648,7 @@ export class SystemEventSendError extends Error {
     if (options?.conflictCategory !== undefined) this.conflictCategory = options.conflictCategory
     if (options?.reason !== undefined) this.reason = options.reason
     if (options?.retryable !== undefined) this.retryable = options.retryable
+    if (options?.turnId !== undefined) this.turnId = options.turnId
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -6622,6 +6628,7 @@ export function useConversation(): UseConversationReturn {
                 // carried so the deferral queue can tell a futile replay from a
                 // retry that may still land (`flushDeferredSystemSends`).
                 retryable,
+                turnId: turnClientId,
               },
             )
             // U: only a proven 409 on an actual graph-writing event requests
@@ -6818,7 +6825,7 @@ export function useConversation(): UseConversationReturn {
           // reject re-raised by callV5Turn, or an internal error). Propagate
           // to the dispatcher — an aborted turn (user stop / timeout) is not
           // a failure and is excluded above.
-          systemSendFailure = new SystemEventSendError('transport', { cause: err })
+          systemSendFailure = new SystemEventSendError('transport', { cause: err, turnId: turnClientId })
           // 0.48.0 — a delete that never reached the server. The canvas is
           // LEFT ALONE (see `resolveStructuralDelete`: nothing was read, so
           // restoring would be as unfounded as leaving it deleted) and the

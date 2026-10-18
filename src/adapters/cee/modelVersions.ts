@@ -144,6 +144,11 @@ export interface ServerModelVersion {
   createdAt: string
   /** CEE's opaque identity token for this version — the CAS expectation. */
   graphIdentityHash: string
+  /**
+   * v2 `creation.source_turn_id`: the turn that wrote this version, in the UI's own `turn_id` space (served: version
+   * 2c9b40a1 ↔ turn 75028e02). `null` when CEE did not capture one (a restore, a version older than the capture).
+   */
+  sourceTurnId?: string | null
 }
 
 export interface ServerVersionWriteOutcome {
@@ -463,6 +468,9 @@ function parseSummaryV2(raw: unknown): ServerModelVersion | null {
     createdAt,
     graphIdentityHash: hash,
     parentVersionId: parentOfLineage(row.lineage),
+    sourceTurnId: typeof creation?.source_turn_id === 'string' && creation.source_turn_id.length > 0
+      ? creation.source_turn_id
+      : null,
   }
 }
 

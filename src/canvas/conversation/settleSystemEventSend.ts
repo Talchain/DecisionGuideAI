@@ -87,6 +87,11 @@ export interface SystemEventSendSettlementDetail {
    * Show it only through `isDisplaySafeReason`.
    */
   readonly reason?: string
+  /**
+   * Set on `unverified` only: the `turn_id` the send went out as. Its write, if it landed, is the saved version whose
+   * `source_turn_id` is this id (`awaitSavedModelRead`).
+   */
+  readonly turnId?: string
 }
 
 /**
@@ -148,6 +153,7 @@ export function settleSystemEventSend(
     })
     .catch((err: unknown) => {
       if (err instanceof SystemEventSendError) {
+        const turn = err.turnId !== undefined ? { turnId: err.turnId } : {}
         // The error already distinguishes them: `kind` separates "nothing
         // reached the server" from "the server received the turn and failed
         // it", and `conflictCategory` is carried precisely because 'server' is
@@ -168,9 +174,9 @@ export function settleSystemEventSend(
           if (isProvenNoWriteReason(err.reason)) {
             return settleOnce('refused', { ...reason, refusal: 'declined' })
           }
-          return settleOnce('unverified', reason)
+          return settleOnce('unverified', { ...reason, ...turn })
         }
-        return settleOnce('unverified')
+        return settleOnce('unverified', turn)
       }
       // A rejection shape this seam does not recognise. It cannot prove
       // non-delivery, so it must not claim it: the cannot-confirm line, not the
