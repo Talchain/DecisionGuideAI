@@ -99,6 +99,7 @@ import {
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
 import { dockWidthBounds, parseStoredDockWidth, resolveDockWidth } from './dockWidth'
+import { ArtefactColumn } from '../artefacts/ArtefactColumn'
 import {
   shouldAutoExpandDockForResponse,
   latestRealMessageIsAssistantReply,
@@ -3137,6 +3138,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
         // just caused to mount speaks again. Same value the effect navigates on.
         willFrontAnalysisTab={navigatesToAnalysisTab}
       />
+      {/* The reasoning artefact beside the model: the dock's freshness and in-flight authorities, as the Reasoning tab gets. */}
+      <ArtefactColumn isStale={analysisNotConfirmedFresh} isBusy={analysisStillAwaited} hidden={isOverlayPanelActive} />
     <aside
       ref={shellRef}
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}

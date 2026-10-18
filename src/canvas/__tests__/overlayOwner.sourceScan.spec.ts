@@ -58,6 +58,9 @@ const MIGRATED = [
   'DegradedBanner.tsx',
   // M2 (PTL #85 5933452605, 1 Oct 2026): the rerun's compact summary, a bottom-centre claimant.
   'RunChangesSummary.tsx',
+  // 18 Oct 2026 (Paul: reasoning artefacts on the canvas): Olumi's one suggested next move, bottom-right after the
+  // engine-health banner.
+  'ArtefactOffer.tsx',
 ] as const
 
 /**

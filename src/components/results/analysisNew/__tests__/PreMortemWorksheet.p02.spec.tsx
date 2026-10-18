@@ -5,9 +5,11 @@
 import { describe, it, afterEach, beforeEach } from 'vitest'
 import assert from 'node:assert/strict'
 import elig3 from '../../../../v5/__tests__/premortem-fixtures/premortem-elig3-v2.json'
-import { render, fireEvent, cleanup } from '@testing-library/react'
+import { render, fireEvent, cleanup, act } from '@testing-library/react'
 import { PreMortemWorksheet } from '../sections/PreMortemWorksheet'
-import { useCanvasStore } from '../../../../canvas/store'
+import { selectPremortemWorksheet, useCanvasStore } from '../../../../canvas/store'
+import { ArtefactColumn } from '../../../../canvas/artefacts/ArtefactColumn'
+import { useArtefactStore } from '../../../../canvas/artefacts/artefactStore'
 import { readPremortemWorksheet, storePremortemWorksheet, type PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet'
 import { ACTIONS_MENU } from '../../../../canvas/components/pre-analysis-v3/constants'
 import { QUESTIONS } from '../../../../canvas/conversation/askAiQuestions'
@@ -28,7 +30,6 @@ const base = (w: PremortemWorksheetV1) => ({
 })
 const seed = (w: PremortemWorksheetV1) => useCanvasStore.setState({ ...base(w),
   runMeta: { premortemWorksheet: readPremortemWorksheet({ _premortem_worksheet: w }), premortemRun: runOf(w) } })
-const open = (view: ReturnType<typeof render>) => fireEvent.click(view.getByTestId('premortem-worksheet-toggle'))
 beforeEach(() => { try { localStorage.clear() } catch { /* none */ } })
 afterEach(cleanup)
 
@@ -49,7 +50,7 @@ describe('P02 DGAI rows', () => {
     assert.equal(readPremortemWorksheet({ _premortem_worksheet: bad }).status, 'unavailable')
   })
   it('ROW 1: a story on an existing risk shows "Already on your map" with Inspect, and no Add; a new risk keeps Add', () => {
-    seed(FIX.existing_risk); const view = render(<PreMortemWorksheet />); open(view)
+    seed(FIX.existing_risk); const view = render(<PreMortemWorksheet />)
     const [row1, row2] = FIX.existing_risk.rows
     const el1 = view.container.querySelector(`[data-row-id="${row1.row_id}"]`)!
     const el2 = view.container.querySelector(`[data-row-id="${row2.row_id}"]`)!
@@ -60,31 +61,38 @@ describe('P02 DGAI rows', () => {
     assert.deepEqual([...useCanvasStore.getState().selection.nodeIds], ['customers_lost_from_price_rise'])
   })
   it('ROW 2: every row shows its Mitigate line, byte for byte', () => {
-    seed(FIX.existing_risk); const view = render(<PreMortemWorksheet />); open(view)
+    seed(FIX.existing_risk); const view = render(<PreMortemWorksheet />)
     assert.deepEqual(view.getAllByTestId('premortem-mitigation').map(el => el.textContent), FIX.existing_risk.rows.map(r => `Mitigate: ${r.mitigation}`))
   })
   it('a server-built row is labelled as Olumi’s starting point and offers no Add', () => {
-    seed(FIX.server_built); const view = render(<PreMortemWorksheet />); open(view)
+    seed(FIX.server_built); const view = render(<PreMortemWorksheet />)
     const el = view.container.querySelector(`[data-row-id="${FIX.server_built.rows[0].row_id}"]`)!
     assert.match(el.textContent ?? '', /Olumi’s starting point: for you to challenge/u)
     assert.doesNotMatch(el.textContent ?? '', /Add this as a risk/u)
   })
-  it('ROW 3: after a reload the worksheet re-renders for the same Run with no turn sent; another Run gets none', () => {
+  it('ROW 3: after a reload the worksheet is restored for the same Run with no turn sent, without opening itself; another Run gets none', () => {
     storePremortemWorksheet(FIX.existing_risk)
     let fetches = 0
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => { fetches += 1; throw new Error('no network') }) as typeof fetch
     try {
+      // The restore runs in the column's controller (mounted with the dock), whether or not the column is open.
       useCanvasStore.setState({ ...base(FIX.existing_risk), runMeta: {} })
-      const view = render(<PreMortemWorksheet />); open(view)
-      assert.ok(view.getByText(FIX.existing_risk.rows[0].failure_way))
+      useArtefactStore.setState({ open: null })
+      const column = render(<ArtefactColumn isStale={false} isBusy={false} />)
+      assert.equal(selectPremortemWorksheet(useCanvasStore.getState())?.status, 'available')
+      assert.equal(column.queryByTestId('artefact-column'), null, 'a restored worksheet is one the user already had: it never opens the column by itself')
+      act(() => useArtefactStore.getState().show('premortem'))
+      assert.ok(column.getByText(FIX.existing_risk.rows[0].failure_way))
       assert.equal(fetches, 0)
       cleanup()
       // CONTROL: a different Run (new computed_at) never restores the old worksheet.
       useCanvasStore.setState({ ...base(FIX.existing_risk), runMeta: {},
         analysisStateV1: { run_state: { kind: 'complete_current', computed_at: '2030-01-01T00:00:00.000Z' } } as never })
-      const other = render(<PreMortemWorksheet />)
-      assert.equal(other.queryByTestId('premortem-worksheet-toggle'), null)
+      useArtefactStore.setState({ open: 'premortem' })
+      const other = render(<ArtefactColumn isStale={false} isBusy={false} />)
+      assert.equal(selectPremortemWorksheet(useCanvasStore.getState()), null)
+      assert.equal(other.queryByTestId('premortem-worksheet'), null)
     } finally { globalThis.fetch = realFetch }
   })
   it('ROW 4: no pre-mortem prompt assumes "a year from now"', () => {

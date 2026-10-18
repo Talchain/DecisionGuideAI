@@ -104,7 +104,7 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { DecisionMatrix } from './sections/DecisionMatrix'
-import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
+import { ArtefactOpener } from '../../../canvas/artefacts/ArtefactColumn'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningActionBar } from './sections/ReasoningActionBar'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
@@ -2979,7 +2979,8 @@ export function AnalysisNewTabBody({
           }}
           isStale={vm.status.isStale}
         />
-        <PreMortemWorksheet isBusy={isBusyNow} isStale={vm.status.isStale} />
+        {/* The worksheet opens beside the model (`canvas/artefacts/ArtefactColumn.tsx`); this tab keeps its one line. */}
+        <ArtefactOpener />
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
             One line where seven sections answered one question. It states the
