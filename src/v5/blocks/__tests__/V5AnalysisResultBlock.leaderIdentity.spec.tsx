@@ -253,8 +253,8 @@ describe('CONTROL: headline-option resolution was already ID↔ID (refutes brief
     // opt_mac is entries[1]. Its tight interval yields the confident copy;
     // entries[0] (opt_dell) straddles zero and would be downgraded to the
     // "meaningful uncertainty" wording.
-    expect(screen.getByTestId('v5-analysis-result-uncertainty-copy')).toHaveTextContent(
-      "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on.",
+    expect(screen.getByTestId('v5-analysis-result-uncertainty-copy').textContent).toBe(
+      'The leading option’s ranking is marked as stable in this model.',
     )
   })
 })

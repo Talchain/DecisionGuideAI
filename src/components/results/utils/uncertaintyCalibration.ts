@@ -47,8 +47,11 @@ export interface UncertaintyCopy {
   text: string
 }
 
+// AIE (prompt/AIE-RESTORE-AND-RANKING-TEXT-20261018-v1.json, `ranking`): supporting detail about the permitted
+// leader's ranking only, never the goal chance. The old "held in most simulated futures" claimed a frequency the
+// high-robustness label does not establish, and "the result" read as the nearby goal chance (G2).
 const CONFIDENT_TEXT =
-  "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
+  'The leading option’s ranking is marked as stable in this model.'
 const MODERATE_TEXT =
   "Under this model's assumptions, the result held in many simulated futures, with meaningful uncertainty."
 const TENTATIVE_TEXT = 'This result is tentative. The uncertainty is substantial.'
