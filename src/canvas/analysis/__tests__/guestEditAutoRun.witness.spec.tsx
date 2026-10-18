@@ -256,7 +256,11 @@ describe('CONTRAST — nothing but an applied guest edit starts the automatic Ru
     expect(run).toHaveBeenCalledTimes(1)
   })
 
-  it('(d) POSITIVE CONTRAST — the first reply was LOST (canvas still at H1), the retry lands H2: exactly ONE Run, on H2', async () => {
+  // "Failed to fetch" does not say whether CEE got the send. This row is the send CEE never got: nothing was written,
+  // so the retry on H1 is the write (200, H2). When the lost reply HAD committed, served CEE 8e9132fc refuses the retry
+  // with 409 `stale_base_graph_hash` (capture 2026-10-18T034045Z turn 04, row (c) above), and the Run comes from the
+  // card's read-back: `optionTargetRefusalSettles.wire.spec.ts`, "a saved edit confirmed by read-back…".
+  it('(d) POSITIVE CONTRAST — the first send never reached CEE (canvas still at H1), the retry lands H2: exactly ONE Run, on H2', async () => {
     const view = mount()
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
     await sendEdit(view)

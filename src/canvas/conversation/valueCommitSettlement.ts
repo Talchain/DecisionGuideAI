@@ -22,6 +22,7 @@
  * apart (a slow-but-successful commit from a lost one).
  */
 import { REVISION_CONFLICT_NOTICE } from '../../v5/failureTypeRetryability'
+import { noteCanvasLocalCommit } from '../analysis/useAnalyseAfterCommittedChange'
 import type { SystemEventSendSettlementDetail, SystemEventSendSettlement } from './settleSystemEventSend'
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
@@ -195,6 +196,11 @@ export function awaitSavedModelRead(opts: {
     if (done) return
     done = true
     cancel()
+    // The read found THIS commit's value saved: the lost reply's write landed (the 409 proves the retry wrote nothing).
+    // No response will note that commit, so it is noted here, once, and its automatic Run follows (served C3,
+    // 2026-10-18T034045Z turns 03–04). Only `saved`: a conflict or refusal committed nothing for this edit.
+    const landed = word === 'saved' ? opts.readBase() : null
+    if (landed) noteCanvasLocalCommit(landed)
     opts.onWord(word)
   }
   const deadline = setTimeout(() => finish('refused_unread'), opts.timeoutMs ?? SAVED_MODEL_READ_TIMEOUT_MS)
