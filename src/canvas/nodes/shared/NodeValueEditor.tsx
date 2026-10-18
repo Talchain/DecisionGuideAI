@@ -254,6 +254,8 @@ function NodeValueEditorInScenario({
   valueRef.current = value
   /** Cancels a pending read of the saved model (`awaitSavedModelRead`); a new edit or an unmount retires it. */
   const cancelSavedReadRef = useRef<(() => void) | null>(null)
+  /** The `turn_id`s of this field's sends whose reply was lost: a saved version only one of them wrote is this card's. */
+  const unconfirmedTurnIdsRef = useRef(new Set<string>())
   const retireSavedRead = useCallback(() => { cancelSavedReadRef.current?.(); cancelSavedReadRef.current = null }, [])
 
   useEffect(() => () => { mountedRef.current = false; retireSavedRead() }, [retireSavedRead])
@@ -316,6 +318,7 @@ function NodeValueEditorInScenario({
     const readNow = () => (readCommittedValue ? readCommittedValue() : valueRef.current)
     const isCurrent = () => mountedRef.current && seq === commitSeqRef.current
     const onSendSettled = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
+      if (s === 'unverified' && detail.turnId !== undefined) unconfirmedTurnIdsRef.current.add(detail.turnId)
       if (!isCurrent()) return
       // ⭐ A refusal on a MOVED base is not "the model kept its previous value": after a lost reply the model often
       // already holds this very value. Read the saved model first (`needsSavedModelRead`, served capacity row 7a).
@@ -332,6 +335,7 @@ function NodeValueEditorInScenario({
           committedTo,
           readNow,
           onWord: word => { if (isCurrent()) setSettlement(word) },
+          claimOwnSend: turnId => unconfirmedTurnIdsRef.current.delete(turnId),
         })
         return
       }

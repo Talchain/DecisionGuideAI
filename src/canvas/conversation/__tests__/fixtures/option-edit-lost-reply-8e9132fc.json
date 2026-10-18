@@ -1,5 +1,5 @@
 {
- "_source": "Served capture live/runs/2026-10-18T034045Z-capacity-verify-8e9132fc/capacity (DGAI e7eb7cd5, CEE 8e9132fc), copied verbatim. before = reads/04-05-A.json body (the last read before the edit). turn03 = turns/03.json (server 200 with its receipt; the browser saw Failed to fetch). turn04 = turns/04.json (the re-entry: 409 stale_base_graph_hash, nothing written). after = reads/06-05-C.json body (the saved model after the lost reply). turn06 = turns/06.json (tab B, opened on 'after': 409 revision_conflict). tabBRead = reads/10-08-C.json body (the model tab A's edit to 4 saved).",
+ "_source": "Served capture live/runs/2026-10-18T034045Z-capacity-verify-8e9132fc/capacity (DGAI e7eb7cd5, CEE 8e9132fc), copied verbatim. before = reads/04-05-A.json body (the last read before the edit). turn03 = turns/03.json (server 200 with its receipt; the browser saw Failed to fetch). turn04 = turns/04.json (the re-entry: 409 stale_base_graph_hash, nothing written). after = reads/06-05-C.json body (the saved model after the lost reply). turn06 = turns/06.json (tab B, opened on 'after': 409 revision_conflict). tabBRead = reads/10-08-C.json body (the model tab A's edit to 4 saved). versionsList = the served versions list for this scenario (POST /bff/cee/scenarios/91be5d76…/versions as its signed-in owner, read 2026-10-18T05:34:51Z, no provider call), verbatim: rows 2 and 3 record the turn ids turns 03 and 07 were sent with as creation.source_turn_id.",
  "before": {
   "schema": "scenario_graph.v1",
   "changed_since_run": {
@@ -6799,5 +6799,104 @@
    }
   },
   "request_id": "a7ab7ba1-4b34-4b18-a23b-e3be0c03ba55"
+ },
+ "versionsList": {
+  "schema": "model_versions_list.v2",
+  "request_id": "13640cba-9bc7-4ad1-8d8f-dc3e4678152b",
+  "scenario_id": "91be5d76-c013-48e6-bb21-2f30d4012663",
+  "current_version_id": "a31ffb6f-8c2c-448a-94f8-4fa90a3123eb",
+  "versions": [
+   {
+    "version_id": "a31ffb6f-8c2c-448a-94f8-4fa90a3123eb",
+    "scenario_id": "91be5d76-c013-48e6-bb21-2f30d4012663",
+    "sequence": 4,
+    "label": "Undo: Change option setting",
+    "created_at": "2026-10-18T03:47:01.06578+00:00",
+    "actor": {
+     "kind": "known",
+     "authored_by": "owner"
+    },
+    "creation": {
+     "kind": "restore",
+     "source_version_id": "2c9b40a1-a2a8-4c2d-972a-f98141ca3903",
+     "mutation_id": "d53312a2-cd5d-470b-b6bc-5eb19ea309e2",
+     "source_turn_id": null
+    },
+    "lineage": {
+     "kind": "known",
+     "parent_version_id": "d16c12ae-5b62-487d-bd58-690d8dfc3d5e",
+     "root_version_id": "85863dca-0a09-4239-8d51-93246281f302"
+    },
+    "full_hash": "d043370283926c89ebc54354b69cbd7565913295e6708a25710e2fac88cdc03f",
+    "analysis_affecting_hash": "bbe066ba894669dfe3da5ca3c63f714a924f8b498633844b971fcf49565f355d"
+   },
+   {
+    "version_id": "d16c12ae-5b62-487d-bd58-690d8dfc3d5e",
+    "scenario_id": "91be5d76-c013-48e6-bb21-2f30d4012663",
+    "sequence": 3,
+    "label": "Committed model change",
+    "created_at": "2026-10-18T03:46:13.155657+00:00",
+    "actor": {
+     "kind": "unknown"
+    },
+    "creation": {
+     "kind": "committed_mutation",
+     "mutation_id": "686b5106-ec27-5025-af2a-61ab9f2c3fc4",
+     "source_turn_id": "a4277189-ad70-46cb-be22-5c7f5cef806f"
+    },
+    "lineage": {
+     "kind": "known",
+     "parent_version_id": "2c9b40a1-a2a8-4c2d-972a-f98141ca3903",
+     "root_version_id": "85863dca-0a09-4239-8d51-93246281f302"
+    },
+    "full_hash": "e2fac77aca096dd415d251a7011a012d9b88e42c6e4a4ee632c318e5d7c685a9",
+    "analysis_affecting_hash": "e3e63130328b8b90b336278789e2a450cc5209a7f15277af39b51de228d36efa"
+   },
+   {
+    "version_id": "2c9b40a1-a2a8-4c2d-972a-f98141ca3903",
+    "scenario_id": "91be5d76-c013-48e6-bb21-2f30d4012663",
+    "sequence": 2,
+    "label": "Committed model change",
+    "created_at": "2026-10-18T03:43:34.123899+00:00",
+    "actor": {
+     "kind": "unknown"
+    },
+    "creation": {
+     "kind": "committed_mutation",
+     "mutation_id": "622b87e5-be90-5fce-a880-2cf3826e39b2",
+     "source_turn_id": "75028e02-d23d-4af3-94c1-0b6ce194f142"
+    },
+    "lineage": {
+     "kind": "known",
+     "parent_version_id": "85863dca-0a09-4239-8d51-93246281f302",
+     "root_version_id": "85863dca-0a09-4239-8d51-93246281f302"
+    },
+    "full_hash": "d043370283926c89ebc54354b69cbd7565913295e6708a25710e2fac88cdc03f",
+    "analysis_affecting_hash": "bbe066ba894669dfe3da5ca3c63f714a924f8b498633844b971fcf49565f355d"
+   },
+   {
+    "version_id": "85863dca-0a09-4239-8d51-93246281f302",
+    "scenario_id": "91be5d76-c013-48e6-bb21-2f30d4012663",
+    "sequence": 1,
+    "label": "Committed model change",
+    "created_at": "2026-10-18T03:41:37.531167+00:00",
+    "actor": {
+     "kind": "unknown"
+    },
+    "creation": {
+     "kind": "initial",
+     "mutation_id": "3b92c61f-dd4a-591c-a0ba-d481ca22fa58",
+     "source_turn_id": "graph_registration:3699abea-02fc-4704-a0d9-0db36deee777"
+    },
+    "lineage": {
+     "kind": "known",
+     "parent_version_id": null,
+     "root_version_id": "85863dca-0a09-4239-8d51-93246281f302"
+    },
+    "full_hash": "5bd407049ccd8e900f09b69781c03ca446e021d4e5a983d46fd72b141b3b88ca",
+    "analysis_affecting_hash": "a9a4d89ba2669f76de99e9540970a3a4021f6e0132e3cfb8125c8d615de1983a"
+   }
+  ],
+  "next_cursor": null
  }
 }
