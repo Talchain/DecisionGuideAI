@@ -138,7 +138,9 @@ export function reconcileRestoredProposalFields(
   // ⭐ EVERY card a reply carries comes back with its button (Codex BLOCK 18 Oct, P1: a restore showed only the first).
   const attach = (index: number, held: readonly (typeof proposals)[number][], earlier: boolean) => {
     const reply = out[index]
-    const card = buildSuggestedActionChips([], [...held.map(h => h.approve_action), AMEND_PROPOSAL_ACTION, ...held.map(h => h.decline_action)])
+    // A card kept for review comes back as "Review this change", never as approve (CEE PR-2: no silent lapse).
+    const card = buildSuggestedActionChips([], [...held.map(h => h.review_action ?? h.approve_action),
+      ...(held.some(h => h.review_action === undefined) ? [AMEND_PROPOSAL_ACTION] : []), ...held.map(h => h.decline_action)])
     const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
     out[index] = { ...reply, heldProposalId: held[0].proposal_id, heldProposalEarlier: earlier,
       actionChips: [...card, ...others], proposalFields: rawProposalFields }

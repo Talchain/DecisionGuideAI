@@ -5,11 +5,11 @@
  * SYNTHETIC cards. Binds by chip identity (`data-testid` carries the id), never by position or text.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 import { reconcileRestoredProposalFields } from '../serverConversationTurns'
-import { displayedProposals } from '../proposalFields'
+import { displayedProposals, readProposalFields } from '../proposalFields'
 import { buildV5Payload } from '../../../v5/buildPayload'
 
 vi.mock('../../store', () => ({
@@ -138,5 +138,51 @@ describe('the cards on screen, sent with a typed turn', () => {
     // No card on screen: no key at all, so the strict schema still accepts the turn (CI @55ce746e: selectedEdgeIdentity).
     const none = buildV5Payload({ ...base, displayedProposals: [], message: 'Approved.', source: 'composer' })
     expect(none.ok && none.payload).not.toHaveProperty('displayed_proposals')
+  })
+})
+
+// ⭐ CEE PR-2, NO SILENT LAPSE: a card kept for review after the model changed shows "Review this change" and its "Not now",
+// live and after a reload, and is never offered as approve (never on screen as approvable, so never in the typed set).
+const review = (id: string, change: string) => ({ id: `agent-review-proposal:${id}`, label: 'Review this change',
+  message: `Show me this change again on the model as it is now: "${change}".`, detail: change })
+const withReview = (raw: ReturnType<typeof fields>, id: string, change: string) =>
+  ({ ...raw, proposals: raw.proposals.map(p => (p.proposal_id === id ? { ...p, review_action: review(id, change) } : p)) })
+describe('a card kept for review: "Review this change", never approve', () => {
+  it('⭐ a reload restores the review card as review + Not now, beside an approvable card', () => {
+    const raw = withReview(fields([A, 'Use as starting assumptions'], [B, 'Record this level']), A, 'Prep time cut from mixer = 0%')
+    const restored = reconcileRestoredProposalFields([msg({ id: 'restored-assistant-issued-1', actionChips: [] })], raw)
+    renderThread(restored)
+    expect(has(`agent-review-proposal:${A}`)).toBe(true)
+    expect(has(`agent-approve-proposal:${A}`), 'never approvable').toBe(false)
+    expect(has(`agent-decline-proposal:${A}`)).toBe(true)
+    expect(has(`agent-approve-proposal:${B}`)).toBe(true)
+    // Several cards: each "Not now" names its card; the review card by the change it holds.
+    expect(screen.getByTestId(`suggested-chip-agent-decline-proposal:${A}`).textContent).toBe('Not now: Prep time cut from mixer = 0%')
+  })
+  it('only a review card restored: no "Change something first", which has nothing to change', () => {
+    const raw = withReview(fields([A, 'Use as starting assumptions']), A, 'Prep time cut from mixer = 0%')
+    const restored = reconcileRestoredProposalFields([msg({ id: 'restored-assistant-issued-1', actionChips: [] })], raw)
+    expect(restored[0].actionChips?.map(c => c.id)).toEqual([`agent-review-proposal:${A}`, `agent-decline-proposal:${A}`])
+  })
+  it('an earlier reply keeps its review card while CEE still lists it; once it is no longer held, it goes', () => {
+    const earlier = msg({ actionChips: [review(A, 'Prep time cut from mixer = 0%'), decline(A)],
+      proposalFields: withReview(fields([A, 'Use as starting assumptions']), A, 'Prep time cut from mixer = 0%') })
+    renderThread([earlier, msg({ role: 'user', content: 'Which one?' }),
+      msg({ actionChips: [], proposalFields: withReview(fields([A, 'Use as starting assumptions']), A, 'Prep time cut from mixer = 0%') })])
+    expect(has(`agent-review-proposal:${A}`)).toBe(true)
+    cleanup()
+    renderThread([earlier, msg({ role: 'user', content: 'Not now.' }), msg({ actionChips: [], proposalFields: fields([B, 'Record this level']) })])
+    expect(has(`agent-review-proposal:${A}`)).toBe(false)
+    expect(has(`agent-decline-proposal:${A}`)).toBe(false)
+  })
+  it('a review card is not in the typed set (it is not approvable); the approvable card beside it is', () => {
+    const shown = displayedProposals([msg({ actionChips: [review(A, 'Prep time cut from mixer = 0%'), approve(B, 'Record this level'), AMEND, decline(A), decline(B)],
+      proposalFields: withReview(fields([A, 'Use as starting assumptions'], [B, 'Record this level']), A, 'Prep time cut from mixer = 0%') })])
+    expect(shown.map(p => p.proposal_id)).toEqual([B])
+  })
+  it('a review action that names another card is refused by the reader (identity, never trusted)', () => {
+    const raw = fields([A, 'Use as starting assumptions'])
+    const bad = { ...raw, proposals: raw.proposals.map(p => ({ ...p, review_action: review(B, 'x') })) }
+    expect(readProposalFields(bad)?.proposals ?? []).toEqual([])
   })
 })

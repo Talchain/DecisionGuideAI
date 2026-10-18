@@ -38,6 +38,7 @@ import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
+import { isHeldCardChipId, REVIEW_PROPOSAL_PREFIX } from '../proposalFields'
 import type { ActionChip } from '../types'
 import type { GuidedSizing } from '../../../v5/readGuidedSizing'
 import { HeldProposalPanel, readProposalFields, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
@@ -159,7 +160,8 @@ function isConsentChip(chip: ActionChip): boolean {
  * keeps the apply-chip rule (accessible name + `title`).
  */
 function disclosesDetail(chip: ActionChip): boolean {
-  return isResearchChip(chip) || isConsentChip(chip)
+  // A card kept for review (CEE PR-2) says which change it is before the click, as its approve did.
+  return isResearchChip(chip) || isConsentChip(chip) || (typeof chip.id === 'string' && chip.id.startsWith(REVIEW_PROPOSAL_PREFIX))
 }
 
 const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
@@ -170,10 +172,12 @@ const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
  */
 function declineNamesItsCard(chip: ActionChip, row: readonly ActionChip[]): string | undefined {
   if (typeof chip.id !== 'string' || !chip.id.startsWith(DECLINE_CHIP_PREFIX)) return undefined
-  const cards = row.filter(isConsentChip)
+  const cards = row.filter(c => isHeldCardChipId(c.id))
   if (cards.length < 2) return undefined
-  const card = cards.find(c => c.id === `${CONSENT_CHIP_PREFIX}${chip.id.slice(DECLINE_CHIP_PREFIX.length)}`)
-  return card === undefined ? undefined : `${chip.label}: ${card.label}`
+  const id = chip.id.slice(DECLINE_CHIP_PREFIX.length)
+  const card = cards.find(c => c.id === `${CONSENT_CHIP_PREFIX}${id}` || c.id === `${REVIEW_PROPOSAL_PREFIX}${id}`)
+  // A card kept for review is named by the change it holds (its detail), not by "Review this change".
+  return card === undefined ? undefined : `${chip.label}: ${card.id.startsWith(REVIEW_PROPOSAL_PREFIX) && card.detail ? card.detail : card.label}`
 }
 
 /** What the row shows, held while a turn is in flight. */
