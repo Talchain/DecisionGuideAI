@@ -110,6 +110,21 @@ describe('a figure the user sets stays lit until seen', () => {
     assert.deepEqual(useArtefactStore.getState().settled, [], 'seen, it stops being lit')
   })
 
+  it('the list the user is working through stays put: the figure they set is listed under it, its card still open', () => {
+    seedModel()
+    useArtefactStore.setState({ scenarioId: SCENARIO, open: 'assumptions' })
+    const view = render(<ArtefactColumn isStale={false} isBusy={false} />)
+    fireEvent.click(view.getByTestId('assumption-map-filter-unchecked'))
+    fireEvent.click(view.getAllByTestId('assumption-map-item').find((b) => b.getAttribute('data-target') === 'f1')!)
+    assert.equal(view.getByTestId('assumption-map-figure').getAttribute('data-target'), 'f1')
+
+    act(() => { useCanvasStore.setState((s) => ({ nodes: s.nodes.map((n) => (n.id === 'f1' ? node('f1', 'factor', USER_VALUE) : n)) })) })
+    assert.equal(view.getByTestId('assumption-map-filter-unchecked').getAttribute('aria-pressed'), 'true', 'the chosen list does not move')
+    const moved = view.getByTestId('assumption-map-moved')
+    assert.ok(moved.querySelector('[data-testid="assumption-map-item"][data-target="f1"]'), 'f1 is listed as moved to yours')
+    assert.equal(view.getByTestId('assumption-map-figure').getAttribute('data-target'), 'f1', 'its card stays open')
+  })
+
   it('CONTRAST: a figure that moves away from yours, or stays where it was, is never lit', () => {
     seedModel(USER_VALUE)
     useArtefactStore.setState({ scenarioId: SCENARIO, open: 'assumptions' })

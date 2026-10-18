@@ -15,7 +15,7 @@ import { InspectorRouter } from '../ui/inspector-v2'
 import { ICON_STANDALONE } from '../conversation/panelIcons'
 import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 import { CANVAS_LAYER_CLASS } from '../layers'
-import { OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR } from '../utils/computeFitPadding'
+import { ARTEFACT_COLUMN_SELECTOR, OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR } from '../utils/computeFitPadding'
 import { isGhostNode } from '../utils/fitTargets'
 
 /** Feature flag: when true, uses the new per-type inspector panels */
@@ -196,11 +196,18 @@ export function clampInspector({
   return { x, y }
 }
 
-/** The right panel's left edge, or the window's width when it is not showing. */
+/**
+ * The free canvas's right edge: the nearer of the right panel's left edge and the thinking tools' (their rail and open
+ * stage sit beside the dock, and the fit already reserves them on the dock's terms, `ARTEFACT_COLUMN_SELECTOR`), or
+ * the window's width when neither is showing. So an editor opened from a tool sits beside it, never over it.
+ */
 function canvasRightLimit(): number {
-  const dock = document.querySelector('[data-testid="outputs-dock"]')
-  const r = dock?.getBoundingClientRect()
-  return r && r.width > 0 && r.left > 0 ? Math.min(r.left, window.innerWidth) : window.innerWidth
+  let edge = window.innerWidth
+  for (const selector of ['[data-testid="outputs-dock"]', ARTEFACT_COLUMN_SELECTOR]) {
+    const r = document.querySelector(selector)?.getBoundingClientRect()
+    if (r && r.width > 0 && r.left > 0) edge = Math.min(edge, r.left)
+  }
+  return edge
 }
 
 /**

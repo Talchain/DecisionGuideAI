@@ -2,7 +2,10 @@
  * One picked figure, opened in place under its row: the user acts on it here, but only through the model's own
  * controls. A factor's value is set with `FactorValueControl` (the same control and writer the Analysis tab uses); a
  * link's strength is set in the link's own editor (`openEdgeStrengthEditor`); Ask Olumi sends the question the ask
- * registry already holds for that element (`askAi`). Nothing here writes the model itself, and a viewer gets the
+ * registry already holds for that element (`askAi`). The element's own control is the one act in front: for a factor,
+ * its value control, so Ask Olumi steps back beside it. Accepting Olumi's figure as it stands is offered only where
+ * the model has a carrier for it (a link's "Keep Olumi's estimate", in the link's editor); a factor has none
+ * (`CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation` is disabled), so none is offered here. Nothing here writes the model itself, and a viewer gets the
  * reading and "Show on the model" only.
  */
 import { ArrowUpRight, MessageCircle, Crosshair } from 'lucide-react'
@@ -70,7 +73,9 @@ export function FigureCard({ item }: { item: AssumptionItem }) {
           <button
             type="button"
             data-testid="assumption-map-figure-ask"
-            className={`${typography.panelBody} ${action('secondary')} gap-1 px-3`}
+            className={target.kind === 'node'
+              ? `${typography.panelBody} ${action('quiet')} gap-1 px-1 no-underline hover:text-text-body`
+              : `${typography.panelBody} ${action('secondary')} gap-1 px-3`}
             onClick={() => ask(item)}
           >
             <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />

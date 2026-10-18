@@ -92,6 +92,10 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   const options = nodes.filter(node => node.type === 'option')
   return <div data-testid="premortem-worksheet" data-row-count={worksheet.rows.length} className={`space-y-6 transition-opacity duration-200 ${stale ? 'opacity-60' : ''}`}>
       {stale ? <p role="status" className={`${typography.panelBody} rounded-xl border border-warning px-3 py-2 text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
+      {/* Said once for the worksheet, never as a label above each story: every story Olumi drafted is its hypothesis. */}
+      {worksheet.rows.some(row => row.source !== 'server_built')
+        ? <p className={`${typography.panelMeta} inline-flex rounded-full border border-dashed border-info px-2.5 py-0.5 text-text-body`}>{PREMORTEM_COPY.provenance}</p>
+        : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
         return <section key={option.id} data-option-id={option.id} className="space-y-3">
@@ -103,8 +107,8 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
             {rows.length === 0 ? <p className={`${typography.panelMeta} text-text-light`}>Not stress-tested</p> : null}
           </div>
           {rows.map((row, index) => <article key={row.row_id} data-row-id={row.row_id} className={`space-y-3 ${index > 0 ? 'border-t border-panel-border pt-4' : ''}`}>
-            <p className={`${typography.panelMeta} inline-flex items-center gap-1.5 rounded-full border border-dashed border-info px-2 py-0.5 text-text-body`}>{row.source === 'server_built' ? PREMORTEM_COPY.serverBuilt : PREMORTEM_COPY.provenance}</p>
             <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>
+            {row.source === 'server_built' ? <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.serverBuilt}</p> : null}
             <div className="space-y-1.5">
               <div className="flex items-start gap-2">
                 <Eye aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />

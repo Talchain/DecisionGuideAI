@@ -8,7 +8,7 @@ import type { AssumptionColumn, AssumptionItem } from './assumptionMapModel'
 export const FIGURE_MARK: Readonly<Record<AssumptionColumn, string>> = Object.freeze({
   yours: 'bg-success border border-success',
   unchecked: 'bg-info-light/50 border-[1.5px] border-dashed border-info',
-  missing: 'bg-panel border-2 border-dotted border-factor',
+  missing: 'bg-panel border-[3px] border-dotted border-factor',
 })
 
 /** The pill words: a count reads before each. The column titles stay the full words (`ASSUMPTION_MAP_COPY.columns`). */

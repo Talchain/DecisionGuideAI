@@ -27,6 +27,7 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { DOCK_EDGE_EVENT } from '../utils/computeFitPadding'
 import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
+import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { useArtefactStore, type ArtefactId } from './artefactStore'
 import { AssumptionMap, useAssumptionMap } from './AssumptionMap'
 import { ASSUMPTION_MAP_COPY, type AssumptionColumn, type AssumptionItem } from './assumptionMapModel'
@@ -34,7 +35,7 @@ import { figureKey } from './figureMarks'
 
 export const ARTEFACT_COLUMN_TESTID = 'artefact-column'
 export const ARTEFACT_RAIL_TESTID = 'artefact-rail'
-export const ARTEFACT_RAIL_WIDTH = '56px'
+export const ARTEFACT_RAIL_WIDTH = '72px'
 export const ARTEFACT_COLUMN_WIDTH = 'clamp(340px, 28vw, 420px)'
 export const ARTEFACT_COPY = {
   open: 'Open beside the model',
@@ -51,13 +52,13 @@ export const ARTEFACT_COPY = {
 const TOOLS: Readonly<Record<ArtefactId, { title: string; short: string; purpose: string; Icon: LucideIcon }>> = Object.freeze({
   assumptions: {
     title: ASSUMPTION_MAP_COPY.title,
-    short: 'Rests on',
+    short: 'Figures',
     purpose: 'The figures the model rests on, and where each came from.',
     Icon: Layers,
   },
   premortem: {
     title: PREMORTEM_COPY.title,
-    short: 'If it failed',
+    short: 'Pre-mortem',
     purpose: 'Olumi’s plausible ways each option could fail, for you to challenge.',
     Icon: AlertTriangle,
   },
@@ -243,12 +244,7 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
         data-testid={ARTEFACT_RAIL_TESTID}
         onKeyDown={onRailKey}
         className="pointer-events-auto flex flex-none flex-col items-center gap-1 pt-3"
-        style={{
-          width: ARTEFACT_RAIL_WIDTH,
-          background: 'rgb(var(--bg-panel-rgb) / 0.95)',
-          backdropFilter: 'blur(8px)',
-          borderLeft: '1px solid var(--panel-edge-rule)',
-        }}
+        style={{ width: ARTEFACT_RAIL_WIDTH, background: 'var(--bg-panel)', borderLeft: '1px solid var(--panel-edge-rule)' }}
       >
         {TOOL_ORDER.map((id, index) => {
           const { short, title, Icon } = TOOLS[id]
@@ -268,11 +264,10 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
               tabIndex={roving ? 0 : -1}
               data-testid={`${ARTEFACT_RAIL_TESTID}-${id}`}
               onClick={() => toggle(id)}
-              className={`relative flex w-12 flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center transition-colors duration-200 ease-out ${active ? 'bg-panel-hover text-text-header' : 'text-text-light hover:bg-panel-hover hover:text-text-body'} ${ACTION_FOCUS}`}
+              className={`relative flex w-[66px] flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center transition-colors duration-200 ease-out ${active ? 'bg-panel-hover text-text-header' : 'text-text-light hover:bg-panel-hover hover:text-text-body'} ${ACTION_FOCUS}`}
             >
-              {active ? <span aria-hidden="true" className="absolute -left-1 bottom-2 top-2 w-[3px] rounded-full bg-info" /> : null}
               <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-info' : ''}`} />
-              <span className={`${typography.panelMeta} font-medium !leading-tight`}>{short}</span>
+              <span className={`${typography.panelMeta} whitespace-nowrap font-medium !leading-tight`}>{short}</span>
               {count ? (
                 <span
                   aria-hidden="true"
@@ -344,7 +339,7 @@ function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StagePro
       </header>
       <div
         key={id}
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-4 transition-[opacity,transform] duration-200"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 transition-[opacity,transform] duration-200"
         style={{
           opacity: swapped ? 1 : 0,
           transform: swapped ? 'none' : 'translateY(4px)',
@@ -361,15 +356,24 @@ function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StagePro
 function PremortemNotYet() {
   const viewer = useIsViewer()
   return (
-    <div data-testid="premortem-not-yet" className="space-y-3">
+    <div data-testid="premortem-not-yet" className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center">
+      <span aria-hidden="true" className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-info">
+        <AlertTriangle className="h-5 w-5 text-info" />
+      </span>
       <p className={`${typography.panelQuestion} text-text-header`}>{ARTEFACT_COPY.premortemEmpty}</p>
-      <p className={`${typography.panelBody} text-text-body`}>{ARTEFACT_COPY.premortemWhat}</p>
+      <p className={`${typography.panelBody} max-w-[34ch] text-text-body`}>{ARTEFACT_COPY.premortemWhat}</p>
       {!viewer ? (
         <button
           type="button"
           data-testid="premortem-ask"
-          className={`${typography.panelBody} ${action('primary')} rounded-full px-3`}
-          onClick={() => { if (askAi({ intent: 'pre-mortem' }) === 'sent') revealOlumiSurface() }}
+          className={`${typography.panelBody} ${action('primary')} mt-1 rounded-full px-3`}
+          onClick={() => {
+            const result = askAi({ intent: 'pre-mortem' })
+            if (result === 'sent') revealOlumiSurface()
+            if (result === 'none') {
+              window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message: ACTION_BAR_COPY.noConversation, level: 'warning' } }))
+            }
+          }}
         >
           {ARTEFACT_COPY.premortemAsk}
         </button>

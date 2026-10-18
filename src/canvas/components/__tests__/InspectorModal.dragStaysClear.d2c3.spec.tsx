@@ -127,6 +127,35 @@ describe('D-2 c3 — dragging the mounted inspector', () => {
     expect(left + PANEL.width).toBe(DOCK_LEFT - PAD)
   })
 
+  it('⭐ with the thinking tools open beside the dock, the drag stops at the tools, not over the stage', async () => {
+    const TOOLS_LEFT = DOCK_LEFT - 72 - 358
+    const tools = document.createElement('aside')
+    tools.setAttribute('data-artefact-column', '')
+    const toolsRect = { left: TOOLS_LEFT, top: 51, right: DOCK_LEFT, bottom: WINDOW.height, width: DOCK_LEFT - TOOLS_LEFT, height: 749, x: TOOLS_LEFT, y: 51, toJSON: () => ({}) } as DOMRect
+    document.body.appendChild(tools)
+    const measure = HTMLElement.prototype.getBoundingClientRect as unknown as (this: HTMLElement) => DOMRect
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this === tools ? toolsRect : measure.call(this)
+    })
+    try {
+      render(
+        <ReactFlowProvider>
+          <InspectorModal nodeId="fac_adoption_friction" edgeId={null} onClose={() => {}} />
+        </ReactFlowProvider>,
+      )
+      await act(async () => { await new Promise(r => setTimeout(r, 5)) }) // the placement frame
+      const box = screen.getByRole('dialog', { name: 'Node inspector' })
+      const opened = parseFloat(box.style.left)
+      const header = screen.getByTestId('inspector-drag-header')
+      pointer('pointerdown', header, opened + 60, 90)
+      pointer('pointermove', header, opened + 660, 90)
+      pointer('pointerup', header, opened + 660, 90)
+      expect(parseFloat(box.style.left) + PANEL.width).toBe(TOOLS_LEFT - PAD)
+    } finally {
+      tools.remove()
+    }
+  })
+
   it('CONTRAST — a small drag on the free canvas moves the panel by exactly the pointer delta', async () => {
     render(
       <ReactFlowProvider>

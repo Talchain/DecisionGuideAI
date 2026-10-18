@@ -31,6 +31,7 @@ const OPENING_ORDER: readonly AssumptionColumn[] = ['missing', 'unchecked', 'you
 export const ASSUMPTION_MAP_STRIP_COPY = {
   summary: (yours: number, total: number) => `You stated or accepted ${yours} of the ${total} figures this model rests on.`,
   justSet: 'Yours just now',
+  moved: 'Moved to yours',
 } as const
 
 /** The open model's assumption map, the one the strip, the list and the rail's count all read. */
@@ -72,12 +73,6 @@ export function AssumptionMap() {
   const [chosen, setChosen] = useState<AssumptionColumn | null>(null)
   const column = chosen !== null && counts[chosen] > 0 ? chosen : opening
 
-  // The list follows the picked figure: once its value or strength is set, it moves to "yours" and stays in view there.
-  const pickedColumn = picked !== null ? byKey.get(picked)?.column : undefined
-  useEffect(() => {
-    if (pickedColumn !== undefined) setChosen(pickedColumn)
-  }, [pickedColumn])
-
   // Two-way: an element picked on the canvas is picked here, with its state's list in view.
   useEffect(() => {
     if (canvasPick === null) return
@@ -116,6 +111,40 @@ export function AssumptionMap() {
     canvasLinkOfTarget(item.target)?.focus()
   }
 
+  // A figure set while the user works stays where they can see it: the filter they chose does not move, and what just
+  // became theirs is listed under it, its card still open, until they have looked at it.
+  const moved = map.items.filter((item) => item.column === 'yours' && column !== 'yours' && settled.includes(figureKey(item)))
+  const row = (item: AssumptionItem) => {
+    const key = figureKey(item)
+    const isPicked = picked === key
+    return (
+      <li key={key} className={`rounded-xl transition-colors duration-200 ${isPicked ? 'bg-panel-hover' : ''}`}>
+        <button
+          type="button"
+          data-testid="assumption-map-item"
+          data-target={item.target.id}
+          aria-expanded={isPicked}
+          onClick={() => choose(item)}
+          {...lightProps(item)}
+          className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left ${isPicked ? '' : 'hover:bg-panel-hover'} ${ACTION_FOCUS}`}
+        >
+          <span aria-hidden="true" className={`mt-[3px] h-2.5 w-2.5 flex-none rounded-[3px] ${FIGURE_MARK[item.column]}`} />
+          <span className="min-w-0 flex-1">
+            <span className={`${typography.panelBody} block font-medium text-text-header`}>{item.label}</span>
+            <span className={`${typography.panelMeta} block text-text-light`}>{item.source}</span>
+          </span>
+          {settled.includes(key) ? (
+            <span data-testid="assumption-map-settled" className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-success px-2 py-0.5 text-text-body`}>
+              <Check aria-hidden="true" className="h-3 w-3 text-success" />
+              {ASSUMPTION_MAP_STRIP_COPY.justSet}
+            </span>
+          ) : null}
+        </button>
+        {isPicked ? <FigureCard item={item} /> : null}
+      </li>
+    )
+  }
+
   return (
     <div data-testid="assumption-map" className="space-y-4">
       <section aria-label={COPY.title} className="space-y-3">
@@ -142,9 +171,10 @@ export function AssumptionMap() {
                         data-column={item.column}
                         aria-label={`${item.label}: ${COPY.columns[item.column]}`}
                         aria-pressed={isPicked}
+                        title={item.label}
                         onClick={() => choose(item)}
                         {...lightProps(item)}
-                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,box-shadow] duration-200 ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) && !isPicked ? 'ring-2 ring-success ring-offset-2 ring-offset-panel' : ''} ${ACTION_FOCUS}`}
+                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,background-color,border-color,box-shadow] duration-500 ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) && !isPicked ? 'ring-2 ring-success ring-offset-2 ring-offset-panel' : ''} ${ACTION_FOCUS}`}
                       />
                     )
                   })}
@@ -183,42 +213,16 @@ export function AssumptionMap() {
           return (
             <div key={r} className="space-y-1">
               <h3 className={`${typography.panelMeta} text-text-light`}>{rowLabel(r)} · {COPY.columns[column]}</h3>
-              <ul className="space-y-0.5">
-                {listed.map((item) => {
-                  const key = figureKey(item)
-                  const isPicked = picked === key
-                  const isSettled = settled.includes(key)
-                  return (
-                    <li key={key} className={`rounded-xl transition-colors duration-200 ${isPicked ? 'bg-panel-hover' : ''}`}>
-                      <button
-                        type="button"
-                        data-testid="assumption-map-item"
-                        data-target={item.target.id}
-                        aria-expanded={isPicked}
-                        onClick={() => choose(item)}
-                        {...lightProps(item)}
-                        className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left ${isPicked ? '' : 'hover:bg-panel-hover'} ${ACTION_FOCUS}`}
-                      >
-                        <span aria-hidden="true" className={`mt-[3px] h-2.5 w-2.5 flex-none rounded-[3px] ${FIGURE_MARK[item.column]}`} />
-                        <span className="min-w-0 flex-1">
-                          <span className={`${typography.panelBody} block font-medium text-text-header`}>{item.label}</span>
-                          <span className={`${typography.panelMeta} block text-text-light`}>{item.source}</span>
-                        </span>
-                        {isSettled ? (
-                          <span data-testid="assumption-map-settled" className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-success px-2 py-0.5 text-text-body`}>
-                            <Check aria-hidden="true" className="h-3 w-3 text-success" />
-                            {ASSUMPTION_MAP_STRIP_COPY.justSet}
-                          </span>
-                        ) : null}
-                      </button>
-                      {isPicked ? <FigureCard item={item} /> : null}
-                    </li>
-                  )
-                })}
-              </ul>
+              <ul className="space-y-0.5">{listed.map(row)}</ul>
             </div>
           )
         })}
+        {moved.length > 0 ? (
+          <div data-testid="assumption-map-moved" className="space-y-1">
+            <h3 className={`${typography.panelMeta} text-text-light`}>{ASSUMPTION_MAP_STRIP_COPY.moved}</h3>
+            <ul className="space-y-0.5">{moved.map(row)}</ul>
+          </div>
+        ) : null}
       </section>
       <p className={`${typography.panelMeta} text-text-light`}>{COPY.optionsNote}</p>
     </div>
