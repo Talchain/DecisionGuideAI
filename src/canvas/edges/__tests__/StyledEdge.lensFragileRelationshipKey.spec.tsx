@@ -19,7 +19,7 @@ import { StyledEdge } from '../StyledEdge'
 
 const holder = vi.hoisted(() => ({
   fragileEntry: null as Record<string, unknown> | null,
-  lensActive: 'robustness' as string,
+  lensActive: 'what_changes' as string,
 }))
 
 vi.mock('@xyflow/react', async () => {

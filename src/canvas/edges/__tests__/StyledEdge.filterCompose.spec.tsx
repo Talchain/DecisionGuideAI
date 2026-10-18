@@ -29,7 +29,7 @@ const INFO_GLOW = EDGE_GLOW.sensitivity
 const WARNING_HALO = EDGE_GLOW.flipRisk
 
 // Mutable, per-test scenario knobs.
-let lensActive: 'full' | 'sensitivity' = 'full'
+let lensActive: 'full' | 'what_changes' = 'full'
 let sensitivityWeights = new Map<string, number>()
 let sensitivityQuartiles: { q25: number; q75: number } | null = null
 let highlightedEdges = new Set<string>()
@@ -72,10 +72,7 @@ vi.mock('../../store', () => ({
         _sensitivityWeights: sensitivityWeights,
         _sensitivityQuartiles: sensitivityQuartiles,
         _fragileEdgeIds: new Set<string>(),
-        _hiddenNodeIds: new Set<string>(),
-        _hiddenEdgeIds: new Set<string>(),
-        _causalEdgeParams: new Map(),
-        _evidenceEdgeClass: new Map(),
+        _restsOn: new Map(),
       },
     }),
   ),
@@ -197,7 +194,7 @@ describe('contract v3.1 (E5): the glow recipe', () => {
 
 describe('StyledEdge — filter composition', () => {
   it('composes BOTH drop-shadows when the edge is a top-sensitivity lens edge AND a viewed flip-risk', () => {
-    lensActive = 'sensitivity'
+    lensActive = 'what_changes'
     sensitivityWeights = new Map([['e1', 0.9]])
     sensitivityQuartiles = { q25: 0.2, q75: 0.5 }
     analysisHighlight = { source: 'flip_risks', edgeIds: new Set(['e1']), nodeIds: new Set() }
@@ -211,7 +208,7 @@ describe('StyledEdge — filter composition', () => {
   })
 
   it('positive control: sensitivity glow ONLY when the edge is not a flip-risk', () => {
-    lensActive = 'sensitivity'
+    lensActive = 'what_changes'
     sensitivityWeights = new Map([['e1', 0.9]])
     sensitivityQuartiles = { q25: 0.2, q75: 0.5 }
     analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
