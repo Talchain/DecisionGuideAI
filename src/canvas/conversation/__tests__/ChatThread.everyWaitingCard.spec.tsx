@@ -27,11 +27,11 @@ vi.mock('../../stores/guidanceStore', () => ({
 beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
 
 const A = `prop_${'a'.repeat(32)}`, B = `prop_${'b'.repeat(32)}`, C = `prop_${'c'.repeat(32)}`
-const approve = (id: string, label: string) => ({ id: `agent-approve-proposal:${id}`, label, message: 'Yes, use those.' })
-const decline = (id: string) => ({ id: `agent-decline-proposal:${id}`, label: 'Not now', message: 'Not now.' })
-const AMEND = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' }
+const approve = (id: string, label: string) => ({ id: `agent-approve-proposal:${id}`, label, message: 'Yes, use those.', intent: 'primary' as const })
+const decline = (id: string) => ({ id: `agent-decline-proposal:${id}`, label: 'Not now', message: 'Not now.', intent: 'secondary' as const })
+const AMEND = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.', intent: 'secondary' as const }
 const record = (id: string, label: string) => ({ proposal_id: id, revision: `rev-${id.slice(5, 9)}`, digest: id.slice(5, 37),
-  approve_action: approve(id, label), decline_action: decline(id), issued_turn_id: null, fields: [], missing: [] })
+  approve_action: { id: `agent-approve-proposal:${id}`, label, message: 'Yes, use those.' }, decline_action: { id: `agent-decline-proposal:${id}`, label: 'Not now', message: 'Not now.' }, issued_turn_id: null, fields: [], missing: [] })
 const fields = (...ids: [string, string][]) => ({ version: 1, graph_hash: '0123456789abcdef', proposals: ids.map(([id, label]) => record(id, label)) })
 
 let seq = 0
