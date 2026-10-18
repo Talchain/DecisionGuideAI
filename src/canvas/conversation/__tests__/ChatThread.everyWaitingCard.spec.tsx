@@ -1,0 +1,84 @@
+/**
+ * ⭐ AN APPROVAL IS ONE ACTION (DL-3 18 Oct; assessment K5 L2: "press the approval button on the card", and no button was
+ * there): a reply that offered SEVERAL waiting cards keeps a button for EVERY one it is the live owner of, each with its own
+ * "Not now", after a later reply arrives — while a card CEE no longer holds, or one a newer reply re-offers, is not kept.
+ * SYNTHETIC cards. Binds by chip identity (`data-testid` carries the id), never by position or text.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { ChatThread } from '../zones/ChatThread'
+import type { ConversationMessage } from '../types'
+
+vi.mock('../../store', () => ({
+  useCanvasStore: Object.assign(
+    (selector: (s: any) => any) => selector({ nodes: [], edges: [] }),
+    { getState: () => ({ nodes: [], edges: [] }), setState: vi.fn(), subscribe: vi.fn() },
+  ),
+}))
+vi.mock('../../../stores/uiStore', () => ({
+  useUIStore: Object.assign((selector: (s: any) => any) => selector({}), { getState: () => ({ setActiveOutputTab: vi.fn() }), setState: vi.fn() }),
+}))
+vi.mock('../../stores/guidanceStore', () => ({
+  useGuidanceStore: Object.assign(
+    (selector: (s: any) => any) => selector({ guidanceItems: [], _dispatchAction: vi.fn() }),
+    { getState: () => ({ guidanceItems: [], _dispatchAction: vi.fn(), dismissItem: vi.fn() }) },
+  ),
+}))
+beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
+
+const A = `prop_${'a'.repeat(32)}`, B = `prop_${'b'.repeat(32)}`, C = `prop_${'c'.repeat(32)}`
+const approve = (id: string, label: string) => ({ id: `agent-approve-proposal:${id}`, label, message: 'Yes, use those.' })
+const decline = (id: string) => ({ id: `agent-decline-proposal:${id}`, label: 'Not now', message: 'Not now.' })
+const AMEND = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' }
+const record = (id: string, label: string) => ({ proposal_id: id, revision: `rev-${id.slice(5, 9)}`, digest: id.slice(5, 37),
+  approve_action: approve(id, label), decline_action: decline(id), issued_turn_id: null, fields: [], missing: [] })
+const fields = (...ids: [string, string][]) => ({ version: 1, graph_hash: '0123456789abcdef', proposals: ids.map(([id, label]) => record(id, label)) })
+
+let seq = 0
+const msg = (o: Partial<ConversationMessage>): ConversationMessage =>
+  ({ id: `m-${++seq}`, role: 'assistant', content: 'reply', timestamp: new Date(), ...o } as ConversationMessage)
+function renderThread(messages: ConversationMessage[]) {
+  render(<ChatThread messages={messages} isThinking={false} longRunningHint={null} nodeCount={1} patchBlockStates={new Map()}
+    patchRejections={new Map()} onChipClick={vi.fn().mockResolvedValue(undefined)} onPatchAccept={vi.fn()} onPatchDismiss={vi.fn()}
+    onFeedback={vi.fn()} onRetry={vi.fn()} />)
+}
+const has = (id: string) => screen.queryByTestId(`suggested-chip-${id}`) !== null
+
+describe('every waiting card keeps its button on the reply that offered it', () => {
+  it('⭐ RED→GREEN: a reply offering TWO cards keeps BOTH buttons (and each "Not now") once a later reply offers a third', () => {
+    renderThread([
+      msg({ role: 'user', content: 'yes' }),
+      msg({ actionChips: [approve(B, 'Record this level'), approve(A, 'Use as starting assumptions'), AMEND, decline(B), decline(A)],
+        proposalFields: fields([B, 'Record this level'], [A, 'Use as starting assumptions']) }),
+      msg({ role: 'user', content: 'Also suggest a starting value for oven capacity.' }),
+      msg({ actionChips: [approve(C, 'Use as starting assumptions'), AMEND, decline(C)],
+        proposalFields: fields([A, 'Use as starting assumptions'], [B, 'Record this level'], [C, 'Use as starting assumptions']) }),
+    ])
+    for (const id of [A, B, C]) expect(has(`agent-approve-proposal:${id}`), id).toBe(true)
+    for (const id of [A, B, C]) expect(has(`agent-decline-proposal:${id}`), id).toBe(true)
+  })
+
+  it('CONTRAST: a card CEE no longer holds keeps no button on the earlier reply; the one it still holds does', () => {
+    renderThread([
+      msg({ actionChips: [approve(B, 'Record this level'), approve(A, 'Use as starting assumptions'), AMEND, decline(B), decline(A)],
+        proposalFields: fields([B, 'Record this level'], [A, 'Use as starting assumptions']) }),
+      msg({ role: 'user', content: 'Not now for the starting value.' }),
+      msg({ actionChips: [], proposalFields: fields([B, 'Record this level']) }),
+    ])
+    expect(has(`agent-approve-proposal:${B}`)).toBe(true)
+    expect(has(`agent-approve-proposal:${A}`)).toBe(false)
+    expect(has(`agent-decline-proposal:${A}`)).toBe(false)
+  })
+
+  it('CONTRAST: a card a newer reply re-offers is shown once, on that newer reply', () => {
+    renderThread([
+      msg({ actionChips: [approve(B, 'Record this level'), approve(A, 'Use as starting assumptions'), AMEND, decline(B), decline(A)],
+        proposalFields: fields([B, 'Record this level'], [A, 'Use as starting assumptions']) }),
+      msg({ role: 'user', content: 'Which one was the mixer?' }),
+      msg({ actionChips: [approve(B, 'Record this level'), approve(A, 'Use as starting assumptions'), AMEND, decline(B), decline(A)],
+        proposalFields: fields([B, 'Record this level'], [A, 'Use as starting assumptions']) }),
+    ])
+    expect(screen.getAllByTestId(`suggested-chip-agent-approve-proposal:${A}`)).toHaveLength(1)
+    expect(screen.getAllByTestId(`suggested-chip-agent-approve-proposal:${B}`)).toHaveLength(1)
+  })
+})
