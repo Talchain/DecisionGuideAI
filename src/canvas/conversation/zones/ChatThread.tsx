@@ -21,7 +21,7 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
-import { readProposalFields } from '../proposalFields'
+import { isHeldCardChipId, readProposalFields } from '../proposalFields'
 import { guidedSizingForModel } from '../../../v5/readGuidedSizing'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -307,7 +307,7 @@ export const ChatThread = memo(function ChatThread({
   for (const message of messages) {
     if (message.role !== 'assistant' || message.synthetic || message.sessionDivider) continue
     for (const chip of message.actionChips ?? []) {
-      if (typeof chip.id === 'string' && chip.id.startsWith('agent-approve-proposal:')) heldChipOwners.set(chip.id, message)
+      if (isHeldCardChipId(chip.id)) heldChipOwners.set(chip.id, message)
     }
   }
 
@@ -394,13 +394,14 @@ export const ChatThread = memo(function ChatThread({
         // ⭐ AN APPROVAL IS ONE ACTION (DL-3 18 Oct): a reply may offer SEVERAL waiting cards; it keeps EVERY card it is
         // the live owner of, each with its own "Not now" (assessment K5 L2; Codex BLOCK 18 Oct: a restore hid the second).
         const listed = new Set((readProposalFields(msg.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
-        const approveIds = (msg.actionChips ?? []).flatMap(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:') ? [c.id] : [])
-        const ownedIds = new Set(approveIds.filter(id => heldChipOwners.get(id) === msg)
-          .map(id => id.slice('agent-approve-proposal:'.length)).filter(id => currentHeldIds.has(id) && listed.has(id)))
+        // A card's chip is its approve, or (kept for review, CEE PR-2) its "Review this change": either one owns the card.
+        const cardIds = (msg.actionChips ?? []).flatMap(c => isHeldCardChipId(c.id) ? [c.id] : [])
+        const ownedIds = new Set(cardIds.filter(id => heldChipOwners.get(id) === msg)
+          .map(id => id.slice(id.indexOf(':') + 1)).filter(id => currentHeldIds.has(id) && listed.has(id)))
         // Keep ordinary chips with their owning reply; each held card keeps its single live owner.
         // Preserve the latest reply's array identity so pending-row freezing survives host rerenders.
         const replyChips = isLastAssistant ? (msg.actionChips ?? []) : (msg.actionChips ?? []).filter(chip => {
-          const isConsent = chip.id?.startsWith('agent-approve-proposal:')
+          const isConsent = isHeldCardChipId(chip.id)
             || chip.id?.startsWith('agent-decline-proposal:') || chip.id === 'agent-amend-proposal'
           if (!isConsent) return true
           if (chip.id === 'agent-amend-proposal') return ownedIds.size > 0

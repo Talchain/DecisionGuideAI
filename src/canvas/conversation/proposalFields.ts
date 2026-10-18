@@ -32,6 +32,9 @@ const proposalSchema = z.object({
   digest: z.string().regex(/^[0-9a-f]{32}$/),
   approve_action: actionSchema,
   decline_action: actionSchema.extend({ label: z.literal('Not now'), message: z.literal('Not now.') }),
+  // ⭐ CEE PR-2 (no silent lapse): a card kept for review after the model changed. Shown as "Review this change" beside its
+  // "Not now", never as approve; a reload restores it the same way.
+  review_action: actionSchema.optional(),
   fields: z.array(z.unknown()).refine(fields => {
     // Check identity across the raw entries, including kinds this panel cannot render.
     const ids = fields.flatMap(field => field !== null && typeof field === 'object' && 'field_id' in field ? [field.field_id] : [])
@@ -40,7 +43,8 @@ const proposalSchema = z.object({
     && (field.kind === 'link_strength' || field.kind === 'factor_value'))).pipe(z.array(fieldSchema)),
   missing: z.array(z.object({ node_id: z.string().min(1), label: z.string().min(1), kind: z.enum(['risk', 'factor']), what: z.literal('level_today') })),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
-  && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`)
+  && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
+  && (p.review_action === undefined || p.review_action.id === `${REVIEW_PROPOSAL_PREFIX}${p.proposal_id}`))
 // CEE pins `_proposal_fields` to its 16-hex freshness token (graph-hash.ts HASH_HEX_LENGTH; served 4f9f9e5); 64 hex is its durable form.
 const wireSchema = z.object({ version: z.literal(1), graph_hash: z.string().regex(/^(?:[0-9a-f]{16}|[0-9a-f]{64})$/), proposals: z.array(z.unknown()) })
 export type Proposal = z.infer<typeof proposalSchema>
@@ -85,6 +89,10 @@ export function readProposalFields(raw: unknown) {
 }
 
 /** CEE's amend control, byte-identical to its AMEND_CHIP; it carries no proposal id of its own. */
+/** The card chips of a held change: its approve, or (kept for review) its "Review this change". */
+export const REVIEW_PROPOSAL_PREFIX = 'agent-review-proposal:'
+export const isHeldCardChipId = (id: unknown): boolean =>
+  typeof id === 'string' && (id.startsWith('agent-approve-proposal:') || id.startsWith(REVIEW_PROPOSAL_PREFIX))
 export const AMEND_PROPOSAL_ACTION = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' } as const
 
 const APPROVE_PREFIX = 'agent-approve-proposal:'
