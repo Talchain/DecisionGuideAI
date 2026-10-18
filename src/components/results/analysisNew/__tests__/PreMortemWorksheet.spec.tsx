@@ -18,11 +18,10 @@ const seed = () => {
   })
   return worksheet
 }
-const open = (view: ReturnType<typeof render>) => fireEvent.click(view.getByTestId('premortem-worksheet-toggle'))
 afterEach(cleanup)
 describe('pre-mortem section', () => {
   it('renders options in model order, warnings, grounding and uncovered options', () => {
-    const worksheet = seed(); const view = render(<PreMortemWorksheet />); open(view)
+    const worksheet = seed(); const view = render(<PreMortemWorksheet />)
     assert.deepEqual([...view.container.querySelectorAll('[data-option-id]')].map(el => el.getAttribute('data-option-id')), ['opt-a', 'opt-b'])
     assert.ok(view.getByText('Not stress-tested')); assert.ok(view.getByText('Early warning: Delivery slows.'))
     assert.ok(view.getByRole('button', { name: 'Capacity' })); assert.ok(view.getByText('Olumi hypothesis: for you to challenge'))
@@ -33,11 +32,11 @@ describe('pre-mortem section', () => {
     const w = seed()
     const raw = { ...w, rows: [w.rows[0], { ...w.rows[0], row_id: 'row-a', option_id: 'opt-a', option_label: 'Buy' }], coverage: w.coverage.map(option => ({ ...option, status: 'stress_tested' })) }
     useCanvasStore.setState({ runMeta: { ...useCanvasStore.getState().runMeta, premortemWorksheet: readPremortemWorksheet({ _premortem_worksheet: raw }) } })
-    const view = render(<PreMortemWorksheet />); open(view)
+    const view = render(<PreMortemWorksheet />)
     assert.deepEqual([...view.container.querySelectorAll('[data-row-id]')].map(row => row.getAttribute('data-row-id')), ['row-a', 'row-b'])
   })
   it('a grounding label opens the existing inspector on that element', () => {
-    seed(); const view = render(<PreMortemWorksheet />); open(view)
+    seed(); const view = render(<PreMortemWorksheet />)
     let opened = 0
     const onOpen = () => { opened += 1 }
     window.addEventListener('olumi:open-full-inspector', onOpen)
@@ -56,7 +55,7 @@ describe('pre-mortem section', () => {
       const build = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: w.scenario_id, stage: 'analyse', turnClass: 'clarify', mode: 'user', message: opts.message, source: opts.source, chipMeta: buildChipMeta(opts) })
       if (build.ok && build.payload.kind === 'message') wire = build.payload.selected_elements
     } })
-    const view = render(<PreMortemWorksheet />); open(view)
+    const view = render(<PreMortemWorksheet />)
     fireEvent.click(view.getByRole('button', { name: 'Capacity → Growth' }))
     assert.deepEqual([...useCanvasStore.getState().selection.edgeIds], ['ui-edge'])
     fireEvent.click(view.getByRole('button', { name: 'Add this as a risk' }))
@@ -65,7 +64,7 @@ describe('pre-mortem section', () => {
   it('outside grounding has the exact label', () => {
     const w = seed(); const raw = { ...w, rows: [{ ...w.rows[0], grounding: { kind: 'not_in_model', label: 'not in the model yet' }, risk_request: { ...w.rows[0].risk_request, grounding_ids: [] } }] }
     useCanvasStore.setState({ runMeta: { ...useCanvasStore.getState().runMeta, premortemWorksheet: readPremortemWorksheet({ _premortem_worksheet: raw }) } })
-    const view = render(<PreMortemWorksheet />); open(view); assert.ok(view.getByText('not in the model yet'))
+    const view = render(<PreMortemWorksheet />); assert.ok(view.getByText('not in the model yet'))
   })
   for (const cause of ['hash', 'dirty', 'time', 'busy', 'removed', 'missing_stamp']) it(`disables risk actions for ${cause}`, () => {
     seed(); useGuidanceStore.setState({ _dispatchAction: () => assert.fail('disabled action dispatched') })
@@ -74,7 +73,7 @@ describe('pre-mortem section', () => {
     if (cause === 'removed') useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.filter(node => node.id !== 'factor') })
     if (cause === 'missing_stamp') useCanvasStore.setState({ runMeta: { ...useCanvasStore.getState().runMeta, premortemRun: null } })
     if (cause === 'time') useCanvasStore.setState({ runMeta: { ...useCanvasStore.getState().runMeta, premortemRun: { ...useCanvasStore.getState().runMeta.premortemRun!, computedAt: '2026-10-07T11:00:00.000Z' } } })
-    const view = render(<PreMortemWorksheet isBusy={cause === 'busy'} />); open(view)
+    const view = render(<PreMortemWorksheet isBusy={cause === 'busy'} />)
     const button = view.getByRole('button', { name: 'Add this as a risk' }) as HTMLButtonElement
     assert.equal(button.disabled, true); fireEvent.click(button)
   })
@@ -95,14 +94,14 @@ describe('pre-mortem section', () => {
       calls.push(opts); const build = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: w.scenario_id, stage: 'analyse', turnClass: 'clarify', mode: 'user', message: opts.message, source: opts.source, chipMeta: buildChipMeta(opts) })
       assert.equal(build.ok, true); if (build.ok && build.payload.kind === 'message') wire = build.payload.selected_elements
     } })
-    const view = render(<PreMortemWorksheet />); open(view); fireEvent.click(view.getByRole('button', { name: 'Add this as a risk' }))
+    const view = render(<PreMortemWorksheet />); fireEvent.click(view.getByRole('button', { name: 'Add this as a risk' }))
     assert.equal(calls.length, 1)
     assert.deepEqual(calls[0], { id: 'agent-next-suggest-risks', label: 'Add this as a risk', message: w.rows[0].risk_request.message, source: 'chip', selected_elements: [{ id: 'goal', kind: 'goal', label: 'Growth' }, { id: 'factor', kind: 'factor', label: 'Capacity' }] })
     assert.deepEqual(wire, [{ id: 'factor', kind: 'factor', label: 'Capacity' }, { id: 'goal', kind: 'goal', label: 'Growth' }])
     assert.equal(JSON.stringify([useCanvasStore.getState().nodes, useCanvasStore.getState().edges]), graph)
   })
   it('every section button inherits a touch target of at least 24px in both dimensions', () => {
-    seed(); const view = render(<PreMortemWorksheet />); open(view)
+    seed(); const view = render(<PreMortemWorksheet />)
     for (const button of view.container.querySelectorAll('button')) {
       assert.match(button.className, /min-h-\[(?:24|28|32)px\]/)
       // SectionShell owns its full-width disclosure header; row acts use a tier.

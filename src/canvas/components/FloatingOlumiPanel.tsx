@@ -33,6 +33,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
 import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
 import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
+import { ARTEFACT_COLUMN_SELECTOR, DOCK_EDGE_EVENT } from '../utils/computeFitPadding'
 import { dockSurfaceShowsRerun, useReanalyseBarInputs } from './workspaceShell/rerunControl'
 import {
   FLOATING_OLUMI_SIDE_TAB_WIDTH,
@@ -568,7 +569,10 @@ export function measureDockInset(): number {
   if (!dock) return 0
   const rect = dock.getBoundingClientRect()
   if (rect.width === 0 || rect.height === 0) return 0
-  const inset = window.innerWidth - rect.left
+  // The artefact column beside the dock extends the dock's edge while it is open.
+  const column = document.querySelector(ARTEFACT_COLUMN_SELECTOR)?.getBoundingClientRect()
+  const left = column && column.width > 0 ? Math.min(rect.left, column.left) : rect.left
+  const inset = window.innerWidth - left
   return inset > 0 ? inset : 0
 }
 
@@ -1014,9 +1018,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
     // recheck whether the watched element has changed.
     const onDockOpened = () => { watchDock(); handle() }
     window.addEventListener('outputs-dock-opened', onDockOpened)
+    window.addEventListener(DOCK_EDGE_EVENT, handle)
     return () => {
       window.removeEventListener('resize', handle)
       window.removeEventListener('outputs-dock-opened', onDockOpened)
+      window.removeEventListener(DOCK_EDGE_EVENT, handle)
       if (mountCheckId) window.clearTimeout(mountCheckId)
       if (dockObs) dockObs.disconnect()
     }

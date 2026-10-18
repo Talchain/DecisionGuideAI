@@ -1,5 +1,3 @@
-import { useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore, selectPremortemWorksheet } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
@@ -8,10 +6,10 @@ import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengt
 import { resolveModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { bindAskTarget } from '../../../../canvas/ui/inspector-v2/askTargetBinding'
 import { PREMORTEM_COPY, samePremortemRun } from '../../../../v5/readPremortemWorksheet'
+import { canvasLinkOfTarget, useCanvasLight } from '../../../../canvas/graphChanges/rowCanvasLink'
 import type { PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet'
 import { typography } from '../../../../styles/typography'
 import { action } from '../panelSurfaces'
-import { SectionShell } from './SectionShell'
 
 type Row = PremortemWorksheetV1['rows'][number]
 export interface PreMortemWorksheetProps {
@@ -20,7 +18,11 @@ export interface PreMortemWorksheetProps {
 }
 const buttonClass = `${typography.panelBody} ${action('inline')} disabled:opacity-50 disabled:no-underline`
 
-/** Read only worksheet projection. Risk buttons prepare a chip turn for the existing consent card. */
+/**
+ * Read only worksheet projection, shown in the artefact column beside the model (`canvas/artefacts/ArtefactColumn.tsx`,
+ * which also restores it on reload). Risk buttons prepare a chip turn for the existing consent card. Every option and
+ * grounding control lights its element on the canvas on hover and keyboard focus, by identity only.
+ */
 export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMortemWorksheetProps) {
   const read = useCanvasStore(selectPremortemWorksheet)
   const heldRun = useCanvasStore(s => s.runMeta.premortemRun)
@@ -33,10 +35,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   const conversation = useOptionalConversationContext()
   const busy = isBusy || conversation?.isThinking === true
   const worksheet = read?.status === 'available' && read.worksheet.scenario_id === scenarioId ? read.worksheet : null
-  // P02: a reload re-renders this browser's worksheet for the same current Run; nothing is sent.
-  const hydrate = useCanvasStore(s => s.hydratePremortemWorksheet)
-  const runAt = useCanvasStore(s => s.analysisStateV1?.run_state.kind === 'complete_current' ? s.analysisStateV1.run_state.computed_at : null)
-  useEffect(() => { if (!worksheet) hydrate() }, [worksheet, hydrate, scenarioId, graphHash, runAt])
+  const light = useCanvasLight()
   const target = (id: string) => resolveModelTarget(id, nodes, edges, { endpointFallback: false })
   const stale = !!worksheet && (isStale || dirty || graphHash !== worksheet.run.graph_hash_at_run ||
     !samePremortemRun(heldRun, { scenarioId: worksheet.scenario_id, graphHashAtRun: worksheet.run.graph_hash_at_run, computedAt: worksheet.run.computed_at }) ||
@@ -49,6 +48,13 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
     if (resolved?.kind === 'node') return nodeLabel(resolved.id)
     const edge = edges.find(edge => edge.id === resolved?.id)
     return edge ? `${nodeLabel(edge.source)} → ${nodeLabel(edge.target)}` : PREMORTEM_COPY.outside
+  }
+  // Lights the element a control names; a stale worksheet names elements that may have moved, so it lights nothing.
+  const lightProps = (id: string) => {
+    const link = stale ? null : canvasLinkOfTarget(target(id))
+    return link === null ? {} : {
+      onMouseEnter: () => light.on(link), onMouseLeave: light.off, onFocus: () => light.on(link), onBlur: light.off,
+    }
   }
   const openElement = (id: string) => {
     if (stale) return
@@ -81,13 +87,12 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   // CODEX-BRIEF-R2: ordinary Runs carry no worksheet and gain no empty section.
   if (!worksheet) return null
   const options = nodes.filter(node => node.type === 'option')
-  return <SectionShell title={PREMORTEM_COPY.title} icon={AlertTriangle} count={worksheet.rows.length} testId="premortem-worksheet">
-    <div className={`space-y-3 ${stale ? 'opacity-60' : ''}`}>
+  return <div data-testid="premortem-worksheet" data-row-count={worksheet.rows.length} className={`space-y-3 ${stale ? 'opacity-60' : ''}`}>
       {stale ? <p role="status" className={`${typography.panelBody} text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
         return <div key={option.id} data-option-id={option.id} className="space-y-2">
-          <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(option.id)}>{String(option.data.label ?? '')}</button>
+          <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>{String(option.data.label ?? '')}</button>
           {rows.length === 0 ? <p className={`${typography.panelBody} text-text-light`}>Not stress-tested</p> : rows.map(row => <div key={row.row_id} className="space-y-1" data-row-id={row.row_id}>
             <p className={`${typography.panelMeta} text-text-light`}>{row.source === 'server_built' ? PREMORTEM_COPY.serverBuilt : PREMORTEM_COPY.provenance}</p>
             <p className={`${typography.panelBody} text-text-body`}>{row.failure_way}</p>
@@ -95,12 +100,12 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
             {row.mitigation ? <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p> : null}
             <div className="flex flex-wrap gap-1">
               {row.grounding.kind === 'not_in_model' ? <span className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span> : row.grounding.ids.map(id =>
-                target(id) ? <button key={id} type="button" className={buttonClass} disabled={stale} onClick={() => openElement(id)}>
+                target(id) ? <button key={id} type="button" className={buttonClass} disabled={stale} onClick={() => openElement(id)} {...lightProps(id)}>
                   {groundingLabel(id)}
                 </button> : <span key={id} className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span>) }
             </div>
             {row.on_map ? <p className={`${typography.panelMeta} text-text-light`} data-testid="premortem-on-map">
-              {PREMORTEM_COPY.onMap}: <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(row.on_map!.node_id)}>Inspect ‘{row.on_map.label}’</button>
+              {PREMORTEM_COPY.onMap}: <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(row.on_map!.node_id)} {...lightProps(row.on_map.node_id)}>Inspect ‘{row.on_map.label}’</button>
             </p> : row.risk_request ? <button type="button" className={buttonClass} disabled={stale || busy || !dispatch} onClick={() => addRisk(row)}>Add this as a risk</button> : null}
           </div>)}
         </div>
@@ -109,6 +114,5 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
         <p>Run: <time dateTime={worksheet.run.computed_at}>{new Date(worksheet.run.computed_at).toLocaleString('en-GB')}</time></p>
         <p>{worksheet.blindspot_question}</p>
       </footer>
-    </div>
-  </SectionShell>
+  </div>
 }
