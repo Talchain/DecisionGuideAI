@@ -4357,6 +4357,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const anchorPosition = node ? computeAnchorPosition(nodes, [node], []) : null
     set(s => ({
       nodes: s.nodes.map(n => ({ ...n, selected: n.id === nodeId })),
+      // The edge twin below clears every node; this clears every edge, or React Flow's selection sync puts a
+      // previously selected link back beside the node (a pick of a factor after a link read as two things selected).
+      edges: s.edges.some(e => e.selected) ? s.edges.map(e => (e.selected ? { ...e, selected: false } : e)) : s.edges,
       selection: { nodeIds: new Set([nodeId]), edgeIds: new Set(), anchorPosition },
     }))
   },

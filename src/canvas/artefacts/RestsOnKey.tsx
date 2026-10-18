@@ -170,7 +170,10 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
             <div className="min-w-0 flex-1">
               <p className={`${typography.panelBody} text-text-header`}>{pickedItem.label}</p>
               <p className={`${typography.panelMeta} text-text-light`}>
-                {ASSUMPTION_MAP_COPY.columns[pickedItem.column]} · {pickedItem.source}
+                {ASSUMPTION_MAP_COPY.columns[pickedItem.column]}
+                {/* The owner's source words add something only where the state does not already say it: whose words
+                    ("from your brief") or that nobody recorded one. */}
+                {pickedItem.column === 'yours' || pickedItem.column === 'unknown' ? ` · ${pickedItem.source}` : ''}
                 {map.hasGoal && pickedItem.row === 'off_path' ? ` · ${RESTS_ON_COPY.offPath}` : ''}
               </p>
               {pickedJustNow ? (

@@ -238,6 +238,23 @@ describe('the lens bar: one press between lenses', () => {
   })
 })
 
+describe('a pick is one thing selected', () => {
+  it('selecting a figure on a card after a link leaves no link selected, so the key opens the card\'s figure', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'f', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'f' } }, { id: 'g', type: 'goal', position: { x: 0, y: 200 }, data: { label: 'g' } }],
+      edges: [{ id: 'e', source: 'f', target: 'g', data: {} }],
+    } as never)
+    useCanvasStore.getState().selectEdgeWithoutHistory('e')
+    // POSITIVE CONTROL: the link really was selected, flag and all (React Flow syncs the selection from the flags).
+    assert.equal(useCanvasStore.getState().edges[0].selected, true)
+    useCanvasStore.getState().selectNodeWithoutHistory('f')
+    const after = useCanvasStore.getState()
+    assert.equal(after.edges[0].selected, false)
+    assert.deepEqual([...after.selection.nodeIds], ['f'])
+    assert.equal(after.selection.edgeIds.size, 0)
+  })
+})
+
 describe('the key card covers as little of the model as it can', () => {
   const card = (x: number, y: number, w = 200, h = 80) => ({ x, y, w, h })
   it('stands in the corner that covers less of the model; the left on a tie', () => {
