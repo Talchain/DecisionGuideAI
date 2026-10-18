@@ -31,7 +31,7 @@ beforeEach(() => {
   try { localStorage.clear() } catch { /* none */ }
   useCanvasStore.setState({ currentScenarioId: SCENARIO })
   useActionBarStore.setState({ scenarioId: SCENARIO, bar: null, dismissed: [] })
-  useArtefactStore.setState({ open: null })
+  useArtefactStore.setState({ open: null, picked: null, settled: [], scenarioId: null })
   useGuidanceStore.setState({
     _dispatchAction: (opts: { id: string; parameters?: Record<string, unknown> }) => { sent.push(opts) },
     _isConversationBusy: () => false,

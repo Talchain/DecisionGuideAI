@@ -1,37 +1,69 @@
 /**
- * ⭐ THE REASONING ARTEFACT BESIDE THE MODEL (Paul, 18 Oct 2026: "simple visual reasoning tools that can be displayed on
- * the canvas, either as an overlay above the graph or next to it"; 28 Sep study §1 and §3.1).
+ * ⭐ THE THINKING TOOLS BESIDE THE MODEL (Paul, 18 Oct 2026: "simple visual reasoning tools that can be displayed on
+ * the canvas, either as an overlay above the graph or next to it"; "a much more beautiful, premium visual experience
+ * … it needs to easily switch between them"; 28 Sep study §1 and §3.1).
  *
- * One artefact at a time, in a column docked to the left edge of the OutputsDock, so the chat stays beside it and the
- * graph is framed beside both (`computeFitPadding` and `measureDockInset` read the column with the dock). It opens when
- * the artefact the user asked for arrives, or from the artefact's one-line opener in the Reasoning tab, and closes on
- * the user's press. Nothing here writes the model: each artefact keeps its own existing actions.
+ * A slim tool rail stays docked to the left edge of the OutputsDock whenever there is a model: each tool with its
+ * icon, its short name and how much is waiting in it. Pressing a tool opens its stage between the graph and the rail
+ * (pressing it again closes it), so switching is one press and the chat stays beside it. The graph is framed beside
+ * the rail and the stage (`computeFitPadding` and `measureDockInset` read this aside with the dock). A tool opens when
+ * the artefact the user asked for arrives, from the Reasoning tab's openers, or from the rail. Nothing here writes the
+ * model: each tool acts only through the model's own controls.
  *
  * WHY A SIBLING OF THE DOCK AND NOT A SECOND COLUMN INSIDE IT: the dock aside is the `workspace-shell` size container,
  * so widening it would hand every `@container` rule in the panel the wrong width.
  *
- * WHY IT SLIDES IN: `reservedBoxWatcher` re-fits on `transitionend`, so the entry transition is what re-frames the graph
- * when the column opens without a press (an artefact arriving). A press already re-fits on its `pointerup`.
+ * WHY THE STAGE SLIDES IN: `reservedBoxWatcher` re-fits on `transitionend`, so the entry transition is what re-frames
+ * the graph when a tool opens without a press (an artefact arriving). A press already re-fits on its `pointerup`.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AlertTriangle, Layers, X, type LucideIcon } from 'lucide-react'
 import { selectPremortemWorksheet, useCanvasStore } from '../store'
 import { PREMORTEM_COPY, type PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 import { PreMortemWorksheet } from '../../components/results/analysisNew/sections/PreMortemWorksheet'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
+import { useIsViewer } from '../../lib/viewerMode'
 import { DOCK_EDGE_EVENT } from '../utils/computeFitPadding'
+import { askAi } from '../conversation/askAi'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { useArtefactStore, type ArtefactId } from './artefactStore'
-import { AssumptionMap } from './AssumptionMap'
-import { ASSUMPTION_MAP_COPY } from './assumptionMapModel'
+import { AssumptionMap, useAssumptionMap } from './AssumptionMap'
+import { ASSUMPTION_MAP_COPY, type AssumptionColumn, type AssumptionItem } from './assumptionMapModel'
+import { figureKey } from './figureMarks'
 
 export const ARTEFACT_COLUMN_TESTID = 'artefact-column'
-export const ARTEFACT_COLUMN_WIDTH = 'min(360px, 30vw)'
+export const ARTEFACT_RAIL_TESTID = 'artefact-rail'
+export const ARTEFACT_RAIL_WIDTH = '56px'
+export const ARTEFACT_COLUMN_WIDTH = 'clamp(340px, 28vw, 420px)'
 export const ARTEFACT_COPY = {
   open: 'Open beside the model',
   close: 'Close',
   switcher: 'Thinking tools',
+  waiting: (n: number) => `${n} to check or set`,
+  stories: (n: number) => (n === 1 ? '1 story' : `${n} stories`),
+  premortemEmpty: 'Olumi has not imagined this model failing yet.',
+  premortemWhat: 'It writes plausible ways each option could fail, each tied to what it rests on in the model, for you to challenge.',
+  premortemAsk: 'Ask Olumi to imagine it failed',
 } as const
+
+/** Every tool the rail holds, in the rail's order: its title, short name, one-line purpose and icon. */
+const TOOLS: Readonly<Record<ArtefactId, { title: string; short: string; purpose: string; Icon: LucideIcon }>> = Object.freeze({
+  assumptions: {
+    title: ASSUMPTION_MAP_COPY.title,
+    short: 'Rests on',
+    purpose: 'The figures the model rests on, and where each came from.',
+    Icon: Layers,
+  },
+  premortem: {
+    title: PREMORTEM_COPY.title,
+    short: 'If it failed',
+    purpose: 'Olumi’s plausible ways each option could fail, for you to challenge.',
+    Icon: AlertTriangle,
+  },
+})
+const TOOL_ORDER: readonly ArtefactId[] = ['assumptions', 'premortem']
+const tabId = (id: ArtefactId) => `artefact-rail-tab-${id}`
 
 /** The open scenario's pre-mortem worksheet, or null (none, unavailable, or another scenario's). */
 export function useCurrentPremortemWorksheet(): PremortemWorksheetV1 | null {
@@ -42,8 +74,8 @@ export function useCurrentPremortemWorksheet(): PremortemWorksheetV1 | null {
 
 /**
  * Restores this browser's worksheet for the same Run (P02, moved here from the section so it runs whether or not the
- * column is open) and opens the column when a worksheet the user has not seen arrives. A worksheet already held when
- * the canvas mounts, or restored on reload, counts as seen: it never opens the column by itself.
+ * stage is open) and opens it when a worksheet the user has not seen arrives. A worksheet already held when the canvas
+ * mounts, or restored on reload, counts as seen: it never opens the stage by itself.
  */
 function useOpenOnNewWorksheet(worksheet: PremortemWorksheetV1 | null): void {
   const hydrate = useCanvasStore((s) => s.hydratePremortemWorksheet)
@@ -52,12 +84,17 @@ function useOpenOnNewWorksheet(worksheet: PremortemWorksheetV1 | null): void {
   const runAt = useCanvasStore((s) =>
     s.analysisStateV1?.run_state.kind === 'complete_current' ? s.analysisStateV1.run_state.computed_at : null)
   const show = useArtefactStore((s) => s.show)
-  const close = useArtefactStore((s) => s.close)
+  const enter = useArtefactStore((s) => s.enter)
   const mounted = useRef(false)
   const seen = useRef<string | null>(null)
 
-  // Declared first: a live turn can change the worksheet and the Run in one commit, and it must open before the
-  // restore below would count it as seen.
+  // Another scenario never inherits an open tool, a picked figure or a lit one. Keyed to the scenario, not to this
+  // component's life: the dock remounting the rail must not close what the user opened. Declared before the opener
+  // below, so a worksheet arriving with the new scenario opens after the scenario's state is cleared, not before.
+  useEffect(() => enter(scenarioId), [scenarioId, enter])
+
+  // A live turn can change the worksheet and the Run in one commit, and it must open before the restore below would
+  // count it as seen.
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true
@@ -75,13 +112,39 @@ function useOpenOnNewWorksheet(worksheet: PremortemWorksheetV1 | null): void {
     const restored = selectPremortemWorksheet(useCanvasStore.getState())
     if (restored?.status === 'available') seen.current = restored.worksheet.turn_id
   }, [hydrate, scenarioId, graphHash, runAt])
-
-  // Another scenario never inherits an open artefact.
-  useEffect(() => close, [scenarioId, close])
 }
 
-/** Tells the pushed dock-edge measurements (band inset, floating panel clamp) that the column moved. */
+/**
+ * THE SIGNATURE: a figure that becomes the user's own (set, stated or accepted) while the canvas is open is marked
+ * settled, and stays lit in the map until the user has looked at it. Compared by identity against the last reading;
+ * the first reading of a scenario is the baseline, so opening a model lights nothing.
+ */
+function useSettledFigures(items: readonly AssumptionItem[]): void {
+  const settle = useArtefactStore((s) => s.settle)
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const before = useRef<Map<string, AssumptionColumn> | null>(null)
+  useEffect(() => {
+    before.current = null
+  }, [scenarioId])
+  useEffect(() => {
+    const now = new Map(items.map((item) => [figureKey(item), item.column]))
+    const previous = before.current
+    before.current = now
+    if (previous === null) return
+    const moved = [...now].filter(([key, column]) => column === 'yours' && previous.has(key) && previous.get(key) !== 'yours')
+    if (moved.length > 0) settle(moved.map(([key]) => key))
+  }, [items, settle])
+}
+
+/** Tells the pushed dock-edge measurements (band inset, floating panel clamp) that the rail or the stage moved. */
 const announceDockEdge = () => window.dispatchEvent(new Event(DOCK_EDGE_EVENT))
+
+/** The artefacts this model can show content for now: the map once there is a model, the worksheet once written. */
+function useAvailableArtefacts(): readonly ArtefactId[] {
+  const worksheet = useCurrentPremortemWorksheet()
+  const hasModel = useCanvasStore((s) => s.nodes.length > 0)
+  return TOOL_ORDER.filter((id) => (id === 'premortem' ? worksheet !== null : hasModel))
+}
 
 export interface ArtefactColumnProps {
   /** The dock's own freshness and in-flight authorities, the same values the Reasoning tab receives. */
@@ -90,34 +153,24 @@ export interface ArtefactColumnProps {
   hidden?: boolean
 }
 
-/** Every artefact the column can hold: its title and icon. The order is the switcher's order. */
-const ARTEFACTS: Readonly<Record<ArtefactId, { readonly title: string; readonly Icon: LucideIcon }>> = Object.freeze({
-  assumptions: { title: ASSUMPTION_MAP_COPY.title, Icon: Layers },
-  premortem: { title: PREMORTEM_COPY.title, Icon: AlertTriangle },
-})
-const ARTEFACT_ORDER: readonly ArtefactId[] = ['assumptions', 'premortem']
-
-/** The artefacts this model can show now: the map once there is a model, the worksheet once Olumi has written one. */
-function useAvailableArtefacts(): readonly ArtefactId[] {
-  const worksheet = useCurrentPremortemWorksheet()
-  const hasModel = useCanvasStore((s) => s.nodes.length > 0)
-  return ARTEFACT_ORDER.filter((id) => (id === 'premortem' ? worksheet !== null : hasModel))
-}
-
 export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColumnProps) {
   const worksheet = useCurrentPremortemWorksheet()
   useOpenOnNewWorksheet(worksheet)
-  const available = useAvailableArtefacts()
+  const map = useAssumptionMap()
+  useSettledFigures(map.items)
+  const hasModel = useCanvasStore((s) => s.nodes.length > 0)
   const open = useArtefactStore((s) => s.open)
-  const show = useArtefactStore((s) => s.show)
+  const toggle = useArtefactStore((s) => s.toggle)
   const close = useArtefactStore((s) => s.close)
   const [entered, setEntered] = useState(false)
-  const visible = open !== null && available.includes(open) && !hidden
+  const railRef = useRef<HTMLDivElement>(null)
+  const railVisible = hasModel && !hidden
+  const stageOpen = railVisible && open !== null
 
   useEffect(() => {
     // After the DOM change, whichever way it went.
     const announce = requestAnimationFrame(announceDockEdge)
-    if (!visible) {
+    if (!stageOpen) {
       setEntered(false)
       return () => cancelAnimationFrame(announce)
     }
@@ -126,68 +179,202 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
       cancelAnimationFrame(announce)
       cancelAnimationFrame(frame)
     }
-  }, [visible])
+  }, [stageOpen, railVisible])
 
-  if (!visible || open === null) return null
-  const { title, Icon } = ARTEFACTS[open]
+  if (!railVisible) return null
+
+  const waiting = map.items.filter((item) => item.column !== 'yours').length
+  const badge: Record<ArtefactId, { n: number; label: string } | null> = {
+    assumptions: waiting > 0 ? { n: waiting, label: ARTEFACT_COPY.waiting(waiting) } : null,
+    premortem: worksheet ? { n: worksheet.rows.length, label: ARTEFACT_COPY.stories(worksheet.rows.length) } : null,
+  }
+  const focusTab = (id: ArtefactId) => railRef.current?.querySelector<HTMLButtonElement>(`#${tabId(id)}`)?.focus()
+  const onRailKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const at = TOOL_ORDER.findIndex((id) => tabId(id) === (event.target as HTMLElement).id)
+    if (at < 0) return
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusTab(TOOL_ORDER[(at + (event.key === 'ArrowDown' ? 1 : TOOL_ORDER.length - 1)) % TOOL_ORDER.length])
+    }
+  }
+  const onEscape = (event: KeyboardEvent<HTMLElement>) => {
+    // An editor inside the stage (a value being typed) keeps its own Escape.
+    const typing = (event.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]') !== null
+    if (event.key !== 'Escape' || open === null || event.defaultPrevented || typing) return
+    event.stopPropagation()
+    const was = open
+    close()
+    focusTab(was)
+  }
+
   return (
     <aside
       data-artefact-column=""
-      data-testid={ARTEFACT_COLUMN_TESTID}
-      data-artefact={open}
-      aria-label={title}
-      className="flex flex-col pointer-events-auto transition-[opacity,transform] duration-150 ease-out"
-      onTransitionEnd={(event) => { if (event.target === event.currentTarget) announceDockEdge() }}
+      data-testid={`${ARTEFACT_RAIL_TESTID}-host`}
+      aria-label={ARTEFACT_COPY.switcher}
+      className="pointer-events-none flex"
+      onKeyDown={onEscape}
       style={{
         position: 'fixed',
         right: 'var(--dock-right-offset, 0rem)',
         top: 'var(--topbar-h, 0px)',
         bottom: 'var(--bottombar-h)',
-        width: ARTEFACT_COLUMN_WIDTH,
-        background: 'rgb(var(--bg-panel-rgb) / 0.95)',
-        backdropFilter: 'blur(8px)',
-        borderLeft: '1px solid var(--panel-edge-rule)',
         zIndex: 900,
-        opacity: entered ? 1 : 0,
-        transform: entered ? 'none' : 'translateX(12px)',
       }}
     >
-      <header className="space-y-2 border-b border-panel-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-          <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-body`}>{title}</h2>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={ARTEFACT_COPY.close}
-            data-testid={`${ARTEFACT_COLUMN_TESTID}-close`}
-            className={`inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded text-text-light hover:text-text-body ${ACTION_FOCUS}`}
-          >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </button>
-        </div>
-        {available.length > 1 ? (
-          <div role="tablist" aria-label={ARTEFACT_COPY.switcher} className="flex flex-wrap gap-1">
-            {available.map((id) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={id === open}
-                data-testid={`${ARTEFACT_COLUMN_TESTID}-tab-${id}`}
-                onClick={() => show(id)}
-                className={`${typography.panelMeta} min-h-[24px] rounded border px-2 ${id === open ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}
-              >
-                {ARTEFACTS[id].title}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </header>
-      <div role={available.length > 1 ? 'tabpanel' : undefined} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {open === 'premortem' ? <PreMortemWorksheet isBusy={isBusy} isStale={isStale} /> : <AssumptionMap />}
+      {stageOpen && open !== null ? (
+        <Stage
+          id={open}
+          entered={entered}
+          isBusy={isBusy}
+          isStale={isStale}
+          hasWorksheet={worksheet !== null}
+          onClose={() => {
+            close()
+            focusTab(open)
+          }}
+        />
+      ) : null}
+      <div
+        ref={railRef}
+        role="tablist"
+        aria-orientation="vertical"
+        aria-label={ARTEFACT_COPY.switcher}
+        data-testid={ARTEFACT_RAIL_TESTID}
+        onKeyDown={onRailKey}
+        className="pointer-events-auto flex flex-none flex-col items-center gap-1 pt-3"
+        style={{
+          width: ARTEFACT_RAIL_WIDTH,
+          background: 'rgb(var(--bg-panel-rgb) / 0.95)',
+          backdropFilter: 'blur(8px)',
+          borderLeft: '1px solid var(--panel-edge-rule)',
+        }}
+      >
+        {TOOL_ORDER.map((id, index) => {
+          const { short, title, Icon } = TOOLS[id]
+          const active = open === id
+          const count = badge[id]
+          const roving = open === null ? index === 0 : active
+          return (
+            <button
+              key={id}
+              id={tabId(id)}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={active ? `${ARTEFACT_COLUMN_TESTID}-panel` : undefined}
+              aria-label={count ? `${title}, ${count.label}` : title}
+              title={title}
+              tabIndex={roving ? 0 : -1}
+              data-testid={`${ARTEFACT_RAIL_TESTID}-${id}`}
+              onClick={() => toggle(id)}
+              className={`relative flex w-12 flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center transition-colors duration-200 ease-out ${active ? 'bg-panel-hover text-text-header' : 'text-text-light hover:bg-panel-hover hover:text-text-body'} ${ACTION_FOCUS}`}
+            >
+              {active ? <span aria-hidden="true" className="absolute -left-1 bottom-2 top-2 w-[3px] rounded-full bg-info" /> : null}
+              <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-info' : ''}`} />
+              <span className={`${typography.panelMeta} font-medium !leading-tight`}>{short}</span>
+              {count ? (
+                <span
+                  aria-hidden="true"
+                  data-testid={`${ARTEFACT_RAIL_TESTID}-${id}-count`}
+                  className={`${typography.panelMeta} absolute -top-0.5 right-0 min-w-[18px] rounded-full border border-info bg-panel px-1 !leading-4 tabular-nums text-info-ink`}
+                >
+                  {count.n}
+                </span>
+              ) : null}
+            </button>
+          )
+        })}
       </div>
     </aside>
+  )
+}
+
+interface StageProps {
+  id: ArtefactId
+  entered: boolean
+  isBusy: boolean
+  isStale: boolean
+  hasWorksheet: boolean
+  onClose: () => void
+}
+
+/** The open tool: its title, purpose and Close, then its body, cross-fading in when the tool changes. */
+function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StageProps) {
+  const { title, purpose, Icon } = TOOLS[id]
+  const [shown, setShown] = useState<ArtefactId | null>(null)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(id))
+    return () => cancelAnimationFrame(frame)
+  }, [id])
+  const swapped = shown === id
+  return (
+    <section
+      id={`${ARTEFACT_COLUMN_TESTID}-panel`}
+      role="tabpanel"
+      aria-labelledby={tabId(id)}
+      data-testid={ARTEFACT_COLUMN_TESTID}
+      data-artefact={id}
+      onTransitionEnd={(event) => { if (event.target === event.currentTarget) announceDockEdge() }}
+      className="pointer-events-auto my-3 mr-2 flex flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel shadow-3 transition-[opacity,transform] duration-200"
+      style={{
+        width: ARTEFACT_COLUMN_WIDTH,
+        opacity: entered ? 1 : 0,
+        transform: entered ? 'none' : 'translateX(16px)',
+        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      <header className="flex items-start gap-3 border-b border-panel-border px-5 pb-4 pt-5">
+        <span aria-hidden="true" className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full border border-panel-border">
+          <Icon className="h-4 w-4 text-info" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className={`${typography.panelHeader} text-text-header`}>{title}</h2>
+          <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>{purpose}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={ARTEFACT_COPY.close}
+          data-testid={`${ARTEFACT_COLUMN_TESTID}-close`}
+          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light transition-colors duration-200 hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </header>
+      <div
+        key={id}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-4 transition-[opacity,transform] duration-200"
+        style={{
+          opacity: swapped ? 1 : 0,
+          transform: swapped ? 'none' : 'translateY(4px)',
+          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        {id === 'assumptions' ? <AssumptionMap /> : hasWorksheet ? <PreMortemWorksheet isBusy={isBusy} isStale={isStale} /> : <PremortemNotYet />}
+      </div>
+    </section>
+  )
+}
+
+/** The pre-mortem before Olumi has written one: what it is, and the one way to ask for it. */
+function PremortemNotYet() {
+  const viewer = useIsViewer()
+  return (
+    <div data-testid="premortem-not-yet" className="space-y-3">
+      <p className={`${typography.panelQuestion} text-text-header`}>{ARTEFACT_COPY.premortemEmpty}</p>
+      <p className={`${typography.panelBody} text-text-body`}>{ARTEFACT_COPY.premortemWhat}</p>
+      {!viewer ? (
+        <button
+          type="button"
+          data-testid="premortem-ask"
+          className={`${typography.panelBody} ${action('primary')} rounded-full px-3`}
+          onClick={() => { if (askAi({ intent: 'pre-mortem' }) === 'sent') revealOlumiSurface() }}
+        >
+          {ARTEFACT_COPY.premortemAsk}
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -199,7 +386,7 @@ export function ArtefactOpeners() {
   return (
     <ul data-testid="artefact-openers" className="space-y-1 border-b border-panel-border py-2">
       {available.map((id) => {
-        const { title, Icon } = ARTEFACTS[id]
+        const { title, Icon } = TOOLS[id]
         return (
           <li key={id} className="flex items-center gap-2">
             <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
