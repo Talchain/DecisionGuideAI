@@ -11,7 +11,9 @@ import { useArtefactStore } from '../artefactStore'
 import { useActionBarStore } from '../../conversation/actionBar/actionBarStore'
 import type { ActionBarV1, ActionOffer } from '../../conversation/actionBar/actionBarContract'
 import { REVISION, PRE_MORTEM, SET_TARGET, WHAT_CHANGES, REVIEW } from '../../conversation/actionBar/__tests__/actionBarContractExample'
-import { resetPressOfferClocks } from '../../conversation/actionBar/pressOffer'
+import { pressOffer, resetPressOfferClocks } from '../../conversation/actionBar/pressOffer'
+import { setViewerScenario, __resetViewerModeForTests } from '../../../lib/viewerMode'
+import { STRENGTHEN } from '../../conversation/actionBar/__tests__/actionBarContractExample'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { worksheetFixture } from '../../../v5/__tests__/premortemFixture'
@@ -35,7 +37,7 @@ beforeEach(() => {
     _isConversationBusy: () => false,
   } as never)
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); __resetViewerModeForTests() })
 
 describe('one suggested next move', () => {
   const cases: Array<{ name: string; priority: readonly unknown[]; shows: string | null }> = [
@@ -74,6 +76,13 @@ describe('one suggested next move', () => {
   it('steps aside while an artefact is open beside the model', () => {
     useActionBarStore.setState({ bar: barOf([PRE_MORTEM]) })
     useArtefactStore.setState({ open: 'premortem' })
+    const view = render(<ArtefactOffer />)
+    assert.equal(view.queryByTestId('artefact-offer'), null)
+  })
+
+  it('CONTRAST: a viewer, who cannot send a turn, is suggested nothing', () => {
+    setViewerScenario(SCENARIO)
+    useActionBarStore.setState({ bar: barOf([PRE_MORTEM]) })
     const view = render(<ArtefactOffer />)
     assert.equal(view.queryByTestId('artefact-offer'), null)
   })
@@ -150,5 +159,24 @@ describe('the graph is framed beside the column', () => {
     stub({ '.react-flow': flow, [DOCK_SELECTOR]: dock })
     const closed = parseInt(computeFitPadding().right, 10)
     assert.equal(open - closed, 360)
+  })
+})
+
+describe('a press opens the artefact its action is about, on every surface (the one press path)', () => {
+  const strengthen = STRENGTHEN as unknown as ActionOffer
+  it('a SENT press of an action about the model\'s figures opens the map', () => {
+    assert.equal(pressOffer(strengthen, REVISION), 'sent')
+    assert.equal(useArtefactStore.getState().open, 'assumptions')
+  })
+  it('CONTRAST: a press that sends nothing opens nothing (disabled, no conversation, repeated)', () => {
+    assert.equal(pressOffer({ ...strengthen, enabled: false }, REVISION), 'disabled')
+    assert.equal(useArtefactStore.getState().open, null)
+    useGuidanceStore.setState({ _dispatchAction: undefined } as never)
+    assert.equal(pressOffer(strengthen, REVISION), 'none')
+    assert.equal(useArtefactStore.getState().open, null)
+  })
+  it('CONTRAST: an action about something else opens nothing', () => {
+    assert.equal(pressOffer(REVIEW as unknown as ActionOffer, REVISION), 'sent')
+    assert.equal(useArtefactStore.getState().open, null)
   })
 })

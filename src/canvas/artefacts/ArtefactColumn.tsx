@@ -14,20 +14,23 @@
  * when the column opens without a press (an artefact arriving). A press already re-fits on its `pointerup`.
  */
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, Layers, X, type LucideIcon } from 'lucide-react'
 import { selectPremortemWorksheet, useCanvasStore } from '../store'
 import { PREMORTEM_COPY, type PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 import { PreMortemWorksheet } from '../../components/results/analysisNew/sections/PreMortemWorksheet'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
 import { DOCK_EDGE_EVENT } from '../utils/computeFitPadding'
-import { useArtefactStore } from './artefactStore'
+import { useArtefactStore, type ArtefactId } from './artefactStore'
+import { AssumptionMap } from './AssumptionMap'
+import { ASSUMPTION_MAP_COPY } from './assumptionMapModel'
 
 export const ARTEFACT_COLUMN_TESTID = 'artefact-column'
 export const ARTEFACT_COLUMN_WIDTH = 'min(360px, 30vw)'
 export const ARTEFACT_COPY = {
   open: 'Open beside the model',
   close: 'Close',
+  switcher: 'Thinking tools',
 } as const
 
 /** The open scenario's pre-mortem worksheet, or null (none, unavailable, or another scenario's). */
@@ -87,13 +90,29 @@ export interface ArtefactColumnProps {
   hidden?: boolean
 }
 
+/** Every artefact the column can hold: its title and icon. The order is the switcher's order. */
+const ARTEFACTS: Readonly<Record<ArtefactId, { readonly title: string; readonly Icon: LucideIcon }>> = Object.freeze({
+  assumptions: { title: ASSUMPTION_MAP_COPY.title, Icon: Layers },
+  premortem: { title: PREMORTEM_COPY.title, Icon: AlertTriangle },
+})
+const ARTEFACT_ORDER: readonly ArtefactId[] = ['assumptions', 'premortem']
+
+/** The artefacts this model can show now: the map once there is a model, the worksheet once Olumi has written one. */
+function useAvailableArtefacts(): readonly ArtefactId[] {
+  const worksheet = useCurrentPremortemWorksheet()
+  const hasModel = useCanvasStore((s) => s.nodes.length > 0)
+  return ARTEFACT_ORDER.filter((id) => (id === 'premortem' ? worksheet !== null : hasModel))
+}
+
 export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColumnProps) {
   const worksheet = useCurrentPremortemWorksheet()
   useOpenOnNewWorksheet(worksheet)
+  const available = useAvailableArtefacts()
   const open = useArtefactStore((s) => s.open)
+  const show = useArtefactStore((s) => s.show)
   const close = useArtefactStore((s) => s.close)
   const [entered, setEntered] = useState(false)
-  const visible = open === 'premortem' && worksheet !== null && !hidden
+  const visible = open !== null && available.includes(open) && !hidden
 
   useEffect(() => {
     // After the DOM change, whichever way it went.
@@ -109,13 +128,14 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
     }
   }, [visible])
 
-  if (!visible || worksheet === null) return null
+  if (!visible || open === null) return null
+  const { title, Icon } = ARTEFACTS[open]
   return (
     <aside
       data-artefact-column=""
       data-testid={ARTEFACT_COLUMN_TESTID}
-      data-artefact="premortem"
-      aria-label={PREMORTEM_COPY.title}
+      data-artefact={open}
+      aria-label={title}
       className="flex flex-col pointer-events-auto transition-[opacity,transform] duration-150 ease-out"
       onTransitionEnd={(event) => { if (event.target === event.currentTarget) announceDockEdge() }}
       style={{
@@ -132,38 +152,69 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
         transform: entered ? 'none' : 'translateX(12px)',
       }}
     >
-      <header className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
-        <AlertTriangle aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-body`}>{PREMORTEM_COPY.title}</h2>
-        <button
-          type="button"
-          onClick={close}
-          aria-label={ARTEFACT_COPY.close}
-          data-testid={`${ARTEFACT_COLUMN_TESTID}-close`}
-          className={`inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded text-text-light hover:text-text-body ${ACTION_FOCUS}`}
-        >
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+      <header className="space-y-2 border-b border-panel-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
+          <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-body`}>{title}</h2>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={ARTEFACT_COPY.close}
+            data-testid={`${ARTEFACT_COLUMN_TESTID}-close`}
+            className={`inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded text-text-light hover:text-text-body ${ACTION_FOCUS}`}
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
+        {available.length > 1 ? (
+          <div role="tablist" aria-label={ARTEFACT_COPY.switcher} className="flex flex-wrap gap-1">
+            {available.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={id === open}
+                data-testid={`${ARTEFACT_COLUMN_TESTID}-tab-${id}`}
+                onClick={() => show(id)}
+                className={`${typography.panelMeta} min-h-[24px] rounded border px-2 ${id === open ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}
+              >
+                {ARTEFACTS[id].title}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <PreMortemWorksheet isBusy={isBusy} isStale={isStale} />
+      <div role={available.length > 1 ? 'tabpanel' : undefined} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {open === 'premortem' ? <PreMortemWorksheet isBusy={isBusy} isStale={isStale} /> : <AssumptionMap />}
       </div>
     </aside>
   )
 }
 
-/** The Reasoning tab's one line for the worksheet: it says the worksheet exists and opens it beside the model. */
-export function ArtefactOpener() {
-  const worksheet = useCurrentPremortemWorksheet()
+/** The Reasoning tab's one row: every artefact this model can show now, each opened beside the model. */
+export function ArtefactOpeners() {
+  const available = useAvailableArtefacts()
   const show = useArtefactStore((s) => s.show)
-  if (worksheet === null) return null
+  if (available.length === 0) return null
   return (
-    <div data-testid="premortem-worksheet-opener" className="flex items-center gap-2 border-b border-panel-border py-3">
-      <AlertTriangle aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-      <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-body`}>{PREMORTEM_COPY.title}</span>
-      <button type="button" className={`${typography.panelBody} ${action('inline')}`} onClick={() => show('premortem')}>
-        {ARTEFACT_COPY.open}
-      </button>
-    </div>
+    <ul data-testid="artefact-openers" className="space-y-1 border-b border-panel-border py-2">
+      {available.map((id) => {
+        const { title, Icon } = ARTEFACTS[id]
+        return (
+          <li key={id} className="flex items-center gap-2">
+            <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
+            <span className={`${typography.panelBody} min-w-0 flex-1 text-text-body`}>{title}</span>
+            <button
+              type="button"
+              data-testid={`artefact-opener-${id}`}
+              className={`${typography.panelBody} ${action('inline')}`}
+              onClick={() => show(id)}
+            >
+              {ARTEFACT_COPY.open}
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

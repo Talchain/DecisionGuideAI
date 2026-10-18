@@ -10,13 +10,15 @@
  * instead; a turn is never spent to be told what the bar already says.
  *
  * The busy and double-press rules are `askAi`'s (same notice, same 500 ms
- * clock), so a bar press and an element question behave alike.
+ * clock), so a bar press and an element question behave alike. A sent press
+ * also opens the reasoning artefact the action is about, on every surface.
  */
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { ASK_BUSY_NOTICE } from '../askAi'
 import { revealOlumiSurface } from '../revealOlumi'
 import type { ActionBarRevision, ActionOffer } from './actionBarContract'
 import { registeredPressId } from '../actionRegistry'
+import { showArtefactForAction } from '../../artefacts/artefactStore'
 
 export type PressOfferResult = 'sent' | 'busy' | 'refire' | 'disabled' | 'none'
 
@@ -51,6 +53,8 @@ export function pressOffer(offer: ActionOffer, revision: ActionBarRevision): Pre
     throw error
   }
   revealOlumiSurface()
+  // The artefact this action is about opens beside the model while Olumi answers (`artefactStore.ts`).
+  showArtefactForAction(offer.action_id)
   return 'sent'
 }
 
