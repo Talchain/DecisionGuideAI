@@ -70,7 +70,7 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
     expect((reply.actionChips ?? []).some(c => c.id === `agent-approve-proposal:${PID}`)).toBe(false)
   })
 
-  it('a malformed entry, a later user message, or a card already on the reply leaves the thread unchanged', () => {
+  it('a malformed entry or a later user message leaves the thread unchanged; a card already on the reply is kept beside the held one', () => {
     const bad = { ...read.proposal_fields, proposals: [{ ...read.proposal_fields.proposals[0], digest: 'bad' }] }
     expect(latest(restore(bad)).actionChips ?? []).toHaveLength(0)
     const withUser = [...restore(null), { id: 'u-later', role: 'user' as const, content: 'later', timestamp: new Date() }]
@@ -83,9 +83,12 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
     expect(afterUser.filter((_, i) => i !== lastReply)).toEqual(withUser.filter((_, i) => i !== lastReply))
     const armed = restore(); const again = reconcileRestoredProposalFields(armed, { ...read.proposal_fields, proposals: [] })
     expect(again).toEqual(armed)
+    // ⛔ CHANGED CONTRACT (Codex BLOCK on #2819, 18 Oct: every restored card renders): a card already on the reply is KEPT,
+    // and the read's held card joins it with its own button (this row used to pin that the held card was left off).
     const prop = restore(null); const last = prop.length - 1
     prop[last] = { ...prop[last], actionChips: [{ id: 'agent-approve-proposal:prop_' + 'a'.repeat(32), label: 'Yes', message: 'Yes.' } as never] }
-    expect(reconcileRestoredProposalFields(prop, read.proposal_fields)[last].actionChips?.map(c => c.id)).toEqual([`agent-approve-proposal:prop_${'a'.repeat(32)}`])
+    expect(reconcileRestoredProposalFields(prop, read.proposal_fields)[last].actionChips?.map(c => c.id))
+      .toEqual([`agent-approve-proposal:${PID}`, 'agent-amend-proposal', `agent-decline-proposal:${PID}`, `agent-approve-proposal:prop_${'a'.repeat(32)}`])
   })
 
   it('LOCAL restore: a trailing "Session resumed" divider does not hide the card (served E1c, 7 Oct)', () => {

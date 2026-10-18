@@ -3,7 +3,7 @@
  * `proposal_fields` on the graph read. Pure: no React, no store, so the restore path can use it too.
  */
 import { z } from 'zod'
-import type { ActionChip } from './types'
+import type { ActionChip, ConversationMessage } from './types'
 
 // Slice 1 §15 projection only. The stored, type-specific operations never come back from this panel.
 const bandSchema = z.enum(['slight', 'moderate', 'strong', 'very_strong'])
@@ -86,3 +86,35 @@ export function readProposalFields(raw: unknown) {
 
 /** CEE's amend control, byte-identical to its AMEND_CHIP; it carries no proposal id of its own. */
 export const AMEND_PROPOSAL_ACTION = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' } as const
+
+const APPROVE_PREFIX = 'agent-approve-proposal:'
+export interface DisplayedProposal { proposal_id: string; revision?: string }
+/**
+ * ⭐ WHAT THE USER IS SHOWN (Codex BLOCK on CEE #3420 / DGAI #2819, 18 Oct, P1: a replacement whose reply was lost inherited
+ * the typed consent given to the card still on screen). Every typed turn tells CEE the cards with a button on screen, at the
+ * revision this client rendered, and CEE binds typed words ONLY to one of them. Mirrors ChatThread's rule: the latest reply
+ * shows all its buttons; an earlier reply shows a card it is the newest owner of while the latest real reply's current held
+ * set and that reply's own projection both list it.
+ */
+export function displayedProposals(messages: readonly ConversationMessage[]): DisplayedProposal[] {
+  const replies = messages.filter(m => m.role === 'assistant' && typeof m.sessionDivider !== 'string')
+  const latest = replies[replies.length - 1]
+  if (latest === undefined) return []
+  const latestReal = [...replies].reverse().find(m => !m.synthetic)
+  const current = readProposalFields(latestReal?.proposalFields)?.proposals ?? []
+  const owners = new Map<string, ConversationMessage>()
+  for (const m of replies) {
+    if (m.synthetic) continue
+    for (const chip of m.actionChips ?? []) if (typeof chip.id === 'string' && chip.id.startsWith(APPROVE_PREFIX)) owners.set(chip.id, m)
+  }
+  for (const chip of latest.actionChips ?? []) if (typeof chip.id === 'string' && chip.id.startsWith(APPROVE_PREFIX)) owners.set(chip.id, latest)
+  const shown: DisplayedProposal[] = []
+  for (const [chipId, owner] of owners) {
+    const id = chipId.slice(APPROVE_PREFIX.length)
+    const own = readProposalFields(owner.proposalFields)?.proposals ?? []
+    if (owner !== latest && !(current.some(p => p.proposal_id === id) && own.some(p => p.proposal_id === id))) continue
+    const record = current.find(p => p.proposal_id === id) ?? own.find(p => p.proposal_id === id)
+    shown.push(record === undefined ? { proposal_id: id } : { proposal_id: id, revision: record.revision })
+  }
+  return shown
+}

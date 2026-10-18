@@ -390,22 +390,21 @@ export const ChatThread = memo(function ChatThread({
         if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        // A live reply carries only its approve chip (no heldProposalId), so the id is read from the chip (buddy r1 P2).
-        const heldApproveId = msg.heldProposalId !== undefined ? `agent-approve-proposal:${msg.heldProposalId}`
-          : (msg.actionChips ?? []).find(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))?.id
-        const heldId = heldApproveId?.slice('agent-approve-proposal:'.length)
-        const ownsHeldCard = heldApproveId !== undefined && heldId !== undefined && heldChipOwners.get(heldApproveId) === msg
-          && currentHeldIds.has(heldId)
-          && readProposalFields(msg.proposalFields)?.proposals.some(p => p.proposal_id === heldId)
-        // Keep ordinary chips with their owning reply; held consent keeps its single live owner.
+        // The ids are read from the reply's chips, live or restored (buddy r1 P2), never the scalar `heldProposalId`.
+        // ⭐ AN APPROVAL IS ONE ACTION (DL-3 18 Oct): a reply may offer SEVERAL waiting cards; it keeps EVERY card it is
+        // the live owner of, each with its own "Not now" (assessment K5 L2; Codex BLOCK 18 Oct: a restore hid the second).
+        const listed = new Set((readProposalFields(msg.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
+        const approveIds = (msg.actionChips ?? []).flatMap(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:') ? [c.id] : [])
+        const ownedIds = new Set(approveIds.filter(id => heldChipOwners.get(id) === msg)
+          .map(id => id.slice('agent-approve-proposal:'.length)).filter(id => currentHeldIds.has(id) && listed.has(id)))
+        // Keep ordinary chips with their owning reply; each held card keeps its single live owner.
         // Preserve the latest reply's array identity so pending-row freezing survives host rerenders.
         const replyChips = isLastAssistant ? (msg.actionChips ?? []) : (msg.actionChips ?? []).filter(chip => {
           const isConsent = chip.id?.startsWith('agent-approve-proposal:')
             || chip.id?.startsWith('agent-decline-proposal:') || chip.id === 'agent-amend-proposal'
-          return !isConsent || Boolean(ownsHeldCard && (
-            chip.id === heldApproveId || chip.id === 'agent-amend-proposal'
-            || chip.id === `agent-decline-proposal:${heldId}`
-          ))
+          if (!isConsent) return true
+          if (chip.id === 'agent-amend-proposal') return ownedIds.size > 0
+          return ownedIds.has(chip.id.slice(chip.id.indexOf(':') + 1))
         })
         const chipGroup = replyChips.length > 0
         return (

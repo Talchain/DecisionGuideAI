@@ -86,11 +86,11 @@ describe('P53: an approval is bound to the message that issued it, from render t
     expect(built(send.mock.calls[0][0], source)).toMatchObject({ source, chip: { id: A.approve_action.id }, proposal_edits: binding(A) })
   })
 
-  it.each(["Use Olumi's suggestions", 'Submit'])('B2: panel %s sends the same binding with fields: []', label => {
+  it.each(["Apply this reading", 'Submit'])('B2: panel %s sends the same binding with fields: []', label => {
     const { send } = mount()
     fireEvent.click(screen.getByRole('button', { name: AMEND_PROPOSAL_ACTION.label }))
     const panel = screen.getByRole('region', { name: 'What this change assumes' })
-    if (label === "Use Olumi's suggestions") {
+    if (label === "Apply this reading") {
       // The reset action keeps the card binding while declining this local value change.
       const field = within(panel).getByTestId(`proposal-field-${PID_A}-${A.fields[0].field_id}`)
       fireEvent.click(within(field).getByRole('button', { name: /^Very strong/ }))
@@ -178,15 +178,18 @@ describe('P53: an approval is bound to the message that issued it, from render t
     expect(screen.getByTestId(`suggested-chip-${A.approve_action.id}`)).toBeTruthy()
   })
 
-  it('B8: an unmatched first entry cannot occupy the last reply owned by a matched second proposal', () => {
+  // ⛔ CHANGED CONTRACT (Codex BLOCK on #2819, 18 Oct, P1: "every restored card must render"): this row pinned that the
+  // unmatched card A stayed HIDDEN behind B. A now joins the last reply beside B, each with its own button. Kept: A never
+  // displaces B (B stays first and is the reply's own card), and the reply that issued B is not labelled "earlier".
+  it('B8: an unmatched first entry joins the last reply beside the matched second proposal, never displacing it', () => {
     const raw = wire(A, proposal(PID_B, 'B', DIGEST_B, 't2'))
     const restored = reconcileRestoredProposalFields([reply('restored-assistant-t1', 'Earlier reply'), reply('restored-assistant-t2', 'Issued offer B')], raw)
     expect(restored[0].actionChips ?? []).toHaveLength(0)
     expect(restored[1]).toMatchObject({ heldProposalId: PID_B, proposalFields: raw })
-    expect(restored[1].actionChips?.filter(c => c.id?.startsWith('agent-approve-proposal:')).map(c => c.id)).toEqual([B.approve_action.id])
+    expect(restored[1].actionChips?.filter(c => c.id?.startsWith('agent-approve-proposal:')).map(c => c.id)).toEqual([B.approve_action.id, A.approve_action.id])
     expect(restored[1]).not.toMatchObject({ heldProposalEarlier: true })
     renderThread(restored)
-    expect(screen.queryByTestId(`suggested-chip-${A.approve_action.id}`)).toBeNull()
+    expect(screen.getByTestId(`suggested-chip-${A.approve_action.id}`)).toBeTruthy()
     expect(screen.getByTestId(`suggested-chip-${B.approve_action.id}`)).toBeTruthy()
     expect(screen.queryByTestId('held-proposal-earlier-label')).toBeNull()
   })
@@ -333,7 +336,7 @@ describe('P53: an approval is bound to the message that issued it, from render t
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled()); await act(async () => {})
     fireEvent.click(screen.getByRole('button', { name: AMEND_PROPOSAL_ACTION.label }))
     const panel = screen.queryByRole('region', { name: 'What this change assumes' })
-    if (panel) fireEvent.click(within(panel).getByRole('button', { name: "Use Olumi's suggestions" }))
+    if (panel) fireEvent.click(within(panel).getByRole('button', { name: "Apply this reading" }))
     vi.unstubAllGlobals(); vi.unstubAllEnvs()
     return { panel, send }
   }

@@ -128,7 +128,7 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     const request = capture<{ chip: { id: string }; message: string; proposal_edits: unknown }>('sd-s2-a1-submit-request.json')
     const { send } = mount(turn); open(turn); editHours('12')
     // Buddy r1 P2: Olumi's own figure keeps its own label; the user's figure is a separate line.
-    expect(within(row(A1_PID, HOURS, 'Hours')).getByText('Yours: 12 hours', { exact: true })).toBeTruthy()
+    expect(within(row(A1_PID, HOURS, 'Hours')).getByText('Your figure: 12 hours', { exact: true })).toBeTruthy()
     expect(within(row(A1_PID, HOURS, 'Hours')).getByText('10 hours', { exact: true })).toBeTruthy()
     expect(within(row(A1_PID, HOURS, 'Hours')).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
     expect(within(row(A1_PID, COST, 'Cost')).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
@@ -141,10 +141,10 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     expect(send.mock.calls[0][0].proposalEdits).toEqual(request.proposal_edits)
   })
 
-  it("R4 Use Olumi's suggestions binds the rendered proposal with fields: [] even after entering a figure", () => {
+  it("R4 Apply this reading binds the rendered proposal with fields: [] even after entering a figure", () => {
     const turn = a1(); const proposal = rawProposal(turn, A1_PID)
     const { send } = mount(turn); open(turn); editHours('12')
-    fireEvent.click(within(panel()).getByRole('button', { name: "Use Olumi's suggestions" }))
+    fireEvent.click(within(panel()).getByRole('button', { name: "Apply this reading" }))
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].id).toBe(proposal.approve_action.id)
     expect(send.mock.calls[0][0].message).toBe(proposal.approve_action.message)
@@ -173,7 +173,7 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     expect(send.mock.calls[0][0].proposalEdits).toEqual(capture<{ proposal_edits: unknown }>('sd-s2-a1-submit-request.json').proposal_edits)
   })
 
-  it.each([['yours', 'Yours'], ['from_brief', 'From your brief']] as const)('R7 renders %s provenance on the identified factor rows', (source, words) => {
+  it.each([['yours', 'From your message'], ['from_brief', 'From your brief']] as const)('R7 renders %s provenance on the identified factor rows', (source, words) => {
     const turn = a1()
     factor(turn, COST).current.source = source
     factor(turn, HOURS).current.source = source
@@ -251,10 +251,10 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     fireEvent.click(submit()); expect(send).not.toHaveBeenCalled()
   })
 
-  it("Olumi's own figure typed back is not labelled Yours (nothing is sent for it)", () => {
+  it("Olumi's own figure typed back is not labelled Your figure (nothing is sent for it)", () => {
     const turn = a1(); mount(turn); open(turn); editHours('10')
     const hours = row(A1_PID, HOURS, 'Hours')
-    expect(within(hours).queryByText('Yours', { exact: true })).toBeNull()
+    expect(within(hours).queryByText(/^Your figure/)).toBeNull()
     expect(within(hours).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
   })
 
