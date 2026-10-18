@@ -8,6 +8,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
+import { reconcileRestoredProposalFields } from '../serverConversationTurns'
+import { displayedProposals } from '../proposalFields'
+import { buildV5Payload } from '../../../v5/buildPayload'
 
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
@@ -84,5 +87,53 @@ describe('every waiting card keeps its button on the reply that offered it', () 
     ])
     expect(screen.getAllByTestId(`suggested-chip-agent-approve-proposal:${A}`)).toHaveLength(1)
     expect(screen.getAllByTestId(`suggested-chip-agent-approve-proposal:${B}`)).toHaveLength(1)
+  })
+})
+
+// ⭐ Codex BLOCK on #2819@439361db (18 Oct): its two restore probes, adopted as rows. A restore brings back EVERY waiting card.
+describe('every waiting card survives a server restore', () => {
+  it.each(['same issuing reply', 'unmatched issuing reply'])('%s: both waiting cards come back, each with its button and its "Not now"', kind => {
+    const raw = fields([A, 'First reading'], [B, 'Second reading'])
+    const proposals = raw.proposals.map(p => ({ ...p, issued_turn_id: kind === 'same issuing reply' ? 'issued-1' : null }))
+    const restored = reconcileRestoredProposalFields([msg({ id: 'restored-assistant-issued-1', actionChips: [] })], { ...raw, proposals })
+    renderThread(restored)
+    for (const id of [A, B]) expect(has(`agent-approve-proposal:${id}`), id).toBe(true)
+    for (const id of [A, B]) expect(has(`agent-decline-proposal:${id}`), id).toBe(true)
+  })
+})
+
+// ⭐ What a typed turn says the user can see: CEE binds typed words ONLY to one of these cards, at this revision.
+describe('the cards on screen, sent with a typed turn', () => {
+  it('the latest reply\'s two cards, each at the revision it rendered', () => {
+    const shown = displayedProposals([
+      msg({ role: 'user', content: 'Suggest a starting value.' }),
+      msg({ actionChips: [approve(B, 'Record this level'), approve(A, 'Use as starting assumptions'), AMEND, decline(B), decline(A)],
+        proposalFields: fields([B, 'Record this level'], [A, 'Use as starting assumptions']) }),
+    ])
+    expect(shown).toEqual([{ proposal_id: B, revision: `rev-${B.slice(5, 9)}` }, { proposal_id: A, revision: `rev-${A.slice(5, 9)}` }])
+  })
+  it('a reply this client never received shows nothing new: only the card on screen is sent (the lost replacement is not)', () => {
+    // Card A is on screen; CEE replaced it with C, but that reply never arrived, so this client's messages end at A.
+    const shown = displayedProposals([
+      msg({ actionChips: [approve(A, 'Use as starting assumptions'), AMEND, decline(A)], proposalFields: fields([A, 'Use as starting assumptions']) }),
+      msg({ role: 'user', content: 'Actually make it 12%.' }),
+    ])
+    expect(shown.map(p => p.proposal_id)).toEqual([A])
+  })
+  it('an earlier reply\'s card CEE no longer holds is not on screen, so it is not sent', () => {
+    const shown = displayedProposals([
+      msg({ actionChips: [approve(A, 'Use as starting assumptions'), AMEND, decline(A)], proposalFields: fields([A, 'Use as starting assumptions']) }),
+      msg({ role: 'user', content: 'Not now.' }),
+      msg({ actionChips: [], proposalFields: fields([B, 'Record this level']) }),
+    ])
+    expect(shown.map(p => p.proposal_id)).toEqual([])
+  })
+  it('the payload: a typed turn carries the set; a press does not (its chip names its card)', () => {
+    const base = { turnId: 't-1', scenarioId: 's-1', stage: 'frame' as const, turnClass: 'frame' as const, mode: 'user' as const,
+      displayedProposals: [{ proposal_id: A, revision: 'rev-a' }] }
+    const typed = buildV5Payload({ ...base, message: 'Approved.', source: 'composer' })
+    expect(typed.ok && typed.payload).toMatchObject({ source: 'composer', displayed_proposals: [{ proposal_id: A, revision: 'rev-a' }] })
+    const pressed = buildV5Payload({ ...base, message: 'Yes, use those.', source: 'chip_click', chipMeta: { id: `agent-approve-proposal:${A}` } })
+    expect(pressed.ok && pressed.payload).not.toHaveProperty('displayed_proposals')
   })
 })

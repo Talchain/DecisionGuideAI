@@ -201,6 +201,7 @@ import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { displayedProposals } from './proposalFields'
 import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
 import {
   confirmOptimisticFactorEdit,
@@ -4761,6 +4762,8 @@ export function useConversation(): UseConversationReturn {
         source,
         chipMeta,
         proposalEdits: opts.proposalEdits,
+        // The cards on screen now: CEE binds typed words only to one of these (`displayedProposals`).
+        displayedProposals: displayedProposals(messagesRef.current),
         systemEvent,
       })
 

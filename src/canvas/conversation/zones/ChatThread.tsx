@@ -390,12 +390,11 @@ export const ChatThread = memo(function ChatThread({
         if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        // A live reply carries its approve chips (no heldProposalId), so the ids are read from the chips (buddy r1 P2).
+        // The ids are read from the reply's chips, live or restored (buddy r1 P2), never the scalar `heldProposalId`.
         // ⭐ AN APPROVAL IS ONE ACTION (DL-3 18 Oct): a reply may offer SEVERAL waiting cards; it keeps EVERY card it is
-        // the live owner of, each with its own "Not now" (assessment K5 L2: a second waiting card lost its button).
+        // the live owner of, each with its own "Not now" (assessment K5 L2; Codex BLOCK 18 Oct: a restore hid the second).
         const listed = new Set((readProposalFields(msg.proposalFields)?.proposals ?? []).map(p => p.proposal_id))
-        const approveIds = msg.heldProposalId !== undefined ? [`agent-approve-proposal:${msg.heldProposalId}`]
-          : (msg.actionChips ?? []).flatMap(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:') ? [c.id] : [])
+        const approveIds = (msg.actionChips ?? []).flatMap(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:') ? [c.id] : [])
         const ownedIds = new Set(approveIds.filter(id => heldChipOwners.get(id) === msg)
           .map(id => id.slice('agent-approve-proposal:'.length)).filter(id => currentHeldIds.has(id) && listed.has(id)))
         // Keep ordinary chips with their owning reply; each held card keeps its single live owner.

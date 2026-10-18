@@ -135,13 +135,12 @@ export function reconcileRestoredProposalFields(
   const unmatched: typeof proposals = []
   const isReply = (message: ConversationMessage) => message.role === 'assistant' && !message.synthetic
     && typeof message.sessionDivider !== 'string'
-  const approveIds = (message: ConversationMessage) => (message.actionChips ?? [])
-    .filter(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:')).map(c => c.id)
-  const attach = (index: number, held: typeof proposals[number], earlier: boolean) => {
+  // ⭐ EVERY card a reply carries comes back with its button (Codex BLOCK 18 Oct, P1: a restore showed only the first).
+  const attach = (index: number, held: readonly (typeof proposals)[number][], earlier: boolean) => {
     const reply = out[index]
-    const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
+    const card = buildSuggestedActionChips([], [...held.map(h => h.approve_action), AMEND_PROPOSAL_ACTION, ...held.map(h => h.decline_action)])
     const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
-    out[index] = { ...reply, heldProposalId: held.proposal_id, heldProposalEarlier: earlier,
+    out[index] = { ...reply, heldProposalId: held[0].proposal_id, heldProposalEarlier: earlier,
       actionChips: [...card, ...others], proposalFields: rawProposalFields }
   }
 
@@ -167,23 +166,29 @@ export function reconcileRestoredProposalFields(
     out[i] = { ...out[i], actionChips: kept }
   }
 
-  // 3. Attach each matched proposal on its issuing reply; a reply still holding a DIFFERENT card keeps its own.
+  // 3. Every matched proposal on its issuing reply, several on one reply each with its own button; the reply's other
+  // chips (a card of its own included) stay after them.
+  // A reply is labelled "earlier" only when none of its cards was issued on it.
+  const onReply = new Map<number, { held: (typeof proposals)[number][]; issuedHere: boolean }>()
+  const place = (index: number, held: (typeof proposals)[number], earlier: boolean) => {
+    const group = onReply.get(index) ?? { held: [], issuedHere: false }
+    if (!group.held.some(h => h.proposal_id === held.proposal_id)) group.held.push(held)
+    onReply.set(index, { held: group.held, issuedHere: group.issuedHere || !earlier })
+  }
   for (const held of proposals) {
     const index = matchedAt.get(held.proposal_id)
-    if (index === undefined || approveIds(out[index]).some(id => id !== held.approve_action.id)) continue
-    attach(index, held, false)
+    if (index !== undefined) place(index, held, false)
   }
 
-  // 4. The oldest unmatched proposal goes on the last reply, labelled earlier, unless a later user message comes after
-  // it or that reply holds a different card. Its own continuity copy there is relabelled, not skipped (buddy r2).
-  // Only the oldest: CEE's continuity rule offers the next one once it is answered (design §16).
+  // 4. EVERY unmatched proposal goes on the last reply, labelled earlier, unless a later user message comes after it
+  // (CEE now offers every waiting card at once, not the oldest first). Its continuity copy there is relabelled (buddy r2).
   // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
   // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
   let last = out.length - 1
   while (last >= 0 && typeof out[last].sessionDivider === 'string') last--
   const reply = out[last]
-  if (unmatched.length > 0 && reply !== undefined && isReply(reply)
-    && approveIds(reply).every(id => id === unmatched[0].approve_action.id)) attach(last, unmatched[0], true)
+  if (unmatched.length > 0 && reply !== undefined && isReply(reply)) for (const held of unmatched) place(last, held, true)
+  for (const [index, group] of onReply) attach(index, group.held, !group.issuedHere)
 
   // 5. The latest REAL reply carries the read's CURRENT held set (as a live reply carries `_proposal_fields`), even
   // when a user message follows it: ChatThread shows an earlier reply's card only while this set lists it (buddy r2).

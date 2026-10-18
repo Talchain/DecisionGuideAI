@@ -34,6 +34,7 @@ import type {
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { ProposalEdits } from '../canvas/conversation/HeldProposalPanel'
+import type { DisplayedProposal } from '../canvas/conversation/proposalFields'
 import type { SystemEvent } from '../canvas/conversation/types'
 import {
   isSendableAnalysisId,
@@ -93,6 +94,11 @@ export interface BuildV5PayloadInput {
   source?: string | undefined
   /** Held-proposal binding and optional edits; sent only beside that proposal's own approve chip. */
   proposalEdits?: ProposalEdits
+  /**
+   * The cards with a button on screen, at the revision rendered (`displayedProposals`). Sent on a typed turn only: CEE binds
+   * typed words to a card ONLY when it is in this set (Codex BLOCK 18 Oct: an unseen replacement inherited typed consent).
+   */
+  displayedProposals?: DisplayedProposal[]
   /** Chip metadata forwarded by chip click handlers. */
   chipMeta?:
     | { id?: string; action_type?: string; intent?: string; parameters?: Record<string, unknown> }
@@ -200,7 +206,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
           : rawSource
   const source = normaliseMessageSource(effectiveSource)
 
-  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits } = {
+  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits; displayed_proposals?: DisplayedProposal[] } = {
     kind: 'message',
     turn_id: turnId,
     scenario_id: scenarioId,
@@ -228,6 +234,11 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
     && input.proposalEdits) {
     base.proposal_edits = input.proposalEdits
+  }
+
+  // A typed turn says which cards the user can see; a press already names its card (`chip.id`).
+  if (source === 'composer' && input.displayedProposals !== undefined) {
+    base.displayed_proposals = input.displayedProposals.map(p => (p.revision === undefined ? { proposal_id: p.proposal_id } : { proposal_id: p.proposal_id, revision: p.revision }))
   }
 
   // retry_of — only on retry source and only when an explicit prior id is
