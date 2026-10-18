@@ -921,11 +921,11 @@ function buildNodeMenu(
       if (hasSensitivity) {
         items.push({
           id: 'lens-sensitivity',
-          label: 'Show sensitivity view',
+          label: 'Show what would change',
           icon: Layers,
-          tooltip: 'Highlight edges by sensitivity weight',
+          tooltip: 'What the last Run is most sensitive to',
           enabled: true,
-          action: wrap(() => state.setLens('sensitivity')),
+          action: wrap(() => state.setLens('what_changes')),
         })
       }
     }
@@ -1044,11 +1044,11 @@ function buildEdgeMenu(
       if (isFragile) {
         items.push({
           id: 'lens-fragile',
-          label: 'Show all fragile edges',
+          label: 'Show what would change',
           icon: Layers,
-          tooltip: 'Highlight all edges that could flip the result',
+          tooltip: 'What the last Run is most sensitive to',
           enabled: true,
-          action: wrap(() => state.setLens('fragile')),
+          action: wrap(() => state.setLens('what_changes')),
         })
       }
     }

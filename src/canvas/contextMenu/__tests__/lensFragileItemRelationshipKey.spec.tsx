@@ -1,5 +1,5 @@
 /**
- * ⛔ THE EDGE MENU'S "Show all fragile edges" FOLLOWS THE SAME IDENTITY RULE AS
+ * ⛔ THE EDGE MENU'S "Show what would change" (was "Show all fragile edges") FOLLOWS THE SAME IDENTITY RULE AS
  * THE CUE AND THE INSPECTOR.
  *
  * Pre-review 5828511534 on #2002: every caller of the shared matcher must hand

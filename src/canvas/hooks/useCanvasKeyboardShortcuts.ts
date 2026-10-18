@@ -4,7 +4,7 @@
  * Shortcuts:
  * - P: Focus inline probabilities editor for selected decision
  * - T: Open Templates panel
- * - L: Toggle Graph Lens dropdown
+ * - L: The next lens on the lens bar
  * - ArrowLeft/ArrowRight: Cycle lens option (when option isolation active)
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
@@ -18,6 +18,7 @@
 import { useEffect, useCallback } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import { nextBarLens } from '../artefacts/lenses'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -28,8 +29,6 @@ const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
 )
 
-/** Custom event dispatched by L key — TopBar listens to toggle the lens dropdown */
-export const LENS_TOGGLE_EVENT = 'topbar:toggle-lens'
 
 interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
@@ -218,11 +217,12 @@ export function useCanvasKeyboardShortcuts({
       return
     }
 
-    // L: Toggle Graph Lens dropdown
+    // L: the next lens on the lens bar (`artefacts/LensBar.tsx`), skipping one that cannot show yet
     if (e.key === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      if (isGraphLensEnabled()) {
+      if (isGraphLensEnabled() && !isTextInputTarget) {
         e.preventDefault()
-        window.dispatchEvent(new CustomEvent(LENS_TOGGLE_EVENT))
+        const state = useCanvasStore.getState()
+        state.setLens(nextBarLens(state.lens.active, state.results.status === 'complete' && !!state.results.report))
       }
       return
     }

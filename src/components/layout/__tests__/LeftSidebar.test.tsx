@@ -2,11 +2,6 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { LeftSidebar } from '../LeftSidebar'
 
-// Disable graph lens feature flag so LensDropdown doesn't render
-vi.mock('../../../flags', () => ({
-  isGraphLensEnabled: () => false,
-}))
-
 vi.mock('../../../canvas/store', () => ({
   useCanvasStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({

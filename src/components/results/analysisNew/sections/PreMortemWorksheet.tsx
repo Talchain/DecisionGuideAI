@@ -9,7 +9,8 @@ import { PREMORTEM_COPY, samePremortemRun } from '../../../../v5/readPremortemWo
 import { canvasLinkOfTarget, useCanvasLight } from '../../../../canvas/graphChanges/rowCanvasLink'
 import type { PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet'
 import { typography } from '../../../../styles/typography'
-import { action } from '../panelSurfaces'
+import { action, ACTION_FOCUS } from '../panelSurfaces'
+import { Eye, Plus, ShieldCheck } from 'lucide-react'
 
 type Row = PremortemWorksheetV1['rows'][number]
 export interface PreMortemWorksheetProps {
@@ -17,10 +18,12 @@ export interface PreMortemWorksheetProps {
   isStale?: boolean
 }
 const buttonClass = `${typography.panelBody} ${action('inline')} disabled:opacity-50 disabled:no-underline`
+/** An element the worksheet names, as an outlined pill that lights it on the canvas and opens it on press. */
+const chipClass = `inline-flex min-h-[28px] min-w-[28px] items-center gap-1.5 rounded-full border px-2.5 transition-colors duration-200 disabled:opacity-50 ${ACTION_FOCUS}`
 
 /**
- * Read only worksheet projection, shown in the artefact column beside the model (`canvas/artefacts/ArtefactColumn.tsx`,
- * which also restores it on reload). Risk buttons prepare a chip turn for the existing consent card. Every option and
+ * Read only worksheet projection, shown in the "If it failed" lens's key card (`canvas/components/LensInfoPanel.tsx`;
+ * `canvas/artefacts/lenses.ts` restores it on reload). Risk buttons prepare a chip turn for the existing consent card. Every option and
  * grounding control lights its element on the canvas on hover and keyboard focus, by identity only.
  */
 export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMortemWorksheetProps) {
@@ -87,32 +90,50 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   // CODEX-BRIEF-R2: ordinary Runs carry no worksheet and gain no empty section.
   if (!worksheet) return null
   const options = nodes.filter(node => node.type === 'option')
-  return <div data-testid="premortem-worksheet" data-row-count={worksheet.rows.length} className={`space-y-3 ${stale ? 'opacity-60' : ''}`}>
-      {stale ? <p role="status" className={`${typography.panelBody} text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
+  return <div data-testid="premortem-worksheet" data-row-count={worksheet.rows.length} className={`space-y-6 transition-opacity duration-200 ${stale ? 'opacity-60' : ''}`}>
+      {stale ? <p role="status" className={`${typography.panelBody} rounded-xl border border-warning/30 px-3 py-2 text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
+      {/* Said once for the worksheet, never as a label above each story: every story Olumi drafted is its hypothesis. */}
+      {worksheet.rows.some(row => row.source !== 'server_built')
+        ? <p className={`${typography.panelMeta} inline-flex rounded-full border border-dashed border-info px-2.5 py-0.5 text-text-body`}>{PREMORTEM_COPY.provenance}</p>
+        : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
-        return <div key={option.id} data-option-id={option.id} className="space-y-2">
-          <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>{String(option.data.label ?? '')}</button>
-          {rows.length === 0 ? <p className={`${typography.panelBody} text-text-light`}>Not stress-tested</p> : rows.map(row => <div key={row.row_id} className="space-y-1" data-row-id={row.row_id}>
-            <p className={`${typography.panelMeta} text-text-light`}>{row.source === 'server_built' ? PREMORTEM_COPY.serverBuilt : PREMORTEM_COPY.provenance}</p>
-            <p className={`${typography.panelBody} text-text-body`}>{row.failure_way}</p>
-            <p className={`${typography.panelBody} text-text-body`}>{PREMORTEM_COPY.warning}: {row.early_warning}</p>
-            {row.mitigation ? <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p> : null}
-            <div className="flex flex-wrap gap-1">
+        return <section key={option.id} data-option-id={option.id} className="space-y-5">
+          <div className="flex items-center gap-2">
+            <button type="button" className={`${typography.panelBody} ${chipClass} border-option/30 text-text-header`} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>
+              <span aria-hidden="true" className="h-2 w-2 flex-none rounded-full bg-option" />
+              {String(option.data.label ?? '')}
+            </button>
+            {rows.length === 0 ? <p className={`${typography.panelMeta} text-text-light`}>Not stress-tested</p> : null}
+          </div>
+          {rows.map(row => <article key={row.row_id} data-row-id={row.row_id} className="space-y-3">
+            <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>
+            {row.source === 'server_built' ? <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.serverBuilt}</p> : null}
+            <div className="space-y-1.5">
+              <div className="flex items-start gap-2">
+                <Eye aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
+                <p className={`${typography.panelBody} text-text-body`}>{PREMORTEM_COPY.warning}: {row.early_warning}</p>
+              </div>
+              {row.mitigation ? <div className="flex items-start gap-2">
+                <ShieldCheck aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
+                <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p>
+              </div> : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
               {row.grounding.kind === 'not_in_model' ? <span className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span> : row.grounding.ids.map(id =>
-                target(id) ? <button key={id} type="button" className={buttonClass} disabled={stale} onClick={() => openElement(id)} {...lightProps(id)}>
+                target(id) ? <button key={id} type="button" className={`${typography.panelMeta} ${chipClass} border-panel-border text-text-body`} disabled={stale} onClick={() => openElement(id)} {...lightProps(id)}>
                   {groundingLabel(id)}
                 </button> : <span key={id} className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span>) }
             </div>
             {row.on_map ? <p className={`${typography.panelMeta} text-text-light`} data-testid="premortem-on-map">
               {PREMORTEM_COPY.onMap}: <button type="button" className={buttonClass} disabled={stale} onClick={() => openElement(row.on_map!.node_id)} {...lightProps(row.on_map.node_id)}>Inspect ‘{row.on_map.label}’</button>
-            </p> : row.risk_request ? <button type="button" className={buttonClass} disabled={stale || busy || !dispatch} onClick={() => addRisk(row)}>Add this as a risk</button> : null}
-          </div>)}
-        </div>
+            </p> : row.risk_request ? <button type="button" className={`${typography.panelBody} ${action('secondary')} gap-1 px-3 disabled:opacity-50`} disabled={stale || busy || !dispatch} onClick={() => addRisk(row)}><Plus aria-hidden="true" className="h-3.5 w-3.5" />Add this as a risk</button> : null}
+          </article>)}
+        </section>
       })}
-      <footer className={`${typography.panelMeta} text-text-light space-y-1`}>
+      <footer className={`${typography.panelMeta} space-y-1 pt-2 text-text-light`}>
+        <p className={`${typography.panelBody} text-text-body`}>{worksheet.blindspot_question}</p>
         <p>Run: <time dateTime={worksheet.run.computed_at}>{new Date(worksheet.run.computed_at).toLocaleString('en-GB')}</time></p>
-        <p>{worksheet.blindspot_question}</p>
       </footer>
   </div>
 }

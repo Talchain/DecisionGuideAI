@@ -425,24 +425,6 @@ describe('GAP 11: the full-width title holds the widest word while marks occupy 
 
   })
 
-  it('the CAUSAL LENS title (a full-width block; netlify.toml ships the lens ON) keeps clear of the mark by the same rule', () => {
-    attentionMarked = true
-    graphLensOn = true
-    useCanvasStore.setState({ lens: { ...INITIAL_LENS, active: 'causal' } } as never)
-    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
-
-    const band = screen.getByTestId('outcome-bottom-marks-o1')
-    expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3', 'gap-1')
-    expect(band).toContainElement(screen.getByTestId('attention-marker-o1'))
-    expect(root).toContainElement(band)
-    expect(within(root).queryByTestId('node-title-corner-spacer')).toBeNull()
-    expect(screen.queryByTestId('node-header-row')).toBeNull()
-    const measure = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight)
-    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) expect(measure).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * scalesAt(g).text)
-
-    expect(root.textContent).toContain('Concentration risk in the top accounts')
-  })
-
   it('CONTRAST: two marks and no marks both leave the title full width, with no spacer', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])

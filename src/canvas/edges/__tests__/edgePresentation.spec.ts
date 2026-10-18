@@ -35,9 +35,6 @@ const POLARITY_GREEN = 'var(--edge-positive)'
 function state(overrides: Partial<EdgePresentationState> = {}): EdgePresentationState {
   return {
     isStructural: false,
-    lensMode: 'full',
-    causalParams: null,
-    evidenceClass: null,
     contested: NOT_CONTESTED,
     isHighlighted: false,
     polarityStroke: POLARITY_GREEN,
@@ -86,8 +83,6 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
   it('states the stroke precedence as an ordered list, highest first', () => {
     expect([...EDGE_STROKE_RULES]).toEqual([
       'structural',
-      'lens_causal',
-      'lens_evidence',
       // ⭐ ONE contest rule, and it is about the SIGN (Experience Design,
       // 23 Sep 2026: "orange = AI review sign disagreement only").
       // `contested_needs_user_input` — full orange whenever pass 2 asked for
@@ -124,8 +119,6 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
     // forgotten in the list — the hand-maintained-mirror defect (trap 12).
     const reached = [
       resolveEdgeStroke(state({ isStructural: true })).rule,
-      resolveEdgeStroke(state({ lensMode: 'causal', causalParams: { direction: 'negative' } })).rule,
-      resolveEdgeStroke(state({ lensMode: 'evidence', evidenceClass: 'assumed' })).rule,
       resolveEdgeStroke(state({ contested: contestedSignFlip })).rule,
       resolveEdgeStroke(state({ isHighlighted: true })).rule,
       resolveEdgeStroke(state()).rule,
@@ -191,35 +184,9 @@ describe('edgePresentation — colour belongs to polarity', () => {
       isStructural: true,
       contested: contestedSignFlip,
       isHighlighted: true,
-      lensMode: 'evidence',
-      evidenceClass: 'unknown',
     }))
     expect(d.rule).toBe('structural')
     expect(d.value).toBe(STRUCTURAL_EDGE_COLOUR)
-  })
-
-  it('the causal lens keeps its own vocabulary, above the contested rules', () => {
-    const d = resolveEdgeStroke(state({
-      lensMode: 'causal',
-      causalParams: { direction: 'negative' },
-      contested: contestedSignFlip,
-    }))
-    expect(d.rule).toBe('lens_causal')
-    expect(d.value).toContain('--semantic-danger')
-  })
-
-  it('the causal lens paints an UNSTATED direction in its neutral body colour, not polarity', () => {
-    // The lens's own refusal to claim a sign. `causalParams` present with a null
-    // direction is a different fact from `causalParams` absent, and collapsing
-    // them would drop the edge out of the lens entirely (trap 21).
-    const d = resolveEdgeStroke(state({ lensMode: 'causal', causalParams: { direction: null } }))
-    expect(d.rule).toBe('lens_causal')
-    expect(d.value).toContain('--text-body')
-  })
-
-  it('an unrecognised evidence class is not a claim we can paint — it falls through', () => {
-    const d = resolveEdgeStroke(state({ lensMode: 'evidence', evidenceClass: 'not_a_class' }))
-    expect(d.rule).toBe('polarity')
   })
 })
 

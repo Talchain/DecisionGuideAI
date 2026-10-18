@@ -225,30 +225,8 @@ export const OVERLAY_BAND_SELECTOR = '[data-canvas-overlay-band]'
  * it. The same spec also asserts this function reaches for no store, so a
  * contributor smuggled in as state rather than as a rect REDs too.
  */
-/**
- * The reasoning artefact column (`canvas/artefacts/ArtefactColumn.tsx`), docked to the dock's left edge, read WITH the
- * dock as one right-edge occluder. Applying criteria 1-4:
- *
- *   1. EDGE-ANCHORED — `right: var(--dock-right-offset)`, full height, flush with the dock. One answer.
- *   2. NOT USER-MOVABLE — no drag affordance.
- *   3. NOT DISMISSIBLE — ⚠ FAILS, as the dock itself does (the user collapses the dock to its rail and this function
- *      reserves the rail). It is admitted on the dock's terms, not the band's: it opens only on the user's press or
- *      when the artefact they asked for arrives, and closes only on their press. Nothing about the camera, zoom or
- *      the board's contents opens or closes it, so the zoom → mount → re-fit loop criterion 3 guards against cannot
- *      form.
- *   4. PERSISTENT — ⚠ FAILS for the same reason and is admitted on the same terms.
- *
- * Its open and close announce themselves with `DOCK_EDGE_EVENT` for the measurements that are pushed rather than
- * pulled (`useDockInset`, the floating panel's clamp); this function is pulled by `reservedBoxWatcher`, which sees the
- * column's entry transition (`transitionend`) and the close press (`pointerup`).
- */
-export const ARTEFACT_COLUMN_SELECTOR = 'aside[data-artefact-column]'
-/** Fired on `window` when the column beside the dock opens, finishes entering or closes. */
-export const DOCK_EDGE_EVENT = 'olumi:dock-edge-changed'
-
 export const FIT_PADDING_CONTRIBUTORS = [
   DOCK_SELECTOR,
-  ARTEFACT_COLUMN_SELECTOR,
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
@@ -328,12 +306,6 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     const dock = rectOf(DOCK_SELECTOR)
     if (dock) {
       const overlap = Math.max(0, flowRect.right - dock.left)
-      if (overlap > 0) right = Math.max(right, overlap + GAP)
-    }
-    // The artefact column, flush with the dock's left edge, extends the same occluder.
-    const column = rectOf(ARTEFACT_COLUMN_SELECTOR)
-    if (column) {
-      const overlap = Math.max(0, flowRect.right - column.left)
       if (overlap > 0) right = Math.max(right, overlap + GAP)
     }
     // Left edge — LeftSidebar ("Canvas tools").

@@ -52,6 +52,27 @@ export function registerFitNodes(fitNodes: FitNodesFn): () => void {
   }
 }
 
+type PanByFn = (dx: number, dy: number) => void
+let panByImpl: PanByFn | null = null
+
+/** Register the screen-pixel pan (called by ReactFlowGraph on mount). Same ownership-guarded unregister rule. */
+export function registerPanBy(panBy: PanByFn): () => void {
+  panByImpl = panBy
+  return () => {
+    if (panByImpl === panBy) panByImpl = null
+  }
+}
+
+/**
+ * Pan the canvas by screen pixels, keeping the zoom: the lens key card moves the model out from under itself once, when
+ * the user opens a lens (`LensInfoPanel`). Fail-closed: false (no-op) when the canvas is not mounted.
+ */
+export function panCanvasBy(dx: number, dy: number): boolean {
+  if (!panByImpl) return false
+  panByImpl(dx, dy)
+  return true
+}
+
 /**
  * F4 (graph-visuals, Paul-ratified): fit the viewport so EVERY given node
  * is visible — called by the applied-edit pulse choke point

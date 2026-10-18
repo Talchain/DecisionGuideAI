@@ -6,7 +6,7 @@
  * `actions/rank.ts`: a standing gap, or an action RC ranks P1–P3 after its own cooldown). An empty priority list shows
  * nothing. The press is the bar's one press path (`pressOffer`). "Not now" is the bar's own dismissal (`offer_key` binds
  * the model and the Run), so the same suggestion never repeats without a new reason. It steps aside
- * while an artefact is open beside the model, so there is one thing to look at.
+ * while a lens is on (`artefacts/lenses.ts`), so there is one thing to look at.
  */
 import { createPortal } from 'react-dom'
 import { useOverlayCell } from './CanvasOverlayBand'
@@ -16,7 +16,7 @@ import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { useActionBarStore } from '../conversation/actionBar/actionBarStore'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
-import { useArtefactStore } from '../artefacts/artefactStore'
+import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
 
 export const ARTEFACT_OFFER_TESTID = 'artefact-offer'
@@ -24,7 +24,8 @@ export const ARTEFACT_OFFER_COPY = { notNow: 'Not now' } as const
 
 export function ArtefactOffer() {
   const bar = useScenarioActionBar()
-  const artefactOpen = useArtefactStore((s) => s.open !== null)
+  // A lens's key card is the one thing to look at while it is on (option isolation is a view of the model, not a lens).
+  const artefactOpen = useCanvasStore((s) => s.lens.active !== 'full' && s.lens.active !== 'option')
   const dismissed = useActionBarStore((s) => s.dismissed)
   const dismiss = useActionBarStore((s) => s.dismiss)
   const offer = bar?.priority.find((o) => o.enabled) ?? null

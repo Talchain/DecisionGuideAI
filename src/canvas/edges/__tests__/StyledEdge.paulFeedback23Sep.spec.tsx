@@ -243,9 +243,6 @@ describe('Paul 23 Sep point 4 — ONE discreet fragility cue, no pile-up', () =>
 describe('Paul 23 Sep point 4 — dash means existence certainty ONLY', () => {
   const state = (over: Partial<EdgePresentationState>): EdgePresentationState => ({
     isStructural: false,
-    lensMode: 'full',
-    causalParams: null,
-    evidenceClass: null,
     contested: NOT_CONTESTED,
     isHighlighted: false,
     polarityStroke: 'var(--edge-positive)',

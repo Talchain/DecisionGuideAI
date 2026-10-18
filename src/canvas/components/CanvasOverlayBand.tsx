@@ -77,7 +77,6 @@ import {
   type ReactNode,
 } from 'react'
 import { measureDockInset } from './FloatingOlumiPanel'
-import { DOCK_EDGE_EVENT } from '../utils/computeFitPadding'
 
 /** The three slots the band offers. One occupant each, by declared priority. */
 export type OverlayCell = 'bottom-left' | 'bottom-centre' | 'bottom-right'
@@ -468,8 +467,6 @@ export function useDockInset(): number {
     const measure = () => setDockInset(measureDockInset())
     measure()
     window.addEventListener('resize', measure)
-    // The artefact column beside the dock opens and closes without resizing the dock (`DOCK_EDGE_EVENT`).
-    window.addEventListener(DOCK_EDGE_EVENT, measure)
     // The dock changes width when it is expanded or collapsed, which is not a
     // window resize — observe the element itself as well.
     const dock = document.querySelector('aside[aria-label="Outputs dock"]')
@@ -478,7 +475,6 @@ export function useDockInset(): number {
     if (ro && dock) ro.observe(dock)
     return () => {
       window.removeEventListener('resize', measure)
-      window.removeEventListener(DOCK_EDGE_EVENT, measure)
       ro?.disconnect()
     }
   }, [])

@@ -5,11 +5,10 @@
 import { describe, it, afterEach, beforeEach } from 'vitest'
 import assert from 'node:assert/strict'
 import elig3 from '../../../../v5/__tests__/premortem-fixtures/premortem-elig3-v2.json'
-import { render, fireEvent, cleanup, act } from '@testing-library/react'
+import { render, fireEvent, cleanup } from '@testing-library/react'
 import { PreMortemWorksheet } from '../sections/PreMortemWorksheet'
 import { selectPremortemWorksheet, useCanvasStore } from '../../../../canvas/store'
-import { ArtefactColumn } from '../../../../canvas/artefacts/ArtefactColumn'
-import { useArtefactStore } from '../../../../canvas/artefacts/artefactStore'
+import { usePremortemArrival } from '../../../../canvas/artefacts/lenses'
 import { readPremortemWorksheet, storePremortemWorksheet, type PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet'
 import { ACTIONS_MENU } from '../../../../canvas/components/pre-analysis-v3/constants'
 import { QUESTIONS } from '../../../../canvas/conversation/askAiQuestions'
@@ -70,27 +69,28 @@ describe('P02 DGAI rows', () => {
     assert.match(el.textContent ?? '', /Olumi’s starting point: for you to challenge/u)
     assert.doesNotMatch(el.textContent ?? '', /Add this as a risk/u)
   })
-  it('ROW 3: after a reload the worksheet is restored for the same Run with no turn sent, without opening itself; another Run gets none', () => {
+  it('ROW 3: after a reload the worksheet is restored for the same Run with no turn sent, without turning its lens on; another Run gets none', () => {
+    function Arrival() { usePremortemArrival(); return null }
     storePremortemWorksheet(FIX.existing_risk)
     let fetches = 0
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => { fetches += 1; throw new Error('no network') }) as typeof fetch
     try {
-      // The restore runs in the column's controller (mounted with the dock), whether or not the column is open.
+      // The restore runs with the canvas (`usePremortemArrival`, mounted by ReactFlowGraph), whatever lens is on.
       useCanvasStore.setState({ ...base(FIX.existing_risk), runMeta: {} })
-      useArtefactStore.setState({ open: null })
-      const column = render(<ArtefactColumn isStale={false} isBusy={false} />)
+      useCanvasStore.getState().setLens('full')
+      render(<Arrival />)
       assert.equal(selectPremortemWorksheet(useCanvasStore.getState())?.status, 'available')
-      assert.equal(column.queryByTestId('artefact-column'), null, 'a restored worksheet is one the user already had: it never opens the column by itself')
-      act(() => useArtefactStore.getState().show('premortem'))
-      assert.ok(column.getByText(FIX.existing_risk.rows[0].failure_way))
+      assert.equal(useCanvasStore.getState().lens.active, 'full', 'a restored worksheet is one the user already had: it never turns its lens on by itself')
+      const sheet = render(<PreMortemWorksheet />)
+      assert.ok(sheet.getByText(FIX.existing_risk.rows[0].failure_way))
       assert.equal(fetches, 0)
       cleanup()
       // CONTROL: a different Run (new computed_at) never restores the old worksheet.
       useCanvasStore.setState({ ...base(FIX.existing_risk), runMeta: {},
         analysisStateV1: { run_state: { kind: 'complete_current', computed_at: '2030-01-01T00:00:00.000Z' } } as never })
-      useArtefactStore.setState({ open: 'premortem' })
-      const other = render(<ArtefactColumn isStale={false} isBusy={false} />)
+      render(<Arrival />)
+      const other = render(<PreMortemWorksheet />)
       assert.equal(selectPremortemWorksheet(useCanvasStore.getState()), null)
       assert.equal(other.queryByTestId('premortem-worksheet'), null)
     } finally { globalThis.fetch = realFetch }

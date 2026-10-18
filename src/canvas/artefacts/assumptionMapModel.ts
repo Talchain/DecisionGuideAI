@@ -135,3 +135,42 @@ export function assumptionMapOf(nodes: readonly Node[], edges: readonly Edge[], 
   }
   return { hasGoal: goalId !== null, items }
 }
+
+/**
+ * The order the "Rests on" key card groups its figures in: the unsettled first (no figure, Olumi's unchecked, origin
+ * not known), then the settled. It says where the reasoning is unexamined, never how much a figure matters.
+ */
+export const RESTS_ON_ORDER: readonly AssumptionColumn[] = ['missing', 'unchecked', 'unknown', 'accepted', 'yours']
+
+/** One figure's marker in the "Rests on" lens: its number (the key card's and the canvas's) and its state. */
+export interface RestsOnMark {
+  readonly n: number
+  readonly column: AssumptionColumn
+}
+
+/** `node:<id>` or `edge:<id>`: the key the lens marks are stored under. */
+export const restsOnKey = (target: GraphChangeTarget): string => `${target.kind}:${target.id}`
+
+/**
+ * The map's items numbered from 1 in READING ORDER on the canvas (top to bottom, then left to right; a link sits at
+ * the middle of its ends), so a number is easy to find and stays the same when a figure's state changes. Numbers are
+ * identity, not rank. `positionOf` returns a node's position, or null when it has none.
+ */
+export function restsOnNumbered(
+  items: readonly AssumptionItem[],
+  edges: readonly Edge[],
+  positionOf: (nodeId: string) => { x: number; y: number } | null,
+): ReadonlyArray<AssumptionItem & { readonly n: number }> {
+  const ends = new Map(edges.map((e) => [e.id, e]))
+  const at = (item: AssumptionItem): { x: number; y: number } => {
+    if (item.target.kind === 'node') return positionOf(item.target.id) ?? { x: 0, y: 0 }
+    const edge = ends.get(item.target.id)
+    const a = edge ? positionOf(edge.source) : null
+    const b = edge ? positionOf(edge.target) : null
+    return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : a ?? b ?? { x: 0, y: 0 }
+  }
+  return items
+    .map((item, i) => ({ item, i, p: at(item) }))
+    .sort((a, b) => a.p.y - b.p.y || a.p.x - b.p.x || a.i - b.i)
+    .map(({ item }, i) => ({ ...item, n: i + 1 }))
+}

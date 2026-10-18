@@ -68,7 +68,6 @@ import {
   resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
   type EdgeValueDisplay,
-  type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
 // GAP 2 fix (design-gap audit row 19): `useIsDark` is no longer imported —
 // this component now forces `isDark = false` (see the constant's own comment
@@ -83,6 +82,8 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
+import type { RestsOnMark } from '../artefacts/assumptionMapModel'
+import { RestsOnMarker } from '../artefacts/RestsOnMarker'
 import { isEdgeFragile as isEdgeFragileFn, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
@@ -139,10 +140,6 @@ import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 // that import it from here keep working; it now LIVES in `edgePresentation`,
 // beside the rule that applies it.
 export { STRUCTURAL_EDGE_COLOUR } from './edgePresentation'
-
-// Stable empty set for the lens-disabled branch of the store selector —
-// a fresh Set per call would defeat useShallow's reference equality.
-const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
 
 /**
  * 6B: width of the invisible pointer target along the edge path, in canvas
@@ -460,42 +457,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
   const isResultsMode = resultsStatus === 'complete'
 
-  // Group 2: Lens data — all 8 lens selectors collapsed into one subscription
+  // Group 2: Lens data, one subscription. "What would change" widens the links the selected Run is most sensitive to
+  // and marks its fragile ones; "Rests on" numbers the link's strength.
   const lensEnabled = isGraphLensEnabled()
   const {
-    isLensDimmed, lensMode, lensSensWeight, lensQ25, lensQ75,
-    isLensFragile, isLensHidden, causalEdgeParams, evidenceEdgeClass,
-    lensHiddenNodeIds, lensHiddenEdgeIds,
+    isLensDimmed, lensSensWeight, lensQ25, lensQ75, isLensFragile, restsOn,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
         return {
-          isLensDimmed: false, lensMode: 'full' as const,
+          isLensDimmed: false,
           lensSensWeight: null as number | null,
           lensQ25: null as number | null, lensQ75: null as number | null,
-          isLensFragile: false, isLensHidden: false,
-          causalEdgeParams: null as CausalLensEdgeParams | null,
-          evidenceEdgeClass: null as string | null,
-          lensHiddenNodeIds: EMPTY_ID_SET,
-          lensHiddenEdgeIds: EMPTY_ID_SET,
+          isLensFragile: false,
+          restsOn: null as RestsOnMark | null,
         }
       }
       const active = s.lens.active
+      const changes = active === 'what_changes'
       return {
         isLensDimmed: s.lens._dimmedEdgeIds.has(id),
-        lensMode: active,
-        lensSensWeight: active === 'sensitivity' ? (s.lens._sensitivityWeights.get(id) ?? null) : null,
-        lensQ25: active === 'sensitivity' ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
-        lensQ75: active === 'sensitivity' ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
-        isLensFragile: (active === 'fragile' || active === 'robustness') && s.lens._fragileEdgeIds.has(id),
-        isLensHidden: s.lens._hiddenEdgeIds?.has(id) === true,
-        causalEdgeParams: active === 'causal' ? (s.lens._causalEdgeParams?.get(id) ?? null) : null,
-        evidenceEdgeClass: active === 'evidence' ? (s.lens._evidenceEdgeClass?.get(id) ?? null) : null,
-        // C2 review fix 1: the label-collision pass needs the full hidden
-        // sets — lens hiding is the app's ONLY node-hiding mechanism
-        // (BaseNode returns null; React Flow's `hidden` flag is never set).
-        lensHiddenNodeIds: (s.lens._hiddenNodeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
-        lensHiddenEdgeIds: (s.lens._hiddenEdgeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
+        lensSensWeight: changes ? (s.lens._sensitivityWeights.get(id) ?? null) : null,
+        lensQ25: changes ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
+        lensQ75: changes ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
+        isLensFragile: changes && s.lens._fragileEdgeIds.has(id),
+        restsOn: active === 'rests_on' ? (s.lens._restsOn.get(`edge:${id}`) ?? null) : null,
       }
     }),
   )
@@ -994,7 +980,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     let tgt: RouteBox | null = null
     const others: RouteBox[] = []
     for (const n of storeNodes) {
-      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      if (n.hidden) continue
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (!box) continue
       if (n.id === source) src = box
@@ -1071,7 +1057,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // POM-6: the row-end prompts are obstacles too (`layeredRouteBoxes`).
     const boxes = layeredRouteBoxes(
       storeNodes as Parameters<typeof layeredRouteBoxes>[0],
-      (nodeId) => lensHiddenNodeIds.has(nodeId),
     )
     // `route`, not `leads`: the no-contest copy sweep reads a bare "leads" on a
     // line with a template literal as a ranking verb (noContestFraming.canvas).
@@ -1799,11 +1784,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!isPersistentChipEdge) return ''
     let sig = ''
     for (const n of s.nodes) {
-      // C2 review fix 1: the app hides nodes via the lens (BaseNode returns
-      // null for ids in lens._hiddenNodeIds) — those cards are invisible and
-      // must not be obstacles. React Flow's `hidden` flag is never set by
-      // this app; the filter stays as belt-and-braces.
-      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      // React Flow's `hidden` flag is never set by this app; the filter stays as belt-and-braces.
+      if (n.hidden) continue
       const w = n.measured?.width ?? n.width ?? 200
       const h = n.measured?.height ?? n.height ?? 80
       const x = n.dragging ? Math.round(n.position.x / 10) * 10 : n.position.x
@@ -1853,7 +1835,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // edge actually renders its label (`sameRowRoute.ts` `labelAnchor`).
     const routeBoxes: RouteBox[] = []
     for (const n of getNodes()) {
-      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      if (n.hidden) continue
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (box) routeBoxes.push(box)
     }
@@ -1903,9 +1885,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     for (const e of getEdges()) {
       const rows = rowsFor(e.id)
       if (rows === 0) continue
-      // C2 review fix 1: a lens-hidden edge renders no label (the component
-      // returns null below), so it must not occupy a label slot either.
-      if (lensHiddenEdgeIds.has(e.id)) continue
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
@@ -1913,9 +1892,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows, ...(anchor ? { anchor } : {}) })
     }
     const nodeRects = getNodes()
-      // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
       // RF `hidden` kept as belt-and-braces (never set by this app).
-      .filter((n) => !n.hidden && !lensHiddenNodeIds.has(n.id))
+      .filter((n) => !n.hidden)
       .map(rectOf)
     // The WHOLE assignment: this edge takes its own offset below, and the
     // fragile-cue pass reads where every pinned strength chip landed.
@@ -1923,7 +1901,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
-  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute, arrivalKey])
+  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, nodeRectsSignature, sameRowRoute, arrivalKey])
   const collisionOffset = labelPlacements.get(id as string) ?? { dx: 0, dy: 0 }
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
@@ -1949,14 +1927,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    */
   const fragileCuePlacement = useMemo(() => {
     if (!showFragileRow) return null
-    const discIds = [...fragileLabelIds].filter((eid) => !topStrengthIds.has(eid) && !lensHiddenEdgeIds.has(eid))
+    const discIds = [...fragileLabelIds].filter((eid) => !topStrengthIds.has(eid))
     // `id as string`: the file's pre-existing `EdgeProps` typing break (see the
     // glyph selector's note) — React Flow supplies it as a string.
     if (!discIds.includes(id as string)) return null
     const routeBoxes: RouteBox[] = []
     const tieredBoxes: Array<RouteBox & { tier: number }> = []
     for (const n of getNodes()) {
-      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      if (n.hidden) continue
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (!box) continue
       routeBoxes.push(box)
@@ -1994,14 +1972,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const rows = new Map<string, { dxMin: number; dxMax: number } | null>(routeBoxes.map((c) => [c.id, null]))
     const arrivalMarks = arrivalMarkBoxes(
       allEdges
-        .filter((e) => !lensHiddenEdgeIds.has(e.id) && !linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data))
+        .filter((e) => !linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data))
         .map((e) => cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends, slotOf(e))),
     )
     // Every strength chip the label pass PINNED (Detailed view only — none in
     // Standard), as the box it clears: its rendered anchor plus its offset.
     const chips: RouteBox[] = [...arrivalMarks]
     for (const e of allEdges) {
-      if (!topStrengthIds.has(e.id) || lensHiddenEdgeIds.has(e.id)) continue
+      if (!topStrengthIds.has(e.id)) continue
       const off = labelPlacements.get(e.id)
       const at = off ? cardEdgeLabelAnchorFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends, slotOf(e)) : null
       if (!off || !at) continue
@@ -2014,7 +1992,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return resolveFragileCuePlacements(cues, routeBoxes, ends.targetDy, rows, chips).get(id as string) ?? null
     // nodeRectsSignature: re-place when any card moves (the same trigger the label pass uses);
     // the endpoints: the handles move with the zoom.
-  }, [showFragileRow, fragileLabelIds, topStrengthIds, lensHiddenEdgeIds, lensHiddenNodeIds, id, source, target, sourceY, targetY, sourcePosition, targetPosition, getNodes, getEdges, nodeRectsSignature, labelPlacements])
+  }, [showFragileRow, fragileLabelIds, topStrengthIds, id, source, target, sourceY, targetY, sourcePosition, targetPosition, getNodes, getEdges, nodeRectsSignature, labelPlacements])
 
   /**
    * The disc's point on THIS edge's drawn path; the midpoint when the pass had
@@ -2178,7 +2156,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (!box) continue
       slotBoxes.set(n.id, box)
-      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      if (n.hidden) continue
       if (n.id === target) cardTop = box.y
       keepOuts.push({ x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height })
     }
@@ -2191,7 +2169,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const allEdges = getEdges()
       const carriesSign = signCarrierOver(nodesNow)
       for (const e of allEdges) {
-        if (e.target !== target || e.id === id || lensHiddenEdgeIds.has(e.id)) continue
+        if (e.target !== target || e.id === id) continue
         const src = slotBoxes.get(e.source)
         if (!src || !(src.y + src.height < cardTop)) continue
         if (linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data)) continue
@@ -2202,7 +2180,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
     return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
     // nodeRectsSignature: re-place when any card moves.
-  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, lensHiddenNodeIds, lensHiddenEdgeIds, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
+  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -2212,9 +2190,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // completion is neither, and used to restyle a graph nobody had edited.
   const presentationState: EdgePresentationState = useMemo(() => ({
     isStructural: isStructuralEdge,
-    lensMode,
-    causalParams: causalEdgeParams,
-    evidenceClass: evidenceEdgeClass,
     contested,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
@@ -2223,7 +2198,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
-    isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
+    isStructuralEdge, contested,
     isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExact,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
@@ -2257,29 +2232,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (isStructuralEdge) return 1
     // A placeholder/unset strength never earns a measured or lens width.
     if (presentationState.strengthNotSet) return UNSET_EDGE_STROKE_WIDTH
-    // Causal lens: thickness encodes the PROVENANCE-SET strength
-    // magnitude (ROADMAP 2.954). An unset strength draws at the floor
-    // width — the same refusal the non-lens stroke (:286) makes — so
-    // thickness never reports the `weight` default as a measurement.
-    if (lensMode === 'causal' && causalEdgeParams) {
-      return causalEdgeParams.magnitude !== null
-        ? weightMagnitudeToStrokeWidth(causalEdgeParams.magnitude)
-        : UNSET_EDGE_STROKE_WIDTH
-    }
-    // Evidence lens: uniform thickness (not importance-weighted)
-    if (lensMode === 'evidence') return 1.5
-    // Robustness lens: thicken fragile, thin non-fragile
-    if (lensMode === 'robustness') {
-      return isLensFragile ? 3 : 1
-    }
-    // Graph Lens: sensitivity mode adjusts stroke width by quartile
-    if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
+    // "What would change": a fragile link is thickest; otherwise the selected Run's sensitivity sets the width by
+    // quartile (the selector reads both only in that lens).
+    if (isLensFragile) return 3
+    if (lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
       if (lensSensWeight >= lensQ75) return 3
       if (lensSensWeight <= lensQ25) return 1
       return 1.5
     }
-    // Graph Lens: fragile mode thickens fragile edges
-    if (isLensFragile) return 3
     // 6B: the SELECTED connection is the thickest interaction state, so
     // it stays unmistakable even while hovering a neighbouring edge.
     //
@@ -2333,14 +2293,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => identityExact !== null ? null : edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
     [edgeData, identityExact],
   )
+  // The "Rests on" number takes the source mark's place on the line (carrying its icon), at every zoom and for a link
+  // with no strength yet too: the lens exists to show those.
   const sourceGlyphPlacement = useMemo(() => {
-    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
+    if (isStructuralEdge) return null
+    if (restsOn === null && (!strengthSourceMark || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined))) return null
     const poly = flattenSvgPath(edgePath)
     return poly ? resolveSourceGlyphOnPath(poly) : null
-  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
-
-  // Causal lens: hide structural edges entirely
-  if (isLensHidden) return null
+  }, [restsOn, strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
 
   return (
     <>
@@ -2661,7 +2621,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           opacity: isSelectionDimmed ? undefined
             : isLensDimmed ? 0.2
             : isStructuralEdge ? undefined
-            : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
+            : (lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
             : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges.
           // Analysis-graph projection: a viewed flip-risk edge gets a WARNING
@@ -2676,7 +2636,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // silently drop the flip-risk halo. Order preserved: sensitivity
             // glow first, fragile halo second.
             const shadows: string[] = []
-            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
+            if (lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
               shadows.push(EDGE_GLOW.sensitivity)
             if (isAnalysisFragileEdge && !isStructuralEdge)
               // R6: the fragility halo moves off the warning hue with the
@@ -2722,69 +2682,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       />
       </g>
 
-      {/* Causal lens: numeric parameter label (strength.mean + exists_probability).
-          Structural edges have no causal parameters to show. */}
-      {lensMode === 'causal' && causalEdgeParams && !isStructuralEdge && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: 'none',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontWeight: 500,
-              fontFamily: 'ui-monospace, monospace',
-              whiteSpace: 'nowrap',
-            }}
-            // 11px, unchanged — declared by the canvas token rather than inline
-            // so it can see `--canvas-label-scale`. An inline fontSize cannot,
-            // and rendered this label at 5.5px at the 0.50 auto-fit floor.
-            // The inline fontFamily still wins over the token's `font-sans`.
-            className={`${typography.nodeLabel} bg-panel text-text-body border border-panel-border shadow-sm`}
-            data-testid="causal-edge-label"
-          >
-            {/* ROADMAP 2.954 — the number is a strength claim, the sign a
-                direction claim, and each renders only from its own resolved
-                channel. Unset strength: the numeric channel's ratified "not
-                set" (#629), never the `+0.50` default this label used to
-                print. Unstated direction: bare magnitude, no sign character.
-                '−' is U+2212, matching `formatNumericLabel`'s sign. */}
-            {causalEdgeParams.magnitude !== null
-              ? `${causalEdgeParams.direction === 'positive' ? '+' : causalEdgeParams.direction === 'negative' ? '−' : ''}${causalEdgeParams.magnitude.toFixed(2)}`
-              : 'not set'}
-            {causalEdgeParams.existsProb !== null && (
-              <span style={{ color: 'var(--text-light, #6E6B6B)' }}>
-                {' '}({Math.round(causalEdgeParams.existsProb * 100)}%)
-              </span>
-            )}
-          </div>
-        </EdgeLabelRenderer>
-      )}
-
-      {/* Evidence lens: provenance label.
-          Structural edges aren't evidence-classified. */}
-      {lensMode === 'evidence' && evidenceEdgeClass && !isStructuralEdge && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: 'none',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-            }}
-            // 10px, unchanged — see the causal label above. Rendered at 5.0px.
-            className={`${typography.edgeLabel} bg-panel text-text-body border border-panel-border shadow-sm`}
-            data-testid="evidence-edge-label"
-          >
-            {evidenceEdgeClass === 'evidence' ? 'Evidence-backed' : evidenceEdgeClass === 'assumed' ? 'Assumed' : 'Unknown basis'}
-          </div>
-        </EdgeLabelRenderer>
-      )}
-
       {/* Polarity glyph (+/−): rendered whenever a non-structural edge has a
           direction — in Standard view AND pre-run, not only Expert+results.
           directionStroke.ts's docblock is explicit that the glyph, not the
@@ -2806,7 +2703,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           on the amber stroke, and it is drawn even when the strength row's
           words carry a direction — those words are the FIRST pass's sign, the
           disputed one, so they cannot stand in for the dispute cue. */}
-      {(statedDirection || isSignDisputed) && lensMode !== 'causal' && !isStructuralEdge && (isSignDisputed || !strengthRowCarriesDirection) && (
+      {(statedDirection || isSignDisputed) && !isStructuralEdge && (isSignDisputed || !strengthRowCarriesDirection) && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -2869,7 +2766,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {strengthSourceMark && sourceGlyphPlacement && (
+      {restsOn !== null && sourceGlyphPlacement ? (
+        <EdgeLabelRenderer>
+          <RestsOnMarker
+            target={`edge:${edgeIdKey}`}
+            mark={restsOn}
+            Icon={strengthSourceMark?.Icon}
+            picked={selected === true}
+            onPick={() => useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)}
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${sourceGlyphPlacement.x}px,${sourceGlyphPlacement.y}px)`,
+              pointerEvents: 'all',
+            }}
+          />
+        </EdgeLabelRenderer>
+      ) : strengthSourceMark && sourceGlyphPlacement && (
         <EdgeLabelRenderer>
           <button
             type="button"

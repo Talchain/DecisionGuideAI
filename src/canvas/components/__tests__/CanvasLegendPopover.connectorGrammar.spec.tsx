@@ -59,9 +59,6 @@ function swatchLineFor(caption: string): SVGLineElement | null {
 function canvasSignDisputeStroke(): string {
   const state: EdgePresentationState = {
     isStructural: false,
-    lensMode: 'full',
-    causalParams: null,
-    evidenceClass: null,
     contested: readContestedState({
       status: 'contested',
       contested_reasons: ['sign_flip'],

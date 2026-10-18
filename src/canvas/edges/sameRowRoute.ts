@@ -500,11 +500,10 @@ export function routeBoxOf(n: {
  */
 export function layeredRouteBoxes(
   nodes: ReadonlyArray<Parameters<typeof routeBoxOf>[0] & { type?: string; hidden?: boolean; data?: unknown }>,
-  isHidden: (id: string) => boolean,
 ): Array<RouteBox & { tier: number }> {
   const boxes: Array<RouteBox & { tier: number }> = []
   for (const n of nodes) {
-    if (n.hidden || isHidden(n.id)) continue
+    if (n.hidden) continue
     let kind: unknown = n.type
     let sized = n
     if (isGhostNode(n.id)) {

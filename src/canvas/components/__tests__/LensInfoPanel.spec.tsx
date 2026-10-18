@@ -1,5 +1,6 @@
 /**
- * LensInfoPanel robustness list — switch_probability presence pins.
+ * LensInfoPanel "What would change" fragile list — switch_probability presence pins (the retired Robustness lens's
+ * list, merged into "What would change" on 18 Oct 2026 with the same presence branch).
  *
  * Contract (vendored @talchain/schemas 0.30.0, EnrichmentRobustnessEdgeSchema):
  * `switch_probability` is OPTIONAL — ABSENT means NOT COMPUTED, and consumers
@@ -40,12 +41,12 @@ function seedRobustnessLens(fragileEdges: Array<Record<string, unknown>>): void 
     } as never,
     lens: {
       ...useCanvasStore.getState().lens,
-      active: 'robustness',
+      active: 'what_changes',
     },
   } as never)
 }
 
-describe('LensInfoPanel robustness list — presence-branch on measured switch_probability', () => {
+describe('LensInfoPanel "What would change" list — presence-branch on measured switch_probability', () => {
   beforeEach(() => {
     localStorage.setItem('feature.graphLens', '1')
   })
@@ -141,7 +142,7 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     const panel = screen.getByTestId('lens-info-robustness')
     // POSITIVE CONTROL: the panel rendered its surviving sentence, so the
     // absence assertions below are not about a panel that failed to mount.
-    expect(panel.textContent).toContain('Sensitive assumptions:')
+    expect(panel.textContent).toContain('These describe this model as it stands, not what to choose.')
     expect(panel.textContent).not.toContain('20%')
   })
 
@@ -169,8 +170,8 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     const panel = screen.getByTestId('lens-info-robustness')
     // POSITIVE CONTROLS: the panel is mounted and populated — the heading, the
     // surviving sentence, and the measured fragile edge (its label; #2747 re-scope 2: no switch figure in C) all render.
-    expect(panel.textContent).toContain('Robustness')
-    expect(panel.textContent).toContain('Sensitive assumptions:')
+    expect(screen.getByTestId('lens-info-heading').textContent).toBe('What would change')
+    expect(panel.textContent).toContain('These describe this model as it stands, not what to choose.')
     expect(panel.textContent).toContain('Price → Revenue')
     // The claim, and the figure it would have printed (0.8 → "80%"), are absent.
     expect(panel.textContent).not.toContain('Recommendation stability')
