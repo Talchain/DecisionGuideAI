@@ -385,13 +385,14 @@ describe('a saved edit confirmed by read-back after a lost reply starts exactly 
     afterTabASaved2()
     openOn(lostReply.before); typeValue('2')
     await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
-    await waitFor(() => expect(versionReads).toBe(1))
-    await settle()
+    await settle(); await settle()
 
     // The analysis on record is NOT current, so a noted commit WOULD run: the identity is what stops it.
     expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
     expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
     expect(run).not.toHaveBeenCalled()
+    // Control, asserted last so it never masks the two above: the writer WAS asked, and it was tab A's turn.
+    expect(versionReads).toBe(1)
     expect(posts.map(post => post.event)).toEqual([lostReply.turn04.request_body.event])
     expect(writes).toBe(0)
   })
@@ -402,12 +403,12 @@ describe('a saved edit confirmed by read-back after a lost reply starts exactly 
     await sendLost('2')
     typeValue('2')
     await waitFor(() => expect(word()).toBe('Saved. The model holds this value.'))
-    await waitFor(() => expect(versionReads).toBe(1))
-    await settle()
+    await settle(); await settle()
 
     expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
     expect(noteCanvasLocalCommit).not.toHaveBeenCalled()
     expect(run).not.toHaveBeenCalled()
+    expect(versionReads).toBe(1)
     expect(writes).toBe(0)
     expect(writtenBy).toBe(tabATurn)
   })
