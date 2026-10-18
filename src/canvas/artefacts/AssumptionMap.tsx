@@ -144,7 +144,7 @@ export function AssumptionMap() {
                         aria-pressed={isPicked}
                         onClick={() => choose(item)}
                         {...lightProps(item)}
-                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,box-shadow] duration-200 ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) ? 'shadow-[0_0_0_4px_rgb(var(--success-rgb)/0.28)]' : ''} ${ACTION_FOCUS}`}
+                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,box-shadow] duration-200 ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) && !isPicked ? 'ring-2 ring-success ring-offset-2 ring-offset-panel' : ''} ${ACTION_FOCUS}`}
                       />
                     )
                   })}

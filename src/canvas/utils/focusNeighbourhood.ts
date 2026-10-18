@@ -93,6 +93,19 @@ export function computeEdgeFocusPlan(
   }
 }
 
+/**
+ * The flow point to centre the camera on so that (x, y) lands in the middle of the frame the chrome leaves visible
+ * (the dock, the thinking tools' rail and stage, the floating companion), not the middle of the full pane they cover.
+ * `setCenter` puts its point at the pane's centre, so the point is shifted by half the difference between the covered
+ * edges, in flow units. An unmeasurable camera centres as before.
+ */
+export function centreInVisibleFrame(x: number, y: number, camera: FocusCamera | null): { x: number; y: number } {
+  const zoom = camera?.viewport.zoom ?? 0
+  if (camera === null || !(zoom > 0)) return { x, y }
+  const { left, right, top, bottom } = camera.insets
+  return { x: x - (left - right) / (2 * zoom), y: y - (top - bottom) / (2 * zoom) }
+}
+
 export interface EdgeFocusPlan {
   midX: number
   midY: number

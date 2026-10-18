@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { cameraDuration } from '../utils/cameraMotion'
-import { computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
+import { centreInVisibleFrame, computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from '../utils/cameraComfort'
 import { createFocusFitSuppressor } from '../utils/focusLens'
 import { registerFocusHelpers, registerFitNodes } from '../utils/focusHelpers'
@@ -110,7 +110,8 @@ export function useFocusCamera(): FocusCameraHandlers {
   const handleFocusEdge = useCallback((edgeId: string) => {
     const store = useCanvasStore.getState()
     // The whole decision is the pure computeEdgeFocusPlan (same no-churn rule as a node's); this handler applies it.
-    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, readFocusCamera(getViewportRef.current))
+    const camera = readFocusCamera(getViewportRef.current)
+    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, camera)
     if (!plan) return // fail-closed: the edge or an end is not on the canvas
 
     // Select ONLY the edge, without history (navigation only) — the edge twin of the node branch's
@@ -128,7 +129,9 @@ export function useFocusCamera(): FocusCameraHandlers {
     // Centre on the link's midpoint ONLY when it is not already comfortably in view (DL 5939855664: no camera jumps).
     if (!plan.moveCamera) return
     const viewport = getViewportRef.current()
-    setCenterRef.current(plan.midX, plan.midY, {
+    // Into the middle of the frame the chrome leaves visible, so the link never lands under the dock or a tool.
+    const centre = centreInVisibleFrame(plan.midX, plan.midY, camera)
+    setCenterRef.current(centre.x, centre.y, {
       zoom: viewport.zoom,
       duration: cameraDuration(300, reducedMotionRef.current),
     })

@@ -96,7 +96,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
         return <section key={option.id} data-option-id={option.id} className="space-y-3">
           <div className="flex items-center gap-2">
-            <button type="button" className={`${typography.panelBody} ${chipClass} border-option font-medium text-text-header`} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>
+            <button type="button" className={`${typography.panelBody} ${chipClass} border-option text-text-header`} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>
               <span aria-hidden="true" className="h-2 w-2 flex-none rounded-full bg-option" />
               {String(option.data.label ?? '')}
             </button>

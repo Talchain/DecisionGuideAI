@@ -7,7 +7,7 @@ import type { AssumptionColumn, AssumptionItem } from './assumptionMapModel'
 
 export const FIGURE_MARK: Readonly<Record<AssumptionColumn, string>> = Object.freeze({
   yours: 'bg-success border border-success',
-  unchecked: 'bg-panel border-[1.5px] border-dashed border-info',
+  unchecked: 'bg-info-light/50 border-[1.5px] border-dashed border-info',
   missing: 'bg-panel border-2 border-dotted border-factor',
 })
 
