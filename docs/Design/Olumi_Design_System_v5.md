@@ -235,7 +235,7 @@ When referencing a colour in documentation or code comments, use the Tailwind cl
 | `--bg-canvas` | #F4F0EA | `bg-canvas` | App/canvas background |
 | `--bg-panel` | #FEFEFE | `bg-panel` | Panel/card/node/banner/accordion header backgrounds |
 | `--bg-panel-hover` | #FEF9F3 | `bg-panel-hover` | Default hover state (when no entity hover applies) |
-| `--border-default` | #EEE6D8 | `border-panel-border` | Default borders, dividers |
+| `--border-default` | #EEE6D8 | `border-panel-border` | Default borders (complete, all four sides) |
 
 ### 3.7 Semantic colours (Layer 1)
 
@@ -415,13 +415,28 @@ Warm-tinted (ink-900 rgba, not pure black). There is no `shadow-0` token. For fl
 
 ## 6. Borders
 
+> **⛔ NO SINGLE-SIDED BORDERS, EVER** (Paul, 18 Oct 2026: *"we don't use single-sided borders ever. Just looks like
+> AI design slop."*). This extends the categorical complete-borders rule that V7 L2 applied to coaching cards and toasts.
+> - **Never** use a border on one, two or three sides: no `border-l` / `border-r` / `border-t` / `border-b` (any width,
+>   any colour) and no `border-left` / `border-top` / `border-right` / `border-bottom` in CSS.
+> - **Never** use an accent bar or side stripe: not on a card, a block, a callout, an inspector, an active tab, a list
+>   row or a selected item.
+> - **Never** use a one-sided divider rule between rows, sections or a header and its body (`divide-x` / `divide-y`
+>   included).
+> - **A surface that needs edges takes a complete border** (all four sides, §6.4). Rows and sections are separated by
+>   **space** (§5), or by **background contrast** (`bg-panel` against `bg-panel-hover` or `bg-canvas`).
+> - **Elevation comes from a warm shadow** (§4), never a rule.
+> - **Code that still carries one-sided borders is migration owed, not precedent.** At DGAI staging `ed119d94` it is
+>   479 occurrences in 228 non-test `src` files (`border-l/r/t/b`, `divide-x/y`, and one-sided CSS and inline
+>   style borders; measured with ripgrep). New code must add none.
+
 ### 6.1 Border widths
 
 | Token | Value | Tailwind class | Usage |
 |-------|-------|----------------|-------|
-| `default` | 1px | `border` | Standard borders, dividers, pills |
+| `default` | 1px | `border` | Standard borders, pills |
 | `state` | 2px | `border-2` | Selected states, focus indicators, canvas node resting |
-| `emphasis` | 3px | `border-[3px]` | Block type indicators, coaching cards, section accents |
+| `emphasis` | 3px | `border-[3px]` | Dotted confidence borders (§11.3); complete borders only |
 
 ### 6.2 Border radius
 
@@ -461,10 +476,10 @@ Coloured borders communicate state or type. Neutral borders separate content. Ev
 | Surface type | Border treatment | Example |
 |-------------|-----------------|---------|
 | **Panel section cards** (options, factors, assumptions, quality, improvements) | Full border, all sides: `border border-{colour}/30 rounded-lg` | `border border-option/30` |
-| **Conversation blocks** (§21.2) | Top 3px accent: `border-t-[3px] border-{colour}` | `border-t-[3px] border-info` |
+| **Conversation blocks** (§21.2) | Complete border in the type colour: `border border-{colour}/30` | `border border-info/30` (top accent retired 18 Oct 2026) |
 | **Coaching cards** (§16) | Complete border: `border border-info` | V7 L2 — one-sided accent retired |
-| **MVS card** (§16.1) | Left 3px accent: `border-l-[3px] border-success` | Elevated coaching |
-| **Alert cards** (§16.2) | Top 3px accent: `border-t-[3px] border-danger` | Blocking issues |
+| **MVS card** (§16.1) | Complete border: `border border-success` | Elevated coaching (left accent retired 18 Oct 2026) |
+| **Alert cards** (§16.2) | Complete border: `border border-danger` | Blocking issues (top accent retired 18 Oct 2026) |
 | **Canvas nodes** | Full border, confidence-based: `border-2 border-{confidence-colour} border-{style}` | Solid green = high confidence |
 | **Neutral/default cards** | Full border: `border border-panel-border rounded-lg` | No semantic signal |
 | **Edge cards** (model tab) | Full border, neutral: `border border-panel-border rounded-lg` | Edges have no entity colour |
@@ -472,8 +487,8 @@ Coloured borders communicate state or type. Neutral borders separate content. Ev
 | **Non-winner option cards** (results) | Full border: `border border-panel-border rounded-lg` | Neutral |
 
 **Rules:**
-- Left-only coloured borders are prohibited. (Coaching cards (§16) were the last exception; V7 L2 converted them to a complete `border border-info`.)
-- Structural borders (dividers, separators) always use `border-panel-border`.
+- No single-sided border of any colour or width, anywhere (§6 header rule). V7 L2 converted coaching cards to a complete `border border-info`; the conversation blocks, MVS and alert rows above followed on 18 Oct 2026.
+- Structural borders (a card's or panel's complete border) always use `border-panel-border`. There are no divider rules: separate with space or background contrast.
 - Coloured borders always mean something. If a border is decorative, it should be `border-panel-border`.
 
 ---
@@ -661,7 +676,7 @@ Anchored to the bottom of side panels. Consistent between pre-analysis and post-
 
 ```css
 background: var(--bg-panel);
-border-top: 1px solid var(--border-default);
+box-shadow: var(--shadow-2); /* separation by elevation; never a top rule (§6) */
 padding: 8px 16px;
 ```
 
@@ -1026,7 +1041,7 @@ one-sided `border-l-[3px]` accent under Paul's categorical complete-borders rule
 
 Elevated coaching card for the single highest-priority action.
 
-- Left border: `var(--success)` (green: "this is the positive action to take")
+- Complete border: `var(--success)` on all four sides (green: "this is the positive action to take"; the left accent was retired 18 Oct 2026, §6)
 - Background: `bg-panel`
 - Icon: Lucide `Lightbulb`
 - Shadow: `var(--shadow-1)`
@@ -1151,7 +1166,7 @@ Complexity revealed on demand, not imposed.
 
 **Expanded content:**
 ```tsx
-<div className="mt-2 pl-3 border-l-2 border-panel-border">
+<div className="mt-2 rounded-lg bg-panel-hover px-3 py-2">
   <p className={typography.panelBody + " text-text-light"}>{explanation}</p>
 </div>
 ```
@@ -1175,7 +1190,7 @@ Complexity revealed on demand, not imposed.
 
 Base block: `bg-panel`, `rounded-[20px]`, 24px padding, `shadow-1`.
 
-Type-specific top borders (3px). Block type badges are small coloured dots (8px diameter, main colour fill) top-left.
+Type-specific complete borders: `border border-{colour}/30` on all four sides (the 3px top border was retired 18 Oct 2026, §6). Block type badges are small coloured dots (8px diameter, main colour fill) top-left.
 
 | Block type | Border colour | Rationale |
 |-----------|--------------|-----------|
@@ -1280,7 +1295,7 @@ Inspector panels appear when a canvas node or edge is selected. They follow all 
 
 ### 24.1 Inspector anatomy
 
-1. **Top accent:** 3px bar in confidence colour (success/info/factor per §11.1)
+1. **Confidence:** shown by the header's confidence badge (§11) and the panel's complete border. There is no top accent bar (retired 18 Oct 2026, §6).
 2. **Header:** Node shape indicator (§10, 24px) + node name (`panelHeader`) + type badge (outlined pill §8.5) + confidence badge (§11)
 3. **Sections:** Lucide section icons (16px, `text-text-light`) + section title (sentence case, `panelMeta`, uppercase, 0.5px letter-spacing)
 4. **Close button:** Lucide `X`, top-right, `text-text-light`
