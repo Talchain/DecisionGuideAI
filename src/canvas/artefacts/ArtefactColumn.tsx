@@ -243,8 +243,8 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
         aria-label={ARTEFACT_COPY.switcher}
         data-testid={ARTEFACT_RAIL_TESTID}
         onKeyDown={onRailKey}
-        className="pointer-events-auto flex flex-none flex-col items-center gap-1 pt-3"
-        style={{ width: ARTEFACT_RAIL_WIDTH, background: 'var(--bg-panel)', borderLeft: '1px solid var(--panel-edge-rule)' }}
+        className="pointer-events-auto my-3 mr-2 flex flex-none flex-col items-center gap-1 rounded-[20px] border border-panel-border bg-panel pt-2 shadow-2"
+        style={{ width: ARTEFACT_RAIL_WIDTH }}
       >
         {TOOL_ORDER.map((id, index) => {
           const { short, title, Icon } = TOOLS[id]
@@ -314,7 +314,7 @@ function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StagePro
       className="pointer-events-auto my-3 mr-2 flex flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel shadow-3 transition-[opacity,transform] duration-300 ease-out"
       style={{ width: ARTEFACT_COLUMN_WIDTH, opacity: entered ? 1 : 0, transform: entered ? 'none' : 'translateX(16px)' }}
     >
-      <header className="flex items-start gap-3 border-b border-panel-border px-5 pb-4 pt-5">
+      <header className="flex items-start gap-3 px-5 pb-2 pt-5">
         <span aria-hidden="true" className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full border border-panel-border">
           <Icon className="h-4 w-4 text-info" />
         </span>
@@ -379,7 +379,7 @@ export function ArtefactOpeners() {
   const show = useArtefactStore((s) => s.show)
   if (available.length === 0) return null
   return (
-    <ul data-testid="artefact-openers" className="space-y-1 border-b border-panel-border py-2">
+    <ul data-testid="artefact-openers" className="space-y-1 py-2">
       {available.map((id) => {
         const { title, Icon } = TOOLS[id]
         return (

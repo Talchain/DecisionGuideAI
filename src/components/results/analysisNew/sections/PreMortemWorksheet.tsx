@@ -98,7 +98,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
         : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
-        return <section key={option.id} data-option-id={option.id} className="space-y-3">
+        return <section key={option.id} data-option-id={option.id} className="space-y-5">
           <div className="flex items-center gap-2">
             <button type="button" className={`${typography.panelBody} ${chipClass} border-option/30 text-text-header`} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>
               <span aria-hidden="true" className="h-2 w-2 flex-none rounded-full bg-option" />
@@ -106,7 +106,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
             </button>
             {rows.length === 0 ? <p className={`${typography.panelMeta} text-text-light`}>Not stress-tested</p> : null}
           </div>
-          {rows.map((row, index) => <article key={row.row_id} data-row-id={row.row_id} className={`space-y-3 ${index > 0 ? 'border-t border-panel-border pt-4' : ''}`}>
+          {rows.map(row => <article key={row.row_id} data-row-id={row.row_id} className="space-y-3">
             <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>
             {row.source === 'server_built' ? <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.serverBuilt}</p> : null}
             <div className="space-y-1.5">
@@ -131,7 +131,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
           </article>)}
         </section>
       })}
-      <footer className={`${typography.panelMeta} space-y-1 border-t border-panel-border pt-3 text-text-light`}>
+      <footer className={`${typography.panelMeta} space-y-1 pt-2 text-text-light`}>
         <p className={`${typography.panelBody} text-text-body`}>{worksheet.blindspot_question}</p>
         <p>Run: <time dateTime={worksheet.run.computed_at}>{new Date(worksheet.run.computed_at).toLocaleString('en-GB')}</time></p>
       </footer>
