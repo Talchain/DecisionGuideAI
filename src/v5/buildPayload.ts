@@ -236,8 +236,9 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     base.proposal_edits = input.proposalEdits
   }
 
-  // A typed turn says which cards the user can see; a press already names its card (`chip.id`).
-  if (source === 'composer' && input.displayedProposals !== undefined) {
+  // A typed turn says which cards the user can see; a press already names its card (`chip.id`). Sent only when a card is
+  // on screen: agent cards exist only on the agent route, so the strict conventional ingress never meets the key.
+  if (source === 'composer' && input.displayedProposals !== undefined && input.displayedProposals.length > 0) {
     base.displayed_proposals = input.displayedProposals.map(p => (p.revision === undefined ? { proposal_id: p.proposal_id } : { proposal_id: p.proposal_id, revision: p.revision }))
   }
 

@@ -128,12 +128,15 @@ describe('the cards on screen, sent with a typed turn', () => {
     ])
     expect(shown.map(p => p.proposal_id)).toEqual([])
   })
-  it('the payload: a typed turn carries the set; a press does not (its chip names its card)', () => {
+  it('the payload: a typed turn carries the set; a press, or a turn with no card on screen, does not', () => {
     const base = { turnId: 't-1', scenarioId: 's-1', stage: 'frame' as const, turnClass: 'frame' as const, mode: 'user' as const,
       displayedProposals: [{ proposal_id: A, revision: 'rev-a' }] }
     const typed = buildV5Payload({ ...base, message: 'Approved.', source: 'composer' })
     expect(typed.ok && typed.payload).toMatchObject({ source: 'composer', displayed_proposals: [{ proposal_id: A, revision: 'rev-a' }] })
     const pressed = buildV5Payload({ ...base, message: 'Yes, use those.', source: 'chip_click', chipMeta: { id: `agent-approve-proposal:${A}` } })
     expect(pressed.ok && pressed.payload).not.toHaveProperty('displayed_proposals')
+    // No card on screen: no key at all, so the strict schema still accepts the turn (CI @55ce746e: selectedEdgeIdentity).
+    const none = buildV5Payload({ ...base, displayedProposals: [], message: 'Approved.', source: 'composer' })
+    expect(none.ok && none.payload).not.toHaveProperty('displayed_proposals')
   })
 })
