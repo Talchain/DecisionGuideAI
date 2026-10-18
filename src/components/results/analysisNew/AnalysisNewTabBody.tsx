@@ -1922,8 +1922,6 @@ export function AnalysisNewTabBody({
             canRerun={menuMayRerun}
           />
         )}
-        {/* The reasoning artefacts this model can show now, each opened beside the model (`canvas/artefacts`). */}
-        <ArtefactOpeners />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
@@ -2362,6 +2360,9 @@ export function AnalysisNewTabBody({
           onDisagree={(rec) => openAskOlumi(disagreeWithRecommendationPayload(rec))}
           analysisHash={responseHash ?? null}
         />
+        {/* The reasoning artefacts this model can show now, each opened beside the model (`canvas/artefacts`). They are
+            thinking tools, so they sit in the challenge zone, under its card, never above the decision row. */}
+        <ArtefactOpeners />
         <ReasoningSignals
           vm={vm}
           noValueIds={noValueDriverIds}
