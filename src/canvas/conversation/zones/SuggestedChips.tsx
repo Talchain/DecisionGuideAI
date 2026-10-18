@@ -162,6 +162,20 @@ function disclosesDetail(chip: ActionChip): boolean {
   return isResearchChip(chip) || isConsentChip(chip)
 }
 
+const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
+/**
+ * ⭐ SEVERAL WAITING CARDS IN ONE ROW (CEE: an approval is ONE action, every waiting card offered with its own buttons): each
+ * "Not now" says which card it sets aside, by that card's own approve label. One card keeps the plain words. Presentation
+ * only: the press still sends the chip's own id and message.
+ */
+function declineNamesItsCard(chip: ActionChip, row: readonly ActionChip[]): string | undefined {
+  if (typeof chip.id !== 'string' || !chip.id.startsWith(DECLINE_CHIP_PREFIX)) return undefined
+  const cards = row.filter(isConsentChip)
+  if (cards.length < 2) return undefined
+  const card = cards.find(c => c.id === `${CONSENT_CHIP_PREFIX}${chip.id.slice(DECLINE_CHIP_PREFIX.length)}`)
+  return card === undefined ? undefined : `${chip.label}: ${card.label}`
+}
+
 /** What the row shows, held while a turn is in flight. */
 interface HeldChipRow {
   chips: ActionChip[]
@@ -581,7 +595,7 @@ export function SuggestedChips({
         {visible.map((chip, i) => {
           // Presentation only: rewriting a label-only chip can erase the identity
           // the run gate and host detector need. Freeze this verdict with the row.
-          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : chip.label
+          const baseLabel = showRerunLabel && isRunAnalysisAffordance(chip) ? 'Rerun' : declineNamesItsCard(chip, visible) ?? chip.label
           // ⭐ THE APPLY CONTROL MUST SAY WHAT IT WOULD APPLY.
           //
           // CEE's readiness repair offer arrives here as an ordinary

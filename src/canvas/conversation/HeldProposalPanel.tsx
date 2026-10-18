@@ -40,7 +40,12 @@ export function useHeldProposalFields(raw: unknown, replyId: string | undefined,
 
 // Science 393023 LICENCE ruling 3: a placeholder is a link nobody has sized. Its default band is never shown as a size —
 // no button is lit and no band label is printed; the words say so. The wire's `current.band` stays (review semantics).
-const sourceWords = { placeholder: 'Not sized yet', estimate: "Olumi's estimate", yours: 'Yours', from_brief: 'From your brief' } as const
+// The server's attribution, said as what it is (DL-3 18 Oct, change 1: never an unconditional "Yours"): a figure Olumi READ
+// from the user's message is labelled as coming from their message; only a figure typed into this panel is "Your figure".
+const sourceWords = { placeholder: 'Not sized yet', estimate: "Olumi's estimate", yours: 'From your message', from_brief: 'From your brief' } as const
+const YOUR_FIGURE = 'Your figure'
+/** The panel's plain approve: it applies the reading the card shows, whoever's figures it holds (never "Olumi's suggestions"). */
+export const APPLY_THIS_READING = 'Apply this reading'
 function preset(band: Band) {
   return CANVAS_STRENGTH_BANDS.find(b => b.id === (band === 'very_strong' ? 'veryStrong' : band))!
 }
@@ -91,7 +96,7 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
               <label htmlFor={field.editable && input !== undefined ? inputId : undefined} className={typography.chatBody}>{field.label}</label>
               <p className={typography.chatBody}>{figure}</p>
               <p className={`${typography.chatMeta} text-text-light`}>{sourceWords[field.current.source]}</p>
-              {yours !== null && <p className={typography.chatBody}>{`${sourceWords.yours}: ${say(yours)}`}</p>}
+              {yours !== null && <p className={typography.chatBody}>{`${YOUR_FIGURE}: ${say(yours)}`}</p>}
               {field.editable && <fieldset disabled={disabled}>
                 <button type="button" className={CHIP_CLASS} onClick={() => setFigures(s => ({ ...s, [field.field_id]: '' }))}>Enter my own</button>
                 {input !== undefined && <input id={inputId} type="text" inputMode="decimal" className={typography.chatBody}
@@ -128,7 +133,7 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
       </div>}
       <div className="flex flex-wrap gap-2">
         <button type="button" className={CHIP_PRIMARY_CLASS} disabled={disabled || unset} onClick={() => approve(true)}>Submit</button>
-        <button type="button" className={CHIP_CLASS} disabled={disabled} onClick={() => approve(false)}>Use Olumi's suggestions</button>
+        <button type="button" className={CHIP_CLASS} disabled={disabled} onClick={() => approve(false)}>{APPLY_THIS_READING}</button>
         <button type="button" className={CHIP_CLASS} disabled={disabled} onClick={() => onAction(buildSuggestedActionChips([], [proposal.decline_action])[0])}>Not now</button>
       </div>
     </section>

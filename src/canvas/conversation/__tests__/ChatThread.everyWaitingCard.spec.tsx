@@ -56,6 +56,10 @@ describe('every waiting card keeps its button on the reply that offered it', () 
     ])
     for (const id of [A, B, C]) expect(has(`agent-approve-proposal:${id}`), id).toBe(true)
     for (const id of [A, B, C]) expect(has(`agent-decline-proposal:${id}`), id).toBe(true)
+    // Several cards in one row: each "Not now" says which card it sets aside; a row with one card keeps the plain words.
+    expect(screen.getByTestId(`suggested-chip-agent-decline-proposal:${B}`).textContent).toBe('Not now: Record this level')
+    expect(screen.getByTestId(`suggested-chip-agent-decline-proposal:${A}`).textContent).toBe('Not now: Use as starting assumptions')
+    expect(screen.getByTestId(`suggested-chip-agent-decline-proposal:${C}`).textContent).toBe('Not now')
   })
 
   it('CONTRAST: a card CEE no longer holds keeps no button on the earlier reply; the one it still holds does', () => {

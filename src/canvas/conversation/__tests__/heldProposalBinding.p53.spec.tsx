@@ -86,11 +86,11 @@ describe('P53: an approval is bound to the message that issued it, from render t
     expect(built(send.mock.calls[0][0], source)).toMatchObject({ source, chip: { id: A.approve_action.id }, proposal_edits: binding(A) })
   })
 
-  it.each(["Use Olumi's suggestions", 'Submit'])('B2: panel %s sends the same binding with fields: []', label => {
+  it.each(["Apply this reading", 'Submit'])('B2: panel %s sends the same binding with fields: []', label => {
     const { send } = mount()
     fireEvent.click(screen.getByRole('button', { name: AMEND_PROPOSAL_ACTION.label }))
     const panel = screen.getByRole('region', { name: 'What this change assumes' })
-    if (label === "Use Olumi's suggestions") {
+    if (label === "Apply this reading") {
       // The reset action keeps the card binding while declining this local value change.
       const field = within(panel).getByTestId(`proposal-field-${PID_A}-${A.fields[0].field_id}`)
       fireEvent.click(within(field).getByRole('button', { name: /^Very strong/ }))
@@ -333,7 +333,7 @@ describe('P53: an approval is bound to the message that issued it, from render t
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled()); await act(async () => {})
     fireEvent.click(screen.getByRole('button', { name: AMEND_PROPOSAL_ACTION.label }))
     const panel = screen.queryByRole('region', { name: 'What this change assumes' })
-    if (panel) fireEvent.click(within(panel).getByRole('button', { name: "Use Olumi's suggestions" }))
+    if (panel) fireEvent.click(within(panel).getByRole('button', { name: "Apply this reading" }))
     vi.unstubAllGlobals(); vi.unstubAllEnvs()
     return { panel, send }
   }

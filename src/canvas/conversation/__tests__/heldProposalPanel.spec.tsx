@@ -103,7 +103,7 @@ describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
     const { send } = mount(); open(); choose(); fireEvent.click(within(panel()).getByRole('button', { name: 'Submit' }))
     expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id }, proposal_edits: expectedEdits() })
   })
-  it.each(['Use Olumi\'s suggestions', 'Submit'])('%s without edits binds the rendered proposal with fields: []', (label) => {
+  it.each(['Apply this reading', 'Submit'])('%s without edits binds the rendered proposal with fields: []', (label) => {
     const { send } = mount(); open(); if (label !== 'Submit') choose()
     fireEvent.click(within(panel()).getByRole('button', { name: label }))
     expect(built(send.mock.calls[0][0])).toEqual({ kind: 'message', turn_id: 'turn', scenario_id: SID, stage: 'frame', turn_class: 'frame', source: 'chip', message: APPROVE.message, chip: { id: APPROVE.id }, proposal_edits: { ...expectedEdits(), fields: [] } })
@@ -127,7 +127,7 @@ describe('S-D held proposal panel (SELF-AUTHORED contract)', () => {
   it('read-only rows have no band buttons; missing data is exact and read-only; chat tokens only', () => {
     mount(); open()
     const readonly = within(panel()).getByTestId(`proposal-field-${PID}-link_strength:own::goal_1`)
-    expect(within(readonly).queryByRole('button')).toBeNull(); expect(readonly.textContent).toContain('Yours')
+    expect(within(readonly).queryByRole('button')).toBeNull(); expect(readonly.textContent).toContain('From your message')
     expect(panel().textContent).toContain(`Olumi has no figure for how likely '${field.from_label}' is today; the analysis treats it as zero`)
     expect(within(panel()).getByText("Olumi's estimate")).toBeTruthy()
     expect(within(row()).getByRole('button', { name: /^Strong/ }).className).toContain('text-xs')
