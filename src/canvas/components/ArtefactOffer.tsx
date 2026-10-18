@@ -17,6 +17,7 @@ import { useActionBarStore } from '../conversation/actionBar/actionBarStore'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
 import { useArtefactStore } from '../artefacts/artefactStore'
+import { useIsViewer } from '../../lib/viewerMode'
 
 export const ARTEFACT_OFFER_TESTID = 'artefact-offer'
 export const ARTEFACT_OFFER_COPY = { notNow: 'Not now' } as const
@@ -27,7 +28,9 @@ export function ArtefactOffer() {
   const dismissed = useActionBarStore((s) => s.dismissed)
   const dismiss = useActionBarStore((s) => s.dismiss)
   const offer = bar?.priority.find((o) => o.enabled) ?? null
-  const wants = offer !== null && !artefactOpen && !dismissed.includes(offer.offer_key)
+  // A viewer reads the model but cannot send a turn, so no move is suggested to them.
+  const isViewer = useIsViewer()
+  const wants = offer !== null && !isViewer && !artefactOpen && !dismissed.includes(offer.offer_key)
   const { granted, target } = useOverlayCell('bottom-right', 'artefact-offer', wants)
   if (!wants || !granted || offer === null || bar === null) return null
 
