@@ -70,8 +70,8 @@ function makeBlock(
 describe('V5AnalysisResultBlock — Sci-4B verbal uncertainty calibration', () => {
   it('renders "fairly confident" copy for high robustness + tight interval', () => {
     render(<V5AnalysisResultBlock block={makeBlock({ robustnessLevel: 'high', p10: 0.1, p90: 0.4 })} />)
-    expect(screen.getByTestId('v5-analysis-result-uncertainty-copy')).toHaveTextContent(
-      "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on.",
+    expect(screen.getByTestId('v5-analysis-result-uncertainty-copy').textContent).toBe(
+      'The leading option’s ranking is marked as stable in this model.',
     )
   })
 

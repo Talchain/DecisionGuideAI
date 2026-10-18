@@ -14,7 +14,7 @@ describe('calibrateUncertaintyCopy', () => {
       p10: 0.2,
       p90: 0.5,
     })
-    expect(result).toEqual({ tier: 'confident', text: "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on." })
+    expect(result).toEqual({ tier: 'confident', text: 'The leading option’s ranking is marked as stable in this model.' })
   })
 
   it('high robustness via robustnessLabel="robust" fallback → fairly confident', () => {
@@ -28,7 +28,7 @@ describe('calibrateUncertaintyCopy', () => {
 
   it('high robustness with no interval fields present → still confident (interval check only downgrades, never blocks)', () => {
     const result = calibrateUncertaintyCopy({ robustnessLevel: 'high' })
-    expect(result).toEqual({ tier: 'confident', text: "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on." })
+    expect(result).toEqual({ tier: 'confident', text: 'The leading option’s ranking is marked as stable in this model.' })
   })
 
   it('high robustness BUT interval straddles zero → downgraded to moderate framing', () => {

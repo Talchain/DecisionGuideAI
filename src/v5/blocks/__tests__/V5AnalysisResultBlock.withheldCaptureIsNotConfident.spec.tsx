@@ -26,7 +26,7 @@ import { holdLeaderForCard } from '../../../canvas/runView/__tests__/helpers/lea
 // and this file is one block from a capture, not a turn.
 import capture from './fixtures/openai-57f903c-pricing-explicit-run.analysis-block.json'
 
-const CONFIDENT = "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
+const CONFIDENT = 'The leading option’s ranking is marked as stable in this model.'
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
 const RAISE = 'raise_pro_to_59_at_release'
 const KEEP = 'keep_pro_at_49'
@@ -59,7 +59,7 @@ describe('the captured withheld OpenAI pricing run', () => {
   it('OPPOSITE CONTROL: the same bytes with the leader identity restored keep today\'s copy', () => {
     // FAIL CLOSED (15 Oct): CEE's matched view names raise_pro_to_59_at_release, as served.
     render(<V5AnalysisResultBlock block={holdLeaderForCard({ ...permittedTwin(), type: 'v5_analysis_result' } as unknown as V5AnalysisResultBlockType, 'permitted', RAISE)} />)
-    expect(screen.getByTestId(COPY_ID)).toHaveTextContent(CONFIDENT)
+    expect(screen.getByTestId(COPY_ID).textContent).toBe(CONFIDENT)
   })
 
   it('⭐ the withheld capture renders no "fairly confident" line', () => {
