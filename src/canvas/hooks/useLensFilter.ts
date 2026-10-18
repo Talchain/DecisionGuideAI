@@ -214,7 +214,7 @@ export function useLensFilter(): void {
     }
 
     if (resultsStatus !== 'complete' || !report) return EMPTY_VISUALS
-    const reportAny = report as Record<string, unknown>
+    const reportAny = report as unknown as Record<string, unknown>
 
     // ── Option isolation ──
     if (lensActive === 'option' && lensOptionId) {

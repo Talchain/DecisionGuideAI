@@ -217,7 +217,6 @@ import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { LensBar } from './artefacts/LensBar'
-import { usePremortemArrival } from './artefacts/lenses'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isOnboardingTourEnabled, isCrossHighlightEnabled } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
@@ -1600,8 +1599,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Graph Lens: Compute lens visuals and push to store
   useLensFilter()
-  // "If it failed": restores the worksheet on reload, and turns to the lens when a worksheet the user asked for arrives
-  usePremortemArrival()
 
   // A.2: Guidance pulse highlight for active GuidanceItem target
   useGuidancePulseHighlight()

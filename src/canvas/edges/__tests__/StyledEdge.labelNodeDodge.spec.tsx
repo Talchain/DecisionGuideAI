@@ -64,13 +64,12 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
-// ── Graph-lens state — the app's REAL node-hiding mechanism ─────────────────
-// BaseNode returns null for ids in lens._hiddenNodeIds; React Flow's `hidden`
-// flag is never set by this app. Mutable so individual tests can enable the
-// lens and hide nodes/edges.
+// ── Graph-lens state ──────────────────────────────────────────────────────────
+// Mutable so individual tests can turn a lens on. `_hiddenNodeIds` is kept only
+// to show that a stale entry from the retired hiding lens hides nothing.
 let lensEnabled = false
 const makeLens = () => ({
-  active: 'full' as const,
+  active: 'full' as string,
   _dimmedEdgeIds: new Set<string>(),
   _hiddenEdgeIds: new Set<string>(),
   _hiddenNodeIds: new Set<string>(),
@@ -79,6 +78,7 @@ const makeLens = () => ({
   _sensitivityQuartiles: null as { q25: number; q75: number } | null,
   _causalEdgeParams: new Map<string, unknown>(),
   _evidenceEdgeClass: new Map<string, string>(),
+  _restsOn: new Map<string, unknown>(),
 })
 let lensState = makeLens()
 
@@ -442,15 +442,14 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
   })
 
-  // ── C2 review finding 1: lens-hidden nodes are NOT obstacles ──────────────
-  // The app never sets React Flow's `hidden` flag; nodes disappear when
-  // BaseNode returns null for ids in lens._hiddenNodeIds. An invisible card
-  // must not displace a label (phantom obstacle).
-  describe('lens-hidden nodes and edges are invisible to the collision pass', () => {
-    it('a lens-hidden card on the label anchor causes NO displacement', () => {
-      lensEnabled = true
-      lensState._hiddenNodeIds.add('blocker')
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -40)
+  // ── C2 review finding 1: an invisible card is NOT an obstacle ────────────
+  // The lens that hid organisational cards (BaseNode returning null for ids in
+  // lens._hiddenNodeIds) is retired with the causal lens (#2826): no lens hides a
+  // card any more, so React Flow's `hidden` flag is the only way a card is not
+  // drawn, and every drawn card stays an obstacle under every lens.
+  describe('only an invisible card is invisible to the collision pass', () => {
+    it('a React-Flow-`hidden` card on the label anchor causes NO displacement', () => {
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -40, { hidden: true })
 
       const { container } = render(<StyledEdge {...edgeProps as any} />)
 
@@ -460,41 +459,15 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(leaderOf(container)).toBeNull()
     })
 
-    it('belt-and-braces: a React-Flow-`hidden` card is still excluded', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -40, { hidden: true })
-
-      const { container } = render(<StyledEdge {...edgeProps as any} />)
-
-      expect(leaderOf(container)).toBeNull()
-    })
-
-    it('with the lens flag OFF, _hiddenNodeIds is ignored and the card still dodges', () => {
-      lensEnabled = false
-      lensState._hiddenNodeIds.add('blocker') // stale state — flag gates the mechanism
+    it('with a lens on, a stale _hiddenNodeIds entry hides nothing and the card still dodges', () => {
+      lensEnabled = true
+      lensState.active = 'rests_on'
+      lensState._hiddenNodeIds.add('blocker') // stale state from before the lens was retired
       nodeRegistry.blocker = card('blocker', 'factor', -100, -40)
 
       const { container } = render(<StyledEdge {...edgeProps as any} />)
 
       expect(leaderOf(container)).not.toBeNull()
-    })
-
-    it('a lens-hidden EDGE renders no label, so it must not occupy a label slot', () => {
-      lensEnabled = true
-      // e2 (n3 → n4) is lens-hidden along with its organisational source node.
-      // Its label anchor (0, −10) would collide with e1's anchor (0, 0) — but
-      // no label renders for it, so e1 must stay put.
-      nodeRegistry.n3 = card('n3', 'factor', -200, -300) // bottom handle (−100, −220)
-      nodeRegistry.n4 = card('n4', 'outcome', 0, 200) // top handle (100, 200)
-      edgeList = [...edgeList, { id: 'e2', source: 'n3', target: 'n4', data: { weight: 0.5 } }]
-      lensState._hiddenNodeIds.add('n3')
-      lensState._hiddenEdgeIds.add('e2')
-
-      const { container } = render(<StyledEdge {...edgeProps as any} />)
-
-      const label = container.querySelector('[role="note"]') as HTMLElement | null
-      expect(label).not.toBeNull()
-      expect(label!.style.transform).toContain('translate(50px,50px)')
-      expect(leaderOf(container)).toBeNull()
     })
   })
 

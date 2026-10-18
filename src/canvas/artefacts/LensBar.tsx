@@ -21,7 +21,7 @@ import { TOP_PILL_BOTTOM_PX, TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../../c
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { assumptionMapOf } from './assumptionMapModel'
 import { isUnsettled } from './RestsOnMarker'
-import { LENS_COPY, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, type BarLens } from './lenses'
+import { LENS_COPY, LENS_ORDER, lensNeedsRun, useCurrentPremortemWorksheet, usePremortemArrival, type BarLens } from './lenses'
 
 export const LENS_BAR_TESTID = 'lens-bar'
 /** The space kept between the bar and the pill, the dock or the window edge. */
@@ -94,6 +94,9 @@ function useSegmentCounts(): Partial<Record<BarLens, number>> {
 }
 
 export function LensBar() {
+  // "If it failed": restores the worksheet on reload, and turns to the lens when a worksheet the user asked for
+  // arrives. Here because the bar is mounted for the canvas's whole life, before any early return.
+  usePremortemArrival()
   const enabled = isGraphLensEnabled()
   const hasModel = useCanvasStore((s) => s.nodes.length > 0)
   const active = useCanvasStore((s) => s.lens.active)

@@ -19,7 +19,7 @@ export interface PreMortemWorksheetProps {
 }
 const buttonClass = `${typography.panelBody} ${action('inline')} disabled:opacity-50 disabled:no-underline`
 /** An element the worksheet names, as an outlined pill that lights it on the canvas and opens it on press. */
-const chipClass = `inline-flex min-h-[28px] min-w-[28px] items-center gap-1.5 rounded-full border px-2.5 transition-colors duration-200 disabled:opacity-50 ${ACTION_FOCUS}`
+const chipClass = `inline-flex min-h-[28px] min-w-[28px] items-center gap-2 rounded-full border px-3 transition-colors duration-200 disabled:opacity-50 ${ACTION_FOCUS}`
 
 /**
  * Read only worksheet projection, shown in the "If it failed" lens's key card (`canvas/components/LensInfoPanel.tsx`;
@@ -94,12 +94,12 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
       {stale ? <p role="status" className={`${typography.panelBody} rounded-xl border border-warning/30 px-3 py-2 text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
       {/* Said once for the worksheet, never as a label above each story: every story Olumi drafted is its hypothesis. */}
       {worksheet.rows.some(row => row.source !== 'server_built')
-        ? <p className={`${typography.panelMeta} inline-flex rounded-full border border-dashed border-info px-2.5 py-0.5 text-text-body`}>{PREMORTEM_COPY.provenance}</p>
+        ? <p className={`${typography.panelMeta} inline-flex rounded-full border border-dashed border-info px-3 py-0.5 text-text-body`}>{PREMORTEM_COPY.provenance}</p>
         : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
         return <section key={option.id} data-option-id={option.id} className="space-y-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <button type="button" className={`${typography.panelBody} ${chipClass} border-option/30 text-text-header`} disabled={stale} onClick={() => openElement(option.id)} {...lightProps(option.id)}>
               <span aria-hidden="true" className="h-2 w-2 flex-none rounded-full bg-option" />
               {String(option.data.label ?? '')}
@@ -109,7 +109,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
           {rows.map(row => <article key={row.row_id} data-row-id={row.row_id} className="space-y-3">
             <p className={`${typography.panelQuestion} text-text-header`}>{row.failure_way}</p>
             {row.source === 'server_built' ? <p className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.serverBuilt}</p> : null}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <Eye aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
                 <p className={`${typography.panelBody} text-text-body`}>{PREMORTEM_COPY.warning}: {row.early_warning}</p>
@@ -119,7 +119,7 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
                 <p className={`${typography.panelBody} text-text-body`} data-testid="premortem-mitigation">{PREMORTEM_COPY.mitigate}: {row.mitigation}</p>
               </div> : null}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1">
               {row.grounding.kind === 'not_in_model' ? <span className={`${typography.panelMeta} text-text-light`}>{PREMORTEM_COPY.outside}</span> : row.grounding.ids.map(id =>
                 target(id) ? <button key={id} type="button" className={`${typography.panelMeta} ${chipClass} border-panel-border text-text-body`} disabled={stale} onClick={() => openElement(id)} {...lightProps(id)}>
                   {groundingLabel(id)}
