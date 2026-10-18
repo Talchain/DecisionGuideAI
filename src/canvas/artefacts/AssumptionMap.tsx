@@ -130,11 +130,11 @@ export function AssumptionMap() {
         >
           <span aria-hidden="true" className={`mt-[3px] h-2.5 w-2.5 flex-none rounded-[3px] ${FIGURE_MARK[item.column]}`} />
           <span className="min-w-0 flex-1">
-            <span className={`${typography.panelBody} block font-medium text-text-header`}>{item.label}</span>
+            <span className={`${typography.panelBody} block text-text-header`}>{item.label}</span>
             <span className={`${typography.panelMeta} block text-text-light`}>{item.source}</span>
           </span>
           {settled.includes(key) ? (
-            <span data-testid="assumption-map-settled" className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-success px-2 py-0.5 text-text-body`}>
+            <span data-testid="assumption-map-settled" className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-success/30 px-2 py-0.5 text-text-body`}>
               <Check aria-hidden="true" className="h-3 w-3 text-success" />
               {ASSUMPTION_MAP_STRIP_COPY.justSet}
             </span>
@@ -174,7 +174,7 @@ export function AssumptionMap() {
                         title={item.label}
                         onClick={() => choose(item)}
                         {...lightProps(item)}
-                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,background-color,border-color,box-shadow] duration-500 ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) && !isPicked ? 'ring-2 ring-success ring-offset-2 ring-offset-panel' : ''} ${ACTION_FOCUS}`}
+                        className={`h-8 min-w-[4px] flex-1 rounded-[4px] transition-[transform,background-color,border-color,box-shadow] duration-[400ms] ease-out ${FIGURE_MARK[item.column]} ${isPicked ? '-translate-y-1 ring-2 ring-info ring-offset-2 ring-offset-panel' : 'hover:-translate-y-0.5'} ${settled.includes(key) && !isPicked ? 'ring-2 ring-success ring-offset-2 ring-offset-panel' : ''} ${ACTION_FOCUS}`}
                       />
                     )
                   })}
@@ -197,7 +197,7 @@ export function AssumptionMap() {
               title={COPY.columns[c]}
               disabled={counts[c] === 0}
               onClick={() => setChosen(c)}
-              className={`${typography.panelMeta} inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-2.5 tabular-nums transition-colors duration-200 disabled:opacity-40 ${column === c ? 'border-info bg-panel-hover text-text-header' : 'border-panel-border text-text-body hover:border-info/60'} ${ACTION_FOCUS}`}
+              className={`${typography.panelMeta} inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-2.5 tabular-nums transition-colors duration-200 disabled:opacity-40 ${column === c ? 'border-info text-info-ink' : 'border-panel-border text-text-body'} ${ACTION_FOCUS}`}
             >
               <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-[3px] ${FIGURE_MARK[c]}`} />
               {counts[c]} {FIGURE_SHORT[c]}

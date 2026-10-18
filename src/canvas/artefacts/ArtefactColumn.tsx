@@ -264,15 +264,15 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
               tabIndex={roving ? 0 : -1}
               data-testid={`${ARTEFACT_RAIL_TESTID}-${id}`}
               onClick={() => toggle(id)}
-              className={`relative flex w-[66px] flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center transition-colors duration-200 ease-out ${active ? 'bg-panel-hover text-text-header' : 'text-text-light hover:bg-panel-hover hover:text-text-body'} ${ACTION_FOCUS}`}
+              className={`relative flex w-[66px] flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center transition-colors duration-200 ease-out ${active ? 'bg-[var(--panel-tab-active-bg)] text-text-header' : 'text-text-light hover:bg-panel-hover hover:text-text-body'} ${ACTION_FOCUS}`}
             >
-              <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-info' : ''}`} />
-              <span className={`${typography.panelMeta} whitespace-nowrap font-medium !leading-tight`}>{short}</span>
+              <Icon aria-hidden="true" className={`h-5 w-5 ${active ? 'text-info' : ''}`} />
+              <span className={`${typography.panelMeta} whitespace-nowrap`}>{short}</span>
               {count ? (
                 <span
                   aria-hidden="true"
                   data-testid={`${ARTEFACT_RAIL_TESTID}-${id}-count`}
-                  className={`${typography.panelMeta} absolute -top-0.5 right-0 min-w-[18px] rounded-full border border-info bg-panel px-1 !leading-4 tabular-nums text-info-ink`}
+                  className={`${typography.panelMeta} absolute -top-0.5 right-0 min-w-[18px] rounded-full border border-info/30 bg-panel px-1 tabular-nums text-info-ink`}
                 >
                   {count.n}
                 </span>
@@ -311,13 +311,8 @@ function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StagePro
       data-testid={ARTEFACT_COLUMN_TESTID}
       data-artefact={id}
       onTransitionEnd={(event) => { if (event.target === event.currentTarget) announceDockEdge() }}
-      className="pointer-events-auto my-3 mr-2 flex flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel shadow-3 transition-[opacity,transform] duration-200"
-      style={{
-        width: ARTEFACT_COLUMN_WIDTH,
-        opacity: entered ? 1 : 0,
-        transform: entered ? 'none' : 'translateX(16px)',
-        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
+      className="pointer-events-auto my-3 mr-2 flex flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel shadow-3 transition-[opacity,transform] duration-300 ease-out"
+      style={{ width: ARTEFACT_COLUMN_WIDTH, opacity: entered ? 1 : 0, transform: entered ? 'none' : 'translateX(16px)' }}
     >
       <header className="flex items-start gap-3 border-b border-panel-border px-5 pb-4 pt-5">
         <span aria-hidden="true" className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full border border-panel-border">
@@ -339,12 +334,8 @@ function Stage({ id, entered, isBusy, isStale, hasWorksheet, onClose }: StagePro
       </header>
       <div
         key={id}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 transition-[opacity,transform] duration-200"
-        style={{
-          opacity: swapped ? 1 : 0,
-          transform: swapped ? 'none' : 'translateY(4px)',
-          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 transition-[opacity,transform] duration-200 ease-out"
+        style={{ opacity: swapped ? 1 : 0, transform: swapped ? 'none' : 'translateY(4px)' }}
       >
         {id === 'assumptions' ? <AssumptionMap /> : hasWorksheet ? <PreMortemWorksheet isBusy={isBusy} isStale={isStale} /> : <PremortemNotYet />}
       </div>
