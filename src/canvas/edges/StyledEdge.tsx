@@ -2621,7 +2621,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           opacity: isSelectionDimmed ? undefined
             : isLensDimmed ? 0.2
             : isStructuralEdge ? undefined
-            : (lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
+            // A fragile link is never faded for a low sensitivity: in "What would change" it is the point.
+            : (lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25 && !isLensFragile) ? 0.4
             : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges.
           // Analysis-graph projection: a viewed flip-risk edge gets a WARNING

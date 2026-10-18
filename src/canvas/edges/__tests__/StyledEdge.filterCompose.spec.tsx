@@ -32,6 +32,7 @@ const WARNING_HALO = EDGE_GLOW.flipRisk
 let lensActive: 'full' | 'what_changes' = 'full'
 let sensitivityWeights = new Map<string, number>()
 let sensitivityQuartiles: { q25: number; q75: number } | null = null
+let fragileEdgeIds = new Set<string>()
 let highlightedEdges = new Set<string>()
 let runChangesRouteFocusId: string | null = null
 let selection = { nodeIds: new Set<string>(), edgeIds: new Set<string>() }
@@ -71,7 +72,7 @@ vi.mock('../../store', () => ({
         _dimmedEdgeIds: new Set<string>(),
         _sensitivityWeights: sensitivityWeights,
         _sensitivityQuartiles: sensitivityQuartiles,
-        _fragileEdgeIds: new Set<string>(),
+        _fragileEdgeIds: fragileEdgeIds,
         _restsOn: new Map(),
       },
     }),
@@ -128,6 +129,7 @@ const filterOf = (container: HTMLElement) =>
 afterEach(() => {
   cleanup()
   lensActive = 'full'
+  fragileEdgeIds = new Set<string>()
   sensitivityWeights = new Map()
   sensitivityQuartiles = null
   analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
@@ -227,5 +229,23 @@ describe('StyledEdge — filter composition', () => {
     const filter = filterOf(container)
     expect(filter).toContain(WARNING_HALO)
     expect(filter).not.toContain(INFO_GLOW)
+  })
+})
+
+describe('StyledEdge — "What would change" never fades a fragile link', () => {
+  const opacityOf = (container: HTMLElement) =>
+    (container.querySelector('[data-testid="base-edge"]') as unknown as HTMLElement).style.opacity
+
+  it('a fragile link with a low sensitivity keeps full opacity; the same link, not fragile, fades', () => {
+    lensActive = 'what_changes'
+    sensitivityWeights = new Map([['e1', 0.1]])
+    sensitivityQuartiles = { q25: 0.2, q75: 0.5 }
+    // CONTRAST first: not fragile, low sensitivity → the quartile fade applies.
+    const quiet = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(opacityOf(quiet.container)).toBe('0.4')
+    cleanup()
+    fragileEdgeIds = new Set(['e1'])
+    const fragile = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(opacityOf(fragile.container)).not.toBe('0.4')
   })
 })
