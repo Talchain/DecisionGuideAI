@@ -144,7 +144,7 @@ describe('the cards on screen, sent with a typed turn', () => {
 // ⭐ CEE PR-2, NO SILENT LAPSE: a card kept for review after the model changed shows "Review this change" and its "Not now",
 // live and after a reload, and is never offered as approve (never on screen as approvable, so never in the typed set).
 const review = (id: string, change: string) => ({ id: `agent-review-proposal:${id}`, label: 'Review this change',
-  message: `Show me this change again on the model as it is now: "${change}".`, detail: change })
+  message: `Show me this change again on the model as it is now: "${change}".`, detail: change, intent: 'secondary' as const })
 const withReview = (raw: ReturnType<typeof fields>, id: string, change: string) =>
   ({ ...raw, proposals: raw.proposals.map(p => (p.proposal_id === id ? { ...p, review_action: review(id, change) } : p)) })
 describe('a card kept for review: "Review this change", never approve', () => {

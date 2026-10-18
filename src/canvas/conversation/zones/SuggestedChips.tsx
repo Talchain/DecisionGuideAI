@@ -177,7 +177,7 @@ function declineNamesItsCard(chip: ActionChip, row: readonly ActionChip[]): stri
   const id = chip.id.slice(DECLINE_CHIP_PREFIX.length)
   const card = cards.find(c => c.id === `${CONSENT_CHIP_PREFIX}${id}` || c.id === `${REVIEW_PROPOSAL_PREFIX}${id}`)
   // A card kept for review is named by the change it holds (its detail), not by "Review this change".
-  return card === undefined ? undefined : `${chip.label}: ${card.id.startsWith(REVIEW_PROPOSAL_PREFIX) && card.detail ? card.detail : card.label}`
+  return card === undefined ? undefined : `${chip.label}: ${card.id?.startsWith(REVIEW_PROPOSAL_PREFIX) && card.detail ? card.detail : card.label}`
 }
 
 /** What the row shows, held while a turn is in flight. */

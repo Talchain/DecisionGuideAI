@@ -91,7 +91,7 @@ export function readProposalFields(raw: unknown) {
 /** CEE's amend control, byte-identical to its AMEND_CHIP; it carries no proposal id of its own. */
 /** The card chips of a held change: its approve, or (kept for review) its "Review this change". */
 export const REVIEW_PROPOSAL_PREFIX = 'agent-review-proposal:'
-export const isHeldCardChipId = (id: unknown): id is string =>
+export const isHeldCardChipId = (id: unknown): boolean =>
   typeof id === 'string' && (id.startsWith('agent-approve-proposal:') || id.startsWith(REVIEW_PROPOSAL_PREFIX))
 export const AMEND_PROPOSAL_ACTION = { id: 'agent-amend-proposal', label: 'Change something first', message: 'Before you apply it, I want to change some of it.' } as const
 
