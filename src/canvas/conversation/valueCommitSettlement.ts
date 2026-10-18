@@ -233,7 +233,8 @@ export function awaitSavedModelRead(opts: {
  */
 async function ownSavedVersion(scenarioId: string, claim: (turnId: string) => boolean): Promise<string | null> {
   // Lazily, as `captureAgentTurnForUndo` does: the session client is needed only on this rare path.
-  const identity = await (await import('../../lib/supabase')).getSessionIdentity()
+  const { getSessionIdentity } = await import('../../lib/supabase')
+  const identity = await getSessionIdentity()
   if (!identity.accessToken) return null
   const listed = await listModelVersions(scenarioId, { userId: identity.userId, accessToken: identity.accessToken, limit: 1 })
   if (listed.status !== 'list') return null
