@@ -29,7 +29,8 @@ const LINKS: ReadonlyArray<[EdgeProvenanceKind, () => Data, AssumptionColumn | n
   ['olumi_estimate', ESTIMATE, 'unchecked'],
   ['user', () => ({ ...ESTIMATE(), weightSource: 'user' }), 'yours'],
   ['brief', () => { const d = ESTIMATE(); return { ...d, strengthStated: W(d) } }, 'yours'],
-  ['accepted', () => { const d = ESTIMATE(); return { ...d, strengthAccepted: W(d) } }, 'yours'],
+  // Accepting Olumi's strength never makes it the user's: its origin stays Olumi's (PL, 18 Oct 2026).
+  ['accepted', () => { const d = ESTIMATE(); return { ...d, strengthAccepted: W(d) } }, 'accepted'],
   ['placeholder', PLACEHOLDER, 'missing'],
   ['example', () => ({ ...ESTIMATE(), weightSource: 'template' }), 'unchecked'],
   ['exact', () => ({ ...PLACEHOLDER(), strengthIdentityExact: 'mrr' }), null],
@@ -40,7 +41,12 @@ const FACTORS: ReadonlyArray<[string, Data, AssumptionColumn]> = [
   ['user', { observedState: { value: 0.7, source: 'user_override' } }, 'yours'],
   ['brief', { observedState: { value: 0.8, source: 'brief_extraction', extractionType: 'explicit' } }, 'yours'],
   ['olumi', { observedState: { value: 0.5, source: 'cee_inference', extractionType: 'inferred' } }, 'unchecked'],
-  ['unverified', { provenance: 'unverified_brief', observedState: { value: 12, source: 'brief_extraction' } }, 'unchecked'],
+  // CONTRAST: Olumi's drafted value with no marker is still Olumi's and unchecked, never assumed accepted.
+  ['olumi drafted, unmarked', { observedState: { value: 0.4, source: 'cee_inference' } }, 'unchecked'],
+  ['accepted', { observedState: { value: 0.5, source: 'user_assumption', reviewed_by_user: { intent: 'confirm' } } }, 'accepted'],
+  // An origin nobody can attest is never shown as the user's (DL, 18 Oct 2026; BaseNode.evidenceLensSaysIt's intent).
+  ['unverified', { provenance: 'unverified_brief', observedState: { value: 12, source: 'brief_extraction' } }, 'unknown'],
+  ['unknown provenance', { provenance: 'something_new', observedState: { value: 3 } }, 'unknown'],
 ]
 
 const node = (id: string, type: string, data: Data = {}): Node => ({ id, type, position: { x: 0, y: 0 }, data: { label: id, ...data } })
