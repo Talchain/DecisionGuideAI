@@ -100,9 +100,11 @@ const props = {
 
 function renderOption(data: Record<string, unknown> = {}, resultsStatus = 'idle') {
   cleanup(); clearAskTargetBinding()
-  vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(resultsStatus) as never))
+  // The card's own node is on the board it reads (the baseline guess counts the board's options, #2840).
+  const board = [{ id: ID, type: 'option', data: { label: 'Move upmarket to enterprise', ...data } }]
+  vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)({ ...state(resultsStatus), nodes: board } as never))
   // The icon selects the node before asking (`useCanvasStore.getState()`).
-  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ ...state(resultsStatus), nodes: [{ id: ID, type: 'option', data: { label: 'Move upmarket to enterprise', ...data } }], edges: [], selectNodeWithoutHistory: vi.fn() })
+  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ ...state(resultsStatus), nodes: board, edges: [], selectNodeWithoutHistory: vi.fn() })
   // An ask surface — without one the icon renders nothing (`canReceiveAsk`).
   useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), _isConversationBusy: () => false, guidanceItems: [] } as never)
   useAskOlumiStore.setState({ isOpen: false, draft: '', label: '', context: '' } as never)

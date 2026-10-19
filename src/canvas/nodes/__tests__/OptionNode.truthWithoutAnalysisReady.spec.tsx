@@ -105,9 +105,17 @@ describe('POM-3 · a keyword may not mint a second baseline on a board that decl
     expect(screen.queryByTestId('option-baseline-meta-146aa89d')).toBeNull()
   })
 
-  it('MUTANT PAIR — the same label on a board that declares NO baseline still reaches the heuristic', () => {
+  // #2840 (DL-3 ruling, pricing journey): with no typed source, the label guess needs EXACTLY ONE match. "Keep current
+  // £49 price" and the grandfather label both match, so neither is guessed; the guess still reaches a lone match.
+  it('with no typed source, two label matches mint no baseline (the guess needs exactly one)', () => {
     const undeclaredKeep = { ...KEEP, data: { ...KEEP.data, is_baseline: undefined } }
     mount([PRICE, undeclaredKeep, grandfather()], '146aa89d')
+    expect(screen.getByText(GRANDFATHER_LABEL)).toBeTruthy()
+    expect(screen.queryByTestId('option-baseline-meta-146aa89d')).toBeNull()
+  })
+
+  it('MUTANT PAIR — the same label as the board\'s only match still reaches the heuristic', () => {
+    mount([PRICE, grandfather()], '146aa89d')
     expect(screen.getByText(GRANDFATHER_LABEL)).toBeTruthy()
     expect(screen.getByTestId('option-baseline-meta-146aa89d')).toBeTruthy()
   })
