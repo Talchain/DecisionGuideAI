@@ -214,3 +214,27 @@ describe('"If it failed" offers its ask only where a worksheet can come back', (
     expect(screen.queryByTestId('premortem-needs-run')).toBeNull()
   })
 })
+
+describe('"What would change" says when fragile links were not checked', () => {
+  beforeEach(() => localStorage.setItem('feature.graphLens', '1'))
+  afterEach(() => {
+    localStorage.removeItem('feature.graphLens')
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } as never, nodes: [] as never, lens: { ...useCanvasStore.getState().lens, active: 'full' } } as never)
+  })
+
+  it('robustness not_assessed: says not checked, never "measured nothing" (staging fe4e4b9d: the lens was silent)', () => {
+    seedRobustnessLens([])
+    const report = useCanvasStore.getState().results.report as unknown as Record<string, unknown>
+    useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, report: { ...report, robustness: { display_verdict: 'not_assessed', fragile_edges: [] } } } as never })
+    render(<LensInfoPanel />)
+    expect(screen.getByTestId('lens-key-fragile-not-checked').textContent).toBe("Fragile links weren't checked on this Run.")
+    expect(screen.getByTestId('lens-info-robustness').textContent).not.toContain('measured nothing')
+  })
+
+  it('CONTRAST: an assessed Run with no fragile links does not say "not checked"', () => {
+    seedRobustnessLens([])
+    render(<LensInfoPanel />)
+    expect(screen.queryByTestId('lens-key-fragile-not-checked')).toBeNull()
+    expect(screen.getByTestId('lens-info-robustness').textContent).toContain('measured nothing')
+  })
+})
