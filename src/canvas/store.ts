@@ -5071,8 +5071,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       layoutOptions.setLayoutNodeWidth(layoutNodeWidth)
       layoutOptions.setLayoutCardWidths(layoutCardWidths)
+      // ⭐ A CARD'S MEASURED SIZE IS THE LIVE ONE, NEVER THE SNAPSHOT'S. The
+      // layout copies `measured` from the nodes it read before the await. A
+      // resize React Flow reported during that window (the first layout's card
+      // widths landing: 400 → 276) was overwritten with the old size, and the
+      // DOM never changes again to report it. React Flow adopts the user node's
+      // `measured`, so every reader then saw 400-wide cards on a 324 pitch:
+      // neighbours "overlapped" and a same-row link solved a ~3,300-unit dip
+      // under the board (measured, MRR draft, 19 Oct 2026).
+      const liveMeasured = new Map(get().nodes.map((n) => [n.id, n.measured]))
       set({
-        nodes: layoutedNodes,
+        nodes: layoutedNodes.map((n) => {
+          const live = liveMeasured.get(n.id)
+          return live && live !== n.measured ? { ...n, measured: live } : n
+        }),
         layoutVersion: get().layoutVersion + 1,
         pendingLayout: false,
         // Recorded in the SAME set() as the version bump, so the fit trigger

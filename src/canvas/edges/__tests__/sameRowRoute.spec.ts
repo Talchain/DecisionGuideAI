@@ -177,6 +177,34 @@ describe('the under arc clears the WHOLE between card, not just its centre (revi
   )
 })
 
+describe('a between card that overlaps the target never sends the arc under the board (19 Oct 2026)', () => {
+  // The MRR draft's factor row as React Flow briefly held it: 400-wide boxes
+  // on a 324 pitch, so each card reaches 76 units into the next one's column.
+  const W = 400
+  const row = [24, 348, 672, 996, 1320].map((x, i) => ({ id: `f${i}`, x, y: 466, width: W, height: 104 }))
+  const [s, , m, t] = row
+
+  it('the dip stays within a row gap of the cards, and the arc still clears the gap', () => {
+    const route = resolveSameRowRoute(s, t, row.filter((o) => o !== s && o !== t))!
+    expect(route.kind).toBe('under')
+    const pts = samplePath(route.path, 200)
+    const deepest = Math.max(...pts.map((p) => p.y))
+    // Before: `M224,570 C224,3905 1072,3909 1072,574`, a ~2,500-unit dip.
+    expect(deepest).toBeLessThan(570 + 200)
+    const required = m.y + m.height + UNDER_ROW_CLEARANCE
+    const inGap = pts.filter((p) => p.x >= s.x + s.width && p.x <= t.x)
+    expect(inGap.length).toBeGreaterThan(0)
+    for (const p of inGap) expect(p.y).toBeGreaterThanOrEqual(required)
+  })
+
+  it('CONTRAST: the same row at the drawn width (276) takes the same shallow arc', () => {
+    const drawn = row.map((o) => ({ ...o, width: 276 }))
+    const route = resolveSameRowRoute(drawn[0], drawn[3], [drawn[1], drawn[2], drawn[4]])!
+    expect(route.kind).toBe('under')
+    expect(Math.max(...samplePath(route.path, 200).map((p) => p.y))).toBeLessThan(570 + 200)
+  })
+})
+
 /**
  * Samples an `M … L … Q … C …` path (absolute commands only) into points.
  * `curveSteps` controls the subdivisions per `C`/`Q`/`L` segment (default 40,

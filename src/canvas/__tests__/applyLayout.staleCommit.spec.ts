@@ -221,3 +221,44 @@ describe('applyLayout — mid-flight supersession (post-await stale guards)', ()
     }
   })
 })
+
+describe('applyLayout — a resize React Flow reports mid-flight survives the commit (19 Oct 2026)', () => {
+  beforeEach(() => {
+    useCanvasStore.getState().resetCanvas()
+  })
+
+  it('the commit keeps the live measured size and takes the layout position', async () => {
+    vi.doMock('../utils/layout', () => ({
+      // The first layout's card widths land while this one awaits: React Flow
+      // measures the card at its new width (400 → 276). The layout returns
+      // its snapshot, which still holds 400.
+      layoutGraph: async (nodes: ReturnType<typeof nodeAt>[]) => {
+        useCanvasStore.getState().onNodesChange([
+          { type: 'dimensions', id: 'a', dimensions: { width: 276, height: 104 } },
+        ] as never)
+        return {
+          nodes: nodes.map((n) => ({ ...(n as object), position: { x: 348, y: 466 } })),
+          layoutNodeWidth: 320,
+        }
+      },
+      groupByYRow: () => new Map(),
+      applyCollisionGuard: () => undefined,
+      normaliseTierRows: () => undefined,
+    }))
+    try {
+      const measuredAt400 = (id: string) => ({ ...(nodeAt(id, 0, 0) as object), measured: { width: 400, height: 104 } }) as never
+      useCanvasStore.setState({ nodes: [measuredAt400('a'), measuredAt400('b')], edges: [], layoutRequestId: 0 })
+
+      await useCanvasStore.getState().applyLayout({ skipHistory: true })
+
+      const byId = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, n]))
+      expect(byId.get('a')?.measured).toEqual({ width: 276, height: 104 })
+      expect(byId.get('a')?.position).toEqual({ x: 348, y: 466 })
+      // CONTRAST: a card nobody re-measured keeps its size.
+      expect(byId.get('b')?.measured).toEqual({ width: 400, height: 104 })
+      expect(byId.get('b')?.position).toEqual({ x: 348, y: 466 })
+    } finally {
+      vi.doUnmock('../utils/layout')
+    }
+  })
+})
