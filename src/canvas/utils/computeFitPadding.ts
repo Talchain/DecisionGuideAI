@@ -171,6 +171,12 @@ const GAP = 16
  * asserts the element this selector finds IS it, and that it is unique.
  */
 export const TOP_BAR_SELECTOR = '[role="banner"]'
+/**
+ * The lens bar (`artefacts/LensBar.tsx`). It sits on the top pill's row when the run beside the pill is wide enough,
+ * and one row down when it is not (1280 with the dock open), where it covered the top card's title (verifier, staging
+ * fe4e4b9d, 19 Oct). Top-anchored and always mounted with a model, so it reserves the top edge like the pill.
+ */
+export const LENS_BAR_SELECTOR = '[data-testid="lens-bar"]'
 /** The OutputsDock (rail when collapsed, panel when expanded). */
 export const DOCK_SELECTOR = 'aside[aria-label="Outputs dock"]'
 /** The LeftSidebar ("Canvas tools"). */
@@ -229,6 +235,7 @@ export const FIT_PADDING_CONTRIBUTORS = [
   DOCK_SELECTOR,
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
+  LENS_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
 ] as const
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
@@ -322,8 +329,11 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     // sidebar use, and it is the one that stays true when the bar's height,
     // padding or offset changes.
     const topBar = rectOf(TOP_BAR_SELECTOR)
-    if (topBar) {
-      const overlap = Math.max(0, topBar.bottom - flowRect.top)
+    // The lens bar reserves the same edge: on the pill's row it ends above the pill's bottom, so it costs nothing there.
+    const lensBar = rectOf(LENS_BAR_SELECTOR)
+    for (const topChrome of [topBar, lensBar]) {
+      if (!topChrome) continue
+      const overlap = Math.max(0, topChrome.bottom - flowRect.top)
       if (overlap > 0) top = Math.max(top, overlap + GAP)
     }
     // Bottom edge — the canvas overlay band. MEASURED like every other

@@ -32,6 +32,7 @@ import {
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
+  LENS_BAR_SELECTOR,
 } from '../utils/computeFitPadding'
 
 const SOURCE_PATH = resolve(__dirname, '../utils/computeFitPadding.ts')
@@ -65,6 +66,9 @@ const TOKEN_TO_SELECTOR: Record<string, string> = {
   // occupants are neither, which is exactly why the band exists rather than
   // each notice contributing for itself.
   OVERLAY_BAND_SELECTOR,
+  // Added with the lens bar (19 Oct 2026). Criteria 1-4: top-anchored (fixed on the pill's row or the row below), not
+  // user-movable, not dismissible (it switches lenses and has no close), persistent while a model is on the canvas.
+  LENS_BAR_SELECTOR,
 }
 
 describe('computeFitPadding — the declared contributor set is derived from the bytes', () => {
