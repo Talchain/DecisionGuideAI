@@ -68,10 +68,10 @@ function renderPanel() {
 describe('pre-analysis v3 — single-row status header', () => {
   it('puts the four meters and the Actions menu on the one header row', () => {
     renderPanel()
-    // The header is the single border-b row (locked unique by hierarchyContract);
-    // both the meters and the Actions trigger share it.
-    const header = screen.getByTestId('pre-analysis-v3-bar-frame').closest('.border-b') as HTMLElement
-    expect(header).not.toBeNull()
+    // The header row (bound by its own test id; it no longer carries a rule,
+    // DS v5 §6): both the meters and the Actions trigger share it.
+    const header = screen.getByTestId('pre-analysis-v3-header')
+    expect(header.contains(screen.getByTestId('pre-analysis-v3-bar-frame'))).toBe(true)
     expect(header.className).toContain('flex')
     expect(header.contains(screen.getByTestId('pre-analysis-v3-actions'))).toBe(true)
   })

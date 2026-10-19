@@ -128,7 +128,9 @@ describe('v3.1 body — no box in a box, no generic coaching, no italic placehol
     render(<InspectorRouter nodeId="o1" edgeId={null} onClose={vi.fn()} />)
     const row = screen.getByTestId('inspector-intervention-fc')
     expect(row.className).not.toMatch(/rounded|bg-panel/)
-    expect(row.className).toContain('border-b')
+    // Rows are separated by their padding: no one-sided rule (DS v5 §6).
+    expect(row.className).toContain('py-2')
+    expect(row.className).not.toMatch(/(^|\s)border-b/)
   })
 })
 

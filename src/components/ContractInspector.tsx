@@ -24,7 +24,6 @@ const styles = {
     alignItems: 'center',
     padding: '6px 12px',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
     fontWeight: 600,
     color: '#334155',
   },
@@ -32,7 +31,6 @@ const styles = {
     display: 'flex',
     gap: 4,
     padding: '4px 12px',
-    borderBottom: '1px solid #e2e8f0',
     background: '#fafafa',
   },
   filterChip: (active: boolean) => ({
@@ -58,11 +56,9 @@ const styles = {
     alignItems: 'center',
     cursor: 'pointer',
     background: selected ? '#eff6ff' : 'transparent',
-    borderBottom: '1px solid #f1f5f9',
   }),
   detail: {
     padding: '8px 12px',
-    borderTop: '1px solid #e2e8f0',
     background: '#fafafa',
   },
   jsonViewer: {

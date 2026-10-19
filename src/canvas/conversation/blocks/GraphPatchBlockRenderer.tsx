@@ -147,7 +147,7 @@ function OperationRationale({ rationale }: { rationale: string }) {
           : <><ChevronDown size={12} aria-hidden="true" /> More</>}
       </button>
       {expanded && (
-        <div className="mt-2 pl-3 border-l-2 border-panel-border">
+        <div className="mt-2 pl-3">
           <p className={`${typography.chatMeta} text-text-light`}>{rationale}</p>
         </div>
       )}
@@ -649,7 +649,7 @@ export function GraphPatchBlockRenderer({
           the legacy patch card renders unchanged. */}
       {isAiPanelV2Enabled() && Array.isArray(relatedElements) && relatedElements.length > 0 && (
         <div
-          className={`flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-panel-border ${typography.chatMeta} text-text-light`}
+          className={`flex flex-wrap items-center gap-1 mt-2 pt-2 ${typography.chatMeta} text-text-light`}
           data-testid="patch-related-elements"
         >
           <span aria-hidden="true">Related:</span>

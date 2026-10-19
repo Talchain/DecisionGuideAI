@@ -150,7 +150,7 @@ export function KeyInsight({
 
       {/* Expanded content */}
       {isExpanded && hasExpandableContent && (
-        <div className="px-3 pb-3 pt-0 ml-7 space-y-2 border-t border-option/30">
+        <div className="px-3 pb-3 pt-0 ml-7 space-y-2">
           {explanation && (
             <p className={`${typography.caption} text-ink-600 pt-2`}>
               {explanation}

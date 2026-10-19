@@ -315,7 +315,7 @@ export function HeroEvidenceDisclosure({
   )
 
   return (
-    <div className="border-t border-panel-border pt-1" data-testid="hero-evidence-disclosure">
+    <div className="pt-1" data-testid="hero-evidence-disclosure">
       {/* Full-width toggle row (prototype §3): stacked title + subtitle,
           spacer, trailing chevron rotating 180° when open. */}
       <button

@@ -40,7 +40,6 @@ export function DiagnosticBanner() {
         zIndex: 99999,
         fontFamily: 'monospace',
         fontSize: '12px',
-        borderBottom: '3px solid #059669'
       }}
     >
       <strong>✅ GUIDE VARIANT LOADED!</strong>

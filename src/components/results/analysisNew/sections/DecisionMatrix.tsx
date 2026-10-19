@@ -65,7 +65,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
   const runTime = run.computedAt && Number.isFinite(Date.parse(run.computedAt))
     ? new Date(run.computedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : null
-  const cell = `${typography.panelBody} align-top border-t border-panel-border px-1 py-2 first:pl-0 last:pr-0`
+  const cell = `${typography.panelBody} align-top px-1 py-2 first:pl-0 last:pr-0`
 
   return (
     <SectionShell title="Options side by side" count={null} variant="disclose" testId="decision-matrix">

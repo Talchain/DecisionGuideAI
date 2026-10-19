@@ -180,7 +180,7 @@ export function EdgeEditPopover({ edge, position, onUpdate, onClose }: EdgeEditP
       </div>
 
       {/* Footer hint */}
-      <div className={`${typography.panelMeta} text-gray-500 pt-2 border-t border-gray-200`}>
+      <div className={`${typography.panelMeta} text-gray-500 pt-2`}>
         Press Enter to save, ESC to cancel. Arrow keys: 
         ±0.01 (Shift: ±0.05)
       </div>

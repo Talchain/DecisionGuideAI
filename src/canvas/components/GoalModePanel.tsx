@@ -135,7 +135,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
 
         {/* Results Display */}
         {data && (
-          <div className="space-y-3 pt-3 border-t border-sand-200">
+          <div className="space-y-3 pt-3">
             <div className="flex items-center justify-between">
               {/* ROADMAP 2.724 — the system describes the path it computed; it
                   does not prescribe it. The feasibility badge beside this

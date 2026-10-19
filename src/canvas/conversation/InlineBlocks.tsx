@@ -1218,7 +1218,7 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
         <p className={typography.chatBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.flip_conditions.map((fc, i) => (
-        <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
+        <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0' }}>
           <span className={`${typography.chatBody} font-semibold`}>{fc.assumption}</span>
           <div className={typography.chatMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
             {fc.current_value && `Currently ${fc.current_value} · `}{fc.direction} past {fc.flip_threshold}

@@ -715,13 +715,15 @@ describe('a check that was NOT made is a scope disclosure, not a third verdict',
     const scope = screen.getByTestId(`${TID}-scope`)
 
     /**
-     * ⚠ THE STROKE IS THE CLAIM. The section's own top edge is SOLID because it
-     * divides this readout from the one before it; this edge divides two kinds
-     * of statement inside one readout. A solid rule here would read as a second
-     * section — i.e. as more findings — which is the reading being denied.
+     * ⚠ THE BREAK IS SPACE, NOT A RULE. The dashed rule that marked this soft
+     * boundary between two kinds of statement inside one readout is a
+     * one-sided border, retired by Design System v5 §6 (Paul, 18 Oct 2026).
+     * The scope row is set apart by space (`mt-2 pt-2`) only when there is a
+     * verdict row above it; the chips' own not-assessed state carries the claim.
      */
-    expect(scope.className).toMatch(/(^|\s)border-t(\s|$)/)
-    expect(scope.className).toMatch(/(^|\s)border-dashed(\s|$)/)
+    expect(scope.className).toMatch(/(^|\s)mt-2(\s|$)/)
+    expect(scope.className).toMatch(/(^|\s)pt-2(\s|$)/)
+    expect(scope.className).not.toMatch(/(^|\s)border-t(\s|$)/)
   })
 
   it('the explanation travels WITH the disclosure — separation is not suppression', () => {

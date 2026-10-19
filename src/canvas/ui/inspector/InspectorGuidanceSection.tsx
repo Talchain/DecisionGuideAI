@@ -294,7 +294,7 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
   if (visible.length === 0) return null
 
   return (
-    <div className="mt-3 pt-2 border-t border-panel-border" data-testid="inspector-guidance-section">
+    <div className="mt-3 pt-2" data-testid="inspector-guidance-section">
       <p className={`${typography.panelMeta} font-medium text-text-body mb-2`}>Suggestions</p>
 
       <div className="space-y-2">

@@ -1,11 +1,14 @@
 /**
  * Spinner - Branded loading indicator
  *
- * Design: Sky-500 border with smooth rotation animation
+ * Design: an info-coloured arc icon with smooth rotation animation (DS v5 §6:
+ * no one-sided borders, so the arc is drawn by the icon, not a ring with one
+ * transparent side)
  * Usage: Loading states, async operations, streaming indicators
  */
 
 import { typography } from '../styles/typography'
+import { Loader2 } from 'lucide-react'
 
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg'
@@ -14,16 +17,16 @@ interface SpinnerProps {
 }
 
 const sizeClasses = {
-  sm: 'w-4 h-4 border-2',
-  md: 'w-6 h-6 border-2',
-  lg: 'w-8 h-8 border-3',
+  sm: 'w-4 h-4',
+  md: 'w-6 h-6',
+  lg: 'w-8 h-8',
 }
 
 export function Spinner({ size = 'md', label, className = '' }: SpinnerProps) {
   return (
     <div className={`inline-flex items-center gap-2 ${className}`} role="status" aria-live="polite">
-      <div
-        className={`${sizeClasses[size]} border-sky-500 border-t-transparent rounded-full animate-spin`}
+      <Loader2
+        className={`${sizeClasses[size]} text-info animate-spin`}
         aria-hidden="true"
       />
       {label && (

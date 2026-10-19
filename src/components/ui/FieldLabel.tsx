@@ -85,11 +85,12 @@ export function FieldLabel({
               <div
                 className={`absolute left-1/2 transform -translate-x-1/2 ${tooltipPosition === 'top' ? 'bottom-0 translate-y-full' : 'top-0 -translate-y-full'}`}
                 style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  [tooltipPosition === 'top' ? 'borderTop' : 'borderBottom']: '6px solid rgb(var(--ink-900))',
+                  width: 12,
+                  height: 6,
+                  background: 'rgb(var(--ink-900))',
+                  clipPath: tooltipPosition === 'top'
+                    ? 'polygon(0 0, 100% 0, 50% 100%)'
+                    : 'polygon(50% 0, 100% 100%, 0 100%)',
                 }}
               />
             </div>

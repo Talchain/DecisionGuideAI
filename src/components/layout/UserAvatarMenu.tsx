@@ -96,7 +96,7 @@ export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
           role="menu"
         >
           {/* Header */}
-          <div className="px-4 py-3 border-b border-[rgba(38,38,38,0.08)]">
+          <div className="px-4 py-3">
             <p className={`${typography.label} text-text-header truncate`}>{displayName}</p>
             <p className={`${typography.bodySmall} text-text-light truncate`}>{email}</p>
           </div>
@@ -123,7 +123,7 @@ export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
             </button>
           </div>
 
-          <div className="border-t border-[rgba(38,38,38,0.08)] py-1">
+          <div className="py-1">
             <button
               type="button"
               role="menuitem"

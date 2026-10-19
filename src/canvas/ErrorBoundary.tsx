@@ -217,10 +217,11 @@ export class CanvasErrorBoundary extends Component<Props, State> {
   showToast = (message: string) => {
     const msg = document.createElement('div')
     msg.textContent = message
-    // Match ToastContext visual spec: bg-panel + 3px left border in severity colour + shadow-2
+    // Match ToastContext visual spec: bg-panel + a complete border in the severity colour + shadow-2
+    // (no one-sided accent, DS v5 §6)
     msg.style.cssText =
       'position:fixed;top:24px;right:24px;background:var(--bg-panel);color:var(--text-body);' +
-      'border-left:3px solid var(--success);border-radius:12px;max-width:360px;' +
+      'border:1px solid var(--success);border-radius:12px;max-width:360px;' +
       'padding:12px 16px;z-index:10000;font-size:14px;font-weight:500;box-shadow:var(--shadow-2)'
     document.body.appendChild(msg)
     setTimeout(() => msg.remove(), 3000)
@@ -283,7 +284,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.dismissed) {
       return (
         <>
-          <div className="fixed top-0 left-0 right-0 z-[9998] bg-panel border-b border-warning/30 text-warning px-4 py-2 flex items-center justify-between text-sm">
+          <div className="fixed top-0 left-0 right-0 z-[9998] bg-panel text-warning px-4 py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" aria-hidden="true" />
               <span>Running in degraded mode after an error. Some features may not work.</span>
@@ -378,7 +379,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
                 <pre className="text-xs text-gray-300 whitespace-pre-wrap break-all">
                   {this.state.error?.stack || 'No stack trace available'}
                 </pre>
-                <div className="mt-4 pt-4 border-t border-gray-700">
+                <div className="mt-4 pt-4">
                   <p className="text-xs text-gray-400 mb-2">Debug Logs:</p>
                   <pre className="text-xs text-gray-400 whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
                     {this.getDebugLogs()}

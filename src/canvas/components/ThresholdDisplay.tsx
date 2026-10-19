@@ -184,7 +184,7 @@ export const ThresholdDisplay = memo(function ThresholdDisplay({
 
       {/* Threshold list */}
       {isExpanded && (
-        <div className="border-t border-sand-200 divide-y divide-sand-100">
+        <div className="space-y-1">
           {visibleThresholds.map((threshold) => {
             const impact = impactConfig[threshold.impactMagnitude || 'low']
             const TypeIcon = typeIcons[threshold.type]
@@ -266,7 +266,7 @@ export const ThresholdDisplay = memo(function ThresholdDisplay({
           )}
 
           {/* Confidence note */}
-          <div className="px-4 py-2 bg-sand-50 border-t border-sand-200">
+          <div className="px-4 py-2 bg-sand-50">
             <span className={`${typography.caption} text-ink-500`}>
               Thresholds identify where small input changes cause large outcome shifts
             </span>

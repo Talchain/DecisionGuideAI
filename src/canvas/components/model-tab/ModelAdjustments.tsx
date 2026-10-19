@@ -304,7 +304,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
     return (
       // V2 gap 35 — no blue-bordered card; the same full-width hairline every
       // other top-level Model-tab section now uses.
-      <div className="border-b border-panel-border py-2.5" data-testid="model-adjustments">
+      <div className="py-2.5" data-testid="model-adjustments">
         <div className="flex items-start gap-2">
           <Wrench size={14} className="text-text-light flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -323,12 +323,12 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   }
 
   // Multiple fixes: collapsible section.
-  // V2 gap 35 — no blue-bordered card; a full-width hairline, matching the
-  // other top-level Model-tab sections (`border-b … py-2.5`, split as
+  // V2 gap 35 — no blue-bordered card, matching the other top-level
+  // Model-tab sections (set apart by padding, no rule: DS v5 §6), split as
   // padding-inclusive header + body below rather than one wrapping padding,
-  // since the body's own `px-3 pb-2` continues past the header unchanged).
+  // since the body's own `px-3 pb-2` continues past the header unchanged.
   return (
-    <div className="border-b border-panel-border" data-testid="model-adjustments">
+    <div data-testid="model-adjustments">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -386,7 +386,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
           )}
           {autoFixAdj.length > 0 && (
             <>
-              {constraintAdj.length > 0 && <div className="border-t border-panel-border my-1" />}
+              {constraintAdj.length > 0 && <div className="my-1" />}
               <p className={`${typography.panelMeta} text-text-light`}>
                 Auto-fixes applied ({autoFixAdj.length})
               </p>
@@ -401,7 +401,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
           {repairActions.length > 0 && (
             <>
               {grouped.length > 0 && (
-                <div className="border-t border-panel-border my-1" />
+                <div className="my-1" />
               )}
               {repairActions.map((action, idx) => (
                 <div
@@ -419,7 +419,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
 
       {/* Phase 2B: Post-run repairs from PLoT repairs_applied */}
       {postRunRepairs.length > 0 && (
-        <div className="border-t border-panel-border">
+        <div>
           <button
             type="button"
             onClick={() => setShowPostRun(!showPostRun)}

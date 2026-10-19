@@ -102,6 +102,7 @@ import {
 } from '../stores/draftStore'
 import { useServerGraphRetryStore, type ServerGraphTerminalReason } from '../stores/serverGraphRetryStore'
 import { typography } from '../../styles/typography'
+import { Loader2 } from 'lucide-react'
 
 export const SERVER_GRAPH_RETRY_NOTICE_TESTID = 'server-graph-retry-notice'
 
@@ -226,8 +227,8 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
       className="pointer-events-auto absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
     >
       {!settled && (
-        <div
-          className="h-3.5 w-3.5 flex-none animate-spin rounded-full border-2 border-text-light border-t-transparent motion-reduce:animate-none"
+        <Loader2
+          className="h-3.5 w-3.5 flex-none animate-spin text-text-light motion-reduce:animate-none"
           aria-hidden="true"
         />
       )}

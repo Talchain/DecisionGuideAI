@@ -118,7 +118,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
     >
       {items.map((entry, i) => {
         if (isDivider(entry)) {
-          return <div key={i} role="separator" className="mx-2 my-2 border-t border-panel-border/50" />
+          return <div key={i} role="separator" className="mx-2 my-2" />
         }
 
         actionIdx++

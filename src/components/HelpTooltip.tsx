@@ -70,7 +70,7 @@ export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpT
 
         {/* Arrow */}
         <div className="absolute top-full left-4 -mt-px">
-          <div className="w-2 h-2 bg-white border-b border-r border-sand-200 transform rotate-45" />
+          <div className="w-2 h-2 bg-white transform rotate-45" />
         </div>
       </div>
     </span>

@@ -137,7 +137,6 @@ function RecRow({
   const subtitleDuplicatesWhy = rec.signal.trim() === rec.whyNow.trim()
   return (
     <li
-      className="border-b border-panel-border last:border-b-0"
       data-testid={`strengthen-rec-${record.id}`}
     >
       <button
@@ -372,7 +371,7 @@ export function StrengthenPanel({
         <div
           role="status"
           data-testid="strengthen-notice"
-          className={`${typography.panelBody} flex items-center gap-2 border-t border-panel-border px-3 py-2 text-text-body`}
+          className={`${typography.panelBody} flex items-center gap-2 px-3 py-2 text-text-body`}
         >
           <span>
             {notice.kind === 'dismissed'
@@ -394,11 +393,11 @@ export function StrengthenPanel({
       )}
 
       {active.length === 0 ? (
-        <p className={`${typography.panelBody} border-t border-panel-border px-3 py-3 text-text-body`}>
+        <p className={`${typography.panelBody} px-3 py-3 text-text-body`}>
           {COPY.empty}
         </p>
       ) : (
-        <ul className="border-t border-panel-border">
+        <ul>
           {visible.map((record, index) => (
             <RecRow
               key={record.id}
@@ -421,7 +420,7 @@ export function StrengthenPanel({
       )}
 
       {historyOpen && (
-        <div className="border-t border-panel-border px-3 py-2" data-testid="strengthen-history">
+        <div className="px-3 py-2" data-testid="strengthen-history">
           <h3 className={`${typography.panelMeta} mb-1 text-text-light`}>{COPY.historyHeading}</h3>
           {history.length === 0 ? (
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.historyEmpty}</p>
@@ -449,7 +448,7 @@ export function StrengthenPanel({
       )}
 
       <div
-        className="flex items-center gap-3 border-t border-panel-border px-3 py-2"
+        className="flex items-center gap-3 px-3 py-2"
         data-testid="strengthen-footer"
       >
         {active.length > 1 && (

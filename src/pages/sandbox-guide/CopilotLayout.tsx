@@ -51,7 +51,7 @@ export default function GuideLayout() {
 
         {/* Guide Panel - Fixed 360px width */}
         <div
-          className="w-[360px] border-l border-storm-200 bg-white overflow-y-auto"
+          className="w-[360px] bg-white shadow-panel overflow-y-auto"
           role="complementary"
           aria-label="Guide guidance panel"
         >

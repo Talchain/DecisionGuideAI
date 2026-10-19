@@ -122,16 +122,18 @@ describe('the grammar composes what it promises', () => {
 
   /**
    * ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026) REPLACES "the inset nests inside
-   * the surface". The panel no longer draws cards: a section is closed by ONE
-   * full-width horizontal rule, and nothing nests a box inside it.
+   * the surface". The panel no longer draws cards, and nothing nests a box
+   * inside a section. ⛔ 18 Oct 2026 (Design System v5 §6, Paul: "we don't use
+   * single-sided borders ever"): the full-width bottom rule that closed each
+   * section is retired too; a section is set apart by its vertical padding.
    */
-  it('V2: a section is a full-width divider, never a card', () => {
+  it('V2 + DS v5 §6: a section is set apart by space, never a card or a one-sided rule', () => {
     const classes = PANEL_SURFACE.split(' ')
-    expect(classes).toContain('border-b')
-    // No radius, no all-round or one-sided vertical border, no own gutter.
+    expect(classes).toContain('py-3')
+    // No radius, no all-round border, no one-sided border on any side, no own gutter.
     expect(PANEL_SURFACE).not.toMatch(/\brounded/)
     expect(classes).not.toContain('border')
-    expect(PANEL_SURFACE).not.toMatch(/\bborder-[lrt]\b|\bborder-x\b/)
+    expect(PANEL_SURFACE).not.toMatch(/\bborder-[lrtbxy]\b/)
     expect(PANEL_SURFACE).not.toMatch(/\bpx-/)
   })
 
@@ -139,11 +141,11 @@ describe('the grammar composes what it promises', () => {
     expect(PANEL_INSET).not.toMatch(/\bborder\b|\brounded/)
   })
 
-  it('V2: no tone tints a surface — tone is the rule colour only', () => {
+  it('V2: no tone tints a surface', () => {
     for (const [tone, value] of Object.entries(SURFACE_TONE)) {
       expect(value, `${tone} carries a fill`).not.toMatch(/\bbg-/)
     }
-    // CONTRAST: the tones are still told apart, by the rule's colour.
+    // CONTRAST: the tones are still distinct tokens.
     expect(SURFACE_TONE.warning).not.toBe(SURFACE_TONE.neutral)
   })
 })

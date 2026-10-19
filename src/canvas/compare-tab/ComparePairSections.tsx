@@ -119,8 +119,8 @@ export function ComparePairSections({
   return (
     <div data-testid={WHATS_CHANGED_TESTID} data-attributable={view.attributable ? 'true' : 'false'}>
       {analysing ? (
-        // v3 state notice: the info rule while a Run is in progress; the saved pair stays below it.
-        <div role="status" className="border-l-2 border-info pl-3 mb-4" data-testid="compare-run-in-progress">
+        // v3 state notice: a complete info border while a Run is in progress; the saved pair stays below it.
+        <div role="status" className="rounded-md border border-info/30 px-3 py-2 mb-4" data-testid="compare-run-in-progress">
           <p className={`${typography.panelHeader} text-text-header m-0 flex items-center gap-2`}>
             <span className="inline-block w-2 h-2 rounded-full bg-info animate-pulse motion-reduce:animate-none" aria-hidden="true" />
             {COMPARE_RUN_IN_PROGRESS_HEADING}

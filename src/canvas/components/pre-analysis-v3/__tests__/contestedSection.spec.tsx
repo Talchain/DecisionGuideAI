@@ -322,14 +322,16 @@ describe('pre-analysis v3 — the borrowed reason and basis copy passes the same
 })
 
 describe('pre-analysis v3 — contested section respects the panel hierarchy contract', () => {
-  it('owns a single top rule and introduces no second border-b', () => {
+  it('is set apart by its own padding and introduces no one-sided rule (DS v5 §6)', () => {
     setGraph([makeContestedEdge('e_open', 'f_lead', 'f_speed', makeContestedValidation())])
     renderPanel()
     const section = screen.getByTestId(SECTION)
-    expect(section.classList.contains('border-t')).toBe(true)
+    expect(section.classList.contains('py-4')).toBe(true)
+    expect(section.classList.contains('border-t')).toBe(false)
     expect(section.classList.contains('border-b')).toBe(false)
     const panel = screen.getByTestId('pre-analysis-v3')
-    const borderB = [...panel.querySelectorAll('*')].filter(el => el.classList.contains('border-b'))
-    expect(borderB).toHaveLength(1)
+    const oneSided = [...panel.querySelectorAll('*')].filter(el =>
+      [...el.classList].some(t => /^(?:[a-z0-9-]+:)*(?:border-[tblrxy]|divide-[xy])(?:-|$)/.test(t)))
+    expect(oneSided).toHaveLength(0)
   })
 })

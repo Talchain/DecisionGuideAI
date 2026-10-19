@@ -117,7 +117,7 @@ function AssumedStrengthCardImpl({ decision, onResolve, rankingWithheld = false 
     // not news on a surface that has no analysis on it.
     if (copy === null) return null
     return (
-      <div className="border-t border-panel-border pt-2" data-testid="assumed-strength-refusal">
+      <div className="pt-2" data-testid="assumed-strength-refusal">
         <p className={`${typography.panelBody} text-text-body`}>{copy}</p>
       </div>
     )
@@ -127,7 +127,7 @@ function AssumedStrengthCardImpl({ decision, onResolve, rankingWithheld = false 
 
   return (
     <section
-      className="space-y-1.5 border-t border-panel-border pt-2"
+      className="space-y-1.5 pt-2"
       data-testid="assumed-strength-card"
       // The edge this card is ABOUT, exposed so a test binds by IDENTITY rather
       // than by matching a label another row could carry.

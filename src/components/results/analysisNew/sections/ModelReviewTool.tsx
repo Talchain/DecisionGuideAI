@@ -547,7 +547,7 @@ export function ModelReviewTool({
           ref={itemRef}
           /* The prototype's `.review-shell`: a hairline across the column,
              10px above the header and 3px below the last act. */
-          className="relative mt-2 border-t border-panel-border pt-2 pb-1"
+          className="relative mt-2 pt-2 pb-1"
           data-testid={`${testId}-item`}
           data-review-key={current.key}
           data-target-id={current.targetId ?? undefined}

@@ -84,7 +84,7 @@ const OptionColumn = memo(({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-      <div className="p-4 border-b border-gray-200 relative">
+      <div className="p-4 relative">
         <div className="pr-10">
           {isEditing ? (
             <Tooltip content="Press Enter to save, Escape to cancel">

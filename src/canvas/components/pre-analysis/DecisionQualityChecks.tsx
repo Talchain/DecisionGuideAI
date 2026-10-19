@@ -312,10 +312,7 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
               const categoryLabel = CATEGORY_LABELS[check.category] ?? check.category
               const categoryCount = categoryCounts[check.category] ?? 0
               return (
-                <div
-                  key={check.id}
-                  className={(idx > 0 || goalBaselineSlot) ? 'border-t border-panel-border' : ''}
-                >
+                <div key={check.id}>
                   {categoryChanged && (
                     <div className="flex items-center gap-2 pt-2 pb-1">
                       <span className={`${typography.panelMeta} text-text-light whitespace-nowrap`}>
@@ -375,7 +372,7 @@ function AssumptionsLedgerRow({ assumptions }: { assumptions: AssumptionLedgerIt
   }
 
   return (
-    <div className="border-t border-panel-border pt-2 mt-1" data-testid="assumptions-ledger">
+    <div className="pt-2 mt-1" data-testid="assumptions-ledger">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}

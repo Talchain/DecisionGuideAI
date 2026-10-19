@@ -333,7 +333,7 @@ function EvidenceAttach({
   }, [roundId, target, body, url, stance])
 
   return (
-    <div className="mt-5 border-t border-panel-border pt-4">
+    <div className="mt-5 pt-4">
       {attached.map((words, i) => (
         <p
           key={`${words}-${i}`}
@@ -1022,7 +1022,7 @@ export default function ParticipantPacketPage(): JSX.Element {
           {packet.context_note !== null && (
             <blockquote
               data-testid="packet-context-note"
-              className={`${typography.body} mt-4 border-l-2 border-panel-border pl-4 text-text-body`}
+              className={`${typography.body} mt-4 rounded-md bg-panel-hover px-4 py-3 text-text-body`}
             >
               {packet.context_note}
             </blockquote>

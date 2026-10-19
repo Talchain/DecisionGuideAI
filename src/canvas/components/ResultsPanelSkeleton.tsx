@@ -67,7 +67,7 @@ export function HeadlineResultSkeleton() {
       aria-hidden="true"
     >
       {/* Main outcome area */}
-      <div className="px-4 py-4 border-b border-sand-100">
+      <div className="px-4 py-4">
         {/* Header */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-4 h-4 bg-sand-200 rounded" />
@@ -85,7 +85,7 @@ export function HeadlineResultSkeleton() {
       </div>
 
       {/* Confidence section */}
-      <div className="px-4 py-3 bg-sand-50 border-b border-sand-100">
+      <div className="px-4 py-3 bg-sand-50">
         <div className="flex items-start gap-3">
           <div className="w-5 h-5 bg-sand-200 rounded flex-shrink-0" />
           <div className="flex-1">
@@ -150,7 +150,7 @@ export function DriversInsightSkeleton() {
       aria-hidden="true"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-sand-100">
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-4 h-4 bg-sand-200 rounded" />
@@ -161,7 +161,7 @@ export function DriversInsightSkeleton() {
       </div>
 
       {/* Driver items */}
-      <div className="divide-y divide-sand-100">
+      <div className="space-y-1">
         {[1, 2, 3].map((i) => (
           <div key={i} className="px-4 py-3">
             <div className="flex items-start gap-3">

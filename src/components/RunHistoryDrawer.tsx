@@ -58,9 +58,9 @@ export default function RunHistoryDrawer({ open, onClose, onOpenReport, onRerun,
         ref={containerRef}
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        className="fixed right-0 top-0 h-full w-[26rem] max-w-[90vw] bg-white border-l border-gray-200 shadow-lg z-50 outline-none"
+        className="fixed right-0 top-0 h-full w-[26rem] max-w-[90vw] bg-white shadow-lg z-50 outline-none"
       >
-        <div className="p-4 border-b" id="history-title">
+        <div className="p-4" id="history-title">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Run History</span>
             <button

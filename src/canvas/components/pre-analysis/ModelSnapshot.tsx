@@ -231,7 +231,7 @@ export function ModelSnapshot({
 
       {/* Quality scores from CEE (Task 7) */}
       {ceeQuality && ceeQuality.overall != null && (
-        <div className="mt-2 pt-2 border-t border-panel-border">
+        <div className="mt-2 pt-2">
           <p className={`${typography.panelMeta} text-text-body`}>
             <span>Quality: </span>
             <span className={scoreColor(ceeQuality.overall)}>

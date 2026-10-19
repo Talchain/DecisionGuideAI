@@ -127,14 +127,14 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
               }
               return (
                 <div key={index} className="rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2 p-2 bg-gray-50">
                     <TableIcon className="h-4 w-4 text-gray-400" />
                     <span className="text-sm font-medium text-gray-700">
                       {section.content.title || 'Table'}
                     </span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full">
                       <thead className="bg-gray-50">
                         <tr>
                           {section.content.headers.map((header: any, i: number) => (
@@ -147,7 +147,7 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white">
                         {section.content.rows.map((row: any[], i: number) => (
                           <tr key={i}>
                             {row.map((cell: any, j: number) => (

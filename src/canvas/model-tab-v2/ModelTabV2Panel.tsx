@@ -1615,11 +1615,11 @@ export function ModelTabV2Panel({
        * `panelSurfaces.ts:148`); the Model tab was still a bordered,
        * radiused, padded box (`FIDELITY-GAPS-INDEX-20260924.txt` #29,
        * matching the design authority's `.section` — no card, a hairline).
-       * `border-b border-panel-border pb-2.5`: bottom rule only, no radius,
-       * no side borders, no top padding (this section opens the tab, so
-       * nothing sits above it to divide from).
+       * `pb-2.5`: no radius, no border on any side (its bottom rule was a
+       * one-sided border, retired by DS v5 §6 on 18 Oct 2026), no top
+       * padding (this section opens the tab, so nothing sits above it).
        */
-      className="flex flex-col gap-2 border-b border-panel-border pb-2.5"
+      className="flex flex-col gap-2 pb-2.5"
     >
       {/*
         ⭐⭐ V2 GAP 31 — TWO ROWS, NOT THREE, AND NO TINT FILLS.

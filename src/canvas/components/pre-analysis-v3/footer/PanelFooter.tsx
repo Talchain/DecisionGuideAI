@@ -100,7 +100,7 @@ export const PanelFooter = memo(function PanelFooter({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-3 border-t border-panel-border px-4 py-3"
+      className="flex flex-wrap items-center gap-3 px-4 py-3"
       data-testid="pre-analysis-v3-footer"
     >
       <span

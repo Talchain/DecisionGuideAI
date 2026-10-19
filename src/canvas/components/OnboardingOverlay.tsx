@@ -159,7 +159,7 @@ export function OnboardingOverlay({
           </div>
 
           {/* Keyboard Shortcuts Legend */}
-          <div className="border-t border-panel-border pt-6">
+          <div className="pt-6">
             <h3 className={`${typography.label} text-gray-700 mb-3`}>Essential shortcuts</h3>
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 ${typography.body}`}>
               <ShortcutRow keys={['⌘', 'K']} action="Command palette" />
@@ -174,7 +174,7 @@ export function OnboardingOverlay({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-panel-border">
+          <div className="flex items-center justify-between pt-4">
             <label className={`flex items-center gap-2 ${typography.body} text-gray-600 cursor-pointer`}>
               <input
                 type="checkbox"

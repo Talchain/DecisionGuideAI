@@ -209,7 +209,7 @@ export function EditableLabel({
         onKeyDown={handleKeyDown}
         maxLength={maxLength}
         aria-label="Element name"
-        className={`${className} w-full bg-transparent border-b border-info outline-none px-0.5 -mx-0.5`}
+        className={`${className} w-full bg-transparent outline-none px-0.5 -mx-0.5`}
         autoFocus
       />
       {remaining <= COUNTER_REVEAL_MARGIN && (

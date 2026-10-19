@@ -75,7 +75,7 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
       </div>
 
       {/* Footer */}
-      <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500 space-y-1">
+      <div className="mt-4 pt-4 text-xs text-gray-500 space-y-1">
         <div>Seed: {report.meta.seed}</div>
         {report.meta.trace_id && <div>Run ID: {report.meta.trace_id}</div>}
       </div>

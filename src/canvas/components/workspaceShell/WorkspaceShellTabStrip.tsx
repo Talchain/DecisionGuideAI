@@ -501,7 +501,9 @@ export function WorkspaceShellTabStrip({
               // color:var(--info);background:#F3F8FA}`: square, natural width
               // (`flex-initial`, left-aligned as in the contract, still
               // shrinking with `min-w-0` so the label truncates rather than
-              // spills), one 2px underline, one tint.
+              // spills), one tint. ⛔ The contract's 2px underline is a one-sided
+              // border, retired by Design System v5 §6 (Paul, 18 Oct 2026):
+              // selection is now the info colour plus the #F3F8FA tint.
               // Compact (≤320px dock): 4px padding, no gap, so four full labels
               // plus the stale mark or Model badge fit in the 199px tablist.
               // ⭐ Paul 14 Oct 2026: tabs evenly spaced with dividers; all five
@@ -509,10 +511,10 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 border-b-2 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
-                  ? 'text-info border-info bg-[var(--panel-tab-active-bg)]'
-                  : 'text-text-body border-transparent hover:text-info'
+                  ? 'text-info bg-[var(--panel-tab-active-bg)]'
+                  : 'text-text-body hover:text-info'
               }`}
               style={{ height: SHELL_TAB_HEIGHT_PX }}
             >

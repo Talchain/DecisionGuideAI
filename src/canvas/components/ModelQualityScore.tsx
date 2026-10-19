@@ -239,7 +239,7 @@ export function ModelQualityScore({
       {isExpanded && (
         <div
           id="quality-details"
-          className="px-3 pb-3 border-t border-current/10"
+          className="px-3 pb-3"
           data-testid="quality-details"
         >
           {/* Sub-metrics */}
@@ -278,7 +278,7 @@ export function ModelQualityScore({
           {/* Recommendation */}
           {hasRecommendation && (
             <div
-              className="mt-3 pt-2 border-t border-current/10"
+              className="mt-3 pt-2"
               data-testid="quality-recommendation"
             >
               <div className="flex items-start gap-2">

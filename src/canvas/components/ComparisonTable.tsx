@@ -117,7 +117,7 @@ export function ComparisonTableSection() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b border-sand-200">
+                <tr>
                   <th className={`${typography.label} text-left p-2`}>Scenario</th>
                   <th className={`${typography.label} text-right p-2`}>Expected Value</th>
                   <th className={`${typography.label} text-right p-2`}>Risk-Adjusted</th>
@@ -125,7 +125,7 @@ export function ComparisonTableSection() {
               </thead>
               <tbody>
                 {/* Base Scenario */}
-                <tr className="border-b border-sand-200">
+                <tr>
                   <td className={`${typography.body} p-2`}>
                     {data.base_scenario.name}
                   </td>
@@ -139,7 +139,7 @@ export function ComparisonTableSection() {
 
                 {/* Alternative Scenarios */}
                 {data.alternative_scenarios.map(scenario => (
-                  <tr key={scenario.id} className="border-b border-sand-200">
+                  <tr key={scenario.id}>
                     <td className={`${typography.body} p-2 flex items-center gap-2`}>
                       {scenario.name}
                       {scenario.id === data.recommended_scenario && (

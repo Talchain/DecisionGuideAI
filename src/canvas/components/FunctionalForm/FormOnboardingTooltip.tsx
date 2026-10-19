@@ -108,7 +108,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
       aria-label="Understanding relationship forms"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-sand-100">
+      <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-2">
           <Info className="w-5 h-5 text-info" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-700`}>
@@ -159,7 +159,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end p-3 bg-sand-50 rounded-b-xl border-t border-sand-100">
+      <div className="flex justify-end p-3 bg-sand-50 rounded-b-xl">
         <button
           type="button"
           onClick={onDismiss}

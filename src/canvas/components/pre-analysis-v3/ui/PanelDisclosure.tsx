@@ -28,7 +28,7 @@ export const PanelDisclosure = memo(function PanelDisclosure({
 }: PanelDisclosureProps) {
   const bodyId = useId()
   return (
-    <div className="border-t border-panel-border" data-testid={testId}>
+    <div data-testid={testId}>
       <button
         type="button"
         aria-expanded={open}

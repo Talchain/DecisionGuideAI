@@ -729,7 +729,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
         data-testid="brief-bar"
         aria-expanded={expanded}
         onClick={() => setExpanded((e) => !e)}
-        className="mt-2 flex w-full items-center gap-2 border-t border-panel-border px-3 py-2 text-left hover:bg-panel-hover"
+        className="mt-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-panel-hover"
       >
         <span
           data-testid="overview-status-dot"
@@ -754,7 +754,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       </button>
 
       {expanded && (
-        <div className="border-t border-panel-border px-3 py-2">
+        <div className="px-3 py-2">
           <div className="grid grid-cols-2 gap-1.5">
             {chips.map(({ dim, note, dotTone }) => (
               <button
@@ -877,7 +877,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
 
           {topGuidance && framingQuestion && (
             <div
-              className="mt-2 flex flex-wrap items-start gap-2 border-t border-panel-border pt-2"
+              className="mt-2 flex flex-wrap items-start gap-2 pt-2"
               data-testid="framing-question"
             >
               <div className="min-w-0 flex-1 basis-48">

@@ -39,7 +39,7 @@ export function ScenarioComparison({
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
@@ -94,7 +94,7 @@ export function ScenarioComparison({
       </div>
 
       {/* Stats bar */}
-      <div className={`px-4 py-2 bg-gray-50 border-b border-gray-200 flex gap-4 ${typography.caption}`}>
+      <div className={`px-4 py-2 bg-gray-50 flex gap-4 ${typography.caption}`}>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-success" />
           <span className="font-medium">{stats.added} added</span>
@@ -143,7 +143,7 @@ function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Sync controls */}
-      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 py-2 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSyncEnabled(!syncEnabled)}
@@ -176,10 +176,10 @@ function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
       </div>
 
       {/* Side-by-side canvases */}
-      <div className="flex-1 grid grid-cols-2 divide-x divide-gray-200">
+      <div className="flex-1 grid grid-cols-2 gap-3">
         {/* Left: Snapshot A */}
         <div className="flex flex-col min-h-0">
-          <div className="px-4 py-2 bg-panel border-b border-info/30 flex items-center justify-between">
+          <div className="px-4 py-2 bg-panel flex items-center justify-between">
             <div>
               <h4 className="font-medium text-info">{snapshotA.name}</h4>
               <p className={`${typography.caption} text-info mt-0.5`}>
@@ -205,7 +205,7 @@ function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
 
         {/* Right: Snapshot B */}
         <div className="flex flex-col min-h-0">
-          <div className="px-4 py-2 bg-mint-50 border-b border-mint-200 flex items-center justify-between">
+          <div className="px-4 py-2 bg-mint-50 flex items-center justify-between">
             <div>
               <h4 className="font-medium text-mint-900">{snapshotB.name}</h4>
               <p className={`${typography.caption} text-mint-700 mt-0.5`}>
@@ -239,7 +239,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Added items */}
       {(comparison.added.nodes.length > 0 || comparison.added.edges.length > 0) && (
         <div className="border border-success/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-success/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`font-medium text-success ${typography.body}`}>
               Added ({comparison.added.nodes.length + comparison.added.edges.length})
             </h4>
@@ -262,7 +262,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Removed items */}
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
         <div className="border border-danger/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-danger/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`font-medium text-danger ${typography.body}`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
@@ -285,7 +285,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Modified items */}
       {(comparison.modified.nodes.length > 0 || comparison.modified.edges.length > 0) && (
         <div className="border border-warning/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-warning/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`font-medium text-warning ${typography.body}`}>
               Modified ({comparison.modified.nodes.length + comparison.modified.edges.length})
             </h4>

@@ -248,7 +248,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
         </p>
       )}
       {(value !== null || source !== null) && (
-        <dl className="m-0 mt-2.5 pt-2.5 border-t border-panel-border space-y-1.5">
+        <dl className="m-0 mt-2.5 pt-2.5 space-y-1.5">
           {value !== null && (value.text !== null || value.missing) && (
             <Row label="Value" testId="node-hover-card-value">
               {value.text ?? NOT_ON_RECORD}
@@ -266,7 +266,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
       {links.map(g => (
         <div
           key={g.heading}
-          className="mt-2.5 pt-2.5 border-t border-panel-border"
+          className="mt-2.5 pt-2.5"
           data-testid={`node-hover-card-links-${g.heading.toLowerCase().replace(/\s+/g, '-')}`}
         >
           <div className={`${typography.panelMeta} text-text-light`}>{g.heading}</div>

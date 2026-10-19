@@ -56,7 +56,7 @@ export function TechnicalDisclosure({
         {open ? openLabel : label}
       </button>
       {open && (
-        <div className="mt-2 pl-3 border-l border-panel-border">
+        <div className="mt-2 pl-3">
           <div className={`${typography.panelMeta} text-text-light space-y-1`}>
             {children}
           </div>

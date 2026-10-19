@@ -148,7 +148,12 @@ function baseMarkup(row: 'no-figures' | 'points' | 'unresolved') {
 // C-CELL: authorize the full cell's wrapping readout column (DL r6-4); preserve every other markup byte.
 function pointsMarkupWithCells(data: ReturnType<typeof fromTurn>) {
   const template = document.createElement('template')
-  template.innerHTML = baseMarkup('points')
+  // DS v5 §6 (Paul, 18 Oct 2026: no single-sided borders, ever): authorise exactly one class delta against the frozen
+  // base — the evidence list's top rule (`border-t border-panel-border`) is retired; its `pt-2` space stays. The
+  // fixture itself stays frozen (README), and the frozen string must occur exactly once so no other byte moves.
+  const RULED = 'class="space-y-1.5 border-t border-panel-border pt-2"'
+  expect(baseMarkup('points').split(RULED)).toHaveLength(2)
+  template.innerHTML = baseMarkup('points').replace(RULED, 'class="space-y-1.5 pt-2"')
   const model = buildHeroModel(data)
   if (model.kind !== 'chart') throw new Error('Expected chart')
   for (const row of model.rows) {

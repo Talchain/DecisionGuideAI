@@ -142,9 +142,9 @@ export default function RunReportDrawer({ open, sessionId, org, onClose, seed, b
         ref={containerRef}
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        className="fixed right-0 top-0 h-full w-[28rem] max-w-[90vw] bg-white border-l border-gray-200 shadow-lg z-50 outline-none"
+        className="fixed right-0 top-0 h-full w-[28rem] max-w-[90vw] bg-white shadow-lg z-50 outline-none"
       >
-        <div className="p-4 border-b" id="run-report-title">
+        <div className="p-4" id="run-report-title">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Run Report</span>
             {copyFlag && report && (

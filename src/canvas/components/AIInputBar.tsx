@@ -608,7 +608,7 @@ export const AIInputBar = memo(
         case 'docked-tab':
           return 'flex items-end gap-1 px-3 pb-3 pt-2'
         case 'floating':
-          return 'px-3 pb-3 pt-2 border-t border-panel-border'
+          return 'px-3 pb-3 pt-2'
         case 'first-use':
           return 'flex items-end gap-1 px-3 pb-3 pt-2'
         case 'welcome':

@@ -24,7 +24,7 @@ export function LensContainer({ title, defaultOpen, children, testId }: LensCont
   const buttonId = useId()
 
   return (
-    <div className="border-t border-sand-200 pt-3" data-testid={testId}>
+    <div className="pt-3" data-testid={testId}>
       <button
         id={buttonId}
         type="button"

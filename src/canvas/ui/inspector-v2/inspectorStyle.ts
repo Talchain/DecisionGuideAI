@@ -35,8 +35,11 @@
  *   button hover  #F6FAFB -> info at 5%                                 ΔE 1.1
  *   icon rest     #777B77 -> --rail-icon (the same contract grey)       ΔE 0
  *   icon hover    #EAF2F5 -> info at 10% (the estate's --info-soft)     ΔE 0.3
- * The head rule keeps the stronger of the two warm rules so the head still
- * reads above the rows. Type comes from `typography` (`panelHeader`,
+ * ⛔ The contract's head, row and note rules and the `.section-highlight` left
+ * stripe are one-sided borders, retired by Design System v5 §6 (Paul, 18 Oct
+ * 2026: "we don't use single-sided borders ever"). The head, rows, highlight
+ * and note are now set apart by their own padding and margins, so the rule
+ * colours above are history, not tokens in use. Type comes from `typography` (`panelHeader`,
  * `panelBody`); a contract line-height that differs from the token's is applied
  * with `!`, because Tailwind emits arbitrary leading BEFORE the named steps and
  * the token's own leading would otherwise win. The 12px/600 h4 has no `panel*`
@@ -66,14 +69,6 @@ export const INSPECTOR_SHELL_STYLE = {
   maxHeight: 'min(calc(100vh - 135px), var(--inspector-room, 100vh))',
 } as const
 
-/** Rules: the head's, a detail row's, and the note's (`--line`). */
-export const INSPECTOR_RULE = {
-  head: 'border-border-emphasis',
-  row: 'border-panel-border',
-  note: 'border-field/30',
-  highlight: 'border-info/40',
-} as const
-
 const BUTTON_BASE =
   'inline-flex items-center justify-center gap-1.5 rounded-[8px] border px-[9px] py-[5px] text-[11px] leading-[1.4] font-sans transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info disabled:cursor-default disabled:opacity-60'
 
@@ -88,9 +83,9 @@ export const inspectorButtonPrimary =
 /** `.button-row` */
 export const inspectorButtonRow = 'flex flex-wrap gap-1.5'
 
-/** `.detail-row` — label muted on the left, value right-aligned. */
+/** `.detail-row` — label muted on the left, value right-aligned; rows are separated by their padding. */
 export const inspectorDetailRow =
-  `flex items-baseline justify-between gap-[15px] py-2 border-b ${INSPECTOR_RULE.row} ${typography.panelBody} !leading-[1.45]`
+  `flex items-baseline justify-between gap-[15px] py-2 ${typography.panelBody} !leading-[1.45]`
 
 /** `.inspector-body h4` */
 export const inspectorHeading = `${typography.buttonSmall} !leading-4 text-text-header mt-3 mb-[7px]`
@@ -98,12 +93,12 @@ export const inspectorHeading = `${typography.buttonSmall} !leading-4 text-text-
 /** `.inspector-body h4` as a group's first line (its section carries the top margin). */
 export const inspectorGroupLabel = `${typography.buttonSmall} !leading-4 text-text-header mb-[7px]`
 
-/** `.section-highlight` */
-export const inspectorSectionHighlight = `border-l-2 ${INSPECTOR_RULE.highlight} pl-2.5 my-3.5`
+/** `.section-highlight` — set apart by space; its left stripe is retired (DS v5 §6). */
+export const inspectorSectionHighlight = 'my-3.5'
 
-/** `.inspector-note` — the quiet 10px note. */
+/** `.inspector-note` — the quiet 10px note, set apart by space (no top rule, DS v5 §6). */
 export const inspectorNote =
-  `text-[10px] leading-[1.45] text-text-light mt-[13px] mb-0 pt-[9px] border-t ${INSPECTOR_RULE.note}`
+  'text-[10px] leading-[1.45] text-text-light mt-[13px] mb-0 pt-[9px]'
 
 /** `.icon-btn` — the header's close control. */
 export const inspectorIconButton =

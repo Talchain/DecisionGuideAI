@@ -69,7 +69,7 @@ export default function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcuts
           ))}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-200">
+        <div className="mt-6 pt-4">
           <p className="text-xs text-gray-500 text-center">
             Your workspace autosaves every 2 seconds • Press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded font-mono">Esc</kbd> to close this panel
           </p>

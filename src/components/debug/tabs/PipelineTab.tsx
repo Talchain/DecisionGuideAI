@@ -811,15 +811,15 @@ function CeeRepairSummary({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Field</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>From</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>To</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>Field</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>From</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>To</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {applied.slice(0, MAX_TABLE_ROWS).map((r, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={i}>
                     <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{(r.field as string) ?? '?'}</td>
                     <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{formatValue(r.from)}</td>
                     <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{formatValue(r.to)}</td>
@@ -876,14 +876,14 @@ function StrpMutations({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Path</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Action</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>Path</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>Action</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
             </tr>
           </thead>
           <tbody>
             {mutations.slice(0, MAX_TABLE_ROWS).map((m, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <tr key={i}>
                 <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{(m.path as string) ?? '?'}</td>
                 <td style={{ padding: '6px 8px', fontSize: 10 }}>{(m.action as string) ?? '?'}</td>
                 <td style={{ padding: '6px 8px', fontSize: 10 }}>{(m.reason as string) ?? '?'}</td>
@@ -1271,7 +1271,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                <tr>
                   <th style={{ textAlign: 'left', padding: '8px 12px', color: '#64748b', fontWeight: 600 }}>Step</th>
                   <th style={{ textAlign: 'left', padding: '8px 12px', color: '#64748b', fontWeight: 600 }}>Prompt</th>
                   <th style={{ textAlign: 'left', padding: '8px 12px', color: '#64748b', fontWeight: 600 }}>Model</th>
@@ -1346,7 +1346,6 @@ export function PipelineTab({ data }: PipelineTabProps) {
                     <tr
                       key={i}
                       style={{
-                        borderBottom: '1px solid #e2e8f0',
                         background: row.isRepair ? '#fffbeb' : (!row.success ? '#fef2f2' : 'transparent'),
                       }}
                     >

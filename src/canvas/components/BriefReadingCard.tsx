@@ -82,7 +82,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
     optionCount: userFields ? ((items.options ?? []).length === 0 ? 0 : null) : (items.options ?? []).length,
   })
   return (
-    <section data-testid="brief-reading" aria-label="Your brief" className="border-t border-panel-border">
+    <section data-testid="brief-reading" aria-label="Your brief">
       {/* ⭐ PAUL, 7 OCT 2026, of this screen: "The layout looks terrible… How can you really enhance it so it looks
           premium?" This card is now the lower half of ONE drafting sheet (`FirstUseDraftingSheet`), not a second card
           of its own.
@@ -146,7 +146,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
           })}
         </dl>
       </div>
-      <div data-testid="brief-coaching" className="flex flex-col gap-4 border-t border-panel-border bg-panel-hover/60 px-5 py-5 sm:px-8 sm:py-6">
+      <div data-testid="brief-coaching" className="flex flex-col gap-4 bg-panel-hover/60 px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-0.5">
           <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the question</h3>
           <p className={typo('bodySmall', 'text-text-light m-0')}>

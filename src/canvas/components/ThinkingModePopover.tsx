@@ -97,7 +97,7 @@ export function ThinkingModePopover({ isOpen, onClose, anchorRef }: ThinkingMode
       }}
     >
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-panel-border">
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
         <h3
           id="thinking-mode-title"
           className={`${typography.label} text-text-body`}

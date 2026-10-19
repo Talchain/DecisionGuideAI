@@ -147,7 +147,7 @@ export function ReasoningSignals({
    */
   const tippingRow = tipping ? (
     <div
-      className="flex items-start gap-2 py-2 border-b border-panel-border"
+      className="flex items-start gap-2 py-2"
       data-testid={`${testId}-tipping`}
       data-target-id={tipping.targetId ?? undefined}
     >

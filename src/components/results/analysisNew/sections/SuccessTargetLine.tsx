@@ -214,9 +214,10 @@ export interface SuccessTargetLineProps {
   ) => void
   testId: string
   /**
-   * Whether this row draws its own top rule. Defaults to `true` — the
-   * Inspector's `GoalPanel` keeps it, because it is the top-level element
-   * there and needs the separation.
+   * Whether this row takes its own spaced break above it (`pt-2 mt-2`; it was
+   * a top rule until Design System v5 §6 retired one-sided borders on 18 Oct
+   * 2026). Defaults to `true` — the Inspector's `GoalPanel` keeps it, because
+   * it is the top-level element there and needs the separation.
    *
    * ⚠ `false` FOR THE MODEL STRIP (design-audit-20260925, gaps SPACE-4 /
    * NARROW-8). Inside the strip this row already sits between
@@ -718,15 +719,15 @@ export function SuccessTargetLine({
        look like" — the question a strategist answers first — was the quietest
        thing on the surface.
 
-       The rule is the SAME hairline `SectionShell` uses between sections, which
-       is the point: the row joins the surface's existing grammar rather than
-       inventing a device of its own. Rendered only when there is a goal node to
-       attach a target to (the component returns null above), so the rule can
-       never appear over nothing. */
+       The break is the SAME space `SectionShell` uses between sections (both
+       were hairlines until DS v5 §6), which is the point: the row joins the
+       surface's existing grammar rather than inventing a device of its own.
+       Rendered only when there is a goal node to attach a target to (the
+       component returns null above). */
     <div
       className={
         divider
-          ? 'flex items-baseline gap-2 border-t border-panel-border pt-2 mt-2'
+          ? 'flex items-baseline gap-2 pt-2 mt-2'
           : 'flex items-baseline gap-2 mt-1'
       }
       data-testid={testId}

@@ -215,7 +215,7 @@ export function GhostSuggestionsOverlay(): JSX.Element | null {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-storm-600 border-t border-storm-100 pt-3">
+          <div className="flex items-center gap-3 text-xs text-storm-600 pt-3">
             <div className="flex items-center gap-1.5">
               <kbd className="px-2 py-1 bg-mist-100 border border-storm-300 rounded font-mono text-charcoal-800">
                 Tab

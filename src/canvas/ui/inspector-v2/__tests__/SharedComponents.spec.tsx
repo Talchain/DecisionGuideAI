@@ -86,7 +86,10 @@ describe('CoachingCard', () => {
     render(<CoachingCard text="Grounded" />)
     expect(screen.getByText('Grounded')).toBeTruthy()
     expect(screen.queryByLabelText('Dismiss suggestion')).toBeNull()
-    expect(screen.getByTestId('inspector-guidance').className).toContain('border-l-2')
+    // Set apart by space; the contract's left stripe is retired (DS v5 §6).
+    const section = screen.getByTestId('inspector-guidance')
+    expect(section.className).toContain('my-3.5')
+    expect(section.className).not.toMatch(/(^|\s)border-l/)
   })
 })
 

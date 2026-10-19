@@ -290,7 +290,7 @@ export function UtilityWeightPanel({
       )}
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2 pt-2 border-t border-sand-100">
+      <div className="flex items-center gap-2 pt-2">
         <button
           type="button"
           onClick={resetToEqual}

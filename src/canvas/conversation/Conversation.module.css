@@ -116,7 +116,7 @@
   border-radius: 0;
 }
 .markdownContent blockquote {
-  border-left: none;
+  border: none;
   margin: 6px 0;
   padding: 4px 12px;
   color: var(--text-light, #6E6B6B);
@@ -383,19 +383,16 @@
 /*
  * PX-B: the ONE disclosure body holding every demoted block.
  * Deliberately NOT another bordered card — a panel around a stack of panels is
- * the "panels-within-panels" defect it exists to fix. A single hairline rule on
- * the inline-start edge signals "this is supporting detail" at one level of
- * nesting only, and the demoted blocks keep their own renderers unchanged.
+ * the "panels-within-panels" defect it exists to fix. An inline-start indent
+ * (space, never a one-sided rule: DS v5 §6) signals "this is supporting detail"
+ * at one level of nesting only, and the demoted blocks keep their own
+ * renderers unchanged.
  */
 .blockDetailBody {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding-inline-start: 10px;
-  /* Fallback matches the four sibling rules in this file, not a new hex:
-     an invented fallback silently shadows the token with a colour brand.css
-     never declared, which is what the css-var-resolution guard catches. */
-  border-inline-start: 1px solid var(--border-default, #EEE6D8);
 }
 
 .commentaryBlock {
@@ -854,7 +851,7 @@
   font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-body, #3F3F3E);
   padding-left: 8px;
-  border-left: none;
+  border: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1064,7 +1061,6 @@
   font-size: var(--conv-type-size-meta);
   color: var(--text-light, #6E6B6B);
   margin-top: 6px;
-  border-top: 1px solid var(--border-default, #EEE6D8);
   padding-top: 4px;
   display: flex;
   flex-direction: column;
@@ -1154,11 +1150,10 @@
   font-weight: var(--conv-type-weight-medium);
 }
 
-/* Expanded content: DS v5 §19 pattern — mt-2 pl-3 border-l-2 border-panel-border */
+/* Expanded content: set apart by background contrast (its one-sided accent is retired, DS v5 §6) */
 .commentaryExpandedContent {
   margin-top: 8px;
   padding: 12px;
-  border-left: 2px solid var(--border-default, #EEE6D8);
   background: var(--bg-panel-hover, #FEF9F3);
   border-radius: 4px;
 }
@@ -1464,11 +1459,10 @@
   min-height: 40px;
   max-height: 48px;
   background: var(--bg-panel, #FEFEFE);
-  border-top: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
   overflow: hidden;
-  border-left: none;
+  border: none;
 }
 
 .guidanceBadge {
@@ -1584,7 +1578,6 @@
   align-items: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-default, #EEE6D8);
   background: var(--bg-panel, #FEFEFE);
   flex-shrink: 0;
 }
@@ -1632,15 +1625,6 @@
   background: var(--border-default, #EEE6D8);
   color: var(--text-light, #6E6B6B);
   cursor: not-allowed;
-}
-
-.sendButtonSpinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid color-mix(in srgb, var(--text-on-color, #FFFFFF) 30%, transparent);
-  border-top-color: var(--text-on-color, #FFFFFF);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -1699,7 +1683,6 @@
   min-height: 40px;
   max-height: 44px;
   background: var(--bg-panel, #FEFEFE);
-  border-bottom: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
   overflow: hidden;
@@ -1886,10 +1869,6 @@
   gap: 8px;
   align-items: flex-start;
   padding: 6px 0;
-  border-bottom: 1px solid var(--border-default, #EEE6D8);
-}
-.comparisonItem:last-child {
-  border-bottom: none;
 }
 
 .premortemBlock {
@@ -1905,10 +1884,6 @@
 
 .failureMode {
   padding: 6px 0;
-  border-bottom: 1px solid var(--border-default, #EEE6D8);
-}
-.failureMode:last-child {
-  border-bottom: none;
 }
 
 .flipAnalysisBlock {

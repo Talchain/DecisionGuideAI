@@ -461,7 +461,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
 
       {/* Other Influences Section (collapsible) */}
       {otherDrivers.length > 0 && (
-        <div className="pt-2 border-t border-sand-200">
+        <div className="pt-2">
           <button
             type="button"
             onClick={() => setOtherInfluencesOpen(prev => !prev)}

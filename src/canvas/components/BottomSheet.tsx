@@ -72,7 +72,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
+        <div className="sticky top-0 bg-white px-6 py-4 rounded-t-lg">
           <div className="flex items-center justify-between">
             <h2 id="bottom-sheet-title" className="text-lg font-semibold text-gray-900">
               {title}

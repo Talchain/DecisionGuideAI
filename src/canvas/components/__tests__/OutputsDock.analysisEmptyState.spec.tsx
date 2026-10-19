@@ -26,7 +26,7 @@
  * instead of passing vacuously against a rail that no longer renders.
  *
  * ── A3 · THE EXPANDED PANEL WAS COMPLETELY BLANK ──────────────────────────
- * Measured: Analysis tab active (`border-info` on `outputs-dock-tab-results`),
+ * Measured: Analysis tab active (`aria-selected` on `outputs-dock-tab-results`),
  * `outputs-dock-body` present at 414 x 540 px, and `innerText` exactly `""`.
  * Zero copy, no reason, no next step.
  *
@@ -303,9 +303,12 @@ describe('the Analysis dock tab in its two measured-dead states (affordance swee
       expect(screen.getByTestId('outputs-dock-tab-olumi')).toBeInTheDocument()
     })
     // Bound by identity to the ACTIVE tab, not merely to the tab existing: the
-    // strip lights the active tab with `border-info`.
+    // strip marks it `aria-selected` and lights it with the info colour and the
+    // contract tint (its underline is retired, DS v5 §6).
     await waitFor(() => {
-      expect(screen.getByTestId('outputs-dock-tab-olumi').className).toContain('border-info')
+      const tab = screen.getByTestId('outputs-dock-tab-olumi')
+      expect(tab).toHaveAttribute('aria-selected', 'true')
+      expect(tab.className).toContain('bg-[var(--panel-tab-active-bg)]')
     })
     // …and the empty state must be gone, because the Analysis body unmounted.
     expect(screen.queryByTestId('outputs-analysis-empty')).toBeNull()

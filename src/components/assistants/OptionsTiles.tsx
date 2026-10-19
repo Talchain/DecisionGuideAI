@@ -177,7 +177,7 @@ function OptionCardTile({ option, onSelect }: OptionCardProps) {
 
       {/* Evidence */}
       {option.evidence && (
-        <div className="pt-2 border-t border-gray-100">
+        <div className="pt-2">
           <div className="flex items-center gap-1.5 mb-1">
             <FileText className="w-3.5 h-3.5 text-info-600" />
             <span className="text-xs font-medium text-info-700">Evidence</span>

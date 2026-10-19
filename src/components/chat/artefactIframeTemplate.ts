@@ -104,14 +104,11 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       font-size: 12px;
       padding: 10px 12px;
       text-align: left;
-      border-bottom: 1px solid var(--border-default);
     }
     td {
       padding: 10px 12px;
-      border-bottom: 1px solid var(--border-default);
       font-size: 14px;
     }
-    tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--bg-panel-hover); }
   </style>
 </head>

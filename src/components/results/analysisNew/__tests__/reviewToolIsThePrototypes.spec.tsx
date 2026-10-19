@@ -115,11 +115,12 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('the shell and its header', () => {
-  it('opens under a divider, with "Review the thinking" as the prototype’s quiet 12px label', () => {
+  it('opens under a spaced break (no rule, DS v5 §6), with "Review the thinking" as the prototype’s quiet 12px label', () => {
     render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} />)
     openTool()
     const item = screen.getByTestId(`${TID}-item`)
-    expect(item.className.split(' ')).toContain('border-t')
+    expect(item.className.split(' ')).toContain('pt-2')
+    expect(item.className.split(' ')).not.toContain('border-t')
     const heading = screen.getByTestId(`${TID}-heading`)
     expect(heading.textContent).toBe(REVIEW_TOOL_COPY.heading)
     for (const t of typography.panelBody.split(' ')) expect(heading.className.split(' ')).toContain(t)

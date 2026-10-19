@@ -2535,7 +2535,7 @@ export function AnalysisNewTabBody({
                 inconsistency would be the defect, not the fix. */}
             {vm.uncertainty.decisionVoi !== 'not_computed' ? (
               <section
-                className="border-t border-panel-border pt-3"
+                className="pt-3"
                 data-testid="analysis-new-decision-voi-section"
                 aria-labelledby="analysis-new-decision-voi-heading"
               >

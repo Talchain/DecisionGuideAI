@@ -10,8 +10,8 @@ export function CritiquePanel({ blockers, improvements, observations, onFix }: a
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="px-4 py-3 border-b"><h3 className="font-semibold">Critique</h3></div>
-      <div className="flex border-b">
+      <div className="px-4 py-3"><h3 className="font-semibold">Critique</h3></div>
+      <div className="flex">
         {(['blockers', 'improvements', 'observations'] as Tab[]).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} 
             className={`flex-1 px-4 py-2 text-sm ${activeTab === tab ? 'bg-panel text-info' : 'text-gray-600'}`}>

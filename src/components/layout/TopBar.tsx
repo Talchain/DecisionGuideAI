@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, UserPlus, AlertTriangle, XCircle } from 'lucide-react'
+import { Share2, Users, UserPlus, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -312,7 +312,7 @@ export const TopBar = ({
           if (saveStatus === 'saving') {
             return (
               <span className={styles.saveStatus} role="status" aria-live="polite">
-                <span className="inline-block w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin text-text-light" aria-hidden="true" />
+                <Loader2 className="inline-block w-3 h-3 animate-spin text-text-light" aria-hidden="true" />
                 <span className="text-text-light">Saving{'\u2026'}</span>
               </span>
             )

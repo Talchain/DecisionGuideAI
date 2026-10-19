@@ -114,7 +114,7 @@ export function DiagnosticsOverlay() {
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-white/20 text-white/40 text-[10px]">
+      <div className="mt-3 pt-3 text-white/40 text-[10px]">
         Add ?diag=1 to URL to show this panel
       </div>
     </div>

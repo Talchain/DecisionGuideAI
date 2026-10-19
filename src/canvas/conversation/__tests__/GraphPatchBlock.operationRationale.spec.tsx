@@ -6,7 +6,7 @@
  * - No chevron when operation_meta is absent or the entry has no rationale
  * - Clicking "More" expands to reveal the rationale text and changes the label to "Less"
  * - Rationale text uses panelMeta typography + text-text-light
- * - Expanded content uses DS v5 §19 border-left indent (border-l-2 border-panel-border)
+ * - Expanded content is an indent of space (mt-2 pl-3), with no one-sided rule (DS v5 §6)
  * - Each operation's rationale is paired by array index, not by op identity
  */
 
@@ -164,12 +164,11 @@ describe('GraphPatchBlock — OperationRationale', () => {
     const para = screen.getByText(rationaleText)
     expect(para.tagName).toBe('P')
     // panelMeta token resolves at runtime; assert the text-text-light token is present
-    // and that the parent block carries the DS v5 §19 indent classes.
+    // and that the parent block carries the indent of space, and no one-sided rule.
     expect(para.className).toContain('text-text-light')
     const indent = para.parentElement
     expect(indent).not.toBeNull()
-    expect(indent!.className).toContain('border-l-2')
-    expect(indent!.className).toContain('border-panel-border')
+    expect(indent!.className).not.toMatch(/(^|\s)border-l/)
     expect(indent!.className).toContain('pl-3')
     expect(indent!.className).toContain('mt-2')
   })

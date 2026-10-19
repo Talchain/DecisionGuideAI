@@ -64,12 +64,11 @@ export interface AccordionProps {
   /**
    * ⭐⭐ V2 GAP 29 — OPT-IN, GEOMETRY ONLY. `FIDELITY-GAPS-INDEX-20260924.txt`
    * #29: "At rest the Model tab is two bordered cards. Reasoning uses
-   * full-width dividers." Renders the section as ONE bottom hairline instead
-   * of a bordered, radiused, padded card, and drops the header's own
-   * `border-b` (redundant once the header is no longer inside a box with its
-   * own border). Default `false`, so every existing caller — `ResultsBody`,
-   * `AdvancedSection`, the pre-analysis primitives — is BYTE-IDENTICAL to
-   * before; only a caller that opts in changes shape.
+   * full-width dividers." Renders the section as a flush block, set apart by
+   * space, instead of a bordered, radiused, padded card. (Its bottom hairline
+   * and the header's own rule were one-sided borders, retired by Design
+   * System v5 §6, 18 Oct 2026; the non-flush card keeps its complete border.)
+   * Default `false`; only a caller that opts in changes shape.
    */
   flush?: boolean
   /**
@@ -176,7 +175,7 @@ export function Accordion({
     <section
       className={
         flush
-          ? `border-b border-panel-border ${className}`
+          ? className
           : `border border-panel-border rounded-lg overflow-hidden ${className}`
       }
       data-testid={testId}
@@ -210,7 +209,7 @@ export function Accordion({
               headerAction ? 'flex-1 min-w-0' : 'w-full',
               flush ? 'px-0 py-1.5' : 'px-3 py-2',
               'bg-panel flex items-start justify-between transition-colors',
-              flush ? '' : 'border-b border-panel-border hover:bg-panel-hover',
+              flush ? '' : 'hover:bg-panel-hover',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset',
             ].filter(Boolean).join(' ')}
           >

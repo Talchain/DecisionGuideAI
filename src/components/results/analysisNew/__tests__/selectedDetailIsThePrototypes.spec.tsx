@@ -147,11 +147,12 @@ describe('the detail is the prototype’s inline-detail', () => {
     expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
   })
 
-  it('under a divider, not in a tinted card', () => {
+  it('under a spaced break (no rule, DS v5 §6), not in a tinted card', () => {
     render(<ModelStrip isPreRun={false} openAtRest insights={RICH_INSIGHTS} />)
     fireEvent.click(mark('o1'))
     const cls = screen.getByTestId(`${TID}-detail`).className.split(' ')
-    expect(cls).toContain('border-t')
+    expect(cls).toContain('pt-2')
+    expect(cls).not.toContain('border-t')
     expect(cls.some((c) => c.startsWith('bg-'))).toBe(false)
   })
 

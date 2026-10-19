@@ -153,7 +153,7 @@ export function ValueProvenanceKey() {
               a popover this size, so "a separate question from where its value
               came from" becomes the tighter "not where its value came from" —
               same distinction, fewer words. Pinned by a test. */}
-          <p className={`${typography.panelMeta} text-text-light m-0 pt-1 border-t border-panel-border`}>
+          <p className={`${typography.panelMeta} text-text-light m-0 pt-1`}>
             The marks beside a row say what still needs attention, not where
             its value came from. Each one names itself on hover.
           </p>

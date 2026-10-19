@@ -96,8 +96,8 @@
  * EMPTY MEANS ABSENT. Nothing renders when no connection is contested — no header, no "0",
  * no reassurance row. Same rule as SharpenSection.
  *
- * HIERARCHY. A single `border-t` and no static `bg-panel-hover` strip: the panel's one neutral
- * section-header strip belongs to Sharpen and its one `border-b` to the Header
+ * HIERARCHY. No rule (one-sided borders are retired, DS v5 §6) and no static `bg-panel-hover`
+ * strip: the panel's one neutral section-header strip belongs to Sharpen
  * (`hierarchyContract.spec.tsx`).
  */
 
@@ -238,7 +238,7 @@ const ContestedRow = memo(function ContestedRow({
       : null
   return (
     <div
-      className="grid grid-cols-[16px_1fr] items-start gap-2 border-t border-panel-border py-2 first:border-t-0"
+      className="grid grid-cols-[16px_1fr] items-start gap-2 py-2"
       data-testid={`pre-analysis-v3-contested-row-${row.edgeId}`}
       data-contested-edge-id={row.edgeId}
     >
@@ -478,7 +478,7 @@ export const ContestedSection = memo(function ContestedSection({
   if (rows.length === 0 && landed.length === 0) return null
 
   return (
-    <div className="border-t border-panel-border px-4 py-4" data-testid="pre-analysis-v3-contested">
+    <div className="px-4 py-4" data-testid="pre-analysis-v3-contested">
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <h2 className={`${typography.panelHeader} text-text-header`}>{CONTESTED_COPY.title}</h2>
         {/*

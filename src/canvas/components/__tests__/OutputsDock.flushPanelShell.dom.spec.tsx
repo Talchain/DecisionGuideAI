@@ -9,10 +9,13 @@
  *     (`rgba(39,122,157,.8)`, radius 8) with no underline and no tint.
  *
  * TARGET, the locked visual contract (`olumi-canvas-visual-contract.html`):
- *   `.ai-panel{position:absolute;right:0;top:51px;bottom:0;width:319px;
- *   border-left:1px solid #DCD7CF}` · `.panel-tabs{height:45px}` ·
- *   `.panel-tabs button{font-size:11px;border-bottom:2px solid transparent}` ·
- *   `.panel-tabs button.active{border-color:var(--info);background:#F3F8FA}`.
+ *   `.ai-panel{position:absolute;right:0;top:51px;bottom:0;width:319px}` ·
+ *   `.panel-tabs{height:45px}` · `.panel-tabs button{font-size:11px}` ·
+ *   `.panel-tabs button.active{color:var(--info);background:#F3F8FA}`.
+ *   The contract's panel-edge rule, tab-strip rule and 2px tab underline are
+ *   one-sided borders, retired by Design System v5 §6 (Paul, 18 Oct 2026):
+ *   the panel's white on the warm canvas is its edge, and the active tab is
+ *   the info colour plus the tint.
  *
  * Bound by IDENTITY: the dock's own test id and inline style (the element
  * `computeFitPadding` and `measureDockInset` read back), the CSS custom
@@ -128,10 +131,12 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(dock.style.bottom).toBe('var(--bottombar-h)')
   })
 
-  it('has one rule on its LEFT edge in the contract colour, and no radius and no shadow', () => {
+  it('has no edge rule on any side (DS v5 §6), and no radius and no shadow', () => {
     const dock = mountDock()
-    expect(dock.style.borderLeft).toBe('1px solid var(--panel-edge-rule)')
-    // The served card's all-round box is gone: no top/right/bottom rule.
+    // No one-sided rule: the panel's own background against the canvas is its edge.
+    expect(dock.style.border).toBe('')
+    expect(dock.style.borderLeft).toBe('')
+    // The served card's all-round box is gone too.
     expect(dock.style.borderTop).toBe('')
     expect(dock.style.borderRight).toBe('')
     expect(dock.style.borderBottom).toBe('')
@@ -140,7 +145,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(dock.style.boxShadow).toBe('none')
   })
 
-  it('the tab strip is 45px and the active tab is a 2px underline with the contract tint, not an outlined pill', () => {
+  it('the tab strip is 45px and the active tab is the info colour with the contract tint: no underline, not an outlined pill', () => {
     mountDock()
     const strip = screen.getByTestId('outputs-dock-tabstrip')
     expect(strip.style.height).toBe(`${SHELL_TABSTRIP_HEIGHT_PX}px`)
@@ -151,19 +156,20 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     const active = tabs.filter(t => t.getAttribute('aria-selected') === 'true')
     expect(active).toHaveLength(1)
     const on = classTokens(active[0])
-    for (const token of ['border-b-2', 'border-info', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[11px]']) {
+    for (const token of ['text-info', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[11px]']) {
       expect(on.has(token), `active tab carries "${token}"`).toBe(true)
     }
-    // The served pill's tokens, by name.
-    for (const token of ['border-info/80', 'rounded-sm', 'border', 'text-xs']) {
-      expect(on.has(token), `active tab must not carry the pill's "${token}"`).toBe(false)
+    // The served pill's tokens, and the retired one-sided underline, by name.
+    for (const token of ['border-info/80', 'rounded-sm', 'border', 'text-xs', 'border-b-2', 'border-info']) {
+      expect(on.has(token), `active tab must not carry "${token}"`).toBe(false)
     }
     expect(active[0].style.height).toBe(`${SHELL_TAB_HEIGHT_PX}px`)
 
-    // CONTRAST: an inactive tab has the transparent underline and no tint.
+    // CONTRAST: an inactive tab has no tint, no info colour and no underline.
     const idle = classTokens(tabs.find(t => t.getAttribute('aria-selected') !== 'true')!)
-    expect(idle.has('border-b-2')).toBe(true)
-    expect(idle.has('border-transparent')).toBe(true)
+    expect(idle.has('border-b-2')).toBe(false)
+    expect(idle.has('text-info')).toBe(false)
+    expect(idle.has('text-text-body')).toBe(true)
     expect(idle.has('bg-[var(--panel-tab-active-bg)]')).toBe(false)
     expect(idle.has('text-[11px]')).toBe(true)
   })
@@ -180,14 +186,13 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
   })
 })
 
-describe('the three contract colours are declared once, as tokens', () => {
+describe('the contract tab tint is declared once, as a token; the retired rule tokens are gone', () => {
   const css = readFileSync(path.resolve(__dirname, '../../../index.css'), 'utf8')
-  it.each([
-    ['--panel-edge-rule', '#DCD7CF'],
-    ['--panel-tab-rule', '#E6E1D8'],
-    ['--panel-tab-active-bg', '#F3F8FA'],
-  ])('%s is %s', (name, hex) => {
-    const decl = [...css.matchAll(new RegExp(`${name}\\s*:\\s*([^;]+);`, 'g'))].map(m => m[1].trim())
-    expect(decl).toEqual([hex])
+  it('--panel-tab-active-bg is #F3F8FA', () => {
+    const decl = [...css.matchAll(/--panel-tab-active-bg\s*:\s*([^;]+);/g)].map(m => m[1].trim())
+    expect(decl).toEqual(['#F3F8FA'])
+  })
+  it.each(['--panel-edge-rule', '--panel-tab-rule'])('%s (a one-sided rule colour) is no longer declared', (name) => {
+    expect(css).not.toMatch(new RegExp(`${name}\\s*:`))
   })
 })

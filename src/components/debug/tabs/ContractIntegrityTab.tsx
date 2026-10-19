@@ -198,7 +198,7 @@ function DataUnavailable() {
 
 function KvRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
       <span style={{ color: '#64748b' }}>{label}</span>
       <span style={{ fontFamily: mono ? 'monospace' : undefined, fontSize: mono ? 11 : undefined, color: '#334155', maxWidth: '60%', wordBreak: 'break-all', textAlign: 'right' }}>
         {value ?? <span style={{ color: '#94a3b8' }}>{'\u2014'}</span>}
@@ -990,7 +990,7 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
                     </thead>
                     <tbody>
                       {repairsResult.repairs.slice(0, MAX_REPAIR_ROWS).map((r, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <tr key={i}>
                           <td style={tdStyle}><span style={{ fontFamily: 'monospace' }}>{r.code}</span></td>
                           <td style={tdStyle}>{r.layer}</td>
                           <td style={tdStyle}><span style={{ fontFamily: 'monospace', fontSize: 10 }}>{r.field_path}</span></td>
@@ -1354,7 +1354,6 @@ const thStyle: CSSProperties = {
   textAlign: 'left',
   padding: '6px 8px',
   background: '#f8fafc',
-  borderBottom: '1px solid #e2e8f0',
   fontWeight: 600,
   color: '#475569',
   fontSize: 10,

@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { sanitizeLabel } from '../canvas/persist'
+import { Loader2 } from 'lucide-react'
 
 interface ShareData {
   hash: string
@@ -195,7 +196,7 @@ export default function ShareView() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-info border-t-transparent" aria-hidden="true" />
+          <Loader2 className="inline-block h-12 w-12 animate-spin text-info" aria-hidden="true" />
           <p className="mt-4 text-gray-600">
             {status === 'loading' ? 'Loading shared analysis...' : 'Validating share link...'}
           </p>
@@ -261,7 +262,7 @@ export default function ShareView() {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 py-4">
+        <header className="bg-white px-4 py-4">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-gray-900">Shared Analysis</h1>

@@ -55,14 +55,17 @@
  * which is visibly wrong rather than quietly wrong.
  */
 /*
- * ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026): NEUTRAL SURFACES, FULL-WIDTH
- * DIVIDERS, NO CARDS. A section is no longer a rounded, tinted box; it is a
- * block closed by one full-width horizontal rule. No radius, no side borders,
- * no fill, no horizontal padding of its own (the tab body owns the gutter).
- * Tone survives only as the rule's colour, so a caveat is still told apart
- * without a tint; the words and icon carry the meaning.
+ * ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026): NEUTRAL SURFACES, NO CARDS. A
+ * section is no longer a rounded, tinted box. No radius, no side borders, no
+ * fill, no horizontal padding of its own (the tab body owns the gutter); the
+ * words and icon carry the meaning.
+ *
+ * ⛔ 18 Oct 2026 (Design System v5 §6, Paul: "we don't use single-sided
+ * borders ever"): the full-width bottom rule that closed each section is
+ * retired. A section is set apart by its vertical padding. The tone class a
+ * caller composes on is now inert (it colours no border).
  */
-export const PANEL_SURFACE = 'border-b py-3'
+export const PANEL_SURFACE = 'py-3'
 
 /**
  * A box nested INSIDE a section box. Same rule, one level down.
@@ -116,14 +119,13 @@ export const SURFACE_TONE = {
 export type SurfaceTone = keyof typeof SURFACE_TONE
 
 /**
- * ⭐⭐ THE TOP-LEVEL SECTION RULE (fidelity gaps 6 and 11, 24 Sep 2026).
+ * ⭐⭐ THE TOP-LEVEL SECTION BREAK (fidelity gaps 6 and 11, 24 Sep 2026).
  *
- * One hairline between the Reasoning tab's top-level sections — the model
- * block and "Challenge the thinking", "Move towards commitment", "About this
- * analysis" — matching the design authority's `.section:before` /
- * `.about:before` (`prototype-v2-reference.html`, `reasoningHTML()`): a rule
- * that runs the full panel width, always on the TOP edge, in the neutral
- * border token only, with the SAME gap on both sides of the line.
+ * ⛔ 18 Oct 2026 (Design System v5 §6): this WAS one full-width hairline on
+ * the top edge between the Reasoning tab's top-level sections (the design
+ * authority's `.section:before`). One-sided borders are retired, so the break
+ * is now SPACE only: the same gap above and below where the line used to sit.
+ * The name is kept so every call site still marks the break in one place.
  *
  * ⚠ `-mx-4 px-4` IS THE FULL-WIDTH PART. The content column's own gutter is
  * `px-4` (16px); the negative margin cancels it for this element alone so
@@ -145,7 +147,7 @@ export type SurfaceTone = keyof typeof SURFACE_TONE
  * colour; this rule never does — it is `border-panel-border` at every call
  * site, full stop, which is what "never a tint" means.
  */
-export const PANEL_RULE = '-mx-4 px-4 !mt-3 border-t border-panel-border pt-3'
+export const PANEL_RULE = '-mx-4 px-4 !mt-3 pt-3'
 
 /**
  * A PRESSABLE box at inset level — the glance's promoted action, and today its

@@ -413,7 +413,7 @@ export function ScenarioSwitcher({
                 }
               }}
               maxLength={MAX_NAME_LENGTH}
-              className="w-[240px] bg-transparent border-b border-info outline-none px-0.5"
+              className="w-[240px] bg-transparent outline-none px-0.5"
               aria-label="Model name"
               data-testid="scenario-name-input"
               autoFocus
@@ -469,7 +469,7 @@ export function ScenarioSwitcher({
             data-testid="scenario-switcher-menu"
           >
             {/* Current scenario actions */}
-            <div className="p-2 border-b border-gray-200">
+            <div className="p-2">
               <div className="flex flex-col gap-1">
                 {/* Save row */}
                 <div className="flex items-center gap-1">
@@ -605,7 +605,7 @@ export function ScenarioSwitcher({
                   {/* All scenarios (if more than 5) */}
                   {scenarios.length > 5 && (
                     <>
-                      <div className="border-t border-gray-200 my-1" />
+                      <div className="my-1" />
                       <div className={`px-4 py-2 ${typography.caption} font-semibold text-gray-500 uppercase tracking-wide`}>
                         All Scenarios
                       </div>

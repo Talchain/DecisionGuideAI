@@ -164,7 +164,7 @@ const SortableItem = memo(({
         )}
       </div>
 
-      <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between mt-auto pt-2">
         <Tooltip content="Rate the importance of this item (1-5 stars)">
           <div className="stars-section">
             <ScoreStars score={score} onChange={onUpdateScore || (() => {})} type={type} />

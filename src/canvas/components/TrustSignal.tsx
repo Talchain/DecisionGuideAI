@@ -162,7 +162,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
           </div>
         </button>
         {isExpanded && (
-          <div className="border-t border-sand-200 px-4 py-4 space-y-4">
+          <div className="px-4 py-4 space-y-4">
             <div className={`p-3 rounded-lg ${incompleteConfig.bgColor} border ${incompleteConfig.borderColor}`}>
               <div className="flex items-start gap-3">
                 <IncompleteIcon className={`h-5 w-5 ${incompleteConfig.iconColor} flex-shrink-0 mt-0.5`} aria-hidden="true" />
@@ -215,7 +215,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
 
       {/* Expanded content - plain language */}
       {isExpanded && (
-        <div className="border-t border-sand-200 px-4 py-4 space-y-4">
+        <div className="px-4 py-4 space-y-4">
           {/* Main message */}
           <div className={`p-3 rounded-lg ${config.bgColor} border ${config.borderColor}`}>
             <div className="flex items-start gap-3">
@@ -273,7 +273,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
 
           {/* Issues count */}
           {metrics.issuesCount > 0 && (
-            <div className="flex items-center gap-2 pt-2 border-t border-sand-100">
+            <div className="flex items-center gap-2 pt-2">
               <AlertTriangle className="h-4 w-4 text-carrot-500" />
               <span className={`${typography.caption} text-carrot-600`}>
                 {metrics.issuesCount} issue{metrics.issuesCount !== 1 ? 's' : ''} to address
@@ -299,7 +299,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
               return null // Don't show contradictory suggestion
             }
             return (
-              <p className={`${typography.caption} text-ink-500 pt-2 border-t border-sand-100`}>
+              <p className={`${typography.caption} text-ink-500 pt-2`}>
                 {metrics.recommendation}
               </p>
             )

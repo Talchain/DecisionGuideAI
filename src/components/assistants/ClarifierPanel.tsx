@@ -95,7 +95,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
   return (
     <div className="bg-white rounded-lg border border-info/30 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-panel border-b border-info/30">
+      <div className="px-4 py-3 bg-panel">
         <div className="flex items-center gap-2">
           <HelpCircle className="w-5 h-5 text-info" />
           <h3 className="font-semibold text-info">Help us clarify your model</h3>
@@ -186,7 +186,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
       </div>
 
       {/* Actions */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex gap-2">
+      <div className="px-4 py-3 bg-gray-50 flex gap-2">
         <button
           onClick={handleSubmit}
           disabled={!canProceed || isSubmitting}
@@ -213,7 +213,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
       </div>
 
       {/* Progress indicator */}
-      <div className="px-4 py-2 bg-gray-100 border-t border-gray-200">
+      <div className="px-4 py-2 bg-gray-100">
         <div className="flex gap-1">
           {[1, 2, 3].map((round) => (
             <div

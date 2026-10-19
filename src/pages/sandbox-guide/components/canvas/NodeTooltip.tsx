@@ -92,7 +92,7 @@ export function NodeTooltip({
       </div>
 
       {/* Actions */}
-      <div className="pt-2 border-t border-storm-100 space-y-2">
+      <div className="pt-2 space-y-2">
         <Button size="sm" variant="outline" fullWidth onClick={handleInspect}>
           Inspect details
         </Button>

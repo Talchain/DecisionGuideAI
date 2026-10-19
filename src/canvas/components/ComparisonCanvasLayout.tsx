@@ -145,7 +145,7 @@ function OutcomesComparisonBar({
 
   return (
     <div
-      className="px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50 border-b border-sand-200"
+      className="px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50"
       role="region"
       aria-label="Outcome comparison"
     >
@@ -226,7 +226,7 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
   ]
 
   return (
-    <details className="border-b border-sand-200 bg-sand-50">
+    <details className="bg-sand-50">
       <summary
         className={`px-3 py-1.5 cursor-pointer text-ink-600 hover:text-ink-800 flex items-center gap-2 ${typography.caption}`}
       >
@@ -236,7 +236,7 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
         </span>
       </summary>
       <div
-        className="flex items-center gap-3 px-3 py-2 bg-white border-t border-sand-100"
+        className="flex items-center gap-3 px-3 py-2 bg-white"
         role="region"
         aria-label="Comparison statistics"
       >
@@ -288,7 +288,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Added items */}
       {(comparison.added.nodes.length > 0 || comparison.added.edges.length > 0) && (
         <div className="border border-success/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-success/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`${typography.body} font-medium text-success`}>
               Added ({comparison.added.nodes.length + comparison.added.edges.length})
             </h4>
@@ -313,7 +313,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Removed items */}
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
         <div className="border border-danger/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-danger/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`${typography.body} font-medium text-danger`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
@@ -338,7 +338,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Modified items */}
       {(comparison.modified.nodes.length > 0 || comparison.modified.edges.length > 0) && (
         <div className="border border-warning/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-panel border-b border-warning/30">
+          <div className="px-3 py-2 bg-panel">
             <h4 className={`${typography.body} font-medium text-warning`}>
               Modified ({comparison.modified.nodes.length + comparison.modified.edges.length})
             </h4>
@@ -415,7 +415,7 @@ export function ComparisonCanvasLayout() {
     // Note: Parent in ReactFlowGraph is position:absolute, not flex, so use h-full w-full
     <div className="h-full w-full flex flex-col">
       {/* Header with controls - minimal padding to maximize canvas space */}
-      <div className="px-3 py-1.5 bg-white border-b border-sand-200 flex items-center justify-between">
+      <div className="px-3 py-1.5 bg-white flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className={`${typography.h4} text-ink-900`}>Scenario Comparison</h2>
           <span className={`${typography.caption} text-ink-500`}>
@@ -513,7 +513,7 @@ export function ComparisonCanvasLayout() {
           <div className="grid gap-3 h-full" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
             {scenarios.map((scenario, index) => (
               <div key={scenario.label} className="flex flex-col min-h-0 border border-sand-200 rounded-lg overflow-hidden bg-white">
-                <div className="px-4 py-2 border-b border-sand-200">
+                <div className="px-4 py-2">
                   <h3 className={`${typography.body} font-medium text-ink-900`}>
                     {scenario.label}
                   </h3>

@@ -5,7 +5,7 @@
  * Opened by clicking the status chip in the top-right
  */
 
-import { Box, GitBranch, Clock, Database, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Box, GitBranch, Clock, Database, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
@@ -105,7 +105,7 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
     if (loading || !limits) {
       return (
         <div className="py-12 text-center">
-          <div className="w-8 h-8 mx-auto mb-4 border-4 border-info/30 border-t-info rounded-full animate-spin" />
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-info" aria-hidden="true" />
           <p className={`${typography.body} text-ink-900`}>Loading limits...</p>
         </div>
       )

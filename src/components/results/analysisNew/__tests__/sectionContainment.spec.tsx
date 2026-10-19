@@ -16,6 +16,10 @@
  *   · the 1px rule is RETAINED on both states (its own contrast: 1.229)
  *   · section title x: 25 → 25, width 361.5 → 361.5 — **shift 0**
  *
+ * ⛔ 18 Oct 2026 (Design System v5 §6, Paul: "we don't use single-sided
+ * borders ever"): the retained 1px rule is retired. Sections are separated by
+ * their own padding; the disclosure state still says which one is open.
+ *
  * jsdom performs no layout, so these bind to the MECHANISMS the measurements
  * came from.
  */
@@ -39,12 +43,14 @@ const draw = (defaultOpen: boolean) =>
  * disclosure state, which is what actually tells the reader where they are.
  */
 describe('V2: an open section is told apart by its disclosure, never a tinted card', () => {
-  it('keeps the full-width divider in BOTH states', () => {
+  it('draws no one-sided rule in EITHER state (DS v5 §6), and the disclosure state still says which is open', () => {
     draw(false)
-    expect(screen.getByTestId('sec').className).toContain('border-b')
+    expect(screen.getByTestId('sec').className).not.toMatch(/(^|\s)border-[tblrxy](-|\s|$)/)
+    expect(screen.getByTestId('sec')).toHaveAttribute('data-section-open', 'false')
     cleanup()
     draw(true)
-    expect(screen.getByTestId('sec').className).toContain('border-b')
+    expect(screen.getByTestId('sec').className).not.toMatch(/(^|\s)border-[tblrxy](-|\s|$)/)
+    expect(screen.getByTestId('sec')).toHaveAttribute('data-section-open', 'true')
   })
 
   it('draws no fill, radius or gutter shift when open', () => {

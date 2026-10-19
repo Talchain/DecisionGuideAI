@@ -3105,12 +3105,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           DocumentsManager is rendered inside the InputsDock instead of this drawer. */}
       {showDocumentsDrawer && (
         <div
-          className="fixed left-0 w-96 bg-white border-r border-gray-200 shadow-panel overflow-hidden"
+          className="fixed left-0 w-96 bg-white shadow-panel overflow-hidden"
           style={{ zIndex: 2000, top: 'max(var(--topbar-h, 0px), var(--chrome-top-left, 0px))', bottom: 'var(--bottombar-h)' }}
           data-testid="documents-drawer"
           tabIndex={-1}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3">
             <h2 className="font-semibold text-gray-900">Documents</h2>
             <button
               onClick={() => setShowDocumentsDrawer(false)}

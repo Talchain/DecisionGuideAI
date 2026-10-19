@@ -85,7 +85,7 @@ export function ActOnItSection({
     >
       {hasRows && (
         <>
-          <div className="flex items-center justify-between gap-2 border-t border-panel-border pt-2">
+          <div className="flex items-center justify-between gap-2 pt-2">
             <strong className={`${typography.panelHeader} text-text-header`}>
               {HERO_COPY.actOnIt.heading}
             </strong>
@@ -225,7 +225,7 @@ function Row({
 }) {
   return (
     <article
-      className={`px-2.5 py-2 border-b border-panel-border last:border-b-0 ${ROW_TINT_CLASS[row.category]}`}
+      className={`px-2.5 py-2 ${ROW_TINT_CLASS[row.category]}`}
       data-testid={`hero-act-on-it-row-${row.category}`}
     >
       <div className="flex items-start gap-3 justify-between">

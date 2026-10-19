@@ -76,7 +76,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
 
   return (
     <div className="h-full flex flex-col bg-white">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4">
         <button onClick={onBack} className={`flex items-center gap-2 ${typography.body} text-gray-600 hover:text-gray-900 transition-colors`} type="button">
           <ArrowLeft className="w-4 h-4" />Back to Results
         </button>
@@ -94,7 +94,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
         </div>
       )}
 
-      <div className="p-4 grid grid-cols-2 gap-4 border-b border-gray-200 bg-gray-50">
+      <div className="p-4 grid grid-cols-2 gap-4 bg-gray-50">
         <div>
           <label className={`block ${typography.label} text-gray-700 mb-2`}>{RUN_SLOT_LABELS.A}</label>
           <select
@@ -184,7 +184,7 @@ function RunSummaryCard({ run, label, onOpen }: { run: StoredRun; label: string;
           Open →
         </button>
       </div>
-      <div className="space-y-1 mb-4 pb-4 border-b border-gray-100">
+      <div className="space-y-1 mb-4 pb-4">
         <div className={typography.body}><span className="text-gray-600">Seed:</span> <span className="font-mono font-medium">{run.seed}</span></div>
         {run.hash && <div className={typography.body}><span className="text-gray-600">Hash:</span> <span className={`font-mono ${typography.caption}`}>{run.hash.slice(0, 12)}...</span></div>}
         <div className={`${typography.caption} text-gray-500`}>{formatTimestamp(run.ts)}</div>

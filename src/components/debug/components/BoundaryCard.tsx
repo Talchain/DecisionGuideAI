@@ -104,7 +104,7 @@ function JsonSection({
   }
 
   return (
-    <div style={{ borderTop: '1px solid #e2e8f0' }}>
+    <div>
       <div
         style={{
           padding: '8px 12px',
@@ -204,7 +204,6 @@ export function BoundaryCard({
     alignItems: 'center',
     cursor: hasData ? 'pointer' : 'default',
     background: expanded ? '#f8fafc' : '#fff',
-    borderBottom: expanded ? '1px solid #e2e8f0' : 'none',
   }
 
   return (
@@ -312,7 +311,6 @@ export function BoundaryCard({
           style={{
             padding: '8px 16px',
             background: '#fef2f2',
-            borderBottom: '1px solid #fca5a5',
             color: '#991b1b',
             fontSize: 11,
           }}

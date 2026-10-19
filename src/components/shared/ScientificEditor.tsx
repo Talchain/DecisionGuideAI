@@ -451,7 +451,7 @@ function ContestedEdgeEditor({ validation, onSave, onCancel }: Omit<ContestedEdg
           <PassDisplay label="Pass 2 (review)" pass={validation.pass2} />
 
           {/* Read-only metadata */}
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-panel-border">
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <div>
               <span className={`${typography.panelMeta} text-text-light`}>basis</span>
               <p className={`${typography.panelMeta} text-text-body`}>{validation.pass2.basis}</p>
@@ -469,7 +469,7 @@ function ContestedEdgeEditor({ validation, onSave, onCancel }: Omit<ContestedEdg
           </div>
 
           {/* Editable values */}
-          <div className="pt-1 border-t border-panel-border space-y-2">
+          <div className="pt-1 space-y-2">
             <p className={`${typography.panelMeta} text-text-header font-semibold`}>Your value</p>
             <NumericField label="strength.mean" value={mean} onChange={handleMeanChange} min={-1} max={1} step={0.05} error={errorMap.mean} />
             <NumericField label="strength.std" value={std} onChange={handleStdChange} min={0.05} max={0.35} step={0.01} error={errorMap.std} bandLabel={confidenceBandLabel(std)} />

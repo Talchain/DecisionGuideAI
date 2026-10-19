@@ -220,7 +220,7 @@ export function AnalysisReadinessBar({
 
   return (
     <div
-      className={`bg-panel border-t border-panel-border px-3 py-2 flex gap-3 ${
+      className={`bg-panel px-3 py-2 flex gap-3 ${
         hasSentenceList ? 'flex-col' : 'items-center'
       }`}
       data-testid="analysis-readiness-bar"

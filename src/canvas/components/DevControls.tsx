@@ -67,7 +67,7 @@ export function DevControls({ debug, onDebugChange, className = '' }: DevControl
           </label>
 
           {/* Status indicator */}
-          <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="mt-3 pt-3">
             <div className={`flex items-center gap-2 ${typography.caption}`} style={{ fontSize: '10px' }}>
               <div className={`w-2 h-2 rounded-full ${debug ? 'bg-semantic-success' : 'bg-gray-300'}`} />
               <span className="text-gray-600">

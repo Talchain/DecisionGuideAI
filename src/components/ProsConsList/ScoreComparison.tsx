@@ -58,7 +58,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
         className="bg-white rounded-2xl shadow-xl w-full max-w-5xl my-8 animate-slideUp overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <div className="px-6 py-4 flex items-center justify-between bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-panel rounded-lg">
               <BarChart2 className="h-5 w-5 text-info" />
@@ -171,7 +171,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white">
                   {sortedScores.map((score, index) => (
                     <tr 
                       key={score.name}
@@ -227,7 +227,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
           </section>
 
           {/* Legend */}
-          <section className="border-t border-gray-200 pt-6">
+          <section className="pt-6">
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-900 mb-3">How to Read This Analysis</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">

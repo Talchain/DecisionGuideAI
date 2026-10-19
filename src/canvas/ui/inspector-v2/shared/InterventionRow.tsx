@@ -20,15 +20,15 @@ import {
   VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
 } from '../../../domain/valueProvenance'
-import { INSPECTOR_RULE } from '../inspectorStyle'
 
 /**
- * ⭐ v3.1 (DESIGN-GAP-v31 row 32): one factor target = one FLAT detail row with
- * the contract's 1px `#EEE9E1` rule — not a 280×134 bordered card (radius 14px
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 32): one factor target = one FLAT detail row,
+ * separated by its padding (the contract's 1px rule is retired, DS v5 §6) —
+ * not a 280×134 bordered card (radius 14px
  * measured) inside the option's own 306×473 card. The label wraps instead of
  * truncating: a name is never clipped in the inspector.
  */
-const INTERVENTION_ROW_CLASS = `py-2 border-b ${INSPECTOR_RULE.row} last:border-b-0`
+const INTERVENTION_ROW_CLASS = 'py-2'
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
