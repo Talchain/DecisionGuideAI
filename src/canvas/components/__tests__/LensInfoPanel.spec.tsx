@@ -16,10 +16,17 @@
  * Controls prove a measured value — including 0 — still travels the measured
  * path, so the absence assertions are not vacuous (trap 13).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { LensInfoPanel } from '../LensInfoPanel'
 import { useCanvasStore } from '../../store'
+
+// The Run stage the action registry reads; real elsewhere, set per row in the "If it failed" block.
+let mockStage: string | null = null
+vi.mock('../../conversation/askAi', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../conversation/askAi')>()
+  return { ...real, askAiStage: (state?: never) => (mockStage ?? real.askAiStage(state)) as never }
+})
 
 function seedRobustnessLens(fragileEdges: Array<Record<string, unknown>>): void {
   useCanvasStore.setState({
@@ -176,5 +183,34 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
     // The claim, and the figure it would have printed (0.8 → "80%"), are absent.
     expect(panel.textContent).not.toContain('Recommendation stability')
     expect(panel.textContent).not.toContain('80%')
+  })
+})
+
+describe('"If it failed" offers its ask only where a worksheet can come back', () => {
+  beforeEach(() => {
+    localStorage.setItem('feature.graphLens', '1')
+    useCanvasStore.setState({
+      nodes: [{ id: 'o1', type: 'option', data: { label: 'Hire' }, position: { x: 0, y: 0 } }] as never,
+      lens: { ...useCanvasStore.getState().lens, active: 'premortem' },
+    } as never)
+  })
+  afterEach(() => {
+    mockStage = null
+    localStorage.removeItem('feature.graphLens')
+    useCanvasStore.setState({ nodes: [] as never, lens: { ...useCanvasStore.getState().lens, active: 'full' } } as never)
+  })
+
+  it('before a Run there is no pre-mortem press, so it says why and offers no ask (staging fe4e4b9d: prose, no worksheet)', () => {
+    mockStage = 'drafted'
+    render(<LensInfoPanel />)
+    expect(screen.getByTestId('premortem-needs-run').textContent).toContain('Run the analysis')
+    expect(screen.queryByTestId('premortem-ask')).toBeNull()
+  })
+
+  it('CONTRAST: on a current Run the ask is offered', () => {
+    mockStage = 'ran-current'
+    render(<LensInfoPanel />)
+    expect(screen.getByTestId('premortem-ask')).toBeTruthy()
+    expect(screen.queryByTestId('premortem-needs-run')).toBeNull()
   })
 })

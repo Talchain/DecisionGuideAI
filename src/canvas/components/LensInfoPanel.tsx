@@ -51,7 +51,8 @@ import { typography } from '../../styles/typography'
 import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { PreMortemWorksheet } from '../../components/results/analysisNew/sections/PreMortemWorksheet'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
-import { askAi } from '../conversation/askAi'
+import { askAi, askAiStage } from '../conversation/askAi'
+import { typedPressIdOf } from '../conversation/actionRegistry'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
@@ -65,6 +66,7 @@ export const LENS_KEY_COPY = {
   premortemEmpty: 'Olumi has not imagined this model failing yet.',
   premortemWhat: 'It writes plausible ways each option could fail, each tied to what it rests on in the model, for you to challenge.',
   premortemAsk: 'Ask Olumi to imagine it failed',
+  premortemNeedsRun: 'Olumi imagines failures from what a current Run shows. Run the analysis, then ask here.',
   fragileHeading: 'Links that could change how the options compare',
   sensitiveHeading: 'Factors the result moves with most',
   focusOn: 'If you could strengthen one relationship, focus on:',
@@ -91,12 +93,17 @@ function askAndReveal(request: Parameters<typeof askAi>[0]): void {
 function PremortemKey() {
   const worksheet = useCurrentPremortemWorksheet()
   const viewer = useIsViewer()
+  // The pre-mortem press exists only on a Run it can read (`actionRegistry.ts`): before one, the ask would reach Olumi as
+  // a chat question and no worksheet could come back (verifier, staging fe4e4b9d), so the lens says why instead.
+  const canAsk = useCanvasStore(s => typedPressIdOf('pre_mortem', askAiStage(s)) !== undefined)
   if (worksheet) return <PreMortemWorksheet />
   return (
     <div data-testid="premortem-not-yet" className="space-y-3">
       <p className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemEmpty}</p>
       <p className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.premortemWhat}</p>
-      {!viewer ? (
+      {viewer ? null : !canAsk ? (
+        <p data-testid="premortem-needs-run" className={`${typography.panelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>
+      ) : (
         <button
           type="button"
           data-testid="premortem-ask"
@@ -105,7 +112,7 @@ function PremortemKey() {
         >
           {LENS_KEY_COPY.premortemAsk}
         </button>
-      ) : null}
+      )}
     </div>
   )
 }
