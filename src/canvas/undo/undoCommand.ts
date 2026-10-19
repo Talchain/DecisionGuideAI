@@ -53,7 +53,9 @@ export type UndoCommandOutcome =
   | 'failed'
 
 export const UNDO_NOTICE = {
-  nothingToUndo: 'Nothing to undo.',
+  // The journal lives for this visit only (`captureUndoReceipt.ts`): after a reopen, a change made before it is still in
+  // the saved versions, so "Nothing to undo." alone was untrue (verifier, staging 1e37799f, 19 Oct).
+  nothingToUndo: 'Nothing to undo since you opened this model. Version history can restore an earlier version.',
   nothingToRedo: 'Nothing to redo.',
   barrier: "The last change can't be undone here. Version history can restore an earlier version.",
   busy: 'A change is still being saved. Try again in a moment.',

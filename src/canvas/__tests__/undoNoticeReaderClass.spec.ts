@@ -180,6 +180,10 @@ describe('the undo notice is true for the reader who receives it', () => {
     pressUndo()
     await vi.runAllTimersAsync()
     expect(toasts.messages).toEqual([UNDO_NOTICE.nothingToUndo])
+    // After a reopen the journal is empty although earlier saved changes exist (staging 1e37799f, 19 Oct): the notice
+    // bounds its claim to this visit and names the route that can still restore them.
+    expect(UNDO_NOTICE.nothingToUndo).toContain('since you opened this model')
+    expect(UNDO_NOTICE.nothingToUndo).toContain('Version history')
   })
 
   it('TWIN: the shared reader is pointed at the shared list, and the two notices differ', () => {
