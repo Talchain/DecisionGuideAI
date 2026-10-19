@@ -26,7 +26,7 @@ export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Eleme
   const hasMore = hiddenRisks.length > 0
 
   return (
-    <div className="font-sans border-t border-storm-100">
+    <div className="font-sans">
       <ExpandableSection
         title={
           <div className="font-sans flex items-center gap-2">

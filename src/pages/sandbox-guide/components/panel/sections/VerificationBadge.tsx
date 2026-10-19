@@ -103,7 +103,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
       </button>
 
       {showDetail && criticalIssues.length > 0 && (
-        <div className="pl-4 border-l-2 border-storm-200 space-y-1" role="region" aria-label="Verification details">
+        <div className="pl-4 space-y-1" role="region" aria-label="Verification details">
           <p className="text-xs text-storm-600 font-sans">{config.description}</p>
           <div className="space-y-1">
             {criticalIssues.slice(0, 3).map((issue, idx) => (

@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -3026,7 +3026,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   //  - `right: 0`, `top: var(--topbar-h)`, `bottom: var(--bottombar-h)` —
   //    edge to edge between the top bar's bottom rule and the viewport bottom
   //    (`--bottombar-h` is 0px on the canvas route, `ReactFlowGraph.tsx`).
-  //  - ONE rule, on the left, in the contract's colour (`--panel-edge-rule`).
+  //  - No rule: the contract's left edge rule is a one-sided border, retired
+  //    by Design System v5 §6 (Paul, 18 Oct 2026). The panel's white against
+  //    the warm canvas (`--bg-panel` on `--bg-canvas`) is the edge.
   //  - No radius and no shadow: a flush panel has no corners to round and
   //    nothing to lift off.
   //
@@ -3054,7 +3056,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     bottom: 'var(--bottombar-h)',
     background: 'rgb(var(--bg-panel-rgb) / 0.95)',
     backdropFilter: 'blur(8px)',
-    borderLeft: '1px solid var(--panel-edge-rule)',
     borderRadius: 0,
     boxShadow: 'none',
     zIndex: 900,
@@ -3196,9 +3197,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           gone: the shell is `overflow: hidden`, so it already clips this
           child to its own corner radius, exactly once. */}
       <div
-        className="sticky top-0 z-10 border-b"
-        // Contract `.panel-tabs{border-bottom:1px solid #E6E1D8}`.
-        style={{ background: 'rgb(var(--bg-panel-rgb) / 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
+        className="sticky top-0 z-10"
+        // The contract's `.panel-tabs` bottom rule is retired (DS v5 §6): the
+        // tab strip sits on the panel's own background, set apart by its height.
+        style={{ background: 'rgb(var(--bg-panel-rgb) / 0.95)' }}
       >
         {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
@@ -3377,7 +3379,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
                   <div
-                    className="px-3 py-2 border-b border-panel-border"
+                    className="px-3 py-2"
                     role="status"
                     aria-live="polite"
                     data-testid="ai-panel-transition-receipt"
@@ -4495,7 +4497,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             data-testid="scenario-comparison-loading"
           >
             <div className="bg-panel px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin text-info" aria-hidden="true" />
               <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>
           </div>

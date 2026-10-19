@@ -106,7 +106,7 @@ export default function ProfileSettingsPage() {
   return (
     <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-panel border-b border-[rgba(38,38,38,0.08)]">
+      <header className="flex items-center justify-between px-6 py-4 bg-panel">
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -183,7 +183,7 @@ export default function ProfileSettingsPage() {
         </button>
 
         {/* Danger zone */}
-        <div className="mt-16 border-t border-[rgba(38,38,38,0.08)] pt-8">
+        <div className="mt-16 pt-8">
           <h2 className={`${typography.h4} text-danger mb-2`}>Danger zone</h2>
           <p className={`${typography.bodySmall} text-text-light mb-4`}>
             Permanently delete your account and all associated data. This action cannot be undone.

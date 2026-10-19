@@ -52,7 +52,7 @@ export function BiasGrounding({
 
   return (
     <section
-      className="border-t border-panel-border pt-3"
+      className="pt-3"
       data-testid={testId}
       aria-labelledby={`${testId}-heading`}
     >

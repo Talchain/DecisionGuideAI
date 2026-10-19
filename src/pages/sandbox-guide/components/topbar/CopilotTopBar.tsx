@@ -79,7 +79,7 @@ export function GuideTopBar(): JSX.Element {
   const criticalAlert = getCriticalAlert()
 
   return (
-    <div className="h-12 border-b border-storm-200 bg-white flex items-center px-4 gap-4">
+    <div className="h-12 bg-white flex items-center px-4 gap-4">
       {/* Left: Branding + Stage */}
       <div className="flex items-center gap-3">
         <div className="text-sm font-semibold text-charcoal-900">Decision Coach</div>

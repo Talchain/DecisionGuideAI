@@ -30,7 +30,7 @@ export function GuideBottomToolbar(): JSX.Element {
   }
 
   return (
-    <div className="h-12 border-t border-storm-200 bg-white flex items-center px-4 gap-3">
+    <div className="h-12 bg-white flex items-center px-4 gap-3">
       {/* Left: Chat toggle */}
       <div className="flex items-center gap-2">
         <Button

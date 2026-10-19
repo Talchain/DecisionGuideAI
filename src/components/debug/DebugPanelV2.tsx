@@ -172,7 +172,6 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
     display: 'flex',
     gap: 0,
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
     padding: '0 12px',
   }
 
@@ -181,11 +180,10 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
     fontSize: 12,
     fontWeight: isActive ? 600 : 400,
     color: isActive ? '#1d4ed8' : '#64748b',
-    background: 'transparent',
+    background: isActive ? '#eff6ff' : 'transparent',
     border: 'none',
-    borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
     cursor: 'pointer',
-    transition: 'color 0.1s, border-color 0.1s',
+    transition: 'color 0.1s, background-color 0.1s',
   })
 
   const contentStyle: CSSProperties = {

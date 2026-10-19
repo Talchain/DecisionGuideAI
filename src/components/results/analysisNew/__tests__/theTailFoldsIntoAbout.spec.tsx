@@ -221,6 +221,8 @@ describe('gap 27 — About is a quiet audit footer', () => {
     fireEvent.click(toggle)
     expect(screen.getByTestId(`${ABOUT}-chevron`).getAttribute('class') ?? '').toMatch(/\brotate-90\b/)
 
-    expect(about.className.split(/\s+/)).toEqual(expect.arrayContaining(['-mx-4', 'px-4', 'border-t']))
+    // The shared top-level break (PANEL_RULE): space only since DS v5 §6, no one-sided rule.
+    expect(about.className.split(/\s+/)).toEqual(expect.arrayContaining(['-mx-4', 'px-4', 'pt-3']))
+    expect(about.className.split(/\s+/)).not.toContain('border-t')
   })
 })

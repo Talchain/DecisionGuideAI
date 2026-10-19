@@ -252,7 +252,7 @@ export function SuccessTarget({
         </div>}
 
         {isExpanded && canEditThreshold && (
-          <div className="mt-2 pt-2 border-t border-panel-border flex flex-col gap-2">
+          <div className="mt-2 pt-2 flex flex-col gap-2">
             <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
             <div className="flex items-center gap-2">
               <input
@@ -397,7 +397,7 @@ export function SuccessTarget({
 
       {/* Inline edit when expanded */}
       {isExpanded && canEditThreshold && (
-        <div className="pt-2 border-t border-panel-border flex flex-col gap-2">
+        <div className="pt-2 flex flex-col gap-2">
           <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
           <div className="flex items-center gap-2">
             <input

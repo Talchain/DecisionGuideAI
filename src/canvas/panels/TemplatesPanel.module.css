@@ -5,7 +5,6 @@
 }
 
 .header {
-  border-bottom: 1px solid var(--surface-border);
   background: var(--shadow-1);
 }
 

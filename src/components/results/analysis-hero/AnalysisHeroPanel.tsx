@@ -592,7 +592,7 @@ export function AnalysisHeroPanel({
       {showPillsRow && (
         <div
           data-testid="hero-summary-pills"
-          className="flex flex-wrap gap-1.5 border-t border-panel-border pt-2"
+          className="flex flex-wrap gap-1.5 pt-2"
         >
           {combinedLink ? (
             <button
@@ -740,7 +740,7 @@ export function AnalysisHeroPanel({
         model.showGoalHint ||
         model.focusAction != null ||
         !nextRecommendation) && (
-      <div className="space-y-1.5 border-t border-panel-border pt-2">
+      <div className="space-y-1.5 pt-2">
         {model.mainReason && !mainDriverLink && (
           <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
             {model.mainReason}
@@ -893,7 +893,7 @@ export function AnalysisHeroPanel({
       {nextRecommendation && (
         <div
           data-testid="hero-next-rec"
-          className="flex items-center gap-2 border-t border-panel-border pt-2"
+          className="flex items-center gap-2 pt-2"
         >
           <Target aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
           <span className="min-w-0 flex-1">

@@ -124,7 +124,7 @@ export function EdgeTooltip({
 
       {/* Actions */}
       {(onAddEvidence || onExplain) && (
-        <div className="pt-2 border-t border-storm-100 space-y-2">
+        <div className="pt-2 space-y-2">
           {onAddEvidence && (
             <Button
               size="sm"

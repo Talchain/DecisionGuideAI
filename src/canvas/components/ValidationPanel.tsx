@@ -240,7 +240,7 @@ export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPa
           : config.description
 
         return (
-          <div key={severity} className="border-b border-sand-200 last:border-b-0">
+          <div key={severity}>
             {/* Section header */}
             <button
               type="button"

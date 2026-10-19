@@ -59,7 +59,7 @@ export function AnalysisFooter({
       : 'bg-primary text-text-on-color hover:bg-primary-hover'
   return (
     <div
-      className="sticky bottom-0 z-10 flex-shrink-0 border-t border-panel-border bg-panel px-4 py-1.5"
+      className="sticky bottom-0 z-10 flex-shrink-0 bg-panel px-4 py-1.5"
       data-testid={testId}
     >
       <div className="flex items-center justify-between gap-3">

@@ -293,7 +293,7 @@ export function DecisionSummary({
     >
       {/* Objective section - what we're trying to achieve */}
       {objectiveText && (
-        <div className="px-4 py-3 bg-sky-50 border-b border-sky-100">
+        <div className="px-4 py-3 bg-sky-50">
           <div className="flex items-start gap-2">
             <Target className="h-4 w-4 text-sky-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div>
@@ -307,7 +307,7 @@ export function DecisionSummary({
       )}
 
       {/* Main outcome - prominent display */}
-      <div className="px-4 py-4 border-b border-sand-100">
+      <div className="px-4 py-4">
         {/* Header - show ranking badge inline */}
         <div className="flex items-center gap-2 mb-2">
           <Zap className="h-4 w-4 text-mint-600" aria-hidden="true" />
@@ -421,7 +421,7 @@ export function DecisionSummary({
       </div>
 
       {/* Confidence section */}
-      <div className={`px-4 py-3 ${confConfig.bgColor} border-b ${confConfig.borderColor}`}>
+      <div className={`px-4 py-3 ${confConfig.bgColor}`}>
         <div className="flex items-start gap-3">
           <ConfidenceIcon
             className={`h-5 w-5 ${confConfig.iconColor} flex-shrink-0 mt-0.5`}
@@ -464,7 +464,7 @@ export function DecisionSummary({
 
       {/* Why this option - CEE rationale with expandable details */}
       {(rationale.source !== 'none' || summaryData.topDriver) && (
-        <div className="px-4 py-3 border-b border-sand-100">
+        <div className="px-4 py-3">
           {rationale.source !== 'none' ? (
             // CEE-based rationale
             <div>

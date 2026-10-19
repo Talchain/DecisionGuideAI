@@ -1619,7 +1619,7 @@ export function ModelTabV2Panel({
        * no side borders, no top padding (this section opens the tab, so
        * nothing sits above it to divide from).
        */
-      className="flex flex-col gap-2 border-b border-panel-border pb-2.5"
+      className="flex flex-col gap-2 pb-2.5"
     >
       {/*
         ⭐⭐ V2 GAP 31 — TWO ROWS, NOT THREE, AND NO TINT FILLS.

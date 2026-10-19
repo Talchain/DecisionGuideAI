@@ -152,11 +152,10 @@ export function Accordion({
         aria-hidden={!isExpanded}
         // @ts-expect-error inert is a valid HTML attribute but not yet in React types
         inert={!isExpanded ? '' : undefined}
-        className="transition-[height,opacity] duration-200 ease-in-out overflow-hidden border-t border-panel-border"
+        className="transition-[height,opacity] duration-200 ease-in-out overflow-hidden"
         style={{
           height: contentHeight === undefined ? 'auto' : contentHeight,
           opacity: isExpanded ? 1 : 0,
-          borderTopWidth: isExpanded ? 1 : 0,
         }}
       >
         <div className="p-3">

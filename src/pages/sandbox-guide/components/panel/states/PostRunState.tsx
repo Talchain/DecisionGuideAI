@@ -106,7 +106,7 @@ export function PostRunState(): JSX.Element {
   const biasFindings = (ceeReview as any)?.bias?.findings
 
   return (
-    <div className="divide-y divide-storm-100">
+    <div className="space-y-1">
       {/* Header */}
       <div className="p-6 bg-practical-50 space-y-4">
         <div className="flex items-center justify-between">

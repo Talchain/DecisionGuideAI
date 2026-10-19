@@ -351,10 +351,7 @@ function TierSection({
                   return (
                     <div
                       key={item.key}
-                      style={!subgroupChanged && index > 0 ? {
-                        borderTop: '1px solid rgba(238, 230, 216, 0.5)',
-                        paddingTop: '8px',
-                      } : undefined}
+                      style={!subgroupChanged && index > 0 ? { paddingTop: '8px' } : undefined}
                     >
                       {subgroupChanged && dividerLabel && (
                         <SubgroupDivider label={dividerLabel} />
@@ -401,10 +398,7 @@ function TierSection({
                           {briefItems.map((item, bi) => (
                             <div
                               key={item.key}
-                              style={bi > 0 ? {
-                                borderTop: '1px solid rgba(238, 230, 216, 0.5)',
-                                paddingTop: '8px',
-                              } : undefined}
+                              style={bi > 0 ? { paddingTop: '8px' } : undefined}
                             >
                               <ImprovementRow
                                 item={item}
@@ -435,10 +429,7 @@ function TierSection({
               {/* Evidence items: summary always visible, individual items behind toggle */}
               {evidenceItems.length > 0 && (
                 <div
-                  style={nonEvidenceItems.length > 0 ? {
-                    borderTop: '1px solid rgba(238, 230, 216, 0.5)',
-                    paddingTop: '8px',
-                  } : undefined}
+                  style={nonEvidenceItems.length > 0 ? { paddingTop: '8px' } : undefined}
                 >
                   {/* Summary line — always visible on expand */}
                   <div className="flex items-center justify-between">
@@ -460,10 +451,7 @@ function TierSection({
                       {evidenceItems.map((item, index) => (
                         <div
                           key={item.key}
-                          style={index > 0 ? {
-                            borderTop: '1px solid rgba(225, 216, 199, 0.4)',
-                            paddingTop: '8px',
-                          } : undefined}
+                          style={index > 0 ? { paddingTop: '8px' } : undefined}
                         >
                           <ImprovementRow
                             item={item}
@@ -489,23 +477,18 @@ function TierSection({
 /** Category display config - no backgrounds, sentence case labels */
 const categoryConfig: Record<ImprovementCategory, {
   label: string
-  rowBorderColor: string
 }> = {
   fix: {
     label: 'Fix',
-    rowBorderColor: 'rgba(234, 123, 75, 0.2)', // danger at 20%
   },
   verify: {
     label: 'Verify',
-    rowBorderColor: 'rgba(255, 166, 86, 0.2)', // warning at 20%
   },
   add_evidence: {
     label: 'Add evidence',
-    rowBorderColor: 'rgba(225, 216, 199, 0.4)', // panel-border at 40%
   },
   strengthen: {
     label: 'Strengthen',
-    rowBorderColor: 'rgba(170, 167, 228, 0.2)', // option at 20%
   },
 }
 
@@ -571,15 +554,12 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
         )}
       </div>
 
-      {/* Items with category-coloured borders between rows */}
+      {/* Items separated by space (no rules between rows, DS v5 §6) */}
       <div className="space-y-2">
         {items.map((item, index) => (
           <div
             key={item.key}
-            style={index > 0 ? {
-              borderTop: `1px solid ${config.rowBorderColor}`,
-              paddingTop: '8px',
-            } : undefined}
+            style={index > 0 ? { paddingTop: '8px' } : undefined}
           >
             <ImprovementRow
               item={item}
@@ -916,7 +896,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 <button
                   type="button"
                   onClick={handleOpenValueEditor}
-                  className="shrink-0 text-text-light hover:text-info cursor-pointer border-b border-dashed border-panel-border hover:border-info"
+                  className="shrink-0 text-text-light hover:text-info cursor-pointer underline decoration-dashed decoration-panel-border underline-offset-2 hover:decoration-info"
                 >
                   {' · '}{item.detail}
                 </button>

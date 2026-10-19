@@ -144,15 +144,16 @@ export function ArtefactColumn({ isStale, isBusy, hidden = false }: ArtefactColu
         top: 'var(--topbar-h, 0px)',
         bottom: 'var(--bottombar-h)',
         width: ARTEFACT_COLUMN_WIDTH,
-        background: 'rgb(var(--bg-panel-rgb) / 0.95)',
+        // Background contrast, not a rule (DS v5 §6): the warm panel-hover
+        // ground sets the column apart from the white dock beside it.
+        background: 'rgb(var(--bg-panel-hover-rgb) / 0.95)',
         backdropFilter: 'blur(8px)',
-        borderLeft: '1px solid var(--panel-edge-rule)',
         zIndex: 900,
         opacity: entered ? 1 : 0,
         transform: entered ? 'none' : 'translateX(12px)',
       }}
     >
-      <header className="space-y-2 border-b border-panel-border px-4 py-3">
+      <header className="space-y-2 px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
           <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-body`}>{title}</h2>
@@ -197,7 +198,7 @@ export function ArtefactOpeners() {
   const show = useArtefactStore((s) => s.show)
   if (available.length === 0) return null
   return (
-    <ul data-testid="artefact-openers" className="space-y-1 border-b border-panel-border py-2">
+    <ul data-testid="artefact-openers" className="space-y-1 py-2">
       {available.map((id) => {
         const { title, Icon } = ARTEFACTS[id]
         return (

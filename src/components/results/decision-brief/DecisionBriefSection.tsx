@@ -202,7 +202,7 @@ export function DecisionBriefSection({
 
       <dl
         id={detailsId}
-        className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-panel-border pt-2"
+        className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 pt-2"
         data-testid="decision-brief-groups"
       >
         {groups.map(group => (
@@ -212,7 +212,7 @@ export function DecisionBriefSection({
 
       {leaderClaimPermitted && brief.robustnessCaveat && (
         <p
-          className={`${typography.panelMeta} mt-2 border-t border-panel-border pt-2 text-text-light`}
+          className={`${typography.panelMeta} mt-2 pt-2 text-text-light`}
           data-testid="decision-brief-robustness-caveat"
         >
           {brief.robustnessCaveat.text}

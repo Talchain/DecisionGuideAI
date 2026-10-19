@@ -42,7 +42,6 @@ import { useRenameIntentStore, clearNodeRename } from './renameIntent'
 import {
   INSPECTOR_SHELL_STYLE,
   INSPECTOR_WIDTH_PX,
-  INSPECTOR_RULE,
   inspectorIconButton,
 } from './inspectorStyle'
 
@@ -174,7 +173,7 @@ export const InspectorShell = memo(function InspectorShell({
       {/* Head — kind, title, optional quiet actions, Close. The drag surface. */}
       <div
         data-testid="inspector-header"
-        className={`relative flex items-start gap-2 px-3.5 py-[13px] border-b ${INSPECTOR_RULE.head} bg-panel select-none shrink-0 ${
+        className={`relative flex items-start gap-2 px-3.5 py-[13px] bg-panel select-none shrink-0 ${
           dragHandlers ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
         }`}
         {...(dragHandlers ? {

@@ -109,7 +109,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
       <button
         type="button"
         onClick={handleFocus}
-        className="w-full flex items-center justify-between gap-2 px-3 py-3 border-t border-panel-border bg-panel hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className="w-full flex items-center justify-between gap-2 px-3 py-3 bg-panel hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         data-testid="persistent-strip-status"
         aria-label="Focus floating Olumi panel"
       >
@@ -129,7 +129,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
       <button
         type="button"
         onClick={onOpenFloating}
-        className="w-full flex items-center gap-1 px-2 py-2 border-t border-panel-border bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info text-left"
+        className="w-full flex items-center gap-1 px-2 py-2 bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info text-left"
         data-testid="persistent-strip-composer-redirect"
         aria-label={`Open Olumi: ${placeholder}`}
       >
@@ -150,7 +150,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // AIInputBar with a real textarea; Enter submits to the docked
   // conversation.
   return (
-    <div className="border-t border-panel-border bg-panel" data-testid="persistent-strip-composer">
+    <div className="bg-panel" data-testid="persistent-strip-composer">
       <AIInputBar
         ref={inputBarRef}
         variant="strip"

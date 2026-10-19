@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Paperclip, Settings, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip, Settings, X, Loader2 } from 'lucide-react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
@@ -1181,7 +1181,7 @@ export function DraftChat() {
                 title="Press Enter to send"
               >
                 {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" aria-hidden="true" />
                 ) : (
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
@@ -1235,7 +1235,7 @@ export function DraftChat() {
             </div>
             {/* Header — hidden when orchestrator V2 is active (ConversationPanel renders its own header) */}
             {!isOrchV2 && (
-            <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
+            <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
                   <OlumiAiIcon size={16} className="olumi-glyph-ai text-white" aria-hidden="true" />
@@ -1521,7 +1521,7 @@ export function DraftChat() {
             </div>
 
             {/* Input area - auto-grows with content, scrollbar at 75vh */}
-            <div className="border-t border-sand-100 p-3 bg-paper-25 flex-shrink-0">
+            <div className="p-3 bg-paper-25 flex-shrink-0">
               <div className="relative">
                 <textarea
                   ref={textareaRef}
@@ -1577,7 +1577,7 @@ export function DraftChat() {
                   title="Press Enter to send • Shift+Enter for new line"
                 >
                   {loading ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" aria-hidden="true" />
                   ) : (
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />

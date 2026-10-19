@@ -311,7 +311,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                 })}
                 {hostGroups.map((group, index) => (
                   <div key={group.id} role="none" data-testid={`${testId}-menu-group-host-${group.id}`}>
-                    {menu.length > 0 || index > 0 ? <div role="separator" className="-mx-2 my-1 border-b border-panel-border" /> : null}
+                    {menu.length > 0 || index > 0 ? <div role="separator" className="-mx-2 my-1" /> : null}
                     <span className={`${type.meta} block px-2 py-1 text-text-light`}>{group.label}</span>
                     {group.items.map((item) => (
                       <button

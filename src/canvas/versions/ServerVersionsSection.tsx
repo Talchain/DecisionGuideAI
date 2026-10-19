@@ -1141,7 +1141,7 @@ function ServerVersionCompare({
   const select = `${typography.panelBody} min-w-0 flex-1 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`
 
   return (
-    <section className="space-y-2 pt-2 border-t border-panel-border" data-testid={SERVER_VERSION_COMPARE_TESTID}>
+    <section className="space-y-2 pt-2" data-testid={SERVER_VERSION_COMPARE_TESTID}>
       <h4 className={`${typography.panelBody} text-text-body font-medium`}>What changed between versions</h4>
       <div className="flex items-center gap-2">
         <label className="sr-only" htmlFor="server-compare-from">From version</label>

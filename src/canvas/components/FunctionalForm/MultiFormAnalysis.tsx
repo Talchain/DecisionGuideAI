@@ -136,7 +136,7 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
       className="rounded-lg border border-sand-200 bg-sand-50"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-sand-200">
+      <div className="flex items-center justify-between p-3">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-5 h-5 text-option" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-700`}>

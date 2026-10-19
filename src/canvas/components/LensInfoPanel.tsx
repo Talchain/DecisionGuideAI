@@ -108,7 +108,7 @@ function CausalPanel() {
             </thead>
             <tbody>
               {edgeTableRows.map((r, i) => (
-                <tr key={i} style={{ borderTop: '1px solid var(--border-default, #EEE6D8)' }}>
+                <tr key={i}>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.from}>{r.from}</td>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.to}>{r.to}</td>
                   {/* ROADMAP 2.954 — provenance-gated Mean: an unset strength

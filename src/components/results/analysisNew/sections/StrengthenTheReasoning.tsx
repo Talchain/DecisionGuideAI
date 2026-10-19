@@ -1154,7 +1154,7 @@ export function StrengthenTheReasoning({
             return (
               <li
                 key={rec.id}
-                className="border-b border-panel-border last:border-b-0 pb-3 last:pb-0"
+                className="pb-3 last:pb-0"
                 data-testid={`${testId}-item`}
                 data-recommendation-id={rec.id}
               >
@@ -1706,7 +1706,7 @@ export function StrengthenTheReasoning({
           legacy panel can afford it because it is always mounted; a section
           that is itself collapsible cannot. */}
       {retired.length > 0 ? (
-        <div className="mt-2 border-t border-panel-border pt-2">
+        <div className="mt-2 pt-2">
           <button
             type="button"
             aria-expanded={historyOpen}

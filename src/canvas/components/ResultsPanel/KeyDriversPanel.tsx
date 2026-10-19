@@ -203,7 +203,7 @@ export function KeyDriversPanel({
   }
 
   return (
-    <div className="divide-y divide-sand-100" data-testid="key-drivers-panel">
+    <div className="space-y-1" data-testid="key-drivers-panel">
       {/* Section 1: Top Drivers */}
       {(hasDrivers || loading.robustness) && (
         <div>

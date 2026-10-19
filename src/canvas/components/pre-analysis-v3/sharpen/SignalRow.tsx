@@ -31,7 +31,7 @@ export const SignalRow = memo(function SignalRow({ view, onSendPrompt, onAction 
 
   return (
     <div
-      className="grid grid-cols-[16px_1fr_auto] items-start gap-2 border-t border-panel-border py-2 first:border-t-0"
+      className="grid grid-cols-[16px_1fr_auto] items-start gap-2 py-2"
       data-testid={`pre-analysis-v3-signal-${detection.signal_id}`}
       data-signal-status={status}
     >

@@ -22,7 +22,7 @@ export function AdvancedMetricsSection({
   }
 
   return (
-    <div className="font-sans border-t border-storm-100">
+    <div className="font-sans">
       <ExpandableSection
         title={
           <span className="text-sm font-semibold text-charcoal-900">🔬 Advanced Metrics</span>

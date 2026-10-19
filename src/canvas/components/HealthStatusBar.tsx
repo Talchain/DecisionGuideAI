@@ -66,7 +66,7 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
 
       {/* Expanded details */}
       {isExpanded && health.issues.length > 0 && (
-        <div className="border-t border-current/20 p-3 space-y-2">
+        <div className="p-3 space-y-2">
           <div className="flex justify-between items-center">
             <span className={`${typography.body} font-medium`}>{health.issues.length} issues found</span>
             <div className="flex gap-2">

@@ -884,7 +884,6 @@ export const ConversationPanel = memo(function ConversationPanel({
         style={{
           height: 32,
           padding: '0 6px',
-          borderBottom: '1px solid var(--border-default, #EEE6D8)',
         }}
         data-testid="chat-panel-header"
       >

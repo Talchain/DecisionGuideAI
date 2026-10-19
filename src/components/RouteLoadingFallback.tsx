@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 
 interface RouteLoadingFallbackProps {
   minDelay?: number
@@ -37,8 +38,8 @@ export default function RouteLoadingFallback({
       aria-label={`Loading ${routeName}`}
     >
       <div className="text-center">
-        <div 
-          className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-info/30 border-r-transparent motion-reduce:animate-none"
+        <Loader2
+          className="inline-block h-12 w-12 animate-spin text-info motion-reduce:animate-none"
           aria-hidden="true"
         />
         <p className="mt-4 text-sm text-gray-600">

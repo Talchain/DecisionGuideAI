@@ -384,7 +384,7 @@ export function GraphTextView({
       data-testid="graph-text-view"
     >
       {/* Header with search and copy */}
-      <div className="p-4 border-b border-sand-200">
+      <div className="p-4">
         <div className="flex items-center gap-3">
           {/* Search input */}
           <div className="flex-1 relative">

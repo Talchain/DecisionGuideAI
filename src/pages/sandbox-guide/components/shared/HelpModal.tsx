@@ -70,7 +70,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps): JSX.Element | nu
         className="bg-white rounded-lg shadow-xl border border-storm-200 max-w-md w-full mx-4"
       >
         {/* Header */}
-        <div className="p-4 border-b border-storm-200 flex items-center justify-between">
+        <div className="p-4 flex items-center justify-between">
           <h2 id="help-modal-title" className="text-lg font-semibold text-charcoal-900">
             Keyboard Shortcuts
           </h2>
@@ -114,7 +114,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps): JSX.Element | nu
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-storm-200 flex justify-end">
+        <div className="p-4 flex justify-end">
           <Button variant="primary" size="sm" onClick={onClose}>
             Got it
           </Button>

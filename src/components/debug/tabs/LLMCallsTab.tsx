@@ -194,14 +194,12 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
     textAlign: 'left',
     padding: '8px 12px',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
     fontWeight: 600,
     color: '#475569',
   }
 
   const tdStyle: CSSProperties = {
     padding: '8px 12px',
-    borderBottom: '1px solid #f1f5f9',
     verticalAlign: 'top',
   }
 
@@ -386,7 +384,6 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
                         style={{
                           padding: 16,
                           background: '#f8fafc',
-                          borderBottom: '1px solid #e2e8f0',
                         }}
                       >
                         {/* V2.0 extra fields */}

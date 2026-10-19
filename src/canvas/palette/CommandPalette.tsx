@@ -104,7 +104,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
       {/* Palette */}
       <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-panel">
         {/* Search input */}
-        <div className="border-b border-gray-200 p-4">
+        <div className="p-4">
           <input
             ref={inputRef}
             type="text"
@@ -218,7 +218,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
         </div>
 
         {/* Footer hint */}
-        <div className="border-t border-gray-200 px-4 py-2 text-xs text-gray-500 flex items-center justify-between">
+        <div className="px-4 py-2 text-xs text-gray-500 flex items-center justify-between">
           <span>
             <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">↑</kbd>
             <kbd className="ml-1 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">↓</kbd>

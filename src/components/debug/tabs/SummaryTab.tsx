@@ -461,7 +461,7 @@ export function SummaryTab({
               {data.error.retryable && ' • Retryable'}
             </div>
             {errorInfo && (
-              <div style={{ fontSize: 12, marginTop: 8, paddingTop: 8, borderTop: '1px solid #fecaca' }}>
+              <div style={{ fontSize: 12, marginTop: 8, paddingTop: 8 }}>
                 <div style={{ color: '#b91c1c' }}>{errorInfo.description}</div>
                 <div style={{ color: '#dc2626', marginTop: 2 }}>
                   <strong>Action:</strong> {errorInfo.action}

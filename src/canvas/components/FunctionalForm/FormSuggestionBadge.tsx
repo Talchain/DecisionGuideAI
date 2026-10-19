@@ -120,7 +120,7 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
 
       {/* Rationale content */}
       {showRationale && (
-        <div className="px-3 py-2 bg-panel border-t border-warning/30">
+        <div className="px-3 py-2 bg-panel">
           <p className={`${typography.caption} text-warning`}>
             {recommendation.rationale}
           </p>

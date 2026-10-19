@@ -424,7 +424,7 @@ export function InsightsPanel({
       {hasDetails && isExpanded && (
         <div
           id="insights-details"
-          className="px-3 pb-3 space-y-3 border-t border-sky-200/50"
+          className="px-3 pb-3 space-y-3"
           data-testid="insights-details"
         >
           {/* Risks */}

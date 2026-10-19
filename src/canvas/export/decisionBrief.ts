@@ -92,7 +92,6 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
       margin-top: 2rem;
       margin-bottom: 1rem;
       color: #374151;
-      border-bottom: 2px solid #e5e7eb;
       padding-bottom: 0.5rem;
     }
 
@@ -137,11 +136,6 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
       display: flex;
       justify-content: space-between;
       padding: 0.5rem 0;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    .stat-row:last-child {
-      border-bottom: none;
     }
 
     .stat-label {
@@ -171,12 +165,10 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
       font-size: 0.75rem;
       letter-spacing: 0.05em;
       color: #374151;
-      border-bottom: 2px solid #e5e7eb;
     }
 
     td {
       padding: 0.75rem;
-      border-bottom: 1px solid #f3f4f6;
     }
 
     tr:hover {
@@ -218,7 +210,7 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
 
     .rationale {
       background: #fef3c7;
-      border-left: 4px solid #f59e0b;
+      border: 1px solid #f59e0b;
       padding: 1rem;
       margin: 1.5rem 0;
       border-radius: 0.25rem;

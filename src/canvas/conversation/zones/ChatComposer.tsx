@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useImperativeHandle, useEffect, useMemo, useRef, forwardRef, memo } from 'react'
-import { ArrowUp, Paperclip, Play, Square } from 'lucide-react'
+import { ArrowUp, Paperclip, Play, Square, Loader2 } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
 import { useCanvasStore } from '../../store'
@@ -225,7 +225,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     return (
       <div
         className="flex flex-col bg-panel flex-shrink-0"
-        style={{ padding: '8px 12px 10px', gap: 6, borderTop: '1px solid var(--border-default, #EEE6D8)' }}
+        style={{ padding: '8px 12px 10px', gap: 6 }}
         data-testid="chat-composer"
       >
         {/* 1. Coaching tip */}
@@ -495,8 +495,8 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
       data-testid="inline-generate-btn"
     >
       {isLoading ? (
-        <span
-          className="w-[11px] h-[11px] flex-shrink-0 rounded-full border-2 border-white/30 border-t-white animate-spin"
+        <Loader2
+          className="w-[11px] h-[11px] flex-shrink-0 animate-spin text-white"
           aria-hidden="true"
         />
       ) : (

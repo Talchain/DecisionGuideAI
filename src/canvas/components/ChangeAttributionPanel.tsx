@@ -128,7 +128,7 @@ function ChangeItem({
 
   return (
     <div
-      className="flex items-start gap-2 py-2 border-b border-sand-100 last:border-b-0"
+      className="flex items-start gap-2 py-2"
       data-testid="change-item"
     >
       {/* Source icon */}
@@ -311,7 +311,7 @@ export function ChangeAttributionPanel({
       {isExpanded && (
         <div
           id="change-history"
-          className="px-3 pb-3 border-t border-sand-100"
+          className="px-3 pb-3"
           data-testid="change-list"
         >
           <div className="mt-2 space-y-0">

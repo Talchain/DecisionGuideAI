@@ -73,11 +73,10 @@ export function RangeLabels({
             <div
               className="absolute bottom-full left-1/2 transform -translate-x-1/2"
               style={{
-                width: 0,
-                height: 0,
-                borderLeft: '6px solid transparent',
-                borderRight: '6px solid transparent',
-                borderBottom: '6px solid rgb(var(--ink-900))',
+                width: 12,
+                height: 6,
+                background: 'rgb(var(--ink-900))',
+                clipPath: 'polygon(50% 0, 100% 100%, 0 100%)',
               }}
             />
           </div>

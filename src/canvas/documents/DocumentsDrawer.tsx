@@ -20,8 +20,8 @@ export function DocumentsDrawer({ documents, isOpen, onClose }: DocumentsDrawerP
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-panel z-50 flex flex-col">
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-panel z-50 flex flex-col">
+      <div className="px-4 py-3 flex items-center justify-between">
         <h2 className={`${typography.h4} text-gray-900`}>Documents</h2>
         <button
           onClick={onClose}

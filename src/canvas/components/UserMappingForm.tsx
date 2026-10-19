@@ -262,7 +262,7 @@ export function UserMappingForm({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-sand-100">
+      <div className="flex items-center justify-end gap-2 pt-2">
         {onCancel && (
           <button
             type="button"

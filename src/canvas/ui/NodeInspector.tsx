@@ -579,7 +579,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* S.3: Factor post-analysis intelligence */}
       {isFactorNode && displayMetadata.isResultsMode && displayMetadata.inSensitivityAnalysis && (
-        <div className="mt-3 pt-2 border-t border-panel-border">
+        <div className="mt-3 pt-2">
           {/* Fragile badge */}
           {isFragileTarget && (
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-body mb-2`}>
@@ -674,7 +674,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* S.3: Factor not in sensitivity analysis */}
       {isFactorNode && displayMetadata.isResultsMode && !displayMetadata.inSensitivityAnalysis && (
-        <div className="mt-3 pt-2 border-t border-panel-border">
+        <div className="mt-3 pt-2">
           <p className={`${typography.panelMeta} text-text-light italic`}>
             Insights not available for this factor
           </p>
@@ -683,7 +683,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* S.3: Goal post-analysis — achievement probability or stability */}
       {isGoalNode && displayMetadata.isResultsMode && (
-        <div className="mt-3 pt-2 border-t border-panel-border">
+        <div className="mt-3 pt-2">
           {displayMetadata.achievementProbability !== null ? (
             <>
               <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
@@ -730,7 +730,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* S.3: Option post-analysis — win probability */}
       {isOptionNode && displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
-        <div className="mt-3 pt-2 border-t border-panel-border">
+        <div className="mt-3 pt-2">
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
             {/*
              * ⚠ THE LABEL CARRIES THE FREQUENCY, BECAUSE THE VALUE CANNOT.
@@ -871,7 +871,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* Factor value editor */}
       {isFactorNode && (
-        <div className="pt-2 border-t border-panel-border">
+        <div className="pt-2">
           <Tooltip content="Set the current and baseline values for this factor" position="right">
             <h4 className={`${typography.panelMeta} text-text-body mb-2`}>
               Current value <span className="text-text-light">(optional)</span>
@@ -932,7 +932,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* Intervention editor for option nodes */}
       {isOptionNode && optionAsUIOption && (
-        <div className="pt-2 border-t border-panel-border">
+        <div className="pt-2">
           <Tooltip content="Define what causal changes this option makes" position="right">
             <h4 className={`${typography.panelMeta} text-text-body mb-2`}>
               Interventions
@@ -1044,7 +1044,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   )
 
   return (
-    <div className="p-4 border-t border-panel-border" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
+    <div className="p-4" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
       <InspectorAccordion
         summary={summaryContent}
         assumptions={assumptionsContent}

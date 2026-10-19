@@ -253,7 +253,7 @@ export function UnifiedStatusBadge({
       {/* Expandable details */}
       {hasDetails && isExpanded && (
         <div
-          className="px-3 pb-3 border-t border-current/10"
+          className="px-3 pb-3"
           data-testid="unified-status-details"
         >
           <ul className="pt-2 space-y-1 list-none">

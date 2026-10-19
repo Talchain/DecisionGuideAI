@@ -44,7 +44,7 @@ export function TopDriversSection({ drivers, limit = 3 }: TopDriversSectionProps
   }
 
   return (
-    <div className="font-sans border-t border-storm-100">
+    <div className="font-sans">
       <div className="font-sans p-6">
         <h3 className="text-sm font-semibold text-charcoal-900 mb-3">🎯 Top Drivers</h3>
         <div className="font-sans space-y-2">

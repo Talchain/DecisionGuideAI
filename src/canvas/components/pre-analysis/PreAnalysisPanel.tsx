@@ -779,7 +779,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       />
       {showFailingChecks && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           <div className="flex flex-col" data-testid="t1-failing-checks">
             {failingChecks.map(check => (
               <T1FailingCheckRow
@@ -795,7 +795,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       )}
       {showTopThree && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-0.5" data-testid="t1-narrative-bridge">
             <p className={`${typography.panelHeader} text-text-header`}>
               Strengthen this model before analysis
@@ -847,7 +847,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       )}
       {showAlsoConsider && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-1" data-testid="t1-also-consider">
             <p className={`${typography.panelMeta} font-semibold text-text-light`}>Also consider</p>
             <div className="flex flex-col">
@@ -882,7 +882,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       )}
       {showBiasBlock && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-1" data-testid="t1-bias-block">
             {visibleBias.map((trigger, i) => (
               <T1BiasNudgeRow
@@ -908,19 +908,19 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       )}
       {wideningSlot && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           {wideningSlot}
         </>
       )}
       {showContribution && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           <T1ContributionRow progress={priorityProgress} />
         </>
       )}
       {showChecksFooter && (
         <>
-          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div role="separator" aria-hidden="true" />
           {/* Post-deploy fix: the prior `flex justify-end` + `flex-shrink-0`
               wrapper pushed the missing-knowledge prompt (≈450px of copy)
               off the left edge of the 353-wide panel. With only one child

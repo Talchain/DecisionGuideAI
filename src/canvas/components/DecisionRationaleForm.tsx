@@ -263,7 +263,7 @@ export function DecisionRationaleForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-4 border-t border-gray-200">
+      <div className="flex gap-2 pt-4">
         <button
           type="submit"
           className="flex-1 px-4 py-2 bg-primary text-text-on-color rounded-md hover:bg-primary-hover font-medium"

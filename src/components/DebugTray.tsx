@@ -93,7 +93,7 @@ export function DebugTray({
       </button>
 
       {isOpen && (
-        <div className="px-4 py-3 space-y-3 text-xs font-mono border-t border-gray-700">
+        <div className="px-4 py-3 space-y-3 text-xs font-mono">
           {requestId && (
             <div>
               <div className="text-gray-400 mb-1">PLoT Request ID:</div>

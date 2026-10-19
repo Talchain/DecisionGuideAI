@@ -113,7 +113,7 @@ export function DisclosureRow({
 
   return (
     <div
-      className="border-b border-panel-border last:border-b-0 py-3"
+      className="py-3"
       data-testid={`${testIdPrefix}-row`}
       data-finding-id={finding.id}
     >

@@ -92,7 +92,6 @@ export function ModelHealthSection() {
 
   return (
     <div
-      className="border-b border-panel-border"
       style={{ padding: '8px 12px' }}
       data-testid="model-health-section"
     >

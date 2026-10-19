@@ -77,12 +77,12 @@ export function GuideCanvasOverlay({ enabled = true }: GuideCanvasOverlayProps):
         </div>
 
         {drivers.length > 3 && (
-          <div className="mt-2 pt-2 border-t border-storm-100 text-xs text-storm-600">
+          <div className="mt-2 pt-2 text-xs text-storm-600">
             +{drivers.length - 3} more drivers
           </div>
         )}
 
-        <div className="mt-3 pt-2 border-t border-storm-100 text-xs text-storm-600">
+        <div className="mt-3 pt-2 text-xs text-storm-600">
           💡 Click a driver to inspect it
         </div>
       </div>

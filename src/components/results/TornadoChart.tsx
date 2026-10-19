@@ -480,7 +480,7 @@ export function TornadoChart({
       </div>
 
       {/* Tornado rows */}
-      <div className="divide-y divide-panel-border/70">
+      <div className="space-y-1" data-testid="tornado-rows">
         {rows.map((row) => {
           // Is this row actively being dragged or previously modified?
           const isActiveRow = dragState.isDragging && dragState.activeFactorId === row.factorKey

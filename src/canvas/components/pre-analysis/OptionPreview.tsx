@@ -453,10 +453,10 @@ export function OptionPreview({
       {/* Content */}
       {isExpanded && (
         <div className="px-3 pb-3 space-y-0">
-          {options.map((opt, idx) => (
+          {options.map((opt) => (
             <div
               key={opt.id}
-              className={`py-2 rounded hover:bg-option-light transition-colors ${idx > 0 ? 'border-t border-panel-border' : ''}`}
+              className="py-2 rounded hover:bg-option-light transition-colors"
               onMouseEnter={() => onHoverEnter?.('node', opt.id)}
               onMouseLeave={() => onHoverLeave?.()}
             >

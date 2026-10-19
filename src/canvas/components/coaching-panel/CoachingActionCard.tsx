@@ -84,7 +84,7 @@ export function CoachingActionCard({ signal, isOpen, onToggle }: CoachingActionC
           // Label the region by the observation when present; otherwise a
           // generic name (an empty labelledby reference would fail a11y).
           {...(hasObservation ? { 'aria-labelledby': labelId } : { 'aria-label': COACHING_COPY.itemFallback })}
-          className="border-t border-panel-border px-3 pb-3 pt-1"
+          className="px-3 pb-3 pt-1"
           data-testid="coaching-card-body"
         >
           <CoachingMoment signal={signal} />

@@ -75,7 +75,7 @@ function EdgeSummary({ diffs }: { diffs: EdgeDiffRow[] }) {
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3 bg-panel border-b border-info/30 text-sm"
+      className="flex items-center gap-4 px-4 py-3 bg-panel text-sm"
       role="status"
       aria-label="Edge comparison summary"
     >
@@ -125,7 +125,7 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide w-20">
                 Rank
@@ -147,7 +147,7 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {diffs.map((row) => (
               <tr
                 key={row.edgeId}

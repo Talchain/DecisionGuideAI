@@ -29,14 +29,14 @@ export function StreamingDiagnostics({
   if (!showDebug) {
     if (!import.meta.env.DEV) return null
     return (
-      <p className={`${typography.panelMeta} text-text-light border-t border-panel-border pt-2`}>
+      <p className={`${typography.panelMeta} text-text-light pt-2`}>
         Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.panelMeta} font-mono`}>Shift+D</kbd> for streaming diagnostics
       </p>
     )
   }
 
   return (
-    <div className="border-t border-panel-border pt-3 space-y-1" data-testid="model-streaming-diagnostics">
+    <div className="pt-3 space-y-1" data-testid="model-streaming-diagnostics">
       <div className={`${typography.panelHeader} text-text-header mb-2`}>
         Streaming diagnostics
       </div>
@@ -60,7 +60,7 @@ export function StreamingDiagnostics({
             : <span className="text-text-light border-panel-border px-1.5 py-0.5 rounded">No</span>}
         </span>
       </div>
-      <div className="flex items-center justify-between pt-2 border-t border-panel-border">
+      <div className="flex items-center justify-between pt-2">
         <span className={`${typography.panelBody} text-text-light`}>Correlation ID</span>
         <div className="flex items-center gap-2">
           <span

@@ -824,7 +824,7 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
 
     const intro = container.querySelector('[data-testid="tornado-intro"]')
     const legend = container.querySelector('[data-testid="tornado-legend"]')
-    const bars = container.querySelector('.divide-y')
+    const bars = container.querySelector('[data-testid="tornado-rows"]')
 
     expect(intro).toBeTruthy()
     expect(legend).toBeTruthy()

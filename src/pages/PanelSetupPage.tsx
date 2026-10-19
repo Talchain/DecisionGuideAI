@@ -734,7 +734,7 @@ export default function PanelSetupPage(): JSX.Element {
                   <div
                     key={`target-row-${i}`}
                     data-testid={`panel-target-row-${i}`}
-                    className={i === 0 ? '' : 'border-t border-panel-border pt-6'}
+                    className={i === 0 ? '' : 'pt-6'}
                   >
                     <div>
                       <label

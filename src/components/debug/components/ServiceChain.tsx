@@ -209,7 +209,6 @@ function ExpandableCEENode({
           gap: 8,
           padding: '8px 12px',
           cursor: 'pointer',
-          borderBottom: `1px solid ${colors.border}`,
         }}
         onClick={onToggle}
         role="button"
@@ -319,7 +318,6 @@ function ExpandableCEENode({
       <div
         style={{
           padding: '4px 12px',
-          borderTop: `1px solid ${colors.border}`,
           fontSize: 10,
           color: '#64748b',
           fontFamily: 'monospace',

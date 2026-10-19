@@ -188,7 +188,6 @@ export function SectionShell({
   if (variant === 'disclose') {
     return (
       <section
-        className="border-b border-panel-border last:border-b-0"
         data-testid={testId}
         aria-labelledby={`${testId}-heading`}
         data-section-open={open ? 'true' : 'false'}
@@ -251,9 +250,12 @@ export function SectionShell({
          section no longer nudges its own heading. */
       /* ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026): NO TINT ON OPEN. The open
          section was a rounded `bg-panel-hover` card; V2 rules out tinted cards
-         and nested boxes. The full-width rule still separates sections, and the
-         rotated chevron plus `aria-expanded` say which one is open. */
-      className="border-b border-panel-border last:border-b-0"
+         and nested boxes. The rotated chevron plus `aria-expanded` say which
+         one is open.
+         ⛔ 18 Oct 2026 (Design System v5 §6, Paul: "we don't use single-sided
+         borders ever"): the full-width rule between sections is retired too,
+         superseding the argument above. Sections are separated by their own
+         header and body padding. */
       data-testid={testId}
       // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
       // disclosure control must not cost the landmark its name — the dock's own

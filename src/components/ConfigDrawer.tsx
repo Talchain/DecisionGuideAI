@@ -114,7 +114,7 @@ export default function ConfigDrawer({ open, onClose, restoreFocusRef, onApply }
     >
       <div
         ref={drawerRef}
-        className="w-[22rem] h-full bg-white shadow-xl p-4 border-l border-gray-200 flex flex-col gap-3"
+        className="w-[22rem] h-full bg-white shadow-xl p-4 flex flex-col gap-3"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-semibold text-base mb-2">Settings</h2>

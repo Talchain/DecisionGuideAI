@@ -15,6 +15,7 @@ import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority, CANVAS_STRUCTURAL_EDIT_NOTICE } from '../mutations/mutationAuthority'
+import { Loader2 } from 'lucide-react'
 
 interface Action {
   id: string
@@ -296,7 +297,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input */}
-        <div className="px-4 py-3 border-b border-gray-200">
+        <div className="px-4 py-3">
           <input
             ref={inputRef}
             type="text"
@@ -330,7 +331,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
         <div className="max-h-96 overflow-y-auto" role="group" aria-label="Available actions">
           {isExecuting ? (
             <div className="px-4 py-8 text-center text-gray-500">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-carrot-500"></div>
+              <Loader2 className="inline-block h-8 w-8 animate-spin text-info" aria-hidden="true" />
               <p className="mt-2">Executing...</p>
             </div>
           ) : filteredActions.length === 0 && withheldMatches.length === 0 ? (
@@ -373,7 +374,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
             <div
               role="note"
               data-testid="command-palette-withheld-notice"
-              className={`px-4 py-3 border-t border-gray-100 ${typography.body} text-gray-500`}
+              className={`px-4 py-3 ${typography.body} text-gray-500`}
             >
               {CANVAS_STRUCTURAL_EDIT_NOTICE}
             </div>

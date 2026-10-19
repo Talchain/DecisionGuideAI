@@ -55,7 +55,7 @@ function CompareNotice({ title, body, variant = 'empty', ...data }: { title: str
   if (variant === 'notice') {
     return (
       <div className={COMPARE_MEASURE} {...data} data-variant="notice">
-        <div className="border-l-2 border-warning pl-3">
+        <div className="rounded-md border border-warning/30 px-3 py-2">
           <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
           <p className={`${typography.panelBody} text-text-light mt-1 mb-0`}>{body}</p>
         </div>

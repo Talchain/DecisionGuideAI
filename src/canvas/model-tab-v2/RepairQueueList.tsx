@@ -273,7 +273,7 @@ export function RepairQueueList({
               data-testid={`repair-queue-v2-${q}-item-${item.rowId}`}
               data-row-id={item.rowId}
               data-deferred="false"
-              className="flex items-center gap-2 py-1 border-b border-panel-border"
+              className="flex items-center gap-2 py-1"
             >
               <ItemCells queueId={q} item={item} onFocusOnCanvas={onFocusOnCanvas} />
 
@@ -331,7 +331,7 @@ export function RepairQueueList({
                 data-testid={`repair-queue-v2-${q}-item-${item.rowId}`}
                 data-row-id={item.rowId}
                 data-deferred="true"
-                className="flex items-center gap-2 py-1 border-b border-panel-border"
+                className="flex items-center gap-2 py-1"
               >
                 <ItemCells queueId={q} item={item} onFocusOnCanvas={onFocusOnCanvas} />
 

@@ -549,7 +549,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       )}
 
       {/* Connection endpoints */}
-      <div className="pt-2 border-t border-panel-border">
+      <div className="pt-2">
         <label className={`block ${typography.panelMeta} text-text-body mb-2`}>
           Connection
         </label>
@@ -585,7 +585,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
       {/* Reset button */}
       {(edge?.data?.templateId || Math.abs(signedValue) !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default) && (
-        <div className="pt-2 border-t border-panel-border">
+        <div className="pt-2">
           <button
             onClick={handleReset}
             className={`w-full px-3 py-2 ${typography.panelHeader} text-text-body rounded bg-panel hover:bg-panel-hover border border-panel-border transition-colors`}
@@ -611,7 +611,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
   return (
     <div
-      className="p-4 border-t border-panel-border"
+      className="p-4"
       role="region"
       aria-label="Edge properties"
       data-testid="panel-edge-properties"

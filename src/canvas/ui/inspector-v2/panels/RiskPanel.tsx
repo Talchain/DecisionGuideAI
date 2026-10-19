@@ -230,7 +230,7 @@ export const RiskPanel = memo(function RiskPanel({
           </div>
 
           {/* Impact — segmented control over the RiskImpact enum */}
-          <div className="mt-3 pt-3 border-t border-panel-border">
+          <div className="mt-3 pt-3">
             <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskImpact}</div>
             <div role="radiogroup" aria-label="Impact" className="flex gap-1 flex-wrap">
               {IMPACT_OPTIONS.map(opt => {
@@ -263,7 +263,7 @@ export const RiskPanel = memo(function RiskPanel({
               BOTH inputs exist (the derivation returns null otherwise — no
               fabricated severity). */}
           {severity && (
-            <div className="mt-3 pt-3 border-t border-panel-border flex items-center gap-2">
+            <div className="mt-3 pt-3 flex items-center gap-2">
               <span className={`${typography.panelMeta} text-text-light`}>{INLINE_LABELS.riskSeverity}</span>
               <span
                 data-testid="risk-severity-badge"

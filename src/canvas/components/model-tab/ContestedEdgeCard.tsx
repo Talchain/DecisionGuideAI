@@ -513,7 +513,7 @@ export function ContestedEdgeCard({
 
       {/* ── Full detail expansion ────────────────────────────────────────────── */}
       {showDetail && (
-        <div className="mt-2 pt-2 border-t border-panel-border" data-testid={`contested-detail-${edgeId}`}>
+        <div className="mt-2 pt-2" data-testid={`contested-detail-${edgeId}`}>
           <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>
             Strength mean (β coefficient) / epistemic uncertainty
           </div>

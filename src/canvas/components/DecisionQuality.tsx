@@ -140,7 +140,7 @@ export function DecisionQuality({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="bg-paper-50 border-t border-sand-200 px-4 py-4 space-y-4">
+        <div className="bg-paper-50 px-4 py-4 space-y-4">
           {/* Headline */}
           <div className={`p-3 rounded-lg ${config.bgColor} border ${config.borderColor}`}>
             <div className="flex items-start gap-3">

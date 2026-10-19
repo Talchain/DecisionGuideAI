@@ -45,7 +45,7 @@ export function SandboxHeader({
 
   return (
     <div
-      className="w-full bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-3"
+      className="w-full bg-white px-3 py-2 flex items-center gap-3"
       role="toolbar"
       aria-label="Scenario Sandbox toolbar"
       data-testid="sandbox-header"

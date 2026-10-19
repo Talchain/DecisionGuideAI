@@ -245,7 +245,7 @@ export function GoalConstraintsSection({
     <>
     {otherTargets.length > 0 && (
       <section data-testid={GOAL_TARGETS_SECTION_TESTID} aria-label={GOAL_CONSTRAINTS_COPY.targetsHeading}
-        className="border-b border-panel-border py-2.5 space-y-1.5">
+        className="py-2.5 space-y-1.5">
         <h3 className={`${typography.panelHeader} text-text-header`}>{GOAL_CONSTRAINTS_COPY.targetsHeading}</h3>
         <ul className="space-y-1.5 list-none p-0 m-0">
           {otherTargets.map((constraint, index) => {
@@ -273,7 +273,7 @@ export function GoalConstraintsSection({
        * `border-b … py-2.5` rule, the same shape `PANEL_SURFACE` gives
        * Reasoning's own top-level sections.
        */
-      className="border-b border-panel-border py-2.5 space-y-1.5"
+      className="py-2.5 space-y-1.5"
     >
       <header className="space-y-0.5">
         <h3 className={`${typography.panelHeader} text-text-header`}>

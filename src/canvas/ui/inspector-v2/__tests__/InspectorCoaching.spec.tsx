@@ -126,17 +126,17 @@ describe('InspectorCoaching', () => {
   it('renders a grounded item FLAT — the contract\'s section-highlight, no box, no lightbulb (v3.1)', () => {
     // v3.1 (DESIGN-GAP-v31 row 32): the card was a boxed notification (an
     // inline 1px info border at 30%, `rounded-lg shadow-1`, a lightbulb and a
-    // dismiss ×). It is now `.section-highlight`: a 2px left rule — the
-    // contract's #A3C5D1, drawn as the DS token Info at 40% (ΔE 1.9), because
-    // the production-hex ratchet forbids the raw hex (inspectorStyle.ts).
+    // dismiss ×). It is now `.section-highlight`, set apart by space: the
+    // contract's 2px left rule is a one-sided border, retired by Design
+    // System v5 §6 (Paul, 18 Oct 2026; inspectorStyle.ts).
     useGuidanceStore.setState({
       guidanceItems: [makeGuidanceItem()],
       _prefillChat: vi.fn(),
     })
     const { container } = render(<InspectorCoaching {...defaultProps} />)
     const card = screen.getByTestId('inspector-guidance')
-    expect(card.className).toContain('border-l-2')
-    expect(card.className).toContain('border-info/40')
+    expect(card.className).toContain('my-3.5')
+    expect(card.className).not.toMatch(/(^|\s)border-l/)
     expect(card.className).not.toContain('border-[#')
     expect(card.className).not.toMatch(/rounded|shadow/)
     expect(card.style.border).toBe('')

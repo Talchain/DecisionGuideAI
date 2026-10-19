@@ -17,12 +17,13 @@
  * Four sites, four assertions, each bound by IDENTITY (an element found by
  * testid/role, never a value another node could share):
  *
- *   1. `ModelTabV2Panel`'s own wrapper — no radius, no side borders, a single
- *      bottom rule.
- *   2. `Accordion`'s new opt-in `flush` prop — the geometry it renders, with
- *      a CONTRAST CONTROL proving every existing (non-opted-in) caller is
- *      byte-identical to before.
- *   3. `ModelFooter`'s divider — full-bleed, not content-width.
+ *   1. `ModelTabV2Panel`'s own wrapper — no radius, no side borders, and
+ *      (since DS v5 §6, 18 Oct 2026: no one-sided borders, ever) no bottom
+ *      rule either: it is set apart by its own padding.
+ *   2. `Accordion`'s opt-in `flush` prop — the geometry it renders, with a
+ *      CONTRAST CONTROL proving a non-opted-in caller keeps its complete card
+ *      border.
+ *   3. `ModelFooter` — full-bleed, set apart by space rather than a rule.
  *   4. `ModelTabBody`'s top-level container — no `space-y-4` doubling the
  *      gap each section's own bottom rule already provides.
  *
@@ -60,15 +61,16 @@ import { ModelFooter } from '../ModelFooter'
 
 afterEach(cleanup)
 
-describe('1. ModelTabV2Panel is a full-width divider, not a bordered card', () => {
-  it('carries a bottom rule, and NEITHER a radius NOR a full border', () => {
+describe('1. ModelTabV2Panel is a flush section, not a bordered card', () => {
+  it('carries no one-sided rule (DS v5 §6), and NEITHER a radius NOR a full border', () => {
     useCanvasStore.setState({ nodes: [] as Node[], edges: [] as Edge[] } as never, false)
     render(<ModelTabV2Panel nodes={[]} edges={[]} goalThreshold={null} />)
 
     const panel = screen.getByTestId('model-tab-v2-panel')
     const tokens = classTokens(panel)
-    expect(tokens).toContain('border-b')
-    expect(tokens).toContain('border-panel-border')
+    // Separated by space: its own bottom padding, no bottom rule.
+    expect(tokens).toContain('pb-2.5')
+    expect(tokens).not.toContain('border-b')
     // The regression itself: a card carries BOTH the full `border` utility
     // and `rounded-lg`. Neither may survive.
     expect(tokens).not.toContain('rounded-lg')
@@ -78,8 +80,8 @@ describe('1. ModelTabV2Panel is a full-width divider, not a bordered card', () =
 
 // ── 2. Accordion's `flush` prop, with a contrast control ───────────────────
 
-describe('2. Accordion(flush) renders one hairline; every other caller is untouched', () => {
-  it('flush: no rounded-lg, no full border, no header border-b', () => {
+describe('2. Accordion(flush) renders a flush block with no rule; the card keeps its complete border', () => {
+  it('flush: no rounded-lg, no full border, no one-sided rule on the section or its header', () => {
     render(
       <Accordion title="Model card" testId="acc-flush" flush defaultExpanded>
         <p>Body</p>
@@ -87,8 +89,7 @@ describe('2. Accordion(flush) renders one hairline; every other caller is untouc
     )
     const section = screen.getByTestId('acc-flush')
     const tokens = classTokens(section)
-    expect(tokens).toContain('border-b')
-    expect(tokens).toContain('border-panel-border')
+    expect(tokens).not.toContain('border-b')
     expect(tokens).not.toContain('rounded-lg')
     expect(tokens).not.toContain('border')
 
@@ -96,7 +97,7 @@ describe('2. Accordion(flush) renders one hairline; every other caller is untouc
     expect(classTokens(header)).not.toContain('border-b')
   })
 
-  it('CONTRAST CONTROL: without `flush`, the card keeps its old rounded border AND the header keeps its own border-b — unchanged for every existing caller', () => {
+  it('CONTRAST CONTROL: without `flush`, the card keeps its complete rounded border; its header has no one-sided rule', () => {
     render(
       <Accordion title="Your next steps" testId="acc-card" defaultExpanded>
         <p>Body</p>
@@ -108,17 +109,19 @@ describe('2. Accordion(flush) renders one hairline; every other caller is untouc
     expect(tokens).toContain('rounded-lg')
 
     const header = screen.getByRole('button', { name: 'Your next steps' })
-    expect(classTokens(header)).toContain('border-b')
+    expect(classTokens(header)).not.toContain('border-b')
+    expect(classTokens(header)).toContain('hover:bg-panel-hover')
   })
 })
 
 // ── 3. ModelFooter's divider is full-bleed ──────────────────────────────────
 
-describe('3. ModelFooter divider spans the full panel width', () => {
-  it('cancels its own gutter so the top rule is full-bleed, not content-width', () => {
+describe('3. ModelFooter is set apart by space, full-bleed', () => {
+  it('carries no top rule (DS v5 §6) and keeps its full-bleed gutter and top padding', () => {
     render(<ModelFooter onCopyText={vi.fn()} onCopyJson={vi.fn()} />)
     const footer = screen.getByTestId('model-footer')
-    expect(footer.className).toContain('border-t')
+    expect(classTokens(footer)).not.toContain('border-t')
+    expect(classTokens(footer)).toContain('pt-3')
     expect(footer.className).toContain('-mx-3')
     expect(footer.className).toContain('px-3')
   })

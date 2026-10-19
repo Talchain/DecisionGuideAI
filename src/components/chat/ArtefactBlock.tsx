@@ -198,7 +198,7 @@ export const ArtefactBlock = memo(function ArtefactBlock({
               />
             </div>
             {hasActions && (
-              <div className={styles.maximisedActions}>
+              <div>
                 <ArtefactActions
                   actions={block.actions!}
                   onSendMessage={onSendMessage}

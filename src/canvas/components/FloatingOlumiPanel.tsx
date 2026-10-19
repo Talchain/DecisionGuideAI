@@ -1487,10 +1487,16 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
         data-testid="floating-olumi-panel-resize-handle"
         aria-hidden="true"
       >
-        <span
+        <svg
           aria-hidden="true"
-          className="absolute right-0.5 bottom-0.5 w-1.5 h-1.5 border-r-2 border-b-2 border-text-light opacity-60"
-        />
+          viewBox="0 0 6 6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="absolute right-0.5 bottom-0.5 w-1.5 h-1.5 text-text-light opacity-60"
+        >
+          <path d="M5 0V5H0" />
+        </svg>
       </div>
     </div>
     </>,

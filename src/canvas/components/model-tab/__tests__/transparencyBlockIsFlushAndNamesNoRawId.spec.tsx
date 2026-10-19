@@ -52,10 +52,11 @@ const CONSTRAINT_NODES = [{ id: 'fac_spend', data: { label: 'Marketing spend' } 
 describe('1. GoalConstraintsSection carries no nested card', () => {
   afterEach(cleanup)
 
-  it('the outer section is a hairline, not a rounded/bordered box', () => {
+  it('the outer section is set apart by space, not a rounded/bordered box or a one-sided rule', () => {
     render(<GoalConstraintsSection constraints={[CONSTRAINT]} nodes={CONSTRAINT_NODES} />)
     const tokens = classTokens(screen.getByTestId(GOAL_CONSTRAINTS_SECTION_TESTID))
-    expect(tokens).toContain('border-b')
+    expect(tokens).toContain('py-2.5')
+    expect(tokens).not.toContain('border-b')
     expect(tokens).not.toContain('rounded-lg')
     expect(tokens).not.toContain('border')
   })
@@ -156,11 +157,12 @@ describe('3. StructuralIssuesSection carries no card and no canvas-scaled type',
   })
   afterEach(cleanup)
 
-  it('the section is a hairline, not a rounded/bordered/filled box', () => {
+  it('the section is set apart by space, not a rounded/bordered/filled box or a one-sided rule', () => {
     setGraph()
     render(<StructuralIssuesSection />)
     const tokens = classTokens(screen.getByTestId('structural-issues-section'))
-    expect(tokens).toContain('border-b')
+    expect(tokens).toContain('py-2.5')
+    expect(tokens).not.toContain('border-b')
     expect(tokens).not.toContain('rounded-lg')
     expect(tokens).not.toContain('border')
     expect(tokens).not.toContain('bg-panel')

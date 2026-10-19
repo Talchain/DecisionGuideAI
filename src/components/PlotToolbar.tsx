@@ -55,7 +55,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
         ))}
 
         {/* Divider */}
-        <div className="border-t border-gray-200 my-2"></div>
+        <div className="my-2"></div>
 
         {/* Add Node button with menu */}
         <div className="relative">

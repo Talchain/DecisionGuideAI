@@ -22,7 +22,7 @@ export function ExpandableSection({
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className={`border-t border-storm-100 ${className}`}>
+    <div className={className}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-4 text-left hover:bg-storm-50 transition-colors"

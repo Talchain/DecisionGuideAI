@@ -225,7 +225,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
         )}
         
         {/* Actions */}
-        <div className="flex gap-2 pt-2 border-t border-gray-200">
+        <div className="flex gap-2 pt-2">
           <button
             onClick={handleCancel}
             className={`flex-1 px-4 py-2 ${typography.button} text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors`}

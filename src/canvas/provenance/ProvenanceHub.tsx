@@ -51,7 +51,7 @@ export function ProvenanceHub({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b border-gray-200 space-y-3">
+      <div className="p-4 space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">Provenance Hub</h2>
 
         {/* Search */}

@@ -87,7 +87,7 @@ export function CitedEvidenceNote({
   return (
     <div
       data-testid={CITED_EVIDENCE_TESTID}
-      className="mt-2 pt-2 border-t border-panel-border"
+      className="mt-2 pt-2"
     >
       <div className="flex items-start gap-1.5">
         <Icon size={12} className="text-info mt-0.5 shrink-0" aria-hidden="true" />

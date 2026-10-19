@@ -68,7 +68,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div className="px-4 py-3 bg-gray-50">
         <h3 className="font-semibold text-gray-900">Review Draft Changes</h3>
         <p className="text-sm text-gray-600 mt-1">
           Select which nodes and edges to add to your canvas
@@ -76,7 +76,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
       </div>
 
       {/* Nodes section */}
-      <div className="border-b border-gray-200">
+      <div>
         <button
           onClick={() => setShowNodes(!showNodes)}
           className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
@@ -111,7 +111,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         </button>
 
         {showNodes && (
-          <div className="divide-y divide-gray-100">
+          <div className="space-y-1">
             {nodeItems.map((item) => (
               <div key={item.id} className="hover:bg-gray-50">
                 <label className="flex items-center gap-3 px-4 py-2 cursor-pointer">
@@ -184,7 +184,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         </button>
 
         {showEdges && (
-          <div className="divide-y divide-gray-100">
+          <div className="space-y-1">
             {edgeItems.map((item) => (
               <div key={item.id} className="hover:bg-gray-50">
                 <label className="flex items-center gap-3 px-4 py-2 cursor-pointer">
@@ -217,7 +217,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
       </div>
 
       {/* Actions */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex gap-2">
+      <div className="px-4 py-3 bg-gray-50 flex gap-2">
         <button
           onClick={handleApply}
           disabled={selectedNodeCount === 0 && selectedEdgeCount === 0}

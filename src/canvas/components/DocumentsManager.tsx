@@ -107,7 +107,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
   return (
     <div className="h-full flex flex-col bg-paper-50">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-sand-200 bg-paper-50">
+      <div className="px-4 py-3 bg-paper-50">
         <h3 className={`${typography.body} font-semibold text-ink-900`}>Documents</h3>
         <p className={`${typography.caption} text-ink-900 mt-1`}>
           {documents.length} document{documents.length !== 1 ? 's' : ''}
@@ -119,7 +119,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
 
       {/* S7-FILEOPS: Search and Sort Controls */}
       {documents.length > 0 && (
-        <div className="px-4 py-2 border-b border-gray-200 space-y-2">
+        <div className="px-4 py-2 space-y-2">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />

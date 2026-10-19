@@ -111,7 +111,7 @@ export function DecisionBriefTrigger({ className = '' }: { className?: string })
             className="fixed bottom-3 right-3 top-16 z-[1600] flex w-[400px] max-w-[calc(100vw-24px)] flex-col rounded-lg border border-panel-border bg-panel shadow-panel"
             data-testid="decision-brief-panel"
           >
-            <div className="flex items-center gap-2 border-b border-panel-border px-4 py-2.5">
+            <div className="flex items-center gap-2 px-4 py-2.5">
               <span className="text-sm font-semibold text-text-header">{DECISION_BRIEF_TRIGGER_LABEL}</span>
               <span className="flex-1" />
               <button

@@ -164,7 +164,7 @@ export function methodStripLabel(method: MethodEntry, raised: boolean): string {
  */
 export const METHOD_MENU_POPOVER_CLASS =
   'absolute right-0 top-full z-20 mt-2 w-[252px] max-w-[calc(100vw-20px)] rounded-md border border-border-emphasis bg-panel p-2 shadow-2'
-export const METHOD_MENU_SEPARATOR_CLASS = '-mx-2 my-1 border-b border-panel-border'
+export const METHOD_MENU_SEPARATOR_CLASS = '-mx-2 my-1'
 export const METHOD_MENU_GLYPH_CLASS = `${icon('row')} shrink-0 text-text-light`
 export function methodMenuRowClass(current: boolean): string {
   return `flex w-full min-h-[34px] min-w-[24px] items-center gap-2 rounded-sm px-2 py-2 text-left ${typography.panelBody} hover:bg-panel-hover focus-visible:bg-panel-hover ${

@@ -101,7 +101,6 @@ export function JsonViewer({
     gap: 8,
     padding: '8px 12px',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
   }
 
   const buttonStyle: CSSProperties = {

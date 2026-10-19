@@ -249,7 +249,7 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
 
       {/* Action items - always visible when actions exist */}
       {visibleActions.length > 0 && (
-        <div className="border-t border-sand-200 divide-y divide-sand-100">
+        <div className="space-y-1">
           {visibleActions.map((action) => (
             <ActionItem
               key={action.id}

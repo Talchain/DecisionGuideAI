@@ -121,7 +121,7 @@ export function WhatWeChecked({
 
   return (
     <section
-      className="border-t border-panel-border pt-3"
+      className="pt-3"
       data-testid={testId}
       aria-labelledby={`${testId}-heading`}
     >
@@ -150,24 +150,22 @@ export function WhatWeChecked({
       ) : null}
 
       {/*
-        ⚠ A DASHED RULE, NOT A SOLID ONE, AND THE DIFFERENCE IS THE CLAIM. The
-        section's own top edge is solid (`border-t border-panel-border`, above)
-        because it divides this readout from the one before it. This edge
-        divides two kinds of statement INSIDE one readout, and a dashed rule is
-        the repo's existing mark for a soft, provisional boundary
-        (`DecisionPanel.tsx:227`, `OptionPanel.tsx:380`). Same token, same
-        weight, different stroke — no new visual language.
+        ⚠ SPACE, NOT A RULE. This edge divides two kinds of statement INSIDE one
+        readout. It was a dashed top rule, and the section's own top edge a
+        solid one; both were one-sided borders, retired by Design System v5 §6
+        (Paul, 18 Oct 2026). The break is now space, and the not-assessed chips
+        carry the claim.
 
-        ⚠ THE RULE IS DRAWN ONLY WHEN THERE IS A VERDICT LINE TO DEMOTE BELOW.
+        ⚠ THE BREAK IS TAKEN ONLY WHEN THERE IS A VERDICT LINE TO DEMOTE BELOW.
         An all-unassessed run is reachable (no verdict + no robustness field +
-        no evidence assessment), and there a rule would separate nothing from
+        no evidence assessment), and there a break would separate nothing from
         everything.
       */}
       {disclosures.length > 0 ? (
         <div
           className={
             verdicts.length > 0
-              ? 'mt-2 pt-2 border-t border-dashed border-panel-border'
+              ? 'mt-2 pt-2'
               : 'mt-1'
           }
           data-testid={`${testId}-scope`}

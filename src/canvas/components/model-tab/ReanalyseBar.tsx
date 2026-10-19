@@ -205,7 +205,7 @@ export function ReanalyseBar({
   // where the next step is instead (the refusal reply always carries it — `ANALYSIS_REFUSAL_POINTER`).
   if (barInputs.refusedUnchanged === true) {
     return (
-      <div className="bg-panel border-t border-panel-border px-3 py-2" data-testid="reanalyse-bar-refused" role="status">
+      <div className="bg-panel px-3 py-2" data-testid="reanalyse-bar-refused" role="status">
         <p className={`${typography.panelMeta} text-text-body`}>
           {ANALYSIS_REFUSAL_HEADLINE} {ANALYSIS_REFUSAL_POINTER} Change the model, then run it again.
         </p>
@@ -268,7 +268,7 @@ export function ReanalyseBar({
       // this same shell footer slot, already uses `border-panel-border`; this
       // brings the two into agreement instead of leaving one amber and one
       // neutral for the same footer region.
-      className="bg-panel border-t border-panel-border px-3 py-2 flex items-center justify-between gap-2"
+      className="bg-panel px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
       data-reason={neverRun ? 'never-run' : heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"

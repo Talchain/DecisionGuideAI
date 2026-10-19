@@ -74,7 +74,7 @@ export function StructuralIssuesSection() {
       aria-label="Options with no connector path shown to the goal"
       // V2 gap 35 — no card. The same full-width hairline every other
       // top-level Model-tab section uses.
-      className="border-b border-panel-border py-2.5"
+      className="py-2.5"
     >
       {/* V2 gap 35 — `panelHeader`/`panelBody`, not `nodeLabel`. `nodeLabel`
           is the CANVAS type token: it scales with `--canvas-label-scale`, a

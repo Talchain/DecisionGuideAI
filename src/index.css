@@ -578,14 +578,12 @@
      ever disagree — do not change one without the other. */
   --dock-right-expanded: 22.5rem;
   --dock-right-collapsed: 2.5rem;
-  /* The right panel's three contract rules (olumi-canvas-visual-contract.html,
-     26 Sep 2026): `.ai-panel{border-left:1px solid #DCD7CF}`,
-     `.panel-tabs{border-bottom:1px solid #E6E1D8}` and
-     `.panel-tabs button.active{background:#F3F8FA}`. Named here once so the
-     shell (`OutputsDock.tsx`, `WorkspaceShellTabStrip.tsx`) reads tokens, never
-     raw hex. */
-  --panel-edge-rule: #DCD7CF;
-  --panel-tab-rule: #E6E1D8;
+  /* The right panel's active-tab tint (olumi-canvas-visual-contract.html,
+     26 Sep 2026: `.panel-tabs button.active{background:#F3F8FA}`). Named here
+     once so the shell (`WorkspaceShellTabStrip.tsx`) reads a token, never raw
+     hex. The contract's panel-edge and tab-strip rules were one-sided borders,
+     retired by Design System v5 §6 (Paul, 18 Oct 2026), and their tokens with
+     them. */
   --panel-tab-active-bg: #F3F8FA;
   /* Effective offsets used by the canvas container; updated by dock components. */
   --dock-left-offset: 0rem;

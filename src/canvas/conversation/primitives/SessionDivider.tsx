@@ -19,11 +19,11 @@ export const SessionDivider = memo(function SessionDivider({ text }: SessionDivi
       role="separator"
       data-testid="session-divider"
     >
-      <div className="flex-1 border-t border-panel-border" />
+      <div className="flex-1" />
       <span className={`${typography.chatMeta} text-text-light whitespace-nowrap`}>
         {text}
       </span>
-      <div className="flex-1 border-t border-panel-border" />
+      <div className="flex-1" />
     </div>
   )
 })

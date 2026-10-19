@@ -59,7 +59,6 @@ export function PipelineStage({
     alignItems: 'center',
     cursor: hasContent ? 'pointer' : 'default',
     background: expanded ? '#f8fafc' : '#fff',
-    borderBottom: expanded ? '1px solid #e2e8f0' : 'none',
     transition: 'background 0.1s',
   }
 

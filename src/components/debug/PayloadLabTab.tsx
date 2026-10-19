@@ -307,7 +307,6 @@ function CollapsibleSection({ title, stepNumber, defaultOpen = true, forceOpen, 
           padding: '10px 12px',
           background: '#f8fafc',
           border: 'none',
-          borderBottom: isOpen ? '1px solid #e2e8f0' : 'none',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -623,24 +622,23 @@ function ConformalResultsTable({ response, runNumber, label }: ConformalResultsT
           fontSize: 10,
           fontFamily: 'monospace',
           border: '1px solid #e2e8f0',
-          borderTop: 'none',
         }}
       >
         <thead>
           <tr style={{ background: '#f8fafc' }}>
-            <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'left' }}>
               Variable
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               Lower
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 700 }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>
               Point Est
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               Upper
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               Width
             </th>
           </tr>
@@ -648,19 +646,19 @@ function ConformalResultsTable({ response, runNumber, label }: ConformalResultsT
         <tbody>
           {conformalResults.map((result) => (
             <tr key={result.variable}>
-              <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '6px 8px' }}>
                 {result.variable}
               </td>
-              <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
+              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#64748b' }}>
                 {result.lowerBound.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </td>
-              <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
+              <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>
                 {result.pointEstimate.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </td>
-              <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
+              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#64748b' }}>
                 {result.upperBound.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </td>
-              <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', color: '#94a3b8' }}>
+              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#94a3b8' }}>
                 {result.intervalWidth.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </td>
             </tr>
@@ -675,8 +673,8 @@ function ConformalResultsTable({ response, runNumber, label }: ConformalResultsT
             padding: '6px 10px',
             background: '#f0fdf4',
             border: '1px solid #86efac',
-            borderTop: 'none',
-            borderRadius: '0 0 6px 6px',
+            borderRadius: 6,
+            marginTop: 4,
             fontSize: 10,
             color: '#166534',
           }}
@@ -848,23 +846,23 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
       >
         <thead>
           <tr style={{ background: '#f8fafc' }}>
-            <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'left' }}>
               Option
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               p10
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               p50
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               p90
             </th>
-            <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>
               Leading %
             </th>
             {compareWith && (
-              <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+              <th style={{ padding: '6px 8px', textAlign: 'right' }}>
                 Δ p50
               </th>
             )}
@@ -878,19 +876,19 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
 
             return (
               <tr key={opt.id}>
-                <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '6px 8px' }}>
                   {opt.label}
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                   {(opt.p10 * 100).toFixed(1)}%
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
+                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>
                   {(opt.p50 * 100).toFixed(1)}%
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                   {(opt.p90 * 100).toFixed(1)}%
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                   {(opt.winner_pct * 100).toFixed(0)}%
                 </td>
                 {compareWith && (
@@ -898,7 +896,6 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
                     style={{
                       padding: '6px 8px',
                       textAlign: 'right',
-                      borderBottom: '1px solid #e2e8f0',
                       color: isSignificant ? (delta! > 0 ? '#22c55e' : '#ef4444') : '#64748b',
                       fontWeight: isSignificant ? 600 : 400,
                     }}
@@ -1063,7 +1060,7 @@ function JsonDiffViewer({ left, right, leftLabel = 'Payload A', rightLabel = 'Pa
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
       {numericDeltas.length > 0 && (
-        <div style={{ padding: '8px 12px', background: '#fef3c7', borderBottom: '1px solid #fde68a' }}>
+        <div style={{ padding: '8px 12px', background: '#fef3c7' }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>
             Numeric Deltas ({numericDeltas.length})
           </div>
@@ -1088,7 +1085,7 @@ function JsonDiffViewer({ left, right, leftLabel = 'Payload A', rightLabel = 'Pa
         </div>
       )}
 
-      <div style={{ padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+      <div style={{ padding: '8px 12px', background: '#f8fafc' }}>
         <div style={{ display: 'flex', gap: 12, fontSize: 10 }}>
           <span style={{ color: '#16a34a' }}>+{diffs.filter(d => d.type === 'added').length} added</span>
           <span style={{ color: '#dc2626' }}>-{diffs.filter(d => d.type === 'removed').length} removed</span>
@@ -1097,8 +1094,8 @@ function JsonDiffViewer({ left, right, leftLabel = 'Payload A', rightLabel = 'Pa
       </div>
 
       {/* Task 6: Labeled Compare Mode Panels */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 200 }}>
-        <div style={{ borderRight: '1px solid #e2e8f0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minHeight: 200 }}>
+        <div>
           <div style={{ padding: '4px 8px', background: '#fef2f2', fontSize: 10, fontWeight: 600, color: '#991b1b' }}>
             {leftLabel} (Primary)
           </div>
@@ -1133,7 +1130,7 @@ function JsonDiffViewer({ left, right, leftLabel = 'Payload A', rightLabel = 'Pa
       </div>
 
       {diffs.length > 0 && (
-        <details style={{ borderTop: '1px solid #e2e8f0' }}>
+        <details>
           <summary style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 10, color: '#3b82f6' }}>
             View Detailed Changes ({diffs.length})
           </summary>
@@ -1143,7 +1140,6 @@ function JsonDiffViewer({ left, right, leftLabel = 'Payload A', rightLabel = 'Pa
                 padding: '4px 12px',
                 fontSize: 9,
                 fontFamily: 'monospace',
-                borderBottom: '1px solid #f1f5f9',
                 background: diff.type === 'added' ? '#f0fdf4' : diff.type === 'removed' ? '#fef2f2' : '#fffbeb',
               }}>
                 <span style={{ color: diff.type === 'added' ? '#16a34a' : diff.type === 'removed' ? '#dc2626' : '#f59e0b' }}>
@@ -2387,21 +2383,21 @@ export function PayloadLabTab({ lastISLPayload, onRunTest, initialPayload, onPay
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, fontFamily: 'monospace' }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>Run</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>Status</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>Options</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px' }}>Run</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px' }}>Status</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px' }}>Duration</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px' }}>Options</th>
                 </tr>
               </thead>
               <tbody>
                 {detRuns.map((r) => (
                   <tr key={r.runNumber}>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0' }}>#{r.runNumber}</td>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', color: r.status === 'success' ? '#166534' : '#991b1b', fontWeight: 700 }}>
+                    <td style={{ padding: '6px 8px' }}>#{r.runNumber}</td>
+                    <td style={{ padding: '6px 8px', color: r.status === 'success' ? '#166534' : '#991b1b', fontWeight: 700 }}>
                       {r.status.toUpperCase()}
                     </td>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{r.durationMs}ms</td>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{r.optionCount}</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{r.durationMs}ms</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{r.optionCount}</td>
                   </tr>
                 ))}
               </tbody>

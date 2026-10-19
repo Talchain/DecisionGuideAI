@@ -71,13 +71,12 @@
   flex-shrink: 0;
 }
 
-/* The pill's action group: directly after the model name, divided by one hairline (no right-edge push in a pill). */
+/* The pill's action group: directly after the model name, set apart by space (no hairline: DS v5 §6; no right-edge push in a pill). */
 .topBarRight {
   display: flex;
   align-items: center;
   gap: 2px;
   padding-left: 10px;
-  border-left: 1px solid #DDD8D0;
   flex-shrink: 0;
 }
 
@@ -251,9 +250,9 @@
 }
 
 .dropdownMenuDivider {
+  /* Groups are separated by space, not a rule (DS v5 §6). */
   margin: 6px 0;
   border: none;
-  border-top: 1px solid var(--border-default, #EEE6D8);
 }
 
 .dropdownMenuLabel {

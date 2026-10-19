@@ -1,6 +1,7 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { typography } from '../../styles/typography'
 import { TOP_CLEARANCE } from '../utils/topBarClearance'
+import { Loader2 } from 'lucide-react'
 
 export function LayoutProgressBanner() {
   const { status, message, canRetry, retry, cancel, actionLabel } = useLayoutProgressStore()
@@ -18,8 +19,8 @@ export function LayoutProgressBanner() {
         aria-live="polite"
       >
         {status === 'loading' && (
-          <div
-            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin motion-reduce:animate-none"
+          <Loader2
+            className="w-4 h-4 animate-spin text-white motion-reduce:animate-none"
             aria-hidden="true"
           />
         )}

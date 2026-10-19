@@ -2,9 +2,12 @@
  * Visual-hierarchy contract (commit 6e40b04f). Behaviour is covered elsewhere;
  * this locks the structural invariants the section-separation pass established,
  * so a future edit can't silently re-blur the sections:
- *   - the Header owns the ONE and only `border-b` (Hero dropped its own);
+ *   - NO element in the panel carries a one-sided rule (`border-t/b/l/r/x/y`
+ *     or `divide-x/y`): Design System v5 §6, Paul 18 Oct 2026, "we don't use
+ *     single-sided borders ever". Sections are separated by space;
  *   - Hero owns no rule (neither border-b nor border-t);
- *   - Sharpen / Your decision / Advanced / Footer each own a single `border-t`;
+ *   - Sharpen and the Footer keep their own vertical padding, so the space
+ *     that replaced each rule is still there;
  *   - exactly ONE neutral `bg-panel-hover` section-header strip (Sharpen);
  *     the disclosure triggers must NOT carry it as a static fill;
  *   - PanelDisclosure bodies are always mounted with `hidden` when closed
@@ -77,11 +80,14 @@ const hasToken = (el: Element | null | undefined, token: string) =>
   el != null && el.classList.contains(token)
 
 describe('pre-analysis v3 — visual hierarchy contract', () => {
-  it('the Header owns the only border-b in the panel (Hero dropped its own)', () => {
+  it('no element in the panel carries a one-sided rule (DS v5 §6)', () => {
     renderPanel()
     const panel = screen.getByTestId('pre-analysis-v3')
-    const borderB = [...panel.querySelectorAll('*')].filter(el => el.classList.contains('border-b'))
-    expect(borderB).toHaveLength(1)
+    const oneSided = [...panel.querySelectorAll('*')].filter(el =>
+      [...el.classList].some(t => /^(?:[a-z0-9-]+:)*(?:border-[tblrxy]|divide-[xy])(?:-|$)/.test(t)))
+    expect(oneSided.map(el => el.className)).toEqual([])
+    // CONTRAST: the header row is present and carries its own vertical padding.
+    expect(hasToken(screen.getByTestId('pre-analysis-v3-header'), 'py-2.5')).toBe(true)
   })
 
   it('Hero owns no separator rule', () => {
@@ -91,12 +97,13 @@ describe('pre-analysis v3 — visual hierarchy contract', () => {
     expect(hasToken(hero, 'border-t')).toBe(false)
   })
 
-  it('Sharpen, the two disclosures and the Footer each own a single top rule', () => {
+  it('Sharpen, the two disclosures and the Footer carry no top rule; Sharpen and the Footer keep their padding', () => {
     renderPanel()
-    expect(hasToken(screen.getByTestId('pre-analysis-v3-sharpen'), 'border-t')).toBe(true)
-    expect(hasToken(screen.getByTestId('pre-analysis-v3-your-decision'), 'border-t')).toBe(true)
-    expect(hasToken(screen.getByTestId('pre-analysis-v3-advanced'), 'border-t')).toBe(true)
-    expect(hasToken(screen.getByTestId('pre-analysis-v3-footer'), 'border-t')).toBe(true)
+    for (const testid of ['pre-analysis-v3-sharpen', 'pre-analysis-v3-your-decision', 'pre-analysis-v3-advanced', 'pre-analysis-v3-footer']) {
+      expect(hasToken(screen.getByTestId(testid), 'border-t'), testid).toBe(false)
+    }
+    expect(hasToken(screen.getByTestId('pre-analysis-v3-sharpen'), 'py-4')).toBe(true)
+    expect(hasToken(screen.getByTestId('pre-analysis-v3-footer'), 'py-3')).toBe(true)
   })
 
   it('exactly one neutral header strip: Sharpen carries static bg-panel-hover; disclosure triggers do not', () => {

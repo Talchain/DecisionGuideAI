@@ -697,7 +697,7 @@ function ValuesTable({
      (inherited) weight, as the prototype's `.audit-table th{font-weight:400}`
      does. DS §2.4 bans introducing a raw weight; this introduces none. */
   const th = `${typography.panelMeta} text-text-light [font-weight:inherit] text-right px-1 py-2 first:pl-0 first:text-left last:pr-0`
-  const td = 'text-right px-1 py-2 border-t border-panel-border first:pl-0 first:text-left last:pr-0'
+  const td = 'text-right px-1 py-2 first:pl-0 first:text-left last:pr-0'
   return (
     <>
       <div className="max-w-full overflow-auto">

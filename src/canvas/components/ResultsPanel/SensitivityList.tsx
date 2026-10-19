@@ -55,7 +55,7 @@ export function SensitivityList({
     .slice(0, maxItems ?? parameters.length)
 
   return (
-    <div className="divide-y divide-sand-100" data-testid="sensitivity-list">
+    <div className="space-y-1" data-testid="sensitivity-list">
       {sortedParams.map((param) => {
         const gapPct = Math.abs(
           Math.round((param.flip_threshold - param.current_value) * 100)

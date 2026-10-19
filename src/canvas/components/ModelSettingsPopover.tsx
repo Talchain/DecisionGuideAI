@@ -180,7 +180,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       aria-labelledby="model-settings-title"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-sand-100 flex-shrink-0">
+      <div className="px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h3 id="model-settings-title" className={`${typography.label} text-ink-900`}>
             Model Settings
@@ -253,7 +253,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-sand-100 bg-sand-50 rounded-b-[20px] flex-shrink-0">
+      <div className="px-4 py-3 bg-sand-50 rounded-b-[20px] flex-shrink-0">
         <p className={`${typography.bodySmall} text-ink-500`}>
           Only non-default selections are sent to the API
         </p>

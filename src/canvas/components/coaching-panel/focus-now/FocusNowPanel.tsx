@@ -92,7 +92,7 @@ export function FocusNowPanel({
         <>
           <ul id={listId} className="m-0 list-none p-0">
             {visible.map((row) => (
-              <li key={row.id} className="border-t border-panel-border first:border-t-0">
+              <li key={row.id}>
                 <FocusRowCard
                   row={row}
                   isOpen={openId === row.id}

@@ -554,7 +554,7 @@ function V5AnalysisResultBlockImpl({
       */}
       {showProse && review030 && (
         <div
-          className="space-y-3 border-t border-panel-border pt-3"
+          className="space-y-3 pt-3"
           data-testid="v5-analysis-result-decision-review"
           data-produced-at={review030.produced_at}
         >

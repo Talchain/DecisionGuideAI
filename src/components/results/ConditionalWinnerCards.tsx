@@ -142,7 +142,7 @@ export function ConditionalWinnerCards({
   const headerHelpText = 'Factors that change the result when they shift'
 
   return (
-    <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
+    <div className="space-y-2 pt-2" data-testid="conditional-winner-cards">
       <div className="flex items-center gap-2 mb-1">
         <GitBranch className="w-4 h-4 text-info flex-shrink-0" aria-hidden="true" />
         <h4 className={`${typography.panelHeader} text-text-header`}>

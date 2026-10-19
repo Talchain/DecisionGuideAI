@@ -244,7 +244,7 @@ export function JourneyTabBody() {
 
       {/* Summary footer */}
       <div
-        className="sticky bottom-0 bg-panel border-t border-panel-border py-2 px-4"
+        className="sticky bottom-0 bg-panel py-2 px-4"
         data-testid="journey-summary-footer"
       >
         <p className={`${typography.panelMeta} text-text-light truncate m-0`}>

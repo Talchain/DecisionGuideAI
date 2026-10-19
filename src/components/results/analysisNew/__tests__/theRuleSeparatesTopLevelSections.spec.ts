@@ -16,6 +16,11 @@
  *        short of each edge), some were `border-t` and some `border-b`, and
  *        the space above and below them did not match.
  *
+ * ⛔ 18 Oct 2026 (Design System v5 §6, Paul: "we don't use single-sided
+ * borders ever"): the hairline itself is retired. The break between the
+ * top-level sections is now SPACE only, still one shared identifier at every
+ * call site, with the same step above and below.
+ *
  * This pins the fix at SOURCE level — jsdom applies no CSS and cannot measure
  * a gap, the same limit `theZonesCarryTheirOwnRhythm.spec.ts` documents — so
  * it reads the raw files rather than a render, and derives the "one
@@ -34,23 +39,23 @@ const COMMITMENT_SUMMARY = fs.readFileSync(
 )
 const ABOUT = fs.readFileSync(path.resolve(__dirname, '../sections/AboutThisAnalysis.tsx'), 'utf8')
 
-describe('PANEL_RULE — the one shared full-width divider token', () => {
+describe('PANEL_RULE — the one shared top-level section break (space only since DS v5 §6, 18 Oct 2026)', () => {
   it('reaches both panel edges by cancelling the columns own px-4 gutter', () => {
     expect(PANEL_RULE).toMatch(/-mx-4\b/)
     expect(PANEL_RULE).toMatch(/\bpx-4\b/)
   })
 
-  it('is always the TOP edge, never the bottom — "always on the same side"', () => {
-    expect(PANEL_RULE).toMatch(/\bborder-t\b/)
-    expect(PANEL_RULE).not.toMatch(/\bborder-b\b/)
+  it('draws no one-sided rule on any edge (DS v5 §6: no single-sided borders, ever)', () => {
+    expect(PANEL_RULE).not.toMatch(/\bborder-[tblrxy]\b/)
+    expect(PANEL_RULE).not.toMatch(/\bborder-panel-border\b/)
   })
 
-  it('carries the neutral token only — never a tint', () => {
-    expect(PANEL_RULE).toMatch(/\bborder-panel-border\b/)
+  it('never a tint', () => {
+    expect(PANEL_RULE).not.toMatch(/\bbg-/)
     expect(PANEL_RULE).not.toMatch(/border-(success|warning|info)\b/)
   })
 
-  it('spaces the rule EVENLY: the same step above the line as below it', () => {
+  it('spaces the break EVENLY: the same step above as below', () => {
     // 27 Sep 2026: on the 4px grid (`!mt-3 pt-3`, 12px), no longer the prototype's 11px.
     const above = PANEL_RULE.match(/!mt-(\d+)\b/)
     const below = PANEL_RULE.match(/\bpt-(\d+)\b/)

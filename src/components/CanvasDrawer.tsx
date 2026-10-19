@@ -207,7 +207,7 @@ export default function CanvasDrawer({ open, onClose, onReady, inline, seed, mod
   if (!isOpen) return null
 
   const panel = (
-      <div data-testid="canvas-root" className="w-full h-full bg-white shadow-sm p-4 border-l border-gray-200 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+      <div data-testid="canvas-root" className="w-full h-full bg-white shadow-sm p-4 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-base">Canvas</h2>
           <div className="text-[11px] text-gray-500" aria-hidden="true">

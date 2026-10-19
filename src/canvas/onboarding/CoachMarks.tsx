@@ -294,7 +294,7 @@ export function CoachMarks({ show, onComplete, steps = DEFAULT_STEPS }: CoachMar
         </div>
 
         {/* Keyboard hints */}
-        <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center">
+        <div className="mt-4 pt-4 text-xs text-gray-500 text-center">
           <kbd className="px-1.5 py-0.5 bg-gray-100 rounded mr-1">←</kbd>
           <kbd className="px-1.5 py-0.5 bg-gray-100 rounded mr-2">→</kbd>
           to navigate

@@ -136,8 +136,12 @@ describe('gap ACTION-2: panelSurfaces declares the text-button tier', () => {
  * the latest design prototype to be completed. The panel SHELL follows the
  * canvas contract; the Reasoning prototype still governs the Reasoning tab's
  * own body. Asserted by class token, as before.
+ *
+ *  - 18 Oct 2026, Design System v5 §6 (Paul: "we don't use single-sided
+ *    borders ever"): the contract's 2px underline is a one-sided border and is
+ *    retired. The selected tab is the info colour plus the contract TINT.
  */
-describe('gap ACTION-1 (superseded 26 Sep): the selected tab is the contract underline + tint, not an outline', () => {
+describe('gap ACTION-1 (superseded 26 Sep; underline retired 18 Oct): the selected tab is the info colour + tint, not an outline or an underline', () => {
   const surfaces: WorkspaceSurfaceDescriptor[] = [
     { id: 'results', label: 'Analysis', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
     { id: 'diagnostics', label: 'Model', scroll: 'shell', padding: 'shell', presentedAsTab: true, hiddenReason: '', footerBar: 'reanalyse' },
@@ -159,30 +163,32 @@ describe('gap ACTION-1 (superseded 26 Sep): the selected tab is the contract und
       />,
     )
 
-  it('⭐⭐ the ACTIVE tab carries the 2px info underline and the contract tint, and no outline', () => {
+  it('⭐⭐ the ACTIVE tab carries the info colour and the contract tint, and no outline or underline', () => {
     draw('results')
     const tab = screen.getByTestId('outputs-dock-tab-results')
-    expect(tab.className).toMatch(/(^|\s)border-b-2(\s|$)/)
-    expect(tab.className).toMatch(/(^|\s)border-info(\s|$)/)
+    expect(tab.className).toMatch(/(^|\s)text-info(\s|$)/)
+    expect(tab.className).not.toMatch(/(^|\s)border-b-2(\s|$)/)
+    expect(tab.className).not.toMatch(/(^|\s)border-info(\s|$)/)
     expect(tab.className).toContain('bg-[var(--panel-tab-active-bg)]')
     expect(tab.className).not.toMatch(/border-info\/80/)
   })
 
-  it('⭐ the IDLE tab carries the transparent underline scaffold and no tint', () => {
+  it('⭐ the IDLE tab carries no underline scaffold, no info colour and no tint', () => {
     draw('results')
     const idle = screen.getByTestId('outputs-dock-tab-diagnostics')
-    expect(idle.className).toMatch(/(^|\s)border-b-2(\s|$)/)
-    expect(idle.className).toMatch(/border-transparent/)
+    expect(idle.className).not.toMatch(/(^|\s)border-b-2(\s|$)/)
+    expect(idle.className).toMatch(/(^|\s)text-text-body(\s|$)/)
     expect(idle.className).not.toContain('bg-[var(--panel-tab-active-bg)]')
   })
 
-  it('CONTRAST: switching the active tab moves the underline and the tint', () => {
+  it('CONTRAST: switching the active tab moves the colour and the tint', () => {
     draw('diagnostics')
     const active = screen.getByTestId('outputs-dock-tab-diagnostics')
     const idle = screen.getByTestId('outputs-dock-tab-results')
     expect(active.className).toContain('bg-[var(--panel-tab-active-bg)]')
+    expect(active.className).toMatch(/(^|\s)text-info(\s|$)/)
     expect(idle.className).not.toContain('bg-[var(--panel-tab-active-bg)]')
-    expect(idle.className).toMatch(/border-transparent/)
+    expect(idle.className).not.toMatch(/(^|\s)text-info(\s|$)/)
   })
 })
 
@@ -277,7 +283,7 @@ describe('gap SPACE-2: the review row draws no rule of its own', () => {
 // gap SPACE-4 / NARROW-8 — SuccessTargetLine draws its own rule only when
 // asked; the model strip's usage asks it not to.
 // ─────────────────────────────────────────────────────────────────────────
-describe('gap SPACE-4 / NARROW-8: SuccessTargetLine draws its own rule only when asked', () => {
+describe('gap SPACE-4 / NARROW-8: SuccessTargetLine takes its own spaced break only when asked (never a rule, DS v5 §6)', () => {
   const goalState = () => ({
     nodes: [{ id: 'g1', type: 'goal', data: {} }],
     goalThreshold: null,
@@ -285,16 +291,22 @@ describe('gap SPACE-4 / NARROW-8: SuccessTargetLine draws its own rule only when
     setGoalThresholdAndUpdateNode,
   })
 
-  it('⭐⭐ default (GoalPanel\'s usage): the border-t rule renders', () => {
+  it('⭐⭐ default (GoalPanel\'s usage): the spaced break renders, with no rule', () => {
     mockState = goalState()
     render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="target" />)
-    expect(screen.getByTestId('target').className).toMatch(/border-t/)
+    const cls = screen.getByTestId('target').className
+    expect(cls).toMatch(/(^|\s)pt-2(\s|$)/)
+    expect(cls).toMatch(/(^|\s)mt-2(\s|$)/)
+    expect(cls).not.toMatch(/border-t/)
   })
 
-  it('⭐⭐ `divider={false}` (ModelStrip\'s usage): no border-t rule', () => {
+  it('⭐⭐ `divider={false}` (ModelStrip\'s usage): the tighter mt-1, no spaced break and no rule', () => {
     mockState = goalState()
     render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="target" divider={false} />)
-    expect(screen.getByTestId('target').className).not.toMatch(/border-t/)
+    const cls = screen.getByTestId('target').className
+    expect(cls).toMatch(/(^|\s)mt-1(\s|$)/)
+    expect(cls).not.toMatch(/(^|\s)pt-2(\s|$)/)
+    expect(cls).not.toMatch(/border-t/)
   })
 
   it('⭐ the strip itself renders its SuccessTargetLine with divider={false}', () => {

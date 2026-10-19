@@ -95,7 +95,7 @@ export function CompareSizingChecklist({ links, listed, stateOf }: {
       </p>
       <ul className="list-none p-0 m-0">
         {rows.map(({ link, state }) => (
-          <li key={`${link.fromId}\u0000${link.toId}`} className="py-2 border-t border-panel-border first:border-t-0"
+          <li key={`${link.fromId}\u0000${link.toId}`} className="py-2"
             data-testid={`${COMPARE_SIZING_TESTID}-row`} data-from={link.fromId} data-to={link.toId} data-state={state}>
             <div className="flex items-start gap-2">
               <Link2 className={`${icon('row')} text-text-light flex-shrink-0 mt-0.5`} aria-hidden="true" />

@@ -776,7 +776,7 @@ function T1ChecksFooter({
   const evidenceAllAddressed = evidenceKnown && addressed === total
 
   return (
-    <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
+    <div className="pt-3" data-testid="t1-checks-footer">
       {/* ⭐ L-58/L-57: the row used to be three bare glyph+word chips
           ("✓ Has leading option × Sensitive × Evidence unknown"), which reads
           as QA chrome rather than as a statement to the user — Paul filed it
@@ -1112,14 +1112,14 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
     <>
       {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
       {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
-        <div className="border-t border-panel-border pt-3">
+        <div className="pt-3">
           <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} useV17Copy={useV17Copy} />
         </div>
       )}
 
       {/* 2b. Conditional scenarios (Brief 4 Task 10) — between flip-risk and queue. */}
       {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
-        <div className="border-t border-panel-border pt-3">
+        <div className="pt-3">
           <ConditionalWinnerCards
             winners={data.confidence.conditionalWinners}
             recommendedOptionId={data.confidence.recommendedOptionId}
@@ -1144,7 +1144,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
           (flip-risk, conditional scenarios, dominant nudge, T1 checks
           footer) are contextual signals and stay rendered. */}
       {!suppressTriageQueue && top3.length > 0 && (
-        <div className="border-t border-panel-border pt-3 space-y-2">
+        <div className="pt-3 space-y-2">
           <StabilityNarrative
             itemCount={top3.length}
             stabilityScore={stabilityScore}

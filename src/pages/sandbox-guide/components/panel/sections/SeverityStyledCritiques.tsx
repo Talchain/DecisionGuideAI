@@ -149,7 +149,7 @@ function CritiqueGroup({
 
       {expanded && (
         <div
-          className={`p-4 space-y-3 ${config.bgColor} border-t ${config.borderColor}`}
+          className={`p-4 space-y-3 ${config.bgColor}`}
           role="region"
           aria-label={`${config.label} issues details`}
         >
@@ -157,7 +157,7 @@ function CritiqueGroup({
             <div key={idx} className="space-y-1">
               <p className="text-sm text-storm-900">{item.message}</p>
               {item.suggested_action && (
-                <p className="text-xs text-storm-600 pl-3 border-l-2 border-storm-300">
+                <p className="text-xs text-storm-600 pl-3">
                   → {item.suggested_action}
                 </p>
               )}

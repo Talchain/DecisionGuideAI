@@ -75,7 +75,7 @@ export function ProvenanceHubTab({
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200">
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-gray-900">Provenance Hub</h3>
           <button
@@ -95,7 +95,7 @@ export function ProvenanceHubTab({
       </div>
 
       {/* Search */}
-      <div className="px-4 py-3 border-b border-gray-200">
+      <div className="px-4 py-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -110,7 +110,7 @@ export function ProvenanceHubTab({
 
       {/* Document filter chips */}
       {documents.length > 0 && (
-        <div className="px-4 py-2 border-b border-gray-200 flex gap-2 overflow-x-auto">
+        <div className="px-4 py-2 flex gap-2 overflow-x-auto">
           <button
             onClick={() => setSelectedDocId(null)}
             className={`px-3 py-1 rounded-full ${typography.caption} font-medium whitespace-nowrap ${

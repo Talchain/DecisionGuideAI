@@ -171,7 +171,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
         tabIndex={-1}
         onClick={event => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between px-6 py-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-info">Shortcuts</p>
             <h2 id="keyboard-legend-title" className="text-xl font-semibold text-gray-900">
@@ -196,7 +196,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 {section.title}
               </h3>
-              <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+              <div className="border border-gray-100 rounded-lg">
                 {section.items.map(item => (
                   <div
                     key={item.description}
@@ -222,7 +222,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
           ))}
         </div>
 
-        <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
           <span>
             Press <kbd className="px-2 py-0.5 bg-white border border-gray-300 rounded">?</kbd> anytime to toggle this panel.
           </span>

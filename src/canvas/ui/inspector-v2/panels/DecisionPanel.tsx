@@ -11,7 +11,7 @@ import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 // Grounded guidance now lives outside the write fence in InspectorRouter.
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
-import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
+import { inspectorButton, inspectorDetailRow } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import {
@@ -245,7 +245,7 @@ export const DecisionPanel = memo(function DecisionPanel({
               tabIndex={0}
               onClick={() => onNavigate(opt.nodeId)}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(opt.nodeId) } }}
-              className={`py-2 cursor-pointer hover:bg-panel-hover transition-colors border-b ${INSPECTOR_RULE.row} last:border-b-0`}
+              className="py-2 cursor-pointer hover:bg-panel-hover transition-colors"
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
