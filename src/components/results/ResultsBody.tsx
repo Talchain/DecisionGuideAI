@@ -265,6 +265,8 @@ export const ResultsBody = memo(function ResultsBody({
   // aligning the two is what the paragraph above forbids.
   const designationsWithheld =
     leaderDesignationPermitted(resultsSectionData.recommendation) === false
+  // The conservative reading: only an answered permission names a leader.
+  const leaderClaimPermitted = leaderDesignationPermitted(resultsSectionData.recommendation) === true
 
   // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -464,7 +466,7 @@ export const ResultsBody = memo(function ResultsBody({
       <SectionErrorBoundary section="Decision brief">
         <DecisionBriefSectionContainer
           hasOptionResult={resultsSectionData.recommendation.hasOptionResult}
-          leaderClaimPermitted={leaderDesignationPermitted(resultsSectionData.recommendation) === true}
+          leaderClaimPermitted={leaderClaimPermitted}
         />
       </SectionErrorBoundary>
 
@@ -855,7 +857,7 @@ export const ResultsBody = memo(function ResultsBody({
                   resultsSectionData.recommendation.flipThresholdsHasUnresolved === true,
                 // ⛔ FAIL CLOSED for this note only (AIQ/Science #2630 6046857688): "which option had the highest
                 // average result" is a designation, so an unanswered permission gets the withheld words.
-                designationsWithheld: leaderDesignationPermitted(resultsSectionData.recommendation) !== true,
+                designationsWithheld: !leaderClaimPermitted,
                 reason: resultsSectionData.recommendation.flipThresholdsStatusReason,
               })
               return note == null ? null : (
