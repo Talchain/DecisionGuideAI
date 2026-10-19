@@ -66,7 +66,9 @@ describe('TopBar — the top-left pill (Paul, 1 Oct 2026)', () => {
 
   it('the actions follow the name inside the pill (no right-edge push), and the save status is the 11px muted text', () => {
     expect(rule('.topBarRight')['margin-left']).toBeUndefined()
-    expect(rule('.topBarRight')['border-left']).toBe('1px solid #DDD8D0')
+    // Set apart from the name by space, not a hairline (DS v5 §6, Paul 18 Oct 2026: no single-sided borders).
+    expect(rule('.topBarRight')['border-left']).toBeUndefined()
+    expect(rule('.topBarRight')['padding-left']).toBe('10px')
     expect(rule('.saveStatus')['font-size']).toBe('11px')
     expect(rule('.saveStatus').color).toBe('var(--text-light)')
   })

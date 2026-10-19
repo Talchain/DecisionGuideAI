@@ -1481,16 +1481,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
         data-testid="floating-olumi-panel-resize-handle"
         aria-hidden="true"
       >
-        <svg
+        {/* The corner grip: an L cut from a filled square (clip-path), not a
+            two-sided border (DS v5 §6) and not a hand-drawn SVG glyph (§17). */}
+        <span
           aria-hidden="true"
-          viewBox="0 0 6 6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="absolute right-0.5 bottom-0.5 w-1.5 h-1.5 text-text-light opacity-60"
-        >
-          <path d="M5 0V5H0" />
-        </svg>
+          className="absolute right-0.5 bottom-0.5 w-1.5 h-1.5 bg-text-light opacity-60"
+          style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%, 0 calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 0)' }}
+        />
       </div>
     </div>
     </>,

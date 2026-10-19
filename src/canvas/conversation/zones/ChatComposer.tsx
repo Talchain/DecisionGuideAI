@@ -496,7 +496,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
     >
       {isLoading ? (
         <Loader2
-          className="w-[11px] h-[11px] flex-shrink-0 animate-spin text-white"
+          className="w-3 h-3 flex-shrink-0 animate-spin text-white"
           aria-hidden="true"
         />
       ) : (

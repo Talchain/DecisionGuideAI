@@ -42,13 +42,16 @@ function classTokens(el: Element): string[] {
   return el.className.split(/\s+/).filter(Boolean)
 }
 
-describe('1. the footer divider is neutral, not amber', () => {
-  it('carries border-panel-border, never border-warning', () => {
+describe('1. the footer is neutral, not amber, and has no one-sided rule (DS v5 §6)', () => {
+  it('sits on the neutral panel ground with its own padding: no top rule, never border-warning', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false
     render(<ReanalyseBar {...NO_GATE} />)
     const tokens = classTokens(screen.getByTestId('reanalyse-bar'))
-    expect(tokens).toContain('border-panel-border')
+    // Separated by its ground and padding: the divider it carried was a one-sided rule (retired 18 Oct 2026).
+    expect(tokens).toContain('bg-panel')
+    expect(tokens).toContain('py-2')
+    expect(tokens.some(t => /^(?:[a-z0-9-]+:)*border-[tblrxy](?:-|$)/.test(t))).toBe(false)
     expect(tokens.some(t => t.startsWith('border-warning'))).toBe(false)
   })
 })
