@@ -182,6 +182,16 @@ export const PROXY_TIMEOUT_UNKNOWN_COPY =
   'Sending this same message again would ask the same thing a second time.'
 
 /**
+ * The transcript notice when an APPROVAL press got a server failure (5xx) back. The press reached CEE, so its write may
+ * have committed before the failure: VERIFIER REC-WRITE (19 Oct, UI f236a11e · CEE 390a1dbe) saw the graph move
+ * 09ab3814 r3 → e75aaf98 r5 and then a 503, while the card claimed a server fault. The outcome is UNKNOWN. Pressing the
+ * same approval again is safe: on that build the re-press returned 200 and wrote nothing (r5 → r5).
+ */
+export const APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY =
+  'We cannot confirm whether that change was saved: the server failed after receiving your approval, so it may still have been applied. ' +
+  'What you can do: press Try again. If the change was already saved, pressing again does not save it twice.'
+
+/**
  * Phrasings that offer the user a NEXT STEP.
  *
  * ⚠ THIS IS A SAMPLED FLOOR, NOT A TRACKING MIRROR. "Does this sentence give

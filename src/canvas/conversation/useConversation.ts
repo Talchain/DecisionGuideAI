@@ -48,7 +48,7 @@ import {
   NOT_DELIVERED_COPY,
 } from './transportFailure'
 import { edgePairKey } from '../utils/graphIdentity'
-import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
+import { APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY, WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
 import {
@@ -175,7 +175,7 @@ import type {
   ReviewCardBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS, isModelChangingSystemEvent } from './types'
-import { PLAN_PICK_CHIP_PREFIX } from './messageComposition'
+import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX } from './messageComposition'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import {
@@ -5644,6 +5644,9 @@ export function useConversation(): UseConversationReturn {
           : null
         const httpStatus = v5Result.kind !== 'response' && 'http_status' in v5Result ? v5Result.http_status : undefined
         const httpServerFailure = typeof httpStatus === 'number' && httpStatus >= 500 && httpStatus < 600
+        // An approval press answered by a 5xx reached CEE, so its write may have committed: the outcome is UNKNOWN, never a
+        // "server" fault (VERIFIER REC-WRITE). The re-press is idempotent, so the retry stays offered.
+        const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
         if (userBubbleIdForTurn) {
           const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
@@ -6522,6 +6525,8 @@ export function useConversation(): UseConversationReturn {
             content = DELIVERY_UNKNOWN_COPY
           } else if (target.ownershipRefusal !== undefined) {
             content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
+          } else if (pressOutcomeUnknown) {
+            content = APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY
           } else if (transportFailure && target.transportMeta) {
             content = buildTransportFailureCopy(target.transportMeta, retryable)
           } else {
@@ -6591,7 +6596,7 @@ export function useConversation(): UseConversationReturn {
           }
           if (inputForRestore) {
             setLastSendFailure({
-              kind: unanswered ?? (httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected'),
+              kind: unanswered ?? (pressOutcomeUnknown ? 'delivery_unknown' : httpServerFailure ? 'server' : transportFailure ? 'transport' : 'rejected'),
               // Copy-agrees-with-affordance: no retry is offered on the
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
