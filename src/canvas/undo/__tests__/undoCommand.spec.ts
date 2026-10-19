@@ -11,9 +11,11 @@ import { act, cleanup, render } from '@testing-library/react'
 import { ANALYSE_AFTER_CHANGE_SOURCE, useAnalyseAfterCommittedChange } from '../../analysis/useAnalyseAfterCommittedChange'
 
 const restoreModelVersion = vi.fn()
+const listModelVersions = vi.fn()
 vi.mock('../../../adapters/cee/modelVersions', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   restoreModelVersion: (...args: unknown[]) => restoreModelVersion(...args),
+  listModelVersions: (...args: unknown[]) => listModelVersions(...args),
 }))
 const identity = { userId: 'u-1' as string | null, accessToken: 'tok' as string | null }
 vi.mock('../../../lib/supabase', async (importOriginal) => ({
@@ -87,6 +89,7 @@ beforeEach(() => {
   identity.userId = 'u-1'
   setPersistenceSessionActive(true)
   hydrateCanvasFromServer.mockResolvedValue('merged')
+  listModelVersions.mockResolvedValue({ status: 'unavailable' })
   useUndoJournalStore.setState({ journal: journalWithAdd() })
   seedCanvasWithOption()
 })
@@ -272,5 +275,69 @@ describe('refusals that never call the server', () => {
     await expect(runCanvasUndo('undo')).resolves.toBe('busy')
     expect(restoreModelVersion).not.toHaveBeenCalled()
     useCanvasStore.setState({ pendingStructuralAdds: [] } as never)
+  })
+})
+
+/** CEE's version list after the approval: v1 is current, written over v0. */
+function listAfterApproval(provenance: string, parentVersionId: string | null = V0) {
+  return {
+    status: 'list',
+    currentVersionId: V1,
+    requestId: 'req-list',
+    versions: [
+      { id: V1, versionNumber: 2, label: null, parentVersionId, provenance, restoredFromVersionId: null, createdAt: '2026-10-19T07:55:00Z', graphIdentityHash: h('1'), sourceTurnId: 't-approve' },
+      { id: V0, versionNumber: 1, label: null, parentVersionId: null, provenance: 'initial', restoredFromVersionId: null, createdAt: '2026-10-19T07:53:00Z', graphIdentityHash: h('0'), sourceTurnId: null },
+    ],
+  }
+}
+
+describe('after a reopen, Undo rebuilds its step from CEE\'s version list (DL-3 ruling (b), staging 1e37799f C2 step 8)', () => {
+  beforeEach(() => {
+    // A cold reopen: this visit's journal holds nothing for the model.
+    useUndoJournalStore.setState({ journal: EMPTY_UNDO_JOURNAL })
+  })
+
+  it('approve → reopen → Undo sends ONE restore to the version the approval was written over, and the canvas reads it back', async () => {
+    listModelVersions.mockResolvedValue(listAfterApproval('committed_mutation'))
+    restoreModelVersion.mockResolvedValue(restored(h('0')))
+
+    await expect(runCanvasUndo('undo')).resolves.toBe('done')
+
+    expect(listModelVersions).toHaveBeenCalledTimes(1)
+    expect(restoreModelVersion).toHaveBeenCalledTimes(1)
+    expect(restoreModelVersion.mock.calls[0][0]).toBe(S)
+    expect(restoreModelVersion.mock.calls[0][1]).toMatchObject({ versionId: V0, expectedGraphIdentityHash: h('1') })
+    // The restored (pre-approval) graph is what the canvas holds.
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual([FAC])
+  })
+
+  it('a second Undo press writes nothing', async () => {
+    listModelVersions.mockResolvedValue(listAfterApproval('committed_mutation'))
+    restoreModelVersion.mockResolvedValue(restored(h('0')))
+    await runCanvasUndo('undo')
+    toasts.length = 0
+
+    await expect(runCanvasUndo('undo')).resolves.toBe('nothing')
+    expect(restoreModelVersion).toHaveBeenCalledTimes(1)
+    expect(toasts).toEqual([UNDO_NOTICE.nothingToUndo])
+  })
+
+  it('CONTRAST: the current version is a restore → never stepped back past, nothing is written', async () => {
+    listModelVersions.mockResolvedValue(listAfterApproval('restore'))
+    await expect(runCanvasUndo('undo')).resolves.toBe('nothing')
+    expect(restoreModelVersion).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST: CEE does not know what the current version replaced → nothing is written', async () => {
+    listModelVersions.mockResolvedValue(listAfterApproval('committed_mutation', null))
+    await expect(runCanvasUndo('undo')).resolves.toBe('nothing')
+    expect(restoreModelVersion).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST: a journal this visit already holds is never replaced by the list', async () => {
+    useUndoJournalStore.setState({ journal: journalWithAdd() })
+    restoreModelVersion.mockResolvedValue(restored(h('0')))
+    await runCanvasUndo('undo')
+    expect(listModelVersions).not.toHaveBeenCalled()
   })
 })

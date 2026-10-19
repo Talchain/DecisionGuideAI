@@ -20,7 +20,7 @@ import { clearPendingEditNotes } from '../editNotes/reportManualEditReceipt'
  */
 
 import { useCanvasStore } from '../store'
-import { restoreModelVersion } from '../../adapters/cee/modelVersions'
+import { listModelVersions, restoreModelVersion } from '../../adapters/cee/modelVersions'
 import { getSessionIdentity } from '../../lib/supabase'
 import { canRestoreSharedVersions } from '../versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
@@ -29,6 +29,7 @@ import { applyRestoredGraph, settleRestoredModel } from '../versions/applyRestor
 import { newRestoreMutationId } from '../versions/restoreMutationId'
 import { useUndoJournalStore } from './captureUndoReceipt'
 import { AI_CHANGE_UNDO_LABEL } from './captureAgentTurnForUndo'
+import { rebuiltUndoJournal } from './rebuildUndoHead'
 import {
   nextRedo,
   nextUndo,
@@ -53,9 +54,9 @@ export type UndoCommandOutcome =
   | 'failed'
 
 export const UNDO_NOTICE = {
-  // The journal lives for this visit only (`captureUndoReceipt.ts`): after a reopen, a change made before it is still in
-  // the saved versions, so "Nothing to undo." alone was untrue (verifier, staging 1e37799f, 19 Oct).
-  nothingToUndo: 'Nothing to undo since you opened this model. Version history can restore an earlier version.',
+  // Said when neither this visit's journal nor CEE's latest saved change (`rebuildUndoHead.ts`) gives a step back.
+  // Older versions may still exist, so the notice names the route that can reach them.
+  nothingToUndo: 'Nothing more to undo here. Version history can restore an earlier version.',
   nothingToRedo: 'Nothing to redo.',
   barrier: "The last change can't be undone here. Version history can restore an earlier version.",
   busy: 'A change is still being saved. Try again in a moment.',
@@ -81,6 +82,12 @@ export function isCanvasUndoBusy(): boolean {
   if (restoreInFlight) return true
   const state = useCanvasStore.getState() as unknown as Parameters<typeof editDeliveryHold>[0]
   return editDeliveryHold(state) !== null
+}
+
+/** This visit's journal has no step either way for the model (empty, or another model's). */
+function journalHoldsNothingFor(scenarioId: string): boolean {
+  const { journal } = useUndoJournalStore.getState()
+  return journal.scenarioId !== scenarioId || (journal.undo.length === 0 && journal.redo.length === 0)
 }
 
 /** The next step, for enabling a button: never performs anything. */
@@ -112,12 +119,15 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
     return 'busy'
   }
 
-  const next = peekCanvasUndo(direction)
+  let next = peekCanvasUndo(direction)
   if (expectedTurnId !== undefined && (direction !== 'undo' || next.kind !== 'restore' || next.step.gestureId !== expectedTurnId)) {
     notify(UNDO_NOTICE.changed, 'warning')
     return 'refused_changed'
   }
-  if (next.kind === 'nothing' || next.kind === 'unknown_head') {
+  // After a reopen the journal holds nothing for this model: the Undo is rebuilt from CEE's version list once the
+  // session is read (`rebuildUndoHead.ts`). Never for a redo, and never over steps this visit already holds.
+  const rebuild = direction === 'undo' && next.kind === 'nothing' && journalHoldsNothingFor(scenarioId)
+  if ((next.kind === 'nothing' || next.kind === 'unknown_head') && !rebuild) {
     notify(direction === 'undo' ? UNDO_NOTICE.nothingToUndo : UNDO_NOTICE.nothingToRedo)
     return 'nothing'
   }
@@ -135,6 +145,23 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
   if (!identity.userId) {
     notify(UNDO_NOTICE.signInRequired)
     return 'sign_in_required'
+  }
+  if (rebuild) {
+    restoreInFlight = true
+    try {
+      const list = await listModelVersions(scenarioId, { userId: identity.userId, accessToken: identity.accessToken })
+      const journal = useCanvasStore.getState().currentScenarioId === scenarioId && journalHoldsNothingFor(scenarioId)
+        ? rebuiltUndoJournal(scenarioId, list)
+        : null
+      if (journal !== null) useUndoJournalStore.setState({ journal })
+    } finally {
+      restoreInFlight = false
+    }
+    next = peekCanvasUndo(direction)
+  }
+  if (next.kind !== 'restore') {
+    notify(UNDO_NOTICE.nothingToUndo)
+    return 'nothing'
   }
 
   // The reply's step must still be next after the session read, before any restore leaves.

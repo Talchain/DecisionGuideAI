@@ -74,6 +74,21 @@ vi.mock('../mutations/mutationAuthority', async (importOriginal) => {
   }
 })
 
+/**
+ * An empty journal on a signed-in reader now reads the session and CEE's version list before answering (after a
+ * reopen, Undo rebuilds its step from that list: `undo/rebuildUndoHead.ts`). The session is the signed-in one this
+ * reader class implies, and the list has nothing to step back to, so the answer under test is unchanged. Guests and
+ * unsaved models are refused before either is read. `restoreModelVersion` stays real (spread).
+ */
+vi.mock('../../lib/supabase', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getSessionIdentity: async () => ({ userId: 'u-reader', accessToken: 'tok' }),
+}))
+vi.mock('../../adapters/cee/modelVersions', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listModelVersions: async () => ({ status: 'unavailable' }),
+}))
+
 /** A real `scenarios.id` shape — CEE addresses scenarios by uuid. */
 const ADDRESSABLE_SCENARIO_ID = '3f1a7c2e-8b44-4d19-9a05-6e2c1d8f4b70'
 
@@ -180,9 +195,9 @@ describe('the undo notice is true for the reader who receives it', () => {
     pressUndo()
     await vi.runAllTimersAsync()
     expect(toasts.messages).toEqual([UNDO_NOTICE.nothingToUndo])
-    // After a reopen the journal is empty although earlier saved changes exist (staging 1e37799f, 19 Oct): the notice
-    // bounds its claim to this visit and names the route that can still restore them.
-    expect(UNDO_NOTICE.nothingToUndo).toContain('since you opened this model')
+    // Older saved versions may exist even with no step back here (staging 1e37799f, 19 Oct): the notice names the
+    // route that can still restore them, never a bare "Nothing to undo."
+    expect(UNDO_NOTICE.nothingToUndo).not.toBe('Nothing to undo.')
     expect(UNDO_NOTICE.nothingToUndo).toContain('Version history')
   })
 
