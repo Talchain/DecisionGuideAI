@@ -21,14 +21,9 @@
  * collision by arguing colour discriminates: *"Thickness alone cannot tell them
  * apart — the colour does."* True in the DEFAULT view, where
  * `computeDirectionStroke` returns neutral grey on `!strength.show`
- * (`directionStroke.ts:113`). **It is FALSE in the causal lens.**
- * `resolveEdgeStroke`'s `lens_causal` branch (`edgePresentation.ts:236-244`)
- * picks its colour from `direction` ALONE and never reads magnitude, while
- * `StyledEdge.tsx:1180-1184` picks width from magnitude. So in the one lens
- * whose entire purpose is strength, an edge with a stated direction and an
- * UNSET strength rendered identically — same width AND same colour — to a
- * measured weak one. Colour cannot be the discriminator there, because colour
- * is answering a different question.
+ * (`directionStroke.ts:113`). It was FALSE in the retired causal lens (18 Oct
+ * 2026), whose colour read `direction` alone; width stays the discriminator
+ * wherever colour answers a different question.
  *
  * WHAT THIS SPEC BINDS TO
  * -----------------------
@@ -45,7 +40,6 @@ import {
   UNSET_EDGE_STROKE_WIDTH,
   weightMagnitudeToStrokeWidth,
 } from '../../utils/graphDisplayCalculations'
-import { resolveEdgeStroke, NOT_CONTESTED, type EdgePresentationState } from '../edgePresentation'
 
 /**
  * Every width a MEASUREMENT can produce, derived by sampling the whole
@@ -113,60 +107,5 @@ describe('an unset strength is not drawn as a measurement', () => {
       UNSET_EDGE_STROKE_WIDTH,
       `an unset strength and a stated slight strength (|mean| 0.1) both draw at ${thinnest}px — the reader cannot tell "we set this to slight" from "nobody has said"`,
     ).not.toBe(thinnest)
-  })
-
-  it('CAUSAL LENS: the stroke rule is blind to magnitude, so width is the only discriminator', () => {
-    // ⚠ NOT A SELF-COMPARISON. An earlier draft of this test resolved the SAME
-    // state twice and asserted the two results equal — which is true of any
-    // pure function and asserts nothing (trap 13b: a guard agreeing with
-    // itself). The real claim is STRUCTURAL: the causal-lens stroke rule
-    // decides colour from `direction` ALONE, so no strength difference of any
-    // kind can change it. That is what makes width load-bearing here, and it is
-    // pinned two ways below.
-    const negative: EdgePresentationState = {
-      isStructural: false,
-      lensMode: 'causal',
-      causalParams: { direction: 'negative' },
-      evidenceClass: null,
-      // The module's own constant rather than a hand-typed literal: the
-      // contest state narrowed on 23 Sep 2026 (no dash, no needs-input flag),
-      // and a literal here is the mirror that breaks when it does (trap 12).
-      contested: NOT_CONTESTED,
-      isHighlighted: false,
-      // Two DIFFERENT polarity strokes below, to prove the lens ignores them:
-      // if `lens_causal` ever started falling through to polarity, these two
-      // would diverge and this test REDs.
-      polarityStroke: 'var(--edge-negative)',
-      existence: { kind: 'stated', dash: undefined },
-      visualPropsDash: undefined,
-    }
-    const sameDirectionOtherPolarity: EdgePresentationState = {
-      ...negative,
-      polarityStroke: 'var(--edge-neutral)',
-    }
-
-    const a = resolveEdgeStroke(negative)
-    const b = resolveEdgeStroke(sameDirectionOtherPolarity)
-    expect(a.rule, 'the causal-lens branch did not fire — this test is not exercising the lens').toBe('lens_causal')
-    expect(b.rule).toBe('lens_causal')
-    expect(
-      b.value,
-      'the causal lens colour changed with a channel other than direction — the precondition of this test no longer holds',
-    ).toBe(a.value)
-
-    // Discrimination check: the lens DOES still distinguish the thing it claims
-    // to (direction), so the equality above is not blindness.
-    const positive = resolveEdgeStroke({ ...negative, causalParams: { direction: 'positive' } })
-    expect(
-      positive.value,
-      'the causal lens returned the same colour for positive and negative — the resolver is not discriminating at all, so the equality above proves nothing',
-    ).not.toBe(a.value)
-
-    // …so colour cannot separate "nobody set a strength" from "somebody set a
-    // weak one" in this lens. Width must, and now does.
-    expect(
-      UNSET_EDGE_STROKE_WIDTH,
-      'in the causal lens an unset strength and a slight measured strength render at the same colour AND the same width — indistinguishable on the lens built to show strength',
-    ).not.toBe(weightMagnitudeToStrokeWidth(0.1))
   })
 })

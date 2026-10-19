@@ -210,22 +210,6 @@ export function readContestedState(validation: unknown): ContestedState {
 /** Everything the two resolvers may read. Nothing else is in scope. */
 export interface EdgePresentationState {
   readonly isStructural: boolean
-  /** Active lens, or 'full' for the default (no-lens) view. */
-  readonly lensMode: string
-  /**
-   * Causal-lens parameters, or null when the lens has none for this edge.
-   *
-   * ⚠ THE OBJECT'S PRESENCE AND ITS `direction` ARE TWO DIFFERENT FACTS and must
-   * not be collapsed (CLAUDE.md trap 21). `CausalLensEdgeParams.direction` is
-   * `null` when nobody STATED a direction, and the causal lens still paints
-   * those edges — in its neutral body colour, which is its way of refusing to
-   * claim a sign. Flattening this to a bare direction would silently drop that
-   * edge out of the lens branch entirely and repaint it with default-view
-   * polarity, which is the opposite of what the lens is for.
-   */
-  readonly causalParams: { readonly direction: 'positive' | 'negative' | null } | null
-  /** Evidence-lens classification, when that lens is active. */
-  readonly evidenceClass: string | null
   readonly contested: ContestedState
   readonly isHighlighted: boolean
   /**
@@ -268,10 +252,6 @@ export interface EdgePresentationState {
 export const EDGE_STROKE_RULES = [
   /** Structural scaffolding recedes; never carries a data claim. */
   'structural',
-  /** Causal lens: an explicit alternative encoding with its own key. */
-  'lens_causal',
-  /** Evidence lens: ditto. */
-  'lens_evidence',
   /**
    * The passes disagree about the SIGN — no honest polarity to show. The ONE
    * contest rule (23 Sep 2026: "orange = AI review sign disagreement only").
@@ -299,29 +279,6 @@ export interface EdgeStrokeDecision {
 export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecision {
   if (state.isStructural) {
     return { value: STRUCTURAL_EDGE_COLOUR, rule: 'structural' }
-  }
-
-  if (state.lensMode === 'causal' && state.causalParams !== null) {
-    return {
-      value:
-        state.causalParams.direction === 'negative'
-          // contract v3.1 (T16): tokens only, no off-palette fallback hex.
-          ? 'var(--semantic-danger)'
-          : 'var(--text-body)',
-      rule: 'lens_causal',
-    }
-  }
-
-  if (state.lensMode === 'evidence' && state.evidenceClass !== null) {
-    switch (state.evidenceClass) {
-      case 'evidence':
-        return { value: 'var(--semantic-success)', rule: 'lens_evidence' }
-      case 'assumed':
-        return { value: 'var(--semantic-warning)', rule: 'lens_evidence' }
-      case 'unknown':
-        return { value: 'var(--semantic-danger)', rule: 'lens_evidence' }
-    }
-    // An unrecognised class is not a claim we can paint; fall through.
   }
 
   // ── The exception hue, and the ONE state that earns it ────────────────────

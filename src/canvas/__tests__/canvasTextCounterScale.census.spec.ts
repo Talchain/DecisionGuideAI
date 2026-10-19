@@ -303,6 +303,9 @@ const KNOWN_FIXED = [
 const VIEWPORT_PORTALLED = ['src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
 
 const FOREIGN_RENDERED = [
+  // 18 Oct 2026 (Lenses on the model): the "Rests on" number on a card and on a link's line. It is drawn inside the
+  // transform and counter-scales with the text: `typography.edgeLabel` and box sizes in `--canvas-label-scale`.
+  'src/canvas/artefacts/RestsOnMarker.tsx',
   // The shared inspector/canvas note uses panel tokens. EditNoteAnchor counter-scales the entire
   // overlay by 1/zoom, keeping both its text and 280px width at screen size, outside measured cards.
   'src/canvas/editNotes/EditNote.tsx',

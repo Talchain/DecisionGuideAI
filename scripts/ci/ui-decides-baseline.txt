@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8252
+src/canvas/store.ts:8238
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
@@ -228,3 +228,5 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #    (`store.ts:8235` -> `8252`, a pure +17 line shift from #2788 (14 Oct 2026):
 #    `syncGoalThresholdFromCeeReadiness` and its comments, all above this site.
 #    Line text identical (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
+#    (`store.ts:8252` -> `8238`, a pure -14 line shift from #2826 (19 Oct 2026, lenses on the model): the retired
+#    hidden/causal/evidence lens fields above it. Same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line text.)

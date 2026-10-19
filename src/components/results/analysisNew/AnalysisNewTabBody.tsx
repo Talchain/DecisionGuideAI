@@ -104,7 +104,6 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { DecisionMatrix } from './sections/DecisionMatrix'
-import { ArtefactOpeners } from '../../../canvas/artefacts/ArtefactColumn'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningActionBar } from './sections/ReasoningActionBar'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
@@ -2360,9 +2359,6 @@ export function AnalysisNewTabBody({
           onDisagree={(rec) => openAskOlumi(disagreeWithRecommendationPayload(rec))}
           analysisHash={responseHash ?? null}
         />
-        {/* The reasoning artefacts this model can show now, each opened beside the model (`canvas/artefacts`). They are
-            thinking tools, so they sit in the challenge zone, under its card, never above the decision row. */}
-        <ArtefactOpeners />
         <ReasoningSignals
           vm={vm}
           noValueIds={noValueDriverIds}

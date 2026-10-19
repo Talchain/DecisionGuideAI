@@ -9,8 +9,9 @@ import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
 import { edgeProvenance, type EdgeProvenanceKind } from '../../domain/edgeProvenance'
-import { assumptionMapOf, type AssumptionColumn } from '../assumptionMapModel'
-import { showArtefactForAction, useArtefactStore } from '../artefactStore'
+import { assumptionMapOf, restsOnKey, restsOnNumbered, type AssumptionColumn } from '../assumptionMapModel'
+import { showLensForAction } from '../lenses'
+import { useCanvasStore } from '../../store'
 
 type Data = Record<string, unknown>
 type WireEdge = Record<string, unknown> & { from: string; to: string }
@@ -29,7 +30,8 @@ const LINKS: ReadonlyArray<[EdgeProvenanceKind, () => Data, AssumptionColumn | n
   ['olumi_estimate', ESTIMATE, 'unchecked'],
   ['user', () => ({ ...ESTIMATE(), weightSource: 'user' }), 'yours'],
   ['brief', () => { const d = ESTIMATE(); return { ...d, strengthStated: W(d) } }, 'yours'],
-  ['accepted', () => { const d = ESTIMATE(); return { ...d, strengthAccepted: W(d) } }, 'yours'],
+  // Accepting Olumi's strength never makes it the user's: its origin stays Olumi's (PL, 18 Oct 2026).
+  ['accepted', () => { const d = ESTIMATE(); return { ...d, strengthAccepted: W(d) } }, 'accepted'],
   ['placeholder', PLACEHOLDER, 'missing'],
   ['example', () => ({ ...ESTIMATE(), weightSource: 'template' }), 'unchecked'],
   ['exact', () => ({ ...PLACEHOLDER(), strengthIdentityExact: 'mrr' }), null],
@@ -40,7 +42,12 @@ const FACTORS: ReadonlyArray<[string, Data, AssumptionColumn]> = [
   ['user', { observedState: { value: 0.7, source: 'user_override' } }, 'yours'],
   ['brief', { observedState: { value: 0.8, source: 'brief_extraction', extractionType: 'explicit' } }, 'yours'],
   ['olumi', { observedState: { value: 0.5, source: 'cee_inference', extractionType: 'inferred' } }, 'unchecked'],
-  ['unverified', { provenance: 'unverified_brief', observedState: { value: 12, source: 'brief_extraction' } }, 'unchecked'],
+  // CONTRAST: Olumi's drafted value with no marker is still Olumi's and unchecked, never assumed accepted.
+  ['olumi drafted, unmarked', { observedState: { value: 0.4, source: 'cee_inference' } }, 'unchecked'],
+  ['accepted', { observedState: { value: 0.5, source: 'user_assumption', reviewed_by_user: { intent: 'confirm' } } }, 'accepted'],
+  // An origin nobody can attest is never shown as the user's (DL, 18 Oct 2026; BaseNode.evidenceLensSaysIt's intent).
+  ['unverified', { provenance: 'unverified_brief', observedState: { value: 12, source: 'brief_extraction' } }, 'unknown'],
+  ['unknown provenance', { provenance: 'something_new', observedState: { value: 3 } }, 'unknown'],
 ]
 
 const node = (id: string, type: string, data: Data = {}): Node => ({ id, type, position: { x: 0, y: 0 }, data: { label: id, ...data } })
@@ -120,14 +127,41 @@ describe('what the model rests on', () => {
     assert.ok(map.items.every((i) => i.row === 'off_path'))
   })
 
-  it('a press of an action about the model\'s figures opens the map; any other press opens nothing', () => {
-    useArtefactStore.setState({ open: null })
-    showArtefactForAction('review')
-    assert.equal(useArtefactStore.getState().open, null)
+  it('a press of an action about the model\'s figures turns on "Rests on"; any other press changes no lens', () => {
+    const lens = () => useCanvasStore.getState().lens.active
+    useCanvasStore.getState().setLens('full')
+    showLensForAction('review')
+    assert.equal(lens(), 'full')
     for (const action of ['strengthen', 'check_estimates', 'bias_anchoring']) {
-      useArtefactStore.setState({ open: null })
-      showArtefactForAction(action)
-      assert.equal(useArtefactStore.getState().open, 'assumptions', action)
+      useCanvasStore.getState().setLens('full')
+      showLensForAction(action)
+      assert.equal(lens(), 'rests_on', action)
     }
+  })
+})
+
+describe('"Rests on" numbers', () => {
+  // Three factors in two rows and one link between rows, at real positions.
+  const at: Record<string, { x: number; y: number }> = { a: { x: 400, y: 0 }, b: { x: 0, y: 0 }, c: { x: 200, y: 300 }, g: { x: 200, y: 600 } }
+  const nodes = (dataOf: (id: string) => Data = () => ({ observedState: { value: 0.5, source: 'cee_inference' } })) =>
+    ['a', 'b', 'c'].map((id) => ({ ...node(id, 'factor', dataOf(id)), position: at[id] })).concat({ ...node('g', 'goal'), position: at.g })
+  const edges = [edge('e_bc', 'b', 'c', ESTIMATE())]
+  const numbers = (ns: Node[]) => {
+    const items = restsOnNumbered(assumptionMapOf(ns, edges, 'g').items, edges, (id) => ns.find((n) => n.id === id)?.position ?? null)
+    return new Map(items.map((i) => [restsOnKey(i.target), i.n]))
+  }
+
+  it('run in reading order: top row left to right, then a link at the middle of its ends, then the next row', () => {
+    assert.deepEqual([...numbers(nodes()).entries()], [['node:b', 1], ['node:a', 2], ['edge:e_bc', 3], ['node:c', 4]])
+  })
+
+  it('a figure keeps its number when its state changes, so the key and the model never renumber under the user', () => {
+    const before = numbers(nodes())
+    // CONTRAST: the state really changed (unchecked → yours) for one figure.
+    const settled = nodes((id) => (id === 'a' ? { observedState: { value: 0.7, source: 'user_override' } } : { observedState: { value: 0.5, source: 'cee_inference' } }))
+    const columnOf = (ns: Node[]) => assumptionMapOf(ns, edges, 'g').items.find((i) => i.target.id === 'a')?.column
+    assert.equal(columnOf(nodes()), 'unchecked')
+    assert.equal(columnOf(settled), 'yours')
+    assert.deepEqual([...numbers(settled).entries()], [...before.entries()])
   })
 })

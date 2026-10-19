@@ -18,7 +18,7 @@ import { StyledEdge } from '../StyledEdge'
 
 const holder = vi.hoisted(() => ({
   fragileEntry: null as Record<string, unknown> | null,
-  lensActive: 'robustness' as string,
+  lensActive: 'what_changes' as string,
 }))
 
 vi.mock('@xyflow/react', async () => {
@@ -119,7 +119,7 @@ describe('the lens fragile-edge label names the alternative without a winner ver
     try {
       expect(renderEdge()).not.toContain('Plan B')
     } finally {
-      holder.lensActive = 'robustness'
+      holder.lensActive = 'what_changes'
     }
   })
 })

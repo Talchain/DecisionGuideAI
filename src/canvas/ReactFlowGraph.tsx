@@ -216,6 +216,7 @@ import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
+import { LensBar } from './artefacts/LensBar'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isOnboardingTourEnabled, isCrossHighlightEnabled } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
@@ -3246,7 +3247,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <FloatingOlumiPanelHost showStarters={showStarters} />
       )}
 
-      {/* Expanded lenses: contextual info panel overlay */}
+      {/* Lenses on the model: the bar that switches them, and the key card of the one on screen */}
+      <LensBar />
       <LensInfoPanel />
       <LimitsPanel
         isOpen={showLimits}

@@ -43,9 +43,6 @@ const POLARITY_GREEN = 'var(--edge-positive)'
 function state(overrides: Partial<EdgePresentationState> = {}): EdgePresentationState {
   return {
     isStructural: false,
-    lensMode: 'full',
-    causalParams: null,
-    evidenceClass: null,
     contested: NOT_CONTESTED,
     isHighlighted: false,
     polarityStroke: POLARITY_GREEN,
@@ -151,8 +148,6 @@ describe('R2 — orange means an AI-review SIGN disagreement ONLY', () => {
   it('the stroke precedence carries exactly one contest rule: the disputed direction', () => {
     expect([...EDGE_STROKE_RULES]).toEqual([
       'structural',
-      'lens_causal',
-      'lens_evidence',
       'contested_direction_disputed',
       'highlighted',
       'polarity',

@@ -139,7 +139,7 @@ describe('POM-6 — the row-end prompt is an obstacle in its band', () => {
   const card = (b: Box, type: string) => ({ id: b.id, type, position: { x: b.x, y: b.y }, measured: { width: b.width, height: b.height } })
 
   it('layeredRouteBoxes gives a prompt its family\'s tier, and the joint consequence door tier 3', () => {
-    const boxes = layeredRouteBoxes([card(SUBSCRIBERS, 'factor'), prompt, { ...prompt, id: '__ghost-consequence__', data: { tier: 'consequence' } }], () => false)
+    const boxes = layeredRouteBoxes([card(SUBSCRIBERS, 'factor'), prompt, { ...prompt, id: '__ghost-consequence__', data: { tier: 'consequence' } }])
     expect(boxes.find((b) => b.id === '__ghost-risk__')?.tier).toBe(3)
     // Unmeasured, it takes the fixed prompt size the layout reserved.
     expect(boxes.find((b) => b.id === '__ghost-risk__')).toMatchObject({ x: 912, y: 456, width: ROW_PROMPT_W, height: ROW_PROMPT_H })
@@ -155,7 +155,6 @@ describe('POM-6 — the row-end prompt is an obstacle in its band', () => {
     const OTHER: Box = { id: 'other_mrr_growth', x: 912 + ROW_PROMPT_W + 12 - 248 / 2, y: 300, width: 248, height: 100, tier: 2 }
     const boxes = layeredRouteBoxes(
       [card(SUBSCRIBERS, 'factor'), card(NEW_SUBS, 'factor'), card(PRICE_SENSITIVITY, 'risk'), card(CHURN, 'outcome'), card(MRR, 'goal'), card(OTHER, 'factor'), prompt],
-      () => false,
     )
     const ghost = boxes.find((b) => b.id === '__ghost-risk__')!
     const sx = OTHER.x + OTHER.width / 2

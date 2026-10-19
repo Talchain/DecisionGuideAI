@@ -23,17 +23,12 @@ describe('canvas store initial state — Bug 5 + Bug 6 regressions', () => {
     expect(['asc', 'desc']).toContain(state.documentSortDirection)
   })
 
-  it('initialises lens with all 12 LensState fields populated', () => {
+  it('initialises lens with every LensState field populated', () => {
     const state = useCanvasStore.getState()
     expect(state.lens.active).toBe('full')
     expect(state.lens.selectedOptionId).toBeNull()
-    // Brief 5 expanded-lenses fields — previously missing
-    expect(state.lens._hiddenNodeIds).toBeInstanceOf(Set)
-    expect(state.lens._hiddenEdgeIds).toBeInstanceOf(Set)
-    expect(state.lens._causalEdgeParams).toBeInstanceOf(Map)
-    expect(state.lens._evidenceNodeClass).toBeInstanceOf(Map)
-    expect(state.lens._evidenceEdgeClass).toBeInstanceOf(Map)
-    // Pre-existing lens fields — confirm still populated
+    // "Rests on" marks (18 Oct 2026) — a reader that finds none must get an empty map, never undefined
+    expect(state.lens._restsOn).toBeInstanceOf(Map)
     expect(state.lens._dimmedNodeIds).toBeInstanceOf(Set)
     expect(state.lens._dimmedEdgeIds).toBeInstanceOf(Set)
     expect(state.lens._sensitivityWeights).toBeInstanceOf(Map)

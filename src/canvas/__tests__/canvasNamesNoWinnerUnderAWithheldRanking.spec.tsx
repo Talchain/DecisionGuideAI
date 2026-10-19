@@ -84,7 +84,7 @@ describe('the fragile-edge alternative is named without a winner verb', () => {
           },
         },
       } as never,
-      lens: { ...useCanvasStore.getState().lens, active: 'robustness' },
+      lens: { ...useCanvasStore.getState().lens, active: 'what_changes' },
     } as never)
     render(<LensInfoPanel />)
     const panel = screen.getByTestId('lens-info-robustness')
