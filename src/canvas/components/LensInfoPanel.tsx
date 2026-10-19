@@ -38,6 +38,7 @@ import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'r
 import { createPortal } from 'react-dom'
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Layers, X, type LucideIcon } from 'lucide-react'
 import { OVERLAY_BAND_SELECTOR, useOverlayCell } from './CanvasOverlayBand'
+import { measureDockInset } from './FloatingOlumiPanel'
 import { ANALYSIS_STATE_CUE_COPY } from './AnalysisStateCue'
 import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
 import { panCanvasBy } from '../utils/focusHelpers'
@@ -263,7 +264,9 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
       const height = card.getBoundingClientRect().height
       const y = box.top - KEY_CARD_GAP - height
       const leftX = box.left + (parseFloat(cs.paddingLeft) || 0)
-      const rightX = box.right - (parseFloat(cs.paddingRight) || 0) - KEY_CARD_WIDTH
+      // The card stands ABOVE the band, so on the right it clears the dock, not the band's pill gutter (the minimised
+      // Olumi pill's corner lives in the band's own row). Measured at 1280: the gutter put the right slot over the goal.
+      const rightX = window.innerWidth - measureDockInset() - KEY_CARD_GAP - KEY_CARD_WIDTH
       const cards = [...document.querySelectorAll('.react-flow__node')].map((el) => {
         const r = el.getBoundingClientRect()
         return { x: r.left, y: r.top, w: r.width, h: r.height }
@@ -278,7 +281,8 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
     window.addEventListener('resize', measure)
     // The band's side padding follows the dock (its width, expanded or rail), which is not a window resize.
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    for (const el of [document.querySelector(OVERLAY_BAND_SELECTOR), document.querySelector('aside[aria-label="Outputs dock"]')]) {
+    // The card itself too: picking a figure makes it taller, and the corner that covers less can change.
+    for (const el of [card, document.querySelector(OVERLAY_BAND_SELECTOR), document.querySelector('aside[aria-label="Outputs dock"]')]) {
       if (el && ro) ro.observe(el)
     }
     return () => {

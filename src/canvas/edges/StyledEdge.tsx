@@ -113,7 +113,7 @@ import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
-  resolveSourceGlyphOnPath,
+  resolveSourceGlyphOnPath, resolveRestsOnMarkerOnPath,
   glyphMetricsAt,
   arrivalHeadKeepOut,
   polarityGlyphTransform,
@@ -2301,6 +2301,43 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const poly = flattenSvgPath(edgePath)
     return poly ? resolveSourceGlyphOnPath(poly) : null
   }, [restsOn, strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
+  // The cards' boxes, for the "Rests on" number only (`nodeRectsSignature` is empty unless this edge pins a label, so
+  // without its own subscription the number was placed once, before the cards were measured, and never again).
+  const restsOnRectsSignature = useStore((st) => {
+    if (restsOn === null) return ''
+    let sig = ''
+    for (const n of st.nodes) {
+      if (n.hidden) continue
+      sig += `${n.id}:${n.position.x},${n.position.y},${n.measured?.width ?? n.width ?? ''},${n.measured?.height ?? n.height ?? ''};`
+    }
+    return sig
+  })
+  // The "Rests on" number slides along its line off any card that covers the seat, so every number can be seen and
+  // picked (`resolveRestsOnMarkerOnPath`). Its box is the marker's painted size at this zoom (20px tall, about 32 wide).
+  const restsOnPlacement = useMemo(() => {
+    if (restsOn === null || !sourceGlyphPlacement) return null
+    const poly = flattenSvgPath(edgePath)
+    if (!poly) return sourceGlyphPlacement
+    const scale = labelCounterScale(edgeTooltipZoom)
+    const keepOuts: GlyphKeepOut[] = []
+    const zoom = edgeTooltipZoom > 0 ? edgeTooltipZoom : 1
+    for (const n of getNodes()) {
+      if (n.hidden) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (!box) continue
+      // A card is drawn larger than React Flow measured it (its counter-scaled content is a transform, which does not
+      // change layout size: 104 measured against 164 drawn on the MRR board at 1280), so its painted box is the bound.
+      const safeId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(n.id) : n.id.replace(/["\\]/g, '\\$&')
+      const drawn = typeof document === 'undefined'
+        ? null
+        : document.querySelector(`.react-flow__node[data-id="${safeId}"]`)?.getBoundingClientRect()
+      const width = drawn ? Math.max(box.width, drawn.width / zoom) : box.width
+      const height = drawn ? Math.max(box.height, drawn.height / zoom) : box.height
+      keepOuts.push({ x0: box.x, y0: box.y, x1: box.x + width, y1: box.y + height })
+    }
+    return resolveRestsOnMarkerOnPath(poly, { w: 16 * scale, h: 10 * scale }, keepOuts)
+    // restsOnRectsSignature: re-place when any card is measured or moves.
+  }, [restsOn, sourceGlyphPlacement, edgePath, edgeTooltipZoom, getNodes, restsOnRectsSignature])
 
   return (
     <>
@@ -2767,7 +2804,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {restsOn !== null && sourceGlyphPlacement ? (
+      {restsOn !== null && restsOnPlacement ? (
         <EdgeLabelRenderer>
           <RestsOnMarker
             target={`edge:${edgeIdKey}`}
@@ -2777,8 +2814,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             onPick={() => useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)}
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${sourceGlyphPlacement.x}px,${sourceGlyphPlacement.y}px)`,
+              transform: `translate(-50%, -50%) translate(${restsOnPlacement.x}px,${restsOnPlacement.y}px)`,
               pointerEvents: 'all',
+              // With no clear spot on its line, the number stands above the cards rather than under one.
+              ...('clear' in restsOnPlacement && restsOnPlacement.clear === false ? { zIndex: 1001 } : {}),
             }}
           />
         </EdgeLabelRenderer>
