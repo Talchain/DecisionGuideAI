@@ -217,7 +217,18 @@ export function resolveSameRowRoute(
   // midpoint (review 2033: a taller between card climbed back inside the arc
   // before and after t = 0.5, since the control points only guarantee depth
   // there).
-  const hClear = underArcClearanceH(sx, sBottom, tx, ty, between, lowest + UNDER_ROW_CLEARANCE)
+  //
+  // Only the part of a between card inside the open gap is cleared. A card
+  // that reaches into the source's or target's own column overlaps that card,
+  // and the arc meets it where it must leave or enter: the solve there divides
+  // by a bump that tends to zero, so one overlapping neighbour sent the arc
+  // ~3,300 units under the board (MRR draft, stale 400-wide cards on a 324
+  // pitch, 19 Oct 2026).
+  const inGap = between.map((o) => {
+    const x0 = Math.max(o.x, gapLo)
+    return { ...o, x: x0, width: Math.min(o.x + o.width, gapHi) - x0 }
+  })
+  const hClear = underArcClearanceH(sx, sBottom, tx, ty, inGap, lowest + UNDER_ROW_CLEARANCE)
   // ...and never reach a card in the next sub-row under the span.
   const spanLo = Math.min(sx, tx)
   const spanHi = Math.max(sx, tx)
