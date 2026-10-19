@@ -7585,8 +7585,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // null (decision-context change) clears, and that goes through
     // DECISION_CONTEXT_CLEAR rather than here.
     if (typeof hash !== 'string' || hash.length === 0) return
-    if (get().lastServerGraphHash === hash) return
-    set({ lastServerGraphHash: hash })
+    const held = get().lastServerGraphHash
+    if (held === hash) return
+    // A new hash over a held one is a write CEE has just committed (a value set, a rename, an accepted change), so
+    // the save pill says "Saved just now". From none (open, reload, switch) it is the stored graph, whose time the
+    // row already carries.
+    set(held === null ? { lastServerGraphHash: hash } : { lastServerGraphHash: hash, lastSavedAt: Date.now() })
   },
 
   takePendingStructuralDeletes: () => {
