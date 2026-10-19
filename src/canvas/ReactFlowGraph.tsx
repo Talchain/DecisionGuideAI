@@ -217,6 +217,7 @@ import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { LensBar } from './artefacts/LensBar'
+import { noteCardMoved } from './utils/cardPositionNotice'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isOnboardingTourEnabled, isCrossHighlightEnabled } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
@@ -2512,6 +2513,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onNodeDragStop = useCallback(() => {
     setDraggingNodeIds(new Set())
     setIsDragging(false)
+    // A moved card is kept for this visit only (no position on CEE's model): said once per visit.
+    noteCardMoved()
   }, [])
 
   const handleCloseContextMenu = useCallback(() => {
