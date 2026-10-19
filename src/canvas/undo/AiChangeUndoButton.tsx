@@ -9,10 +9,15 @@
 import { memo, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useUndoJournalStore } from './captureUndoReceipt'
-import { isNextUndoThisTurn } from './captureAgentTurnForUndo'
+import { APPROVED_CHANGE_UNDO_LABEL, isNextUndoThisTurn } from './captureAgentTurnForUndo'
 import { typography } from '../../styles/typography'
 
-export const AI_CHANGE_UNDO_WORDS = { button: 'Undo this change', aria: "Undo Olumi's change to the model" } as const
+export const AI_CHANGE_UNDO_WORDS = {
+  button: 'Undo this change',
+  aria: "Undo Olumi's change to the model",
+  /** The reply where the user approved a proposal: the change is theirs (`agentTurnUndoLabel`). */
+  approvedAria: 'Undo the change you approved',
+} as const
 
 // Loaded on press: the command imports the session client, which throws at import where no Supabase env exists (every
 // spec that renders a message bubble). A declaration outside the component, so the route-lazy census does not read the
@@ -24,6 +29,11 @@ function pressUndo(turnId: string): Promise<unknown> {
 export const AiChangeUndoButton = memo(function AiChangeUndoButton({ turnId }: { turnId: string | undefined }) {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const visible = useUndoJournalStore((s) => isNextUndoThisTurn(s.journal, scenarioId, turnId))
+  // Named for whoever made the change, as the step was recorded.
+  const approved = useUndoJournalStore((s) => {
+    const top = s.journal.undo[s.journal.undo.length - 1]
+    return top?.kind === 'step' && top.label === APPROVED_CHANGE_UNDO_LABEL
+  })
   const [pending, setPending] = useState(false)
   if (!visible || turnId === undefined) return null
   return (
@@ -31,7 +41,7 @@ export const AiChangeUndoButton = memo(function AiChangeUndoButton({ turnId }: {
       <button
         type="button"
         data-testid="ai-change-undo"
-        aria-label={AI_CHANGE_UNDO_WORDS.aria}
+        aria-label={approved ? AI_CHANGE_UNDO_WORDS.approvedAria : AI_CHANGE_UNDO_WORDS.aria}
         disabled={pending}
         onClick={() => {
           setPending(true)

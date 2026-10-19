@@ -28,6 +28,8 @@ import { runCanvasUndo, UNDO_NOTICE } from '../undoCommand'
 import {
   AI_CHANGE_UNDO_LABEL,
   captureAgentTurnForUndo,
+  agentTurnUndoLabel,
+  APPROVED_CHANGE_UNDO_LABEL,
   isNextUndoThisTurn,
   readAgentTurnReceipts,
 } from '../captureAgentTurnForUndo'
@@ -44,9 +46,10 @@ const V7 = '77777777-7777-4777-8777-777777777777'
 const V8 = '88888888-8888-4888-8888-888888888888'
 
 /** An agent response as the parser hands it over: `_agent` lives on the NON-enumerable additive sidecar. */
-function agentResponse(receipts: unknown[]): Record<string, unknown> {
+function agentResponse(receipts: unknown[], toolCalls?: unknown[]): Record<string, unknown> {
   const response: Record<string, unknown> = { assistant_text: 'Done: I added the risk and its link.' }
-  Object.defineProperty(response, ADDITIVE_EXTENSIONS_KEY, { value: { _agent: { receipts } }, enumerable: false })
+  const agent = toolCalls === undefined ? { receipts } : { receipts, tool_calls: toolCalls }
+  Object.defineProperty(response, ADDITIVE_EXTENSIONS_KEY, { value: { _agent: agent }, enumerable: false })
   return response
 }
 const receipt = (version: number, versionId: string) => ({ version, version_id: versionId, mutation_id: `m-${version}`, source_turn_id: 'srv' })
@@ -451,5 +454,29 @@ describe('the reply undo command stays bound to its turn', () => {
     expect(hydrateCanvasFromServer).not.toHaveBeenCalled()
     expect(toasts).toEqual([wording])
     if (label !== AI_CHANGE_UNDO_LABEL) expect(UNDO_NOTICE.stale).toBe(wording)
+  })
+})
+
+describe('the step names who made the change (verifier joined diagnosis, 19 Oct: the user\'s approved correction read "Olumi\'s change")', () => {
+  // Served shape (C2 turn 03): the chip `agent-approve-proposal:…`, one tool call `authorise_change`, mutated.
+  const APPROVE = { name: 'authorise_change', ok: true, mutated: true, proposal_id: 'prop_1' }
+  const OLUMI_WRITE = { name: 'add_node', ok: true, mutated: true }
+
+  it('a turn whose only write is the user\'s approval is "the change you approved"', async () => {
+    listModelVersions.mockResolvedValue(listed(V6, [row(V6, 6, h('6'), V5)]))
+    await captureAgentTurnForUndo({ scenarioId: S, turnId: 'turn-approve', response: agentResponse([receipt(6, V6)], [APPROVE]) })
+    expect(nextUndo(journal())).toMatchObject({ kind: 'restore', label: `Undo: ${APPROVED_CHANGE_UNDO_LABEL}` })
+    expect(APPROVED_CHANGE_UNDO_LABEL).toBe('the change you approved')
+  })
+
+  it('CONTRAST: a turn where Olumi wrote is "Olumi\'s change", even beside an approval', async () => {
+    listModelVersions.mockResolvedValue(listed(V6, [row(V6, 6, h('6'), V5)]))
+    await captureAgentTurnForUndo({ scenarioId: S, turnId: 'turn-mixed', response: agentResponse([receipt(6, V6)], [APPROVE, OLUMI_WRITE]) })
+    expect(nextUndo(journal())).toMatchObject({ kind: 'restore', label: `Undo: ${AI_CHANGE_UNDO_LABEL}` })
+  })
+
+  it('CONTRAST: no tool calls on record keeps Olumi\'s name (as before)', () => {
+    expect(agentTurnUndoLabel(agentResponse([receipt(6, V6)]))).toBe(AI_CHANGE_UNDO_LABEL)
+    expect(agentTurnUndoLabel(agentResponse([receipt(6, V6)], [OLUMI_WRITE]))).toBe(AI_CHANGE_UNDO_LABEL)
   })
 })

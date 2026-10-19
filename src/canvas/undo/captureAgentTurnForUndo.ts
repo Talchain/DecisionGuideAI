@@ -28,6 +28,8 @@ import { recordEditReceipt, recordForeignWrite, type UndoJournalState, type Undo
 
 /** The step's name: the notice reads "Undone: Olumi's change." and the restored version "Undo: Olumi's change". */
 export const AI_CHANGE_UNDO_LABEL = "Olumi's change"
+/** A turn whose only writes are the user's approval of a proposal: the change is the user's to name. */
+export const APPROVED_CHANGE_UNDO_LABEL = 'the change you approved'
 
 export interface AgentTurnReceipt {
   readonly version: number
@@ -51,6 +53,21 @@ export function readAgentTurnReceipts(response: unknown): readonly AgentTurnRece
     out.push({ version: r.version, versionId: r.version_id, mutationId: r.mutation_id })
   }
   return out.sort((a, b) => a.version - b.version)
+}
+
+/**
+ * ⭐ WHO MADE THE CHANGE, read from the turn's own record (verifier joined diagnosis, 19 Oct: the user's approved
+ * correction was undone as "Olumi's change"). `_agent.tool_calls` names every write: when each mutating call is
+ * `authorise_change`, the user's press on a proposal card (`agent-approve-proposal:…`), the change is the one the user
+ * approved. Any other write in the turn is Olumi's, so the turn keeps Olumi's name. No calls read: Olumi's, as before.
+ */
+export function agentTurnUndoLabel(response: unknown): string {
+  const sidecar = record(response) ? (response as Record<string, unknown>)[ADDITIVE_EXTENSIONS_KEY] : undefined
+  const calls = record(sidecar) && record(sidecar._agent) && Array.isArray(sidecar._agent.tool_calls) ? sidecar._agent.tool_calls : []
+  const writes = calls.filter((c) => record(c) && c.mutated === true)
+  return writes.length > 0 && writes.every((c) => record(c) && c.name === 'authorise_change')
+    ? APPROVED_CHANGE_UNDO_LABEL
+    : AI_CHANGE_UNDO_LABEL
 }
 
 export type AgentUndoCapture = 'none' | 'recorded' | 'cleared' | 'superseded'
@@ -189,7 +206,7 @@ async function captureOne(
       scenarioId: input.scenarioId,
       receipt: undoReceipt,
       gestureId: input.turnId,
-      label: input.label ?? AI_CHANGE_UNDO_LABEL,
+      label: input.label ?? agentTurnUndoLabel(input.response),
     })
     // The first barrier covers the WHOLE turn; later receipts only advance its head and replay dedupe.
     if (noUndoVersion && index > 0) journal = { ...journal, undo }
