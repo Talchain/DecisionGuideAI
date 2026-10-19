@@ -89,37 +89,36 @@ const tokenVar = (className: string) => className.replace(/^text-/, '')
 
 /**
  * ⭐ THE TINTS ARE DERIVED FROM THE CODE THAT PAINTS THEM, never listed here.
- * `evidenceBgStyle` is the single expression that decides a card's tint; if a
- * fifth evidence class is added tomorrow it appears in that switch, and this
- * guard picks it up without anyone remembering to update a list. A hand-copied
- * tint list is the hand-maintained mirror this estate keeps paying for.
+ * The card's ground is the one `backgroundColor:` expression on its root, and the
+ * evidence lens's `evidenceBgStyle` used to feed it three tints. That lens is retired
+ * (#2826, superseded by "Rests on", which marks a figure with a numbered pill and
+ * never repaints the card), so the card now paints exactly one ground. If a tint
+ * returns, it returns through this expression, and the derivation below sees it.
  */
-function tintsPaintedByTheCard(): string[] {
+const TINT = /var\(--((?:success|warning|danger|info)-light)\)/g
+function groundsPaintedByTheCard(): { ground: string; tints: string[] } {
   const src = readFileSync(BASENODE, 'utf8')
-  // `\n {2}\}` rather than two literal spaces: eslint's no-regex-spaces is right
-  // that a run of spaces in a pattern is unreadable and easy to miscount.
-  const block = /const evidenceBgStyle = \(\(\) => \{[\s\S]*?\n {2}\}\)\(\)/.exec(src)
-  if (!block) throw new Error('evidenceBgStyle block not found in BaseNode.tsx — this guard is reading the wrong shape')
-  const found = [...block[0].matchAll(/var\(--([a-z-]+)\)/g)].map(m => m[1])
-  return [...new Set(found)]
+  const ground = /\n {8}backgroundColor: [^\n]*/.exec(src)
+  if (!ground) throw new Error('the card root backgroundColor not found in BaseNode.tsx — this guard is reading the wrong shape')
+  return { ground: ground[0], tints: [...new Set([...src.matchAll(TINT)].map(m => m[1]))] }
 }
 
 const TEXT_THRESHOLD = 4.5
 
 describe('the tier invitation is legible on every ground its card can paint', () => {
-  it('derives the tints from the card, and finds the three the evidence lens paints', () => {
-    // POSITIVE CONTROL on the derivation itself. If this ever reads empty, every
-    // assertion below would pass vacuously — an absence probe with no control is
-    // exactly how a guard agrees with itself.
-    const tints = tintsPaintedByTheCard()
-    expect(tints.length).toBeGreaterThan(0)
-    expect(tints.sort()).toEqual(['danger-light', 'success-light', 'warning-light'])
+  it('derives the card ground, and finds no tint now the evidence lens is retired', () => {
+    // POSITIVE CONTROL on the derivation itself: it must find the card's own ground,
+    // or the "no tint" reading below would pass vacuously.
+    const { ground, tints } = groundsPaintedByTheCard()
+    expect(ground).toContain('var(--bg-panel)')
+    expect(tints, 'a tinted card ground is back: grow this guard to measure the invitation on it').toEqual([])
   })
 
-  it('⭐ the token used on a TINTED card clears 4.5:1 on every tint', () => {
+  it('⭐ the token used on a TINTED card still clears 4.5:1 on every tint the lens used to paint', () => {
+    // Kept for the day a tint returns: the branch stays safe on the three measured grounds.
     const css = readFileSync(BRAND, 'utf8')
     const fg = channels(css, tokenVar(invitationTextToken(true)))
-    for (const tint of tintsPaintedByTheCard()) {
+    for (const tint of ['danger-light', 'success-light', 'warning-light']) {
       const ratio = contrast(fg, channels(css, tint))
       expect(ratio, `${invitationTextToken(true)} on --${tint}`).toBeGreaterThanOrEqual(TEXT_THRESHOLD)
     }

@@ -107,6 +107,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
+import { RestsOnMarker } from '../artefacts/RestsOnMarker'
 import { OlumiMarkGroupProvider } from './shared/olumiMarkGroup'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
@@ -625,16 +626,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    */
   const bodyReduced = lodBodyHidden || (lensDetailActive && isLensDimmed)
 
-  // Expanded lenses: hidden (causal), evidence classification, active mode
-  // Defensive ?.has/?.get — test mocks may not include expanded lens fields
-  const isLensHidden = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens._hiddenNodeIds?.has(id) === true
+  // "Rests on": this card's figure number. Defensive ?.get: test mocks may not include the lens marks.
+  const restsOn = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens.active === 'rests_on' ? (s.lens._restsOn?.get(`node:${id}`) ?? null) : null
   )
-  const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
-  const evidenceClass = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'evidence') return null
-    return s.lens._evidenceNodeClass?.get(id) ?? null
-  })
 
   // Layout-computed node width: when a layout has run, use its computed width
   // so the rendered node matches ELK's sizing assumptions.
@@ -1208,7 +1203,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // HISTORY — the hierarchy this block used to render, kept so the numbers in
   // `legacyBorderPx` below can be read against it (superseded, see ⭐⭐ below):
   // Wireframes v4 hierarchy (display-only): decision/options 1px, factors 0.5px.
-  // Risk/outcome/goal/constraint/action keep 2px. The isCausalLens / isIncomplete
+  // Risk/outcome/goal/constraint/action keep 2px. The isIncomplete
   // width overrides in the className below still take precedence — e.g. an
   // unset "goal gap" renders 2px SOLID in the node's own KIND HUE via the
   // isIncomplete path.
@@ -1238,7 +1233,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // card takes one back. Retiring the compensation is a separate, NOT-LOW-RISK
   // step that re-records the Canvas Browser Gate baseline.
   const legacyBorderPx = (() => {
-    if (lensMode === 'causal') return 1
     if (isIncomplete) return 2
     if (nodeType === 'factor') return 0.5
     if (nodeType === 'decision' || nodeType === 'option') return 1
@@ -1277,28 +1271,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     Math.min(NODE_TITLE_MIN_MEASURE_PX, renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX),
   )
 
-  // Causal lens: hide organisational nodes entirely
-  if (isLensHidden) return null
-
-  // Evidence lens: node fill colour based on evidence classification
-  const evidenceBgStyle = (() => {
-    if (lensMode !== 'evidence' || !evidenceClass) return undefined
-    switch (evidenceClass) {
-      case 'grounded': return 'var(--success-light)'
-      case 'assumed': return 'var(--warning-light)'
-      case 'none': return 'var(--danger-light)'
-      case 'na': return undefined
-    }
-  })()
-
-  // Causal lens: strip all type-specific styling, render as neutral node
-  const isCausalLens = lensMode === 'causal'
-  // Evidence lens: suppress detail — show label + provenance pill only
-  const isEvidenceLens = lensMode === 'evidence'
-  const causalBorderClass = isCausalLens
-    ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
-    : undefined
-
   // ⚠ ONE CONDITION, TWO READERS THAT DO NOT TRACK EACH OTHER.
   //
   // `showQuickActions` is read in exactly two places: the `NodeQuickActions`
@@ -1316,7 +1288,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // CONSUMER", which fixed the implication by breaking the count. Both readers
   // are real; what differs is their ROLE. Naming them apart is the fix — trap
   // 21, two questions under one name.
-  const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
+  const showQuickActions = !lodBodyHidden
   //
   // ⭐ S5 (24 Sep): THE BAND IS RESERVED ONLY AT NORMAL ZOOM. Below it
   // (`quiet`, where every laptop lands — the fit floors at 0.5) the contract's
@@ -1448,12 +1420,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * `nodes/colors.ts` since it was written, resolving to a real `--*-light-rgb`
    * token. It was authored for this and never applied.
    *
-   * ⛔ THE EVIDENCE LENS KEEPS THE CARD. `evidenceBgStyle` is a DATA channel; a
-   * lens colouring by evidence must not be overpainted by kind, so this stands
-   * down whenever that is present — the same precedence the inline paint already
-   * had. Causal/evidence lenses render their own reduced card and are excluded
-   * for the same reason.
-   *
    * ⚠ LINE RUNG ONLY, deliberately. Tinting at reading zoom is a different
    * product decision and is not ruled on here.
    * Pinned by `BaseNode.lodShapeReadsAsItsKind.spec.tsx` as a RUNG PAIR: a
@@ -1473,11 +1439,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // existing tokens — see `nodes/colors.ts`. Both arms move together so an
   // incomplete card keeps exactly the hue of its complete siblings (Paul's 8 Sep
   // ruling: the kind hue stays; the state is words).
-  const borderColourClass = isCausalLens
-    ? (causalBorderClass ?? '')
-    : isIncomplete
-      ? colors.frame
-      : borderClassOverride ?? `${colors.frame} ${borderStyle}`
+  const borderColourClass = isIncomplete
+    ? colors.frame
+    : borderClassOverride ?? `${colors.frame} ${borderStyle}`
 
   /**
    * ⭐⭐ THE QUESTION AND GOAL ARE WIDE AND SHALLOW, AND THEIR RAIL SITS BESIDE
@@ -1551,7 +1515,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const cardPaddingAt = (normal: boolean): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
-    const actionsAtRung = normal ? !isCausalLens && !isEvidenceLens : showQuickActions
+    const actionsAtRung = normal || showQuickActions
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
     const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
@@ -1630,17 +1594,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
     measurePx: titleBoxMeasurePx,
     rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleBoxMeasurePx,
-    topPx: cardPaddingTopPx,
-    firstWordPx: firstTitleWordPx,
-  })
-  // The causal lens draws the title as one full-width block, so its box is the
-  // card's whole text measure and reaches the card's right padding. That
-  // padding is plain side padding in the lens (no rail is drawn there), so it
-  // reads as a number.
-  const causalPaddingRightPx = parseFloat(String(liveCardPadding.paddingRight))
-  const causalTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
-    measurePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - causalPaddingRightPx,
-    rightToFramePx: causalPaddingRightPx,
     topPx: cardPaddingTopPx,
     firstWordPx: firstTitleWordPx,
   })
@@ -2005,7 +1958,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         outlineOffset: isAnalysisDriver || runChangeMark !== null ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
         // class below is overridden by specificity and the fix is invisible.
-        backgroundColor: evidenceBgStyle ?? (lodKindFillClass === '' ? 'var(--bg-panel)' : undefined),
+        backgroundColor: lodKindFillClass === '' ? 'var(--bg-panel)' : undefined,
         // ⚠ THIS IS A DISJUNCTION, AND THE COMMENT THAT USED TO SIT HERE
         // DENIED IT. It said the reservation "follows the SAME condition rather
         // than a hand-listed pair of node types". It does not: `4a337f70` OR'd
@@ -2536,9 +2489,19 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         <NodeShapeIndicator nodeKind={nodeType} size={CONNECTOR_GLYPH_PX} className="h-full w-full" stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
 
-      {/* Node header — shape + title on same row (spec Section 3.2) */}
-      {!isCausalLens && (
+      {/* "Rests on": the figure's number, on the card's top edge at the left, clear of the kind glyph at the centre.
+          Out of flow, so the card's measured height is the same in every lens. */}
+      {restsOn !== null && (
+        <RestsOnMarker
+          target={`node:${id}`}
+          mark={restsOn}
+          picked={selected === true}
+          onPick={() => useCanvasStore.getState().selectNodeWithoutHistory(id)}
+          className="absolute left-3 top-0 z-10 -translate-y-1/2"
+        />
+      )}
 
+      {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div
         data-testid="node-header-row"
         style={{
@@ -2804,46 +2767,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             below also reads, so the header's two right-hand groups cannot drift
             apart on spacing. The testid exists so the guard binds to THIS group
             by identity rather than by walking up from a mark (trap 19). */}
-        {!isCausalLens && !isEvidenceLens && (
-          <BottomCardMark><span
-            data-testid="node-provenance-mark-group"
-            className="inline-flex items-center gap-1 shrink-0"
-          >
-            <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
-          </span></BottomCardMark>
-        )}
-
-        {/*
-          ⭐⭐ THE EVIDENCE LENS SAID IT IN COLOUR ALONE.
-          `evidenceBgStyle` paints the card `--success-light` / `--warning-light`
-          / `--danger-light` by `evidenceClass`, and that fill was the ONLY
-          carrier of the claim. A reader with a colour-vision deficiency saw
-          three tinted cards and was told nothing — on the one lens whose entire
-          purpose is "which of these numbers do we actually know?".
-
-          ⚠ THIS REPO MEASURES THAT PROBLEM AND SHIPPED IT ANYWAY. The border
-          vocabulary carries CIEDE2000 dichromat measurements (goal-vs-amber
-          ΔE 5.5 under deuteranopia) precisely because colour alone is not a
-          channel. The lens was added later and did not inherit the lesson.
-
-          ⭐ A WORD RATHER THAN A SECOND GLYPH: the classes are already computed
-          (`useLensFilter` → `_evidenceNodeClass`), mutually exclusive and few.
-          Three short producer-derived words cost one line on a card this lens
-          has already stripped to label-plus-pill, and they are the actual
-          answer the reader came for.
-
-          ⛔ THE WORDS RESTATE THE CLASS, THEY DO NOT GRADE IT. "Assumed" is what
-          `evidenceClass` says — not a judgement about whether assuming was
-          reasonable. `na` renders nothing: absence is a state, not a verdict.
-        */}
-        {isEvidenceLens && evidenceClass && evidenceClass !== 'na' && (
-          <span
-            className={`${typography.edgeLabel} shrink-0 ml-auto text-text-body`}
-            data-testid="evidence-lens-class"
-          >
-            {evidenceClass === 'grounded' ? 'From your data' : evidenceClass === 'assumed' ? 'Assumed' : 'No data'}
-          </span>
-        )}
+        <BottomCardMark><span
+          data-testid="node-provenance-mark-group"
+          className="inline-flex items-center gap-1 shrink-0"
+        >
+          <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
+        </span></BottomCardMark>
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
             of the title row. Action icons remain in the footer (ActionIcons). */}
@@ -2862,7 +2791,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             another object can satisfy). Both groups now carry their own testid
             so the question each guard asks stays attached to its own object,
             and a future shared class cannot silently re-point either one. */}
-        {headerSlot && !isCausalLens && !isEvidenceLens && (
+        {headerSlot && (
           <BottomCardMark><span
             data-testid="node-header-slot-group"
             className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
@@ -2899,21 +2828,6 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           </Tooltip>
         )}
       </div>
-      )}
-
-      {/* Causal lens: show label only (header hidden) */}
-      {isCausalLens && (
-        <div className={`${typography.nodeTitle} text-text-body break-words`}>
-          {causalTitleSpacer !== undefined && (
-            <span
-              aria-hidden="true"
-              data-testid="node-title-corner-spacer"
-              style={{ float: 'right', width: causalTitleSpacer.width, height: causalTitleSpacer.height }}
-            />
-          )}
-          {cardTitle}
-        </div>
-      )}
 
       {/* ⭐⭐ THE CARD'S STATE ROW (gap 11) — the worded state that used to sit in
           the corner stack ABOVE the card: "Needs input", "Not in this analysis",
@@ -2958,8 +2872,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         </div>
       )}
 
-      {/* Expanded description (markdown) — hidden in causal/evidence lens */}
-      {!isCausalLens && !isEvidenceLens && isExpanded && description && (
+      {/* Expanded description (markdown) */}
+      {isExpanded && description && (
         <div
           className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via safeRichText (sanitizeMarkdown shim)
@@ -3028,7 +2942,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           finding anything and go back to reserving the short height, with every
           unit test still green. The rendered value stays `"true"`, which several
           specs assert. */}
-      {!isCausalLens && !isEvidenceLens && (children || lodBodyLine || showConstraintLines) ? (
+      {(children || lodBodyLine || showConstraintLines) ? (
         <div
           /* ⭐ THE ANCHOR'S LAST ROW KEEPS ITS TEXT CLEAR OF THE RAIL BESIDE IT
              (contract v3.1 ANC-02 / RHY-02: `.node.wide .target-row,

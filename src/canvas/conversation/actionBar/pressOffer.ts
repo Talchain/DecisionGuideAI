@@ -18,7 +18,7 @@ import { ASK_BUSY_NOTICE } from '../askAi'
 import { revealOlumiSurface } from '../revealOlumi'
 import type { ActionBarRevision, ActionOffer } from './actionBarContract'
 import { registeredPressId } from '../actionRegistry'
-import { showArtefactForAction } from '../../artefacts/artefactStore'
+import { showLensForAction } from '../../artefacts/lenses'
 
 export type PressOfferResult = 'sent' | 'busy' | 'refire' | 'disabled' | 'none'
 
@@ -53,8 +53,8 @@ export function pressOffer(offer: ActionOffer, revision: ActionBarRevision): Pre
     throw error
   }
   revealOlumiSurface()
-  // The artefact this action is about opens beside the model while Olumi answers (`artefactStore.ts`).
-  showArtefactForAction(offer.action_id)
+  // The lens this action is about turns on while Olumi answers (`artefacts/lenses.ts`).
+  showLensForAction(offer.action_id)
   return 'sent'
 }
 

@@ -231,7 +231,7 @@ describe('AnalysisStateCue — the bottom-left foot line (DIFF item 8)', () => {
  * ⭐⭐ OUTRANKED IS NOT SILENCED (reviewer blocker on this change, 27 Sep 2026).
  *
  * The lens panel outranks the foot line for the bottom-left slot. On staging
- * (`VITE_FEATURE_GRAPH_LENS=true`) that meant: open the Robustness lens on a
+ * (`VITE_FEATURE_GRAPH_LENS=true`) that meant: open the Robustness lens (now "What would change") on a
  * changed-since-run model and the panel showed last-run figures —
  * `switch_probability` NN%, sensitive assumptions, "focus on X → Y", all from
  * `results.report` — while the one sentence that says they are LAST-RUN
@@ -244,7 +244,7 @@ describe('AnalysisStateCue — the bottom-left foot line (DIFF item 8)', () => {
  * slot" pin assert the regression as if it were the design.
  */
 describe('AnalysisStateCue — the stale fact survives a lens panel taking its slot', () => {
-  const LENS_MODES = ['causal', 'evidence', 'robustness'] as const
+  const LENS_MODES = ['rests_on', 'premortem', 'what_changes'] as const
   type LensModeOpen = (typeof LENS_MODES)[number]
 
   function seedLens(active: LensModeOpen | 'full') {
@@ -310,15 +310,15 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
     },
   )
 
-  it('⭐ Robustness: the run figures are labelled `Last run ·`, and the stale sentence opens the panel above them', () => {
-    seedLens('robustness')
+  it('⭐ What would change: the run figures are labelled `Last run ·`, and the stale sentence opens the panel above them', () => {
+    seedLens('what_changes')
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
     const figures = within(panel).getByTestId('lens-info-robustness')
     // POSITIVE CONTROL: the run's figures really are on screen, so the label below is not vacuous. (#2747 re-scope 2:
     // the switch figure "85%" is not shown in C, DL ruling; the panel's focus line is the control.)
     expect(figures.textContent).toContain('focus on: Price → Revenue')
-    expect(within(panel).getByTestId('lens-info-robustness-heading').textContent).toBe(`${LAST_RUN_PREFIX}Robustness`)
+    expect(within(panel).getByTestId('lens-info-heading').textContent).toBe(`${LAST_RUN_PREFIX}What would change`)
     const stale = within(panel).getByTestId(LENS_INFO_STALE_TESTID)
     expect(
       stale.compareDocumentPosition(figures) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -327,7 +327,7 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
   })
 
   it('closing the lens hands the sentence back to the foot line in one render — still said once', () => {
-    seedLens('robustness')
+    seedLens('what_changes')
     renderLensAndCue()
     expect(within(screen.getByTestId('lens-info-panel')).getByTestId(LENS_INFO_STALE_TESTID)).toBeInTheDocument()
     act(() => {
@@ -340,14 +340,14 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
 
   it('CONTRAST: the same panel on a CURRENT model shows the same figures with no stale sentence and no label', () => {
     trust.semantic = 'current'
-    seedLens('robustness')
+    seedLens('what_changes')
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
     // The same figures render — so the absences below are about the state, not a missing panel. (#2747 re-scope 2: the
     // switch figure "85%" is not shown in C; the focus line is the same-render control.)
     expect(within(panel).getByTestId('lens-info-robustness').textContent).toContain('focus on: Price → Revenue')
     expect(within(panel).queryByTestId(LENS_INFO_STALE_TESTID)).toBeNull()
-    expect(within(panel).getByTestId('lens-info-robustness-heading').textContent).toBe('Robustness')
+    expect(within(panel).getByTestId('lens-info-heading').textContent).toBe('What would change')
     expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
     expect(timesSaid()).toBe(0)
   })

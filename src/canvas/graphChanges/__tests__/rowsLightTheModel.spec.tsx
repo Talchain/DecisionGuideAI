@@ -26,7 +26,7 @@ import { RunChangesSummary, RUN_CHANGES_SUMMARY_TESTID } from '../../components/
 import { CompareRunPairBody } from '../../compare-tab/CompareRunPairBody'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
 import { focusEdgeById } from '../../utils/focusHelpers'
-import { computeEdgeFocusPlan } from '../../utils/focusNeighbourhood'
+import { centreInVisibleFrame, computeEdgeFocusPlan } from '../../utils/focusNeighbourhood'
 import { MIN_READABLE_ZOOM, type FocusCamera } from '../../utils/cameraComfort'
 
 vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
@@ -194,5 +194,15 @@ describe('L7 · edge focus: no camera jump when the link is already in view', ()
   it('an unmeasurable camera fails open (moves); an unknown edge does nothing', () => {
     expect(computeEdgeFocusPlan('e_in', nodes, edges, null)?.moveCamera).toBe(true)
     expect(computeEdgeFocusPlan('e_missing', nodes, edges, camera)).toBeNull()
+  })
+  it('a covered right edge (the dock) moves the centre so the link lands mid-way across what is visible', () => {
+    const covered = { ...camera, viewport: { x: 0, y: 0, zoom: 2 }, insets: { top: 0, right: 800, bottom: 0, left: 0 } } as FocusCamera
+    // setCenter(c) puts flow point p at screen x = W/2 + (p - c)·zoom; the visible frame's middle is (W - 800) / 2.
+    const centre = centreInVisibleFrame(2050, 100, covered)
+    expect(1280 / 2 + (2050 - centre.x) * 2).toBe((1280 - 800) / 2)
+    expect(centre.y).toBe(100)
+    // CONTRAST: nothing covered, or an unmeasurable camera, centres on the midpoint itself.
+    expect(centreInVisibleFrame(2050, 100, camera)).toEqual({ x: 2050, y: 100 })
+    expect(centreInVisibleFrame(2050, 100, null)).toEqual({ x: 2050, y: 100 })
   })
 })

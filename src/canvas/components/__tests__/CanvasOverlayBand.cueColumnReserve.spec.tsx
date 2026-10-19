@@ -169,7 +169,7 @@ describe('N3 — the stale cue keeps its column beside a wide centre occupant', 
     // sentence, which is how the old version of this pin encoded "the stale
     // fact disappears while a lens is open" as if it were the design.
     localStorage.setItem('feature.graphLens', '1')
-    useCanvasStore.setState({ lens: { ...useCanvasStore.getState().lens, active: 'robustness' } } as never)
+    useCanvasStore.setState({ lens: { ...useCanvasStore.getState().lens, active: 'what_changes' } } as never)
     try {
       const { container } = renderBand(
         <>

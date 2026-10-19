@@ -313,11 +313,11 @@ const SURFACES: readonly Surface[] = [
   {
     // The robustness lens's panel (graph lens deployed): its fragile links, read from the Run. It portals into the overlay
     // band, so the whole document is read.
-    name: 'canvas robustness lens panel (LensInfoPanel, lens = robustness)', u0: false, minText: 10,
+    name: 'canvas What would change lens panel (LensInfoPanel, lens = what_changes)', u0: false, minText: 10,
     mount: () => {
-      useCanvasStore.setState({ lens: { ...useCanvasStore.getState().lens, active: 'robustness' } } as never)
+      useCanvasStore.setState({ lens: { ...useCanvasStore.getState().lens, active: 'what_changes' } } as never)
       render(<LensInfoPanel />)
-      expect(screen.getByTestId('lens-info-robustness'), 'the robustness view mounted (else this row is vacuous)').toBeInTheDocument()
+      expect(screen.getByTestId('lens-info-robustness'), 'the What would change view mounted (else this row is vacuous)').toBeInTheDocument()
       return document.body
     },
   },

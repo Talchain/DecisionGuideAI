@@ -10,7 +10,8 @@ import type { LodRung } from './utils/zoomLegibility'
 import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition, optionCardsShareAPlace } from './store/stableOptionNumbers'
 import { seatNodesIntoRankedSlots } from './utils/factorRowOrder'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
-import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
+import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import type { RestsOnMark } from './artefacts/assumptionMapModel'
 import {
   NODE_REGISTRY,
   resolveNodeTypeLiteral,
@@ -256,13 +257,17 @@ function createDefaultLensState() {
     _sensitivityWeights: new Map<string, number>(),
     _sensitivityQuartiles: null as { q25: number; q75: number } | null,
     _fragileEdgeIds: new Set<string>(),
-    // Expanded lenses (Brief 5)
-    _hiddenNodeIds: new Set<string>(),
-    _hiddenEdgeIds: new Set<string>(),
-    _causalEdgeParams: new Map<string, CausalLensEdgeParams>(),
-    _evidenceNodeClass: new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>(),
-    _evidenceEdgeClass: new Map<string, 'evidence' | 'assumed' | 'unknown'>(),
+    _restsOn: new Map<string, RestsOnMark>(),
   }
+}
+
+/**
+ * The lens a Run starting, results clearing, undo and redo leave on screen: the lens bar's choice stays (each lens says
+ * for itself what it can show without a current Run), and option isolation, which needs its Run, ends. The marks are
+ * cleared here and recomputed by `useLensFilter` from the new state.
+ */
+function lensKeptAcrossModelChange(prev: CanvasState['lens']) {
+  return { ...createDefaultLensState(), active: prev.active === 'option' ? 'full' as const : prev.active }
 }
 
 /**
@@ -1294,9 +1299,9 @@ interface CanvasState {
   confirmedNodeIds: Set<string>
   // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
   hoveredOptionId: string | null
-  // Graph Lens: ephemeral canvas filtering state (post-analysis only)
+  // Graph Lens: ephemeral, view-only canvas state (the lens bar's lenses; option isolation from the option cards)
   lens: {
-    active: 'full' | 'option' | 'sensitivity' | 'fragile' | 'causal' | 'evidence' | 'robustness'
+    active: LensMode
     selectedOptionId: string | null
     // Computed sets — written by useLensFilter, read by BaseNode/StyledEdge
     _dimmedNodeIds: Set<string>
@@ -1304,12 +1309,8 @@ interface CanvasState {
     _sensitivityWeights: Map<string, number>
     _sensitivityQuartiles: { q25: number; q75: number } | null
     _fragileEdgeIds: Set<string>
-    // Expanded lenses (Brief 5)
-    _hiddenNodeIds: Set<string>
-    _hiddenEdgeIds: Set<string>
-    _causalEdgeParams: Map<string, CausalLensEdgeParams>
-    _evidenceNodeClass: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
-    _evidenceEdgeClass: Map<string, 'evidence' | 'assumed' | 'unknown'>
+    /** Rests on: each figure's marker (its number in the key card and its state), keyed `node:<id>` / `edge:<id>`. */
+    _restsOn: Map<string, RestsOnMark>
   }
   // M5: Grounding & Provenance
   documents: Document[]
@@ -2060,11 +2061,7 @@ interface CanvasState {
     sensitivityWeights: Map<string, number>
     sensitivityQuartiles: { q25: number; q75: number } | null
     fragileEdgeIds: Set<string>
-    hiddenNodeIds?: Set<string>
-    hiddenEdgeIds?: Set<string>
-    causalEdgeParams?: Map<string, CausalLensEdgeParams>
-    evidenceNodeClass?: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
-    evidenceEdgeClass?: Map<string, 'evidence' | 'assumed' | 'unknown'>
+    restsOn?: Map<string, RestsOnMark>
   }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
@@ -4360,6 +4357,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const anchorPosition = node ? computeAnchorPosition(nodes, [node], []) : null
     set(s => ({
       nodes: s.nodes.map(n => ({ ...n, selected: n.id === nodeId })),
+      // The edge twin below clears every node; this clears every edge, or React Flow's selection sync puts a
+      // previously selected link back beside the node (a pick of a factor after a link read as two things selected).
+      edges: s.edges.some(e => e.selected) ? s.edges.map(e => (e.selected ? { ...e, selected: false } : e)) : s.edges,
       selection: { nodeIds: new Set([nodeId]), edgeIds: new Set(), anchorPosition },
     }))
   },
@@ -4523,7 +4523,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // whenever nothing has been proven deleted, which is the common case.
     const guarded = withholdDurableDeletions(prev, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, prev, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: lensKeptAcrossModelChange(get().lens), durableDeletionNotice: notice })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -4548,7 +4548,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // defect on the other side.
     const guarded = withholdDurableDeletions(next, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, next, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: lensKeptAcrossModelChange(get().lens), durableDeletionNotice: notice })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -5702,8 +5702,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         reportEpoch: prevResults.reportEpoch,
         errorEpoch: undefined
       },
-      // Graph Lens: auto-reset on new analysis run
-      lens: createDefaultLensState(),
+      lens: lensKeptAcrossModelChange(get().lens),
       // A new run is in flight — the previous snapshot's hash + rawV2Response
       // are preserved in the store (for continuity) but MUST NOT be sent to
       // CEE on subsequent conversational turns. Flipped back to true only in
@@ -6371,8 +6370,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // Everything else (report/hash/seed/drivers/reportEpoch) preserved so a
         // settle-back after a resultless turn restores the prior run intact.
       },
-      // Graph Lens: auto-reset on new analysis run (resultsStart parity).
-      lens: createDefaultLensState(),
+      lens: lensKeptAcrossModelChange(s.lens),
       // A new run is in flight — same contract as resultsStart: the previous
       // snapshot must not be sent to CEE while the new one is pending.
       analysisStateReady: false,
@@ -6568,8 +6566,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         status: 'idle',
         progress: 0
       },
-      // Graph Lens: auto-reset on results clear (prevents stale lens reactivating on next run)
-      lens: createDefaultLensState(),
+      lens: lensKeptAcrossModelChange(get().lens),
       hoveredOptionId: null,
       rawV2Response: null,
       // Results cleared — no valid snapshot.
@@ -8154,7 +8151,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (state.lens.active !== 'option') return
     // option_comparison is a real V2RunResponse field that flows into the
     // ReportV1-typed slot but isn't declared on the static type. Mirrors
-    // the established cast pattern at LensDropdown.tsx:96 (same field,
+    // the established cast pattern the retired LensDropdown used (same field,
     // same purpose — lens picker dropdown vs. lens cycle hotkey).
     const options = (state.results.report as Record<string, unknown> | null | undefined)
       ?.option_comparison as Array<{ option_id: string; option_label: string }> | undefined
@@ -8185,10 +8182,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setLensVisuals: (visuals) => {
     const { lens } = get()
-    const EMPTY = new Set<string>()
-    const EMPTY_CEP = new Map<string, CausalLensEdgeParams>()
-    const EMPTY_ENC = new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>()
-    const EMPTY_EEC = new Map<string, 'evidence' | 'assumed' | 'unknown'>()
+    const EMPTY_MARKS = new Map<string, RestsOnMark>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
@@ -8197,11 +8191,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       mapsEqual(lens._sensitivityWeights, visuals.sensitivityWeights) &&
       lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
       lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75 &&
-      setsEqual(lens._hiddenNodeIds, visuals.hiddenNodeIds ?? EMPTY) &&
-      setsEqual(lens._hiddenEdgeIds, visuals.hiddenEdgeIds ?? EMPTY) &&
-      mapsEqual(lens._causalEdgeParams, visuals.causalEdgeParams ?? EMPTY_CEP) &&
-      mapsEqual(lens._evidenceNodeClass, visuals.evidenceNodeClass ?? EMPTY_ENC) &&
-      mapsEqual(lens._evidenceEdgeClass, visuals.evidenceEdgeClass ?? EMPTY_EEC)
+      mapsEqual(lens._restsOn, visuals.restsOn ?? EMPTY_MARKS)
     ) {
       return
     }
@@ -8213,11 +8203,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         _sensitivityWeights: visuals.sensitivityWeights,
         _sensitivityQuartiles: visuals.sensitivityQuartiles,
         _fragileEdgeIds: visuals.fragileEdgeIds,
-        _hiddenNodeIds: visuals.hiddenNodeIds ?? EMPTY,
-        _hiddenEdgeIds: visuals.hiddenEdgeIds ?? EMPTY,
-        _causalEdgeParams: visuals.causalEdgeParams ?? EMPTY_CEP,
-        _evidenceNodeClass: visuals.evidenceNodeClass ?? EMPTY_ENC,
-        _evidenceEdgeClass: visuals.evidenceEdgeClass ?? EMPTY_EEC,
+        _restsOn: visuals.restsOn ?? EMPTY_MARKS,
       },
     })
   },
@@ -9034,7 +9020,12 @@ export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot
 /**
  * Graph Lens selectors
  */
-export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile' | 'causal' | 'evidence' | 'robustness'
+/**
+ * The lens bar's lenses (Paul 18 Oct 2026, "Lenses on the model"; DL-3 and PL rulings, 18 Oct): `full` (Model),
+ * `rests_on` (what the model rests on, by authorship), `premortem` (if it failed), `what_changes` (what would change the
+ * selected Run's comparison). `option` isolation is kept, entered from an option card or the context menu, never the bar.
+ */
+export type LensMode = 'full' | 'option' | 'rests_on' | 'premortem' | 'what_changes'
 export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
 export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId
 

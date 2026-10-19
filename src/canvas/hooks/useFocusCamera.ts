@@ -18,10 +18,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { cameraDuration } from '../utils/cameraMotion'
-import { computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
+import { centreInVisibleFrame, computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from '../utils/cameraComfort'
 import { createFocusFitSuppressor } from '../utils/focusLens'
-import { registerFocusHelpers, registerFitNodes } from '../utils/focusHelpers'
+import { registerFocusHelpers, registerFitNodes, registerPanBy } from '../utils/focusHelpers'
 import { registerAssistantFocusCamera } from '../utils/assistantFocusCamera'
 import { dismissAssistantFocus } from '../stores/assistantFocusStore'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
@@ -37,7 +37,7 @@ export interface FocusCameraHandlers {
 }
 
 export function useFocusCamera(): FocusCameraHandlers {
-  const { getViewport, setCenter, fitView } = useReactFlow()
+  const { getViewport, setCenter, fitView, setViewport } = useReactFlow()
 
   // Brief 36 Fix: stabilise ReactFlow function references via refs so the
   // empty-deps callbacks below stay reference-stable.
@@ -47,6 +47,8 @@ export function useFocusCamera(): FocusCameraHandlers {
   getViewportRef.current = getViewport
   setCenterRef.current = setCenter
   fitViewRef.current = fitView
+  const setViewportRef = useRef(setViewport)
+  setViewportRef.current = setViewport
 
   // F1: reduced-motion guard for every imperative camera move below.
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -110,7 +112,8 @@ export function useFocusCamera(): FocusCameraHandlers {
   const handleFocusEdge = useCallback((edgeId: string) => {
     const store = useCanvasStore.getState()
     // The whole decision is the pure computeEdgeFocusPlan (same no-churn rule as a node's); this handler applies it.
-    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, readFocusCamera(getViewportRef.current))
+    const camera = readFocusCamera(getViewportRef.current)
+    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, camera)
     if (!plan) return // fail-closed: the edge or an end is not on the canvas
 
     // Select ONLY the edge, without history (navigation only) — the edge twin of the node branch's
@@ -128,7 +131,9 @@ export function useFocusCamera(): FocusCameraHandlers {
     // Centre on the link's midpoint ONLY when it is not already comfortably in view (DL 5939855664: no camera jumps).
     if (!plan.moveCamera) return
     const viewport = getViewportRef.current()
-    setCenterRef.current(plan.midX, plan.midY, {
+    // Into the middle of the frame the chrome leaves visible, so the link never lands under the dock.
+    const centre = centreInVisibleFrame(plan.midX, plan.midY, camera)
+    setCenterRef.current(centre.x, centre.y, {
       zoom: viewport.zoom,
       duration: cameraDuration(300, reducedMotionRef.current),
     })
@@ -243,6 +248,13 @@ export function useFocusCamera(): FocusCameraHandlers {
   useEffect(() => {
     return registerFitNodes(handleFitNodes)
   }, [handleFitNodes])
+  useEffect(() => registerPanBy((dx, dy) => {
+    const viewport = getViewportRef.current()
+    void setViewportRef.current(
+      { x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom },
+      { duration: cameraDuration(300, reducedMotionRef.current) },
+    )
+  }), [])
 
   // F3 (graph-visuals): ANY camera move ends the focus lens — the transient
   // dim must never outlive the frame it was built for — EXCEPT the fit focus

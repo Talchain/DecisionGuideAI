@@ -29,7 +29,6 @@ import { resolve } from 'node:path'
 import {
   FIT_PADDING_CONTRIBUTORS,
   DOCK_SELECTOR,
-  ARTEFACT_COLUMN_SELECTOR,
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
@@ -66,10 +65,6 @@ const TOKEN_TO_SELECTOR: Record<string, string> = {
   // occupants are neither, which is exactly why the band exists rather than
   // each notice contributing for itself.
   OVERLAY_BAND_SELECTOR,
-  // Added with the reasoning artefact column (18 Oct 2026). It FAILS criteria 3 and 4 and is admitted on the dock's
-  // own terms — opened and closed only by the user's press or the arrival of what they asked for, never by the camera —
-  // as recorded at `ARTEFACT_COLUMN_SELECTOR`'s declaration.
-  ARTEFACT_COLUMN_SELECTOR,
 }
 
 describe('computeFitPadding — the declared contributor set is derived from the bytes', () => {
