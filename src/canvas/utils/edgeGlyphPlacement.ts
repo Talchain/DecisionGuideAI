@@ -469,6 +469,51 @@ export function resolveSourceGlyphOnPath(poly: GlyphPath): { x: number; y: numbe
 }
 
 /**
+ * ⭐ WHERE A "RESTS ON" NUMBER SITS: the source mark's seat (a quarter along its own line), unless a card covers it.
+ * Then it slides along the same line, nearest the seat first, either way, to the first spot whose box clears every
+ * card. Measured at 1280×800 on the MRR board (19 Oct 2026): 3 of 13 numbers sat on links leaving a card sideways, and
+ * their seats were under the next card, so they could not be seen or picked. With no clear spot it stands at the seat.
+ * `half` is the number's painted half-size in flow units at the live zoom.
+ */
+export function resolveRestsOnMarkerOnPath(
+  poly: GlyphPath,
+  half: { readonly w: number; readonly h: number },
+  keepOuts: readonly GlyphKeepOut[],
+): { x: number; y: number; clear: boolean } {
+  const seat = poly.length * 0.75
+  const clearAt = (s: number): { x: number; y: number } | null => {
+    const p = pointBackFromEnd(poly, s)
+    const hit = keepOuts.some((k) => p.x + half.w > k.x0 && p.x - half.w < k.x1 && p.y + half.h > k.y0 && p.y - half.h < k.y1)
+    return hit ? null : p
+  }
+  for (let d = 0; d <= poly.length; d += GLYPH_SLIDE_STEP) {
+    for (const s of d === 0 ? [seat] : [seat - d, seat + d]) {
+      if (s < 0 || s > poly.length) continue
+      const p = clearAt(s)
+      if (p) return { ...p, clear: true }
+    }
+  }
+  // No clear spot (a line running through a card row, whose gaps are narrower than the number): the spot where the
+  // number overlaps the cards least, nearest the seat on a tie. The caller draws it above the cards there.
+  const overlap = (p: { x: number; y: number }) => keepOuts.reduce((sum, k) => {
+    const w = Math.min(p.x + half.w, k.x1) - Math.max(p.x - half.w, k.x0)
+    const h = Math.min(p.y + half.h, k.y1) - Math.max(p.y - half.h, k.y0)
+    return w > 0 && h > 0 ? sum + w * h : sum
+  }, 0)
+  let best = { ...pointBackFromEnd(poly, seat), s: seat }
+  let bestArea = overlap(best)
+  for (let s = 0; s <= poly.length; s += GLYPH_SLIDE_STEP) {
+    const p = pointBackFromEnd(poly, s)
+    const area = overlap(p)
+    if (area < bestArea || (area === bestArea && Math.abs(s - seat) < Math.abs(best.s - seat))) {
+      best = { ...p, s }
+      bestArea = area
+    }
+  }
+  return { x: best.x, y: best.y, clear: false }
+}
+
+/**
  * ⭐ WHERE THE SIGN SITS — on its own drawn path, `metrics` read at the zoom it
  * is painted at. `cardTop` is the target card's top (the rise bound's floor);
  * `keepOuts` are every card box and the target row's band title.
