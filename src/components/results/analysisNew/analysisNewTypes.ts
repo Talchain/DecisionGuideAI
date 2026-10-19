@@ -1632,6 +1632,8 @@ export interface AtAGlance {
    */
   influenceIsSetRelative: boolean
   condition: GlanceCondition | null
+  /** Ruled explanation when the run establishes why no condition row exists. */
+  conditionAbsence: string | null
   /**
    * ⭐ THE ANTECEDENT OF EVERY READING ABOVE IT — where the factor values this
    * run consumed came from. Null ONLY when there are no factor rows to

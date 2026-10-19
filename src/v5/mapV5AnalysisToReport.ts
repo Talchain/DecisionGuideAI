@@ -1580,8 +1580,14 @@ export function mapV5AnalysisToReport(
     df !== undefined && factors[0]?.factor_id === df.factor_id ? df : undefined)(
     narrowDominantFactor(enrichment?.dominant_factor),
   )
-  const flipThresholdsStatus = narrowFlipThresholdsStatus(enrichment?.flip_thresholds_status)
-  const flipThresholdsStatusReason = safeString(enrichment?.flip_thresholds_status_reason)
+  // SCI-04 (#2630): the status describes the rows, so CEE's goal-figure withhold (which removes the array but can keep
+  // these scalars) suppresses both.
+  const flipThresholdsStatus = topLevelFlipThresholds
+    ? narrowFlipThresholdsStatus(enrichment?.flip_thresholds_status)
+    : undefined
+  const flipThresholdsStatusReason = topLevelFlipThresholds
+    ? safeString(enrichment?.flip_thresholds_status_reason)
+    : undefined
 
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
