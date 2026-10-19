@@ -35,7 +35,7 @@ import {
   formatInterventionTargetText,
   carriedInterventionDisplay,
 } from '../utils/interventionDisplay'
-import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../utils/baselineDetection'
+import { resolveOptionIsBaseline, baselineGuessBarred, baselineOptionsOf } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
@@ -500,10 +500,12 @@ export function differentiatorAddsBeyondRows(
 export function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null; intervention_details?: Record<string, unknown> }[] } | null,
+  /** CEE's baseline flags, live or from the cold read (`baselineOptionsOf`). */
+  baselineOptions: ReadonlyArray<{ id: string; is_baseline?: boolean | null }> | undefined = ceeAnalysisReady?.options,
 ): Map<string, OptionDifferentiator | null> {
   const result = new Map<string, OptionDifferentiator | null>()
   // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
-  const declaredBaseline = graphDeclaresBaseline(nodes, ceeAnalysisReady?.options)
+  const declaredBaseline = baselineGuessBarred(nodes, baselineOptions)
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -519,7 +521,7 @@ export function computeAllDifferentiators(
     // Explicit `false` must suppress the regex (prevents "Baseline" labels on
     // non-baseline options from being treated as baseline).
     const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
-    if (resolveOptionIsBaseline(optNode.data as any, ceeOpt, declaredBaseline)) continue
+    if (resolveOptionIsBaseline(optNode.data as any, baselineOptions?.find(o => o.id === optNode.id), declaredBaseline)) continue
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
@@ -835,6 +837,8 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, runLeaderView, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  /** CEE's baseline flags: the live `analysis_ready`, else the cold read's (a reopen before any turn). */
+  const baselineOptions = useCanvasStore(state => baselineOptionsOf(state))
   /** The analysis view describes a graph other than the saved one (`analysisViewIsStale`): the saved numbers stand. */
   const analysisViewStale = useCanvasStore(state => analysisViewIsStale(state.ceeAnalysisReady, state.lastServerGraphHash))
   /**
@@ -842,7 +846,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * guess may not make this card (or a sibling) a second one. One derivation,
    * read by every `resolveOptionIsBaseline` call on this card.
    */
-  const declaredBaseline = useMemo(() => graphDeclaresBaseline(nodes, ceeAnalysisReady?.options), [nodes, ceeAnalysisReady])
+  const declaredBaseline = useMemo(() => baselineGuessBarred(nodes, baselineOptions), [nodes, baselineOptions])
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
@@ -1024,7 +1028,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
   const isBaselineOption = useMemo(() => {
     // Node flag, then CEE's typed options entry, then the label heuristic.
-    return resolveOptionIsBaseline(props.data as any, ceeAnalysisReady?.options?.find(o => o.id === props.id), declaredBaseline)
+    return resolveOptionIsBaseline(props.data as any, baselineOptions?.find(o => o.id === props.id), declaredBaseline)
   }, [props.data, props.id, ceeAnalysisReady, declaredBaseline])
 
   // A before-reference must identify an actual option. A factor's observed
@@ -1137,9 +1141,9 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   const differentiator = useMemo<OptionDifferentiator | null>(() => {
     if (isBaselineOption) return null
-    const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
+    const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady, baselineOptions)
     return allDiffs.get(props.id) ?? null
-  }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
+  }, [isBaselineOption, ceeAnalysisReady, baselineOptions, nodes, props.id])
 
   /**
    * Do the from→to chips actually render? ONE spelling, consumed by both the
@@ -1207,7 +1211,7 @@ export const OptionNode = memo((props: NodeProps) => {
     for (const n of nodes) {
       if (n.type !== 'option' && n.data?.type !== 'option') continue
       const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === n.id)
-      const isBaseline = resolveOptionIsBaseline(n.data as any, ceeOpt, declaredBaseline)
+      const isBaseline = resolveOptionIsBaseline(n.data as any, baselineOptions?.find(o => o.id === n.id), declaredBaseline)
       // ⭐ The card's target resolution — CEE map joined with its details, and
       // a bare producer number never erasing the node's own receipt-stamped
       // `source` — now lives in `resolveOptionTargets`, moved verbatim, so the
@@ -1475,7 +1479,7 @@ export const OptionNode = memo((props: NodeProps) => {
     }
     const hasDuplicate = optionNodes.some(n => {
       if (n.id === props.id || isLeader(n.id)) return false
-      const siblingIsBaseline = resolveOptionIsBaseline(n.data as any, ceeAnalysisReady?.options?.find(o => o.id === n.id), declaredBaseline)
+      const siblingIsBaseline = resolveOptionIsBaseline(n.data as any, baselineOptions?.find(o => o.id === n.id), declaredBaseline)
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason

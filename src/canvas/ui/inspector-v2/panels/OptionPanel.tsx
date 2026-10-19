@@ -26,7 +26,7 @@ import {
 } from '../inspectorStrings'
 import { interventionIsUserMaterialUnverified, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
-import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline, baselineGuessBarred, baselineOptionsOf } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -104,6 +104,8 @@ export const OptionPanel = memo(function OptionPanel({
   const edges = useCanvasStore(s => s.edges)
   /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  /** CEE's baseline flags: the live `analysis_ready`, else the cold read's. */
+  const baselineOptionsForPanel = useCanvasStore(s => baselineOptionsOf(s))
   /** The card's rule (`analysisViewIsStale`): on a stale analysis view the saved numbers stand. */
   const analysisViewStale = useCanvasStore(s => analysisViewIsStale(s.ceeAnalysisReady, s.lastServerGraphHash))
   const resultsStatus = useCanvasStore(s => s.results?.status)
@@ -448,12 +450,12 @@ export const OptionPanel = memo(function OptionPanel({
   // Baseline indication — mirrors OptionNode.tsx. Explicit `is_baseline` wins;
   // regex fallback only fires when the flag is absent (null/undefined).
   const optionData = node?.data as OptionNodeData | undefined
-  const arOptionsForBaseline = (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options
+  const arOptionsForBaseline = baselineOptionsForPanel
   const isBaselineOption = resolveOptionIsBaseline(
     optionData,
     arOptionsForBaseline?.find(o => o.id === nodeId),
     // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
-    graphDeclaresBaseline(nodes, arOptionsForBaseline),
+    baselineGuessBarred(nodes, arOptionsForBaseline),
   )
 
   /**

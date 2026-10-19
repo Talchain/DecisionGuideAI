@@ -13,7 +13,7 @@ import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
-import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline, baselineGuessBarred, baselineOptionsOf } from '../../../utils/baselineDetection'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -124,11 +124,12 @@ export const DecisionPanel = memo(function DecisionPanel({
   // reported "No connections yet." while the canvas plainly drew the edges —
   // the very L-40 contradiction this file was changed to close, surviving in
   // the direction the first corpus never drew.
-  const ceeOptions = useCanvasStore(s => (s.ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options)
+  // CEE's baseline flags: the live `analysis_ready`, else the cold read's.
+  const ceeOptions = useCanvasStore(s => baselineOptionsOf(s))
   const connectedOptions = useMemo(() => {
     const seen = new Set<string>()
     // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
-    const declaredBaseline = graphDeclaresBaseline(nodes, ceeOptions)
+    const declaredBaseline = baselineGuessBarred(nodes, ceeOptions)
     return edges
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {

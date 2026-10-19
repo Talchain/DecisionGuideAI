@@ -479,6 +479,44 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     })
   })
 
+  describe('a cold reopen reads CEE\'s baseline from the read, not from label words (DL-3, pricing journey, UI 0d4fed07)', () => {
+    // On a cold reopen `ceeAnalysisReady` is null until a turn. The read carries CEE's flags
+    // (`current_read.analysis_ready.options[].is_baseline`), kept as `servedBaselineOptions`. Both labels match the
+    // keyword guess ("keep", "current"; "existing"), so the guess made "£59 …" a second baseline.
+    const KEEP49 = { id: 'opt-keep49', type: 'option', data: { label: 'Keep current £49 price', type: 'option' } }
+    const P59 = {
+      id: 'opt-59', type: 'option',
+      data: { label: '£59 for new Pro customers; grandfather existing customers', type: 'option',
+        interventions: { 'f-price': { value: 59, display_value: '£59' } } },
+    }
+    const reopened = (served: Array<{ id: string; is_baseline: boolean }>) => ({
+      nodes: [FACTOR_PRICE, FACTOR_HEAD, FACTOR_ADOPT, KEEP49, P59],
+      ceeAnalysisReady: null,
+      servedBaselineOptions: served,
+      lodRung: 'full',
+      viewMode: 'expert',
+    })
+    const CEE_SAYS = [{ id: 'opt-keep49', is_baseline: true }, { id: 'opt-59', is_baseline: false }]
+
+    it('the £59 option is not a baseline, and its card shows what it sets', () => {
+      renderCard({ id: 'opt-59', store: reopened(CEE_SAYS) })
+      expect(document.body.textContent ?? '').toContain('£59 for new Pro customers')
+      expect(onCard('option-baseline-meta-opt-59')).toBeNull()
+      // Its change rows show (a guessed baseline hid them): the £59 it sets is on the card.
+      expect(onCard('option-change-rows-opt-59')?.textContent ?? '').toContain('£59')
+    })
+
+    it('"Keep current £49 price" is the one baseline', () => {
+      renderCard({ id: 'opt-keep49', store: reopened(CEE_SAYS) })
+      expect(onCard('option-baseline-meta-opt-keep49')?.getAttribute('aria-label')).toBe('Baseline · no changes')
+    })
+
+    it('CONTRAST: with no CEE flags at all, two label matches mint no baseline (the guess needs exactly one)', () => {
+      renderCard({ id: 'opt-59', store: reopened([]) })
+      expect(onCard('option-baseline-meta-opt-59')).toBeNull()
+    })
+  })
+
   describe('height safety — the Normal rung adds nothing the landing rung lacks', () => {
     it('the card body is byte-identical at `full` and `quiet`', () => {
       const a = renderCard({ store: { lodRung: 'full' } })
