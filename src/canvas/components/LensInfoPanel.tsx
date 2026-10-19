@@ -71,6 +71,7 @@ export const LENS_KEY_COPY = {
   sensitiveHeading: 'Factors the result moves with most',
   focusOn: 'If you could strengthen one relationship, focus on:',
   nothingMeasured: 'This Run measured nothing it is especially sensitive to.',
+  fragileNotChecked: "Fragile links weren't checked on this Run.",
   modelRelative: 'These describe this model as it stands, not what to choose.',
 } as const
 
@@ -130,7 +131,7 @@ function WhatChangesKey() {
   const edges = useCanvasStore(s => s.edges)
   const light = useCanvasLight()
 
-  const { fragileList, sensitiveList } = useMemo(() => {
+  const { fragileList, sensitiveList, fragileNotChecked } = useMemo(() => {
     const reportAny = report as Record<string, unknown> | null | undefined
     const rob = reportAny?.robustness as Record<string, unknown> | undefined
     const rawFragile = (rob?.fragile_edges ?? []) as Array<Record<string, unknown>>
@@ -172,7 +173,9 @@ function WhatChangesKey() {
     const sensitiveList: ChangeRow[] = factors.slice(0, 3).map(n => ({
       key: `factor:${n.id}`, label: nodeMap.get(n.id) ?? n.id, target: { kind: 'node', id: n.id },
     }))
-    return { fragileList: list, sensitiveList }
+    // The engine says when it did not assess robustness: then an empty fragile list means "not checked", never "none"
+    // (verifier, staging fe4e4b9d: `display_verdict: not_assessed`, `fragile_edges: []`, and the lens said nothing).
+    return { fragileList: list, sensitiveList, fragileNotChecked: rob?.display_verdict === 'not_assessed' }
   }, [report, nodes, edges])
 
   const rows = (heading: string, items: readonly ChangeRow[], testid: string) => items.length === 0 ? null : (
@@ -205,7 +208,10 @@ function WhatChangesKey() {
 
   return (
     <div data-testid="lens-info-robustness" className="space-y-3">
-      {fragileList.length === 0 && sensitiveList.length === 0
+      {fragileNotChecked
+        ? <p data-testid="lens-key-fragile-not-checked" className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.fragileNotChecked}</p>
+        : null}
+      {!fragileNotChecked && fragileList.length === 0 && sensitiveList.length === 0
         ? <p className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.nothingMeasured}</p>
         : null}
       {/* #2747 re-scope 2 (DL ruling): each fragile link says its label only. Its switch probability ("62%") and the
