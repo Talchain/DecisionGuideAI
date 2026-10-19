@@ -404,6 +404,34 @@ describe('mapV5AnalysisToReport — robustness + flip_thresholds + edge_e_values
     expect(report.conditional_probabilities).toEqual({ 'opt_a': 0.7 })
   })
 
+  it('writes a recognised flip status and reason only when the rows array is present', () => {
+    const withRows = mapV5AnalysisToReport(baseBlock({
+      enrichment: {
+        flip_thresholds: [],
+        flip_thresholds_status: 'all_no_effect',
+        flip_thresholds_status_reason: 'timeout',
+      } as never,
+    })) as ReturnType<typeof mapV5AnalysisToReport> & Record<string, unknown>
+    const withheld = mapV5AnalysisToReport(baseBlock({
+      enrichment: {
+        flip_thresholds_status: 'all_no_effect',
+        flip_thresholds_status_reason: 'timeout',
+      } as never,
+    })) as ReturnType<typeof mapV5AnalysisToReport> & Record<string, unknown>
+
+    expect(withRows.flip_thresholds_status).toBe('all_no_effect')
+    expect(withRows.flip_thresholds_status_reason).toBe('timeout')
+    expect(withheld.flip_thresholds_status).toBeUndefined()
+    expect(withheld.flip_thresholds_status_reason).toBeUndefined()
+  })
+
+  it('does not write an unrecognised flip status', () => {
+    const report = mapV5AnalysisToReport(baseBlock({
+      enrichment: { flip_thresholds: [], flip_thresholds_status: 'bogus' } as never,
+    })) as ReturnType<typeof mapV5AnalysisToReport> & Record<string, unknown>
+    expect(report.flip_thresholds_status).toBeUndefined()
+  })
+
   it('robustness absent when enrichment.robustness is missing or non-object', () => {
     const block = baseBlock({ enrichment: {} })
 
