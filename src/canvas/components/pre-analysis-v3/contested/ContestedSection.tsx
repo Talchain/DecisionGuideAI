@@ -96,8 +96,8 @@
  * EMPTY MEANS ABSENT. Nothing renders when no connection is contested — no header, no "0",
  * no reassurance row. Same rule as SharpenSection.
  *
- * HIERARCHY. A single `border-t` and no static `bg-panel-hover` strip: the panel's one neutral
- * section-header strip belongs to Sharpen and its one `border-b` to the Header
+ * HIERARCHY. No rule (one-sided borders are retired, DS v5 §6) and no static `bg-panel-hover`
+ * strip: the panel's one neutral section-header strip belongs to Sharpen
  * (`hierarchyContract.spec.tsx`).
  */
 

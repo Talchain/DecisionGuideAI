@@ -323,10 +323,10 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   }
 
   // Multiple fixes: collapsible section.
-  // V2 gap 35 — no blue-bordered card; a full-width hairline, matching the
-  // other top-level Model-tab sections (`border-b … py-2.5`, split as
+  // V2 gap 35 — no blue-bordered card, matching the other top-level
+  // Model-tab sections (set apart by padding, no rule: DS v5 §6), split as
   // padding-inclusive header + body below rather than one wrapping padding,
-  // since the body's own `px-3 pb-2` continues past the header unchanged).
+  // since the body's own `px-3 pb-2` continues past the header unchanged.
   return (
     <div data-testid="model-adjustments">
       <button

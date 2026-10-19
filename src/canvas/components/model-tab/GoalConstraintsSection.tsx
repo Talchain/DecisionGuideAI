@@ -269,9 +269,9 @@ export function GoalConstraintsSection({
        * SECOND `border rounded-lg` box inside it — a card within a card.
        * The design authority has no boxes below the outline: lists sit
        * directly under a divider-led section
-       * (`.tiny-list{padding:0;margin:8px 0;list-style:none}`). One
-       * `border-b … py-2.5` rule, the same shape `PANEL_SURFACE` gives
-       * Reasoning's own top-level sections.
+       * (`.tiny-list{padding:0;margin:8px 0;list-style:none}`). `py-2.5`
+       * sets it apart, the same way `PANEL_SURFACE` sets apart Reasoning's
+       * own top-level sections (their bottom rules are retired, DS v5 §6).
        */
       className="py-2.5 space-y-1.5"
     >
