@@ -2797,8 +2797,9 @@ function buildAtAGlance(
   // run whose leader claim is withheld there is no such reading, and the line
   // rendered at rest anyway. Same rule V2 applied to the sensitivity header and
   // the Challenge signals row (DATA-MAP truth risk 1).
-  const condition = leaderDesignationPermitted(data.recommendation) === true ? glanceCondition(data) : null
-  const conditionAbsence = leaderDesignationPermitted(data.recommendation) === true
+  const leaderPermitted = leaderDesignationPermitted(data.recommendation) === true
+  const condition = leaderPermitted ? glanceCondition(data) : null
+  const conditionAbsence = leaderPermitted
     && condition === null
     && (data.recommendation.flipThresholdsStatus === 'all_no_effect'
       || data.recommendation.flipThresholdsStatus === 'unresolved')
