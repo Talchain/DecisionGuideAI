@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aiComparisonHeaders, aiComparisonLabel, resolveAiComparisonMode } from '../aiComparisonMode'
+import { aiComparisonBadge, aiComparisonHeaders, aiComparisonLabel, isOpenAiLane, resolveAiComparisonMode } from '../aiComparisonMode'
 
 describe('AI comparison mode', () => {
   it('defaults staging to OpenAI, so a plain link never reaches the conventional (Anthropic) route', () => {
@@ -24,6 +24,19 @@ describe('AI comparison mode', () => {
   it('allows an explicit conventional URL even when other query state is present', () => {
     const url = 'https://staging--olumi.netlify.app/#/canvas?ai=conventional&diag=1'
     expect(resolveAiComparisonMode(url)).toBe('conventional')
+  })
+
+  it('PATH-B: `ai=core` is its own labelled staging surface on the OpenAI Agent route, in the hash or the page query', () => {
+    const hash = 'https://staging--olumi.netlify.app/#/canvas?ai=core&diag=1'
+    expect(resolveAiComparisonMode(hash)).toBe('core')
+    expect(aiComparisonHeaders(hash)).toEqual({ 'x-olumi-ai-mode': 'core' })
+    expect(aiComparisonLabel(hash)).toBe('OpenAI core')
+    expect(aiComparisonBadge(hash), 'shown: it differs from the staging default').toBe('OpenAI core')
+    expect(isOpenAiLane('core')).toBe(true)
+    expect(resolveAiComparisonMode('https://staging--olumi.netlify.app/?ai=core#/canvas')).toBe('core')
+    // Contrast: a near miss is not a mode, so staging keeps its OpenAI default.
+    expect(resolveAiComparisonMode('https://staging--olumi.netlify.app/#/canvas?ai=Core')).toBe('openai')
+    expect(isOpenAiLane('conventional')).toBe(false)
   })
 
   it('does not override production when no explicit comparison mode exists', () => {

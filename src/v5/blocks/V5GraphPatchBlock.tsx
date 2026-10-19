@@ -27,7 +27,7 @@ import { claimStalenessVoice } from '../../canvas/conversation/stalenessVoice'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 import { ExplainDiffButton } from '../../components/assistants/ExplainDiffButton'
-import { resolveAiComparisonMode } from '../aiComparisonMode'
+import { isOpenAiLane, resolveAiComparisonMode } from '../aiComparisonMode'
 
 export interface V5GraphPatchBlockProps {
   block: V5GraphPatchBlockType
@@ -179,7 +179,7 @@ export function V5GraphPatchBlock({
         browser request the request-scoped provider guard (#1749) cannot see.
         The mode is re-read from the URL on every render, as every send does.
       */}
-      {isApplied && resolveAiComparisonMode() !== 'openai' && (
+      {isApplied && !isOpenAiLane(resolveAiComparisonMode()) && (
         <ExplainDiffButton
           block={block}
           graphSummary={{ node_count: nodes.length, edge_count: edges.length }}

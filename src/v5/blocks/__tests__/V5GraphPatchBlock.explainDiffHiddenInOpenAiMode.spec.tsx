@@ -60,6 +60,13 @@ describe('V5GraphPatchBlock — "Why these changes?" is not offered in OpenAI mo
     expect(screen.queryByTestId('explain-diff-trigger')).not.toBeInTheDocument()
   })
 
+  it('PATH-B core (#/canvas?ai=core): the same OpenAI lane, so no Anthropic trigger either', () => {
+    at('/#/canvas?ai=core')
+    render(<V5GraphPatchBlock block={applied} />)
+    expect(screen.getByTestId('v5-change-receipt')).toBeInTheDocument()
+    expect(screen.queryByTestId('explain-diff-trigger')).not.toBeInTheDocument()
+  })
+
   it('CONTRAST — conventional mode still offers it on the same applied receipt', () => {
     at('/?ai=conventional#/canvas')
     render(<V5GraphPatchBlock block={applied} />)
