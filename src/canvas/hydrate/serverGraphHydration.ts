@@ -1,4 +1,5 @@
 import { switchFactorIdsOf } from '../domain/switchFactors'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { servedBaselineOptionsOf } from '../utils/baselineDetection'
 /**
  * serverGraphHydration — the boot orchestration for ROADMAP 2.312 piece 3.
@@ -134,6 +135,20 @@ export interface HydrateFromServerOptions {
  * answer is "not known to be the same", which re-merges. Comparing across
  * versions would silently skip a hydration on a coincidence of bytes.
  */
+/**
+ * What the cold read's own `current_read.analysis_ready` tells the canvas before any turn: the switch factor ids, CEE's
+ * baseline flags, and the goal target CEE holds. The target goes through the SAME sync a turn's `analysis_ready` runs
+ * (`syncGoalThresholdFromCeeReadiness`): store only (`fromCeeSync`), never a node write, never marked dirty, and never
+ * over a target the canvas already holds. Without it a cold reopen showed the goal as "Needs input" while the read
+ * carried `goal_threshold_raw` (verifier joined diagnosis, 19 Oct: C3 "at least 80 litres left" → null).
+ */
+function adoptServedReadiness(analysisReady: unknown): void {
+  useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(analysisReady), servedBaselineOptions: servedBaselineOptionsOf(analysisReady) })
+  if (analysisReady !== null && typeof analysisReady === 'object' && !Array.isArray(analysisReady)) {
+    useCanvasStore.getState().syncGoalThresholdFromCeeReadiness(analysisReady as CEEAnalysisReady)
+  }
+}
+
 function isSameServerGraph(
   stored: { value: string; projectionVersion: string } | null,
   fetched: { value: string; projectionVersion: string } | null,
@@ -686,7 +701,7 @@ async function readAndMergeServerGraph(
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
-    if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady), servedBaselineOptions: servedBaselineOptionsOf(result.switchAnalysisReady) })
+    if (result.scenarioId === scenarioId) adoptServedReadiness(result.switchAnalysisReady)
     restoreVerdict()
     // ⭐ THE UNCHANGED CASE ADOPTS TOO, and it is the one a reload actually
     // takes. "The server has not moved" means the canvas already holds exactly
@@ -749,7 +764,7 @@ async function readAndMergeServerGraph(
     return 'mergeRefused'
   }
 
-  if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady), servedBaselineOptions: servedBaselineOptionsOf(result.switchAnalysisReady) })
+  if (result.scenarioId === scenarioId) adoptServedReadiness(result.switchAnalysisReady)
 
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the accepted merge took elements off the
   // canvas because the saved model lacks them (`mergeServerGraph.ts` header).
