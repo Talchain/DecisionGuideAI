@@ -250,7 +250,7 @@ export function resolveOptionIsBaseline(
    * option", with no change row, whenever `analysis_ready` was absent (a second
    * tab, the gate's LANDING state) — beside "Keep current £49 price", which
    * carries `is_baseline: true`. A board has one baseline; once any option
-   * declares it (`graphDeclaresBaseline`), the keyword guess may not mint a
+   * declares it (`baselineGuessBarred`), the keyword guess may not mint a
    * second. Narrowing the keyword list instead would be a closed lexicon over
    * open labels. Optional so a caller that cannot see the graph keeps the old
    * behaviour; every canvas caller passes it.
@@ -264,20 +264,55 @@ export function resolveOptionIsBaseline(
   return detectBaseline(String(data?.label ?? '')).isBaseline
 }
 
+type BaselineFlag = { readonly id: string; readonly is_baseline?: boolean | null }
+
 /**
- * Does any option on this board DECLARE itself the baseline — a typed
- * `is_baseline: true` on its node, or on CEE's `analysis_ready.options[]`
- * entry? The input to `resolveOptionIsBaseline`'s third argument (POM-3).
- * Typed flags only: a label match is a guess, and a guess cannot outrank one.
+ * CEE's baseline flags from a cold read (`current_read.analysis_ready.options[].is_baseline`, parsed by
+ * `scenarioGraph.ts` as `switchAnalysisReady`), kept beside the switch ids. Read-only: never written back to a node.
  */
-export function graphDeclaresBaseline(
-  nodes: ReadonlyArray<{ type?: string; data?: unknown }> | null | undefined,
-  ceeOptions: ReadonlyArray<{ is_baseline?: boolean | null }> | null | undefined,
-): boolean {
-  if (ceeOptions?.some((o) => o?.is_baseline === true)) return true
-  return (nodes ?? []).some((n) => {
-    const d = n?.data as { type?: unknown; kind?: unknown; is_baseline?: unknown } | undefined
-    const isOption = n?.type === 'option' || d?.type === 'option' || d?.kind === 'option'
-    return isOption && d?.is_baseline === true
+export function servedBaselineOptionsOf(analysisReady: unknown): readonly BaselineFlag[] {
+  const options = (analysisReady as { options?: unknown } | null)?.options
+  if (!Array.isArray(options)) return []
+  return options.flatMap((o): BaselineFlag[] => {
+    const id = (o as { id?: unknown } | null)?.id
+    const flag = (o as { is_baseline?: unknown } | null)?.is_baseline
+    return typeof id === 'string' && typeof flag === 'boolean' ? [{ id, is_baseline: flag }] : []
   })
+}
+
+/**
+ * ⭐ CEE'S OPTIONS FOR THE BASELINE QUESTION: the live `analysis_ready` when a turn has brought one, else the cold
+ * read's flags. On a cold reopen `ceeAnalysisReady` starts null, and the label guess made "£59 for new Pro customers;
+ * grandfather existing customers" a second baseline beside "Keep current £49 price" (DL-3, pricing journey, UI
+ * 0d4fed07), although the read carried CEE's answer all along.
+ */
+export function baselineOptionsOf(state: {
+  readonly ceeAnalysisReady?: { readonly options?: readonly BaselineFlag[] } | null
+  readonly servedBaselineOptions?: readonly BaselineFlag[]
+} | null | undefined): readonly BaselineFlag[] | undefined {
+  const live = state?.ceeAnalysisReady?.options
+  if (live && live.length > 0) return live
+  const served = state?.servedBaselineOptions
+  return served && served.length > 0 ? served : undefined
+}
+
+/**
+ * May the label guess (`detectBaseline`) name a baseline on this board? Only when nothing typed speaks:
+ *   - CEE has flagged its options (true or false): CEE is the one authority, so never;
+ *   - an option node declares `is_baseline: true` (POM-3): never a second;
+ *   - otherwise only when EXACTLY ONE option's label matches, so a guess cannot mint two baselines.
+ * `true` = the guess is barred. The input to `resolveOptionIsBaseline`'s third argument.
+ */
+export function baselineGuessBarred(
+  nodes: ReadonlyArray<{ type?: string; data?: unknown }> | null | undefined,
+  ceeOptions: ReadonlyArray<BaselineFlag> | null | undefined,
+): boolean {
+  if (ceeOptions?.some((o) => typeof o?.is_baseline === 'boolean')) return true
+  const options = (nodes ?? []).filter((n) => {
+    const d = n?.data as { type?: unknown; kind?: unknown } | undefined
+    return n?.type === 'option' || d?.type === 'option' || d?.kind === 'option'
+  })
+  if (options.some((n) => (n.data as { is_baseline?: unknown } | undefined)?.is_baseline === true)) return true
+  const guessed = options.filter((n) => detectBaseline(String((n.data as { label?: unknown } | undefined)?.label ?? '')).isBaseline)
+  return guessed.length !== 1
 }

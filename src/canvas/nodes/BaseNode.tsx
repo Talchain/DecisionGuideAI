@@ -52,7 +52,7 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
-import { graphDeclaresBaseline } from '../utils/baselineDetection'
+import { baselineGuessBarred, baselineOptionsOf } from '../utils/baselineDetection'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
@@ -709,7 +709,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   // POM-3: a boolean selector (React-185 safe) — does any option DECLARE the baseline?
-  const graphHasDeclaredBaseline = useCanvasStore(s => nodeType === 'option' && graphDeclaresBaseline(s.nodes, s.ceeAnalysisReady?.options))
+  const graphHasDeclaredBaseline = useCanvasStore(s => nodeType === 'option' && baselineGuessBarred(s.nodes, baselineOptionsOf(s)))
+  const baselineOptions = useCanvasStore(s => baselineOptionsOf(s))
 
   /**
    * ⚠ THE FACT THAT DOES NOT LIVE ON THE NODE, and whose absence was the
@@ -770,6 +771,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         nodeId: id,
         data: (allNodes.find(n => n.id === id)?.data ?? data) as Record<string, unknown> | undefined,
         ceeOptions: ceeAnalysisReady?.options,
+        baselineOptions,
         graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
@@ -777,7 +779,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
       optionTakenOutLine: optionTakenOutLine(data),
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, optionChanceCell, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, baselineOptions, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, optionChanceCell, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

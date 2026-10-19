@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8242
+src/canvas/store.ts:8244
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
@@ -232,3 +232,4 @@ src/components/results/analysisNew/analysisNewCopy.ts:2828
 #    hidden/causal/evidence lens fields above it. Same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line text.)
 #    (`store.ts:8238` -> `8242`, a pure +4 line shift from #2828 (19 Oct 2026, the save pill after a CEE commit):
 #    the comment and `held` read in `setLastServerGraphHash`. Same line text.)
+#    (`store.ts:8242` -> `8244`, a pure +2 line shift from the served baseline flags field (19 Oct 2026). Same line text.)

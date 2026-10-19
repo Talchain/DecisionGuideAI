@@ -13,7 +13,7 @@ import { findPathsToGoal } from '../utils/pathFinding'
 import { resolveEffectiveAdmission } from '../hooks/useAnalysisReady'
 import { selectBootReadPermittedMode, useBootReadAdmissionStore } from '../hydrate/bootReadAdmission'
 import { testWithoutLinkEligibility } from '../../components/results/analysisNew/testWithoutLinkEligibility'
-import { graphDeclaresBaseline, resolveOptionIsBaseline } from '../utils/baselineDetection'
+import { baselineGuessBarred, baselineOptionsOf, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { QUESTIONS, type AskIntent, type AskStage, type QuestionContext } from './askAiQuestions'
 import { actionOfAsk, typedPressIdOf } from './actionRegistry'
 import { readProducerLeaderPermission } from '../../lib/decisionVerdict'
@@ -99,8 +99,8 @@ export function buildAskAiQuestion(req: AskAiRequest) {
     goalLabel: node?.type === 'goal' ? labelOf(node) : labelOf(nodes.find(n => n.type === 'goal')),
     decisionLabel: node?.type === 'decision' ? labelOf(node) : labelOf(nodes.find(n => n.type === 'decision')),
     baseline: resolveOptionIsBaseline(node?.data as { is_baseline?: unknown; label?: unknown },
-      state?.ceeAnalysisReady?.options?.find(o => o.id === nodeIds[0]),
-      graphDeclaresBaseline(nodes, state?.ceeAnalysisReady?.options)),
+      baselineOptionsOf(state)?.find(o => o.id === nodeIds[0]),
+      baselineGuessBarred(nodes, baselineOptionsOf(state))),
   }
   // The action registry is the one mapper from an action to CEE's typed press id (S-B slice 0).
   const action = actionOfAsk(intent)

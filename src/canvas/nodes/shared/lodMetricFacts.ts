@@ -46,9 +46,11 @@ export interface LodMetricFactsInputs {
   /** The node's own `data` — the option-intervention fallback reads it. */
   data: Record<string, unknown> | undefined
   ceeOptions: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }[] | null | undefined
+  /** CEE's baseline flags, live or from the cold read (`baselineOptionsOf`); absent falls back to `ceeOptions`. */
+  baselineOptions?: ReadonlyArray<{ id: string; is_baseline?: boolean | null }>
   /**
-   * Whether any option on the board DECLARES the baseline (`graphDeclaresBaseline`)
-   * — the label guess may not mint a second (POM-3). Absent reads as `false`.
+   * Whether the label guess is barred on this board (`baselineGuessBarred`): CEE has flagged its options, an option
+   * declares the baseline (POM-3), or not exactly one label matches. Absent reads as `false`.
    */
   graphHasDeclaredBaseline?: boolean
 }
@@ -65,6 +67,7 @@ export function resolveLodMetricFacts({
   nodeId,
   data,
   ceeOptions,
+  baselineOptions = ceeOptions ?? undefined,
   graphHasDeclaredBaseline = false,
 }: LodMetricFactsInputs): LodMetricFacts {
   if (nodeType !== 'option') return { optionInterventionCount: null, optionIsBaseline: null }
@@ -81,6 +84,6 @@ export function resolveLodMetricFacts({
     // "No changes to factors". `OptionNode` checks this flag FIRST and never
     // reaches its count for a baseline; so does the reduced line.
     // `detectBaseline` is that component's own detector, not a second rule.
-    optionIsBaseline: resolveOptionIsBaseline(data, ceeOptions?.find(o => o.id === nodeId), graphHasDeclaredBaseline),
+    optionIsBaseline: resolveOptionIsBaseline(data, baselineOptions?.find(o => o.id === nodeId), graphHasDeclaredBaseline),
   }
 }

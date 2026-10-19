@@ -691,6 +691,8 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null; servedSwitchFactorIds: ReadonlySet<string>
+  /** CEE's baseline flags from the cold read (`baselineDetection.servedBaselineOptionsOf`); read-only. */
+  servedBaselineOptions: ReadonlyArray<{ readonly id: string; readonly is_baseline?: boolean | null }>
   /**
    * The run-over-run consequence for the analysis currently displayed, or null.
    *
@@ -2388,7 +2390,7 @@ function readinessClearFields(get: () => CanvasState) {
 const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
-  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(), servedBaselineOptions: [],
   // ⭐ A DIFFERENT DECISION CANNOT INHERIT THE LAST ONE'S COMPARISON. The read
   // predicate already refuses a delta whose scenario does not match, so this is
   // the second of two independent guards rather than the only one — deliberately,
@@ -3495,7 +3497,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     ...loadUIPreferences(), // Override with persisted preferences
   },
   // CEE V3: analysis_ready payload
-  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(), servedBaselineOptions: [],
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
   runDeltaAbsence: null,
@@ -6702,7 +6704,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // on the canvas (`ReactFlowGraph.tsx:2062` does exactly this on boot)
       // cannot mis-attribute anything, and clearing there would discard live
       // data for no reader's benefit.
-      ...(id !== get().currentScenarioId ? { runMeta: {}, servedSwitchFactorIds: new Set<string>() } : {}),
+      ...(id !== get().currentScenarioId ? { runMeta: {}, servedSwitchFactorIds: new Set<string>(), servedBaselineOptions: [] } : {}),
       previousReport: null, // A1: Clear stale deltas on scenario switch
       // The previous scenario's REPORT goes with its deltas. Without this, a
       // switch to a scenario that has never been analysed — or whose run this
