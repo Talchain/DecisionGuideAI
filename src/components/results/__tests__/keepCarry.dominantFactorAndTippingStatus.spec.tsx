@@ -251,7 +251,7 @@ describe('the carried fields reach the words the readers render', () => {
     // PRECONDITION: this run's own verdict permits naming a leader — derived from the producer's near_tie.
     expect(leaderDesignationPermitted(data.recommendation)).toBe(true)
     expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
-      'No single tested factor changed the leading option within the current range.',
+      'No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.',
     )
   })
 
@@ -260,9 +260,11 @@ describe('the carried fields reach the words the readers render', () => {
     const data = mountPanelOver({ flip_thresholds_status: 'all_no_effect' })
     // PRECONDITION: this run's own verdict withholds the leader — derived, not supplied.
     expect(leaderDesignationPermitted(data.recommendation)).toBe(false)
-    expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
-      'No single tested factor changed the comparison within the current range.',
-    )
+    // #2630's adopted copy: a withheld run names no option at all, not even "the highest average result".
+    const note = screen.getByTestId('flip-thresholds-status-note').textContent ?? ''
+    expect(note).toBe('No turning point found in this run across the factor ranges Olumi could check.')
+    expect(note).not.toContain('leading option')
+    expect(note).not.toContain('highest average')
   })
 
   it('⭐ the reason is what turns "partial" into "… and others could not be resolved" on the mounted panel', () => {
@@ -274,7 +276,7 @@ describe('the carried fields reach the words the readers render', () => {
     expect(leaderDesignationPermitted(data.recommendation)).toBe(true)
     expect(data.recommendation.flipThresholdsHasUnresolved).toBe(true)
     expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
-      'Some factors did not change the leading option within the current range, and others could not be resolved.',
+      'Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model. Others could not be checked.',
     )
   })
 
