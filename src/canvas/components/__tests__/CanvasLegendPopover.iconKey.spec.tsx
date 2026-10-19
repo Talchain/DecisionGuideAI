@@ -8,7 +8,7 @@
  * had the provenance glyphs (the "Source exception" marks) and none of the
  * other four, although every one of them ships on the canvas today:
  *   · Worth reviewing     — `NodeAttentionMarker` (BaseNode corner stack);
- *   · Evidence worth seeking — `NodeSignalRailIcons` evidence icon (rail);
+ *   · Worth checking — `NodeSignalRailIcons` evidence icon (rail);
  *   · Behavioural check   — `NodeSignalRailIcons` behaviour icon (rail);
  *   · Explore with Olumi  — `NodeCoachingIcon` (rail, every card at Normal zoom).
  *
@@ -110,7 +110,7 @@ describe('the icon rows, in the contract’s words', () => {
 
   it.each([
     ['legend-icon-attention', 'Worth reviewing'],
-    ['legend-icon-evidence', 'Evidence worth seeking'],
+    ['legend-icon-evidence', 'Worth checking'],
     ['legend-icon-behaviour', 'Behavioural check'],
     ['legend-icon-coaching', 'Explore with Olumi'],
   ])('%s reads "%s"', (testId, words) => {
@@ -149,7 +149,7 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     expect(key.svg.getAttribute('stroke-width')).toBe(card.svg.getAttribute('stroke-width'))
   })
 
-  it('Evidence worth seeking ⇄ the rail’s evidence icon', () => {
+  it('Worth checking ⇄ the rail’s evidence icon', () => {
     render(<NodeSignalRailIcons nodeId={NODE} label="Hiring spend" reasons={[EVIDENCE]} />)
     const card = cardGlyph(`node-rail-evidence-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-evidence')
