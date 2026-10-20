@@ -158,7 +158,7 @@ export function LensBar() {
             aria-disabled={waiting || undefined}
             tabIndex={selected ? 0 : -1}
             data-testid={`${LENS_BAR_TESTID}-${lens}`}
-            aria-label={lens !== 'full' && lens !== 'what_changes' && count > 0
+            aria-label={(lens === 'rests_on' || lens === 'premortem') && count > 0
               ? `${LENS_COPY.label[lens]}, ${LENS_COPY.count[lens](count)}`
               : LENS_COPY.label[lens]}
             title={waiting ? LENS_COPY.needsRun : LENS_COPY.hint[lens]}

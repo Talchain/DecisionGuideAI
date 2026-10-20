@@ -28,7 +28,7 @@ export const FIGURE_CARD_COPY = {
   show: 'Show on the model',
 } as const
 
-const STRENGTH_ACT: Readonly<Record<AssumptionColumn, string>> = {
+export const STRENGTH_ACT: Readonly<Record<AssumptionColumn, string>> = {
   missing: FIGURE_CARD_COPY.setStrength,
   unchecked: FIGURE_CARD_COPY.checkStrength,
   unknown: FIGURE_CARD_COPY.checkStrength,

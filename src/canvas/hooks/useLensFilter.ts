@@ -5,6 +5,7 @@
  * selectors. Called once from ReactFlowGraph — not from individual node/edge components.
  *
  *   - option        dims everything off the option's paths (entered from an option card, the context menu or a key).
+ *   - tradeoffs     the picked option's routes to the goal in front, dimming the rest (`tradeOffsModel.ts`). No Run needed.
  *   - rests_on      numbers every figure the model rests on, from the ONE owner reader (`assumptionMapOf`).
  *   - premortem     dims everything Olumi's pre-mortem stories do not rest on.
  *   - what_changes  the selected Run's sensitivity widths and fragile links, dimming the rest. Needs a complete Run.
@@ -17,6 +18,7 @@ import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { resolveActiveGoalNodeId } from './goalThresholdResolvers'
 import { assumptionMapOf, restsOnKey, restsOnNumbered, type RestsOnMark } from '../artefacts/assumptionMapModel'
 import { useCurrentPremortemWorksheet } from '../artefacts/lenses'
+import { tradeOffsForState, tradeOffsInFocus } from '../artefacts/tradeOffsModel'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -183,7 +185,10 @@ export function useLensFilter(): void {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
+  const servedBaselineOptions = useCanvasStore(s => s.servedBaselineOptions)
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const setLensVisuals = useCanvasStore(s => s.setLensVisuals)
   const worksheet = useCurrentPremortemWorksheet()
 
@@ -200,6 +205,19 @@ export function useLensFilter(): void {
         restsOn.set(restsOnKey(item.target), { n: item.n, column: item.column })
       }
       return { ...EMPTY_VISUALS, restsOn }
+    }
+
+    // ── Trade-offs: the picked option's routes to the goal in front (no Run needed; nothing dims without a route) ──
+    if (lensActive === 'tradeoffs') {
+      const { options } = tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions })
+      const option = options.find(o => o.optionId === lensOptionId) ?? options[0]
+      if (!option || option.routes.length === 0) return EMPTY_VISUALS
+      const focus = tradeOffsInFocus(option, edges)
+      return {
+        ...EMPTY_VISUALS,
+        dimmedNodeIds: allBut(nodes.map(n => n.id), focus.nodeIds),
+        dimmedEdgeIds: allBut(edges.map(e => e.id), focus.edgeIds),
+      }
     }
 
     // ── If it failed: the stories' elements in front (no Run needed; nothing dims before a worksheet exists) ──
@@ -247,7 +265,7 @@ export function useLensFilter(): void {
     }
 
     return EMPTY_VISUALS
-  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, outcomeNodeId, worksheet])
+  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet])
 
   // Push computed visuals to store so BaseNode/StyledEdge can read with primitive selectors
   const prevVisualsRef = useRef(visuals)

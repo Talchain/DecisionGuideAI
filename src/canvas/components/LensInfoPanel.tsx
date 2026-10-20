@@ -2,7 +2,8 @@
  * LensInfoPanel — the lens's KEY CARD (Paul, 18 Oct 2026: "Lenses on the model"; DL-3 answer 4: LensInfoPanel's
  * bottom-left slot, no new column).
  *
- * One card per lens, in the band's bottom-left cell: "Rests on" lists the numbers the model carries
+ * One card per lens, in the band's bottom-left cell: "Trade-offs" lists what one option gains and gives up along the
+ * model's own links (`artefacts/TradeOffsKey.tsx`); "Rests on" lists the numbers the model carries
  * (`artefacts/RestsOnKey.tsx`); "If it failed" holds Olumi's pre-mortem stories, or the one way to ask for them;
  * "What would change" names what the selected Run is most sensitive to, from CEE's analysis only, and never a winner.
  *
@@ -36,7 +37,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Activity, AlertTriangle, ChevronDown, ChevronUp, Layers, X, type LucideIcon } from 'lucide-react'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, Layers, Scale, X, type LucideIcon } from 'lucide-react'
 import { OVERLAY_BAND_SELECTOR, useOverlayCell } from './CanvasOverlayBand'
 import { measureDockInset } from './FloatingOlumiPanel'
 import { ANALYSIS_STATE_CUE_COPY } from './AnalysisStateCue'
@@ -57,6 +58,7 @@ import { typedPressIdOf } from '../conversation/actionRegistry'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { RestsOnKey, usePickedKey } from '../artefacts/RestsOnKey'
+import { TradeOffsKey } from '../artefacts/TradeOffsKey'
 import { LENS_COPY, useCurrentPremortemWorksheet, type BarLens } from '../artefacts/lenses'
 import type { GraphChangeTarget } from '../graphChanges/graphChangesView'
 
@@ -77,6 +79,7 @@ export const LENS_KEY_COPY = {
 } as const
 
 const LENS_ICON: Readonly<Record<Exclude<BarLens, 'full'>, LucideIcon>> = {
+  tradeoffs: Scale,
   rests_on: Layers,
   premortem: AlertTriangle,
   what_changes: Activity,
@@ -239,6 +242,21 @@ const overlapArea = (a: Rect, b: Rect): number =>
   Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y))
 
 /**
+ * The cards on screen the key must keep clear of: every card the lens keeps in front. A card the lens has set aside
+ * (dimmed) may sit under the key; a key over the very card a route starts from hid what the lens is about (Trade-offs
+ * at 1280, 20 Oct 2026: the key covered "Pro plan price", where every route began).
+ */
+function inFocusCardRects(): Rect[] {
+  const dimmed = useCanvasStore.getState().lens._dimmedNodeIds
+  return [...document.querySelectorAll('.react-flow__node')]
+    .filter((el) => !dimmed.has(el.getAttribute('data-id') ?? ''))
+    .map((el) => {
+      const r = el.getBoundingClientRect()
+      return { x: r.left, y: r.top, w: r.width, h: r.height }
+    })
+}
+
+/**
  * Which bottom corner of the canvas the key card stands in: the left, unless the right covers less of the model.
  * Pure, so the rule is tested without a layout engine. `cards` are the model's cards on screen.
  */
@@ -254,6 +272,8 @@ export function keyCardSide(left: Rect, right: Rect, cards: readonly Rect[]): 'l
  */
 function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boolean): { left: number; bottom: number } | null {
   const [place, setPlace] = useState<{ left: number; bottom: number } | null>(null)
+  // The lens's focus decides which cards the key must clear, so a new focus (another option) re-measures.
+  const focus = useCanvasStore((s) => s.lens._dimmedNodeIds)
   useLayoutEffect(() => {
     if (!card || typeof window === 'undefined') return
     const measure = () => {
@@ -267,10 +287,7 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
       // The card stands ABOVE the band, so on the right it clears the dock, not the band's pill gutter (the minimised
       // Olumi pill's corner lives in the band's own row). Measured at 1280: the gutter put the right slot over the goal.
       const rightX = window.innerWidth - measureDockInset() - KEY_CARD_GAP - KEY_CARD_WIDTH
-      const cards = [...document.querySelectorAll('.react-flow__node')].map((el) => {
-        const r = el.getBoundingClientRect()
-        return { x: r.left, y: r.top, w: r.width, h: r.height }
-      })
+      const cards = inFocusCardRects()
       const side = rightX > leftX
         ? keyCardSide({ x: leftX, y, w: KEY_CARD_WIDTH, h: height }, { x: rightX, y, w: KEY_CARD_WIDTH, h: height }, cards)
         : 'left'
@@ -289,7 +306,7 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
       window.removeEventListener('resize', measure)
       ro?.disconnect()
     }
-  }, [card, lens, folded])
+  }, [card, lens, folded, focus])
   return place
 }
 
@@ -314,10 +331,7 @@ function useMakeRoomForKey(card: HTMLElement | null, place: { left: number; bott
     if (!card || !place) return
     const frame = requestAnimationFrame(() => {
       const r = card.getBoundingClientRect()
-      const cards = [...document.querySelectorAll('.react-flow__node')].map((el) => {
-        const n = el.getBoundingClientRect()
-        return { x: n.left, y: n.top, w: n.width, h: n.height }
-      })
+      const cards = inFocusCardRects()
       const dy = keyCardLift({ x: r.left, y: r.top, w: r.width, h: r.height }, cards, TOP_PILL_BOTTOM_PX + KEY_CARD_GAP)
       if (dy > 0) panCanvasBy(0, -dy)
     })
@@ -342,7 +356,7 @@ export function LensInfoPanel() {
   useEffect(() => { setFolded(lensMode === 'rests_on') }, [lensMode])
   useEffect(() => { if (picked !== null) setFolded(false) }, [picked])
 
-  const wants = lensMode === 'rests_on' || lensMode === 'premortem' || lensMode === 'what_changes'
+  const wants = lensMode === 'tradeoffs' || lensMode === 'rests_on' || lensMode === 'premortem' || lensMode === 'what_changes'
   // The stale cue's own predicate — never a restated rule (see the header).
   const modelChangedSinceRun = useModelChangedSinceRun()
   // ⚠ THIS PANEL'S OLD `bottom: 48; left: 12` SAT ON TOP OF THE VIEWPORT-CONTROLS
@@ -362,7 +376,8 @@ export function LensInfoPanel() {
     ? `${LAST_RUN_PREFIX}${LENS_COPY.label[lensMode]}`
     : LENS_COPY.label[lensMode]
   let content: ReactNode
-  if (lensMode === 'rests_on') content = <RestsOnKey folded={folded} />
+  if (lensMode === 'tradeoffs') content = <TradeOffsKey />
+  else if (lensMode === 'rests_on') content = <RestsOnKey folded={folded} />
   else if (lensMode === 'premortem') content = <PremortemKey />
   else content = hasRun ? <WhatChangesKey /> : <p className={`${typography.panelBody} text-text-body`}>{LENS_COPY.needsRun}</p>
 

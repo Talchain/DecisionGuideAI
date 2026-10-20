@@ -9040,10 +9040,11 @@ export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot
  */
 /**
  * The lens bar's lenses (Paul 18 Oct 2026, "Lenses on the model"; DL-3 and PL rulings, 18 Oct): `full` (Model),
+ * `tradeoffs` (what each option gains and gives up, in this model; Tier 1, 20 Oct),
  * `rests_on` (what the model rests on, by authorship), `premortem` (if it failed), `what_changes` (what would change the
  * selected Run's comparison). `option` isolation is kept, entered from an option card or the context menu, never the bar.
  */
-export type LensMode = 'full' | 'option' | 'rests_on' | 'premortem' | 'what_changes'
+export type LensMode = 'full' | 'option' | 'tradeoffs' | 'rests_on' | 'premortem' | 'what_changes'
 export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
 export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId
 

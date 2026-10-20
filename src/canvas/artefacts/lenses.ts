@@ -3,6 +3,8 @@
  *
  * Each thinking tool is a lens that changes the graph itself, switched in one press from the lens bar:
  *   - Model: no lens.
+ *   - Trade-offs: what each option gains and gives up, read along the model's own links to the goal
+ *     (`tradeOffsModel.ts`); edits open the links' own editors.
  *   - Rests on: every figure the model rests on carries a number and its state (`assumptionMapModel.ts`, the ONE
  *     owner reader); the key card lists the same numbers.
  *   - If it failed: Olumi's pre-mortem stories, with the elements they rest on in front.
@@ -16,7 +18,7 @@ import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
 /** The bar's lenses, in the bar's order. `option` isolation is entered from an option card, never the bar. */
 export type BarLens = Exclude<LensMode, 'option'>
-export const LENS_ORDER: readonly BarLens[] = ['full', 'rests_on', 'premortem', 'what_changes']
+export const LENS_ORDER: readonly BarLens[] = ['full', 'tradeoffs', 'rests_on', 'premortem', 'what_changes']
 
 /** "What would change" reads a Run, so before one it is shown but cannot be chosen. */
 export const lensNeedsRun = (lens: BarLens): boolean => lens === 'what_changes'
@@ -33,9 +35,10 @@ export function nextBarLens(current: LensMode, hasRun: boolean): BarLens {
 
 export const LENS_COPY = {
   bar: 'Lenses on the model',
-  label: { full: 'Model', rests_on: 'Rests on', premortem: 'If it failed', what_changes: 'What would change' },
+  label: { full: 'Model', tradeoffs: 'Trade-offs', rests_on: 'Rests on', premortem: 'If it failed', what_changes: 'What would change' },
   hint: {
     full: 'The model as you built it',
+    tradeoffs: 'What each option gains and gives up, along the links in your model',
     rests_on: 'Every figure the model rests on, and who it came from',
     premortem: 'Ways each option could fail, imagined by Olumi',
     what_changes: 'What the last Run is most sensitive to',
