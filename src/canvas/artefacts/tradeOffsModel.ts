@@ -23,7 +23,7 @@ import { goalTargetChangeFrameOf, statedGoalTargetRaw, statedTargetNumber, type 
 import { goalTargetComparator } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { linkIsStructural } from '../edges/edgePresentation'
-import { resolveBaselineOptionReference, resolveOptionTargets } from '../nodes/shared/optionTargetDisplay'
+import { analysisViewIsStale, resolveBaselineOptionReference, resolveOptionTargets } from '../nodes/shared/optionTargetDisplay'
 import { isInterventionNoChange } from '../utils/interventionDisplay'
 import { baselineGuessBarred, baselineOptionsOf, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
@@ -113,9 +113,10 @@ export function tradeOffsOf(input: {
   readonly goalId: string | null
   readonly goalWants: GoalWants | null
   readonly ceeOptions?: readonly OptionInterventions[]
+  readonly viewStale?: boolean
   readonly isBaseline: (option: Node) => boolean
 }): OptionTradeOffs[] {
-  const { nodes, edges, goalId, goalWants, ceeOptions, isBaseline } = input
+  const { nodes, edges, goalId, goalWants, ceeOptions, viewStale, isBaseline } = input
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const ceeOf = (id: string) => ceeOptions?.find((o) => o.id === id)
   const options = nodes.filter((n) => n.type === 'option')
@@ -140,7 +141,7 @@ export function tradeOffsOf(input: {
     // The card's own reference: the baseline option's target, else the factor's value today.
     const reference = resolveBaselineOptionReference(nodes, ceeOptions, option.id)
     if (goalId !== null) {
-      for (const [factorId, { value: target }] of resolveOptionTargets(option.data as Record<string, unknown>, ceeOf(option.id))) {
+      for (const [factorId, { value: target }] of resolveOptionTargets(option.data as Record<string, unknown>, ceeOf(option.id), { viewStale })) {
         const against = reference?.values[factorId]?.value ?? observedValueOf(byId.get(factorId))
         if (against == null || isInterventionNoChange(against, target)) continue
         const start: RouteStep = {
@@ -177,7 +178,8 @@ export function tradeOffsOf(input: {
 export interface TradeOffsState {
   readonly nodes: readonly Node[]
   readonly edges: readonly Edge[]
-  readonly ceeAnalysisReady?: { readonly goal_node_id?: string | null; readonly options?: readonly (OptionInterventions & { is_baseline?: boolean | null })[] } | null
+  readonly ceeAnalysisReady?: { readonly current_graph_hash?: string; readonly goal_node_id?: string | null; readonly options?: readonly (OptionInterventions & { is_baseline?: boolean | null })[] } | null
+  readonly lastServerGraphHash?: string | null
   readonly outcomeNodeId?: string | null
   readonly goalConstraints?: readonly CEEGoalConstraint[] | null
   readonly servedBaselineOptions?: ReadonlyArray<{ id: string; is_baseline?: boolean | null }>
@@ -196,6 +198,7 @@ export function tradeOffsForState(state: TradeOffsState): { readonly goalId: str
     goalId,
     goalWants,
     ceeOptions: state.ceeAnalysisReady?.options,
+    viewStale: analysisViewIsStale(state.ceeAnalysisReady, state.lastServerGraphHash),
     isBaseline: (o) => resolveOptionIsBaseline(o.data as { is_baseline?: unknown; label?: unknown }, flags?.find((f) => f.id === o.id), barred),
   })
   return { goalId, goalLabel: goal ? labelOf(goal, goal.id) : null, goalWants, options }

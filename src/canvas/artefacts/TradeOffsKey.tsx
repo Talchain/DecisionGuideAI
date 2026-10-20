@@ -12,7 +12,7 @@
  * Never a verdict: no count of pros against cons, no "best", nothing about how much a route matters (CLAUDE.md §4).
  */
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpRight, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useIsViewer } from '../../lib/viewerMode'
 import { typography } from '../../styles/typography'
@@ -21,9 +21,8 @@ import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
-import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
-import { ASSUMPTION_MAP_COPY, type AssumptionColumn } from './assumptionMapModel'
-import { STRENGTH_ACT } from './FigureCard'
+import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn } from './assumptionMapModel'
+import { FigureCard } from './FigureCard'
 import { tradeOffsForState, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
 
 export const TRADE_OFFS_KEY_TESTID = 'trade-offs-key'
@@ -56,9 +55,6 @@ export const TRADE_OFFS_COPY = {
   ask: 'Ask Olumi what’s missing',
   note: (goal: string) => `Each route follows the links in your model: which way it pushes ${goal}, not how much, and not which option to choose.`,
 } as const
-
-/** The order a picked route lists its links' states in: the same unsettled-first order as "Rests on". */
-const COLUMN_ORDER: readonly AssumptionColumn[] = ['missing', 'unchecked', 'unknown', 'accepted', 'yours']
 
 function askWhatsMissing(): void {
   const result = askAi({ intent: 'risks' })
@@ -99,11 +95,11 @@ function restsOnLine(route: TradeOffRoute): string {
   const links = route.steps.filter((s) => s.edgeId !== null)
   const counts = new Map<AssumptionColumn, number>()
   for (const s of links) if (s.linkColumn) counts.set(s.linkColumn, (counts.get(s.linkColumn) ?? 0) + 1)
-  const parts = COLUMN_ORDER.filter((c) => counts.has(c)).map((c) => TRADE_OFFS_COPY.linkStates[c](counts.get(c)!))
+  const parts = RESTS_ON_ORDER.filter((c) => counts.has(c)).map((c) => TRADE_OFFS_COPY.linkStates[c](counts.get(c)!))
   return parts.length === 0 ? TRADE_OFFS_COPY.restsOn(links.length) : `${TRADE_OFFS_COPY.restsOn(links.length)}: ${parts.join(', ')}`
 }
 
-function RouteLinks({ route, viewer }: { route: TradeOffRoute; viewer: boolean }) {
+function RouteLinks({ route }: { route: TradeOffRoute }) {
   const light = useCanvasLight()
   return (
     <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="space-y-1.5 pb-1 pt-2">
@@ -127,17 +123,10 @@ function RouteLinks({ route, viewer }: { route: TradeOffRoute; viewer: boolean }
               <span className="block text-text-header">{from.label} → {step.label}</span>
               <span className="block text-text-light">{column ? ASSUMPTION_MAP_COPY.columns[column] : ASSUMPTION_MAP_COPY.noStrength}</span>
             </button>
-            {!viewer ? (
-              <button
-                type="button"
-                data-testid={`${TRADE_OFFS_KEY_TESTID}-link-edit`}
-                className={`${typography.panelMeta} ${action('secondary')} flex-none gap-1 rounded-full px-2.5`}
-                onClick={() => openEdgeStrengthEditor(edgeId)}
-              >
-                {STRENGTH_ACT[column ?? 'missing']}
-                <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
-              </button>
-            ) : null}
+            <FigureCard item={{
+              target: { kind: 'edge', id: edgeId }, label: `${from.label} → ${step.label}`,
+              column: column ?? 'missing', source: ASSUMPTION_MAP_COPY.sourceNotRecorded, row: 'on_path',
+            }} />
           </li>
         )
       })}
@@ -145,13 +134,12 @@ function RouteLinks({ route, viewer }: { route: TradeOffRoute; viewer: boolean }
   )
 }
 
-function RouteGroup({ heading, routes, picked, onPick, effect, viewer }: {
+function RouteGroup({ heading, routes, picked, onPick, effect }: {
   heading: string
   routes: readonly TradeOffRoute[]
   picked: string | null
   onPick: (key: string | null) => void
   effect: RouteEffect | 'unsorted'
-  viewer: boolean
 }) {
   if (routes.length === 0) return null
   return (
@@ -173,7 +161,7 @@ function RouteGroup({ heading, routes, picked, onPick, effect, viewer }: {
                 <Chain steps={route.steps} />
                 <span className={`${typography.panelMeta} mt-0.5 block text-text-light`}>{restsOnLine(route)}</span>
               </button>
-              {open ? <div className="px-2"><RouteLinks route={route} viewer={viewer} /></div> : null}
+              {open ? <div className="px-2"><RouteLinks route={route} /></div> : null}
             </li>
           )
         })}
@@ -186,6 +174,7 @@ export function TradeOffsKey() {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
   const goalConstraints = useCanvasStore((s) => s.goalConstraints)
   const servedBaselineOptions = useCanvasStore((s) => s.servedBaselineOptions)
@@ -193,8 +182,8 @@ export function TradeOffsKey() {
   const viewer = useIsViewer()
   const [pickedRoute, setPickedRoute] = useState<string | null>(null)
   const read = useMemo(
-    () => tradeOffsForState({ nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions }),
-    [nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions],
+    () => tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions }),
+    [nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions],
   )
 
   const say = (text: string) => <p data-testid={TRADE_OFFS_KEY_TESTID} className={`${typography.panelBody} text-text-body`}>{text}</p>
@@ -245,12 +234,12 @@ export function TradeOffsKey() {
             : TRADE_OFFS_COPY.noChange}
         </p>
       ) : unsorted ? (
-        <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" viewer={viewer} />
+        <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
         <div className="space-y-2.5">
-          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains" viewer={viewer} />
-          <RouteGroup heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" viewer={viewer} />
-          <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" viewer={viewer} />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains" />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
         </div>
       )}
 

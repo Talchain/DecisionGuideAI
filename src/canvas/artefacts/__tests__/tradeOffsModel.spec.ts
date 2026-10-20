@@ -8,7 +8,7 @@ import type { Edge, Node } from '@xyflow/react'
 import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { resolveEdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
-import { goalWantsOf, tradeOffsOf, type OptionTradeOffs } from '../tradeOffsModel'
+import { goalWantsOf, tradeOffsOf, tradeOffsForState, type OptionTradeOffs } from '../tradeOffsModel'
 import { TRADE_OFFS_COPY } from '../TradeOffsKey'
 
 type Data = Record<string, unknown>
@@ -67,6 +67,27 @@ describe('what each option gains and gives up, in this model', () => {
       ['pro_plan_price', 'up'], ['monthly_new_pro_subscribers', 'down'], ['pro_paying_subscribers', 'down'], ['mrr', 'down'],
     ])
     assert.equal(o.againstLabel, null, 'the baseline sets no price, so the reference is the factor’s value today')
+  })
+
+  it('a stale CEE target yields to the saved target by option/factor id; a fresh view keeps its target', () => {
+    const nodes = NODES().map((n) => n.id === 'p59'
+      ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.2 } } } }
+      : n.id === 'pro_plan_price' ? factor(n.id, 0.3) : n)
+    // Other option/factor values cannot supply this route's target, even when listed first.
+    const ceeAnalysisReady = { current_graph_hash: 'view', options: [
+      { id: 'other-option', interventions: { pro_plan_price: { value: 0.9 } } },
+      { id: 'p59', interventions: { unrelated: { value: 0.8 }, pro_plan_price: { value: 0.4 } } },
+    ] }
+    for (const [lastServerGraphHash, effect, move] of [
+      ['saved-after-edit', 'gives_up', 'down'], ['view', 'gains', 'up'],
+    ] as const) {
+      const read = tradeOffsForState({ nodes, edges: EDGES(), ceeAnalysisReady, lastServerGraphHash })
+      const route = read.options.find((o) => o.optionId === 'p59')?.routes.find((r) => r.steps[1]?.edgeId === DIRECT)
+      assert.ok(route)
+      assert.equal(route.steps[0].nodeId, 'pro_plan_price')
+      assert.equal(route.effect, effect, lastServerGraphHash)
+      assert.deepEqual(route.steps.map((s) => [s.nodeId, s.move]), [['pro_plan_price', move], ['mrr', move]])
+    }
   })
 
   it('CONTRAST: a goal held at or below its target flips every route, and a route only changes side with the goal', () => {

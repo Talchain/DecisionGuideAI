@@ -185,6 +185,7 @@ export function useLensFilter(): void {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const servedBaselineOptions = useCanvasStore(s => s.servedBaselineOptions)
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
@@ -208,7 +209,7 @@ export function useLensFilter(): void {
 
     // ── Trade-offs: the picked option's routes to the goal in front (no Run needed; nothing dims without a route) ──
     if (lensActive === 'tradeoffs') {
-      const { options } = tradeOffsForState({ nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions })
+      const { options } = tradeOffsForState({ nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions })
       const option = options.find(o => o.optionId === lensOptionId) ?? options[0]
       if (!option || option.routes.length === 0) return EMPTY_VISUALS
       const focus = tradeOffsInFocus(option, edges)
@@ -264,7 +265,7 @@ export function useLensFilter(): void {
     }
 
     return EMPTY_VISUALS
-  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet])
+  }, [lensActive, lensOptionId, resultsStatus, report, nodes, edges, ceeAnalysisReady, lastServerGraphHash, outcomeNodeId, goalConstraints, servedBaselineOptions, worksheet])
 
   // Push computed visuals to store so BaseNode/StyledEdge can read with primitive selectors
   const prevVisualsRef = useRef(visuals)
