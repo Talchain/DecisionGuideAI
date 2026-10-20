@@ -1026,7 +1026,7 @@ export function selectRunAffirmedCurrent(s: ReturnType<typeof useCanvasStore.get
 export function selectAnalysisReadinessAuthority(
   analysisState: AnalysisStateV1 | null,
 ): AnalysisReadinessAuthority | null {
-  if (analysisState === null) return null
+  if (analysisState == null) return null
 
   // ⭐ THE UNSUPPLIED SENTINEL IS AN ABSENCE WEARING A STATUS CODE.
   //

@@ -52,6 +52,10 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { useAnalysisReadinessAuthority } from '../state/analysisStateSelector'
+
+/** Core readiness codes that name one option and are fixed on that option's card. */
+const OPTION_CARD_READINESS_CODES: ReadonlySet<string> = new Set(['OPTION_NO_FACTOR_EDGES', 'OPTION_NEEDS_MAPPING'])
 import { baselineGuessBarred, baselineOptionsOf } from '../utils/baselineDetection'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
@@ -708,6 +712,14 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // The producer's own readiness sentence for THIS option (core: an option that drives no factor, or whose change is
+  // not yet mapped), so the card that needs the fix says so — Paul, 21 Oct 2026: a disconnected model showed nothing
+  // on its cards. Read by id, never derived; CEE's words stay CEE's, as the pill's tooltip.
+  const readinessAuthority = useAnalysisReadinessAuthority()
+  const optionReadinessMessage = nodeType === 'option'
+    ? readinessAuthority?.blockers?.find(b => (b as { option_id?: unknown }).option_id === id
+      && OPTION_CARD_READINESS_CODES.has(String((b as { code?: unknown }).code)))?.message ?? null
+    : null
   // POM-3: a boolean selector (React-185 safe) — does any option DECLARE the baseline?
   const graphHasDeclaredBaseline = useCanvasStore(s => nodeType === 'option' && baselineGuessBarred(s.nodes, baselineOptionsOf(s)))
   const baselineOptions = useCanvasStore(s => baselineOptionsOf(s))
@@ -1022,6 +1034,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     if (nodeType === 'option') {
       // Still phase-gated — see the scope note above.
       if (!isPreRunMode) return false
+      if (typeof optionReadinessMessage === 'string') return true
       // Only mark incomplete if analysisReady exists AND contains this option with empty interventions.
       // When analysisReady is null (cleared as stale), don't flag options as incomplete.
       if (!ceeAnalysisReady) return false
@@ -1872,7 +1885,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     ) : (
       <StatusPill
         label="Needs input"
-        title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
+        title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : typeof optionReadinessMessage === 'string' ? optionReadinessMessage : 'Missing required input'}
       />
     )
   ) : null
