@@ -459,8 +459,18 @@ export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, curre
   const goalRows = pair.goalChances ?? []
   const rows = goalRows.map((row): PairChanceRow => {
     const figure = current.chanceFigureOf(row.optionId)
+    // DL AMEND to ruling 1 (20 Oct 2026): where this run's canonical cell is a RANGE, its side comes from the gate's own
+    // `goalChanceRange` (bounds already matched to that cell, `gatedRange`), said as a range in the same words; never a point.
+    const range = current.goalChanceRange
+    const entry = range?.optionIds.includes(row.optionId) ? range.rangeByOption[row.optionId] : undefined
     // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
-    const now: PairChanceSide | null = figure === null ? null : { kind: 'point', words: figure.words, scaleAt: figure.pct }
+    const [low, high] = entry === undefined ? [null, null] : [entry.lowPct, entry.highPct]
+    const now: PairChanceSide | null = figure !== null
+      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+      ? { kind: 'point', words: figure.words, scaleAt: figure.pct }
+      : low !== null && high !== null
+        ? { kind: 'range', words: `between ${goalProbabilityWords(`${low}%`)} and ${goalProbabilityWords(`${high}%`).replace(/^about /, '')}`, scaleLow: low, scaleHigh: high }
+        : null
     return { optionId: row.optionId, label: row.label, earlier: earlierSide(row.prior), now }
   }).filter((row) => row.earlier !== null || row.now !== null)
   return { rows, claim: goalChanceClaimOf(current) }

@@ -17,7 +17,7 @@ const rows: RunDeltaGoalChanceRow[] = [
   { optionId: 'd', label: 'Neither side', prior: { kind: 'withheld' } as never, current: { kind: 'withheld' } as never },
 ]
 
-type Goal = { form?: string; leader?: string | null; similar?: string[]; current?: boolean }
+type Goal = { form?: string; leader?: string | null; similar?: string[]; current?: boolean; ranges?: Record<string, { lowPct: number; highPct: number }> }
 /** This run's canonical figures, keyed by option (the ONLY source for "this run"), and CEE's goal-chance facts. */
 function viewWith(now: Record<string, { pct: number; words: string }>, goal: Goal = {}, comparative?: { licence: string; id: string | null }): RunView {
   const base = runViewOf(null)
@@ -31,6 +31,7 @@ function viewWith(now: Record<string, { pct: number; words: string }>, goal: Goa
     goalChanceSimilarOf: () => goal.similar ?? [],
     boundToCurrentCanonical: () => goal.current ?? true,
     chancesNotCurrent: () => false,
+    goalChanceRange: (goal.ranges ? { optionIds: Object.keys(goal.ranges), rangeByOption: goal.ranges, horizonLine: null } : null) as never,
   }
 }
 
@@ -66,6 +67,16 @@ describe('pairChanceFigures — the chance gate for a run pair', () => {
     expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'highest', leader: 'a', current: false })).claim).toBeNull()
     expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'similar', similar: ['a', 'b'] })).claim).toEqual({ kind: 'similar', optionIds: ['a', 'b'] })
     expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'all_likely_to_miss' })).claim).toEqual({ kind: 'all_likely_to_miss' })
+  })
+
+  it("this run's RANGE comes from the gate's matched goalChanceRange, said as a range, never a point", () => {
+    const out = pairChanceFigures({ goalChances: rows }, viewWith({}, { ranges: { b: { lowPct: 0, highPct: 23 } } }))
+    const b = out.rows.find(r => r.optionId === 'b')
+    expect(b?.now).toEqual({ kind: 'range', words: 'between less than 1% and 23%', scaleLow: 0, scaleHigh: 23 })
+    // A point figure still wins where the canonical cell is a figure; an option with neither stays not shown.
+    const both = pairChanceFigures({ goalChances: rows }, viewWith({ b: { pct: 44, words: 'about 44%' } }, { ranges: { b: { lowPct: 0, highPct: 23 } } }))
+    expect(both.rows.find(r => r.optionId === 'b')?.now?.words).toBe('about 44%')
+    expect(out.rows.find(r => r.optionId === 'a')?.now).toBeNull()
   })
 
   it('no goal chances on the pair (or a framing change) → no rows', () => {
