@@ -635,6 +635,28 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
     expect(deliveredCaveat()).toBeNull()
   })
 
+  it('THE CONTRACT’S NOTE IS A STRING: a highlight with a plain-string note holds attention with that sentence, verbatim', () => {
+    applyV5State(
+      envelope(ADMISSION_PERMITTED, directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }], { note: '  This link carries most of the result.  ' })),
+      makeStore(),
+    )
+    const arg = attentionMock.mock.calls[0][0] as { nodeIds?: string[]; note?: { body?: string; title?: string; move?: string } | null }
+    expect(arg.nodeIds).toEqual([LEADER])
+    expect(arg.note).toEqual({ body: 'This link carries most of the result.' })
+  })
+
+  it('A MOVE OUTSIDE THE GRAMMAR IS LEFT UNSAID, never relabelled as a challenge', () => {
+    applyV5State(
+      envelope(ADMISSION_PERMITTED, directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }], {
+        note: { move: 'interrogate', title: 'Look here', body: 'This one leads.' },
+      })),
+      makeStore(),
+    )
+    const arg = attentionMock.mock.calls[0][0] as { note?: { move?: string; title?: string } | null }
+    expect(arg.note?.title).toBe('Look here')
+    expect(arg.note?.move).toBeUndefined()
+  })
+
   // ══════════════════════════════════════════════════════════════════════════
   // ⭐ THE DELIBERATE EXCLUSIONS — asserted, never fenced off silently.
   // These are the GREEN arm of the discriminating mutant pair: a mutant that

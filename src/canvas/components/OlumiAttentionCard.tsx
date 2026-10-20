@@ -41,6 +41,8 @@ import { X } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { clearOlumiAttention } from '../utils/olumiAttention'
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
+import { openNodeInspector } from '../nodes/shared/openNodeInspector'
+import { measureDockInset } from './FloatingOlumiPanel'
 import { typography } from '../../styles/typography'
 
 /** The closed grammar. Every intervention is one of these four moves. */
@@ -57,6 +59,12 @@ const MOVE_LABEL: Record<string, string> = {
  * reasoning intervention, and the two must not share a word.
  */
 const CAVEAT_LABEL = 'About this highlight'
+
+/** A note whose producer named no move is labelled as Olumi's, never given a move nobody chose. */
+const NO_MOVE_LABEL = 'Olumi'
+
+const CARD_WIDTH = 268
+const CARD_GAP = 14
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
 
@@ -103,7 +111,10 @@ export function OlumiAttentionCard() {
   const measured = (anchor as { measured?: { width?: number; height?: number } }).measured
   const w = measured?.width ?? 240
   const [tx, ty, zoom] = transform
-  const left = anchor.position.x * zoom + tx + w * zoom + 14
+  // Beside the card it is about: on the right, unless that would run under the dock, then on the left.
+  const rightOfAnchor = anchor.position.x * zoom + tx + w * zoom + CARD_GAP
+  const roomRight = typeof window === 'undefined' ? Infinity : window.innerWidth - measureDockInset() - CARD_GAP
+  const left = rightOfAnchor + CARD_WIDTH <= roomRight ? rightOfAnchor : anchor.position.x * zoom + tx - CARD_WIDTH - CARD_GAP
   const top = anchor.position.y * zoom + ty
 
   const note = attention.note
@@ -118,7 +129,7 @@ export function OlumiAttentionCard() {
       data-testid={OLUMI_ATTENTION_CARD_TESTID}
       data-anchor-id={anchorId}
       {...(note ? { 'data-move': note.move } : {})}
-      style={{ position: 'absolute', left, top, width: 268, zIndex: 95 }}
+      style={{ position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95 }}
       className="pointer-events-auto rounded-lg border border-info/40 bg-panel shadow-panel p-3"
       role="complementary"
       aria-label={`Olumi on ${anchorId}`}
@@ -126,9 +137,9 @@ export function OlumiAttentionCard() {
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelMeta} text-info block`}>
-            {note ? (MOVE_LABEL[note.move] ?? MOVE_LABEL.challenge) : CAVEAT_LABEL}
+            {note ? (note.move ? MOVE_LABEL[note.move] : NO_MOVE_LABEL) : CAVEAT_LABEL}
           </span>
-          {note ? (
+          {note?.title ? (
             <span className={`${typography.panelHeader} text-text-header block mt-0.5`}>
               {note.title}
             </span>
@@ -144,7 +155,7 @@ export function OlumiAttentionCard() {
         </button>
       </div>
 
-      {note ? (
+      {note?.body ? (
         <p className={`${typography.panelBody} text-text-body mt-1.5 mb-0`}>{note.body}</p>
       ) : null}
 
@@ -185,6 +196,12 @@ export function OlumiAttentionCard() {
               data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-action`}
               data-action-id={a.id}
               onClick={() => {
+                // "Open details": the inspector, where the item is edited. The note steps aside for it.
+                if (a.kind === 'details') {
+                  clearOlumiAttention()
+                  openNodeInspector(anchorId)
+                  return
+                }
                 /*
                  * ⭐ THE CARD IS A DOOR, NOT A NOTICE (30 Aug 2026, per the
                  * alignment principle: Olumi should point into the model,

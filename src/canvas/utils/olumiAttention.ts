@@ -30,12 +30,17 @@
  */
 
 import { useCanvasStore } from '../store'
+import type { GuidanceItem } from '../stores/guidanceStore'
 
 /** What the AI wants said beside the thing it is pointing at. */
 export interface OlumiAttentionNote {
-  /** The reasoning move this belongs to. A closed grammar, deliberately. */
-  move: 'expand' | 'challenge' | 'calibrate' | 'reframe'
-  title: string
+  /**
+   * The reasoning move this belongs to, when the producer named one. A closed grammar, deliberately; ABSENT when the
+   * producer did not say, so the card never labels a note with a move nobody chose.
+   */
+  move?: 'expand' | 'challenge' | 'calibrate' | 'reframe'
+  /** The producer's headline, when it sent one (a directive's plain-string note has none). */
+  title?: string
   body: string
   /** Rendered verbatim when present — never composed here. */
   sourceLine?: string
@@ -44,7 +49,31 @@ export interface OlumiAttentionNote {
    * QUESTION — never an answer. A card that handed the user a conclusion would
    * fail the product test this whole surface exists to pass.
    */
-  actions?: Array<{ id: string; label: string; prompt?: string }>
+  actions?: Array<{ id: string; label: string; prompt?: string; kind?: 'ask' | 'details' }>
+}
+
+/** The note's own control words: what the buttons do, never coaching. */
+export const ATTENTION_ACTION_COPY = { discuss: 'Talk it through', details: 'Open details' } as const
+
+/**
+ * ⭐ A COACHING ITEM, SAID BESIDE THE CARD IT IS ABOUT (Paul, 20 Oct 2026: the canvas should feel like the AI is part
+ * of it; step 2 of the canvas vision). The producer's own `title`, `detail`, `signal` and `action_label`, verbatim.
+ * Nothing is composed: no move is assigned (`GuidanceItem` carries none yet), and the only UI words are the two
+ * control labels. A `discuss` action opens the conversation with the producer's own question; "Open details" reaches
+ * the inspector, where editing stays. A patch is never approved from here: consent stays on its chip.
+ */
+export function attentionNoteFromGuidance(item: GuidanceItem): OlumiAttentionNote {
+  const actions: NonNullable<OlumiAttentionNote['actions']> = []
+  if (item.primary_action.type === 'discuss' && item.primary_action.prompt.trim()) {
+    actions.push({ id: `${item.item_id}:discuss`, label: item.actionLabel?.trim() || ATTENTION_ACTION_COPY.discuss, prompt: item.primary_action.prompt, kind: 'ask' })
+  }
+  actions.push({ id: `${item.item_id}:details`, label: ATTENTION_ACTION_COPY.details, kind: 'details' })
+  return {
+    title: item.title,
+    body: item.detail?.trim() ?? '',
+    ...(item.signal?.trim() ? { sourceLine: item.signal.trim() } : {}),
+    actions,
+  }
 }
 
 /**
