@@ -1,0 +1,62 @@
+diff --git a/src/canvas/domain/goalTarget.ts b/src/canvas/domain/goalTarget.ts
+--- a/src/canvas/domain/goalTarget.ts
++++ b/src/canvas/domain/goalTarget.ts
+@@ -120,7 +120,9 @@
+    *     figure in the goal's unit (`holdStatedGoalAttributes`,
+    *     `figureTheUserWrote`; served on `823bc028`, 29 Sep). Licenses "From your
+    *     brief". This is the carried field the note below waited for.
++   *   · `olumi` — `threshold_source: 'cee_inference'` declares Olumi's target.
+    *   · `unrecorded` — CEE's `goal_threshold_raw` with no carried source.
++
+    *     Rendered "Source not recorded" on every surface.
+    *
+    * ⛔⛔ THIS WAS `'user' | 'brief'`, AND `brief` WAS A UI-ASSERTED ORIGIN
+@@ -132,7 +134,7 @@
+    * and the node's `provenance` is about the NODE, not the number (trap 21). A
+    * brief origin returns here the day a carried field states it.
+    */
+-  source: 'user' | 'brief' | 'unrecorded'
++  source: 'user' | 'brief' | 'olumi' | 'unrecorded'
+   /**
+    * A change from today (`goalTargetChangeFrameOf`); ABSENT for a level, so a level target resolves to exactly the
+    * object it did before. Say `raw` through `formatGoalTarget(raw, unit, frame)`; test it with `frame != null`.
+@@ -191,9 +193,9 @@
+       ? (data.goal_threshold_raw as string | number)
+       : null
+   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
+-    // `brief` ONLY on CEE's own stamp: it writes `threshold_source: 'brief_extraction'` when the brief writes this
+-    // figure in the goal's unit (`holdStatedGoalAttributes`). Without it nothing says where the figure came from.
+-    const source = goalTargetStampedFromBrief(data) ? 'brief' : 'unrecorded'
++    // Only the target's own stamp declares brief or Olumi authorship; absence stays unrecorded.
++    const source = goalTargetStampedFromBrief(data) ? 'brief'
++      : data.threshold_source === 'cee_inference' ? 'olumi' : 'unrecorded'
+     return { raw: ceeRaw, unit, source, ...frame }
+   }
+ 
+diff --git a/src/canvas/nodes/shared/valueSourceMark.tsx b/src/canvas/nodes/shared/valueSourceMark.tsx
+--- a/src/canvas/nodes/shared/valueSourceMark.tsx
++++ b/src/canvas/nodes/shared/valueSourceMark.tsx
+@@ -284,7 +284,7 @@
+     if (target.source === 'brief') {
+       return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+     }
+-    if (data?.provenance === 'inferred' || data?.provenance === 'proxy') {
++    if (target.source === 'olumi' || data?.provenance === 'inferred' || data?.provenance === 'proxy') {
+       return { kind: 'olumi', label: 'Olumi’s estimate' }
+     }
+   }
+diff --git a/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx b/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
+--- a/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
++++ b/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
+@@ -139,6 +139,11 @@
+     expectSource({ ...goal, provenance: 'from_brief', threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+   })
+ 
++  it.each(briefs)('$id: cee_inference shows Olumi’s estimate despite node-level brief credit', (goal) => {
++    expectSource({ ...goal, provenance: 'from_brief', threshold_source: 'cee_inference',
++      observed_state: { raw_value: 80, source: 'brief_extraction' } }, 'olumi', 'Olumi’s estimate')
++  })
++
+   it.each(['inferred', 'proxy'])('a target-specific brief stamp wins over stale %s node provenance', (provenance) => {
+     expectSource({ ...briefs[0], provenance, threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+   })

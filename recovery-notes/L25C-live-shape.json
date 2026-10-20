@@ -1,0 +1,21 @@
+{
+  "capture": "/Users/paulslee/olumi-work/recovery/live/runs/2026-10-20T090411Z-capacity-full-core-c471b121-00a60452/capacity/reads/01-02-range.json",
+  "goal": {
+    "id": "weekly_support_capacity",
+    "kind": "goal",
+    "provenance": "from_brief",
+    "source_quote": "Goal: weekly support capacity of at least 100 tickets per week.",
+    "goal_threshold_raw": 100,
+    "goal_threshold_unit": "tickets per week",
+    "goal_threshold_frame": "level"
+  },
+  "has_threshold_source": false,
+  "has_success_threshold": false,
+  "user_statement_fields": [
+    "relation",
+    "target",
+    "measure"
+  ],
+  "writer": "/private/tmp/cx-l1/src/orchestrator-v5/path-b/tools/candidate-to-graph.ts:293-299",
+  "authority": "src/canvas/domain/goalTarget.ts:167-197"
+}
