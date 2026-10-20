@@ -154,7 +154,7 @@ describe('R1 · the Reasoning receipt names the earlier Run and opens Compare �
     spy.mockRestore()
   })
 
-  it('carries no result figure, input row or leader claim — those are the Compare tab\'s', () => {
+  it('with no goal-chance claim it carries no result figure, input row or leader claim', () => {
     render(<WhatsChangedReceipt view={view()} />)
     const text = screen.getByTestId(WHATS_CHANGED_RECEIPT_TESTID).textContent ?? ''
     expect(text).not.toMatch(/%|£|→|highest|leader|ranked/i)

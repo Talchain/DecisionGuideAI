@@ -3010,7 +3010,7 @@ export function AnalysisNewTabBody({
             it, including the no-verdict one. */}
 
         {/* SC-24 v3: the full comparison is the Compare tab's; Reasoning keeps the receipt (same view). */}
-        <WhatsChangedReceipt view={vm.whatsChanged} />
+        <WhatsChangedReceipt view={vm.whatsChanged} responseHash={responseHash} />
 
         <RobustnessCaveat
           leaderClaimPermitted={vm.leaderClaimPermitted}
