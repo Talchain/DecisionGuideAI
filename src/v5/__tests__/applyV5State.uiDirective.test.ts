@@ -413,7 +413,7 @@ describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
     })
   })
 
-  it('open_panel {kind:tab, id:compare} force-activates Reasoning, where the comparison lives (value + version bump)', () => {
+  it('open_panel {kind:tab, id:compare} force-activates the compare tab (value + version bump)', () => {
     const before = useUIStore.getState().activeOutputTabVersion
     const result = applyV5State(
       baseResponse({
@@ -421,8 +421,7 @@ describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
       }),
       makeStore(),
     )
-    // Paul 20 Oct 2026: 'compare' is no longer a presented tab; the store sends it to Reasoning.
-    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
+    expect(useUIStore.getState().activeOutputTab).toBe('compare')
     expect(useUIStore.getState().activeOutputTabVersion).toBe(before + 1)
     expect(result.applied).toContain('ui_directive:open_panel:compare')
   })

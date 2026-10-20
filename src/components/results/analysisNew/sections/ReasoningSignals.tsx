@@ -29,6 +29,7 @@ import { action } from '../panelSurfaces'
 import { ASSUMPTIONS_DOOR_COPY as DOOR } from '../assumptionsDoorCopy'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
+import { ResultsLink } from '../../../../canvas/ui/inspector-v2/shared/ResultsLink'
 import { TestWithoutLinkButton } from './TestWithoutLinkButton'
 
 export interface ReasoningSignalsProps {
@@ -164,7 +165,9 @@ export function ReasoningSignals({
               Edit {tipping.factorLabel}
             </button>
             <p className={`${typography.panelMeta} text-text-light`}>
-              After editing, rerun the analysis. &ldquo;Since your last run&rdquo; then shows what changed.
+              After editing, rerun the analysis, then open{' '}
+              <ResultsLink label="Compare" tab="compare" />
+              {' '}to see what changed.
             </p>
           </div>
         ) : null}

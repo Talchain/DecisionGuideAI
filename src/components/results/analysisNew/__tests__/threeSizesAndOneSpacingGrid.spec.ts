@@ -35,7 +35,7 @@ function codeLines(file: string): Array<[number, string]> {
     .filter(([, l]) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l))
 }
 
-// Paul, 20 Oct 2026: the run comparison renders INSIDE Reasoning ("Since your last run" mounts the compare-tab body), so its
+// Paul, 20 Oct 2026: the Compare tab takes Reasoning's measure and design system (its body is Reasoning's parts), so its
 // files are held to the same two rules; an off-scale chart label there is what prompted this.
 const COMPARE_DIR = join(ROOT, '../../../canvas/compare-tab')
 const FILES = [...sourceFiles(ROOT), ...sourceFiles(COMPARE_DIR)]
