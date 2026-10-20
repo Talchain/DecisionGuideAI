@@ -223,6 +223,46 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     vi.useRealTimers()
   })
 
+  it('a successful re-send renders the answer, removes the notice and SETTLES the draft (Run and autosave reopen)', async () => {
+    const result = await runCore(CORE_STREAM_BUDGET_TIMEOUT)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    mockCallV5Turn.mockResolvedValue({ kind: 'response', response: {
+      response_version: 2, assistant_text: 'Here is the model I built.', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame',
+    } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const texts = result.current.messages.map((m) => m.content)
+    expect(texts).not.toContain(CORE_STILL_FINISHING_NOTICE)
+    expect(texts.some((t) => String(t).includes('Here is the model I built.'))).toBe(true)
+    expect(useDraftStore.getState().draftStreamPhase).not.toBe('unsettled')
+    expect(mockRecover).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('a timeout BEFORE the model reached the canvas re-sends exactly once, buffered — never a second stream', async () => {
+    window.history.replaceState(null, '', '/#/canvas?ai=core')
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    mockRecover.mockResolvedValue('notRecovered')
+    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'http_409', http_status: 409, raw: { error: 'TURN_OUTCOME_UNKNOWN' } })
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => { sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void> })
+    await stream.push(F_DRAFTING)
+    await stream.push(fCompleteError(504, CORE_STREAM_BUDGET_TIMEOUT))
+    await stream.close()
+    await act(async () => { await sent })
+    expect(result.current.messages.map((m) => m.content)).toContain(CORE_STILL_FINISHING_NOTICE)
+    await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(mockOpenStream).toHaveBeenCalledTimes(1)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(turnIdOf(mockCallV5Turn.mock.calls[0])).toBe(turnIdOf(mockOpenStream.mock.calls[0]))
+    vi.useRealTimers()
+  })
+
   it('CONTRAST: off the core lane the same frame keeps today\'s kept-model behaviour and sends nothing again', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const stream = controllableStream()

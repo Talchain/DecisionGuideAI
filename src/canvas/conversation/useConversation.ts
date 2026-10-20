@@ -5049,7 +5049,9 @@ export function useConversation(): UseConversationReturn {
         // `V5CallResult` shape either way, because the streamed terminal frame
         // carries the buffered body verbatim and goes back through
         // `parseV5Response`. No second ingest exists to keep in step.
-        const useStreamedDraft = streamedDraftEligible({
+        // The ONE re-send of a still-finishing core turn is buffered, never streamed: a stream's own buffered fallback
+        // would make it a third send (Codex on #2860).
+        const useStreamedDraft = stillFinishingReplay === undefined && streamedDraftEligible({
           turnType: resolvedTurnType,
           derivedStage,
           isSystemEvent,
@@ -5668,6 +5670,8 @@ export function useConversation(): UseConversationReturn {
         const stillFinishing = coreTurn && stillFinishingReplay === undefined && isCoreStreamBudgetTimeout(httpStatus, errorBody)
         const replayUnresolved = stillFinishingReplay !== undefined && target.kind === 'typed_error'
         if (stillFinishingReplay !== undefined && !replayUnresolved) {
+          // The answer arrived, so the draft the timeout left unsettled is settled: reopen Run and autosave (Codex on #2860).
+          if (useDraftStore.getState().draftStreamPhase === 'unsettled') useDraftStore.getState().setDraftStreamPhase('idle', null, null)
           setMessages((prev) => {
             const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId)
             messagesRef.current = next
