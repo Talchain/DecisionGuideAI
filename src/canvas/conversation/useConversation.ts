@@ -5677,7 +5677,8 @@ export function useConversation(): UseConversationReturn {
             draftNow.setDraftStreamPhase('idle', null, null)
           }
           setMessages((prev) => {
-            const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId)
+            const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId).map((m) =>
+              m.role === 'user' && m.deliveryTurnId === turnClientId ? { ...m, deliveryTurnId: undefined, deliveryScenarioId: undefined } : m)
             messagesRef.current = next
             return next
           })
@@ -5696,6 +5697,7 @@ export function useConversation(): UseConversationReturn {
           // "failed"/"unconfirmed" marker would assert something the held
           // frame refutes.
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
+          const replyNeedsReadback = (unverified && !deliveryProvenByFrame) || stillFinishing || replayUnresolved
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
               target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame || typeof coreError?.error === 'string' || stillFinishing || replayUnresolved
@@ -5703,8 +5705,11 @@ export function useConversation(): UseConversationReturn {
                 : unverified
                   ? 'unconfirmed'
                   : 'failed',
-            deliveryRequestId: unverified && !deliveryProvenByFrame && !stillFinishing && !replayUnresolved ? deliveryRequestId : undefined,
-            deliveryScenarioId: unverified && !deliveryProvenByFrame && !stillFinishing && !replayUnresolved ? scenarioIdAtDispatch : undefined,
+            // Kept while the reply still needs a server read-back, under the id the answer row carries: the body turn_id
+            // on core, the X-Request-Id elsewhere.
+            deliveryRequestId: replyNeedsReadback && !coreTurn ? deliveryRequestId : undefined,
+            deliveryTurnId: replyNeedsReadback && coreTurn ? turnClientId : undefined,
+            deliveryScenarioId: replyNeedsReadback ? scenarioIdAtDispatch : undefined,
           })
         }
 
@@ -6493,7 +6498,7 @@ export function useConversation(): UseConversationReturn {
           }
         } else if (stillFinishing) {
           const noticeId = crypto.randomUUID()
-          addMessage({ id: noticeId, role: 'assistant', synthetic: true, content: CORE_STILL_FINISHING_NOTICE, timestamp: new Date() })
+          addMessage({ id: noticeId, role: 'assistant', synthetic: true, content: CORE_STILL_FINISHING_NOTICE, timestamp: new Date(), deliveryTurnId: turnClientId, deliveryScenarioId: scenarioIdAtDispatch ?? undefined })
           setTimeout(() => {
             void sendTurn({ ...opts, skipUserBubble: true, retryClientTurnId: turnClientId, stillFinishing: { noticeId } })
           }, STILL_FINISHING_REPLAY_DELAY_MS)
@@ -6505,6 +6510,7 @@ export function useConversation(): UseConversationReturn {
             accessToken: v5Identity.accessToken,
             turnClientId,
             signal: controller.signal,
+            includeConversationTurns: true,
           })
           updateMessage(stillFinishingReplay!.noticeId, {
             content: recovery === 'recovered' ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,

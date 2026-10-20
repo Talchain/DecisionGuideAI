@@ -40,6 +40,11 @@ export interface ConversationMessage {
   /** Exact X-Request-Id and owning scenario, retained only while server receipt/reply needs readback. */
   deliveryRequestId?: string
   deliveryScenarioId?: string
+  /**
+   * Core lane: the body `turn_id` CEE keys this turn's answer row by (`agent-v1-turn.ts`, `rowTurnId = turnId ?? …`), so a
+   * cold read can match the reply. Other lanes key by `deliveryRequestId` (the X-Request-Id). Cleared once the reply renders.
+   */
+  deliveryTurnId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
   /** The fresh held record could not be associated with its issuing reply. */
