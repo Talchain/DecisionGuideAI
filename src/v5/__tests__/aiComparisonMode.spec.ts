@@ -35,8 +35,23 @@ describe('AI comparison mode', () => {
     expect(isOpenAiLane('core')).toBe(true)
     expect(resolveAiComparisonMode('https://staging--olumi.netlify.app/?ai=core#/canvas')).toBe('core')
     // Contrast: a near miss is not a mode, so staging keeps its OpenAI default.
-    expect(resolveAiComparisonMode('https://staging--olumi.netlify.app/#/canvas?ai=Core')).toBe('openai')
+    expect(resolveAiComparisonMode('https://staging--olumi.netlify.app/#/canvas?ai=cored')).toBe('openai')
     expect(isOpenAiLane('conventional')).toBe(false)
+  })
+
+  it('DL-3 20 Oct (Paul 23:24Z opened `?ai=core.` and silently ran the default lane): case, spaces and trailing punctuation are folded; any other spelling is still no mode', () => {
+    const at = (ai: string) => resolveAiComparisonMode(`https://staging--olumi.netlify.app/#/canvas?ai=${encodeURIComponent(ai)}`)
+    for (const typed of ['core.', 'Core', ' core ', 'CORE!', 'core.)']) expect(at(typed), typed).toBe('core')
+    expect(at('Conventional.')).toBe('conventional')
+    for (const near of ['cored', 'co re', 'ccore', 'c']) expect(at(near), near).toBe('openai')
+    expect(aiComparisonHeaders('https://staging--olumi.netlify.app/?ai=core.#/canvas')).toEqual({ 'x-olumi-ai-mode': 'core' })
+  })
+
+  it('DL-3 20 Oct: on staging the badge always names the serving engine, the default included; production names only an explicit mode', () => {
+    expect(aiComparisonBadge('https://staging--olumi.netlify.app/#/canvas')).toBe('OpenAI')
+    expect(aiComparisonBadge('https://staging--olumi.netlify.app/#/canvas?ai=core')).toBe('OpenAI core')
+    expect(aiComparisonBadge('https://app.olumi.app/#/canvas')).toBeNull()
+    expect(aiComparisonBadge('https://app.olumi.app/#/canvas?ai=core')).toBe('OpenAI core')
   })
 
   it('does not override production when no explicit comparison mode exists', () => {

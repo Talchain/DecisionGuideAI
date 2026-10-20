@@ -323,6 +323,8 @@ export default async function handler(request: Request, _context: Context) {
     'x-correlation-id',
     'x-request-id',
     'x-user-id',
+    // The staging engine selector (`#/canvas?ai=core`), as the turn proxy forwards it: CEE reads the reopen in that lane.
+    'x-olumi-ai-mode',
   ]
 
   const headers = new Headers()

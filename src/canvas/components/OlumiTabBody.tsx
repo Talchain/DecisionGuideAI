@@ -260,8 +260,8 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // Attach evidence is handled by CogPopover, not here.
   }, [])
 
-  // A non-default engine is always visible, so a tester cannot unknowingly compare two AI engines under an
-  // identical-looking surface; the host's own default (staging: OpenAI) is not labelled on every screen.
+  // The serving engine is always visible on staging, its default included, so a tester cannot unknowingly test one
+  // AI engine as another (DL-3, 20 Oct).
   const comparisonLabel = aiComparisonBadge()
   const topControls = comparisonLabel || onFloatOut ? (
     <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">

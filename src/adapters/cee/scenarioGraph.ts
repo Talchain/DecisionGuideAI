@@ -66,6 +66,7 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { hashEqualStaleReasonWords } from '../../v5/hashEqualStaleReasonWords'
 import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
@@ -579,10 +580,15 @@ export async function fetchScenarioGraph(
   // ONE builder, shared with the turn path (`src/v5/turnAuthHeaders.ts`) — a
   // second way of turning a session into headers is how two answers to one
   // identity question get into a codebase.
-  const authHeaders = buildTurnAuthHeaders({
-    userId: identityUserId,
-    accessToken: opts.accessToken ?? null,
-  })
+  const authHeaders = {
+    ...buildTurnAuthHeaders({
+      userId: identityUserId,
+      accessToken: opts.accessToken ?? null,
+    }),
+    // The engine this session runs, as its turns send it: a reopen in `core` is read as core (CEE #3488 gates the
+    // host action bar on it), never as the default lane.
+    ...aiComparisonHeaders(),
+  }
 
   const url = scenarioGraphUrl(scenarioId)
   const unansweredAttempts = Math.max(1, opts.unansweredRetry?.attempts ?? 1)
