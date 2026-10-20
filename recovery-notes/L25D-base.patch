@@ -1,0 +1,76 @@
+diff --git a/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx b/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
+index 9ab7e00b1..1b1c180fb 100644
+--- a/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
++++ b/src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx
+@@ -135,8 +135,8 @@ describe('a saved goal target retains its declared source on the canvas (L25)',
+     expect(mark?.getAttribute('aria-label')).toBe(`Target: ${label}`)
+   }
+ 
+-  it.each(briefs)('$id: from_brief plus the target quote shows From your brief', (goal) => {
+-    expectSource({ ...goal, provenance: 'from_brief' }, 'brief', 'From your brief')
++  it.each(briefs)('$id: the target-specific brief stamp shows From your brief', (goal) => {
++    expectSource({ ...goal, provenance: 'from_brief', threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+   })
+ 
+   it.each(['inferred', 'proxy'])('a target-specific brief stamp wins over stale %s node provenance', (provenance) => {
+@@ -160,7 +160,30 @@ describe('a saved goal target retains its declared source on the canvas (L25)',
+   })
+ 
+   it('a neighbouring goal with the same label and value cannot lend its authorship', () => {
+-    expectSource({ ...briefs[0], provenance: 'from_brief' }, 'brief', 'From your brief')
++    expectSource({ ...briefs[0], provenance: 'from_brief', threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+     expectSource({ ...briefs[0], id: 'unrecorded_goal', source_quote: undefined }, 'unknown', 'Source not recorded')
+   })
++
++  it('REVIEW: a quote stating only today cannot credit an unrecorded target', () => {
++    expectSource({ ...briefs[0], provenance: 'from_brief',
++      source_quote: 'We currently handle 80 tickets per week.',
++      observed_state: { raw_value: 80, source: 'brief_extraction' } },
++      'unknown', 'Source not recorded')
++  })
++
++  it('REVIEW: changing 100→150 cannot reuse the previous target quotation', () => {
++    // The existing inspector setter changes raw/unit without attesting authorship.
++    const saved = { ...briefs[0], provenance: 'from_brief' }
++    expectSource({ ...saved, goal_threshold_raw: 150 }, 'unknown', 'Source not recorded')
++  })
++
++  it('a user-stamped edit to 150 takes the editor attribution over the old brief quote', () => {
++    expectSource({ ...briefs[0], provenance: 'from_brief',
++      threshold_source: 'user', success_threshold: 150 }, 'you', 'Set by you')
++  })
++
++  it.each(briefs)('$id: a node quote without the target stamp stays unknown', (goal) => {
++    expectSource({ ...goal, provenance: 'from_brief' }, 'unknown', 'Source not recorded')
++  })
++
+ })
+diff --git a/src/canvas/nodes/shared/valueSourceMark.tsx b/src/canvas/nodes/shared/valueSourceMark.tsx
+index 2c5bfe04e..ccfd26967 100644
+--- a/src/canvas/nodes/shared/valueSourceMark.tsx
++++ b/src/canvas/nodes/shared/valueSourceMark.tsx
+@@ -271,19 +271,17 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
+ })
+ 
+ /**
+- * The goal target's source mark. Prefer the target's own user/brief stamp; the
+- * saved draft may instead carry `from_brief` with its target's verbatim quote.
+- * A node's provenance alone or its CURRENT level's source never credits the
+- * target. Declared inferred/proxy targets stay Olumi's even beside a quote.
++ * The goal target's source mark. Only the target's own stamp credits the brief
++ * or an editor; node quotes and the CURRENT level's source cannot attest it.
++ * Declared inferred/proxy targets stay Olumi's even beside a quote.
+  */
+ export function goalTargetSourceMark(
+-  data: (GoalTargetSource & { provenance?: unknown; source_quote?: unknown }) | null | undefined,
++  data: (GoalTargetSource & { provenance?: unknown }) | null | undefined,
+ ): FactorValueSourceMark {
+   const target = resolveGoalTarget(data)
+   if (target && isStatedTargetValue(target.raw)) {
+     if (target.source === 'user') return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
+-    if (target.source === 'brief' || (data?.provenance === 'from_brief'
+-      && typeof data.source_quote === 'string' && data.source_quote.trim() !== '')) {
++    if (target.source === 'brief') {
+       return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+     }
+     if (data?.provenance === 'inferred' || data?.provenance === 'proxy') {

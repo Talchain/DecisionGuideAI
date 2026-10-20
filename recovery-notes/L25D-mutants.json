@@ -1,0 +1,16 @@
+[
+  {
+    "mutant": "inference-undercredit",
+    "exit": 1,
+    "summary": [
+      "2 failed | 24 passed (26)"
+    ]
+  },
+  {
+    "mutant": "inference-as-brief",
+    "exit": 1,
+    "summary": [
+      "2 failed | 24 passed (26)"
+    ]
+  }
+]

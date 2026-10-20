@@ -1,0 +1,20 @@
+[
+  {
+    "file": "src/canvas/domain/goalTarget.ts",
+    "added": 5,
+    "removed": 4,
+    "net": 1
+  },
+  {
+    "file": "src/canvas/nodes/shared/valueSourceMark.tsx",
+    "added": 1,
+    "removed": 1,
+    "net": 0
+  },
+  {
+    "file": "src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx",
+    "added": 5,
+    "removed": 0,
+    "net": 5
+  }
+]

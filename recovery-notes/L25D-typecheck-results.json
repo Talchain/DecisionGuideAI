@@ -1,0 +1,25 @@
+{
+  "gate_exit": 0,
+  "coverage": "6219/6259 tracked TS files loaded; 40 declared out of scope",
+  "repo_diagnostics": 2021,
+  "baseline_diagnostics": 2055,
+  "identity_notices": 9,
+  "changed_files": {
+    "src/canvas/domain/goalTarget.ts": {
+      "errors": 0,
+      "baseline_allowance": 0,
+      "coverage_exemption": false
+    },
+    "src/canvas/nodes/shared/valueSourceMark.tsx": {
+      "errors": 0,
+      "baseline_allowance": 0,
+      "coverage_exemption": false
+    },
+    "src/canvas/nodes/__tests__/GoalNode.targetSourceMark.paul23Sep.spec.tsx": {
+      "errors": 0,
+      "baseline_allowance": 0,
+      "coverage_exemption": false
+    }
+  },
+  "method": "passing authoritative per-file ratchet, zero allowances and no coverage exemptions for changed files"
+}

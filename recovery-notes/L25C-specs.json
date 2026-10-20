@@ -1,0 +1,30 @@
+[
+  {
+    "file": "src/canvas/nodes/__tests__/GoalNode.targetSourceMark.realMrrBoard.spec.tsx",
+    "exit": 0,
+    "summary": [
+      "Tests  5 passed (5)"
+    ]
+  },
+  {
+    "file": "src/canvas/domain/__tests__/goalTargetBriefSource.spec.ts",
+    "exit": 0,
+    "summary": [
+      "Tests  7 passed (7)"
+    ]
+  },
+  {
+    "file": "src/canvas/domain/__tests__/goalTargetSource.oneAuthority.spec.tsx",
+    "exit": 0,
+    "summary": [
+      "Tests  8 passed (8)"
+    ]
+  },
+  {
+    "file": "src/canvas/decisionBrief/__tests__/buildDecisionBrief.spec.ts",
+    "exit": 0,
+    "summary": [
+      "Tests  17 passed (17)"
+    ]
+  }
+]
