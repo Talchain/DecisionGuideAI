@@ -190,6 +190,13 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
+import {
+  isCoreStreamBudgetTimeout,
+  STILL_FINISHING_REPLAY_DELAY_MS,
+  CORE_STILL_FINISHING_NOTICE,
+  CORE_FINISHED_RELOADED_NOTICE,
+  CORE_OUTCOME_UNKNOWN_NOTICE,
+} from './coreStillFinishing'
 import { readsBackBeforeResend, STREAM_LOSS_READ, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
@@ -2444,6 +2451,8 @@ export interface SendTurnOpts {
   skipUserBubble?: boolean
   /** Reuse a previous client_turn_id for idempotent retry */
   retryClientTurnId?: string
+  /** Set on the ONE re-send of a core turn that outran the stream budget: the notice it replaces when it settles. */
+  stillFinishing?: { noticeId: string }
   source?: string
   sourceSurface?: string
   parentChainId?: string | null
@@ -4338,6 +4347,7 @@ export function useConversation(): UseConversationReturn {
         displayText,
         skipUserBubble,
         retryClientTurnId,
+        stillFinishing: stillFinishingReplay,
         source,
         sourceSurface,
         parentChainId,
@@ -5653,6 +5663,17 @@ export function useConversation(): UseConversationReturn {
         const coreTurn = v5Headers['x-olumi-ai-mode'] === 'core'
         const errorBody = target.kind === 'typed_error' ? target.rawBody ?? target.boundaryError : undefined
         const coreError = coreTurn && isRecord(errorBody) ? errorBody : undefined
+        // A core turn past the stream budget is still running server-side: an UNKNOWN outcome, never a failure. Its one
+        // re-send (same turn_id) either renders the answer or, when that too is unresolved, falls to a cold read.
+        const stillFinishing = coreTurn && stillFinishingReplay === undefined && isCoreStreamBudgetTimeout(httpStatus, errorBody)
+        const replayUnresolved = stillFinishingReplay !== undefined && target.kind === 'typed_error'
+        if (stillFinishingReplay !== undefined && !replayUnresolved) {
+          setMessages((prev) => {
+            const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId)
+            messagesRef.current = next
+            return next
+          })
+        }
         if (userBubbleIdForTurn) {
           const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
@@ -5669,19 +5690,19 @@ export function useConversation(): UseConversationReturn {
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
-              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame || typeof coreError?.error === 'string'
+              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame || typeof coreError?.error === 'string' || stillFinishing || replayUnresolved
                 ? 'sent'
                 : unverified
                   ? 'unconfirmed'
                   : 'failed',
-            deliveryRequestId: unverified && !deliveryProvenByFrame ? deliveryRequestId : undefined,
-            deliveryScenarioId: unverified && !deliveryProvenByFrame ? scenarioIdAtDispatch : undefined,
+            deliveryRequestId: unverified && !deliveryProvenByFrame && !stillFinishing && !replayUnresolved ? deliveryRequestId : undefined,
+            deliveryScenarioId: unverified && !deliveryProvenByFrame && !stillFinishing && !replayUnresolved ? scenarioIdAtDispatch : undefined,
           })
         }
 
         // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
         // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
-        if (target.kind === 'typed_error') turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
+        if (target.kind === 'typed_error' && !stillFinishing && !replayUnresolved) turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
         else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
@@ -6462,6 +6483,24 @@ export function useConversation(): UseConversationReturn {
             // feedback rather than fail silently (server class).
             setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
           }
+        } else if (stillFinishing) {
+          const noticeId = crypto.randomUUID()
+          addMessage({ id: noticeId, role: 'assistant', synthetic: true, content: CORE_STILL_FINISHING_NOTICE, timestamp: new Date() })
+          setTimeout(() => {
+            void sendTurn({ ...opts, skipUserBubble: true, retryClientTurnId: turnClientId, stillFinishing: { noticeId } })
+          }, STILL_FINISHING_REPLAY_DELAY_MS)
+        } else if (replayUnresolved) {
+          // The re-send could not settle it either (409 TURN_OUTCOME_UNKNOWN, a 503, another timeout): read what was saved.
+          const recovery = await recoverDraftFromServer({
+            scenarioId: scenarioIdAtDispatch,
+            userId: v5UserId,
+            accessToken: v5Identity.accessToken,
+            turnClientId,
+            signal: controller.signal,
+          })
+          updateMessage(stillFinishingReplay!.noticeId, {
+            content: recovery === 'recovered' ? CORE_FINISHED_RELOADED_NOTICE : CORE_OUTCOME_UNKNOWN_NOTICE,
+          })
         } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
           // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
           // The turn ended ≥400 after GRAPH_READY without commit-failure
@@ -6686,7 +6725,7 @@ export function useConversation(): UseConversationReturn {
         // before its values arrived, a new draft gets the finished model. No
         // duration forecast, no verdict — held to the same bar as the wait
         // narration and pinned by `narrationHonesty.invariant.spec.ts`.
-        if (streamedUnsettledCause != null && mode === 'user' && !hidden) {
+        if (streamedUnsettledCause != null && mode === 'user' && !hidden && !stillFinishing && !replayUnresolved) {
           // ═══ ROADMAP 2.1257 — in-session draft recovery, BEFORE the chip ═══
           //
           // The server has usually ALREADY persisted the drafted graph when a
