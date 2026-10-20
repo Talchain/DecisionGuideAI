@@ -1779,6 +1779,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       testId={UNFINISHED_CONTRIBUTION_TEST_ID}
       label={UNFINISHED_CONTRIBUTION_COPY}
       title={UNFINISHED_CONTRIBUTION_COPY}
+      wrap
     />
   ) : isIncomplete && !incompleteStatedOnCard ? (
     /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.

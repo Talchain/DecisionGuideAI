@@ -9,6 +9,7 @@
  * measures the pop-up and picks the side of its anchor that covers the fewest
  * other cards, then the side with the most free screen space.
  */
+import { DOCK_SELECTOR } from '../../utils/computeFitPadding'
 
 /** The design system's panel surface — the same one the inspector and dock wear. */
 export const HOVER_CARD_SURFACE_CLASS =
@@ -85,7 +86,14 @@ export function canvasCardRects(own: Element | null): Rect[] {
   return out
 }
 
+/**
+ * The screen a hover card may use: the window, minus the Outputs dock when it is open on the right. A card placed
+ * under the dock was cut off ("Capacity per additional specialist → Addi…", served c95fb40d, 20 Oct 2026).
+ */
 export function viewportSize(): { width: number; height: number } {
   if (typeof window === 'undefined') return { width: 0, height: 0 }
-  return { width: window.innerWidth, height: window.innerHeight }
+  const dock = typeof document === 'undefined' ? null : document.querySelector(DOCK_SELECTOR)
+  const r = dock?.getBoundingClientRect()
+  const dockLeft = r && r.width > 0 && r.height > 0 && r.left > 0 && r.left < window.innerWidth ? r.left : window.innerWidth
+  return { width: dockLeft, height: window.innerHeight }
 }
