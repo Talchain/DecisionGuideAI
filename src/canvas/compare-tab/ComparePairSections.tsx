@@ -15,6 +15,8 @@ import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import type { ReasonSegment } from './withheldReasonSegments'
 import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { GraphLink } from '../../components/results/GraphLink'
+import type { PairChanceFigures } from '../runView/runView'
+import { PairChanceSlope } from './PairChanceSlope'
 
 /**
  * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
@@ -81,11 +83,11 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
 /**
  * Compare's presentation of the shared reader, in Reasoning's own parts: one headline with its ✦ (CommitmentSummary's
  * heading row), the input rows (`InputChangeRows`, Reasoning's facts in the v3 row layout) and the reading note. In C
- * (#2747 re-scope 2) it draws no goal chance and no run share. Every semantic verdict remains producer-owned.
+ * (#2747 re-scope 2) it drew no goal chance; since 20 Oct 2026 it draws each option's chance, earlier run → this run, only from the chance gate (`pairChanceFigures`). It still draws no run share. Every semantic verdict remains producer-owned.
  */
 export function ComparePairSections({
   view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
-  runIsCurrent = true, analysing = false, sizingPath = null,
+  runIsCurrent = true, analysing = false, sizingPath = null, chances = null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
@@ -97,6 +99,8 @@ export function ComparePairSections({
   analysing?: boolean
   /** The way out of a withheld Run: the links to size, then the first sized pair's latest side (`SizingPath`). */
   sizingPath?: SizingPath | null
+  /** Each option's chance on each side, ONLY from the chance gate (`pairChanceFigures`, DL ruling 20 Oct 2026). */
+  chances?: PairChanceFigures | null
 }): JSX.Element {
   const linkSizingState = sizingPath?.stateOf
   const rows = view.inputs?.rows ?? []
@@ -148,6 +152,7 @@ export function ComparePairSections({
         <div className="mt-2">
           <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
         </div>
+        {chances ? <PairChanceSlope figures={chances} /> : null}
         {!resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
           // The shared sentence, word for word; its named links are the checklist's rows below, each with its own press.
           <>

@@ -17,6 +17,7 @@ import type { CanonicalAnalysisCell, CanonicalAnalysisView, CanonicalGoalChanceD
 import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
+import type { RunDeltaGoalChanceRow, RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 import { goalChanceDetailLines } from '../../components/results/analysis-hero/goalChanceCopy'
 import { optionParticipationOf, type OptionParticipationEntry } from '../state/storedOptionParticipation'
 
@@ -391,4 +392,58 @@ export function runViewOf(report: unknown, canonical: CanonicalAnalysisView | nu
   const view = buildRunView(report, canonical)
   cache.set(report, { canonical, view })
   return view
+}
+
+/**
+ * One option's chance of meeting the goal on each side of a run pair, through this gate (DL ruling, 20 Oct 2026).
+ * `words` is what the screen says; `scaleAt` / `scaleLow` / `scaleHigh` only place a marker on the 0–100 track, so a
+ * chart never reads a chance field of its own. No difference between the two sides is computed anywhere.
+ */
+export type PairChanceSide =
+  | { readonly kind: 'point'; readonly words: string; readonly scaleAt: number }
+  | { readonly kind: 'range'; readonly words: string; readonly scaleLow: number; readonly scaleHigh: number }
+
+export interface PairChanceRow {
+  readonly optionId: string
+  readonly label: string | null
+  /** The earlier run: ONLY run_delta's own licensed point or range for it (CEE built it from that run's licence). */
+  readonly earlier: PairChanceSide | null
+  /** This run: ONLY `chanceFigureOf`, CEE's canonical figure for the current run. */
+  readonly now: PairChanceSide | null
+}
+
+export interface PairChanceFigures {
+  readonly rows: readonly PairChanceRow[]
+  /** The option CEE names as leading THIS run, only under its positive `leader_licence`; otherwise null. */
+  readonly leaderOptionId: string | null
+}
+
+function earlierSide(side: RunDeltaGoalChanceRow['prior']): PairChanceSide | null {
+  if (side.kind === 'point') {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+    const pct = side.pct
+    return { kind: 'point', words: goalProbabilityWords(`${pct}%`), scaleAt: pct }
+  }
+  if (side.kind === 'range') {
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+    const [low, high] = [side.low_pct, side.high_pct]
+    const words = `between ${goalProbabilityWords(`${low}%`)} and ${goalProbabilityWords(`${high}%`).replace(/^about /, '')}`
+    return { kind: 'range', words, scaleLow: low, scaleHigh: high }
+  }
+  return null
+}
+
+/** The pair's chances for the comparison chart. Empty rows when the pair carries none (or the goal's framing changed). */
+export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, current: RunView): PairChanceFigures {
+  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+  const goalRows = pair.goalChances ?? []
+  const rows = goalRows.map((row): PairChanceRow => {
+    const figure = current.chanceFigureOf(row.optionId)
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
+    const now: PairChanceSide | null = figure === null ? null : { kind: 'point', words: figure.words, scaleAt: figure.pct }
+    return { optionId: row.optionId, label: row.label, earlier: earlierSide(row.prior), now }
+  }).filter((row) => row.earlier !== null || row.now !== null)
+  const leader = current.leaderOptionId()
+  const leaderOptionId = ceeLicencePermitsLeader(current.leaderLicence()) === true && typeof leader === 'string' ? leader : null
+  return { rows, leaderOptionId }
 }

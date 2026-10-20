@@ -37,6 +37,8 @@ import { withheldReasonSegments } from './withheldReasonSegments'
 import { linkSizingStateOf, type LinkSizingStateOf } from './CompareSizingChecklist'
 import { unsizedLinksOf } from '../../components/results/analysisNew/analysisNewCopy'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
+import { pairChanceFigures, runViewOf } from '../runView/runView'
+import { useCanonicalAnalysisViewStore } from '../stores/canonicalAnalysisViewStore'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 /**
@@ -104,6 +106,12 @@ export function CompareRunPairBody({
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
   const view = useDisplayedRunDeltaView(responseHash, 'all')
+  // The chart's figures come ONLY through the chance gate: this run's from its canonical view, the earlier run's from
+  // run_delta's own licensed sides (DL ruling, 20 Oct 2026).
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const report = useCanvasStore(s => (s.results?.hash === responseHash ? s.results?.report : null))
+  const canonical = useCanonicalAnalysisViewStore(s => (s.scenarioId === scenarioId ? s.view : null))
+  const chances = useMemo(() => (view === null ? null : pairChanceFigures(view, runViewOf(report, canonical))), [view, report, canonical])
   const delta = useCanvasStore(s => s.runDelta?.delta)
   const endpoints = delta?.endpoints
   const nodes = useCanvasStore(s => s.nodes)
@@ -175,7 +183,7 @@ export function CompareRunPairBody({
     <div className={embedded ? 'space-y-4' : COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
-        runIsCurrent={runIsCurrent} analysing={analysing} sizingPath={sizingPath} />
+        runIsCurrent={runIsCurrent} analysing={analysing} sizingPath={sizingPath} chances={chances} />
     </div>
   )
 }
