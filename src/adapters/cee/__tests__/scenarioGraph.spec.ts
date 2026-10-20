@@ -172,6 +172,23 @@ describe('scenarioGraph — base resolution (⚠ hazard: VITE_CEE_BFF_BASE point
     expect(init.headers['Content-Type']).toBe('application/json')
   })
 
+  it('DL-3 20 Oct: sends the engine this session runs (`#/canvas?ai=core`), as its turns do, so CEE reads the reopen in that lane', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    const before = window.location.hash
+    window.location.hash = '#/canvas?ai=core.'
+    try {
+      await fetchScenarioGraph(SCENARIO_ID)
+      expect(fetchSpy.mock.calls[0][1].headers['x-olumi-ai-mode']).toBe('core')
+    } finally {
+      window.location.hash = before
+    }
+    // CONTRAST: a session with no engine selector (this test host is not staging) sends none.
+    fetchSpy.mockClear()
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
+    await fetchScenarioGraph(SCENARIO_ID)
+    expect(fetchSpy.mock.calls[0][1].headers).not.toHaveProperty('x-olumi-ai-mode')
+  })
+
   it('sends user_id only when supplied, and never the guest sentinel', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
     await fetchScenarioGraph(SCENARIO_ID)
