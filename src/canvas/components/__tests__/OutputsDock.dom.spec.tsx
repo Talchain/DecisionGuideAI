@@ -5,7 +5,6 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { runChangeDelta } from '../../compare-tab/__tests__/__fixtures__/runChangeArtefact'
 import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY } from '../../store/runHistory'
-import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
 // 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
@@ -271,10 +270,7 @@ describe('OutputsDock DOM', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
-      // Paul 14 Oct 2026: all five tabs show from the start — Compare no longer waits for a run PAIR (supersedes
-      // workstream D, 8 Oct). This fixture has no pair, and Compare is still listed; before a second run its body
-      // shows its own "No comparison yet" state.
-      'Compare',
+      // Paul 20 Oct 2026: Compare left the strip; the run comparison lives in Reasoning ("Since your last run").
       'Model',
     ])
   })
@@ -418,11 +414,10 @@ describe('OutputsDock DOM', () => {
     expect(resultsIcon).toBeInTheDocument()
     expect(modelIcon).toBeInTheDocument()
     // The collapsed rail maps the SAME `OUTPUT_TABS` the expanded strip does, so Compare follows the same rule
-    // there (Paul 14 Oct 2026, superseding workstream D): present from the start, with no run pair, and still
-    // present once one exists. Bound by the exact accessible name.
-    expect(screen.getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
+    // there (Paul 20 Oct 2026): not a tab, with or without a run pair. Bound by the exact accessible name.
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
     act(() => { seedRunPair() })
-    expect(screen.getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
 
     fireEvent.click(modelIcon)
 
@@ -513,27 +508,11 @@ describe('OutputsDock DOM', () => {
     expect(params.get('tab')).toBeNull()
   })
 
-  it('opening the Compare tab from the strip fires its open-telemetry once', () => {
-    // 30 Sep 2026 (SC-24 v3): Compare is presented again, so this case returns to its original intent — click the
-    // Compare tab and assert `sandbox.compare.opened === 1` (it was retargeted to an ABSENCE while Fable's 18 Aug
-    // hide stood). Bound by the tab's exact accessible name.
-    try {
-      localStorage.setItem('feature.telemetry', '1')
-    } catch {}
-    __resetTelemetryCounters()
-    // Paul 14 Oct 2026 (superseding workstream D): Compare is a tab from the start, so NO run pair is seeded —
-    // the click below is the first-time user's path, before any second run exists.
-
+  it('there is no Compare tab in the strip to open (Paul, 20 Oct 2026: the comparison lives in Reasoning)', () => {
     renderOutputsDock()
-
-    // Positive control: the counter starts at 0, so the 1 below is the click's doing.
-    expect(__getTelemetryCounters()['sandbox.compare.opened'] ?? 0).toBe(0)
-    fireEvent.click(screen.getByRole('tab', { name: 'Compare' }))
-    expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(1)
-    // Selecting Compare PRESENTS Compare — it no longer falls back to Reasoning when there is no pair.
-    expect(screen.getByText('Compare', { selector: 'span[aria-live="polite"]' })).toBeInTheDocument()
-    expect(screen.queryByText('Reasoning', { selector: 'span[aria-live="polite"]' })).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Compare' })).toHaveAttribute('aria-selected', 'true')
+    // Contrast: the strip is rendered and Reasoning is in it, so the absence below is the contract's doing.
+    expect(screen.getByRole('tab', { name: 'Reasoning' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
   })
 
   /**
@@ -1379,9 +1358,7 @@ describe('I.2a: Secondary action button interaction', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
-      // Paul 14 Oct 2026: all five tabs show from the start — Compare no longer waits for a run PAIR (supersedes
-      // workstream D, 8 Oct). This fresh-module fixture has no pair, and Compare is still listed.
-      'Compare',
+      // Paul 20 Oct 2026: Compare left the strip; the run comparison lives in Reasoning.
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and
@@ -1394,7 +1371,8 @@ describe('I.2a: Secondary action button interaction', () => {
     // 30 Sep 2026 (SC-24 v3): Compare is presented again, with its flag ON. 8 Oct (workstream D) made it a tab only
     // once a run pair existed; Paul 14 Oct 2026 removed that rule — all five tabs show from the start. This
     // fresh-module fixture has no pair, so Compare's PRESENCE here binds the new rule by identity.
-    expect(within(tabNav).getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
+    // Paul 20 Oct 2026: Compare is hidden by contract again (its flag still ON), so its ABSENCE binds that rule.
+    expect(within(tabNav).queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
     // Bound by IDENTITY to Journey, so a rename of some other tab cannot
     // satisfy this line (trap 19).
     expect(within(tabNav).queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()

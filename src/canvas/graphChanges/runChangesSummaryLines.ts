@@ -28,7 +28,7 @@ export const RUN_CHANGES_SUMMARY_COPY = {
   moved: 'Moved',
   why: 'Why',
   uncertain: 'Still uncertain',
-  openCompare: 'Open in Compare',
+  openCompare: 'See the comparison in Reasoning',
   showWhy: 'Why?',
   hideWhy: 'Hide',
   close: 'Close the run summary',
