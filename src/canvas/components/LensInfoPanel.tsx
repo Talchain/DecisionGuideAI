@@ -35,7 +35,7 @@
  * `AnalysisStateCue.band.spec.tsx` pins both, with the band arbitrating.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Layers, Scale, X, type LucideIcon } from 'lucide-react'
 import { OVERLAY_BAND_SELECTOR, useOverlayCell } from './CanvasOverlayBand'
@@ -236,6 +236,19 @@ function WhatChangesKey() {
 
 const KEY_CARD_WIDTH = 320
 const KEY_CARD_GAP = 8
+/** The key never shrinks below this to clear the model: under it, the lift (`keyCardLift`) is the only remedy left. */
+const KEY_CARD_MIN_HEIGHT = 160
+/** The card's own height cap, before it yields to the model (`keyCardMaxHeight`). */
+const KEY_CARD_MAX_HEIGHT = 460
+/** The camera's glide (`registerPanBy`, 300 ms) plus a frame, then re-checked until the model is where it was sent. */
+const GLIDE_SETTLE_MS = 350
+const GLIDE_SETTLE_TRIES = 5
+/** The canvas's vertical offset on screen, from its viewport transform; null when the canvas is not mounted. */
+const viewportY = (): number | null => {
+  const el = document.querySelector('.react-flow__viewport')
+  return el && typeof DOMMatrixReadOnly !== 'undefined' ? new DOMMatrixReadOnly(getComputedStyle(el).transform).f : null
+}
+const KEY_CARD_REMEASURE = 'lens-key:remeasure'
 
 interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 const overlapArea = (a: Rect, b: Rect): number =>
@@ -266,36 +279,80 @@ export function keyCardSide(left: Rect, right: Rect, cards: readonly Rect[]): 'l
 }
 
 /**
+ * How tall the key may stand above `bottom` (its bottom edge) without covering a card in its column: up to the lowest
+ * card that shares its width, never below KEY_CARD_MIN_HEIGHT, never above `cap`. When the model fills both corners
+ * (1280 × 800, 20 Oct 2026: the Trade-offs key covered the goal), the key scrolls inside rather than hide the model.
+ * Pure, for the spec.
+ */
+export function keyCardMaxHeight(column: { x: number; w: number }, bottom: number, cards: readonly Rect[], cap: number): number {
+  const above = cards.filter((c) => Math.min(column.x + column.w, c.x + c.w) - Math.max(column.x, c.x) > 0 && c.y < bottom)
+  const lowest = above.length === 0 ? -Infinity : Math.max(...above.map((c) => c.y + c.h))
+  return Math.max(KEY_CARD_MIN_HEIGHT, Math.min(cap, bottom - KEY_CARD_GAP - lowest))
+}
+
+/**
  * The key card's place: just above the band (so it never covers the band's other occupants), inside the band's own
  * side padding, in the corner that covers less of the model. Measured when the lens opens or unfolds, and when the
  * window, the band or the dock changes size; never on a pan, so the card does not jump while the user works.
+ *
+ * When the key opens over the model, the model glides up out from under it, once per lens and per fold, as far as the
+ * room above allows (the user asked for the lens, so the move is theirs; a pan after that is never undone or fought).
+ * Then the key stands no taller than the room left above it (`keyCardMaxHeight`), scrolling inside, so it covers no
+ * card the lens keeps in front.
  */
-function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boolean): { left: number; bottom: number } | null {
-  const [place, setPlace] = useState<{ left: number; bottom: number } | null>(null)
+type KeyCardPlace = { readonly left: number; readonly bottom: number; readonly maxHeight: number }
+function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boolean): KeyCardPlace | null {
+  const [place, setPlace] = useState<KeyCardPlace | null>(null)
   // The lens's focus decides which cards the key must clear, so a new focus (another option) re-measures.
   const focus = useCanvasStore((s) => s.lens._dimmedNodeIds)
+  const liftedFor = useRef<string | null>(null)
+  const settle = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(settle.current), [])
   useLayoutEffect(() => {
+    // A closed key forgets its lift, so opening a lens again makes room again.
+    if (!card) liftedFor.current = null
     if (!card || typeof window === 'undefined') return
     const measure = () => {
       const band = document.querySelector(OVERLAY_BAND_SELECTOR)
       if (!band) return
       const box = band.getBoundingClientRect()
       const cs = getComputedStyle(band)
-      const height = card.getBoundingClientRect().height
-      const y = box.top - KEY_CARD_GAP - height
+      const cap = Math.min(KEY_CARD_MAX_HEIGHT, window.innerHeight * 0.52)
+      // The key's own height before it yields to the model: its header plus everything its body holds.
+      const height = Math.min(cap, [...card.children].reduce((h, el) => h + el.scrollHeight, 0))
+      const foot = box.top - KEY_CARD_GAP
       const leftX = box.left + (parseFloat(cs.paddingLeft) || 0)
       // The card stands ABOVE the band, so on the right it clears the dock, not the band's pill gutter (the minimised
       // Olumi pill's corner lives in the band's own row). Measured at 1280: the gutter put the right slot over the goal.
       const rightX = window.innerWidth - measureDockInset() - KEY_CARD_GAP - KEY_CARD_WIDTH
-      const cards = inFocusCardRects()
+      let cards = inFocusCardRects()
       const side = rightX > leftX
-        ? keyCardSide({ x: leftX, y, w: KEY_CARD_WIDTH, h: height }, { x: rightX, y, w: KEY_CARD_WIDTH, h: height }, cards)
+        ? keyCardSide({ x: leftX, y: foot - height, w: KEY_CARD_WIDTH, h: height }, { x: rightX, y: foot - height, w: KEY_CARD_WIDTH, h: height }, cards)
         : 'left'
-      const next = { left: side === 'left' ? leftX : rightX, bottom: window.innerHeight - box.top + KEY_CARD_GAP }
-      setPlace((held) => (held && held.left === next.left && held.bottom === next.bottom ? held : next))
+      const left = side === 'left' ? leftX : rightX
+      if (liftedFor.current !== `${lens}:${folded}`) {
+        liftedFor.current = `${lens}:${folded}`
+        const dy = keyCardLift({ x: left, y: foot - height, w: KEY_CARD_WIDTH, h: height }, cards, TOP_PILL_BOTTOM_PX + KEY_CARD_GAP)
+        const from = viewportY()
+        if (dy > 0 && panCanvasBy(0, -dy)) {
+          cards = cards.map((c) => ({ ...c, y: c.y - dy }))
+          // Measure once more where the glide actually ended: it can start late or be cut short by another camera move.
+          let tries = 0
+          const settled = () => {
+            const y = viewportY()
+            if (from !== null && y !== null && Math.abs(y - (from - dy)) > 1 && ++tries < GLIDE_SETTLE_TRIES) {
+              settle.current = window.setTimeout(settled, GLIDE_SETTLE_MS)
+            } else window.dispatchEvent(new Event(KEY_CARD_REMEASURE))
+          }
+          settle.current = window.setTimeout(settled, GLIDE_SETTLE_MS)
+        }
+      }
+      const next = { left, bottom: window.innerHeight - box.top + KEY_CARD_GAP, maxHeight: keyCardMaxHeight({ x: left, w: KEY_CARD_WIDTH }, foot, cards, cap) }
+      setPlace((held) => (held && held.left === next.left && held.bottom === next.bottom && held.maxHeight === next.maxHeight ? held : next))
     }
     measure()
     window.addEventListener('resize', measure)
+    window.addEventListener(KEY_CARD_REMEASURE, measure)
     // The band's side padding follows the dock (its width, expanded or rail), which is not a window resize.
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     // The card itself too: picking a figure makes it taller, and the corner that covers less can change.
@@ -304,6 +361,7 @@ function useKeyCardPlacement(card: HTMLElement | null, lens: string, folded: boo
     }
     return () => {
       window.removeEventListener('resize', measure)
+      window.removeEventListener(KEY_CARD_REMEASURE, measure)
       ro?.disconnect()
     }
   }, [card, lens, folded, focus])
@@ -320,25 +378,6 @@ export function keyCardLift(key: Rect, cards: readonly Rect[], topLimit: number)
   const need = Math.max(...under.map((card) => card.y + card.h)) - key.y + KEY_CARD_GAP
   const room = Math.min(...cards.map((card) => card.y)) - topLimit
   return Math.max(0, Math.min(need, room))
-}
-
-/**
- * When the key opens over the model, the model glides up out from under it, once per lens, as far as the room above
- * allows. The user asked for the lens, so the move is theirs; panning after that is never undone or fought.
- */
-function useMakeRoomForKey(card: HTMLElement | null, place: { left: number; bottom: number } | null, lens: string, folded: boolean): void {
-  useEffect(() => {
-    if (!card || !place) return
-    const frame = requestAnimationFrame(() => {
-      const r = card.getBoundingClientRect()
-      const cards = inFocusCardRects()
-      const dy = keyCardLift({ x: r.left, y: r.top, w: r.width, h: r.height }, cards, TOP_PILL_BOTTOM_PX + KEY_CARD_GAP)
-      if (dy > 0) panCanvasBy(0, -dy)
-    })
-    return () => cancelAnimationFrame(frame)
-    // Once per lens and per fold: never on a pan, which the user owns.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card, place?.left, place?.bottom, lens, folded])
 }
 
 /** The stale sentence's element inside the panel (see the header). */
@@ -366,7 +405,6 @@ export function LensInfoPanel() {
   const { granted, target } = useOverlayCell('bottom-left', 'lens-info-panel', wants)
   const [card, setCard] = useState<HTMLElement | null>(null)
   const place = useKeyCardPlacement(card, lensMode, folded)
-  useMakeRoomForKey(card, place, lensMode, folded)
 
   if (!wants || !granted) return null
 
@@ -396,7 +434,7 @@ export function LensInfoPanel() {
         bottom: place?.bottom ?? 0,
         // Hidden until placed, so it never flashes in the wrong corner.
         opacity: place ? 1 : 0,
-        maxHeight: 'min(52vh, 460px)',
+        maxHeight: place?.maxHeight ?? KEY_CARD_MAX_HEIGHT,
         animation: 'thinkingModeIn 200ms cubic-bezier(0.0, 0, 0.2, 1) both',
       }}
     >

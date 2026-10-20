@@ -9,7 +9,7 @@ import { ArtefactOffer } from '../../components/ArtefactOffer'
 import { LensBar, placeLensBar } from '../LensBar'
 import { nextBarLens, usePremortemArrival } from '../lenses'
 import { RestsOnKey, restsOnHeadline } from '../RestsOnKey'
-import { keyCardLift, keyCardSide } from '../../components/LensInfoPanel'
+import { keyCardLift, keyCardMaxHeight, keyCardSide } from '../../components/LensInfoPanel'
 import { OVERLAY_BAND_LEFT_PAD } from '../../components/CanvasOverlayBand'
 import { useActionBarStore } from '../../conversation/actionBar/actionBarStore'
 import type { ActionBarV1, ActionOffer } from '../../conversation/actionBar/actionBarContract'
@@ -270,6 +270,14 @@ describe('the key card covers as little of the model as it can', () => {
     assert.equal(keyCardLift(key, [card(100, 450, 200, 100), card(500, 200)], 52), 58, 'the covered card clears the key by 8')
     assert.equal(keyCardLift(key, [card(100, 450, 200, 100), card(500, 80)], 52), 28, 'capped by the room above the top card')
     assert.equal(keyCardLift(key, [card(500, 100)], 52), 0, 'CONTRAST: nothing covered, no move')
+  })
+  it('stands no taller than the room above it in its column, so it scrolls rather than cover a card', () => {
+    // 1280 × 800, the MRR model: the key's column (592–912) holds the goal card down to y 488; the key's foot is at 716.
+    const column = { x: 592, w: 320 }
+    assert.equal(keyCardMaxHeight(column, 716, [card(299, 403, 364, 85)], 460), 220, 'its top clears the goal by 8')
+    assert.equal(keyCardMaxHeight(column, 716, [card(70, 403, 139, 85)], 460), 460, 'CONTRAST: a card outside its column does not shorten it')
+    assert.equal(keyCardMaxHeight(column, 716, [card(600, 650)], 460), 160, 'never below the readable minimum; the lift takes over')
+    assert.equal(keyCardMaxHeight(column, 716, [], 300), 300, 'never above its own cap')
   })
 })
 
