@@ -8,7 +8,8 @@ import type { Edge, Node } from '@xyflow/react'
 import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { resolveEdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
-import { goalWantsOf, tradeOffsOf, tradeOffsForState, type OptionTradeOffs } from '../tradeOffsModel'
+import { alsoInModelOf, goalWantsOf, tradeOffsOf, tradeOffsForState, type OptionTradeOffs } from '../tradeOffsModel'
+import { ASSUMPTION_MAP_COPY, assumptionMapOf } from '../assumptionMapModel'
 import { TRADE_OFFS_COPY } from '../TradeOffsKey'
 
 type Data = Record<string, unknown>
@@ -107,11 +108,11 @@ describe('what each option gains and gives up, in this model', () => {
 
   it('a link the user set and one Olumi estimated are shown apart, by the owner reader’s own columns', () => {
     const o = read(NODES(), EDGES({ [VIA_NEW]: (d) => ({ ...d, weightSource: 'user' }) }))
-    const columnOf = (id: string) => o.routes.flatMap((r) => r.steps).find((s) => s.edgeId === id)?.linkColumn
+    const columnOf = (id: string) => o.routes.flatMap((r) => r.steps).find((s) => s.edgeId === id)?.link?.column
     assert.equal(columnOf(VIA_NEW), 'yours')
     assert.equal(columnOf('monthly_new_pro_subscribers>pro_paying_subscribers'), 'unchecked')
     // CONTRAST: unchanged, the same link is Olumi's estimate nobody has checked, never the user's.
-    assert.equal(read(NODES(), EDGES()).routes.flatMap((r) => r.steps).find((s) => s.edgeId === VIA_NEW)?.linkColumn, 'unchecked')
+    assert.equal(read(NODES(), EDGES()).routes.flatMap((r) => r.steps).find((s) => s.edgeId === VIA_NEW)?.link?.column, 'unchecked')
   })
 
   it('the option is read against the baseline option’s own target where it sets one (the card’s reference)', () => {
@@ -124,6 +125,38 @@ describe('what each option gains and gives up, in this model', () => {
   it('an option that leaves a factor where it stands has no route for it', () => {
     const nodes = NODES().map((n) => (n.id === 'p59' ? { ...n, data: { ...n.data, interventions: { pro_plan_price: { value: 0.245 } } } } : n))
     assert.deepEqual(read(nodes, EDGES()).routes, [])
+    assert.equal(read(nodes, EDGES()).changes, 0, 'it changes nothing in the model yet')
+    // CONTRAST: £59 moves the price, so it changes one factor.
+    assert.equal(read(NODES(), EDGES()).changes, 1)
+  })
+
+  it('each link on a route carries its owner’s own item, with the source words the owner gives it', () => {
+    const nodes = NODES()
+    const edges = EDGES()
+    const owner = assumptionMapOf(nodes, edges, 'mrr').items.find((i) => i.target.id === VIA_NEW)!
+    const step = read(nodes, edges).routes.flatMap((r) => r.steps).find((s) => s.edgeId === VIA_NEW)!
+    assert.deepEqual(step.link, owner)
+    assert.notEqual(step.link?.source, ASSUMPTION_MAP_COPY.sourceNotRecorded, 'the real source, never a stand-in')
+  })
+
+  it('every risk and every goal limit the model holds is listed, by identity, whichever option is in view', () => {
+    // A hiring-shaped model: risks that act on the goal with no option route to them, and a spend limit.
+    const nodes: Node[] = [...NODES(), node('leadership_gap', 'risk', { label: 'Leadership gap' })]
+    const edges: Edge[] = [...EDGES(), { ...link('price_sensitivity', 'monthly_churn'), id: 'leadership_gap>mrr', source: 'leadership_gap', target: 'mrr' }]
+    const goalConstraints = [
+      { constraint_id: 'spend:<=', node_id: 'mrr', label: 'Hiring spend', operator: '<=', value: 200000, unit: 'GBP' },
+      { constraint_id: 'target-row', node_id: 'mrr', label: 'MRR', operator: '>=', value: 100000, role: 'goal_target' },
+    ] as never
+    const also = alsoInModelOf({ nodes, edges, goalConstraints }, 'mrr')
+    assert.deepEqual(also.risks.map((r) => [r.id, r.links.map((l) => l.item.target.id)]), [
+      ['price_sensitivity', ['price_sensitivity>monthly_churn']],
+      ['leadership_gap', ['leadership_gap>mrr']],
+    ])
+    assert.deepEqual(also.limits.map((l) => l.id), ['spend:<='], 'the goal’s own target row is its target, not a limit')
+    assert.match(also.limits[0].text, /Hiring spend/)
+    // CONTRAST: a model with no risks and no limits lists nothing.
+    const bare = alsoInModelOf({ nodes: nodes.filter((n) => n.type !== 'risk'), edges, goalConstraints: null }, 'mrr')
+    assert.deepEqual([bare.risks, bare.limits], [[], []])
   })
 
   it('a goal with no stated target or comparator sorts nothing, whatever its name says', () => {

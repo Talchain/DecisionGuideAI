@@ -20,14 +20,15 @@
 import type { Edge, Node } from '@xyflow/react'
 import { resolveEdgeDirectionDisplay } from '../domain/edgeValueProvenance'
 import { goalTargetChangeFrameOf, statedGoalTargetRaw, statedTargetNumber, type GoalTargetSource } from '../domain/goalTarget'
-import { goalTargetComparator } from '../domain/goalOwnTargetRow'
+import { goalTargetComparator, isGoalTargetRow } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { linkIsStructural } from '../edges/edgePresentation'
 import { analysisViewIsStale, resolveBaselineOptionReference, resolveOptionTargets } from '../nodes/shared/optionTargetDisplay'
 import { isInterventionNoChange } from '../utils/interventionDisplay'
 import { baselineGuessBarred, baselineOptionsOf, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
-import { assumptionMapOf, type AssumptionColumn } from './assumptionMapModel'
+import { goalConstraintText } from '../utils/goalConstraintText'
+import { assumptionMapOf, type AssumptionItem } from './assumptionMapModel'
 
 export type GoalWants = 'higher' | 'lower'
 export type RouteEffect = 'gains' | 'gives_up' | 'not_set'
@@ -41,8 +42,9 @@ export interface RouteStep {
   readonly move: Move | null
   /** The link INTO this step (null for the first). */
   readonly edgeId: string | null
-  /** Who the link's strength came from (the "Rests on" owner reader's column), null for the first step. */
-  readonly linkColumn: AssumptionColumn | null
+  /** The link's "Rests on" item from its owner reader (who said it, in the owner's words); null for the first step and
+   *  for a link that holds by definition, which is not an assumption. */
+  readonly link: AssumptionItem | null
 }
 
 export interface TradeOffRoute {
@@ -56,6 +58,8 @@ export interface OptionTradeOffs {
   readonly label: string
   /** What this option's changes are read against: the baseline option's name, or null for "each factor's value today". */
   readonly againstLabel: string | null
+  /** How many factors this option moves from where they stand: 0 means it changes nothing in the model yet. */
+  readonly changes: number
   readonly routes: readonly TradeOffRoute[]
 }
 
@@ -121,10 +125,7 @@ export function tradeOffsOf(input: {
   const ceeOf = (id: string) => ceeOptions?.find((o) => o.id === id)
   const options = nodes.filter((n) => n.type === 'option')
   const baseline = options.find(isBaseline) ?? null
-  const columns = new Map<string, AssumptionColumn>()
-  for (const item of assumptionMapOf(nodes, edges, goalId).items) {
-    if (item.target.kind === 'edge') columns.set(item.target.id, item.column)
-  }
+  const linkItems = linkItemsOf(nodes, edges, goalId)
   // Causal links only: the option → factor wiring is the option's own change, read from its targets.
   const out = new Map<string, Edge[]>()
   for (const e of edges) {
@@ -138,14 +139,16 @@ export function tradeOffsOf(input: {
 
   return options.filter((o) => o !== baseline).map((option) => {
     const routes: TradeOffRoute[] = []
+    let changes = 0
     // The card's own reference: the baseline option's target, else the factor's value today.
     const reference = resolveBaselineOptionReference(nodes, ceeOptions, option.id)
     if (goalId !== null) {
       for (const [factorId, { value: target }] of resolveOptionTargets(option.data as Record<string, unknown>, ceeOf(option.id), { viewStale })) {
         const against = reference?.values[factorId]?.value ?? observedValueOf(byId.get(factorId))
         if (against == null || isInterventionNoChange(against, target)) continue
+        changes += 1
         const start: RouteStep = {
-          nodeId: factorId, label: labelOf(byId.get(factorId), factorId), move: target > against ? 'up' : 'down', edgeId: null, linkColumn: null,
+          nodeId: factorId, label: labelOf(byId.get(factorId), factorId), move: target > against ? 'up' : 'down', edgeId: null, link: null,
         }
         const walk = (path: RouteStep[], seen: Set<string>) => {
           if (routes.length >= MAX_ROUTES_PER_OPTION) return
@@ -163,15 +166,55 @@ export function tradeOffsOf(input: {
             const sign = linkSign(e)
             const move: Move | null = at.move === null || sign === null ? null : (at.move === 'up') === (sign === 1) ? 'up' : 'down'
             seen.add(e.target)
-            walk([...path, { nodeId: e.target, label: labelOf(byId.get(e.target), e.target), move, edgeId: e.id, linkColumn: columns.get(e.id) ?? null }], seen)
+            walk([...path, { nodeId: e.target, label: labelOf(byId.get(e.target), e.target), move, edgeId: e.id, link: linkItems.get(e.id) ?? null }], seen)
             seen.delete(e.target)
           }
         }
         walk([start], new Set([factorId]))
       }
     }
-    return { optionId: option.id, label: labelOf(option, option.id), againstLabel: reference?.label ?? null, routes }
+    return { optionId: option.id, label: labelOf(option, option.id), againstLabel: reference?.label ?? null, changes, routes }
   })
+}
+
+/** Each link's "Rests on" item, by link id: the owner reader's own words, read once. */
+function linkItemsOf(nodes: readonly Node[], edges: readonly Edge[], goalId: string | null): Map<string, AssumptionItem> {
+  const items = new Map<string, AssumptionItem>()
+  for (const item of assumptionMapOf(nodes, edges, goalId).items) if (item.target.kind === 'edge') items.set(item.target.id, item)
+  return items
+}
+
+/** A risk the model holds, with its links into the model as their owner reads them. */
+export interface ModelRisk {
+  readonly id: string
+  readonly label: string
+  readonly links: readonly { readonly toLabel: string; readonly item: AssumptionItem }[]
+}
+
+/**
+ * What the model holds that bears on the goal whichever option is chosen, read as it is (never hidden, never sorted
+ * into a gain or a give-up, never pinned to an option): every risk with its links, and the goal's limits in the goal
+ * card's own words (`goalConstraintText`; the goal's own target rows are the target, not a limit).
+ */
+export function alsoInModelOf(state: Pick<TradeOffsState, 'nodes' | 'edges' | 'goalConstraints'>, goalId: string | null): {
+  readonly risks: readonly ModelRisk[]
+  readonly limits: readonly { readonly id: string; readonly text: string }[]
+} {
+  const byId = new Map(state.nodes.map((n) => [n.id, n]))
+  const linkItems = linkItemsOf(state.nodes, state.edges, goalId)
+  const risks = state.nodes.filter((n) => n.type === 'risk').map((risk) => ({
+    id: risk.id,
+    label: labelOf(risk, risk.id),
+    links: state.edges.flatMap((e) => {
+      const item = e.source === risk.id ? linkItems.get(e.id) : undefined
+      return item ? [{ toLabel: labelOf(byId.get(e.target), e.target), item }] : []
+    }),
+  }))
+  const limits = (state.goalConstraints ?? []).filter((c) => !isGoalTargetRow(c)).map((c, i) => ({
+    id: c.constraint_id ?? `${c.node_id ?? 'limit'}:${i}`,
+    text: goalConstraintText(c, state.nodes),
+  }))
+  return { risks, limits }
 }
 
 /** The store slice the trade-offs read needs: one entry point for the lens and its key card. */
@@ -186,7 +229,13 @@ export interface TradeOffsState {
 }
 
 /** Every option's trade-offs from the store, with the goal and the baseline resolved by their one owners. */
-export function tradeOffsForState(state: TradeOffsState): { readonly goalId: string | null; readonly goalLabel: string | null; readonly goalWants: GoalWants | null; readonly options: OptionTradeOffs[] } {
+export function tradeOffsForState(state: TradeOffsState): {
+  readonly goalId: string | null
+  readonly goalLabel: string | null
+  readonly goalWants: GoalWants | null
+  readonly options: OptionTradeOffs[]
+  readonly alsoInModel: ReturnType<typeof alsoInModelOf>
+} {
   const goalId = resolveActiveGoalNodeId({ ceeAnalysisReady: state.ceeAnalysisReady, outcomeNodeId: state.outcomeNodeId, nodes: state.nodes })
   const goal = goalId === null ? undefined : state.nodes.find((n) => n.id === goalId)
   const goalWants = goalWantsOf(goal, state.goalConstraints)
@@ -201,7 +250,7 @@ export function tradeOffsForState(state: TradeOffsState): { readonly goalId: str
     viewStale: analysisViewIsStale(state.ceeAnalysisReady, state.lastServerGraphHash),
     isBaseline: (o) => resolveOptionIsBaseline(o.data as { is_baseline?: unknown; label?: unknown }, flags?.find((f) => f.id === o.id), barred),
   })
-  return { goalId, goalLabel: goal ? labelOf(goal, goal.id) : null, goalWants, options }
+  return { goalId, goalLabel: goal ? labelOf(goal, goal.id) : null, goalWants, options, alsoInModel: alsoInModelOf(state, goalId) }
 }
 
 /** What the lens puts in front for one option: the option, every element on its routes, and the links between. */

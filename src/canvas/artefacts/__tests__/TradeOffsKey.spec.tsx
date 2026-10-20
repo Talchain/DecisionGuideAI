@@ -120,6 +120,28 @@ describe('the Trade-offs key card', () => {
     assert.equal(view.getByTestId('trade-offs-key-option').textContent, 'Increase price to £54')
   })
 
+  it('the risks and limits the model holds are listed whichever option is in view, each risk link with its own editor', () => {
+    const view0 = render(<TradeOffsKey />)
+    assert.equal(view0.queryByTestId('trade-offs-key-also'), null, 'CONTRAST: none in the model, none listed')
+    cleanup()
+    useCanvasStore.setState({
+      nodes: [...useCanvasStore.getState().nodes, node('leadership_gap', 'risk', { label: 'Leadership gap' }), node('no_link_risk', 'risk', { label: 'Launch deadline pressure' })],
+      edges: [...useCanvasStore.getState().edges, { ...link('pro_paying_subscribers', 'mrr'), id: 'leadership_gap>mrr', source: 'leadership_gap', target: 'mrr' }],
+      goalConstraints: [{ constraint_id: 'spend:<=', node_id: 'mrr', label: 'Hiring spend', operator: '<=', value: 200000, unit: 'GBP' }],
+    } as never)
+    const view = render(<TradeOffsKey />)
+    const also = view.getByTestId('trade-offs-key-also')
+    assert.equal(within(also).getByRole('heading').textContent, 'Also in your model, whichever option')
+    assert.deepEqual(within(also).getAllByTestId('trade-offs-key-link').map((li) => li.getAttribute('data-edge')), ['leadership_gap>mrr'])
+    assert.equal(within(also).getByTestId('trade-offs-key-risk').textContent, 'Launch deadline pressure')
+    assert.match(within(also).getByTestId('trade-offs-key-limit').textContent ?? '', /Hiring spend/)
+    fireEvent.click(within(also).getByTestId('rests-on-figure-edit'))
+    assert.deepEqual(opened, ['leadership_gap>mrr'])
+    // The same list follows the other option: it is the model's, not an option's.
+    fireEvent.click(view.getByTestId('trade-offs-key-next'))
+    assert.ok(view.getByTestId('trade-offs-key-also'))
+  })
+
   it('CONTRAST: a model with no goal says so and lists nothing', () => {
     useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.filter((n) => n.type !== 'goal') } as never)
     const view = render(<TradeOffsKey />)
