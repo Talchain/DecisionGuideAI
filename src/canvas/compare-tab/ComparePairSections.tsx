@@ -17,6 +17,7 @@ import { CompareSizingChecklist, sizingLinksOf, type LinkSizingStateOf } from '.
 import { GraphLink } from '../../components/results/GraphLink'
 import type { PairChanceFigures } from '../runView/runView'
 import { PairChanceSlope } from './PairChanceSlope'
+import { goalChanceHeadline } from './goalChanceHeadline'
 
 /**
  * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
@@ -31,6 +32,7 @@ export type SizingPath = {
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
 const NEAR_TIE_FIELDS = 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded'
+const GOAL_CHANCE_FIELDS = 'canonical_analysis_view.leader.goal_chance_leader canonical_analysis_view.leader.similar_option_ids run_delta.goal_chances'
 export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 /** While a Run is in flight the previous pair stays on screen; this says so, and promises nothing about the next pair. */
 export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
@@ -108,9 +110,13 @@ export function ComparePairSections({
   // said on the journey path only (the Analysis tab, the chat analysis card) in CEE's words, and CEE serves no share
   // string. The headline keeps the producer's leader claim, in words, under its own entitlement (`resultsAllowed`).
   // Restore trigger: each measure's own served string and Run licence on this surface (post-C).
+  // 20 Oct 2026: where CEE's goal-chance licence makes a claim about this run, the headline is that claim (each option's
+  // chance of meeting the goal is the headline, DL ruling 6 Oct); otherwise the comparative sentence stands, as before.
+  const goalHeadline = chances ? goalChanceHeadline(chances, label) : null
   const shareHeadline = resultsAllowed ? headline(delta, label, nearTie) : null
-  const resultHeadline = shareHeadline ?? 'Result comparison not shown'
-  const qualification = resultsAllowed ? noiseQualifier(delta.leader.noise_verdict) : null
+  const resultHeadline = goalHeadline ?? shareHeadline ?? 'Result comparison not shown'
+  // The noise qualifier speaks about the comparative leader's share, so it never sits under a goal-chance headline.
+  const qualification = resultsAllowed && goalHeadline === null ? noiseQualifier(delta.leader.noise_verdict) : null
   const askAvailable = runIsCurrent && !analysing
   // The not-shown line's named links as the user's next step (DL GO "A", 8 Oct): only CEE's named links, never the canvas's.
   const sizingLinks = !resultsAllowed && linkSizingState ? sizingLinksOf(withheldSegments) : []
@@ -142,7 +148,7 @@ export function ComparePairSections({
         </p>
         <div className="flex items-center gap-1">
           <h3 className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
-            data-wire-fields={nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}>
+            data-wire-fields={goalHeadline !== null ? GOAL_CHANCE_FIELDS : nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}>
             {resultHeadline}
           </h3>
           {askAvailable ? <PanelIconButton ai label={COMPARE_ASK_LABEL} onClick={ask} testId="compare-ask" /> : null}
