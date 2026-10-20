@@ -1,0 +1,31 @@
+{
+  "node_id": "marketing_manager_employed",
+  "factor_metadata": {
+    "unit": null,
+    "factor_type": null,
+    "factorType": null,
+    "observed_state": null
+  },
+  "conditional_unit_locations": [
+    {
+      "field": "level",
+      "unit": "yes/no",
+      "stance": "hypothetical",
+      "subject": {
+        "node_id": "marketing_manager_employed",
+        "quantity": "factor|marketing_manager_employed||hire_marketing_manager|level",
+        "option_id": "hire_marketing_manager"
+      }
+    }
+  ],
+  "option_intervention": {
+    "value": 1,
+    "source": "brief_extraction",
+    "target_match": {
+      "node_id": "marketing_manager_employed",
+      "confidence": "high",
+      "match_type": "exact_id"
+    },
+    "user_material_unverified": true
+  }
+}

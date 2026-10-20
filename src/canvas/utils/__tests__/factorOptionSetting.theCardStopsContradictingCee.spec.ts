@@ -131,3 +131,55 @@ describe('the words CEE wrote reach the factor card', () => {
     expect(factorOptionSetting(joined?.[F_CAP], observedState)).toBe('Very low')
   })
 })
+
+
+describe('L25B — typed yes/no option settings bind by factor id', () => {
+  const id = 'factor-state'
+  const factor = (observedState: Record<string, unknown>) => ({
+    id, type: 'factor', data: { label: 'Specialists', observedState },
+  })
+  const option = { id: 'option', type: 'option', data: {
+    label: 'Pilot', interventions: { [id]: 1, unrelated: 0 },
+  } }
+
+  it.each([
+    ['yes/no', undefined], ['boolean', undefined], [undefined, 'boolean'], [undefined, 'binary'],
+  ])('uses state words for unit=%s, type=%s, without a served switch signal', (unit, factor_type) => {
+    for (const [value, expected] of [[1, 'In use'], [0, 'Not in use']] as const) {
+      const observed = { value, unit, factor_type }
+      const nodes = [factor(observed), option]
+      const rows = getFactorOptionRows(id, nodes, [{ id: 'option', interventions: { [id]: value, unrelated: 1 - value } }], observed)
+      expect(rows.map(r => [r.id, r.displayValue])).toEqual([['option', expected]])
+    }
+  })
+
+  it('keeps a genuine 0–1 scale at 0.9 in its current band', () => {
+    const observed = { value: 0.9, unit: 'scale', factor_type: 'other' }
+    expect(getFactorOptionRows(id, [factor(observed), option], [{ id: 'option', interventions: { [id]: 0.9 } }], observed)[0].displayValue).toBe('Very high')
+  })
+
+  it('keeps a count at 1 in its existing count display despite a boolean neighbour', () => {
+    const observed = { value: 1, unit: 'specialist' }
+    const neighbour = { id: 'unrelated', type: 'factor', data: { label: 'Specialists', observedState: { value: 0, unit: 'yes/no' } } }
+    expect(getFactorOptionRows(id, [neighbour, factor(observed), option], undefined, observed)[0].displayValue).toBe('1 specialist')
+  })
+
+  it('reads top-level typed metadata through the same state reader', () => {
+    for (const typed of [{ unit: 'yes/no' }, { factor_type: 'boolean' }, { factorType: 'binary' }]) {
+      expect(factorOptionSetting(1, { value: 1 }, { ...typed, observedState: { value: 1 } })).toBe('In use')
+      expect(factorOptionSetting(0, undefined, typed)).toBe('Not in use')
+    }
+  })
+
+  it('does not interpret a yes/no label or another factor’s boolean metadata as a declaration', () => {
+    const observed = { value: 1, unit: 'specialist' }
+    const namedLikeAState = { ...factor(observed), data: { ...factor(observed).data, label: 'yes/no boolean' } }
+    expect(getFactorOptionRows(id, [namedLikeAState, option], undefined, observed)[0].displayValue).toBe('1 specialist')
+  })
+
+  it('preserves the encoding map and leaves a non-endpoint numeric value unchanged', () => {
+    const data = { observedState: { value: 1, unit: 'yes/no' }, encoding_map: { 0: 'Absent', 1: 'Present' } }
+    expect(factorOptionSetting(1, data.observedState, data)).toBe('Present')
+    expect(factorOptionSetting(0.9, { value: 0.9, factor_type: 'binary' }, { observedState: { value: 0.9, factor_type: 'binary' } })).toBe('Very high')
+  })
+})

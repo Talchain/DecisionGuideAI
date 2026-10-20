@@ -47,12 +47,18 @@ export function switchFactorData<T extends Record<string, unknown>>(factorId: st
 
 export function servedSwitchReading(data: unknown, value?: unknown): string | null {
   const d = data as DisplayData | null | undefined
-  if (!d?.[SWITCH_CONTEXT]) return null
-  const observed = (d.observedState ?? d.observed_state) as { value?: unknown } | undefined
+  if (!d) return null
+  const observed = (d.observedState ?? d.observed_state) as { value?: unknown; unit?: unknown; factor_type?: unknown } | undefined
+  // Explicit state units/types use the same wording as served switches; numeric endpoints alone never declare a switch.
+  const unit = observed?.unit ?? d.unit
+  const factorType = observed?.factor_type ?? d.factor_type ?? d.factorType
+  const declaredState = [unit, factorType].some(field =>
+    typeof field === 'string' && ['yes/no', 'boolean', 'binary'].includes(field.trim().toLowerCase()))
+  if (!d[SWITCH_CONTEXT] && !declaredState) return null
   // Buddy r1 P1: CEE's rule makes a switch only of a factor at 0 or 1 itself. A served id whose own value
   // has moved off 0/1 (e.g. edited to 0.1) is no longer a switch, for its card AND its option rows.
   const own = observed?.value
-  if (own !== 0 && own !== 1) return null
+  if (own !== 0 && own !== 1 && !(declaredState && own == null)) return null
   const v = value === undefined ? own : value
   return v === 0 || v === 1 ? switchReading(d, v) : null
 }

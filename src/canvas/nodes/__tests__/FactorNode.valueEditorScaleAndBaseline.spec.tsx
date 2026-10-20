@@ -239,3 +239,18 @@ describe('F9 — a baseline every option replaces says so while it is edited', (
     expect(container.querySelector(`[data-testid="node-value-editor-${NODE_ID}-note"]`)).toBeNull()
   })
 })
+
+// L25B: state wording is driven by the factor's typed fields, never its name.
+describe('L25B — typed boolean values on the real factor card', () => {
+  it.each([
+    ['yes/no', undefined], ['boolean', undefined], [undefined, 'boolean'], [undefined, 'binary'],
+  ])('reads both endpoints for unit=%s, type=%s', (unit, factor_type) => {
+    for (const [value, expected] of [[1, 'In use'], [0, 'Not in use']] as const) {
+      const { container, unmount } = renderFactor({ value, unit, factor_type, source: 'user' })
+      expect(restingButton(container).textContent).toBe(expected)
+      expect(container.querySelector(`[data-testid="factor-value-tier-${NODE_ID}"]`)).toBeNull()
+      unmount()
+    }
+  })
+
+})
