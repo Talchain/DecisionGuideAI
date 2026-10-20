@@ -35,7 +35,10 @@ function codeLines(file: string): Array<[number, string]> {
     .filter(([, l]) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l))
 }
 
-const FILES = sourceFiles(ROOT)
+// Paul, 20 Oct 2026: the run comparison renders INSIDE Reasoning ("Since your last run" mounts the compare-tab body), so its
+// files are held to the same two rules; an off-scale chart label there is what prompted this.
+const COMPARE_DIR = join(ROOT, '../../../canvas/compare-tab')
+const FILES = [...sourceFiles(ROOT), ...sourceFiles(COMPARE_DIR)]
 const MODAL_FILES = [
   ...sourceFiles(join(ROOT, '../modals')),
   join(ROOT, '../coaching/AskOlumiDrawer.tsx'),
@@ -48,6 +51,7 @@ describe('the Reasoning tab: three font sizes, one spacing grid', () => {
   it('PRECONDITION: the census sees the tab (dozens of files, and the tokens it relies on)', () => {
     expect(FILES.length).toBeGreaterThan(30)
     expect(FILES.some((f) => f.endsWith('AnalysisNewTabBody.tsx'))).toBe(true)
+    expect(FILES.some((f) => f.endsWith('PairChanceSlope.tsx'))).toBe(true)
   })
 
   it('the panel tokens the tab uses resolve to exactly three sizes: 14, 12 and 11px', () => {
