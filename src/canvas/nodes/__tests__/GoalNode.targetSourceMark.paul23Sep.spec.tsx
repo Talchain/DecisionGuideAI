@@ -13,15 +13,17 @@
  * CLAIM SCOPE: jsdom proves DOM text/attributes only, never layout or contrast.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import marketEntry from '../../starters/data/market-entry.draft.json'
 import { GoalNode, GOAL_TARGET_ROUTE_IS_LIVE, GOAL_TARGET_ROUTE_TESTID, goalTargetRouteChannels } from '../GoalNode'
+import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+
 vi.mock('../shared/openModelValueEditor', () => ({ openModelValueEditor: vi.fn() }))
 
 const makeStoreState = () => ({
@@ -109,4 +111,84 @@ describe('the goal target line names its source (Paul 23 Sep point 1)', () => {
     const { container } = renderGoal('goal-none', { label: 'Grow ARR' })
     expect(container.querySelector('[data-testid="goal-target-source-goal-none"]')).toBeNull()
   })
+})
+
+describe('a saved goal target retains its declared source on the canvas (L25)', () => {
+  const fetch = vi.fn(() => { throw new Error('No provider calls permitted') })
+  beforeEach(() => { vi.stubGlobal('fetch', fetch) })
+  afterEach(() => { expect(fetch).not.toHaveBeenCalled(); vi.unstubAllGlobals() })
+
+  const briefs = [
+    { id: 'weekly_support_capacity', label: 'Weekly support capacity', goal_threshold_raw: 100,
+      goal_threshold_unit: 'tickets per week', source_quote: 'Goal: weekly support capacity of at least 100 tickets per week.' },
+    { id: 'monthly_orders', label: 'Monthly orders', goal_threshold_raw: 250,
+      goal_threshold_unit: 'orders per month', source_quote: 'Our target is 250 orders per month.' },
+  ]
+
+  function expectSource(wire: Record<string, unknown>, kind: string, label: string) {
+    const node = mapDraftNodeToCanvas({ kind: 'goal', goal_threshold_frame: 'level', ...wire })
+    const { container } = renderGoal(node.id, node.data)
+    expect(within(container).getByText(wire.label as string, { exact: true })).toBeDefined()
+    const mark = container.querySelector(`[data-testid="goal-target-source-${node.id}"]`)
+    expect(mark?.getAttribute('data-value-source')).toBe(kind)
+    expect(mark?.querySelector('.sr-only')?.textContent).toBe(label)
+    expect(mark?.getAttribute('aria-label')).toBe(`Target: ${label}`)
+  }
+
+  it.each(briefs)('$id: the target-specific brief stamp shows From your brief', (goal) => {
+    expectSource({ ...goal, provenance: 'from_brief', threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+  })
+
+  it.each(briefs)('$id: cee_inference shows Olumi’s estimate despite node-level brief credit', (goal) => {
+    expectSource({ ...goal, provenance: 'from_brief', threshold_source: 'cee_inference',
+      observed_state: { raw_value: 80, source: 'brief_extraction' } }, 'olumi', 'Olumi’s estimate')
+  })
+
+  it.each(['inferred', 'proxy'])('a target-specific brief stamp wins over stale %s node provenance', (provenance) => {
+    expectSource({ ...briefs[0], provenance, threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+  })
+
+  it.each(['inferred', 'proxy'])('%s stays Olumi’s estimate even with a quotation', (provenance) => {
+    expectSource({ ...briefs[0], provenance }, 'olumi', 'Olumi’s estimate')
+  })
+
+  it.each([
+    { provenance: undefined, source_quote: undefined },
+    { provenance: 'from_brief', source_quote: undefined },
+    { provenance: 'from_brief', source_quote: '   ' },
+    { provenance: undefined },
+    { provenance: 'unverified_brief' },
+    { provenance: 'from_brief', source_quote: undefined,
+      observed_state: { raw_value: 80, source: 'brief_extraction' } },
+  ])('missing/unverified target source stays unknown: %j', (fields) => {
+    expectSource({ ...briefs[0], ...fields }, 'unknown', 'Source not recorded')
+  })
+
+  it('a neighbouring goal with the same label and value cannot lend its authorship', () => {
+    expectSource({ ...briefs[0], provenance: 'from_brief', threshold_source: 'brief_extraction' }, 'brief', 'From your brief')
+    expectSource({ ...briefs[0], id: 'unrecorded_goal', source_quote: undefined }, 'unknown', 'Source not recorded')
+  })
+
+  it('REVIEW: a quote stating only today cannot credit an unrecorded target', () => {
+    expectSource({ ...briefs[0], provenance: 'from_brief',
+      source_quote: 'We currently handle 80 tickets per week.',
+      observed_state: { raw_value: 80, source: 'brief_extraction' } },
+      'unknown', 'Source not recorded')
+  })
+
+  it('REVIEW: changing 100→150 cannot reuse the previous target quotation', () => {
+    // The existing inspector setter changes raw/unit without attesting authorship.
+    const saved = { ...briefs[0], provenance: 'from_brief' }
+    expectSource({ ...saved, goal_threshold_raw: 150 }, 'unknown', 'Source not recorded')
+  })
+
+  it('a user-stamped edit to 150 takes the editor attribution over the old brief quote', () => {
+    expectSource({ ...briefs[0], provenance: 'from_brief',
+      threshold_source: 'user', success_threshold: 150 }, 'you', 'Set by you')
+  })
+
+  it.each(briefs)('$id: a node quote without the target stamp stays unknown', (goal) => {
+    expectSource({ ...goal, provenance: 'from_brief' }, 'unknown', 'Source not recorded')
+  })
+
 })
