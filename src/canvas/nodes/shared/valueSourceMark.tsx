@@ -271,35 +271,24 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
 })
 
 /**
- * The mark for a GOAL's target line (Paul 23 Sep contract feedback point 1 —
- * the v3.1 contract: "Factor, option-target, outcome and goal values carry
- * marks").
- *
- * Follows `statedGoalTargetRaw` exactly: the card prints `success_threshold`
- * only when `threshold_source === 'user'` attests it, and that is the ONE case
- * marked `you`. Every other printed target is CEE's `goal_threshold_raw`:
- * marked `brief` ("From your brief") ONLY on CEE's own stamp,
- * `threshold_source: 'brief_extraction'` (written when the brief writes that
- * figure in the goal's unit — classified in `resolveGoalTarget`, served on
- * `823bc028`, 29 Sep); otherwise `unknown` — "no source" / "Source not
- * recorded". The market-entry starter's `goal_threshold_raw: 11` "£M ARR" its
- * brief never states carries no stamp and stays `unknown`. The node's
- * `provenance` is about the NODE, not the number (`valueProvenance.ts`, trap
- * 21), and is never read for this (Codex #63 5801529767).
+ * The goal target's source mark. Prefer the target's own user/brief stamp; the
+ * saved draft may instead carry `from_brief` with its target's verbatim quote.
+ * A node's provenance alone or its CURRENT level's source never credits the
+ * target. Declared inferred/proxy targets stay Olumi's even beside a quote.
  */
-export function goalTargetSourceMark(data: GoalTargetSource | null | undefined): FactorValueSourceMark {
-  // ⭐ ONE AUTHORITY (DESIGN-GAP-v31 #22): the source is `resolveGoalTarget`'s,
-  // the resolver the Reasoning strip and the goal inspector read, so the card
-  // and those surfaces cannot give two answers for one node. `isStatedTargetValue`
-  // keeps this mark on exactly the figure the card prints (`statedGoalTargetRaw`
-  // refuses a NaN/Infinity user threshold and prints the raw instead).
+export function goalTargetSourceMark(
+  data: (GoalTargetSource & { provenance?: unknown; source_quote?: unknown }) | null | undefined,
+): FactorValueSourceMark {
   const target = resolveGoalTarget(data)
-  if (target?.source === 'user' && isStatedTargetValue(target.raw)) {
-    return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
-  }
-  // CEE's stamp that the brief writes this figure (`threshold_source: 'brief_extraction'`, see `resolveGoalTarget`).
-  if (target?.source === 'brief' && isStatedTargetValue(target.raw)) {
-    return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+  if (target && isStatedTargetValue(target.raw)) {
+    if (target.source === 'user') return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
+    if (target.source === 'brief' || (data?.provenance === 'from_brief'
+      && typeof data.source_quote === 'string' && data.source_quote.trim() !== '')) {
+      return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+    }
+    if (data?.provenance === 'inferred' || data?.provenance === 'proxy') {
+      return { kind: 'olumi', label: 'Olumi’s estimate' }
+    }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }
