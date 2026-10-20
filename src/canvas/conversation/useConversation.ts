@@ -4654,7 +4654,11 @@ export function useConversation(): UseConversationReturn {
           ...(sourceBlockKey ? { sourceBlockKey } : {}),
         })
       } else if (skipUserBubble && mode === 'user' && !hidden) {
-        userBubbleIdForTurn = lastVisibleUserBubbleIdRef.current
+        // A still-finishing re-send belongs to the bubble that carries its turn_id, never to whichever bubble is last
+        // (another message may have gone out during the wait — Codex on #2861).
+        userBubbleIdForTurn = stillFinishingReplay !== undefined
+          ? messagesRef.current.find((m) => m.role === 'user' && m.deliveryTurnId === turnClientId)?.id ?? null
+          : lastVisibleUserBubbleIdRef.current
         if (userBubbleIdForTurn) {
           updateMessage(userBubbleIdForTurn, { deliveryState: 'pending' })
         }
@@ -5669,6 +5673,18 @@ export function useConversation(): UseConversationReturn {
         // re-send (same turn_id) either renders the answer or, when that too is unresolved, falls to a cold read.
         const stillFinishing = coreTurn && stillFinishingReplay === undefined && isCoreStreamBudgetTimeout(httpStatus, errorBody)
         const replayUnresolved = stillFinishingReplay !== undefined && target.kind === 'typed_error'
+        // A core answer that arrived live settles EVERY bubble and notice keyed by its turn_id (a retyped delivery-unknown
+        // message reuses the id in a new bubble), so no later cold read can add the same reply again (Codex on #2861).
+        if (coreTurn && target.kind !== 'typed_error') {
+          setMessages((prev) => {
+            if (!prev.some((m) => m.deliveryTurnId === turnClientId)) return prev
+            const next = prev
+              .filter((m) => !(m.synthetic && m.deliveryTurnId === turnClientId))
+              .map((m) => (m.role === 'user' && m.deliveryTurnId === turnClientId ? { ...m, deliveryTurnId: undefined, deliveryScenarioId: undefined } : m))
+            messagesRef.current = next
+            return next
+          })
+        }
         if (stillFinishingReplay !== undefined && !replayUnresolved) {
           // The answer arrived, so the draft the timeout left unsettled is settled: reopen Run and autosave (Codex on #2860).
           // Only the phase THIS turn owns, on its own scenario: a newer draft's unsettled state is not this answer's to clear.
@@ -5677,8 +5693,7 @@ export function useConversation(): UseConversationReturn {
             draftNow.setDraftStreamPhase('idle', null, null)
           }
           setMessages((prev) => {
-            const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId).map((m) =>
-              m.role === 'user' && m.deliveryTurnId === turnClientId ? { ...m, deliveryTurnId: undefined, deliveryScenarioId: undefined } : m)
+            const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId)
             messagesRef.current = next
             return next
           })
@@ -6659,7 +6674,9 @@ export function useConversation(): UseConversationReturn {
               ...(coreTurn ? { retryable } : {}),
               ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
-              ...(deliveryUnverified || unanswered === 'delivery_unknown' ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+              ...(deliveryUnverified || unanswered === 'delivery_unknown'
+                ? coreTurn ? { deliveryTurnId: turnClientId, deliveryScenarioId: scenarioIdAtDispatch } : { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch }
+                : {}),
               timestamp: new Date(),
             })
           }
