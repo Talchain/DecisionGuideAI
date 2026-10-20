@@ -507,10 +507,9 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     // Analysis for the same question (Analysis ranks options; Compare says what changed between two Runs).
     // Reasoning keeps a one-line receipt that opens it. The old browser-derived body (`CompareTabBody`,
     // `deriveRunPairComparison`, `leaderClaim`, `deriveTransitions`) is off the path; its retirement is separate.
-    // ⭐ RULING (Paul, 20 Oct 2026): the comparison moves into Reasoning ("Since your last run"), where the user reads
-    // the result. A second tab repeating Reasoning's figures for two runs was not distinct enough to be its own tab.
-    presentedAsTab: false,
-    hiddenReason: 'Run comparison lives in Reasoning as "Since your last run" (Paul, 20 Oct 2026)',
+    // 20 Oct 2026: moved into Reasoning for a day, then back (Paul: "This panel is huge … overloading the Reasoning tab").
+    presentedAsTab: true,
+    hiddenReason: '',
   },
   diagnostics: {
     id: 'diagnostics',
@@ -670,8 +669,7 @@ export const UNFLAGGED_FALLBACK_SURFACE: OutputTab = 'analysisNew'
  * came back as previous Run vs this Run (SC-24 v3, ChatGPT #75 5917800777;
  * lease DL #75 5917856638). Re-record it here in the same change, deliberately.
  */
-// 4 since the comparison moved into Reasoning and Compare left the strip (Paul, 20 Oct 2026).
-export const MAX_PRESENTED_SURFACES = 4
+export const MAX_PRESENTED_SURFACES = 5
 
 /**
  * The surfaces offered as tabs, in strip order.

@@ -326,15 +326,6 @@ export interface AssistantUiSurfaceActions {
   requestOverlaySurface: (surface: OverlaySurfaceId) => boolean
 }
 
-/**
- * Paul, 20 Oct 2026: the run comparison lives in Reasoning ("Since your last run"), and the Compare tab is no longer
- * presented. Every way of opening the comparison (canvas strip, Model pointer, inspector link, a CEE ui_directive)
- * still names 'compare'; this ONE rule sends each of them to Reasoning, so none of them opens a hidden surface.
- */
-export function presentedOutputTab(tab: OutputTab): OutputTab {
-  return tab === 'compare' ? 'analysisNew' : tab
-}
-
 export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   activeOutputTab: 'results',
   activeOutputTabVersion: 0,
@@ -352,10 +343,10 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   // is the seam OutputsDock's `handleTabClick` runs. Clearing here is the
   // anti-latch guarantee (spec CLEAR-1).
   setActiveOutputTab: (tab) =>
-    set({ activeOutputTab: presentedOutputTab(tab), outputSurfaceOrigin: null, outputSurfaceOriginAt: null }),
+    set({ activeOutputTab: tab, outputSurfaceOrigin: null, outputSurfaceOriginAt: null }),
   forceActivateOutputTab: (tab, origin = 'user') =>
     set((s) => ({
-      activeOutputTab: presentedOutputTab(tab),
+      activeOutputTab: tab,
       activeOutputTabVersion: s.activeOutputTabVersion + 1,
       outputSurfaceOrigin: origin === 'assistant' ? 'assistant' : null,
       outputSurfaceOriginAt: origin === 'assistant' ? Date.now() : null,

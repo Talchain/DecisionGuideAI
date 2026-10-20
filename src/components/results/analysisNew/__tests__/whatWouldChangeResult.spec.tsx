@@ -98,12 +98,13 @@ describe('What would change the result in Analysis', () => {
   it('takes the tipping factor to its existing edit door and names rerun then Compare', () => {
     mount()
     const next = screen.getByTestId('analysis-new-signals-tipping-next-step')
-    expect(next).toHaveTextContent('After editing, rerun the analysis. “Since your last run” then shows what changed.')
+    expect(next).toHaveTextContent('After editing, rerun the analysis, then open Compare to see what changed.')
     fireEvent.click(screen.getByRole('button', { name: 'Edit Price elasticity' }))
     expect(focusModelTarget).toHaveBeenCalledWith('f_elasticity')
     expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
     expect(useUIStore.getState().pendingModelTabSection).toBe('factors')
-    expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+    expect(useUIStore.getState().activeOutputTab).toBe('compare')
     expect(sendChip).not.toHaveBeenCalled()
   })
 

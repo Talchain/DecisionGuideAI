@@ -30,26 +30,20 @@ const read = (rel: string): string => {
   return text
 }
 
-describe('⭐ the Reasoning tab mounts "Since your last run" (Paul, 20 Oct 2026: the comparison lives in Reasoning)', () => {
+describe('⭐ the Reasoning tab mounts the RECEIPT (SC-24 v3, 30 Sep 2026 — the full section moved to Compare)', () => {
   const src = (): string => read('../AnalysisNewTabBody.tsx')
-  const block = (): string => read('../sections/SinceLastRun.tsx')
 
-  it('imports the block', () => {
-    expect(src()).toMatch(/import\s*\{\s*SinceLastRun\s*\}\s*from\s*'\.\/sections\/SinceLastRun'/)
+  it('imports the receipt', () => {
+    expect(src()).toMatch(/import\s*\{\s*WhatsChangedReceipt\s*\}\s*from\s*'\.\/sections\/WhatsChangedReceipt'/)
   })
 
-  it('⛔ and RENDERS it, fed from the SAME view model and the displayed analysis hash', () => {
-    expect(src()).toMatch(/<SinceLastRun\s+view=\{vm\.whatsChanged\}\s+responseHash=\{responseHash\}\s*\/>/)
-    expect(src().match(/<SinceLastRun\b/g)).toHaveLength(1)
+  it('⛔ and RENDERS it, fed from the SAME view model the Compare tab reads', () => {
+    expect(src()).toMatch(/<WhatsChangedReceipt\s+view=\{vm\.whatsChanged\}/)
   })
 
-  it('⛔ the block mounts the ONE comparison body, embedded', () => {
-    expect(block()).toMatch(/<CompareRunPairBody responseHash=\{responseHash\} embedded \/>/)
-  })
-
-  it('contrast — the retired receipt is gone, and the probe can tell present from absent', () => {
-    expect(src()).not.toMatch(/WhatsChangedReceipt/)
-    expect(src()).not.toMatch(/<SinceLastRunThatDoesNotExist/)
+  it('contrast — the full section is no longer mounted here, and the probe can tell present from absent', () => {
+    expect(src()).not.toMatch(/<WhatsChanged\s+view=/)
+    expect(src()).not.toMatch(/<WhatsChangedThatDoesNotExist/)
   })
 })
 
