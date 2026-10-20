@@ -13,26 +13,14 @@ import type { PairChanceFigures, PairChanceSide } from '../runView/runView'
 
 export const PAIR_CHANCE_SLOPE_TESTID = 'compare-pair-chance-slope'
 
-const W = 360
-const LEFT = 84
-const RIGHT = 176
-const TOP = 28
-const TRACK = 136
-const LABEL_GAP = 15
+const W = 280
+const LEFT = 92
+const RIGHT = 188
+const TOP = 26
+const TRACK = 120
 const R = FIGURE_MARKER_W / 2
 const y = (scale: number): number => TOP + TRACK - (Math.min(100, Math.max(0, scale)) / 100) * TRACK
 const mid = (side: PairChanceSide): number => (side.kind === 'point' ? side.scaleAt : (side.scaleLow + side.scaleHigh) / 2)
-const shorten = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
-
-/** Label rows top to bottom, each at least LABEL_GAP below the last; markers stay where their figures put them. */
-function labelYs(sides: readonly (PairChanceSide | null)[]): (number | null)[] {
-  const order = sides.map((s, i) => ({ i, at: s === null ? null : y(mid(s)) }))
-    .filter((o): o is { i: number; at: number } => o.at !== null).sort((a, b) => a.at - b.at)
-  const out: (number | null)[] = sides.map(() => null)
-  let last = -Infinity
-  for (const o of order) { last = Math.max(o.at, last + LABEL_GAP); out[o.i] = last }
-  return out
-}
 
 function Marker({ x, side, filled, strong }: { x: number; side: PairChanceSide; filled: boolean; strong: boolean }): JSX.Element {
   const width = strong ? 2 : 1.5
@@ -47,47 +35,48 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
   const { rows, claim } = figures
   const strongId = claim !== null && 'optionId' in claim ? claim.optionId : null
   if (rows.length === 0) return null
-  const height = TOP + TRACK + 14
-  const leftYs = labelYs(rows.map(r => r.earlier))
-  const rightYs = labelYs(rows.map(r => r.now))
+  const height = TOP + TRACK + 10
   const name = (label: string | null): string => label ?? 'An option'
+  // Short point figures sit beside their markers; names and every full wording (ranges included) are in the list below,
+  // which wraps at any panel width (a 360px panel clipped in-chart labels on 20 Oct).
+  // A figure label is drawn only where it clears every label already drawn in its column (the list says them all).
+  const placed: Record<'l' | 'r', number[]> = { l: [], r: [] }
+  const short = (side: PairChanceSide | null, col: 'l' | 'r'): string | null => {
+    if (side?.kind !== 'point') return null
+    const at = y(side.scaleAt)
+    if (placed[col].some(p => Math.abs(p - at) < 12)) return null
+    placed[col].push(at)
+    return side.words
+  }
   return (
     <figure className="m-0 mt-3" data-testid={PAIR_CHANCE_SLOPE_TESTID}>
-      <svg viewBox={`0 0 ${W} ${height}`} width="100%" aria-hidden="true" className={`${typography.panelTabular} block`}>
-        <text x={LEFT} y={14} textAnchor="middle" className="fill-current text-text-light">Earlier run</text>
-        <text x={RIGHT} y={14} textAnchor="middle" className="fill-current text-text-light">This run</text>
+      <svg viewBox={`0 0 ${W} ${height}`} width="100%" aria-hidden="true" className={`${typography.panelMeta} block max-w-[320px]`}>
+        <text x={LEFT} y={12} textAnchor="middle" className="fill-current text-text-light">Earlier run</text>
+        <text x={RIGHT} y={12} textAnchor="middle" className="fill-current text-text-light">This run</text>
         <line x1={LEFT} x2={LEFT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
         <line x1={RIGHT} x2={RIGHT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
-        {rows.map((row, i) => {
+        {rows.map((row) => {
           const strong = row.optionId === strongId
-          const tone = strong ? 'text-text-header' : 'text-text-light'
           const joined = row.earlier?.kind === 'point' && row.now?.kind === 'point'
           return (
-            <g key={row.optionId} className={tone} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
+            <g key={row.optionId} className={strong ? 'text-text-header' : 'text-text-light'} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
               {joined ? <line x1={LEFT} y1={y(mid(row.earlier!))} x2={RIGHT} y2={y(mid(row.now!))} stroke="currentColor" strokeWidth={strong ? 2.5 : 1.5} /> : null}
               {row.earlier ? <Marker x={LEFT} side={row.earlier} filled={false} strong={strong} /> : null}
               {row.now ? <Marker x={RIGHT} side={row.now} filled strong={strong} /> : null}
-              {row.earlier && leftYs[i] !== null
-                ? <text x={LEFT - 10} y={leftYs[i]! + 4} textAnchor="end" className="fill-current">{row.earlier.words}</text> : null}
-              {row.now && rightYs[i] !== null
-                ? <text x={RIGHT + 10} y={rightYs[i]! + 4} className={`fill-current ${strong ? 'font-medium' : ''}`}>
-                    {`${row.now.words} ${shorten(name(row.label), 22)}`}
-                  </text> : null}
-              {!row.now && row.earlier && leftYs[i] !== null
-                ? <text x={RIGHT + 10} y={leftYs[i]! + 4} className="fill-current">{`${shorten(name(row.label), 22)}: not shown this run`}</text> : null}
+              {(() => { const t = short(row.earlier, 'l'); return t ? <text x={LEFT - 10} y={y(mid(row.earlier!)) + 4} textAnchor="end" className="fill-current">{t}</text> : null })()}
+              {(() => { const t = short(row.now, 'r'); return t ? <text x={RIGHT + 10} y={y(mid(row.now!)) + 4} className="fill-current">{t}</text> : null })()}
             </g>
           )
         })}
       </svg>
-      <figcaption className="sr-only">
-        <ul>
-          {rows.map(row => (
-            <li key={row.optionId}>
-              {`${name(row.label)}: earlier run ${row.earlier?.words ?? 'not shown'}, this run ${row.now?.words ?? 'not shown'}.`}
-            </li>
-          ))}
-        </ul>
-      </figcaption>
+      <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 mt-1 space-y-1`}>
+        {rows.map(row => (
+          <li key={row.optionId} data-option-id={row.optionId}>
+            <span className={row.optionId === strongId ? 'font-medium text-text-header' : ''}>{name(row.label)}</span>
+            <span className="text-text-light">{`: earlier run ${row.earlier?.words ?? 'not shown'}, this run ${row.now?.words ?? 'not shown'}`}</span>
+          </li>
+        ))}
+      </ul>
       <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>Chance of meeting your goal, in this model</p>
     </figure>
   )

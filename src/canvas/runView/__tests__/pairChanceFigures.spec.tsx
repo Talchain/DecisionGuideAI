@@ -81,8 +81,8 @@ describe('PairChanceSlope draws only what the gate returned', () => {
     const text = chart.textContent ?? ''
     expect(text).toContain('Earlier run')
     expect(text).toContain('This run')
-    expect(text).toContain('Raise prices: earlier run about 41%, this run about 58%.')
-    expect(text).toContain('Cut waste: earlier run between about 30% and 40%, this run not shown.')
+    expect(text).toContain('Raise prices: earlier run about 41%, this run about 58%')
+    expect(text).toContain('Cut waste: earlier run between about 30% and 40%, this run not shown')
     expect(text).not.toMatch(/\+\d|\b17\b|points?\b|best|winner|recommend/i)
     expect(chart.querySelectorAll('[data-goal-chance-leader="true"]')).toHaveLength(1)
     expect(chart.querySelector('[data-goal-chance-leader="true"]')?.getAttribute('data-option-id')).toBe('a')
