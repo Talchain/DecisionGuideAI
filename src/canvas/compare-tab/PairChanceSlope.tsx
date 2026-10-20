@@ -3,7 +3,8 @@
  *
  * Draws ONLY what `pairChanceFigures` (runView.ts, the chance gate) returns: the words to say and where each marker sits
  * on the 0–100 track. It computes no difference, ranks nothing and names no leader of its own: the darker line is the
- * option CEE names as leading this run under its licence, or none. Hollow marker = earlier run, filled = this run
+ * option CEE's goal-chance licence names as having the highest chance this run (`claim`), or none. Never the comparative
+ * leader (the most runs supported), which is not a chance. Hollow marker = earlier run, filled = this run
  * (FIGURE_MARKER_W). A line joins two point figures only; a range shows as its span.
  */
 import { typography } from '../../styles/typography'
@@ -43,7 +44,8 @@ function Marker({ x, side, filled, strong }: { x: number; side: PairChanceSide; 
 }
 
 export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JSX.Element | null {
-  const { rows, leaderOptionId } = figures
+  const { rows, claim } = figures
+  const strongId = claim !== null && 'optionId' in claim ? claim.optionId : null
   if (rows.length === 0) return null
   const height = TOP + TRACK + 14
   const leftYs = labelYs(rows.map(r => r.earlier))
@@ -57,11 +59,11 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
         <line x1={LEFT} x2={LEFT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
         <line x1={RIGHT} x2={RIGHT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
         {rows.map((row, i) => {
-          const strong = row.optionId === leaderOptionId
+          const strong = row.optionId === strongId
           const tone = strong ? 'text-text-header' : 'text-text-light'
           const joined = row.earlier?.kind === 'point' && row.now?.kind === 'point'
           return (
-            <g key={row.optionId} className={tone} data-option-id={row.optionId} data-cee-leader={strong ? 'true' : undefined}>
+            <g key={row.optionId} className={tone} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
               {joined ? <line x1={LEFT} y1={y(mid(row.earlier!))} x2={RIGHT} y2={y(mid(row.now!))} stroke="currentColor" strokeWidth={strong ? 2.5 : 1.5} /> : null}
               {row.earlier ? <Marker x={LEFT} side={row.earlier} filled={false} strong={strong} /> : null}
               {row.now ? <Marker x={RIGHT} side={row.now} filled strong={strong} /> : null}

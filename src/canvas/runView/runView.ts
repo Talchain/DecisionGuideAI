@@ -107,6 +107,13 @@ export interface RunView {
    */
   readonly leaderOptionId: () => string | null | undefined
   /**
+   * CEE's goal-chance leader for THIS Run (`canonical_analysis_view.leader.goal_chance_leader`): the option with the highest
+   * licensed chance of meeting the goal, only from a matched view known to be current; otherwise null. Never `leaderOptionId`.
+   */
+  readonly goalChanceLeaderOf: () => string | null
+  /** CEE's options with similar licensed goal chances (the licence's `similar` form), from the same current view; else []. */
+  readonly goalChanceSimilarOf: () => readonly string[]
+  /**
    * ⭐ PR 1b: why an option is OUTSIDE this Run's ordinary comparison (CEE's participation fact, read once on the report;
    * e.g. `excluded_olumi_proposed`), or null when it is in it or nothing was recorded.
    */
@@ -148,6 +155,8 @@ const EMPTY: RunView = {
   boundToCurrentCanonical: () => false,
   leaderLicence: () => null,
   leaderOptionId: () => undefined,
+  goalChanceLeaderOf: () => null,
+  goalChanceSimilarOf: () => [],
   participationOf: () => null,
   goalChanceDetail: () => null, chancesNotCurrent: () => false, notCurrentLine: () => null,
 }
@@ -323,6 +332,8 @@ export function runViewFromParts(
     boundToCurrentCanonical: () => current !== null,
     leaderLicence: () => held?.leader_licence ?? null,
     leaderOptionId: () => (held?.leader === undefined ? undefined : held.leader.option_id),
+    goalChanceLeaderOf: () => current?.leader?.goal_chance_leader ?? null,
+    goalChanceSimilarOf: () => current?.leader?.similar_option_ids ?? [],
     withheldReasonCodesOf: (optionId) => {
       const cell = current?.options.find(o => o.option_id === optionId)?.cell
       return cell?.kind === 'withheld' ? cell.reasons.map(reason => reason.code) : []
@@ -412,10 +423,19 @@ export interface PairChanceRow {
   readonly now: PairChanceSide | null
 }
 
+/**
+ * What CEE's goal-chance licence says about THIS run's options, as CEE says it (`leader.goal_chance_leader`,
+ * `similar_option_ids` and the licence's `form`), from a matched view known to be current. The UI ranks nothing.
+ */
+export type GoalChanceClaim =
+  | { readonly kind: 'highest' | 'highest_all_likely_to_miss'; readonly optionId: string }
+  | { readonly kind: 'similar'; readonly optionIds: readonly string[] }
+  | { readonly kind: 'all_likely_to_miss' }
+
 export interface PairChanceFigures {
   readonly rows: readonly PairChanceRow[]
-  /** The option CEE names as leading THIS run, only under its positive `leader_licence`; otherwise null. */
-  readonly leaderOptionId: string | null
+  /** CEE's goal-chance claim for this run, or null when it makes none (never the comparative leader). */
+  readonly claim: GoalChanceClaim | null
 }
 
 function earlierSide(side: RunDeltaGoalChanceRow['prior']): PairChanceSide | null {
@@ -443,7 +463,16 @@ export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, curre
     const now: PairChanceSide | null = figure === null ? null : { kind: 'point', words: figure.words, scaleAt: figure.pct }
     return { optionId: row.optionId, label: row.label, earlier: earlierSide(row.prior), now }
   }).filter((row) => row.earlier !== null || row.now !== null)
-  const leader = current.leaderOptionId()
-  const leaderOptionId = ceeLicencePermitsLeader(current.leaderLicence()) === true && typeof leader === 'string' ? leader : null
-  return { rows, leaderOptionId }
+  return { rows, claim: goalChanceClaimOf(current) }
+}
+
+function goalChanceClaimOf(current: RunView): GoalChanceClaim | null {
+  if (!current.boundToCurrentCanonical() || current.chancesNotCurrent()) return null
+  const form = current.goalChance?.form
+  const leader = current.goalChanceLeaderOf()
+  if (leader !== null && (form === 'highest' || form === 'highest_all_likely_to_miss')) return { kind: form, optionId: leader }
+  const similar = current.goalChanceSimilarOf()
+  if (form === 'similar' && similar.length >= 2) return { kind: 'similar', optionIds: similar }
+  if (form === 'all_likely_to_miss') return { kind: 'all_likely_to_miss' }
+  return null
 }

@@ -43,6 +43,14 @@ export interface CanonicalAnalysisView {
 export interface CanonicalRunLeader {
   readonly licence: CanonicalAnalysisView['leader_licence']
   readonly option_id: string | null
+  /**
+   * CEE `RunLeader.goal_chance_leader`: the option with the highest licensed goal chance, only where the goal-chance
+   * licence's form names one (CEE nulls it for a Run that is not current). Distinct from `option_id`, the COMPARATIVE
+   * leader (the most runs supported), which is never a goal chance. Absent from an older CEE or when malformed.
+   */
+  readonly goal_chance_leader?: string | null
+  /** CEE `RunLeader.similar_option_ids`: options whose licensed goal chances are similar (the licence's `similar` form). */
+  readonly similar_option_ids?: readonly string[]
 }
 /**
  * Recovery Batch C, CEE `canonical-analysis-view.ts` `CanonicalGoalChanceDetail`, copied from the Run's stored licence. The
@@ -85,7 +93,14 @@ export function parseCanonicalGoalChance(v: unknown): CanonicalGoalChanceDetail 
 function parseCanonicalRunLeader(v: unknown): CanonicalRunLeader | undefined {
   if (!rec(v) || !['permitted', 'permitted_with_caveat', 'withheld'].includes(v.licence as string)) return undefined
   if (!(v.option_id === null || (typeof v.option_id === 'string' && v.option_id.trim() !== ''))) return undefined
-  return { licence: v.licence as CanonicalRunLeader['licence'], option_id: v.option_id }
+  const goal = v.goal_chance_leader
+  const similar = v.similar_option_ids
+  return {
+    licence: v.licence as CanonicalRunLeader['licence'], option_id: v.option_id,
+    // Optional facts: a malformed one is dropped on its own; the comparative leader still stands.
+    ...(goal === null || (typeof goal === 'string' && goal.trim() !== '') ? { goal_chance_leader: goal } : {}),
+    ...(Array.isArray(similar) && similar.every(id => typeof id === 'string' && id.trim() !== '') ? { similar_option_ids: similar as string[] } : {}),
+  }
 }
 /** The only parser of the opaque field carried by the READ adapter. */
 export function parseCanonicalAnalysisView(v: unknown): CanonicalAnalysisView | null {

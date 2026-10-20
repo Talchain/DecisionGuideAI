@@ -7,6 +7,7 @@ import { render, screen } from '@testing-library/react'
 import { pairChanceFigures, runViewOf, type RunView } from '../runView'
 import { PairChanceSlope, PAIR_CHANCE_SLOPE_TESTID } from '../../compare-tab/PairChanceSlope'
 import type { RunDeltaGoalChanceRow } from '../../../components/results/analysisNew/runDeltaView'
+import { goalChanceHeadline } from '../../compare-tab/goalChanceHeadline'
 
 const point = (n: number) => ({ kind: 'point' as const, pct: n, rounding: 'whole' as const })
 const rows: RunDeltaGoalChanceRow[] = [
@@ -16,14 +17,20 @@ const rows: RunDeltaGoalChanceRow[] = [
   { optionId: 'd', label: 'Neither side', prior: { kind: 'withheld' } as never, current: { kind: 'withheld' } as never },
 ]
 
-/** This run's canonical figures, keyed by option: the ONLY source the gate may use for "this run". */
-function viewWith(now: Record<string, { pct: number; words: string }>, leader?: { licence: string; id: string | null }): RunView {
+type Goal = { form?: string; leader?: string | null; similar?: string[]; current?: boolean }
+/** This run's canonical figures, keyed by option (the ONLY source for "this run"), and CEE's goal-chance facts. */
+function viewWith(now: Record<string, { pct: number; words: string }>, goal: Goal = {}, comparative?: { licence: string; id: string | null }): RunView {
   const base = runViewOf(null)
   return {
     ...base,
     chanceFigureOf: (id: string) => now[id] ?? null,
-    leaderLicence: () => (leader ? leader.licence : null) as never,
-    leaderOptionId: () => (leader ? leader.id : undefined),
+    leaderLicence: () => (comparative ? comparative.licence : null) as never,
+    leaderOptionId: () => (comparative ? comparative.id : undefined),
+    goalChance: (goal.form ? { form: goal.form } : null) as never,
+    goalChanceLeaderOf: () => goal.leader ?? null,
+    goalChanceSimilarOf: () => goal.similar ?? [],
+    boundToCurrentCanonical: () => goal.current ?? true,
+    chancesNotCurrent: () => false,
   }
 }
 
@@ -47,12 +54,18 @@ describe('pairChanceFigures — the chance gate for a run pair', () => {
     expect(byId.d).toBeUndefined()
   })
 
-  it('names a leader ONLY under a positive CEE licence with an id', () => {
+  it("the claim is CEE's GOAL-CHANCE leader, never the comparative leader (the most runs supported)", () => {
     const now = { a: { pct: 58, words: 'about 58%' } }
-    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { licence: 'permitted', id: 'a' })).leaderOptionId).toBe('a')
-    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { licence: 'withheld', id: 'a' })).leaderOptionId).toBeNull()
-    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { licence: 'permitted', id: null })).leaderOptionId).toBeNull()
-    expect(pairChanceFigures({ goalChances: rows }, viewWith(now)).leaderOptionId).toBeNull()
+    // Discriminator: CEE's comparative leader is b (permitted); its goal-chance leader is a.
+    const both = pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'highest', leader: 'a' }, { licence: 'permitted', id: 'b' }))
+    expect(both.claim).toEqual({ kind: 'highest', optionId: 'a' })
+    // Comparative leader alone → no goal-chance claim at all.
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, {}, { licence: 'permitted', id: 'b' })).claim).toBeNull()
+    // A goal leader on a form that names none, or on a Run not known to be current → no claim.
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'each', leader: 'a' })).claim).toBeNull()
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'highest', leader: 'a', current: false })).claim).toBeNull()
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'similar', similar: ['a', 'b'] })).claim).toEqual({ kind: 'similar', optionIds: ['a', 'b'] })
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now, { form: 'all_likely_to_miss' })).claim).toEqual({ kind: 'all_likely_to_miss' })
   })
 
   it('no goal chances on the pair (or a framing change) → no rows', () => {
@@ -62,7 +75,7 @@ describe('pairChanceFigures — the chance gate for a run pair', () => {
 
 describe('PairChanceSlope draws only what the gate returned', () => {
   it('says each side in the gate\'s words, marks only the CEE leader, and computes no difference', () => {
-    const figures = pairChanceFigures({ goalChances: rows }, viewWith({ a: { pct: 58, words: 'about 58%' }, c: { pct: 21, words: 'about 21%' } }, { licence: 'permitted', id: 'a' }))
+    const figures = pairChanceFigures({ goalChances: rows }, viewWith({ a: { pct: 58, words: 'about 58%' }, c: { pct: 21, words: 'about 21%' } }, { form: 'highest', leader: 'a' }))
     render(<PairChanceSlope figures={figures} />)
     const chart = screen.getByTestId(PAIR_CHANCE_SLOPE_TESTID)
     const text = chart.textContent ?? ''
@@ -71,12 +84,38 @@ describe('PairChanceSlope draws only what the gate returned', () => {
     expect(text).toContain('Raise prices: earlier run about 41%, this run about 58%.')
     expect(text).toContain('Cut waste: earlier run between about 30% and 40%, this run not shown.')
     expect(text).not.toMatch(/\+\d|\b17\b|points?\b|best|winner|recommend/i)
-    expect(chart.querySelectorAll('[data-cee-leader="true"]')).toHaveLength(1)
-    expect(chart.querySelector('[data-cee-leader="true"]')?.getAttribute('data-option-id')).toBe('a')
+    expect(chart.querySelectorAll('[data-goal-chance-leader="true"]')).toHaveLength(1)
+    expect(chart.querySelector('[data-goal-chance-leader="true"]')?.getAttribute('data-option-id')).toBe('a')
   })
 
   it('renders nothing when the gate returned no rows', () => {
-    const { container } = render(<PairChanceSlope figures={{ rows: [], leaderOptionId: null }} />)
+    const { container } = render(<PairChanceSlope figures={{ rows: [], claim: null }} />)
     expect(container.innerHTML).toBe('')
+  })
+})
+
+describe("goalChanceHeadline says CEE's goal-chance claim, in the gate's words", () => {
+  const label = (id: string) => ({ a: 'Raise prices', b: 'Cut waste', c: 'Open a café' } as Record<string, string>)[id] ?? null
+  const now = { a: { pct: 58, words: 'about 58%' }, c: { pct: 21, words: 'about 21%' } }
+  const say = (goal: Goal) => goalChanceHeadline(pairChanceFigures({ goalChances: rows }, viewWith(now, goal)), label)
+
+  it('highest: names the option, with its chance on each side', () => {
+    expect(say({ form: 'highest', leader: 'a' })).toBe('In this model, Raise prices is the most likely to meet your goal: about 41% on the earlier run, about 58% on this run')
+  })
+  it('highest with only this run shown: no earlier figure is invented', () => {
+    expect(say({ form: 'highest', leader: 'c' })).toBe('In this model, Open a café is the most likely to meet your goal (about 21% on this run)')
+  })
+  it('every option likely to miss, with the highest named', () => {
+    expect(say({ form: 'highest_all_likely_to_miss', leader: 'a' })).toBe('In this model, every option is likely to miss your goal; Raise prices has the highest chance: about 41% on the earlier run, about 58% on this run')
+  })
+  it('similar and all-likely-to-miss name no single option', () => {
+    expect(say({ form: 'similar', similar: ['a', 'b', 'c'] })).toBe('In this model, Raise prices, Cut waste and Open a café have similar chances of meeting your goal')
+    expect(say({ form: 'all_likely_to_miss' })).toBe('In this model, every option is likely to miss your goal')
+  })
+  it('no goal-chance claim → null, so the existing headline stands; and never "best", "still" or a difference', () => {
+    expect(say({})).toBeNull()
+    for (const goal of [{ form: 'highest', leader: 'a' }, { form: 'highest_all_likely_to_miss', leader: 'a' }, { form: 'similar', similar: ['a', 'b'] }]) {
+      expect(say(goal)).not.toMatch(/best|winner|recommend|still|changed|\+\d|points?\b/i)
+    }
   })
 })

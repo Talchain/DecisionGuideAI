@@ -24,8 +24,14 @@ const card = (runId = RUN_ID, hash = HASH) => ({ enrichment: {}, run_id: runId, 
 
 describe('CEE names the leader; the surface designates only that option', () => {
   it('the parser keeps licence + option id, and drops a malformed leader without dropping the view', () => {
-    expect(withLeader('opt_a').leader).toEqual({ licence: 'permitted_with_caveat', option_id: 'opt_a' })
-    expect(withLeader(null).leader).toEqual({ licence: 'permitted_with_caveat', option_id: null })
+    // 20 Oct 2026: the parser also keeps CEE's goal-chance leader and similar options (served shape: null and []).
+    expect(withLeader('opt_a').leader).toEqual({ licence: 'permitted_with_caveat', option_id: 'opt_a', goal_chance_leader: null, similar_option_ids: [] })
+    expect(withLeader(null).leader).toEqual({ licence: 'permitted_with_caveat', option_id: null, goal_chance_leader: null, similar_option_ids: [] })
+    // The goal-chance leader is its OWN field, never the comparative one; a malformed one is dropped alone.
+    const goal = parseCanonicalAnalysisView({ ...SERVED, leader: { licence: 'permitted', option_id: 'opt_a', goal_chance_leader: 'opt_b', similar_option_ids: ['opt_b', 'opt_c'] } })!
+    expect(goal.leader).toEqual({ licence: 'permitted', option_id: 'opt_a', goal_chance_leader: 'opt_b', similar_option_ids: ['opt_b', 'opt_c'] })
+    const badGoal = parseCanonicalAnalysisView({ ...SERVED, leader: { licence: 'permitted', option_id: 'opt_a', goal_chance_leader: 42, similar_option_ids: [7] } })!
+    expect(badGoal.leader).toEqual({ licence: 'permitted', option_id: 'opt_a' })
     const bad = parseCanonicalAnalysisView({ ...SERVED, leader: { licence: 'permitted', option_id: 42 } })
     expect(bad).not.toBeNull()
     expect(bad!.leader).toBeUndefined()
