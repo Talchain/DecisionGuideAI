@@ -1,0 +1,29 @@
+{
+  "base_head": "0d2fbfe7f4894a3a55473719d8e78f57f33bb58b",
+  "base_red": {
+    "passed": 20,
+    "failed": 4
+  },
+  "final_goal_route": {
+    "passed": 24,
+    "failed": 0
+  },
+  "named_specs_total": {
+    "passed": 61,
+    "failed": 0
+  },
+  "mutants_killed": 8,
+  "source_shape_R2": {
+    "added": 5,
+    "removed": 7,
+    "net": -2
+  },
+  "source_shape_PR": {
+    "added": 14,
+    "removed": 27,
+    "net": -13
+  },
+  "provider_calls": 0,
+  "new_grown_cycles": 0,
+  "status": "BLOCKED: capacity CEE writer omits threshold_source"
+}

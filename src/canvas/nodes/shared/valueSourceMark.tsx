@@ -271,19 +271,17 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
 })
 
 /**
- * The goal target's source mark. Prefer the target's own user/brief stamp; the
- * saved draft may instead carry `from_brief` with its target's verbatim quote.
- * A node's provenance alone or its CURRENT level's source never credits the
- * target. Declared inferred/proxy targets stay Olumi's even beside a quote.
+ * The goal target's source mark. Only the target's own stamp credits the brief
+ * or an editor; node quotes and the CURRENT level's source cannot attest it.
+ * Declared inferred/proxy targets stay Olumi's even beside a quote.
  */
 export function goalTargetSourceMark(
-  data: (GoalTargetSource & { provenance?: unknown; source_quote?: unknown }) | null | undefined,
+  data: (GoalTargetSource & { provenance?: unknown }) | null | undefined,
 ): FactorValueSourceMark {
   const target = resolveGoalTarget(data)
   if (target && isStatedTargetValue(target.raw)) {
     if (target.source === 'user') return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
-    if (target.source === 'brief' || (data?.provenance === 'from_brief'
-      && typeof data.source_quote === 'string' && data.source_quote.trim() !== '')) {
+    if (target.source === 'brief') {
       return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
     }
     if (data?.provenance === 'inferred' || data?.provenance === 'proxy') {
