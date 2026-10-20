@@ -285,10 +285,7 @@ describe('a ranked factor can still need input — the pair the contract called 
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     const row = screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)
-    // Canvas option 3 (20 Oct 2026): the pill became the icon system's needs-input mark — bound by identity, exactly one on the card.
-    const pill = screen.getByRole('img', { name: 'Needs input' })
-    expect(pill).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+    const pill = screen.getByTestId('needs-input-pill')
 
     // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: the Key-driver badge is
     // retired; NODE-ANATOMY v3.2: the pill is in the body, so the corner is empty…
@@ -317,10 +314,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     renderFactor(UNVALUED_FACTOR)
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
-    // Canvas option 3 (20 Oct 2026): the pill became the icon system's needs-input mark — bound by identity, exactly one on the card.
-    const pill = screen.getByRole('img', { name: 'Needs input' })
-    expect(pill).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+    const pill = screen.getByTestId('needs-input-pill')
     // Locked Canvas design (23 Sep 2026): the "Worth reviewing" marker holds the
     // retired rank badge's slot (spec §2; ED 02:31Z D1a/D1b).
     const marker = screen.getByTestId(`attention-marker-${FACTOR_ID}`)
@@ -348,9 +342,6 @@ describe('a ranked factor can still need input — the pair the contract called 
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and no needs-input mark either (the pill's successor), so the twin still discriminates.
-    expect(document.querySelector('[data-card-mark="needs-input"]')).toBeNull()
-    expect(screen.queryByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toBeNull()
     // Locked Canvas design (23 Sep 2026): no badge in the corner — the stack is
     // empty — and the rank is on the driver line.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
@@ -364,10 +355,7 @@ describe('a ranked factor can still need input — the pair the contract called 
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
-    // Canvas option 3 (20 Oct 2026): the pill became the icon system's needs-input mark — bound by identity, exactly one on the card.
-    const pill = screen.getByRole('img', { name: 'Needs input' })
-    expect(pill).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+    const pill = screen.getByTestId('needs-input-pill')
     // NODE-ANATOMY v3.2: stated in the body row, and nothing on the border.
     expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
     expect(stack.children).toHaveLength(0)

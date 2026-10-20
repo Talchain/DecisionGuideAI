@@ -201,21 +201,13 @@ describe('row 22a (dropped) — the declared baseline no longer says "Reference 
   })
 })
 
-/** Canvas option 3 (20 Oct 2026): an unset target is the empty field, announced by the `needs-input` mark (icon only). */
-function expectEmptyField(slot: HTMLElement | null | undefined, optionId: string, factorId: string) {
-  expect(slot, 'the unset target must render its empty field').toBeTruthy()
-  expect(slot!.querySelector('[data-card-mark="needs-input"]')?.getAttribute('aria-label')).toBe('Needs input')
-  expect(slot!.textContent).toBe('—')
-  expect(screen.getByTestId(`option-value-editor-${optionId}-${factorId}`)).toBeTruthy()
-}
-
 describe('row 22b — a target with no value reads "Needs input" in its amount cell', () => {
   it('Detailed: the unset row is on the card with the state word and NO source mark; the set row is unchanged', () => {
     seed({ viewMode: 'expert' })
     renderOption(OPTION_1)
     const gap = onCard('option-change-row-option-1-f-conv')
     expect(gap, 'the unset target must not be silently dropped').not.toBeNull()
-    expectEmptyField(within(gap!).getByTestId('option-change-row-needs-input-option-1-f-conv'), 'option-1', 'f-conv')
+    expect(within(gap!).getByTestId('option-change-row-needs-input-option-1-f-conv').textContent).toBe('Needs input')
     expect(onCard('option-change-row-mark-option-1-f-conv')).toBeNull()
     // Contrast in the same render: the set target keeps its value and its mark.
     expect(onCard('option-change-row-option-1-f-price')?.textContent).toContain('£59')
@@ -226,7 +218,7 @@ describe('row 22b — a target with no value reads "Needs input" in its amount c
   it('Standard: the card\'s resting rows carry the gap, and `+N more` no longer counts a row it never showed', () => {
     seed()
     renderOption(OPTION_1)
-    expectEmptyField(onCard('option-change-row-needs-input-option-1-f-conv'), 'option-1', 'f-conv')
+    expect(onCard('option-change-row-needs-input-option-1-f-conv')?.textContent).toBe('Needs input')
     expect(onCard('option-change-row-mark-option-1-f-conv')).toBeNull()
     // Contrast in the same render: the set target keeps its value and its mark.
     expect(onCard('option-change-row-option-1-f-price')?.textContent).toContain('£59')
@@ -243,7 +235,7 @@ describe('row 22b — a target with no value reads "Needs input" in its amount c
     expect(rows, 'the card row must not vanish because the target is unset').not.toBeNull()
     const dd = onCard('option-change-row-option-3-f-conv')!
     expect(rows!.querySelector('dd')).toBe(dd)
-    expectEmptyField(within(dd).getByTestId('option-change-row-needs-input-option-3-f-conv'), 'option-3', 'f-conv')
+    expect(within(dd).getByTestId('option-change-row-needs-input-option-3-f-conv').textContent).toBe('Needs input')
     expect(onCard('option-change-row-mark-option-3-f-conv')).toBeNull()
     expect((dd.previousElementSibling as HTMLElement).textContent).toBe('Trial conversion')
     expect(dd.getAttribute('title')).toBe(

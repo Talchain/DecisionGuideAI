@@ -47,7 +47,7 @@
  * not evidence; the witness for this change is about factors.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -131,17 +131,13 @@ beforeEach(() => {
 describe('the gap outlives the run', () => {
   it('CASE 1 — a controllable factor with no stated value still says "Needs input" AFTER the run completes', () => {
     renderFactor(CONTROLLABLE_NO_VALUE, 'complete')
-    // Canvas option 3 (20 Oct 2026): the factor's needs-input is the icon system's mark in its body row (was the needs-input-pill), exactly once.
-    expect(within(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).getByRole('img', { name: 'Needs input' })).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(document.querySelectorAll('[data-card-mark="needs-input"]')).toHaveLength(1)
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
   })
 
   it('CASE 3 — and it still says so BEFORE the run, so the fix did not trade one phase for the other', () => {
     renderFactor(CONTROLLABLE_NO_VALUE, 'idle')
-    // Canvas option 3 (20 Oct 2026): the factor's needs-input is the icon system's mark in its body row (was the needs-input-pill), exactly once.
-    expect(within(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).getByRole('img', { name: 'Needs input' })).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(document.querySelectorAll('[data-card-mark="needs-input"]')).toHaveLength(1)
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
   })
 })
@@ -153,16 +149,12 @@ describe('⛔ THE TWIN — the marker still tracks the GAP, so it cannot just be
       'complete',
     )
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and no needs-input mark (the pill's successor) either.
-    expect(document.querySelector('[data-card-mark="needs-input"]')).toBeNull()
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
   })
 
   it('CASE 4 — an EXTERNAL factor is still exempt after the run: it is outside the user judgement, not missing it', () => {
     renderFactor({ ...CONTROLLABLE_NO_VALUE, category: 'external' }, 'complete')
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and no needs-input mark (the pill's successor) either.
-    expect(document.querySelector('[data-card-mark="needs-input"]')).toBeNull()
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
   })
 })

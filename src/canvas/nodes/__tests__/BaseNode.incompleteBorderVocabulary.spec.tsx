@@ -73,7 +73,7 @@
  * `BaseNode` simply stopped calling it for card frames.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -212,9 +212,7 @@ describe('an incomplete node keeps its kind hue and says so in words', () => {
     expect(tokens).toContain(nodeColors.factor.frame) // contract v3.1 FRAME-08 (see OPTION above)
     expect(tokens).not.toContain('border-warning')
     expect(tokens).not.toContain('border-dashed')
-    // Canvas option 3 (20 Oct 2026): the factor's needs-input is the icon system's mark in its body row (was the needs-input-pill), exactly once.
-    expect(within(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).getByRole('img', { name: 'Needs input' })).toHaveAttribute('data-card-mark', 'needs-input')
-    expect(document.querySelectorAll('[data-card-mark="needs-input"]')).toHaveLength(1)
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 })
 
@@ -247,8 +245,6 @@ describe('⛔ THE TWIN — GAP-17: the dash no longer means "outside your contro
     // an excuse to let it arrive as a badge: an external factor is not missing
     // the user's judgement, it is outside it.
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and no needs-input mark (the pill's successor) either.
-    expect(document.querySelector('[data-card-mark="needs-input"]')).toBeNull()
   })
 
   it('a factor that has its value is neither amber nor dashed, and carries no badge', () => {
@@ -262,7 +258,5 @@ describe('⛔ THE TWIN — GAP-17: the dash no longer means "outside your contro
     expect(tokens).not.toContain('border-warning')
     expect(tokens).not.toContain('border-dashed')
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and no needs-input mark (the pill's successor) either.
-    expect(document.querySelector('[data-card-mark="needs-input"]')).toBeNull()
   })
 })

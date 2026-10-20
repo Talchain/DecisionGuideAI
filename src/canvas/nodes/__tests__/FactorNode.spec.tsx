@@ -761,10 +761,19 @@ describe('FactorNode', () => {
     // factor's frame token since contract v3.1 FRAME-08.
     expect(tokens).toContain(nodeColors.factor.frame)
     expect(tokens).not.toContain('border-warning')
-    // ⭐ …and the state must still be announced, or the ruling is half-done. Canvas option 3 (20 Oct 2026): the
-    // announcement is the empty field's `needs-input` mark, and the field is the value editor itself.
-    expect(screen.getByRole('img', { name: 'Needs input' }).getAttribute('data-card-mark')).toBe('needs-input')
-    expect(document.querySelector('[data-testid^="node-value-editor-"]'), 'the empty value is the editor').toBeTruthy()
+    // ⭐ …and the state must still be announced, or the ruling is half-done.
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
+  })
+
+  it('canvas option 3: the unchanged "Needs input · Value not set yet" is the control that opens the field', () => {
+    renderFactor({ label: 'Hiring rate', type: 'factor', category: 'controllable' })
+    const row = document.querySelector('[data-testid^="factor-needs-input-row-"]') as HTMLElement
+    expect(row.textContent).toContain('Needs input')
+    expect(row.textContent).toContain('Value not set yet')
+    const editor = row.querySelector('[data-testid^="node-value-editor-"]') as HTMLElement
+    expect(editor, 'the row is the value editor').toBeTruthy()
+    fireEvent.click(editor.querySelector('button') ?? editor)
+    expect(row.querySelector('input'), 'clicking it opens the field').toBeTruthy()
   })
 
   // P0 (feedback): binary factor_type + value=0 → contextual text

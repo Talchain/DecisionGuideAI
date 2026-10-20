@@ -212,16 +212,8 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
     // NODE-ANATOMY v3.2 (24 Sep): a factor says "Needs input · Value not set
     // yet" as line 2 of its BODY — "not a border pill" — so the corner stack
     // withholds it (`incompleteStatedOnCard`, the goal's gap-U4 prop).
-    // Canvas option 3 (20 Oct 2026): the body row states it with the icon system's needs-input mark (was the needs-input-pill), exactly once.
-    const row = screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)
-    const marks = within(cardOf(FACTOR_ID)).getAllByRole('img', { name: 'Needs input' })
-    expect(marks).toHaveLength(1)
-    expect(row).toContainElement(marks[0])
-    expect(marks[0]).toHaveAttribute('data-card-mark', 'needs-input')
+    expect(within(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).getByTestId('needs-input-pill')).toBeTruthy()
     expect(within(stackOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …and the corner stack still withholds it — no pill and no mark there.
-    expect(stackOf(FACTOR_ID).querySelector('[data-card-mark="needs-input"]')).toBeNull()
-    expect(within(cardOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
   })
 
   it('GOAL (no success target) — badge inside THIS goal\'s corner stack', () => {
@@ -294,9 +286,6 @@ describe('⛔ external factors are outside your control, not awaiting your judge
     renderFactor({ label: 'Market rate', type: 'factor', category: 'external' })
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
     expect(within(cardOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
-    // Canvas option 3 (20 Oct 2026): …nor the pill's successor, the needs-input mark / empty-value field.
-    expect(cardOf(FACTOR_ID).querySelector('[data-card-mark="needs-input"]')).toBeNull()
-    expect(screen.queryByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toBeNull()
     // The dash — this node's real signal — is untouched by the ruling.
     // Design audit #13 (26 Sep): carried as the description, not a native title.
     expect(screen.getByRole('group')).toHaveAttribute('aria-description', 'Outside your control')
