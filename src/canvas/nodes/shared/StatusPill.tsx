@@ -38,6 +38,8 @@ import { typography } from '../../../styles/typography'
 
 interface StatusPillProps {
   label: string
+  /** A long ruled sentence wraps inside the card instead of running past its edge (it is never shortened). */
+  wrap?: boolean
   /** Tooltip text (defaults to label). */
   title?: string
   /**
@@ -138,7 +140,7 @@ export const STATE_WORD_STYLE = {
 const PILL_CLASSES = STATE_WORD_CLASSES
 const PILL_STYLE = STATE_WORD_STYLE
 
-export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate }: StatusPillProps) =>
+export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate, wrap = false }: StatusPillProps) =>
   onActivate ? (
     <button
       type="button"
@@ -161,7 +163,7 @@ export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onA
     <span
       role="status"
       aria-label={title ?? label}
-      className={PILL_CLASSES}
+      className={wrap ? PILL_CLASSES.replace('shrink-0 whitespace-nowrap', 'min-w-0 whitespace-normal').replace('rounded-full', 'rounded-[0.7em]') : PILL_CLASSES}
       style={PILL_STYLE}
       title={title ?? label}
       data-testid={testId}

@@ -39,9 +39,10 @@ export function ArtefactOffer() {
     <div
       data-testid={ARTEFACT_OFFER_TESTID}
       data-action-id={offer.action_id}
-      className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2"
+      className="pointer-events-auto flex max-w-full items-center gap-2 rounded-2xl border border-panel-border bg-panel px-3 py-1.5 shadow-2"
     >
-      <span className={`${typography.panelBody} min-w-0 truncate text-text-body`} title={offer.why_now}>{offer.why_now}</span>
+      {/* Olumi's reason is never cut mid-word: up to two lines, then the tooltip (it read "There is only one option besides doing nothi…", 20 Oct 2026). */}
+      <span className={`${typography.panelBody} min-w-0 line-clamp-2 text-text-body`} title={offer.why_now}>{offer.why_now}</span>
       <button
         type="button"
         data-testid={`${ARTEFACT_OFFER_TESTID}-press`}
