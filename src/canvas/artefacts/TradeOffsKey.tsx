@@ -1,0 +1,271 @@
+/**
+ * THE "TRADE-OFFS" KEY CARD: what one option gains and gives up, read along the links in the user's own model
+ * (`tradeOffsModel.ts`; Paul, 19 Oct 2026: a pros and cons list "that actually allows the user to edit it and change
+ * the data model").
+ *
+ * One option at a time (‹ › step through them; the canvas dims everything off its routes). Each route is a chain of
+ * the model's own elements, each marked with the way the option moves it, grouped by whether it moves the goal the way
+ * the user wants, the other way, or cannot be sorted because a link on it has no direction. Picking a route opens its
+ * links, each with its "Rests on" state and the link's own editor: the list is edited by editing the model, so the two
+ * can never disagree. "Ask Olumi what's missing" asks the existing question for what the model does not have yet.
+ *
+ * Never a verdict: no count of pros against cons, no "best", nothing about how much a route matters (CLAUDE.md §4).
+ */
+import { useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpRight, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { useCanvasStore } from '../store'
+import { useIsViewer } from '../../lib/viewerMode'
+import { typography } from '../../styles/typography'
+import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
+import { askAi } from '../conversation/askAi'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
+import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
+import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
+import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { ASSUMPTION_MAP_COPY, type AssumptionColumn } from './assumptionMapModel'
+import { STRENGTH_ACT } from './FigureCard'
+import { tradeOffsForState, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
+
+export const TRADE_OFFS_KEY_TESTID = 'trade-offs-key'
+
+export const TRADE_OFFS_COPY = {
+  against: (label: string) => `Compared with ${label}`,
+  againstToday: 'Compared with each factor’s value today',
+  group: {
+    gains: (goal: string) => `Moves ${goal} the way you want`,
+    gives_up: (goal: string) => `Moves ${goal} the other way`,
+    not_set: 'A link on the way has no direction yet',
+  } satisfies Record<RouteEffect, unknown>,
+  unsorted: (goal: string) => `Moves ${goal}, but your goal has no target yet, so these are not sorted`,
+  move: { up: 'rises', down: 'falls' } satisfies Record<Move, string>,
+  noGoal: 'Your model has no goal yet, so there is nothing to weigh the options against.',
+  noOptions: 'Your model has no option to weigh yet.',
+  noChange: 'This option does not change anything in the model yet.',
+  noRoute: (goal: string) => `What this option changes has no link to ${goal} yet.`,
+  restsOn: (n: number) => `Rests on ${n} ${n === 1 ? 'link' : 'links'}`,
+  /** Each state's count, said in a short list after "Rests on n links:", unsettled first. */
+  linkStates: {
+    missing: (n: number) => `${n} with no figure yet`,
+    unchecked: (n: number) => `${n} Olumi ${n === 1 ? 'estimate' : 'estimates'} nobody has checked`,
+    unknown: (n: number) => `${n} of unknown origin`,
+    accepted: (n: number) => `${n} Olumi ${n === 1 ? 'estimate' : 'estimates'} you accepted`,
+    yours: (n: number) => `${n} yours`,
+  } satisfies Record<AssumptionColumn, (n: number) => string>,
+  previous: 'Previous option',
+  next: 'Next option',
+  ask: 'Ask Olumi what’s missing',
+  note: (goal: string) => `Each route follows the links in your model: which way it pushes ${goal}, not how much, and not which option to choose.`,
+} as const
+
+/** The order a picked route lists its links' states in: the same unsettled-first order as "Rests on". */
+const COLUMN_ORDER: readonly AssumptionColumn[] = ['missing', 'unchecked', 'unknown', 'accepted', 'yours']
+
+function askWhatsMissing(): void {
+  const result = askAi({ intent: 'risks' })
+  if (result === 'sent') revealOlumiSurface()
+  if (result === 'none') {
+    window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message: ACTION_BAR_COPY.noConversation, level: 'warning' } }))
+  }
+}
+
+function MoveMark({ move }: { move: Move | null }) {
+  if (move === null) return null
+  const Icon = move === 'up' ? ArrowUp : ArrowDown
+  return (
+    <>
+      <Icon aria-hidden="true" className="mx-0.5 inline h-3.5 w-3.5 flex-none align-[-2px] text-text-light" />
+      <span className="sr-only">{TRADE_OFFS_COPY.move[move]}</span>
+    </>
+  )
+}
+
+/** "Pro plan price ↑ → Monthly new Pro subscribers ↓ → MRR ↓": the route as the model holds it. */
+function Chain({ steps }: { steps: readonly RouteStep[] }) {
+  return (
+    <span className="min-w-0">
+      {steps.map((step, i) => (
+        <span key={`${step.nodeId}:${i}`} className="whitespace-normal">
+          {i > 0 ? <span aria-hidden="true" className="px-1 text-text-light">→</span> : null}
+          {step.label}
+          <MoveMark move={step.move} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** "Rests on 3 links: 1 with no figure yet, 2 Olumi estimates nobody has checked", unsettled first. */
+function restsOnLine(route: TradeOffRoute): string {
+  const links = route.steps.filter((s) => s.edgeId !== null)
+  const counts = new Map<AssumptionColumn, number>()
+  for (const s of links) if (s.linkColumn) counts.set(s.linkColumn, (counts.get(s.linkColumn) ?? 0) + 1)
+  const parts = COLUMN_ORDER.filter((c) => counts.has(c)).map((c) => TRADE_OFFS_COPY.linkStates[c](counts.get(c)!))
+  return parts.length === 0 ? TRADE_OFFS_COPY.restsOn(links.length) : `${TRADE_OFFS_COPY.restsOn(links.length)}: ${parts.join(', ')}`
+}
+
+function RouteLinks({ route, viewer }: { route: TradeOffRoute; viewer: boolean }) {
+  const light = useCanvasLight()
+  return (
+    <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="space-y-1.5 pb-1 pt-2">
+      {route.steps.map((step, i) => {
+        if (step.edgeId === null) return null
+        const from = route.steps[i - 1]
+        const edgeId = step.edgeId
+        const link = canvasLinkOfTarget({ kind: 'edge', id: edgeId })
+        const column = step.linkColumn
+        return (
+          <li key={edgeId} data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={column ?? ''} className="flex items-start gap-2">
+            <button
+              type="button"
+              className={`${typography.panelMeta} min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+              onClick={() => link?.focus()}
+              onMouseEnter={() => { if (link) light.on(link) }}
+              onMouseLeave={light.off}
+              onFocus={() => { if (link) light.on(link) }}
+              onBlur={light.off}
+            >
+              <span className="block text-text-header">{from.label} → {step.label}</span>
+              <span className="block text-text-light">{column ? ASSUMPTION_MAP_COPY.columns[column] : ASSUMPTION_MAP_COPY.noStrength}</span>
+            </button>
+            {!viewer ? (
+              <button
+                type="button"
+                data-testid={`${TRADE_OFFS_KEY_TESTID}-link-edit`}
+                className={`${typography.panelMeta} ${action('secondary')} flex-none gap-1 rounded-full px-2.5`}
+                onClick={() => openEdgeStrengthEditor(edgeId)}
+              >
+                {STRENGTH_ACT[column ?? 'missing']}
+                <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+              </button>
+            ) : null}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function RouteGroup({ heading, routes, picked, onPick, effect, viewer }: {
+  heading: string
+  routes: readonly TradeOffRoute[]
+  picked: string | null
+  onPick: (key: string | null) => void
+  effect: RouteEffect | 'unsorted'
+  viewer: boolean
+}) {
+  if (routes.length === 0) return null
+  return (
+    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-group-${effect}`} className="space-y-1">
+      <h3 className={`${typography.panelMeta} text-text-light`}>{heading}</h3>
+      <ul className="space-y-1">
+        {routes.map((route) => {
+          const open = route.key === picked
+          return (
+            <li key={route.key} className={`rounded-xl border ${open ? 'border-panel-border bg-panel-hover/40' : 'border-transparent'}`}>
+              <button
+                type="button"
+                data-testid={`${TRADE_OFFS_KEY_TESTID}-route`}
+                data-route={route.key}
+                aria-expanded={open}
+                className={`${typography.panelBody} w-full rounded-xl px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+                onClick={() => onPick(open ? null : route.key)}
+              >
+                <Chain steps={route.steps} />
+                <span className={`${typography.panelMeta} mt-0.5 block text-text-light`}>{restsOnLine(route)}</span>
+              </button>
+              {open ? <div className="px-2"><RouteLinks route={route} viewer={viewer} /></div> : null}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+export function TradeOffsKey() {
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
+  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
+  const goalConstraints = useCanvasStore((s) => s.goalConstraints)
+  const servedBaselineOptions = useCanvasStore((s) => s.servedBaselineOptions)
+  const pickedOptionId = useCanvasStore((s) => s.lens.selectedOptionId)
+  const viewer = useIsViewer()
+  const [pickedRoute, setPickedRoute] = useState<string | null>(null)
+  const read = useMemo(
+    () => tradeOffsForState({ nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions }),
+    [nodes, edges, ceeAnalysisReady, outcomeNodeId, goalConstraints, servedBaselineOptions],
+  )
+
+  const say = (text: string) => <p data-testid={TRADE_OFFS_KEY_TESTID} className={`${typography.panelBody} text-text-body`}>{text}</p>
+  if (read.goalId === null || read.goalLabel === null) return say(TRADE_OFFS_COPY.noGoal)
+  if (read.options.length === 0) return say(TRADE_OFFS_COPY.noOptions)
+  const goal = read.goalLabel
+  const at = Math.max(0, read.options.findIndex((o) => o.optionId === pickedOptionId))
+  const option: OptionTradeOffs = read.options[at]
+  // The lens's own option pick (the canvas dims to it); the route pick is this card's.
+  const step = (by: 1 | -1) => {
+    const next = read.options[(at + by + read.options.length) % read.options.length]
+    setPickedRoute(null)
+    useCanvasStore.getState().setLens('tradeoffs', next.optionId)
+  }
+  const of = (effect: RouteEffect) => option.routes.filter((r) => r.effect === effect)
+  const unsorted = read.goalWants === null
+
+  return (
+    <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} className="space-y-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p data-testid={`${TRADE_OFFS_KEY_TESTID}-option`} className={`${typography.panelQuestion} text-text-header`}>{option.label}</p>
+          <p className={`${typography.panelMeta} text-text-light`}>
+            {option.againstLabel ? TRADE_OFFS_COPY.against(option.againstLabel) : TRADE_OFFS_COPY.againstToday}
+          </p>
+        </div>
+        {read.options.length > 1 ? (
+          <div className="flex flex-none items-center">
+            <button type="button" data-testid={`${TRADE_OFFS_KEY_TESTID}-previous`} aria-label={TRADE_OFFS_COPY.previous} title={TRADE_OFFS_COPY.previous}
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}
+              onClick={() => step(-1)}>
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+            </button>
+            <button type="button" data-testid={`${TRADE_OFFS_KEY_TESTID}-next`} aria-label={TRADE_OFFS_COPY.next} title={TRADE_OFFS_COPY.next}
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}
+              onClick={() => step(1)}>
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {option.routes.length === 0 ? (
+        <p data-testid={`${TRADE_OFFS_KEY_TESTID}-empty`} className={`${typography.panelBody} text-text-body`}>
+          {/* An option with targets but no route says so; one with no targets at all says that. */}
+          {nodes.some((n) => n.id === option.optionId && n.data?.interventions) || ceeAnalysisReady?.options?.some((o) => o.id === option.optionId && o.interventions && Object.keys(o.interventions).length > 0)
+            ? TRADE_OFFS_COPY.noRoute(goal)
+            : TRADE_OFFS_COPY.noChange}
+        </p>
+      ) : unsorted ? (
+        <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" viewer={viewer} />
+      ) : (
+        <div className="space-y-2.5">
+          <RouteGroup heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains" viewer={viewer} />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" viewer={viewer} />
+          <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" viewer={viewer} />
+        </div>
+      )}
+
+      {!viewer ? (
+        <button
+          type="button"
+          data-testid={`${TRADE_OFFS_KEY_TESTID}-ask`}
+          className={`${typography.panelBody} ${action('secondary')} gap-1 rounded-full px-3`}
+          onClick={askWhatsMissing}
+        >
+          <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
+          {TRADE_OFFS_COPY.ask}
+        </button>
+      ) : null}
+      <p className={`${typography.panelMeta} text-text-light`}>{TRADE_OFFS_COPY.note(goal)}</p>
+    </div>
+  )
+}
