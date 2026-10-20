@@ -1,0 +1,58 @@
+[
+  {
+    "mutant": "brief-undercredit",
+    "exit": 1,
+    "summary": [
+      "5 failed | 19 passed (24)"
+    ]
+  },
+  {
+    "mutant": "brief-overcredit-node-quote",
+    "exit": 1,
+    "summary": [
+      "7 failed | 17 passed (24)"
+    ]
+  },
+  {
+    "mutant": "editor-undercredit",
+    "exit": 1,
+    "summary": [
+      "2 failed | 22 passed (24)"
+    ]
+  },
+  {
+    "mutant": "editor-overcredit-brief",
+    "exit": 1,
+    "summary": [
+      "5 failed | 19 passed (24)"
+    ]
+  },
+  {
+    "mutant": "unknown-as-olumi",
+    "exit": 1,
+    "summary": [
+      "13 failed | 11 passed (24)"
+    ]
+  },
+  {
+    "mutant": "unknown-as-brief",
+    "exit": 1,
+    "summary": [
+      "13 failed | 11 passed (24)"
+    ]
+  },
+  {
+    "mutant": "olumi-undercredit",
+    "exit": 1,
+    "summary": [
+      "2 failed | 22 passed (24)"
+    ]
+  },
+  {
+    "mutant": "olumi-as-brief",
+    "exit": 1,
+    "summary": [
+      "2 failed | 22 passed (24)"
+    ]
+  }
+]

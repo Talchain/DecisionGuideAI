@@ -1,0 +1,10 @@
+[
+  {
+    "check": "tsc-requested",
+    "exit": 0
+  },
+  {
+    "check": "typecheck",
+    "exit": 0
+  }
+]
