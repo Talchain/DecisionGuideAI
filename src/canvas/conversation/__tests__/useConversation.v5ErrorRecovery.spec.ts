@@ -25,9 +25,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { createElement, type ReactNode } from 'react'
+import { renderHook, act, render, fireEvent, cleanup } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { ChatThread } from '../zones/ChatThread'
+import { ConversationProvider, useConversationContext } from '../ConversationContext'
+import { FirstUseComposer } from '../../components/FirstUseComposer'
+import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 
 // ---------------------------------------------------------------------------
 // Mocks — seams only; the V5 adapter/parser/router chain stays REAL.
@@ -83,6 +88,10 @@ vi.mock('../../../services/scenarioService', () => ({
 vi.mock('../../../lib/posthog', () => ({
   trackEvent: () => undefined,
 }))
+vi.mock('../../../adapters/plot', () => ({ plot: { templates: () => new Promise(() => {}) } }))
+vi.mock('../../hooks/useStageAwarePlaceholder', () => ({ useStageAwarePlaceholder: () => 'Describe your model…' }))
+vi.mock('../../hooks/useSelectionContext', () => ({ useSelectionContext: () => null }))
+vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => true }))
 
 // Eligibility ON so sendMessage enters the V5 exclusive branch regardless of
 // the developer's env (same pattern as useConversation.hook.spec.ts).
@@ -130,7 +139,7 @@ function liveBoundaryErrorBody(overrides: {
 }
 
 function stubFetchWith(status: number, body: unknown) {
-  const fetchStub = vi.fn(async () => ({
+  const fetchStub = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>(async () => ({
     ok: status >= 200 && status < 300,
     status,
     headers: new Headers({ 'content-type': 'application/json' }),
@@ -154,6 +163,7 @@ async function sendAndGetLastMessage() {
 }
 
 beforeEach(() => {
+  window.history.replaceState({}, '', '/#/canvas?ai=openai')
   useCanvasStore.setState({
     currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
     nodes: [],
@@ -165,8 +175,68 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
+  window.history.replaceState({}, '', '/')
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+})
+
+describe('L2-UI core save outcomes through the real fetch → parser → router → conversation → thread', () => {
+  const CAPACITY = "Olumi's AI service is temporarily out of capacity. Nothing was saved. Try again later."
+  const SAVED = 'Your model was saved, but the reply failed. Send a new message to continue.'
+  const RETRY = [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+  function Surface({ children }: { children: ReactNode }) {
+    return createElement(ConversationProvider, null, children, createElement(FirstUseComposer))
+  }
+
+  it.each([
+    { row: 'capacity/no write overrides safe resend', body: { error: 'PROVIDER_CAPACITY', retryable: false, nothing_saved: true, retry_safe: true }, words: CAPACITY, retry: false },
+    { row: 'verified save/reply failed', body: { error: 'UPSTREAM_ERROR', nothing_saved: false, save_outcome: 'VERIFIED_SAVED', retry_safe: false }, words: SAVED, retry: false },
+    { row: 'safe no-write retry', body: { error: 'UPSTREAM_ERROR', nothing_saved: true, retry_safe: true }, words: 'Something went wrong on our side. Please retry.', retry: true },
+    { row: 'unsafe retry', body: { error: 'UPSTREAM_ERROR', retry_safe: false }, words: 'Something went wrong on our side.', retry: false },
+    { row: 'missing retry proof', body: { error: 'UPSTREAM_ERROR' }, words: 'Something went wrong on our side.', retry: false },
+    { row: 'unknown save is not a saved claim', body: { error: 'UPSTREAM_ERROR', nothing_saved: false, save_outcome: 'UNKNOWN', retry_safe: false }, words: 'Something went wrong on our side.', retry: false },
+    { row: 'capacity without no-write proof', body: { error: 'PROVIDER_CAPACITY', retryable: false, retry_safe: true }, words: "Olumi's AI service is temporarily out of capacity. Try again later.", retry: false },
+    { row: 'saved before capacity refusal', body: { error: 'PROVIDER_CAPACITY', retryable: false, nothing_saved: false, save_outcome: 'VERIFIED_SAVED', retry_safe: false }, words: SAVED, retry: false },
+    { row: 'unrelated diagnostic cannot authorise Retry or saved copy', body: { error: 'UPSTREAM_ERROR', provider_error: { retry_safe: true, save_outcome: 'VERIFIED_SAVED' }, detail: 'retry_safe: true; model saved' }, words: 'Something went wrong on our side.', retry: false },
+  ])('$row', async ({ body, words, retry }) => {
+    window.history.replaceState({}, '', '/#/canvas?ai=core')
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('system-first-use')
+    const fetchStub = stubFetchWith(502, body)
+    const { result } = renderHook(() => useConversationContext(), { wrapper: Surface })
+    // Same contract across independent strategic briefs; no provider is called.
+    for (const brief of ['Explore staffing options', 'Explore a market launch']) {
+      await act(async () => { await result.current.sendMessage(brief) })
+      const last = result.current.messages.at(-1)!
+      expect(last.content).toBe(words)
+      expect(last.actionChips).toEqual(retry ? RETRY : [])
+      expect(result.current.lastSendFailure?.retryable).toBe(retry)
+      expect(document.querySelector('[data-testid="first-use-send-failure"] p')?.textContent).toBe(words)
+      expect(result.current.messages.filter(m => m.role === 'user').at(-1)?.deliveryState).toBe('sent')
+    }
+    expect(fetchStub).toHaveBeenCalledTimes(2)
+    expect(new Headers(fetchStub.mock.calls[0][1]?.headers).get('x-olumi-ai-mode')).toBe('core')
+    const { container } = render(createElement(ChatThread, {
+      messages: result.current.messages, isThinking: false, longRunningHint: null, nodeCount: 0,
+      patchBlockStates: new Map(), patchRejections: new Map(), onChipClick: async () => {},
+      onPatchAccept: () => {}, onPatchDismiss: () => {}, onFeedback: () => {}, onRetry: () => {},
+    }))
+    expect(container.querySelectorAll('[data-testid="message-body-text"]')[1]?.textContent).toBe(words)
+    expect(container.querySelector('[aria-label="Retry sending this message"]')).toBeNull()
+    const assistant = container.querySelector('[data-testid="chat-message-assistant"]')!
+    fireEvent.click(assistant.querySelector('[data-testid="message-menu-trigger"]')!)
+    expect(assistant.querySelector('[data-testid="message-menu-retry"]') !== null).toBe(retry)
+  })
+
+  it.each(['openai', 'conventional'])('%s retains legacy copy and Retry even with core sidecars', async mode => {
+    window.history.replaceState({}, '', `/#/canvas?ai=${mode}`)
+    stubFetchWith(502, { error: 'PROVIDER_CAPACITY', retry_safe: false, nothing_saved: true, save_outcome: 'VERIFIED_SAVED' })
+    const { last, result } = await sendAndGetLastMessage()
+    expect(last.content).toBe('Something went wrong on our side. Please retry.')
+    expect(last.actionChips).toEqual(RETRY)
+    expect(result.current.lastSendFailure?.retryable).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
