@@ -21,9 +21,9 @@ import { askAi } from '../conversation/askAi'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { ACTION_BAR_COPY } from '../conversation/actionBar/ActionBar'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
-import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn } from './assumptionMapModel'
+import { ASSUMPTION_MAP_COPY, RESTS_ON_ORDER, type AssumptionColumn, type AssumptionItem } from './assumptionMapModel'
 import { FigureCard } from './FigureCard'
-import { tradeOffsForState, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
+import { tradeOffsForState, type ModelRisk, type Move, type OptionTradeOffs, type RouteEffect, type RouteStep, type TradeOffRoute } from './tradeOffsModel'
 
 export const TRADE_OFFS_KEY_TESTID = 'trade-offs-key'
 
@@ -52,6 +52,8 @@ export const TRADE_OFFS_COPY = {
   } satisfies Record<AssumptionColumn, (n: number) => string>,
   previous: 'Previous option',
   next: 'Next option',
+  alsoInModel: 'Also in your model, whichever option',
+  limit: 'A limit on your goal',
   ask: 'Ask Olumi what’s missing',
   note: (goal: string) => `Each route follows the links in your model: which way it pushes ${goal}, not how much, and not which option to choose.`,
 } as const
@@ -94,43 +96,61 @@ function Chain({ steps }: { steps: readonly RouteStep[] }) {
 function restsOnLine(route: TradeOffRoute): string {
   const links = route.steps.filter((s) => s.edgeId !== null)
   const counts = new Map<AssumptionColumn, number>()
-  for (const s of links) if (s.linkColumn) counts.set(s.linkColumn, (counts.get(s.linkColumn) ?? 0) + 1)
+  for (const s of links) if (s.link) counts.set(s.link.column, (counts.get(s.link.column) ?? 0) + 1)
   const parts = RESTS_ON_ORDER.filter((c) => counts.has(c)).map((c) => TRADE_OFFS_COPY.linkStates[c](counts.get(c)!))
   return parts.length === 0 ? TRADE_OFFS_COPY.restsOn(links.length) : `${TRADE_OFFS_COPY.restsOn(links.length)}: ${parts.join(', ')}`
 }
 
-function RouteLinks({ route }: { route: TradeOffRoute }) {
+/** One link as its owner reads it: picking it finds it on the canvas; its figure card holds the link's own editor. */
+function LinkRow({ edgeId, label, item }: { edgeId: string; label: string; item: AssumptionItem | null }) {
   const light = useCanvasLight()
+  const link = canvasLinkOfTarget({ kind: 'edge', id: edgeId })
+  return (
+    <li data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={item?.column ?? ''} className="flex items-start gap-2">
+      <button
+        type="button"
+        className={`${typography.panelMeta} min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+        onClick={() => link?.focus()}
+        onMouseEnter={() => { if (link) light.on(link) }}
+        onMouseLeave={light.off}
+        onFocus={() => { if (link) light.on(link) }}
+        onBlur={light.off}
+      >
+        <span className="block text-text-header">{label}</span>
+        {item ? <span className="block text-text-light">{ASSUMPTION_MAP_COPY.columns[item.column]}</span> : null}
+      </button>
+      {item ? <FigureCard item={item} /> : null}
+    </li>
+  )
+}
+
+function RouteLinks({ route }: { route: TradeOffRoute }) {
   return (
     <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="space-y-1.5 pb-1 pt-2">
-      {route.steps.map((step, i) => {
-        if (step.edgeId === null) return null
-        const from = route.steps[i - 1]
-        const edgeId = step.edgeId
-        const link = canvasLinkOfTarget({ kind: 'edge', id: edgeId })
-        const column = step.linkColumn
-        return (
-          <li key={edgeId} data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={column ?? ''} className="flex items-start gap-2">
-            <button
-              type="button"
-              className={`${typography.panelMeta} min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
-              onClick={() => link?.focus()}
-              onMouseEnter={() => { if (link) light.on(link) }}
-              onMouseLeave={light.off}
-              onFocus={() => { if (link) light.on(link) }}
-              onBlur={light.off}
-            >
-              <span className="block text-text-header">{from.label} → {step.label}</span>
-              <span className="block text-text-light">{column ? ASSUMPTION_MAP_COPY.columns[column] : ASSUMPTION_MAP_COPY.noStrength}</span>
-            </button>
-            <FigureCard item={{
-              target: { kind: 'edge', id: edgeId }, label: `${from.label} → ${step.label}`,
-              column: column ?? 'missing', source: ASSUMPTION_MAP_COPY.sourceNotRecorded, row: 'on_path',
-            }} />
-          </li>
-        )
-      })}
+      {route.steps.map((step, i) => step.edgeId === null ? null
+        : <LinkRow key={step.edgeId} edgeId={step.edgeId} label={`${route.steps[i - 1].label} → ${step.label}`} item={step.link} />)}
     </ul>
+  )
+}
+
+/** The risks and limits the model holds, shown as they are: never sorted into a gain or a give-up, never hidden. */
+function AlsoInModel({ risks, limits }: { risks: readonly ModelRisk[]; limits: readonly { id: string; text: string }[] }) {
+  if (risks.length === 0 && limits.length === 0) return null
+  const line = `${typography.panelBody} px-1.5 text-text-body`
+  return (
+    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-also`} className="space-y-1">
+      <h3 className={`${typography.panelMeta} text-text-light`}>{TRADE_OFFS_COPY.alsoInModel}</h3>
+      <ul className="space-y-1.5">
+        {risks.flatMap((risk) => risk.links.length === 0
+          ? [<li key={risk.id} data-testid={`${TRADE_OFFS_KEY_TESTID}-risk`} className={line}>{risk.label}</li>]
+          : risk.links.map(({ toLabel, item }) => <LinkRow key={item.target.id} edgeId={item.target.id} label={`${risk.label} → ${toLabel}`} item={item} />))}
+        {limits.map((limit) => (
+          <li key={limit.id} data-testid={`${TRADE_OFFS_KEY_TESTID}-limit`} className={line}>
+            {limit.text}<span className={`${typography.panelMeta} block text-text-light`}>{TRADE_OFFS_COPY.limit}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -228,10 +248,7 @@ export function TradeOffsKey() {
 
       {option.routes.length === 0 ? (
         <p data-testid={`${TRADE_OFFS_KEY_TESTID}-empty`} className={`${typography.panelBody} text-text-body`}>
-          {/* An option with targets but no route says so; one with no targets at all says that. */}
-          {nodes.some((n) => n.id === option.optionId && n.data?.interventions) || ceeAnalysisReady?.options?.some((o) => o.id === option.optionId && o.interventions && Object.keys(o.interventions).length > 0)
-            ? TRADE_OFFS_COPY.noRoute(goal)
-            : TRADE_OFFS_COPY.noChange}
+          {option.changes > 0 ? TRADE_OFFS_COPY.noRoute(goal) : TRADE_OFFS_COPY.noChange}
         </p>
       ) : unsorted ? (
         <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
@@ -242,6 +259,8 @@ export function TradeOffsKey() {
           <RouteGroup heading={TRADE_OFFS_COPY.group.not_set} routes={of('not_set')} picked={pickedRoute} onPick={setPickedRoute} effect="not_set" />
         </div>
       )}
+
+      <AlsoInModel risks={read.alsoInModel.risks} limits={read.alsoInModel.limits} />
 
       {!viewer ? (
         <button
