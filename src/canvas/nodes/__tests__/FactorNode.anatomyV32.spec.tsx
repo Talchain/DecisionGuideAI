@@ -318,14 +318,18 @@ describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input" in the 
     // ⛔ UPDATED 24 Sep 2026 (GAP-9, DESIGN-GAP-AUDIT-20260924.md row 9;
     // contract §02): "Value not set yet" is now VISIBLE on the card, not
     // sr-only/title-only. The popover keeps its own (now duplicate) copy.
-    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    // Canvas option 3 (20 Oct 2026): the row is the empty value field — mark + blank slot "—" (MISSING has no unit).
+    expect(visibleText(row)).toBe('—')
     expect(row.querySelector('.sr-only')).toBeNull()
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     // ONE "Needs input" on the card, and it is the one in the body row.
-    const pills = screen.getAllByTestId('needs-input-pill')
-    expect(pills).toHaveLength(1)
-    expect(row.contains(pills[0])).toBe(true)
-    expect(screen.getByTestId(`node-corner-stack-${ID}`).contains(pills[0])).toBe(false)
+    // Canvas option 3 (20 Oct 2026): bound to the icon system's needs-input mark (was the needs-input-pill); no pill anywhere.
+    const marks = Array.from(document.querySelectorAll('[data-card-mark="needs-input"]'))
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toHaveAccessibleName('Needs input')
+    expect(row.contains(marks[0])).toBe(true)
+    expect(screen.getByTestId(`node-corner-stack-${ID}`).contains(marks[0])).toBe(false)
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
     // It sits where the value would: straight under the title.
     expect(before(screen.getByTestId('node-title'), row)).toBe(true)
     expect(screen.queryByTestId('factor-recorded-value')).toBeNull()

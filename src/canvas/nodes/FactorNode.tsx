@@ -1,4 +1,5 @@
 import { CardMark } from './shared/CardMark'
+import { NeedsInputSlot } from './shared/NeedsInputSlot'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -44,7 +45,7 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
-import { StatusPill } from './shared/StatusPill'
+import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from './shared/factorPriorRange'
@@ -403,6 +404,11 @@ export const FactorNode = memo((props: NodeProps) => {
   // Single source of truth shared with BaseNode's StatusPill (wireframe v4
   // FactorNeedsPre): all of value/raw_value/display_value null AND non-external.
   const needsInput = isFactorNeedsInput(props.data)
+  // The unit an EMPTY value is typed in: a currency sits before the field (`£`), any other unit after it.
+  const emptyValueUnit = useMemo(() => {
+    const { kind, canonical } = classifyUnit(observedState?.unit)
+    return kind === 'symbol' || kind === 'iso' ? { prefix: ISO_CURRENCY_GLYPHS[canonical] ?? canonical } : kind === 'none' || kind === 'placeholder' ? {} : { suffix: canonical }
+  }, [observedState])
 
   // ⭐⭐ WHAT DOES THIS NODE SAY ABOUT ITS OWN NUMBER? ONE decision, ordered.
   //
@@ -1058,6 +1064,7 @@ export const FactorNode = memo((props: NodeProps) => {
               onCard
               rank={driverLine.rank}
               value={driverLine.value}
+              direction={driverLine.direction}
               fromLastRun={resultsFromLastRun}
               noValueYet={driverLine.noValueYet}
             />
@@ -1524,13 +1531,30 @@ export const FactorNode = memo((props: NodeProps) => {
             untouched — out of scope for this gap. */}
         {/* One row in both views now: the Standard arm differed only by the
             retired inline driver cue (prototype, Paul 25 Sep). */}
+        {/* ⭐ THE MISSING FIGURE IS TYPED WHERE IT BELONGS (Paul, 20 Oct 2026, canvas option 3): the empty value is the
+            field itself, led by the icon system's own `needs-input` mark — no pill, no sentence. It commits through the
+            SAME writer as a value the card already holds (`proposeFactorValue`, which needs no current value), and the
+            open field takes the factor's unit beside it. The row keeps its test id so "the card says it needs input" is
+            still bound by identity. */}
         {needsInput && valueDisplay === null && (
           <div
             className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5"
             data-testid={`factor-needs-input-row-${props.id}`}
           >
-            <StatusPill label="Needs input" title="Missing required input" />
-            <span className={`${typography.edgeLabel} text-text-light`}>Value not set yet</span>
+            <NodeValueEditor
+              value={null}
+              readout={<NeedsInputSlot words="Needs input" description="Value not set yet. Type it here" unit={emptyValueUnit} testId="factor-empty-value" />}
+              onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+              readCommittedValue={() =>
+                resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
+              {...(emptyValueUnit.prefix ? { prefix: emptyValueUnit.prefix } : {})}
+              {...(valueFieldIsModelScale
+                ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
+                : emptyValueUnit.suffix ? { scaleHint: emptyValueUnit.suffix } : {})}
+              ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
+              testId={`node-value-editor-${props.id}`}
+              restingFlow="inline"
+            />
           </div>
         )}
 
@@ -1569,6 +1593,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 nodeId={props.id}
                 rank={driverLine.rank}
                 value={driverLine.value}
+                direction={driverLine.direction}
                 fromLastRun={resultsFromLastRun}
                 noValueYet={driverLine.noValueYet}
                 inSlot

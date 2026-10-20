@@ -20,6 +20,7 @@ import {
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
+import { normaliseFactorDirection, type FactorDirection } from '../../lib/factorDirection'
 import { rankFactor } from '../nodes/shared/rankFactor'
 import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
 import { holdsValueOrRange } from '../utils/observedStateHelpers'
@@ -149,6 +150,8 @@ export interface NodeDisplayMetadata {
    * above: an absent value renders no driver line (fail closed).
    */
   driverRelativeSensitivity?: number | null
+  /** Which way the run says this factor moves the outcome (`factor_sensitivity[].direction`), normalised; never inferred. */
+  driverDirection?: FactorDirection | null
   /**
    * ⭐ PJ-B3: the run held NO value for this factor — its `factor_sensitivity`
    * row carries no `value_source` while another row of the same run carries
@@ -376,6 +379,7 @@ export function useNodeDisplayMetadata(
         influenceSetSize: null,
         influenceRankedCount: null,
         driverRelativeSensitivity: null,
+        driverDirection: null,
         unvaluedInRun: false,
         confidence: null,
         confidenceIsDefaulted: false,
@@ -404,6 +408,7 @@ export function useNodeDisplayMetadata(
     let influenceSetSize: number | null = null
     let influenceRankedCount: number | null = null
     let driverRelativeSensitivity: number | null = null
+    let driverDirection: FactorDirection | null = null
     let unvaluedInRun = false
     let confidence: number | null = null
     let confidenceIsDefaulted = false
@@ -436,6 +441,7 @@ export function useNodeDisplayMetadata(
       influenceSetSize = ranks.influenceSetSize
       influenceRankedCount = ranks.rankedSetSize
       driverRelativeSensitivity = ranks.relativeSensitivity
+      driverDirection = normaliseFactorDirection((feed.rawFactors[rows.findIndex((r) => r.key === nodeId)] as { direction?: unknown } | undefined)?.direction)
       sensitivityRank = ranks.sensitivityRank
       voiRank = ranks.voiRank
       // PJ-B3: the run's own typed fact, from the same feed rows as the rank.
@@ -685,6 +691,7 @@ export function useNodeDisplayMetadata(
       influenceSetSize,
       influenceRankedCount,
       driverRelativeSensitivity,
+      driverDirection,
       unvaluedInRun,
       confidence,
       confidenceIsDefaulted,

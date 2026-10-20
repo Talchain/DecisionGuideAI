@@ -296,7 +296,10 @@ describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON th
     seed(MISSING, { phase })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    // Canvas option 3 (20 Oct 2026): the row is the empty value field — mark + blank slot "—" (MISSING has no unit); the words moved to the mark's name.
+    expect(visibleText(row)).toBe('—')
+    // Canvas option 3 (20 Oct 2026): the row IS the factor's value editor, resting on the empty slot.
+    expect(within(within(row).getByTestId(`node-value-editor-${ID}`)).getByTestId('factor-empty-value')).toBeInTheDocument()
     expect(tokens(row).has('flex-wrap')).toBe(true)
     expect(tokens(row).has('flex-nowrap')).toBe(false)
     // DL #70 5849644637: the row, then the reserved driver slot — empty here
@@ -308,9 +311,14 @@ describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON th
     // of text that is now on screen.
     expect(row.querySelector('.sr-only')).toBeNull()
     expect(row.getAttribute('title')).toBeNull()
-    // The pill's own accessible contract is untouched (StatusPill reuses its
-    // `title` prop as the accessible name — unchanged by this gap).
-    expect(within(row).getByTestId('needs-input-pill')).toHaveAccessibleName('Missing required input')
+    // Canvas option 3 (20 Oct 2026): the pill is gone; needs-input is announced ONCE in the row, by the icon
+    // system's mark (accessible name "Needs input", description = the sentence), and no pill remains.
+    const marks = row.querySelectorAll('[data-card-mark="needs-input"]')
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toHaveAttribute('role', 'img')
+    expect(marks[0]).toHaveAccessibleName('Needs input')
+    expect(marks[0].getAttribute('aria-description')).toBe('Value not set yet. Type it here')
+    expect(within(card()).queryByTestId('needs-input-pill')).toBeNull()
     // …the popover keeps its own (now duplicate, and that is fine — see the
     // inline comment at `needsInputSentenceMoved`) copy of the sentence.
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
@@ -320,7 +328,10 @@ describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON th
   it('CONTRAST — Detailed keeps the full sentence inline on the card (unchanged by GAP-9)', () => {
     seed(MISSING, { phase: 'pre', viewMode: 'expert' })
     renderFactor(MISSING)
-    expect(visibleText(within(card()).getByTestId(`factor-needs-input-row-${ID}`))).toBe('Needs inputValue not set yet')
+    // Canvas option 3 (20 Oct 2026): Detailed renders the same empty field as Standard — mark + "—"; the sentence is the mark's description.
+    const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
+    expect(visibleText(row)).toBe('—')
+    expect(within(row).getByRole('img', { name: 'Needs input' })).toHaveAttribute('data-card-mark', 'needs-input')
   })
 
   it('CONTRAST — a VALUED factor never shows "Value not set yet" anywhere on the card', () => {
@@ -414,7 +425,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     seed(MISSING, { phase: 'post' })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    // Canvas option 3 (20 Oct 2026): the row's visible text is the empty slot "—"; needs-input is its one mark.
+    expect(visibleText(row)).toBe('—')
+    expect(row.querySelectorAll('[data-card-mark="needs-input"]')).toHaveLength(1)
     const driver = onCardNotInPopover('factor-driver-line')
     expect(row.contains(driver)).toBe(false)
     expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
