@@ -96,7 +96,7 @@ import {
 import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
-import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
+import { SinceLastRun } from './sections/SinceLastRun'
 import { AtAGlance, ribbonOffersRerun } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
@@ -3009,8 +3009,8 @@ export function AnalysisNewTabBody({
             ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
             it, including the no-verdict one. */}
 
-        {/* SC-24 v3: the full comparison is the Compare tab's; Reasoning keeps the receipt (same view). */}
-        <WhatsChangedReceipt view={vm.whatsChanged} />
+        {/* Paul, 20 Oct: the comparison with the last run lives here, read from the same view the receipt used. */}
+        <SinceLastRun view={vm.whatsChanged} responseHash={responseHash} />
 
         <RobustnessCaveat
           leaderClaimPermitted={vm.leaderClaimPermitted}

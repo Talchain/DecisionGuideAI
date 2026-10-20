@@ -24,10 +24,19 @@ describe('uiStore', () => {
   })
 
   it('setActiveOutputTab works for all tab types', () => {
-    for (const tab of ['results', 'compare', 'diagnostics', 'journey'] as const) {
+    for (const tab of ['results', 'analysisNew', 'diagnostics', 'journey'] as const) {
       useUIStore.getState().setActiveOutputTab(tab)
       expect(useUIStore.getState().activeOutputTab).toBe(tab)
     }
+  })
+
+  it("opening 'compare' lands on Reasoning, where the run comparison lives (20 Oct)", () => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().setActiveOutputTab('compare')
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().forceActivateOutputTab('compare')
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
   })
 })
 

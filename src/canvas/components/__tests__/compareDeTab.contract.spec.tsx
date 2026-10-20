@@ -1,4 +1,8 @@
 /**
+ * ⭐⭐⭐ 20 Oct 2026 (Paul): COMPARE LEAVES THE STRIP AGAIN. The run comparison now lives in Reasoning ("Since your last
+ * run", `SinceLastRun.tsx`), which mounts the same `CompareRunPairBody`; every request to open 'compare' lands on
+ * Reasoning (`presentedOutputTab` in uiStore). The cases below are re-pinned to the hidden contract.
+ *
  * ⭐⭐ SUPERSEDED 30 Sep 2026 — COMPARE IS A PRESENTED TAB AGAIN (SC-24 v3, ChatGPT #75 5917800777; DL lease #75
  * 5917856638): previous Run vs this Run, rendered from the comparison CEE produced (`CompareRunPairBody`). Both
  * reasons below no longer hold — the body reads no browser history that needs a `userId`, and it answers a different
@@ -58,7 +62,7 @@ import {
   presentedSurfaces,
 } from '../workspaceShell/shellContract'
 
-describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by Fable 18 Aug)', () => {
+describe('Compare is hidden by contract; its comparison lives in Reasoning (Paul, 20 Oct 2026)', () => {
   beforeEach(() => {
     vi.resetModules()
     try {
@@ -66,10 +70,10 @@ describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by 
     } catch {}
   })
 
-  it('DT-1: the compare ROW says presented, with no hidden reason', () => {
+  it('DT-1: the compare ROW says hidden, with its reason', () => {
     // Bound by identity to the compare row.
-    expect(WORKSPACE_SURFACES.compare.presentedAsTab).toBe(true)
-    expect(WORKSPACE_SURFACES.compare.hiddenReason).toBe('')
+    expect(WORKSPACE_SURFACES.compare.presentedAsTab).toBe(false)
+    expect(WORKSPACE_SURFACES.compare.hiddenReason).toMatch(/Reasoning/)
     // …and journey's row is untouched, so this is not passing because some
     // sweep flipped every row (the blanket-mutant discriminator).
     expect(WORKSPACE_SURFACES.journey.presentedAsTab).toBe(false)
@@ -78,7 +82,7 @@ describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by 
     expect(WORKSPACE_SURFACES.diagnostics.presentedAsTab).toBe(true)
   })
 
-  it('DT-2: with compareTab ON, the contract lights the tab in its strip slot', async () => {
+  it('DT-2: with compareTab ON, the contract still keeps the tab out of the strip', async () => {
     // ⭐ THE LOAD-BEARING CASE. `getOutputTabsForParity()` is what both the
     // expanded strip and the collapsed icon rail map over, and it is also what
     // the `?tab=` deep-link reader validates against
@@ -98,9 +102,9 @@ describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by 
     expect(flags.isCompareTabEnabled()).toBe(true)
 
     const ids = getOutputTabsForParity().map(t => t.id)
-    expect(ids).toContain('compare')
-    // Exact list, in strip order: Compare sits after Reasoning and before Model.
-    expect(ids).toEqual(['olumi', 'results', 'analysisNew', 'compare', 'diagnostics'])
+    expect(ids).not.toContain('compare')
+    // Exact list, in strip order (contrast: the others are all still there).
+    expect(ids).toEqual(['olumi', 'results', 'analysisNew', 'diagnostics'])
     // ⚠ 120s, and the number is deliberate, not padding. Importing OutputsDock
     // cold through `resetModules` + `doMock` pulls a very large module graph:
     // measured 27.1s on this machine, and the 5s default fired BEFORE any
@@ -116,8 +120,8 @@ describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by 
     // `aiPanelV2.parity.spec.tsx` at their 5s default on a slow machine.
   }, 120_000)
 
-  it('DT-3: presentedSurfaces() includes compare, in strip order', () => {
-    expect(presentedSurfaces().map(s => s.id)).toEqual(['olumi', 'results', 'analysisNew', 'compare', 'diagnostics'])
+  it('DT-3: presentedSurfaces() leaves compare out, in strip order', () => {
+    expect(presentedSurfaces().map(s => s.id)).toEqual(['olumi', 'results', 'analysisNew', 'diagnostics'])
   })
 
   it('DT-4: the strip budget moved WITH the Record, not independently of it', () => {
@@ -132,8 +136,8 @@ describe('Compare is a presented tab again (SC-24 v3, 30 Sep 2026; de-tabbed by 
     expect(MAX_PRESENTED_SURFACES).toBe(presentedSurfaces().length)
     // 3 while Compare was hidden and nothing replaced it; 4 since the
     // temporary 'Analysis (New)' comparison surface joined the strip
-    // (27 Aug 2026); 5 since Compare came back (30 Sep 2026, SC-24 v3).
-    expect(MAX_PRESENTED_SURFACES).toBe(5)
+    // (27 Aug 2026); 5 since Compare came back (30 Sep 2026, SC-24 v3); 4 since it moved into Reasoning (20 Oct 2026).
+    expect(MAX_PRESENTED_SURFACES).toBe(4)
   })
 
   it('DT-5: compare keeps its ORDER slot and its Record row', () => {

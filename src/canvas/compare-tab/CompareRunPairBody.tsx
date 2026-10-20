@@ -95,8 +95,11 @@ export function compareOutOfDateCopy(words: string): { title: string; body: stri
 export function CompareRunPairBody({
   responseHash,
   runOnRecordWithoutResult = null,
+  embedded = false,
 }: {
   responseHash: string | null | undefined
+  /** Inside the Reasoning tab (20 Oct): the tab already gives the measure, so the body adds no padding of its own. */
+  embedded?: boolean
   /** `selectRunOnRecordWithoutResult` from the dock; absent = no Run on record, so "No comparison yet" stands. */
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
@@ -169,7 +172,7 @@ export function CompareRunPairBody({
   // An option's movement row lights and focuses the option's own node, by id, only when the canvas has it now.
   const resultsAllowed = runIsCurrent && !winSharesWithheld
   return (
-    <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
+    <div className={embedded ? 'space-y-4' : COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={resultsAllowed} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} sizingPath={sizingPath} />

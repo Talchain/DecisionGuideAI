@@ -19,7 +19,7 @@
 import { COMMITMENT_COPY, runDeltaSentence } from '../../../components/results/analysisNew/commitmentSynthesis'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { RunDeltaSchema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
@@ -28,7 +28,7 @@ import { CompareRunPairBody, COMPARE_RUN_PAIR_TESTID, COMPARE_RUN_ON_RECORD_COPY
 import { FOOTER_COPY } from '../../components/pre-analysis-v3/constants'
 import { selectRunOnRecordWithoutResult } from '../../stores/declinedSavedRunStore'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
-import { WhatsChangedReceipt, WHATS_CHANGED_RECEIPT_TESTID } from '../../../components/results/analysisNew/sections/WhatsChangedReceipt'
+import { SinceLastRun, SINCE_LAST_RUN_TESTID } from '../../../components/results/analysisNew/sections/SinceLastRun'
 import { displayedRunDeltaView, nodeLabelMap } from '../../../components/results/analysisNew/displayedRunDeltaView'
 import { focusNodeById } from '../../utils/focusHelpers'
 
@@ -139,31 +139,29 @@ describe('C3 · one reader: the Compare body and the shared reader cannot disagr
   }
 })
 
-describe('R1 · the Reasoning receipt names the earlier Run and opens Compare — and claims nothing', () => {
+describe('R1 · Reasoning shows the comparison itself, "Since your last run" (Paul, 20 Oct)', () => {
   const view = () => {
     const s = useCanvasStore.getState() as unknown as { runDelta: never; currentScenarioId: string | null; nodes: typeof NODES }
     return displayedRunDeltaView(s.runDelta, 'hash-A', s.currentScenarioId, nodeLabelMap(s.nodes))
   }
 
-  it('names the earlier Run by its own time, and "View comparison" opens the Compare tab', () => {
-    const spy = vi.spyOn(useUIStore.getState(), 'setActiveOutputTab')
-    render(<WhatsChangedReceipt view={view()} />)
-    expect(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-compared-with`).textContent).toMatch(/^Compared with the earlier run at \d{1,2}:\d{2}\.$/)
-    fireEvent.click(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-open`))
-    expect(spy).toHaveBeenCalledWith('compare')
-    spy.mockRestore()
+  it('mounts the ONE comparison body, from the same reader, inside the Reasoning block', () => {
+    render(<SinceLastRun view={view()} responseHash="hash-A" />)
+    const block = screen.getByTestId(SINCE_LAST_RUN_TESTID)
+    expect(block.textContent).toMatch(/^Since your last run/)
+    expect(within(block).getByTestId(COMPARE_RUN_PAIR_TESTID)).toBeInTheDocument()
+    expect(within(block).getAllByTestId(`${WHATS_CHANGED_TESTID}-input-row`).length).toBeGreaterThan(0)
   })
 
-  it('carries no result figure, input row or leader claim — those are the Compare tab\'s', () => {
-    render(<WhatsChangedReceipt view={view()} />)
-    const text = screen.getByTestId(WHATS_CHANGED_RECEIPT_TESTID).textContent ?? ''
-    expect(text).not.toMatch(/%|£|→|highest|leader|ranked/i)
-    expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-input-row`)).toBeNull()
-  })
-
-  it('renders nothing when there is no comparison', () => {
-    const { container } = render(<WhatsChangedReceipt view={null} />)
+  it('renders nothing when there is no comparison (contrast: the same view renders it above)', () => {
+    expect(view()).not.toBeNull()
+    const { container } = render(<SinceLastRun view={null} responseHash="hash-A" />)
     expect(container.innerHTML).toBe('')
+  })
+
+  it("opening 'compare' from anywhere lands on Reasoning", () => {
+    useUIStore.getState().setActiveOutputTab('compare')
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
   })
 })
 
