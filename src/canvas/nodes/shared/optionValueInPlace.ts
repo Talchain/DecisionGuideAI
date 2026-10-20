@@ -20,7 +20,8 @@ import { INTERVENTION_NO_CHANGE_EPSILON } from '../../utils/interventionDisplay'
 import type { NodeValueEntryAdmission } from './NodeValueEditor'
 
 export interface OptionValueChip {
-  value: number
+  /** `null` is a target the option names with no value yet: the field opens empty. */
+  value: number | null
   displayValue?: string
   unit?: string
   cap?: number
@@ -36,19 +37,19 @@ export interface OptionValueInPlace {
 }
 
 export function optionValueInPlace(chip: OptionValueChip): OptionValueInPlace | null {
-  if (!Number.isFinite(chip.value)) return null
+  const current = chip.value
+  if (current !== null && !Number.isFinite(current)) return null
   const anchor = { observedValue: chip.observedValue, observedRawValue: toFiniteNumber(chip.observedRawValue) ?? undefined }
   const frame = resolveOptionTargetEntryFrame({ unit: chip.unit, cap: chip.cap, ...anchor })
   const adornment = optionTargetEntryAdornment(frame)
   return {
-    seedText: optionTargetEntrySeed(chip.value, frame, anchor),
+    seedText: current === null ? '' : optionTargetEntrySeed(current, frame, anchor),
     prefix: adornment.prefix,
     scaleHint: frame.kind === 'model_scale' ? '0–1' : adornment.suffix,
     admit: (draft) => {
-      const a = admitOptionTargetEntry(draft, frame, anchor, chip.value)
-      if (!a.ok) return a
-      // The saved figure, typed again (a £ round-trip can differ by float noise): nothing to send.
-      return Math.abs(a.value - chip.value) <= INTERVENTION_NO_CHANGE_EPSILON ? { ok: true, value: chip.value } : a
+      const a = admitOptionTargetEntry(draft, frame, anchor, current ?? undefined)
+      if (!a.ok || current === null) return a
+      return Math.abs(a.value - current) <= INTERVENTION_NO_CHANGE_EPSILON ? { ok: true, value: current } : a
     },
   }
 }

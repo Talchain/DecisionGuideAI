@@ -1,3 +1,4 @@
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../store'
 import { driverRankFor, useInfluenceRank } from '../../hooks/useInfluenceRank'
@@ -40,6 +41,8 @@ export interface FactorRunCues {
      * the same run's fact under `Last run · `.
      */
     noValueYet: boolean
+    /** Which way the run says this factor moves the outcome; `mixed`/`unknown`/absent draw no arrow. */
+    direction: 'positive' | 'negative' | null
   } | null
   driverNotRanked: boolean
   turningPointState: FactorTurningPointState | null
@@ -143,6 +146,7 @@ export function useFactorRunCues(nodeId: string, displayMetadata: NodeDisplayMet
           rank: driverRank,
           value: typeof relativeSensitivity === 'number' && Number.isFinite(relativeSensitivity) ? relativeSensitivity : null,
           noValueYet: displayMetadata.unvaluedInRun === true,
+          direction: isDirectionalFactor(displayMetadata.driverDirection) ? displayMetadata.driverDirection : null,
         }
       : null
   const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null

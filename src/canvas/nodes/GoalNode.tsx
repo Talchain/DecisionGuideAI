@@ -64,6 +64,9 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { NeedsInputSlot } from './shared/NeedsInputSlot'
+import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
+import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
@@ -672,6 +675,12 @@ export const GoalNode = memo((props: NodeProps) => {
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
   const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
+  // Editable only where a write exists for it: the core lane, on a goal with a stated target and unit.
+  const todayLevelEditable = resolveAiComparisonMode() === 'core' && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
+  const todayLevelUnit = (() => {
+    const { kind, canonical } = classifyUnit(thresholdUnit)
+    return kind === 'symbol' || kind === 'iso' ? { prefix: ISO_CURRENCY_GLYPHS[canonical] ?? canonical } : kind === 'none' || kind === 'placeholder' ? {} : { suffix: canonical }
+  })()
 
   /**
    * ⭐ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal with no
@@ -1149,7 +1158,27 @@ export const GoalNode = memo((props: NodeProps) => {
 
         {/* ⭐ Today's level (cut-costs `09af9019`; AIQ 5902409861; Beat 1 4 Oct: level goals, "— from your brief"): "down 20% from today" now says
             what today is, from the typed reading or the user's stated level only (`goalTodayLevel`). */}
-        {todayLevel !== null && (
+        {/* ⭐ TODAY'S LEVEL IS TYPED ON THE CARD (Paul, 20 Oct 2026, canvas option 3) — core lane only, where CEE's
+            existing `factor_value_edit` on the goal id writes it in the target's unit (DL, 20 Oct: `living-model/edit.ts`;
+            a different unit is refused `unit_mismatch`). A known level keeps its words and becomes the control that
+            changes it; an unknown one is the empty field. Other lanes keep the read-only line. */}
+        {todayLevelEditable ? (
+          <div className="mt-0.5" data-testid={`goal-today-level-${props.id}`}>
+            <NodeValueEditor
+              value={todayLevel?.level ?? null}
+              readout={todayLevel !== null
+                ? <span className={`${typography.edgeLabel} text-text-light`}>{goalTodayLevelCopy(todayLevel)}</span>
+                : <NeedsInputSlot words="Today's level needed" description="Type where it stands today" unit={todayLevelUnit} testId={`goal-today-level-empty-${props.id}`} />}
+              onCommit={(v, opts) => goalEditAuthority.proposeFactorValue(v, { ...opts, unit: thresholdUnit!.trim() })}
+              {...(todayLevelUnit.prefix ? { prefix: todayLevelUnit.prefix } : {})}
+              {...(todayLevelUnit.suffix ? { scaleHint: todayLevelUnit.suffix } : {})}
+              restingFlow="inline"
+              restingTypography={typography.edgeLabel}
+              ariaLabel={`Today's level of ${props.data?.label ?? 'this goal'}`}
+              testId={`goal-today-level-editor-${props.id}`}
+            />
+          </div>
+        ) : todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
             {goalTodayLevelCopy(todayLevel)}
           </p>

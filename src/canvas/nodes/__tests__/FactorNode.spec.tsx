@@ -761,8 +761,10 @@ describe('FactorNode', () => {
     // factor's frame token since contract v3.1 FRAME-08.
     expect(tokens).toContain(nodeColors.factor.frame)
     expect(tokens).not.toContain('border-warning')
-    // ⭐ …and the state must still be announced, or the ruling is half-done.
-    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
+    // ⭐ …and the state must still be announced, or the ruling is half-done. Canvas option 3 (20 Oct 2026): the
+    // announcement is the empty field's `needs-input` mark, and the field is the value editor itself.
+    expect(screen.getByRole('img', { name: 'Needs input' }).getAttribute('data-card-mark')).toBe('needs-input')
+    expect(document.querySelector('[data-testid^="node-value-editor-"]'), 'the empty value is the editor').toBeTruthy()
   })
 
   // P0 (feedback): binary factor_type + value=0 → contextual text

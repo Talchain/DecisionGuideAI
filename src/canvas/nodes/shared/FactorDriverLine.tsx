@@ -1,5 +1,5 @@
 import { BottomCardMark } from './CardMark'
-import { History } from 'lucide-react'
+import { ArrowDown, ArrowUp, History } from 'lucide-react'
 /**
  * ⭐ THE FACTOR'S TINY RELATIVE DRIVER VISUAL (locked spec §3 "Tiny driver visual
  * — restore"; ED 02:31Z D1a; ED 11:52Z point 3).
@@ -171,7 +171,18 @@ export interface FactorDriverLineProps {
    */
   inSlot?: boolean
   onCard?: boolean
+  /**
+   * Which way the run says this factor moves the outcome (Paul, 20 Oct 2026: the bar should say more at a glance). Drawn
+   * as the arrow the driver chart and link pills already use; `null` (mixed, unknown, absent) draws none, never inferred.
+   */
+  direction?: 'positive' | 'negative' | null
 }
+
+/** The arrow's words, said in the accessible name and tooltip. */
+export const DRIVER_DIRECTION_WORDS = {
+  positive: 'Raising it increases the outcome in this run.',
+  negative: 'Raising it decreases the outcome in this run.',
+} as const
 
 /** The bar's whole percentage, or null when there is no finite figure to draw. */
 function barPercent(value: number | null): number | null {
@@ -258,6 +269,7 @@ export function FactorDriverLine({
   testId = 'factor-driver-line',
   inSlot = false,
   onCard = false,
+  direction = null,
 }: FactorDriverLineProps) {
   const pct = barPercent(value)
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
@@ -271,7 +283,7 @@ export function FactorDriverLine({
       ? restingUnvaluedDriverCaption(rank, fromLastRun)
       : restingDriverCaption(rank, fromLastRun)
     : `${lastRun}${driverLineCaption(rank, fromLastRun, noValueYet)}`
-  const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun, noValueYet })}`
+  const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun, noValueYet })}${direction ? ` ${DRIVER_DIRECTION_WORDS[direction]}` : ''}`
   const denominatorNote = driverLineDenominatorNote(rank, fromLastRun)
   const tooltipWords = `${explanation} ${denominatorNote}`
   const visual = inSlot || onCard
@@ -310,6 +322,18 @@ export function FactorDriverLine({
         >
           {visual ? rank.rank : caption}
         </span>
+        {direction && (() => {
+          const Arrow = direction === 'positive' ? ArrowUp : ArrowDown
+          return (
+            <Arrow
+              aria-hidden="true"
+              strokeWidth={2}
+              className="h-[calc(10px*var(--canvas-glyph-scale,1))] w-[calc(10px*var(--canvas-glyph-scale,1))] shrink-0 text-text-light"
+              data-testid={`${testId}-direction`}
+              data-direction={direction}
+            />
+          )
+        })()}
         {/* No figure → no bar. In the slot the 6px before it is the row's
             `gap-x-1.5` (contract `.driver` gap 6px), which only exists while
             the bar shares the caption's line; free-flowing, it is `ml-1.5`. */}

@@ -539,6 +539,11 @@ export interface FactorValueEditInput {
   /** The node's `data`, read for its OWN cap / unit. */
   nodeData: unknown
   /**
+   * The unit the typed number is in, where the node's own observed unit is not it: a goal's today's level is typed in
+   * its TARGET's unit, the one CEE's level write compares against (core `living-model/edit.ts`, `unit_mismatch`).
+   */
+  unit?: string
+  /**
    * Which number the committing input was DISPLAYING. Omit for the
    * `raw_value ?? value` inputs; see `ValueInputSeedBasis`.
    */
@@ -622,8 +627,10 @@ export function buildFactorValueEditEvent(
 
   const obs = getObservedState(nodeData)
   const cap = readNumber(obs.cap)
-  const unit = typeof obs.unit === 'string' && obs.unit.length > 0 ? obs.unit : undefined
-  const { inUserUnits } = resolveValueInputSeed(nodeData, effectiveSeedBasis)
+  const unit = input.unit ?? (typeof obs.unit === 'string' && obs.unit.length > 0 ? obs.unit : undefined)
+  // A caller that names the unit typed the number IN it (a goal's level), so it goes out as that raw figure whatever
+  // the node's own seed basis is (Codex R2 on #2855: a model-scale goal value otherwise dropped raw_value and unit).
+  const inUserUnits = input.unit !== undefined ? true : resolveValueInputSeed(nodeData, effectiveSeedBasis).inUserUnits
 
   // `value` is ALWAYS model scale. `normaliseRawFactorValue` is the canonical
   // rule (raw/cap, with the typed number passed through when no honest scale

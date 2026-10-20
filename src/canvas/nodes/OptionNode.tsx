@@ -7,6 +7,7 @@ import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { CardMark } from './shared/CardMark'
+import { NeedsInputSlot } from './shared/NeedsInputSlot'
 import { pickOptionStatusMark } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -195,7 +196,6 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useOptionChanceCell } from './shared/useOptionChanceCell'
-import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from './shared/runCurrency'
 import { olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
@@ -2023,6 +2023,40 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }
 
+  /**
+   * ⭐ AN UNSET TARGET IS TYPED IN PLACE (Paul, 20 Oct 2026, canvas option 3): the same editor, frame and writer as a
+   * set target, opened empty, with the factor's own unit. A refusal (a viewer, a stale base) is the writer's to say.
+   */
+  const withEmptyValueEditor = (factorId: string, readout: ReactNode): ReactNode => {
+    const factorNode = nodes.find(n => n.id === factorId)
+    const inPlace = optionValueInPlace({ value: null, ...resolveOptionTargetDisplayFrame(factorNode?.data, undefined) })
+    if (!inPlace) return readout
+    const label = sentenceCaseFactorLabel(cleanFactorLabel((factorNode?.data?.label as string | undefined) ?? factorId))
+    return (
+      <NodeValueEditor
+        value={null}
+        readout={readout}
+        seedText=""
+        prefix={inPlace.prefix}
+        scaleHint={inPlace.scaleHint}
+        admit={inPlace.admit}
+        restingFlow="inline"
+        restingTypography={typography.edgeLabel}
+        ariaLabel={`${label}, as this option sets it (needs input)`}
+        testId={`option-value-editor-${props.id}-${factorId}`}
+        readCommittedValue={() => {
+          const n = useCanvasStore.getState().nodes.find(x => x.id === props.id)
+          return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
+        }}
+        onCommit={(v, { onSendSettled }) => {
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st, detail) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st, detail) } })
+          if (outcome === 'dispatched') return 'dispatched'
+          return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
+        }}
+      />
+    )
+  }
+
   const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
     // The mark is glued to the value's last run, so that run is held whole only
     // while it fits one line of the row budget WITH the mark (#2119's rule,
@@ -2064,15 +2098,16 @@ export const OptionNode = memo((props: NodeProps) => {
           value text is byte-identical to `r.change` either way. */}
       {r.needsInput ? (
         /* Row 22 (contract v3 §02): the amount cell of a target the
-           option names with no value is the state word — no mark,
-           because there is no target to attribute. */
-        <span
-          className={STATE_WORD_CLASSES}
-          style={STATE_WORD_STYLE}
-          data-testid={`option-change-row-needs-input-${props.id}-${r.factorId}`}
-        >
-          {r.change}
-        </span>
+           option names with no value has no source mark (there is no
+           target to attribute) — it is the empty field, led by the
+           `needs-input` icon (canvas option 3, 20 Oct 2026). */
+        withEmptyValueEditor(r.factorId, (
+          <NeedsInputSlot
+            words={r.change}
+            description="What this option sets is not set yet. Type it here"
+            testId={`option-change-row-needs-input-${props.id}-${r.factorId}`}
+          />
+        ))
       ) : (
         <span
           // `whitespace-normal` is EXPLICIT: the cell is `nowrap` (the mark's
@@ -2370,6 +2405,8 @@ export const OptionNode = memo((props: NodeProps) => {
       <BaseNode
         optionChanceCell={chanceCell}
         {...props}
+        // An unset target's row is now the field to fill, so the corner pill would say it twice (the factor card's rule).
+        incompleteStatedOnCard={changeRows.some(r => r.needsInput)}
         nodeType="option"
         icon={metadata.icon}
         lodKeepLabel={isRecommended}
