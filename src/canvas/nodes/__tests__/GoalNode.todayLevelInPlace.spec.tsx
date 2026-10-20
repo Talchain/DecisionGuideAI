@@ -103,6 +103,11 @@ describe('the level write names the unit it was typed in', () => {
     expect(ev?.payload).toMatchObject({ target_id: 'goal-1', raw_value: 80, unit: 'tickets per week' })
   })
 
+  it('a goal holding only a model-scale value still sends the typed figure as raw_value in that unit', () => {
+    const ev = buildFactorValueEditEvent({ nodeId: 'goal-1', typedValue: 90, nodeData: { observedState: { value: 0.8 } }, unit: 'tickets per week' })
+    expect(ev?.payload).toMatchObject({ target_id: 'goal-1', raw_value: 90, unit: 'tickets per week' })
+  })
+
   it("CONTRAST: without one, the node's own unit stands", () => {
     const ev = buildFactorValueEditEvent({ nodeId: 'f-1', typedValue: 80, nodeData: { observedState: { unit: 'tickets' } } })
     expect((ev?.payload as { unit?: string }).unit).toBe('tickets')

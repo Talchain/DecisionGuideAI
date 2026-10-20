@@ -628,7 +628,9 @@ export function buildFactorValueEditEvent(
   const obs = getObservedState(nodeData)
   const cap = readNumber(obs.cap)
   const unit = input.unit ?? (typeof obs.unit === 'string' && obs.unit.length > 0 ? obs.unit : undefined)
-  const { inUserUnits } = resolveValueInputSeed(nodeData, effectiveSeedBasis)
+  // A caller that names the unit typed the number IN it (a goal's level), so it goes out as that raw figure whatever
+  // the node's own seed basis is (Codex R2 on #2855: a model-scale goal value otherwise dropped raw_value and unit).
+  const inUserUnits = input.unit !== undefined ? true : resolveValueInputSeed(nodeData, effectiveSeedBasis).inUserUnits
 
   // `value` is ALWAYS model scale. `normaliseRawFactorValue` is the canonical
   // rule (raw/cap, with the typed number passed through when no honest scale
