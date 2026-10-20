@@ -26,6 +26,8 @@ export interface ConversationMessage {
   actionChips?: ActionChip[]
   /** Validated server refusal; controls retry affordances on this message. */
   ownershipRefusal?: OwnershipRefusalReason
+  /** Explicit core failure resend permission; absent on legacy messages. */
+  retryable?: boolean
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string

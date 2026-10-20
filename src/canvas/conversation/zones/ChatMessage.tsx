@@ -174,7 +174,7 @@ export const ChatMessage = memo(function ChatMessage({
         <MessageMenu
           role={message.role}
           content={message.content}
-          onRetry={message.role === 'assistant' && (message.ownershipRefusal === undefined || ownershipRefusalRetryable(message.ownershipRefusal)) ? onRetry : undefined}
+          onRetry={message.role === 'assistant' && message.retryable !== false && (message.ownershipRefusal === undefined || ownershipRefusalRetryable(message.ownershipRefusal)) ? onRetry : undefined}
           /*
            * ⚠ THE OLD ROW'S GATE IS CARRIED OVER, NOT DROPPED. `FollowUpActions`
            * rendered only when the message was a non-synthetic, non-streaming

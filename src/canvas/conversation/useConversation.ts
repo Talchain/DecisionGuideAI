@@ -42,6 +42,7 @@ import {
   extractCeeRecovery,
   formatRecoveryHints,
   isDisplaySafeReason,
+  isRecord,
 } from './ceeRecovery'
 import {
   buildTransportFailureCopy, classifyUnansweredSend, DELIVERY_UNKNOWN_COPY, isTransportFailure, isUnverifiedDelivery,
@@ -2388,6 +2389,8 @@ export interface SendFailureNotice {
   retryable: boolean
   /** The submitted input text, for restore-into-composer affordances. */
   inputText: string
+  /** Core's rendered failure copy, shared with the first-use surface. */
+  content?: string
   /** Validated refusal shared by the transcript and first-use hero. */
   ownershipRefusal?: OwnershipRefusalReason
 }
@@ -5647,6 +5650,9 @@ export function useConversation(): UseConversationReturn {
         // An approval press answered by a 5xx reached CEE, so its write may have committed: the outcome is UNKNOWN, never a
         // "server" fault (VERIFIER REC-WRITE). The re-press is idempotent, so the retry stays offered.
         const pressOutcomeUnknown = httpServerFailure && chipMeta?.id?.startsWith(CONSENT_CHIP_PREFIX) === true
+        const coreTurn = v5Headers['x-olumi-ai-mode'] === 'core'
+        const errorBody = target.kind === 'typed_error' ? target.rawBody ?? target.boundaryError : undefined
+        const coreError = coreTurn && isRecord(errorBody) ? errorBody : undefined
         if (userBubbleIdForTurn) {
           const unverified = unanswered === 'delivery_unknown' || (!noResponse &&
             target.kind === 'typed_error' &&
@@ -5663,7 +5669,7 @@ export function useConversation(): UseConversationReturn {
           const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
           updateMessage(userBubbleIdForTurn, {
             deliveryState:
-              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame
+              target.kind !== 'typed_error' || target.ownershipRefusal !== undefined || deliveryProvenByFrame || typeof coreError?.error === 'string'
                 ? 'sent'
                 : unverified
                   ? 'unconfirmed'
@@ -6490,9 +6496,12 @@ export function useConversation(): UseConversationReturn {
           // CeeTypedError-shaped bodies (via rawBody), plus the server
           // retryable marker. Fail closed on every field.
           const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
-          const retryable = target.ownershipRefusal !== undefined
+          // Core's save contract licenses a resend; transient provider failure alone does not.
+          const retryable = (target.ownershipRefusal !== undefined
             ? ownershipRefusalRetryable(target.ownershipRefusal)
-            : resolveV5Retryable(target.code, recovery.retryable)
+            : resolveV5Retryable(target.code, recovery.retryable))
+            && (!coreTurn || coreError?.retry_safe === true)
+            && coreError?.error !== 'PROVIDER_CAPACITY'
           // Transcript honesty (trust item #3): the rehearsal's 504s carry
           // NO CEE body — the proxy timeout JSON is not a server-processing
           // fault, and "Something went wrong on our side" was a false
@@ -6525,6 +6534,12 @@ export function useConversation(): UseConversationReturn {
             content = DELIVERY_UNKNOWN_COPY
           } else if (target.ownershipRefusal !== undefined) {
             content = OWNERSHIP_REFUSAL_COPY[target.ownershipRefusal]
+          } else if (coreError?.save_outcome === 'VERIFIED_SAVED') {
+            content = 'Your model was saved, but the reply failed. Send a new message to continue.'
+          } else if (coreError?.error === 'PROVIDER_CAPACITY') {
+            content = "Olumi's AI service is temporarily out of capacity. "
+              + (coreError.nothing_saved === true ? 'Nothing was saved. ' : '')
+              + 'Try again later.'
           } else if (pressOutcomeUnknown) {
             content = APPROVAL_PRESS_OUTCOME_UNKNOWN_COPY
           } else if (transportFailure && target.transportMeta) {
@@ -6588,6 +6603,7 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               synthetic: true,
               content,
+              ...(coreTurn ? { retryable } : {}),
               ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
               actionChips: retryChips,
               ...(deliveryUnverified || unanswered === 'delivery_unknown' ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
@@ -6601,6 +6617,7 @@ export function useConversation(): UseConversationReturn {
               // unverified-delivery shape, so none is advertised (2.665 I-B).
               retryable: retryable && !deliveryUnverified,
               inputText: inputForRestore,
+              ...(coreTurn ? { content } : {}),
               ...(target.ownershipRefusal !== undefined ? { ownershipRefusal: target.ownershipRefusal } : {}),
             })
             // Row 3: CEE refused the re-used id as another request ("Nothing was run or changed"). That id is spent, so

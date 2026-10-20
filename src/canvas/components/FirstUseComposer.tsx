@@ -87,6 +87,7 @@ const PANEL_MARGIN = 16
  * recovery suggestion.
  */
 function heroFailureCopy(failure: SendFailureNotice): string {
+  if (failure.content !== undefined) return failure.content
   if (failure.ownershipRefusal !== undefined) return OWNERSHIP_REFUSAL_COPY[failure.ownershipRefusal]
   switch (failure.kind) {
     case 'not_sent':
