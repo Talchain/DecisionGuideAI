@@ -1,83 +1,98 @@
 /**
- * Each option's chance of meeting the goal, earlier run → this run, as one line per option (Paul, 20 Oct 2026).
+ * Each option's chance of meeting the goal, earlier run → this run, as one "shift row" per option (Paul, 20 Oct 2026).
  *
- * Draws ONLY what `pairChanceFigures` (runView.ts, the chance gate) returns: the words to say and where each marker sits
- * on the 0–100 track. It computes no difference, ranks nothing and names no leader of its own: the darker line is the
- * option CEE's goal-chance licence names as having the highest chance this run (`claim`), or none. Never the comparative
- * leader (the most runs supported), which is not a chance. Hollow marker = earlier run, filled = this run
- * (FIGURE_MARKER_W). A line joins two point figures only; a range shows as its span.
+ * The Reasoning tab's own figure language, so the comparison reads as part of the same panel: the range figure's hairline
+ * track, its 11px option marker (`FIGURE_MARKER_CLASS`) and its option-tinted band. Hollow = earlier run, filled = this
+ * run, joined by a neutral connector; a range is drawn as a band, never as a point. One shared 0–100% axis under the rows.
+ *
+ * Draws ONLY what `pairChanceFigures` (runView.ts, the chance gate) returns: its words and where each mark sits. It
+ * computes no difference, ranks nothing and names no leader of its own (CEE's goal-chance leader's name is the darker
+ * text). Type is the panel scale only (DS v5 §2.2): `panelBody` names, `panelTabular` figures, `panelMeta` axis and key.
  */
+import { ArrowRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { FIGURE_MARKER_W } from '../../components/results/analysisNew/PanelFigure'
+import { FIGURE_BAND_HEIGHT, FIGURE_MARKER_CLASS, FIGURE_RADIUS, markerLeft } from '../../components/results/analysisNew/PanelFigure'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import type { PairChanceFigures, PairChanceSide } from '../runView/runView'
 
 export const PAIR_CHANCE_SLOPE_TESTID = 'compare-pair-chance-slope'
 
-const W = 280
-const LEFT = 92
-const RIGHT = 188
-const TOP = 26
-const TRACK = 120
-const R = FIGURE_MARKER_W / 2
-const y = (scale: number): number => TOP + TRACK - (Math.min(100, Math.max(0, scale)) / 100) * TRACK
-const mid = (side: PairChanceSide): number => (side.kind === 'point' ? side.scaleAt : (side.scaleLow + side.scaleHigh) / 2)
+const TICKS = [0, 25, 50, 75, 100] as const
+const clamp = (n: number): number => Math.min(100, Math.max(0, n))
+const at = (side: PairChanceSide): number => clamp(side.kind === 'point' ? side.scaleAt : (side.scaleLow + side.scaleHigh) / 2)
 
-function Marker({ x, side, filled, strong }: { x: number; side: PairChanceSide; filled: boolean; strong: boolean }): JSX.Element {
-  const width = strong ? 2 : 1.5
+/** The earlier run's mark: a hollow marker, or a ghost band (outline only). This run's: the filled marker, or the tinted band. */
+function Mark({ side, earlier }: { side: PairChanceSide; earlier: boolean }): JSX.Element {
   if (side.kind === 'range') {
-    return <line x1={x} x2={x} y1={y(side.scaleHigh)} y2={y(side.scaleLow)} stroke="currentColor" strokeWidth={4} strokeLinecap="round" />
+    const low = clamp(side.scaleLow)
+    const width = Math.max(clamp(side.scaleHigh) - low, 0)
+    const tint = earlier ? 'ring-1 ring-inset ring-option/70' : 'bg-option/40 ring-1 ring-inset ring-option/70'
+    return (
+      <span className={`absolute top-1/2 -translate-y-1/2 ${FIGURE_BAND_HEIGHT} ${FIGURE_RADIUS} bg-panel`}
+        style={{ left: `${low}%`, width: `max(${width}%, 2px)` }} data-mark={earlier ? 'earlier' : 'now'}>
+        <span className={`absolute inset-0 ${FIGURE_RADIUS} ${tint}`} />
+      </span>
+    )
   }
-  return <circle cx={x} cy={y(side.scaleAt)} r={R} strokeWidth={width} stroke="currentColor"
-    className={filled ? 'fill-current' : 'fill-panel'} />
+  const left = markerLeft(clamp(side.scaleAt) / 100)
+  return earlier
+    ? <span className="absolute top-1/2 -translate-y-1/2 w-[11px] h-[11px] rounded-full bg-panel border-2 border-option/70" style={{ left }} data-mark="earlier" />
+    : <span className={FIGURE_MARKER_CLASS} style={{ left }} data-mark="now" />
+}
+
+function Track({ earlier, now }: { earlier: PairChanceSide | null; now: PairChanceSide | null }): JSX.Element {
+  const from = earlier ? at(earlier) : null
+  const to = now ? at(now) : null
+  return (
+    <span className="relative block h-[11px] w-full mt-2" aria-hidden="true">
+      <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-panel-border" />
+      {TICKS.slice(1, -1).map(t => <span key={t} className="absolute top-0 h-full w-px bg-panel-border/50" style={{ left: `${t}%` }} />)}
+      {from !== null && to !== null && from !== to
+        ? <span className="absolute top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-option/40" style={{ left: `${Math.min(from, to)}%`, width: `${Math.abs(to - from)}%` }} />
+        : null}
+      {earlier ? <Mark side={earlier} earlier /> : null}
+      {now ? <Mark side={now} earlier={false} /> : null}
+    </span>
+  )
 }
 
 export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JSX.Element | null {
   const { rows, claim } = figures
   const strongId = claim !== null && 'optionId' in claim ? claim.optionId : null
   if (rows.length === 0) return null
-  const height = TOP + TRACK + 10
   const name = (label: string | null): string => label ?? 'An option'
-  // Short point figures sit beside their markers; names and every full wording (ranges included) are in the list below,
-  // which wraps at any panel width (a 360px panel clipped in-chart labels on 20 Oct).
-  // A figure label is drawn only where it clears every label already drawn in its column (the list says them all).
-  const placed: Record<'l' | 'r', number[]> = { l: [], r: [] }
-  const short = (side: PairChanceSide | null, col: 'l' | 'r'): string | null => {
-    if (side?.kind !== 'point') return null
-    const at = y(side.scaleAt)
-    if (placed[col].some(p => Math.abs(p - at) < 12)) return null
-    placed[col].push(at)
-    return side.words
-  }
   return (
     <figure className="m-0 mt-3" data-testid={PAIR_CHANCE_SLOPE_TESTID}>
-      <svg viewBox={`0 0 ${W} ${height}`} width="100%" aria-hidden="true" className={`${typography.panelMeta} block max-w-[320px]`}>
-        <text x={LEFT} y={12} textAnchor="middle" className="fill-current text-text-light">Earlier run</text>
-        <text x={RIGHT} y={12} textAnchor="middle" className="fill-current text-text-light">This run</text>
-        <line x1={LEFT} x2={LEFT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
-        <line x1={RIGHT} x2={RIGHT} y1={TOP - 6} y2={TOP + TRACK + 6} stroke="currentColor" className="text-panel-border" />
-        {rows.map((row) => {
+      <figcaption className={`${typography.panelMeta} text-text-light mb-2`}>Chance of meeting your goal, in this model</figcaption>
+      <ul className="list-none p-0 m-0 space-y-3">
+        {rows.map(row => {
           const strong = row.optionId === strongId
-          const joined = row.earlier?.kind === 'point' && row.now?.kind === 'point'
           return (
-            <g key={row.optionId} className={strong ? 'text-text-header' : 'text-text-light'} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
-              {joined ? <line x1={LEFT} y1={y(mid(row.earlier!))} x2={RIGHT} y2={y(mid(row.now!))} stroke="currentColor" strokeWidth={strong ? 2.5 : 1.5} /> : null}
-              {row.earlier ? <Marker x={LEFT} side={row.earlier} filled={false} strong={strong} /> : null}
-              {row.now ? <Marker x={RIGHT} side={row.now} filled strong={strong} /> : null}
-              {(() => { const t = short(row.earlier, 'l'); return t ? <text x={LEFT - 10} y={y(mid(row.earlier!)) + 4} textAnchor="end" className="fill-current">{t}</text> : null })()}
-              {(() => { const t = short(row.now, 'r'); return t ? <text x={RIGHT + 10} y={y(mid(row.now!)) + 4} className="fill-current">{t}</text> : null })()}
-            </g>
+            <li key={row.optionId} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
+              <span className="sr-only">{`${name(row.label)}: earlier run ${row.earlier?.words ?? 'not shown'}, this run ${row.now?.words ?? 'not shown'}`}</span>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3" aria-hidden="true">
+                <span className={`${typography.panelBody} ${strong ? 'text-text-header' : 'text-text-body'} min-w-0`}>{name(row.label)}</span>
+                <span className={`${typography.panelTabular} text-text-light ml-auto inline-flex items-center gap-1`}>
+                  {row.earlier?.words ?? 'not shown'}
+                  <ArrowRight className={`${icon('inline')} flex-shrink-0`} aria-hidden="true" />
+                  <span className="text-text-header">{row.now?.words ?? 'not shown'}</span>
+                </span>
+              </div>
+              <Track earlier={row.earlier} now={row.now} />
+            </li>
           )
         })}
-      </svg>
-      <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 mt-1 space-y-1`}>
-        {rows.map(row => (
-          <li key={row.optionId} data-option-id={row.optionId}>
-            <span className={row.optionId === strongId ? 'font-medium text-text-header' : ''}>{name(row.label)}</span>
-            <span className="text-text-light">{`: earlier run ${row.earlier?.words ?? 'not shown'}, this run ${row.now?.words ?? 'not shown'}`}</span>
-          </li>
-        ))}
       </ul>
-      <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>Chance of meeting your goal, in this model</p>
+      <div className={`${typography.panelMeta} text-text-light relative h-4 mt-1`} aria-hidden="true">
+        {TICKS.map((t, i) => (
+          <span key={t} className={`absolute top-0 ${i === 0 ? '' : i === TICKS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${t}%` }}>{t}%</span>
+        ))}
+      </div>
+      <p className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex flex-wrap items-center gap-x-3 gap-y-1`} aria-hidden="true">
+        <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-panel border-2 border-option/70" />Earlier run</span>
+        <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-option" />This run</span>
+        <span className="inline-flex items-center gap-1"><span className={`inline-block w-4 ${FIGURE_BAND_HEIGHT} ${FIGURE_RADIUS} bg-option/40 ring-1 ring-inset ring-option/70`} />Range</span>
+      </p>
     </figure>
   )
 }
