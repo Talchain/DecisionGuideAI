@@ -5,6 +5,7 @@
  * resting face of the field the user types into.
  */
 import Tooltip from '../../../components/Tooltip'
+import { classifyUnit, moneyFigureParts } from '../../../utils/unitClassifier'
 import { cardMark } from './cardMarks'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -24,8 +25,20 @@ export function NeedsInputSlot({ words, description, unit = {}, testId }: {
         </span>
       </Tooltip>
       {unit.prefix && <span>{unit.prefix}</span>}
-      <span aria-hidden="true" className="inline-block min-w-[2.5em] rounded border border-dashed border-text-light px-1 text-center">—</span>
+      <span aria-hidden="true" className="inline-block rounded border border-dashed border-text-light px-2">—</span>
       {unit.suffix && <span>{unit.suffix}</span>}
     </span>
   )
+}
+
+/**
+ * Where an empty value's unit sits: a currency's glyph before the field (`£`, via the one money rule), any other unit
+ * after it, no unit for none.
+ */
+export function emptyValueUnit(unit: string | null | undefined): { prefix?: string; suffix?: string } {
+  const { kind, canonical } = classifyUnit(unit)
+  if (kind === 'none' || kind === 'placeholder') return {}
+  if (kind !== 'symbol' && kind !== 'iso') return { suffix: canonical }
+  const glyph = moneyFigureParts(0, canonical)?.figure.replace(/[-\d.,\s]/g, '')
+  return { prefix: glyph || canonical }
 }

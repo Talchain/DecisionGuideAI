@@ -64,9 +64,8 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
 import { NodeValueEditor } from './shared/NodeValueEditor'
-import { NeedsInputSlot } from './shared/NeedsInputSlot'
+import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
 import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
-import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
@@ -677,10 +676,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
   // Editable only where a write exists for it: the core lane, on a goal with a stated target and unit.
   const todayLevelEditable = resolveAiComparisonMode() === 'core' && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
-  const todayLevelUnit = (() => {
-    const { kind, canonical } = classifyUnit(thresholdUnit)
-    return kind === 'symbol' || kind === 'iso' ? { prefix: ISO_CURRENCY_GLYPHS[canonical] ?? canonical } : kind === 'none' || kind === 'placeholder' ? {} : { suffix: canonical }
-  })()
+  const todayLevelUnit = emptyValueUnit(thresholdUnit)
 
   /**
    * ⭐ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal with no

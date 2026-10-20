@@ -1,5 +1,5 @@
 import { CardMark } from './shared/CardMark'
-import { NeedsInputSlot } from './shared/NeedsInputSlot'
+import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -45,7 +45,6 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
-import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from './shared/factorPriorRange'
@@ -405,10 +404,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // FactorNeedsPre): all of value/raw_value/display_value null AND non-external.
   const needsInput = isFactorNeedsInput(props.data)
   // The unit an EMPTY value is typed in: a currency sits before the field (`£`), any other unit after it.
-  const emptyValueUnit = useMemo(() => {
-    const { kind, canonical } = classifyUnit(observedState?.unit)
-    return kind === 'symbol' || kind === 'iso' ? { prefix: ISO_CURRENCY_GLYPHS[canonical] ?? canonical } : kind === 'none' || kind === 'placeholder' ? {} : { suffix: canonical }
-  }, [observedState])
+  const emptyUnit = useMemo(() => emptyValueUnit(observedState?.unit), [observedState])
 
   // ⭐⭐ WHAT DOES THIS NODE SAY ABOUT ITS OWN NUMBER? ONE decision, ordered.
   //
@@ -1543,14 +1539,14 @@ export const FactorNode = memo((props: NodeProps) => {
           >
             <NodeValueEditor
               value={null}
-              readout={<NeedsInputSlot words="Needs input" description="Value not set yet. Type it here" unit={emptyValueUnit} testId="factor-empty-value" />}
+              readout={<NeedsInputSlot words="Needs input" description="Value not set yet. Type it here" unit={emptyUnit} testId="factor-empty-value" />}
               onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
               readCommittedValue={() =>
                 resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
-              {...(emptyValueUnit.prefix ? { prefix: emptyValueUnit.prefix } : {})}
+              {...(emptyUnit.prefix ? { prefix: emptyUnit.prefix } : {})}
               {...(valueFieldIsModelScale
                 ? { min: 0, max: 1, outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale, scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT }
-                : emptyValueUnit.suffix ? { scaleHint: emptyValueUnit.suffix } : {})}
+                : emptyUnit.suffix ? { scaleHint: emptyUnit.suffix } : {})}
               ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
               testId={`node-value-editor-${props.id}`}
               restingFlow="inline"
