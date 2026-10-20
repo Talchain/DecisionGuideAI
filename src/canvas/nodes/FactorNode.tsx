@@ -1,5 +1,6 @@
 import { CardMark } from './shared/CardMark'
-import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
+import { emptyValueUnit } from './shared/NeedsInputSlot'
+import { StatusPill } from './shared/StatusPill'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -1527,8 +1528,9 @@ export const FactorNode = memo((props: NodeProps) => {
             untouched — out of scope for this gap. */}
         {/* One row in both views now: the Standard arm differed only by the
             retired inline driver cue (prototype, Paul 25 Sep). */}
-        {/* ⭐ THE MISSING FIGURE IS TYPED WHERE IT BELONGS (Paul, 20 Oct 2026, canvas option 3): the empty value is the
-            field itself, led by the icon system's own `needs-input` mark — no pill, no sentence. It commits through the
+        {/* ⭐ THE MISSING FIGURE IS TYPED WHERE IT BELONGS (Paul, 20 Oct 2026, canvas option 3): the card's own
+            "Needs input · Value not set yet" is unchanged and is now the control that opens the field (the icon-only
+            slot read as an empty card on served boards and was withdrawn, Paul 21 Oct). It commits through the
             SAME writer as a value the card already holds (`proposeFactorValue`, which needs no current value), and the
             open field takes the factor's unit beside it. The row keeps its test id so "the card says it needs input" is
             still bound by identity. */}
@@ -1539,7 +1541,12 @@ export const FactorNode = memo((props: NodeProps) => {
           >
             <NodeValueEditor
               value={null}
-              readout={<NeedsInputSlot words="Needs input" description="Value not set yet. Type it here" unit={emptyUnit} testId="factor-empty-value" />}
+              readout={
+                <span className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5" data-testid="factor-empty-value">
+                  <StatusPill label="Needs input" title="Missing required input" />
+                  <span className={`${typography.edgeLabel} font-normal text-text-light`}>Value not set yet</span>
+                </span>
+              }
               onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
               readCommittedValue={() =>
                 resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
@@ -1550,6 +1557,7 @@ export const FactorNode = memo((props: NodeProps) => {
               ariaLabel={`Value for ${props.data?.label ?? 'this factor'} (needs input)`}
               testId={`node-value-editor-${props.id}`}
               restingFlow="inline"
+              restingTypography={typography.edgeLabel}
             />
           </div>
         )}

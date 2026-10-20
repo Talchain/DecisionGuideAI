@@ -173,8 +173,7 @@ describe('U4 — "Target not captured" once; no second "Needs input" pill on the
         <FactorNode {...(baseProps as any)} id="fac-1" type="factor" data={data as any} />
       </ReactFlowProvider>,
     )
-    // Canvas option 3 (20 Oct 2026): the factor's needs-input is now its empty field's mark (icon), not a text pill.
-    expect(screen.getByRole('img', { name: 'Needs input' }).getAttribute('data-card-mark')).toBe('needs-input')
+    expect(screen.getByTestId('needs-input-pill').textContent).toContain('Needs input')
   })
 })
 

@@ -7,7 +7,7 @@ import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { CardMark } from './shared/CardMark'
-import { NeedsInputSlot } from './shared/NeedsInputSlot'
+import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { pickOptionStatusMark } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -2098,15 +2098,17 @@ export const OptionNode = memo((props: NodeProps) => {
           value text is byte-identical to `r.change` either way. */}
       {r.needsInput ? (
         /* Row 22 (contract v3 §02): the amount cell of a target the
-           option names with no value has no source mark (there is no
-           target to attribute) — it is the empty field, led by the
-           `needs-input` icon (canvas option 3, 20 Oct 2026). */
+           option names with no value is the state word — no mark,
+           because there is no target to attribute. Clicking it opens
+           the field (canvas option 3, 20 Oct 2026). */
         withEmptyValueEditor(r.factorId, (
-          <NeedsInputSlot
-            words={r.change}
-            description="What this option sets is not set yet. Type it here"
-            testId={`option-change-row-needs-input-${props.id}-${r.factorId}`}
-          />
+          <span
+            className={STATE_WORD_CLASSES}
+            style={STATE_WORD_STYLE}
+            data-testid={`option-change-row-needs-input-${props.id}-${r.factorId}`}
+          >
+            {r.change}
+          </span>
         ))
       ) : (
         <span
@@ -2405,8 +2407,6 @@ export const OptionNode = memo((props: NodeProps) => {
       <BaseNode
         optionChanceCell={chanceCell}
         {...props}
-        // An unset target's row is now the field to fill, so the corner pill would say it twice (the factor card's rule).
-        incompleteStatedOnCard={changeRows.some(r => r.needsInput)}
         nodeType="option"
         icon={metadata.icon}
         lodKeepLabel={isRecommended}
