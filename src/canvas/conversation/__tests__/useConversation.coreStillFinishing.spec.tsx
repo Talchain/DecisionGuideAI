@@ -240,6 +240,20 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     vi.useRealTimers()
   })
 
+  it('CONTRAST: a successful re-send never settles a NEWER turn\'s unsettled draft', async () => {
+    await runCore(CORE_STREAM_BUDGET_TIMEOUT)
+    // A newer draft took ownership of the unsettled phase before the re-send answered.
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 'a-newer-turn', SCENARIO)
+    mockCallV5Turn.mockResolvedValue({ kind: 'response', response: {
+      response_version: 2, assistant_text: 'Late answer.', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame',
+    } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(useDraftStore.getState().draftStreamTurnId).toBe('a-newer-turn')
+    vi.useRealTimers()
+  })
+
   it('a timeout BEFORE the model reached the canvas re-sends exactly once, buffered — never a second stream', async () => {
     window.history.replaceState(null, '', '/#/canvas?ai=core')
     vi.useFakeTimers({ shouldAdvanceTime: true })

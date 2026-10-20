@@ -5671,7 +5671,11 @@ export function useConversation(): UseConversationReturn {
         const replayUnresolved = stillFinishingReplay !== undefined && target.kind === 'typed_error'
         if (stillFinishingReplay !== undefined && !replayUnresolved) {
           // The answer arrived, so the draft the timeout left unsettled is settled: reopen Run and autosave (Codex on #2860).
-          if (useDraftStore.getState().draftStreamPhase === 'unsettled') useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+          // Only the phase THIS turn owns, on its own scenario: a newer draft's unsettled state is not this answer's to clear.
+          const draftNow = useDraftStore.getState()
+          if (draftNow.draftStreamTurnId === turnClientId && draftStreamPhaseFor(draftNow, scenarioIdAtDispatch) === 'unsettled') {
+            draftNow.setDraftStreamPhase('idle', null, null)
+          }
           setMessages((prev) => {
             const next = prev.filter((m) => m.id !== stillFinishingReplay.noticeId)
             messagesRef.current = next
