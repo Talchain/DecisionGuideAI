@@ -70,13 +70,14 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
           return (
             <li key={row.optionId} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}>
               <span className="sr-only">{`${name(row.label)}: earlier run ${row.earlier?.words ?? 'not shown'}, this run ${row.now?.words ?? 'not shown'}`}</span>
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3" aria-hidden="true">
-                <span className={`${typography.panelBody} ${strong ? 'text-text-header' : 'text-text-body'} min-w-0`}>{name(row.label)}</span>
-                <span className={`${typography.panelTabular} text-text-light ml-auto inline-flex items-center gap-1`}>
+              <div aria-hidden="true">
+                <p className={`${typography.panelBody} ${strong ? 'text-text-header' : 'text-text-body'} m-0`}>{name(row.label)}</p>
+                {/* Its own full-width line, wrapping as text: two long range phrases boxed side by side broke at panel width. */}
+                <p className={`${typography.panelTabular} text-text-light m-0`}>
                   {row.earlier?.words ?? 'not shown'}
-                  <ArrowRight className={`${icon('inline')} flex-shrink-0`} aria-hidden="true" />
+                  <ArrowRight className={`${icon('inline')} inline-block align-middle mx-1`} aria-hidden="true" />
                   <span className="text-text-header">{row.now?.words ?? 'not shown'}</span>
-                </span>
+                </p>
               </div>
               <Track earlier={row.earlier} now={row.now} />
             </li>
