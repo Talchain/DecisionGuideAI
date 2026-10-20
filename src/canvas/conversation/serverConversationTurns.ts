@@ -214,18 +214,21 @@ export function reconcileUnconfirmedServerTurns(
   turns: readonly ServerConversationTurn[],
   run: RestoreRunContext,
 ): ConversationMessage[] {
+  // The id the answer row carries: core keys it by the body turn_id, other lanes by the X-Request-Id.
+  const keyOf = (m: ConversationMessage) => m.deliveryTurnId ?? m.deliveryRequestId
   const requestCounts = new Map<string, number>()
   const turnCounts = new Map<string, number>()
   for (const m of messages) {
-    if (m.role === 'user' && m.deliveryScenarioId === scenarioId && m.deliveryRequestId) {
-      requestCounts.set(m.deliveryRequestId, (requestCounts.get(m.deliveryRequestId) ?? 0) + 1)
+    const key = keyOf(m)
+    if (m.role === 'user' && m.deliveryScenarioId === scenarioId && key) {
+      requestCounts.set(key, (requestCounts.get(key) ?? 0) + 1)
     }
   }
   for (const t of turns) turnCounts.set(t.turnId, (turnCounts.get(t.turnId) ?? 0) + 1)
   const received = new Set<string>()
   const out: ConversationMessage[] = []
   for (const m of messages) {
-    const id = m.deliveryRequestId
+    const id = keyOf(m)
     const turn = m.role === 'user' && m.deliveryScenarioId === scenarioId && id
       && requestCounts.get(id) === 1 && turnCounts.get(id) === 1
       ? turns.find(t => t.turnId === id && t.userMessage !== null) : undefined
@@ -237,7 +240,7 @@ export function reconcileUnconfirmedServerTurns(
       out.push({ ...m, deliveryState: 'sent' })
       continue
     }
-    const { deliveryRequestId: _request, deliveryScenarioId: _scenario, ...settled } = m
+    const { deliveryRequestId: _request, deliveryScenarioId: _scenario, deliveryTurnId: _turn, ...settled } = m
     out.push({ ...settled, deliveryState: 'sent' })
     if (!hasReply) {
       // Use the same history builder, including earlier-figure disclosure. No
@@ -245,8 +248,10 @@ export function reconcileUnconfirmedServerTurns(
       out.push(...buildRestoredThread([turn], run).filter(reply => reply.role === 'assistant' && !reply.sessionDivider))
     }
   }
-  return out.filter(m => !(m.synthetic && m.deliveryScenarioId === scenarioId
-    && m.deliveryRequestId && received.has(m.deliveryRequestId)))
+  return out.filter(m => {
+    const key = keyOf(m)
+    return !(m.synthetic && m.deliveryScenarioId === scenarioId && key && received.has(key))
+  })
 }
 
 export interface ServerHeldProposalOffer {

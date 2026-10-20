@@ -62,6 +62,8 @@ export interface RecoverDraftArgs {
   canApply?: () => boolean
   /** Opt-in re-read when the read gets no answer (`STREAM_LOSS_READ`); passed through unchanged. */
   unansweredRetry?: HydrateFromServerOptions['unansweredRetry']
+  /** Also offer the stored conversation turns, so a reply the live send never received can be matched and shown. */
+  includeConversationTurns?: boolean
 }
 
 /**
@@ -79,6 +81,7 @@ export async function recoverDraftFromServer(
     signal: args.signal,
     canApply: args.canApply,
     ...(args.unansweredRetry !== undefined ? { unansweredRetry: args.unansweredRetry } : {}),
+    ...(args.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
     // A recovery read installs only THIS scenario's answer (P44 draft-stall, Codex r3 P1).
     requireServedScenario: true,
   })

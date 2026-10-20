@@ -237,6 +237,8 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     expect(texts.some((t) => String(t).includes('Here is the model I built.'))).toBe(true)
     expect(useDraftStore.getState().draftStreamPhase).not.toBe('unsettled')
     expect(mockRecover).not.toHaveBeenCalled()
+    // The reply arrived live: no bubble keeps the turn's read-back key, so no later cold read can add it twice.
+    expect(result.current.messages.filter((m) => m.deliveryTurnId !== undefined)).toEqual([])
     vi.useRealTimers()
   })
 
@@ -252,6 +254,41 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
     expect(useDraftStore.getState().draftStreamTurnId).toBe('a-newer-turn')
     vi.useRealTimers()
+  })
+
+  it('a message sent DURING the wait never takes the re-sent turn\'s key; the original bubble keeps it', async () => {
+    const result = await runCore(CORE_STREAM_BUDGET_TIMEOUT)
+    const firstTurnId = turnIdOf(mockOpenStream.mock.calls[0])
+    const firstBubble = result.current.messages.find((m) => m.role === 'user')!
+    expect(firstBubble.deliveryTurnId).toBe(firstTurnId)
+    mockCallV5Turn
+      .mockResolvedValueOnce({ kind: 'response', response: { response_version: 2, assistant_text: 'Another answer.', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame' } })
+      .mockResolvedValueOnce({ kind: 'parse_error', reason: 'http_409', http_status: 409, raw: { error: 'TURN_OUTCOME_UNKNOWN' } })
+    mockRecover.mockResolvedValue('notRecovered')
+    await act(async () => { await result.current.sendMessage('And what about hiring two people?') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(STILL_FINISHING_REPLAY_DELAY_MS + 50) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    const users = result.current.messages.filter((m) => m.role === 'user')
+    expect(users).toHaveLength(2)
+    expect(users.find((m) => m.id === firstBubble.id)?.deliveryTurnId).toBe(firstTurnId)
+    expect(users.find((m) => m.id !== firstBubble.id)?.deliveryTurnId).toBeUndefined()
+    vi.useRealTimers()
+  })
+
+  it('a retyped delivery-unknown core message, once answered, leaves NO bubble keyed for a second copy of the reply', async () => {
+    window.history.replaceState(null, '', '/#/canvas?ai=core')
+    // A model is already on the canvas, so these are buffered turns.
+    useCanvasStore.setState({ nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team size' } }] as never })
+    mockCallV5Turn
+      .mockResolvedValueOnce({ kind: 'parse_error', reason: 'http_504', http_status: 504, raw: { code: 'PROXY_UPSTREAM_TIMEOUT', message: 'The model generation service did not respond within 125s.' } })
+      .mockResolvedValueOnce({ kind: 'response', response: { response_version: 2, assistant_text: 'Answered.', blocks: [], suggested_actions: [], insights: [], stage_indicator: 'frame' } })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('What drives capacity most?') })
+    const keyed = result.current.messages.filter((m) => m.role === 'user' && m.deliveryTurnId !== undefined)
+    expect(keyed, 'precondition: the unknown core send is keyed by its turn_id').toHaveLength(1)
+    await act(async () => { await result.current.sendMessage('What drives capacity most?') })
+    expect(turnIdOf(mockCallV5Turn.mock.calls[1]), 'precondition: the retype reuses the turn_id').toBe(turnIdOf(mockCallV5Turn.mock.calls[0]))
+    expect(result.current.messages.filter((m) => m.deliveryTurnId !== undefined)).toEqual([])
   })
 
   it('a timeout BEFORE the model reached the canvas re-sends exactly once, buffered — never a second stream', async () => {
