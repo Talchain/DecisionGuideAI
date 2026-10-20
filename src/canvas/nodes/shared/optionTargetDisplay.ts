@@ -172,17 +172,6 @@ export function resolveUnsetOptionTargets(
     const u = unwrapInterventionValue(entry)
     if (u.value == null && u.displayValue == null) unset.set(fid, u.source ?? null)
   }
-  // A target the option names with no value is still unset when CEE's map leaves it out (an empty `{}` passed the test
-  // above and hid every one of them, so the card showed a bare "Needs input" with nothing to fill in). CEE's map still
-  // wins wherever it names the factor.
-  if (ceeOpt?.interventions && typeof ceeOpt.interventions === 'object') {
-    const named = ceeOpt.interventions as Record<string, unknown>
-    for (const [fid, entry] of Object.entries((optionData?.interventions ?? {}) as Record<string, unknown>)) {
-      if (fid in named) continue
-      const u = unwrapInterventionValue(entry)
-      if (u.value == null && u.displayValue == null) unset.set(fid, u.source ?? null)
-    }
-  }
   return unset
 }
 

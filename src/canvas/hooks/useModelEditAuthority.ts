@@ -439,7 +439,11 @@ export interface ModelEditAuthorityLive {
      * surface can say "Not saved" on a refusal instead of guessing. Called
      * only on the `'dispatched'` path; a queued send also reports its final settlement.
      */
-    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
+    opts?: {
+      onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+      /** The unit the number is typed in, when it is not the node's own (a goal's level: its target's unit). */
+      unit?: string
+    },
   ) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -607,7 +611,7 @@ export function useModelEditAuthority(
   const proposeFactorValue = useCallback(
     (
       typedValue: number,
-      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
+      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void; unit?: string },
     ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       // ACCOUNTS viewer mode: a viewer's value edit happens NOWHERE (no local write, no send).
@@ -622,6 +626,7 @@ export function useModelEditAuthority(
         // The node's data as it is BEFORE the local write — its cap/unit is
         // what decides the scale of what the user typed.
         nodeData: data,
+        ...(opts?.unit ? { unit: opts.unit } : {}),
       })
       if (!event) return 'not_encodable'
       const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
