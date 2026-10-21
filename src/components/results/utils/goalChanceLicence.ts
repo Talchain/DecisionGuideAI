@@ -15,6 +15,11 @@
  * PER OPTION (Science d5 #87 6007421281): `withheld_option_ids` names the options whose chance was withheld for their own
  * path. Each is in `option_ids` and has no figure; with any of them the form is `each` (CEE decides; a record that says
  * otherwise disagrees with itself and is not read).
+ *
+ * RESOLVED SHORTFALL (Science via DL, 21 Oct 2026): `resolved_withheld_option_ids` (optional, ⊆ `withheld_option_ids`)
+ * names withheld options the model is certain fall short (zero spread at 0, or carrying on as now by assumption). They do
+ * not block a summary: a non-`each` form is read when EVERY withheld id is resolved, and a superlative still names two
+ * QUOTED options. A resolved option keeps its own line and is never quoted as 0%. A record without the field reads as before.
  */
 
 import { readGoalChanceHorizonLine } from './goalChanceRange'
@@ -218,6 +223,11 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const withheldRaw = r.withheld_option_ids ?? []
   if (!Array.isArray(withheldRaw) || !withheldRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id))) return null
   const withheld = new Set(withheldRaw as string[])
+  // Absent reads as none; any other non-list (null included) is a malformed record (Codex r1 #2871).
+  const resolvedRaw = r.resolved_withheld_option_ids === undefined ? [] : r.resolved_withheld_option_ids
+  if (!Array.isArray(resolvedRaw) || !resolvedRaw.every((id) => typeof id === 'string' && withheld.has(id))
+    || new Set(resolvedRaw).size !== resolvedRaw.length) return null
+  const resolved = new Set(resolvedRaw as string[])
   // Every option is EITHER quoted (a whole percentage in 0–100) OR withheld with NO figure — never both, never neither — and
   // at least one is quoted (Codex r1 #2545: a withheld id carrying a figure, or "about 162%", is a record at odds with itself).
   const quoted = (id: string): boolean => isRec(pct) && typeof pct[id] === 'number' && Number.isInteger(pct[id])
@@ -233,8 +243,9 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   // that disagrees with itself is not read (Codex r1 #2545).
   if (form === 'highest' || form === 'highest_all_likely_to_miss') {
     if (leaderOptionId === null || nextOptionId === null || leaderOptionId === nextOptionId) return null
+    if (withheld.has(leaderOptionId) || withheld.has(nextOptionId)) return null
   } else if (r.leader_option_id !== undefined || r.next_option_id !== undefined) return null
-  if (withheld.size > 0 && form !== 'each') return null
+  if (form !== 'each' && [...withheld].some((id) => !resolved.has(id))) return null
   // H2 names ≥ 2 DISTINCT quoted options (CEE's model order); no other form names any.
   const sameRaw = r.similar_option_ids ?? []
   if (!Array.isArray(sameRaw) || !sameRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id) && !withheld.has(id))) return null
