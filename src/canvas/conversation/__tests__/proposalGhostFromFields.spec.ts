@@ -10,6 +10,7 @@ import factorTurn from './fixtures/sd-s2-a1-proposing-turn.json'
 import linkTurn from './fixtures/sd-s2-a6-proposing-turn.json'
 import placeholderTurn from './fixtures/served-held-proposal-sdwire4.json'
 import { consentChipIdFor, previewOfLatestReply } from '../proposalPreview'
+import { reconcileRestoredProposalFields } from '../serverConversationTurns'
 import { proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { ghostBandText, ghostCardDetail, ghostValueText } from '../../nodes/ProposalGhostLayer'
 import type { ConversationMessage } from '../types'
@@ -81,6 +82,40 @@ describe('core: the held card\'s fields become its ghost', () => {
   it('the legacy wire\'s own `proposal_preview` still wins when a turn carries one', () => {
     const legacy = { proposalId: idsOf(linkTurn as Json)[0], ops: [{ op: 'set_option_status' as const, optionId: 'o1', status: 'removed' as const }] }
     expect(previewOfLatestReply([coreReply(linkTurn as Json, { proposalPreview: legacy })])).toBe(legacy)
+  })
+})
+
+/**
+ * ⭐ THE GHOST SHOWS WHILE THE CARD SHOWS (served 21 Oct, UI 9a864d87: an add proposal, then a later reply, then a reopen:
+ * the card came back on its issuing reply, the ghost did not). The latest reply's fields are CEE's current held set; the
+ * card's approve sits on its issuing reply.
+ */
+describe('reopen: the ghost follows the held card back', () => {
+  const restored = () => {
+    const pf = structuredClone(fieldsOf(factorTurn as Json))
+    ;(pf.proposals as Json[])[0] = { ...(pf.proposals as Json[])[0], issued_turn_id: 'T1' }
+    const thread = [
+      { id: 'restored-assistant-T1', role: 'assistant', content: 'prepared', timestamp: new Date() },
+      { id: 'u2', role: 'user', content: 'Which link?', timestamp: new Date() },
+      { id: 'restored-assistant-T2', role: 'assistant', content: 'this one', timestamp: new Date(), actionChips: [] },
+      { id: 'div', role: 'assistant', content: '', timestamp: new Date(), sessionDivider: 'Session resumed' },
+    ] as ConversationMessage[]
+    return reconcileRestoredProposalFields(thread, pf)
+  }
+  it('⭐ real restore path: card on its issuing reply, a later reply after it → the ghost is drawn', () => {
+    const thread = restored()
+    expect(thread[0].actionChips?.some((c) => c.id === consentChipIdFor(idsOf(factorTurn as Json)[0]))).toBe(true)
+    expect(previewOfLatestReply(thread)?.ops.map((o) => o.op)).toEqual(['set_factor_value', 'set_factor_value'])
+  })
+  it('⛔ CONTRAST: no longer in the current held set (approved or declined) → no ghost, even with an old approve chip', () => {
+    const thread = restored()
+    const settled = [...thread.slice(0, 2), { ...thread[2], proposalFields: { ...fieldsOf(factorTurn as Json), proposals: [] } }, thread[3]]
+    expect(previewOfLatestReply(settled as ConversationMessage[])).toBeNull()
+  })
+  it('⛔ a synthetic notice after the reply is not a reply: it neither clears nor owns the ghost', () => {
+    const thread = restored()
+    const withNotice = [...thread, { id: 'n', role: 'assistant', content: 'Could not reach Olumi', timestamp: new Date(), synthetic: true }] as ConversationMessage[]
+    expect(previewOfLatestReply(withNotice)?.proposalId).toBe(idsOf(factorTurn as Json)[0])
   })
 })
 
