@@ -12,6 +12,8 @@ export interface DirectionNeededLink {
   readonly to: string
   readonly source: OtherAimSource
   readonly party: string | null
+  /** A drawn edge already runs the other way between these two cards: a different claim, drawn beside it, not on it. */
+  readonly besideReverse: boolean
 }
 
 type Rec = Record<string, unknown>
@@ -26,10 +28,10 @@ export function directionNeededLinksOf(
     const effect = isRec(l.effect) ? l.effect : {}
     const { id, from, to } = l
     if (effect.sign != null || typeof id !== 'string' || typeof from !== 'string' || typeof to !== 'string') return []
-    // Two cards already joined (either way) are not joined again (Codex R1).
-    if (!onCanvas.has(from) || !onCanvas.has(to) || drawn.has(`${from}->${to}`) || drawn.has(`${to}->${from}`)) return []
+    // The same claim already drawn is not drawn again. One the other way round is a DIFFERENT claim (buddy on #2886): drawn.
+    if (!onCanvas.has(from) || !onCanvas.has(to) || drawn.has(`${from}->${to}`)) return []
     const source = typeof l.source === 'string' && SOURCES.has(l.source) ? l.source as OtherAimSource : 'unverified'
-    return [{ id, from, to, source, party: source === 'party' && typeof l.party === 'string' ? l.party : null }]
+    return [{ id, from, to, source, party: source === 'party' && typeof l.party === 'string' ? l.party : null, besideReverse: drawn.has(`${to}->${from}`) }]
   })
 }
 

@@ -12,6 +12,7 @@ import { DIRECTION_NEEDED, directionNeededLinksOf } from './shared/directionNeed
 import { otherAimSourceWords } from './shared/otherAims'
 
 export const DIRECTION_NEEDED_TESTID = 'direction-needed-layer'
+const REVERSE_OFFSET = 24
 
 export const DirectionNeededLayer = memo(function DirectionNeededLayer() {
   const graph = useSavedGraph()
@@ -26,8 +27,10 @@ export const DirectionNeededLayer = memo(function DirectionNeededLayer() {
       const b = box.get(l.to)!
       // Bottom of the upper card to the top of the lower one (the canvas lays out top to bottom).
       const down = a.y <= b.y
-      const x1 = a.x + a.w / 2, y1 = down ? a.y + a.h : a.y
-      const x2 = b.x + b.w / 2, y2 = down ? b.y : b.y + b.h
+      // Beside a drawn edge the other way round, offset so the two claims never sit on one line.
+      const dx = l.besideReverse ? REVERSE_OFFSET : 0
+      const x1 = a.x + a.w / 2 + dx, y1 = down ? a.y + a.h : a.y
+      const x2 = b.x + b.w / 2 + dx, y2 = down ? b.y : b.y + b.h
       return { ...l, x1, y1, x2, y2, words: `${DIRECTION_NEEDED} · ${otherAimSourceWords(l)}` }
     })
   }, [graph, nodes, edges])
