@@ -120,7 +120,7 @@ vi.mock('../../hooks/usePrefersReducedMotion', () => ({
 }))
 
 import { ConversationProvider } from '../../conversation/ConversationContext'
-import { FirstUseComposer } from '../FirstUseComposer'
+import { FirstUseComposer, COMPLETION_HOLD_MS } from '../FirstUseComposer'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { useUIStore } from '../../../stores/uiStore'
 import { useTransitionReceipt } from '../../hooks/useTransitionReceipt'
@@ -533,12 +533,13 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
     const wrapper = screen.getByTestId('first-use-thinking')
     expect(wrapper).toBeInTheDocument()
     expect(wrapper.getAttribute('aria-live')).toBe('polite')
-    expect(wrapper.textContent).toBe('Drafting your model…')
+    expect(screen.getByTestId('first-use-drafting-message').textContent).toBe('Drafting your model…')
     const sheet = screen.getByTestId('first-use-drafting-sheet')
     expect(within(sheet).getByTestId('first-use-drafting-mark')).toBeInTheDocument()
-    // The elapsed clock sits OUTSIDE the live region: a number read aloud every second is noise.
-    expect(within(wrapper).queryByTestId('first-use-drafting-elapsed')).toBeNull()
-    expect(within(sheet).getByTestId('first-use-drafting-elapsed').textContent).toBe('0:00')
+    // Paul 21 Oct: no elapsed clock. Two milestones instead, in the live region (they change a few times per draft).
+    expect(within(sheet).queryByTestId('first-use-drafting-elapsed')).toBeNull()
+    expect(within(wrapper).getByTestId('first-use-milestone-brief').getAttribute('data-state')).toBe('active')
+    expect(within(wrapper).getByTestId('first-use-milestone-model').getAttribute('data-state')).toBe('waiting')
     // The greyed-out input is hidden while the sheet is up, and kept mounted for a failed send.
     expect(screen.getByTestId('first-use-input-bar').closest('[hidden]')).not.toBeNull()
   })
@@ -566,6 +567,40 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
     thinkingMockState.isThinking = false
     rerender(<FirstUseComposer />)
     expect(screen.queryByTestId('first-use-thinking')).toBeNull()
+  })
+
+  it('⭐ when the model lands, the sheet stays up briefly with "Model ready" ticked, inert, then goes (Paul 21 Oct)', () => {
+    vi.useFakeTimers()
+    try {
+      thinkingMockState.isThinking = true
+      const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
+      canvasMockState.nodes = [{ id: 'n1' }]
+      rerender(<FirstUseComposer />)
+      const surface = screen.getByTestId('first-use-composer')
+      expect(screen.getByTestId('first-use-milestone-model').getAttribute('data-state')).toBe('done')
+      expect(screen.getByTestId('first-use-drafting-message').textContent).toBe('Your model is ready')
+      // The held surface is no longer the dialog: hidden from assistive tech, inert, and click-through.
+      expect(surface.getAttribute('role')).toBeNull()
+      expect(surface.getAttribute('aria-hidden')).toBe('true')
+      expect(surface.hasAttribute('inert')).toBe(true)
+      expect(screen.queryByTestId('first-use-drafting-stop')).toBeNull()
+      // Each step of the hold owns its timer: held, then fading, then gone.
+      act(() => { vi.advanceTimersByTime(COMPLETION_HOLD_MS) })
+      expect(screen.getByTestId('first-use-composer').getAttribute('data-completing')).toBe('fading')
+      act(() => { vi.advanceTimersByTime(COMPLETION_HOLD_MS) })
+      expect(screen.queryByTestId('first-use-composer')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('CONTROL: a draft that ends WITHOUT a model (Stop, failure) gets no completion hold', () => {
+    thinkingMockState.isThinking = true
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
+    thinkingMockState.isThinking = false
+    rerender(<FirstUseComposer />)
+    expect(screen.queryByTestId('first-use-drafting-sheet')).toBeNull()
+    expect(screen.queryByTestId('first-use-milestone-model')).toBeNull()
   })
 })
 
