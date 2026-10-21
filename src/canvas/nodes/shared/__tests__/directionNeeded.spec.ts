@@ -23,6 +23,8 @@ describe('links the engine leaves out for want of a direction', () => {
       link('off', 'refunds', 'on_time', null),
       link('joined', 'courier', 'on_time', null),
     ]), ON, new Set(['courier->on_time']))).toEqual([])
+    // Codex R1: joined the other way round is still joined.
+    expect(directionNeededLinksOf(graph([link('rev', 'tracking', 'on_time', null)]), ON, new Set(['on_time->tracking']))).toEqual([])
   })
   it('a source it does not know reads unverified; no living model reads none', () => {
     expect(directionNeededLinksOf(graph([link('l', 'tracking', 'on_time', null, 'someone')]), ON, new Set())[0].source).toBe('unverified')

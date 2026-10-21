@@ -26,7 +26,8 @@ export function directionNeededLinksOf(
     const effect = isRec(l.effect) ? l.effect : {}
     const { id, from, to } = l
     if (effect.sign != null || typeof id !== 'string' || typeof from !== 'string' || typeof to !== 'string') return []
-    if (!onCanvas.has(from) || !onCanvas.has(to) || drawn.has(`${from}->${to}`)) return []
+    // Two cards already joined (either way) are not joined again (Codex R1).
+    if (!onCanvas.has(from) || !onCanvas.has(to) || drawn.has(`${from}->${to}`) || drawn.has(`${to}->${from}`)) return []
     const source = typeof l.source === 'string' && SOURCES.has(l.source) ? l.source as OtherAimSource : 'unverified'
     return [{ id, from, to, source, party: source === 'party' && typeof l.party === 'string' ? l.party : null }]
   })
