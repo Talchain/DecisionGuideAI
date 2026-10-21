@@ -18,6 +18,7 @@ import { GraphLink } from '../../components/results/GraphLink'
 import type { PairChanceFigures } from '../runView/runView'
 import { PairChanceSlope } from './PairChanceSlope'
 import { goalChanceHeadline } from './goalChanceHeadline'
+import { attributionLine } from './attributionLine'
 
 /**
  * The way out of a withheld Run (DL 58e392 GO "A" and ruling 2, 8 Oct), read by the body from the store:
@@ -115,6 +116,8 @@ export function ComparePairSections({
   // DL 21 Oct: when this run's view is not current, no result is said at all, only the way back to a comparison.
   const notCurrent = chances?.notCurrent === true
   const goalHeadline = chances ? goalChanceHeadline(chances, label) : null
+  // Which recorded change moved which chance, where CEE says the pair is attributable and its record complete (DL, 21 Oct).
+  const attribution = notCurrent ? null : attributionLine(view, chances)
   const shareHeadline = resultsAllowed && !notCurrent ? headline(delta, label, nearTie) : null
   const resultHeadline = goalHeadline ?? shareHeadline ?? 'Result comparison not shown'
   // The noise qualifier speaks about the comparative leader's share, so it never sits under a goal-chance headline.
@@ -163,6 +166,13 @@ export function ComparePairSections({
           <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
         </div>
         {chances ? <PairChanceSlope figures={chances} /> : null}
+        {attribution ? (
+          <p className={`${typography.panelBody} text-text-body mt-3 mb-0`} data-testid="compare-attribution-line"
+            data-attribution-case="C1_attributable" data-input-coverage="complete"
+            data-wire-fields="run_delta.attribution_case run_delta.input_coverage run_delta.input_changes run_delta.goal_chances">
+            {attribution.text}
+          </p>
+        ) : null}
         {/* This run's view is not current: no figure on either side and no other result line, only the way back to a
             comparison (DL, 21 Oct 2026). */}
         {notCurrent ? (
