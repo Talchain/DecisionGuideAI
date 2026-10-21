@@ -13,8 +13,8 @@ describe('links the engine leaves out for want of a direction', () => {
       link('l1', 'tracking', 'on_time', null),
       link('l2', 'courier', 'on_time', null, 'party', 'Ops lead'),
     ]), ON, new Set())).toEqual([
-      { id: 'l1', from: 'tracking', to: 'on_time', source: 'user', party: null },
-      { id: 'l2', from: 'courier', to: 'on_time', source: 'party', party: 'Ops lead' },
+      { id: 'l1', from: 'tracking', to: 'on_time', source: 'user', party: null, besideReverse: false },
+      { id: 'l2', from: 'courier', to: 'on_time', source: 'party', party: 'Ops lead', besideReverse: false },
     ])
   })
   it('⛔ a signed link (the engine draws it), an end off the canvas, or a pair already joined is not drawn again', () => {
@@ -23,8 +23,10 @@ describe('links the engine leaves out for want of a direction', () => {
       link('off', 'refunds', 'on_time', null),
       link('joined', 'courier', 'on_time', null),
     ]), ON, new Set(['courier->on_time']))).toEqual([])
-    // Codex R1: joined the other way round is still joined.
-    expect(directionNeededLinksOf(graph([link('rev', 'tracking', 'on_time', null)]), ON, new Set(['on_time->tracking']))).toEqual([])
+  })
+  it('⭐ buddy on #2886: a link the other way round from a drawn edge is a different claim: drawn, marked to sit beside it', () => {
+    expect(directionNeededLinksOf(graph([link('rev', 'tracking', 'on_time', null)]), ON, new Set(['on_time->tracking'])))
+      .toEqual([{ id: 'rev', from: 'tracking', to: 'on_time', source: 'user', party: null, besideReverse: true }])
   })
   it('a source it does not know reads unverified; no living model reads none', () => {
     expect(directionNeededLinksOf(graph([link('l', 'tracking', 'on_time', null, 'someone')]), ON, new Set())[0].source).toBe('unverified')
