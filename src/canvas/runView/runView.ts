@@ -432,15 +432,23 @@ export interface PairChanceRow {
  * What CEE's goal-chance licence says about THIS run's options, as CEE says it (`leader.goal_chance_leader`,
  * `similar_option_ids` and the licence's `form`), from a matched view known to be current. The UI ranks nothing.
  */
-export type GoalChanceClaim =
-  | { readonly kind: 'highest' | 'highest_all_likely_to_miss'; readonly optionId: string }
-  | { readonly kind: 'similar'; readonly optionIds: readonly string[] }
-  | { readonly kind: 'all_likely_to_miss' }
+/**
+ * DL ruling, 21 Oct 2026: the one goal-chance claim Compare may word, and only on CEE's identities: the served licence's
+ * form is a highest form and the named option is exactly its `leader_option_id` (and CEE's `goal_chance_leader`).
+ */
+export type GoalChanceClaim = { readonly kind: 'highest' | 'highest_all_likely_to_miss'; readonly optionId: string }
 
 export interface PairChanceFigures {
   readonly rows: readonly PairChanceRow[]
   /** CEE's goal-chance claim for this run, or null when it makes none (never the comparative leader). */
   readonly claim: GoalChanceClaim | null
+  /** CEE's served words for what the chance is OF (`chance_words`), the chart's only caption; null = no caption. */
+  readonly chanceWords: string | null
+  /**
+   * The pair carries goal chances but this run's view is not current (stale, another run, or none): NO figure is shown on
+   * either side (DL, 21 Oct 2026: an earlier figure beside a missing current one invites anchoring on an old result).
+   */
+  readonly notCurrent: boolean
 }
 
 function earlierSide(side: RunDeltaGoalChanceRow['prior']): PairChanceSide | null {
@@ -462,6 +470,9 @@ function earlierSide(side: RunDeltaGoalChanceRow['prior']): PairChanceSide | nul
 export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, current: RunView): PairChanceFigures {
   // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: gate: inside the gate function that decides this figure
   const goalRows = pair.goalChances ?? []
+  if (!current.boundToCurrentCanonical() || current.chancesNotCurrent()) {
+    return { rows: [], claim: null, chanceWords: null, notCurrent: goalRows.length > 0 }
+  }
   const rows = goalRows.map((row): PairChanceRow => {
     const figure = current.chanceFigureOf(row.optionId)
     // DL AMEND to ruling 1 (20 Oct 2026): where this run's canonical cell is a RANGE, its side comes from the gate's own
@@ -483,16 +494,13 @@ export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, curre
   }).filter((row) => row.earlier !== null || row.now !== null || row.note !== undefined)
   // Words alone are no chart: with no figure on either run, the pair shows no chance rows, as before.
   const anyFigure = rows.some((row) => row.earlier !== null || row.now !== null)
-  return { rows: anyFigure ? rows : [], claim: goalChanceClaimOf(current) }
+  return { rows: anyFigure ? rows : [], claim: goalChanceClaimOf(current), notCurrent: false,
+    chanceWords: anyFigure ? current.goalChanceDetail()?.chance_words ?? null : null }
 }
 
 function goalChanceClaimOf(current: RunView): GoalChanceClaim | null {
-  if (!current.boundToCurrentCanonical() || current.chancesNotCurrent()) return null
-  const form = current.goalChance?.form
+  const licence = current.goalChance
   const leader = current.goalChanceLeaderOf()
-  if (leader !== null && (form === 'highest' || form === 'highest_all_likely_to_miss')) return { kind: form, optionId: leader }
-  const similar = current.goalChanceSimilarOf()
-  if (form === 'similar' && similar.length >= 2) return { kind: 'similar', optionIds: similar }
-  if (form === 'all_likely_to_miss') return { kind: 'all_likely_to_miss' }
-  return null
+  if (licence === null || leader === null || licence.leaderOptionId !== leader) return null
+  return licence.form === 'highest' || licence.form === 'highest_all_likely_to_miss' ? { kind: licence.form, optionId: leader } : null
 }

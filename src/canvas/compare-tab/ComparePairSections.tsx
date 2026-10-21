@@ -32,7 +32,7 @@ export type SizingPath = {
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
 const NEAR_TIE_FIELDS = 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded'
-const GOAL_CHANCE_FIELDS = 'canonical_analysis_view.leader.goal_chance_leader canonical_analysis_view.leader.similar_option_ids run_delta.goal_chances'
+const GOAL_CHANCE_FIELDS = 'canonical_analysis_view.leader.goal_chance_leader run_delta.goal_chances'
 export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 /** While a Run is in flight the previous pair stays on screen; this says so, and promises nothing about the next pair. */
 export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
@@ -148,7 +148,9 @@ export function ComparePairSections({
         </p>
         <div className="flex items-center gap-1">
           <h3 className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
-            data-wire-fields={goalHeadline !== null ? GOAL_CHANCE_FIELDS : nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}>
+            data-wire-fields={goalHeadline !== null ? GOAL_CHANCE_FIELDS : nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}
+            data-goal-chance-claim={goalHeadline !== null ? chances?.claim?.kind : undefined}
+            data-option-id={goalHeadline !== null ? chances?.claim?.optionId : undefined}>
             {resultHeadline}
           </h3>
           {askAvailable ? <PanelIconButton ai label={COMPARE_ASK_LABEL} onClick={ask} testId="compare-ask" /> : null}
@@ -159,6 +161,12 @@ export function ComparePairSections({
           <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
         </div>
         {chances ? <PairChanceSlope figures={chances} /> : null}
+        {/* This run's view is not current: no figure on either side, only the way back to a comparison (DL, 21 Oct 2026). */}
+        {resultsAllowed && chances?.notCurrent ? (
+          <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-goal-chances-not-current">
+            Re-run to compare results for the model as it stands.
+          </p>
+        ) : null}
         {!resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
           // The shared sentence, word for word; its named links are the checklist's rows below, each with its own press.
           <>
