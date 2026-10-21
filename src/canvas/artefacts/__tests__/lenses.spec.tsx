@@ -277,8 +277,8 @@ describe('the "Rests on" key says where the reasoning is unexamined, never a sco
   const counts = (c: Partial<Record<'yours' | 'accepted' | 'unchecked' | 'unknown' | 'missing', number>>) =>
     ({ yours: 0, accepted: 0, unchecked: 0, unknown: 0, missing: 0, ...c })
   it('names the unsettled figures, largest claim first; settled ones are never counted as done', () => {
-    assert.equal(restsOnHeadline(counts({ unchecked: 7, missing: 4, yours: 2 })), '7 are Olumi’s estimates nobody has checked and 4 have no figure yet.')
-    assert.equal(restsOnHeadline(counts({ unchecked: 1, missing: 1, unknown: 2 })), '1 is an Olumi estimate nobody has checked, 1 has no figure yet and 2 have no known origin.')
+    assert.equal(restsOnHeadline(counts({ unchecked: 7, missing: 4, yours: 2 })), "7 are Olumi's estimates nobody has checked and 4 have no figure yet.")
+    assert.equal(restsOnHeadline(counts({ unchecked: 1, missing: 1, unknown: 2 })), "1 is Olumi's estimate nobody has checked, 1 has no figure yet and 2 have no known origin.")
     assert.equal(restsOnHeadline(counts({ yours: 3, accepted: 2 })), 'Each one is yours, or an estimate of Olumi’s you accepted.')
     assert.doesNotMatch(restsOnHeadline(counts({ yours: 3, unchecked: 1 })), /of|%|score|complete/u)
   })

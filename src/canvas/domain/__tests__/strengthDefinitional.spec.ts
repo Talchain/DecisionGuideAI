@@ -21,7 +21,7 @@
  * CEE's display for `cee_hypothesis`.
  *
  * Every assertion has its CONTROL on the same wire: the identical edge without
- * `definitional` (an ordinary Olumi estimate — must still say so), and the same
+ * `definitional` (an ordinary Olumi's estimate — must still say so), and the same
  * edge as the user's own (`user_specified` — unchanged).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -66,7 +66,7 @@ const DEFINITIONAL: WireEdge = {
   provenance_display: 'ai_inferred',
   provenance: { source: 'cee_hypothesis', magnitude: 'olumi_estimate', natural_effect: NATURAL, definitional: true },
 }
-/** CONTROL: the same link as an ordinary Olumi estimate — no `definitional`. */
+/** CONTROL: the same link as an ordinary Olumi's estimate — no `definitional`. */
 const ESTIMATE: WireEdge = {
   ...DEFINITIONAL,
   provenance: { source: 'cee_hypothesis', magnitude: 'olumi_estimate', natural_effect: NATURAL },

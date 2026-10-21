@@ -156,7 +156,7 @@ describe('unverified brief provenance is disclosed without inventing authorship'
     expect(row.aiSourced).toBe(true)
     expect(projectAuthoredEntities([{ ...node, type: 'risk', data: { ...node.data, kind: 'risk' } }], 'risk')[0].attribution).toEqual({ kind: 'olumi' })
     render(createElement(EstimateRow, { row, expanded: false, onToggle: vi.fn() }))
-    expect(screen.getByTestId('pre-analysis-v3-estimate-factor-1')).toHaveTextContent('Olumi estimate')
+    expect(screen.getByTestId('pre-analysis-v3-estimate-factor-1')).toHaveTextContent("Olumi's estimate")
   })
 
   it('keeps from_brief unchanged', () => {

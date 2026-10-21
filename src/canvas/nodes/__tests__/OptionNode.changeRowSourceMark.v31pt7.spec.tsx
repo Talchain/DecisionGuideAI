@@ -354,7 +354,7 @@ describe('one Olumi sparkle per card — authorship and estimated targets merge 
     const marks = olumiMarks('opt-split')
     expect(marks).toHaveLength(1)
     expect(marks[0].querySelectorAll('.lucide-sparkles')).toHaveLength(1)
-    expect(marks[0].getAttribute('aria-label')).toBe('Olumi suggested this option · 2 target values are Olumi estimates')
+    expect(marks[0].getAttribute('aria-label')).toBe('Olumi suggested this option · 2 target values are Olumi\'s estimates')
     // It is still the authorship mark by identity, so its claim is not lost in the merge.
     expect(marks[0].getAttribute('data-testid')).toBe('node-provenance-mark')
     expect(marks[0].getAttribute('data-provenance-claim')).toBe('structural')
@@ -373,7 +373,7 @@ describe('one Olumi sparkle per card — authorship and estimated targets merge 
     expect(brief?.getAttribute('aria-label')).toBe('From your brief')
     const marks = olumiMarks('opt-split')
     expect(marks).toHaveLength(1)
-    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi estimates')
+    expect(marks[0].getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
     expect(marks[0].getAttribute('aria-label')).not.toContain('suggested')
   })
 

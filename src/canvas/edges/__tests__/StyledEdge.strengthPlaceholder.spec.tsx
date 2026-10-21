@@ -173,7 +173,7 @@ describe('a set causal link carries its strength source icon', () => {
   })
 
   it.each([
-    ['cee', 'Olumi estimate', 'lucide-sparkles'],
+    ['cee', "Olumi's estimate", 'lucide-sparkles'],
     ['user', 'Set by you', 'lucide-user-check'],
   ] as const)('%s provenance uses the shared glyph and exact words', (source, words, glyph) => {
     const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: source }} />)
@@ -192,7 +192,7 @@ describe('a set causal link carries its strength source icon', () => {
     if (!shown.show) throw new Error('fixture must show a strength')
     return { d, w: Math.abs(shown.value) }
   }
-  it('a strength sized from the user\'s stated figure reads as their brief, never "Olumi estimate"', () => {
+  it('a strength sized from the user\'s stated figure reads as their brief, never "Olumi\'s estimate"', () => {
     const { d, w } = sized()
     const { container } = render(<StyledEdge {...(props as any)} data={{ ...d, strengthStated: w }} />)
     const mark = container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')

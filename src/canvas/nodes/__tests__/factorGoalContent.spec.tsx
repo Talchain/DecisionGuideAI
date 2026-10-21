@@ -86,7 +86,7 @@ describe('factor and goal content reaches the actual node and inspector', () => 
   })
 
   it.each([
-    { source: 'cee_inference', expected: 'Olumi estimate' },
+    { source: 'cee_inference', expected: "Olumi's estimate" },
     { source: 'brief_extraction', expected: 'From brief' },
     { source: 'user_confirmed', expected: 'Confirmed by you' },
     { source: 'user', expected: 'User edited' },

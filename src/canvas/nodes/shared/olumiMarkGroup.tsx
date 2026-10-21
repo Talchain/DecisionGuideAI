@@ -57,7 +57,7 @@ export function OlumiMarkGroupProvider({ children }: { children: ReactNode }) {
 
 /** "2 target values are Olumi estimates" / "1 target value is an Olumi estimate you accepted". */
 function estimateClause(noun: string, count: number, accepted: boolean): string {
-  const base = count === 1 ? `1 ${noun} is an Olumi estimate` : `${count} ${noun}s are Olumi estimates`
+  const base = count === 1 ? `1 ${noun} is Olumi's estimate` : `${count} ${noun}s are Olumi's estimates`
   return accepted ? `${base} you accepted` : base
 }
 

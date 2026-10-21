@@ -1,6 +1,6 @@
 /**
  * ⭐ CEE STAMPS A GOAL TARGET THE BRIEF WRITES — AND THE UI SAYS SO (served `823bc028`, 29 Sep: the MRR goal holds
- * `threshold_source: 'brief_extraction'`, yet the card said "no source" and the Success row said "Olumi estimate").
+ * `threshold_source: 'brief_extraction'`, yet the card said "no source" and the Success row said "Olumi's estimate").
  *
  * CEE writes the stamp ONLY when the brief writes that figure in the goal's unit (`holdStatedGoalAttributes`,
  * `figureTheUserWrote`), so it is the carried field `resolveGoalTarget` waited for. Without it: unchanged.
@@ -29,9 +29,9 @@ describe('the brief stamp on a goal target', () => {
     expect(goalTargetSourceMark(UNSTAMPED)).toMatchObject({ kind: 'unknown' })
   })
 
-  it("the Success row credits the user (not 'Olumi estimate') for the node's own stamped figure", () => {
+  it("the Success row credits the user (not 'Olumi's estimate') for the node's own stamped figure", () => {
     expect(computeSuccessState(goalNode(SERVED), null, null, null).attribution?.kind).toBe('person')
-    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
+    // AIQ 5904308095: "Olumi's estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
     expect(computeSuccessState(goalNode(UNSTAMPED), null, null, null).attribution).toBeNull()
   })
 
@@ -51,7 +51,7 @@ describe('the brief stamp on a goal target', () => {
     expect(computeSuccessState(goalNode(CUT), null, null, null).displayText).toBe('down 20% from today')
     expect(resolveGoalTarget(CUT)?.source).toBe('brief')
     expect(goalTargetSourceMark(CUT)).toMatchObject({ kind: 'brief' })
-    // NEGATIVES kept: with no stamp it is nobody's (AIQ 5904308095: never "Olumi estimate" either), and a frame this UI
+    // NEGATIVES kept: with no stamp it is nobody's (AIQ 5904308095: never "Olumi's estimate" either), and a frame this UI
     // cannot read credits nothing.
     expect(resolveGoalTarget({ ...CUT, threshold_source: undefined })?.source).toBe('unrecorded')
     expect(goalTargetSourceMark({ ...CUT, threshold_source: undefined })).toMatchObject({ kind: 'unknown' })

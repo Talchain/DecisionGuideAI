@@ -171,7 +171,7 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect(sparkles, 'one Olumi sparkle on the card').toHaveLength(1)
     const source = sparkles[0]
     expect(source.getAttribute('data-olumi-mark')).toBe('merged')
-    expect(source.getAttribute('aria-label')).toContain('2 target values are Olumi estimates')
+    expect(source.getAttribute('aria-label')).toContain('2 target values are Olumi\'s estimates')
     expect(source.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(source.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
@@ -266,7 +266,7 @@ describe('the card spends at most OPTION_CARD_ROW_LINE_BUDGET lines on rows — 
   it('the pure rule: a prefix of the shared order, never zero rows, never over budget', () => {
     const mk = (id: string, change: string, label = 'A factor name long enough'): OptionChangeRow => ({
       factorId: id, label, fullLabel: label, change, fullChange: change, target: change, reference: 'none',
-      estimated: true, targetSource: { kind: 'olumi', label: 'Olumi estimate' } as OptionChangeRow['targetSource'], sameAsReference: false,
+      estimated: true, targetSource: { kind: 'olumi', label: "Olumi's estimate" } as OptionChangeRow['targetSource'], sameAsReference: false,
     })
     const long = '0 hours/week → 20 hours/week' // 2 amount lines at the bound → 3 lines
     const short = '→ 1' // one-line row

@@ -52,7 +52,7 @@ function withdrawnAfterRoundTrip() {
 }
 
 describe('a withdrawn extraction marker survives a JSON round trip', () => {
-  it('in session (either representation): reads "no source", never "Olumi estimate"', () => {
+  it('in session (either representation): reads "no source", never "Olumi\'s estimate"', () => {
     expect(factorValueSourceMark(withdrawnInSessionLegacy())?.kind).toBe('unknown')
     expect(factorValueSourceMark(withdrawnInSession())?.kind).toBe('unknown')
   })
@@ -62,7 +62,7 @@ describe('a withdrawn extraction marker survives a JSON round trip', () => {
     expect('extractionType' in roundTripped.observedState).toBe(false)
   })
 
-  it('after a JSON round trip: still reads "no source", NOT "Olumi estimate"', () => {
+  it('after a JSON round trip: still reads "no source", NOT "Olumi\'s estimate"', () => {
     // Precondition, pinned: the round trip preserved the withdrawal key as a
     // present `null` — the fix — so a pass below is the reader correctly
     // reading a `null` it actually received, not an artefact of a round trip

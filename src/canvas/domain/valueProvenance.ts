@@ -141,7 +141,8 @@ export const VALUE_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, string
      estimate' while `ModelOutline` said '{n} estimated by Olumi' two
      components away, one fact under two names. Keyed to the `ai` kind only:
      a brief-sourced, confirmed or user value must never read as Olumi's. */
-  ai: 'Olumi estimate',
+  // DL ruling 21 Oct (Lenses audit (c)): one wording everywhere, as the link and factor marks already say it.
+  ai: "Olumi's estimate",
   confirmed: 'Confirmed by you',
   edited: 'User edited',
   assumption: 'Your assumption',

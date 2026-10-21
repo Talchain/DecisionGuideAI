@@ -300,27 +300,27 @@ describe('goal and success authority', () => {
   })
 
   it('basics in place: success set shows display-scale value; Olumi attribution only from a typed Olumi source', () => {
-    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
+    // AIQ 5904308095: "Olumi's estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
     seedGraph({ successSet: true })
     renderPanel()
     expect(screen.getByLabelText('Success measure')).toHaveTextContent('20%')
     expect(screen.getByLabelText('Success measure')).toHaveAttribute('aria-readonly', 'true')
-    expect(screen.getByTestId('pre-analysis-v3-hero')).not.toHaveTextContent('Olumi estimate')
+    expect(screen.getByTestId('pre-analysis-v3-hero')).not.toHaveTextContent("Olumi's estimate")
   })
 
-  it('CONTROL: an inferred-provenance goal constraint at the shown value keeps "Olumi estimate"', () => {
+  it('CONTROL: an inferred-provenance goal constraint at the shown value keeps "Olumi\'s estimate"', () => {
     seedGraph({ successSet: true })
     useCanvasStore.setState({
       goalConstraints: [{ id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20, provenance: 'inferred' } as never],
     })
     renderPanel()
-    expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent('Olumi estimate')
+    expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent("Olumi's estimate")
   })
 
   it('an explicit-provenance stored goal constraint relabels the chip user-set (lane 35 fix 2)', () => {
     // The user STATED the target in their brief: CEE stored the goal
     // constraint with provenance 'explicit' and derived goal_threshold_raw
-    // from it. "Olumi estimate" would misattribute the user's own number.
+    // from it. "Olumi's estimate" would misattribute the user's own number.
     seedGraph({ successSet: true })
     useCanvasStore.setState({
       goalConstraints: [
@@ -337,7 +337,7 @@ describe('goal and success authority', () => {
     expect(screen.getByLabelText('Success measure')).toHaveTextContent('20%')
     const hero = screen.getByTestId('pre-analysis-v3-hero')
     expect(hero).toHaveTextContent('Your target')
-    expect(hero).not.toHaveTextContent('Olumi estimate')
+    expect(hero).not.toHaveTextContent("Olumi's estimate")
   })
 })
 
