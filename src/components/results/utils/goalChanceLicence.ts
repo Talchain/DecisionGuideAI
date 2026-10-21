@@ -223,7 +223,8 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const withheldRaw = r.withheld_option_ids ?? []
   if (!Array.isArray(withheldRaw) || !withheldRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id))) return null
   const withheld = new Set(withheldRaw as string[])
-  const resolvedRaw = r.resolved_withheld_option_ids ?? []
+  // Absent reads as none; any other non-list (null included) is a malformed record (Codex r1 #2871).
+  const resolvedRaw = r.resolved_withheld_option_ids === undefined ? [] : r.resolved_withheld_option_ids
   if (!Array.isArray(resolvedRaw) || !resolvedRaw.every((id) => typeof id === 'string' && withheld.has(id))
     || new Set(resolvedRaw).size !== resolvedRaw.length) return null
   const resolved = new Set(resolvedRaw as string[])

@@ -57,8 +57,11 @@ describe('a resolved shortfall does not block the summary (Science via DL, 21 Oc
       resolved_withheld_option_ids: ['c'] }))).toBeNull()
   })
 
-  it('refuses: a resolved id outside the withheld list, a repeat, or a superlative naming a withheld option', () => {
-    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['b'] }))).toBeNull()
+  it('refuses: a resolved id outside the withheld list, a repeat, a non-list, or a superlative naming a withheld option', () => {
+    // 'c' IS resolved here, so only the extra 'b' (not withheld) can refuse it (Codex r1 #2871).
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['c', 'b'] }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: null }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ ...sq, resolved_withheld_option_ids: null }))).toBeNull()
     expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['c', 'c'] }))).toBeNull()
     expect(readGoalChanceLicence(rec({ ...sq, form: 'highest', leader_option_id: 'a', next_option_id: 'c',
       resolved_withheld_option_ids: ['c'] }))).toBeNull()
