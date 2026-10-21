@@ -148,7 +148,7 @@ describe('provenance reaches the user as a label, never as the wire token', () =
     )
     const basis = items.find(i => i.rowId === RAW_ID)!.basis
     // Present: the classified label — the same policy the pill renders.
-    expect(basis).toBe('Source: Olumi estimate')
+    expect(basis).toBe("Source: Olumi's estimate")
     // Absent: the enum. Beside the presence, so it cannot pass on null.
     expect(basis).not.toContain('cee_inference')
   })
@@ -216,7 +216,7 @@ describe('provenance reaches the user as a label, never as the wire token', () =
     const fromQueue = toRepairQueueItems(input, 'confirm-estimates').find(
       i => i.rowId === RAW_ID,
     )!.basis
-    expect(fromQueue).toBe('Source: Olumi estimate')
+    expect(fromQueue).toBe("Source: Olumi's estimate")
     expect(fromQueue).not.toContain('cee_inference')
 
     // The detail says it once, through the pill's field — not twice.
@@ -435,7 +435,7 @@ describe('the detail pane states provenance exactly once, whatever the kind', ()
     const detail = toRowDetail(input, 'risk_budget_overrun')
 
     // The statement survives, humanised — never the wire token.
-    expect(detail!.basis).toBe('Source: Olumi estimate')
+    expect(detail!.basis).toBe("Source: Olumi's estimate")
     expect(detail!.basis).not.toContain('cee_inference')
 
     /*
