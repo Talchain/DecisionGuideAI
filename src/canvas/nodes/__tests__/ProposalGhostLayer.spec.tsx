@@ -2,10 +2,11 @@
  * Suggestion preview, stage 2: WHERE the ghost goes (pure geometry) and WHAT the overlay draws (DL ruling 5941839936).
  * Bound by ids: a card per proposed node beside the node it ties to, lines clipped to card borders, a band mark between
  * two nodes on the canvas; anything naming an element the canvas does not hold is dropped. Never a dashed or dotted
- * border (DS v5 §11.3: those MEAN confidence on the canvas), never interactive.
+ * border (DS v5 §11.3: those MEAN confidence on the canvas). The drawing is never interactive; the ghost's own Approve /
+ * Not now (canvas plan step 3) sit beside it and press the reply's own consent chips.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 let rfNodes: unknown[] = []
@@ -24,7 +25,9 @@ vi.mock('@xyflow/react', async () => {
 import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
 import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
-import { readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
+import { consentChipsFor, readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import type { ActionChip, ConversationMessage } from '../../conversation/types'
 
 const NODES = [
   { id: 'enterprise_prospect_signing_likelihood', position: { x: 400, y: 300 }, measured: { width: 240, height: 80 } },
@@ -259,5 +262,75 @@ describe('ProposalGhostLayer: draws the store’s ghost, render-only', () => {
     expect(layer.outerHTML).not.toMatch(/border-dashed|border-dotted|stroke-dasharray|strokeDasharray/)
     expect(layer.style.pointerEvents).toBe('none')
     expect(layer.querySelectorAll('button, a, input, [role="button"], [tabindex]')).toHaveLength(0)
+  })
+})
+
+/**
+ * ⭐ APPROVE FROM THE GHOST (Reasoning Canvas plan, step 3: "approve from the ghost or the chat card"). The buttons are
+ * the reply's OWN consent chips, pressed through the conversation's chip path (`_sendChip`) with their id, words and
+ * type: one approval path, no words of the ghost's own.
+ */
+describe('the ghost\'s own Approve / Not now', () => {
+  const APPROVE: ActionChip = { id: 'agent-approve-proposal:prop_1', label: 'Make this change', message: 'Yes, make that change.', intent: 'primary' }
+  const DECLINE: ActionChip = { id: 'agent-decline-proposal:prop_1', label: 'Not now', message: 'Not now.', intent: 'secondary' }
+  const reply = (chips: ActionChip[], over: Partial<ConversationMessage> = {}) =>
+    ({ id: 'r1', role: 'assistant', content: 'prepared', timestamp: new Date(), actionChips: chips, ...over }) as ConversationMessage
+
+  it('consentChipsFor reads the reply\'s own chips; no approve offered → none; a synthetic notice never offers them', () => {
+    expect(consentChipsFor([reply([DECLINE, APPROVE])], 'prop_1')).toEqual({ approve: APPROVE, decline: DECLINE })
+    expect(consentChipsFor([reply([APPROVE])], 'prop_1')).toEqual({ approve: APPROVE, decline: null })
+    expect(consentChipsFor([reply([DECLINE])], 'prop_1')).toBeNull()
+    expect(consentChipsFor([reply([APPROVE], { synthetic: true })], 'prop_1')).toBeNull()
+    expect(consentChipsFor([reply([APPROVE])], 'prop_2')).toBeNull()
+  })
+
+  it('⭐ pressing Approve sends the reply\'s approve chip, once; both buttons then wait for the reply', () => {
+    rfNodes = NODES
+    const sent: unknown[][] = []
+    act(() => { useGuidanceStore.setState({ _sendChip: (...a: unknown[]) => { sent.push(a) } } as never) })
+    act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE]), { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    const approve = screen.getByTestId('proposal-ghost-actions-approve')
+    expect(approve.textContent).toBe('Make this change')
+    expect(screen.getByTestId('proposal-ghost-actions-decline').textContent).toBe('Not now')
+    fireEvent.click(approve)
+    fireEvent.click(approve)
+    expect(sent).toEqual([['Make this change', 'Yes, make that change.', { id: 'agent-approve-proposal:prop_1' }]])
+    expect((approve as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('proposal-ghost-actions-decline') as HTMLButtonElement).disabled).toBe(true)
+    // The drawing itself stays inert: the buttons sit beside it, never inside the aria-hidden layer.
+    expect(screen.getByTestId(PROPOSAL_GHOST_TESTID).querySelectorAll('button')).toHaveLength(0)
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('a reply that offers the chips again makes the buttons live again (a held proposal is never left unpressable)', () => {
+    rfNodes = NODES
+    act(() => { useGuidanceStore.setState({ _sendChip: () => {} } as never) })
+    act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE]), { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    fireEvent.click(screen.getByTestId('proposal-ghost-actions-approve'))
+    expect((screen.getByTestId('proposal-ghost-actions-approve') as HTMLButtonElement).disabled).toBe(true)
+    act(() => useProposalGhostStore.getState().showGhost(useProposalGhostStore.getState().ghost!, { approve: { ...APPROVE }, decline: { ...DECLINE } }))
+    expect((screen.getByTestId('proposal-ghost-actions-approve') as HTMLButtonElement).disabled).toBe(false)
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('Not now sends the reply\'s decline chip', () => {
+    rfNodes = NODES
+    const sent: unknown[][] = []
+    act(() => { useGuidanceStore.setState({ _sendChip: (...a: unknown[]) => { sent.push(a) } } as never) })
+    act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE]), { approve: APPROVE, decline: DECLINE }))
+    render(<ProposalGhostLayer />)
+    fireEvent.click(screen.getByTestId('proposal-ghost-actions-decline'))
+    expect(sent).toEqual([['Not now', 'Not now.', { id: 'agent-decline-proposal:prop_1' }]])
+    act(() => { useGuidanceStore.setState({ _sendChip: null } as never) })
+  })
+
+  it('⛔ CONTRAST: a ghost whose reply offers no chips draws no buttons (the drawing alone)', () => {
+    rfNodes = NODES
+    act(() => useProposalGhostStore.getState().showGhost(preview([ADD, TIE])))
+    render(<ProposalGhostLayer />)
+    expect(screen.getByTestId(PROPOSAL_GHOST_TESTID)).toBeTruthy()
+    expect(screen.queryByTestId('proposal-ghost-actions')).toBeNull()
   })
 })

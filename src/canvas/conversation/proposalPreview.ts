@@ -21,7 +21,9 @@
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
 import { readProposalFields, type Band, type Proposal } from './proposalFields'
-import type { ConversationMessage } from './types'
+
+const DECLINE_CHIP_PREFIX = 'agent-decline-proposal:'
+import type { ActionChip, ConversationMessage } from './types'
 
 /** The producer's bands (CEE `InfluenceBand`), shown in its words: the consent card says "as moderate" too. */
 export type PreviewBand = 'weak' | 'moderate' | 'strong' | 'very strong'
@@ -135,6 +137,28 @@ export function readProposalPreview(response: unknown): ProposalPreview | null {
 /** The consent chip that settles this proposal. */
 export function consentChipIdFor(proposalId: string): string {
   return `${CONSENT_CHIP_PREFIX}${proposalId}`
+}
+
+/** The chips that settle a proposal on screen, as the reply offers them: its approve, and its "Not now" when offered. */
+export interface ProposalConsentChips { readonly approve: ActionChip; readonly decline: ActionChip | null }
+
+/**
+ * ⭐ THE GHOST'S OWN BUTTONS ARE THE CARD'S (Reasoning Canvas plan, step 3: "approve from the ghost or the chat card").
+ * The SAME chip objects the chat card presses, read from the reply that offers them, so the ghost adds no second
+ * approval path and no words of its own. Null when no real reply offers the approve.
+ */
+export function consentChipsFor(messages: readonly ConversationMessage[], proposalId: string): ProposalConsentChips | null {
+  const offered = (id: string): ActionChip | null => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role !== 'assistant' || m.synthetic) continue
+      const chip = (m.actionChips ?? []).find((c) => c.id === id)
+      if (chip !== undefined) return chip
+    }
+    return null
+  }
+  const approve = offered(consentChipIdFor(proposalId))
+  return approve === null ? null : { approve, decline: offered(`${DECLINE_CHIP_PREFIX}${proposalId}`) }
 }
 
 /**

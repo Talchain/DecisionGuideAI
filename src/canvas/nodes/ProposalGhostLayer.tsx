@@ -4,7 +4,9 @@
  * proposalGhostGeometry.ts).
  *
  * ⛔ Render-only, through `ViewportPortal` like `TierLanes`: it never enters `nodes`/`edges`, so nothing can save, send,
- *   count, fit, select or infer over it. `pointer-events: none` throughout: Accept stays on the consent chip.
+ *   count, fit, select or infer over it. `pointer-events: none` throughout, EXCEPT the ghost's own two buttons
+ *   (`GhostActions`), which press the reply's own consent chips (`consentChipsFor`) through the conversation's chip path
+ *   (`_sendChip`), so approving from the ghost is the chat card's approval, in its words (canvas plan step 3).
  * ⛔ Styling (DS v5): a dashed or dotted border on the canvas MEANS confidence (§11.3), so a ghost never uses one. It is
  *   a translucent card with a solid 1px `border-info`, the kind's shape badge (§10, 14px) and a "Proposed" caption;
  *   lines are solid `stroke-info` at partial opacity. Text goes through the counter-scaled canvas tokens only
@@ -14,10 +16,13 @@
  *   card's own verb ("Record this link strength … as moderate"). An option's status uses the card's imported words
  *   (`OPTION_TAKEN_OUT_COPY`), never restated.
  */
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ViewportPortal, useEdges, useNodes, useReactFlow, useStore } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { useProposalGhostStore } from '../stores/proposalGhostStore'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import { action, ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
+import type { ActionChip } from '../conversation/types'
 import { GHOST_CARD_HEIGHT, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
 import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
@@ -26,6 +31,44 @@ import { NodeTypeEnum } from '../domain/nodes'
 import { formatMoneyFigure } from '../../utils/unitClassifier'
 
 export const PROPOSAL_GHOST_TESTID = 'proposal-ghost-layer'
+export const PROPOSAL_GHOST_ACTIONS_TESTID = 'proposal-ghost-actions'
+
+/**
+ * The ghost's own Approve / Not now: the reply's consent chips, pressed through the conversation's chip path with their
+ * own id, words and type. Once pressed, both wait for the reply: it settles the proposal (the ghost goes) or offers the
+ * chips again (new chip objects, so the buttons are live again).
+ */
+function GhostActions({ approve, decline, at }: { approve: ActionChip; decline: ActionChip | null; at: { x: number; y: number } }) {
+  const send = useGuidanceStore((s) => s._sendChip)
+  const [pressed, setPressed] = useState(false)
+  useEffect(() => setPressed(false), [approve, decline])
+  const press = (chip: ActionChip) => {
+    if (!send || pressed) return
+    setPressed(true)
+    send(chip.label, chip.message ?? chip.label, { id: chip.id, ...(chip.action_type ? { action_type: chip.action_type } : {}) })
+  }
+  const button = (chip: ActionChip, kind: 'primary' | 'secondary') => (
+    <button
+      type="button"
+      data-testid={`${PROPOSAL_GHOST_ACTIONS_TESTID}-${kind === 'primary' ? 'approve' : 'decline'}`}
+      disabled={!send || pressed}
+      onClick={() => press(chip)}
+      className={`${typography.edgeLabel} ${action(kind)} rounded-full px-3 py-1 disabled:opacity-50 ${ACTION_FOCUS}`}
+    >
+      {chip.label}
+    </button>
+  )
+  return (
+    <div
+      data-testid={PROPOSAL_GHOST_ACTIONS_TESTID}
+      className="nodrag nopan absolute flex items-center"
+      style={{ left: at.x, top: at.y, gap: 6, pointerEvents: 'auto' }}
+    >
+      {button(approve, 'primary')}
+      {decline !== null && button(decline, 'secondary')}
+    </div>
+  )
+}
 
 /**
  * The word the canvas shows for each producer band. ⛔ COPIED VERBATIM from CEE `src/orchestrator-v5/format/
@@ -88,6 +131,7 @@ const measuresKey = (m: GhostMeasures) =>
 
 export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
   const ghost = useProposalGhostStore((s) => s.ghost)
+  const chips = useProposalGhostStore((s) => s.chips)
   const nodes = useNodes()
   const edges = useEdges()
   const { screenToFlowPosition } = useReactFlow()
@@ -138,6 +182,12 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
     setMeasures((prev) => (measuresKey(prev) === measuresKey(next) ? prev : next))
   })
   if (!geo || geo.cards.length + geo.lines.length + geo.bands.length + geo.statuses.length + geo.values.length === 0) return null
+  // The buttons sit just under the first thing the ghost draws: its first new card, else its first mark.
+  const firstCard = geo.cards[0]
+  const firstMark = [...geo.bands, ...geo.statuses, ...geo.values][0]
+  const actionsAt = firstCard !== undefined
+    ? { x: firstCard.x, y: firstCard.y + (measures.heights?.get(firstCard.id) ?? GHOST_CARD_HEIGHT) + 8 }
+    : firstMark !== undefined ? { x: firstMark.x, y: firstMark.y + 16 } : null
 
   return (
     <ViewportPortal>
@@ -222,6 +272,9 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           </span>
         ))}
       </div>
+      {chips !== null && ghost !== null && actionsAt !== null && (
+        <GhostActions key={ghost.proposalId} approve={chips.approve} decline={chips.decline} at={actionsAt} />
+      )}
     </ViewportPortal>
   )
 })

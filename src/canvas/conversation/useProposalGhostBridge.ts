@@ -6,16 +6,18 @@
  * unmounting the thread.
  */
 import { useEffect, useMemo } from 'react'
-import { previewOfLatestReply } from './proposalPreview'
+import { consentChipsFor, previewOfLatestReply } from './proposalPreview'
 import { useProposalGhostStore } from '../stores/proposalGhostStore'
 import type { ConversationMessage } from './types'
 
 export function useProposalGhostBridge(messages: readonly ConversationMessage[]): void {
   const preview = useMemo(() => previewOfLatestReply(messages), [messages])
+  // The chips the chat card presses, for the ghost's own buttons (same objects, same path).
+  const chips = useMemo(() => (preview === null ? null : consentChipsFor(messages, preview.proposalId)), [messages, preview])
   useEffect(() => {
     if (preview === null) return
     const { showGhost, clearGhost } = useProposalGhostStore.getState()
-    showGhost(preview)
+    showGhost(preview, chips)
     return () => clearGhost(preview.proposalId)
-  }, [preview])
+  }, [preview, chips])
 }
