@@ -421,6 +421,11 @@ export interface PairChanceRow {
   readonly earlier: PairChanceSide | null
   /** This run: ONLY `chanceFigureOf`, CEE's canonical figure for the current run. */
   readonly now: PairChanceSide | null
+  /**
+   * An option with no figure on either run keeps its row in CEE's own words for it this run (its canonical withheld face,
+   * e.g. "No change, by assumption"), never a number (DL, 21 Oct 2026: "never hide what Olumi has").
+   */
+  readonly note?: string
 }
 
 /**
@@ -471,9 +476,14 @@ export function pairChanceFigures(pair: Pick<RunDeltaView, 'goalChances'>, curre
       : low !== null && high !== null
         ? { kind: 'range', words: `between ${goalProbabilityWords(`${low}%`)} and ${goalProbabilityWords(`${high}%`).replace(/^about /, '')}`, scaleLow: low, scaleHigh: high }
         : null
-    return { optionId: row.optionId, label: row.label, earlier: earlierSide(row.prior), now }
-  }).filter((row) => row.earlier !== null || row.now !== null)
-  return { rows, claim: goalChanceClaimOf(current) }
+    const earlier = earlierSide(row.prior)
+    const cell = earlier === null && now === null ? current.servedCellOf(row.optionId) : null
+    const note = cell?.kind === 'withheld' && cell.face !== undefined ? { note: cell.face } : {}
+    return { optionId: row.optionId, label: row.label, earlier, now, ...note }
+  }).filter((row) => row.earlier !== null || row.now !== null || row.note !== undefined)
+  // Words alone are no chart: with no figure on either run, the pair shows no chance rows, as before.
+  const anyFigure = rows.some((row) => row.earlier !== null || row.now !== null)
+  return { rows: anyFigure ? rows : [], claim: goalChanceClaimOf(current) }
 }
 
 function goalChanceClaimOf(current: RunView): GoalChanceClaim | null {

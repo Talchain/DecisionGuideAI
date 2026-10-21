@@ -17,7 +17,7 @@ const rows: RunDeltaGoalChanceRow[] = [
   { optionId: 'd', label: 'Neither side', prior: { kind: 'withheld' } as never, current: { kind: 'withheld' } as never },
 ]
 
-type Goal = { form?: string; leader?: string | null; similar?: string[]; current?: boolean; ranges?: Record<string, { lowPct: number; highPct: number }> }
+type Goal = { form?: string; leader?: string | null; similar?: string[]; current?: boolean; ranges?: Record<string, { lowPct: number; highPct: number }>; faces?: Record<string, string> }
 /** This run's canonical figures, keyed by option (the ONLY source for "this run"), and CEE's goal-chance facts. */
 function viewWith(now: Record<string, { pct: number; words: string }>, goal: Goal = {}, comparative?: { licence: string; id: string | null }): RunView {
   const base = runViewOf(null)
@@ -32,10 +32,28 @@ function viewWith(now: Record<string, { pct: number; words: string }>, goal: Goa
     boundToCurrentCanonical: () => goal.current ?? true,
     chancesNotCurrent: () => false,
     goalChanceRange: (goal.ranges ? { optionIds: Object.keys(goal.ranges), rangeByOption: goal.ranges, horizonLine: null } : null) as never,
+    servedCellOf: (id: string) => (goal.faces?.[id] !== undefined ? { kind: 'withheld', face: goal.faces[id], reasons: [] } : null),
   }
 }
 
 describe('pairChanceFigures — the chance gate for a run pair', () => {
+  it("an option with no figure keeps its row in CEE's own words, never a mark (contrast: without a served face it is dropped)", () => {
+    const now = { a: { pct: 58, words: 'about 58%' } }
+    const out = pairChanceFigures({ goalChances: rows }, viewWith(now, { faces: { d: 'No change, by assumption' } }))
+    const d = out.rows.find(r => r.optionId === 'd')
+    expect(d).toEqual({ optionId: 'd', label: 'Neither side', earlier: null, now: null, note: 'No change, by assumption' })
+    expect(pairChanceFigures({ goalChances: rows }, viewWith(now)).rows.find(r => r.optionId === 'd')).toBeUndefined()
+    render(<PairChanceSlope figures={out} />)
+    const li = screen.getByTestId(PAIR_CHANCE_SLOPE_TESTID).querySelector('[data-option-id="d"]')!
+    expect(li.textContent).toBe('Neither sideNo change, by assumption')
+    expect(li.querySelector('[data-mark]')).toBeNull()
+  })
+
+  it('words alone are no chart: with no figure on either run, no rows (the face does not open the chart)', () => {
+    const onlyD = rows.filter(r => r.optionId === 'd')
+    expect(pairChanceFigures({ goalChances: onlyD }, viewWith({}, { faces: { d: 'No change, by assumption' } })).rows).toEqual([])
+  })
+
   it("this run's side comes ONLY from chanceFigureOf, never from run_delta's current side", () => {
     const out = pairChanceFigures({ goalChances: rows }, viewWith({ a: { pct: 58, words: 'about 58%' } }))
     const byId = Object.fromEntries(out.rows.map(r => [r.optionId, r]))
