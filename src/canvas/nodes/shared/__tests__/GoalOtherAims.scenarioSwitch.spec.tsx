@@ -13,7 +13,8 @@ vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (
 import { useOtherAims } from '../GoalOtherAims'
 import { useCanvasStore } from '../../../store'
 
-const graphWith = (aimId: string) => ({ status: 'graph', graph: { nodes: [], living_model: { aims: [{ id: aimId, text: `Aim ${aimId}`, source: 'user', status: 'current' }], links: [] } } })
+// A served read names its scenario and saved hash (bound by savedGraph.ts).
+const graphWith = (aimId: string, scenarioId: string, graphHash: string) => ({ status: 'graph', scenarioId, graphHash, graph: { nodes: [], living_model: { aims: [{ id: aimId, text: `Aim ${aimId}`, source: 'user', status: 'current' }], links: [] } } })
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
 
 describe('useOtherAims', () => {
@@ -21,13 +22,13 @@ describe('useOtherAims', () => {
     act(() => useCanvasStore.setState({ currentScenarioId: 'scn-a', lastServerGraphHash: 'h-a' } as never))
     const { result } = renderHook(() => useOtherAims())
     await flush()
-    await act(async () => { pending.get('scn-a')!(graphWith('aim_a')) })
+    await act(async () => { pending.get('scn-a')!(graphWith('aim_a', 'scn-a', 'h-a')) })
     expect(result.current.map((a) => a.id)).toEqual(['aim_a'])
     // Switch: B's read is still pending, so A's aims must not stay on B's canvas.
     act(() => useCanvasStore.setState({ currentScenarioId: 'scn-b', lastServerGraphHash: 'h-b' } as never))
     await flush()
     expect(result.current).toEqual([])
-    await act(async () => { pending.get('scn-b')!(graphWith('aim_b')) })
+    await act(async () => { pending.get('scn-b')!(graphWith('aim_b', 'scn-b', 'h-b')) })
     expect(result.current.map((a) => a.id)).toEqual(['aim_b'])
   })
 })
