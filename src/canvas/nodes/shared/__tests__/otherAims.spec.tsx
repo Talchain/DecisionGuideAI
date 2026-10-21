@@ -57,7 +57,7 @@ describe('otherAimsOf', () => {
 })
 
 describe('OtherAimCard', () => {
-  it('shows the aim, "Not in this analysis yet", its source and what links into it, bound to the aim id', () => {
+  it('shows the aim, "Not in this analysis yet", its source, and says what links into it, bound to the aim id', () => {
     const [goodwill] = otherAimsOf(graph())
     render(<OtherAimCard aim={goodwill} />)
     const card = screen.getByTestId('other-aim-goodwill')
@@ -65,7 +65,8 @@ describe('OtherAimCard', () => {
     expect(card.textContent).toContain('Keep customer goodwill')
     expect(screen.getByTestId('other-aim-goodwill-status').textContent).toBe('Not in this analysis yet')
     expect(screen.getByTestId('other-aim-goodwill-source').textContent).toBe('Yours')
-    expect(screen.getByTestId('other-aim-goodwill-links').textContent).toBe('Linked from Switch courier, Add live tracking')
+    expect(card.getAttribute('aria-description')).toBe('Linked from Switch courier, Add live tracking')
+    expect(card.getAttribute('title')).toBe('Linked from Switch courier, Add live tracking')
   })
 
   it('a withdrawn aim is shown and says so, never "not in this analysis yet"', () => {
@@ -74,10 +75,10 @@ describe('OtherAimCard', () => {
     expect(screen.getByTestId('other-aim-dropped_aim-status').textContent).toBe('Withdrawn')
   })
 
-  it('an Olumi aim says so, and an aim nothing links into shows no links line', () => {
+  it('an Olumi aim says so, and an aim nothing links into carries no links description', () => {
     const [, refunds] = otherAimsOf(graph())
     render(<OtherAimCard aim={refunds} />)
     expect(screen.getByTestId('other-aim-refund_volume-source').textContent).toBe('Olumi’s')
-    expect(screen.queryByTestId('other-aim-refund_volume-links')).toBeNull()
+    expect(screen.getByTestId('other-aim-refund_volume').getAttribute('aria-description')).toBeNull()
   })
 })

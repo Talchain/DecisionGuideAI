@@ -1,7 +1,7 @@
 /**
  * ⭐ THE OTHER AIMS, ON THE CANVAS BESIDE THE GOAL (Paul, 21 Oct 2026: "never hide what Olumi has"). Each aim the saved
  * living model holds but the analysis does not include yet is its own labelled card: its words, who it came from, what
- * the model links into it, and "Not in this analysis yet".
+ * the model links into it (its tooltip and accessible description), and "Not in this analysis yet".
  * ⛔ Render-only, through `ViewportPortal` like `ProposalGhostLayer`: it never enters `nodes`/`edges`, so nothing can
  * save, send or Run it, and it takes no pointer events, so it never blocks a card. Core lane only: legacy graphs carry no
  * living model. One graph-route read per saved-graph change (the turn payload carries no living model).
@@ -20,9 +20,9 @@ import { SOURCE_MARK_GLYPH_CLASSES } from './shared/EstimateMarker'
 import { useCanvasStore } from '../store'
 import { OTHER_AIM_COPY, otherAimSourceWords, otherAimStatusWords, otherAimsOf, type OtherAim } from './shared/otherAims'
 
-const CARD_WIDTH = 260
-const GAP_X = 40
-const GAP_Y = 12
+const CARD_WIDTH = 200
+const GAP_X = 24
+const GAP_Y = 8
 
 /** The saved model's other aims, re-read whenever the saved graph moves (a new hash) on the core lane. */
 export function useOtherAims(): OtherAim[] {
@@ -50,31 +50,29 @@ export function OtherAimCard({ aim }: { aim: OtherAim }) {
   const SourceIcon = SOURCE_ICON[aim.source]
   const source = otherAimSourceWords(aim)
   const status = otherAimStatusWords(aim)
+  const links = aim.linkedFrom.length > 0 ? `${OTHER_AIM_COPY.linkedFrom} ${aim.linkedFrom.join(', ')}` : null
   return (
-    <div data-testid={`other-aim-${aim.id}`} data-aim-id={aim.id} data-aim-status={aim.status} role="group" aria-label={`${aim.text}. ${status}. ${source}.`}
-      className="flex flex-col gap-1.5 rounded-xl border border-panel-border bg-panel px-3 py-2.5 shadow-1">
-      <span className={`${typography.nodeTitle} text-text-header`}>{aim.text}</span>
+    <div data-testid={`other-aim-${aim.id}`} data-aim-id={aim.id} data-aim-status={aim.status} role="group"
+      aria-label={`${aim.text}. ${status}. ${source}.`} {...(links ? { 'aria-description': links, title: links } : {})}
+      className="flex flex-col gap-1 rounded-xl border border-panel-border bg-panel px-2.5 py-2 shadow-1">
+      <span className={`${typography.nodeTitle} line-clamp-2 text-text-header`}>{aim.text}</span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <StatusPill testId={`other-aim-${aim.id}-status`} label={status} title={aim.status === 'withdrawn' ? 'Withdrawn: kept in your model, not analysed.' : `${OTHER_AIM_COPY.notInAnalysis}: the analysis covers one goal; this aim is kept in your model.`} />
         <span data-testid={`other-aim-${aim.id}-source`} className={`${typography.edgeLabel} inline-flex items-center gap-1 text-text-light`}>
           <SourceIcon aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />{source}
         </span>
       </span>
-      {aim.linkedFrom.length > 0 && (
-        <span data-testid={`other-aim-${aim.id}-links`} className={`${typography.edgeLabel} text-text-light`}>
-          {OTHER_AIM_COPY.linkedFrom} {aim.linkedFrom.join(', ')}
-        </span>
-      )}
     </div>
   )
 }
 
-/** Stacked to the right of the goal card, in canvas coordinates, so they pan and zoom with the model. */
+/** Stacked to the right of the goal card, bottom-aligned with it (growing up into the lane gap, clear of the viewport's
+ * bottom edge), in canvas coordinates, so they pan and zoom with the model. */
 export function OtherAimsLayer() {
   const aims = useOtherAims()
   const anchor = useStore((s) => {
     for (const n of s.nodeLookup.values()) {
-      if (n.type === 'goal') return { x: n.internals.positionAbsolute.x + (n.measured.width ?? 0) + GAP_X, y: n.internals.positionAbsolute.y }
+      if (n.type === 'goal') return { x: n.internals.positionAbsolute.x + (n.measured.width ?? 0) + GAP_X, y: n.internals.positionAbsolute.y + (n.measured.height ?? 0) }
     }
     return null
   }, (a, b) => a?.x === b?.x && a?.y === b?.y)
@@ -82,7 +80,7 @@ export function OtherAimsLayer() {
   return (
     <ViewportPortal>
       <div data-testid="other-aims-layer" className="absolute flex flex-col pointer-events-none"
-        style={{ transform: `translate(${anchor.x}px, ${anchor.y}px)`, width: CARD_WIDTH, gap: GAP_Y }}>
+        style={{ transform: `translate(${anchor.x}px, ${anchor.y}px) translateY(-100%)`, width: CARD_WIDTH, gap: GAP_Y }}>
         {aims.map((aim) => <OtherAimCard key={aim.id} aim={aim} />)}
       </div>
     </ViewportPortal>
