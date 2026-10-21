@@ -174,20 +174,28 @@ function rulingClaimElements(root: Element, hash: string): Element[] {
     .filter(el => el.getAttribute('data-goal-chance-claim') === licence.form && el.getAttribute('data-option-id') === licence.leaderOptionId)
 }
 /**
- * The surface's text AND accessible attributes with those elements (and only those, by node, never by matching their words
- * elsewhere) left out.
+ * The surface's text and accessible attributes with ONLY the ruled claim's own words left out, by node (Codex r2): a text
+ * node is left out when its NEAREST claim element is one of `claims` (a claim nested inside it is still read); an attribute
+ * is left out only on such an element and only where it repeats that element's own text exactly (a `title` mirroring a
+ * truncated line). Both the glued and the spaced readings are returned, so a phrase split across elements is still seen.
  */
-function textOutside(root: Element, skip: readonly Element[]): string {
-  const out: string[] = []
+function textOutside(root: Element, claims: readonly Element[]): string {
+  const ownClaim = (el: Element | null): boolean => {
+    const nearest = el?.closest('[data-goal-chance-claim]') ?? null
+    return nearest !== null && claims.includes(nearest)
+  }
+  const kept: string[] = []
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
-    if (n.textContent && !skip.some(el => el.contains(n))) out.push(n.textContent)
-  }
+  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) if (n.textContent && !ownClaim(n.parentElement)) kept.push(n.textContent)
+  const attrs: string[] = []
   for (const el of [root, ...root.querySelectorAll('*')]) {
-    if (skip.some(s => s.contains(el))) continue
-    for (const attr of ARIA_ATTRS) { const v = el.getAttribute(attr); if (v) out.push(v) }
+    const own = claims.includes(el) ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : null
+    for (const attr of ARIA_ATTRS) {
+      const v = el.getAttribute(attr)
+      if (v && !(own !== null && v.replace(/\s+/g, ' ').trim() === own)) attrs.push(v)
+    }
   }
-  return out.join(' ').replace(/\s+/g, ' ')
+  return [kept.join(''), kept.join(' '), attrs.join(' | ')].join(' ‖ ').replace(/\s+/g, ' ')
 }
 
 // ─── the deployed flags, derived ───
@@ -897,3 +905,31 @@ describe('⭐⭐ ROUND 2: the census inputs are DERIVED, and every derived item 
 })
 
 afterAll(() => { if (process.env.CENSUS_DUMP) writeFileSync(process.env.CENSUS_DUMP, JSON.stringify([...RENDERED].sort())) })
+
+describe('the ruled-claim exemption is bound to its own node (Codex r2 probes)', () => {
+  const dom = (html: string): { root: Element; claim: Element } => {
+    const root = document.createElement('div')
+    root.innerHTML = html
+    return { root, claim: root.querySelector('[data-option-id="b"]')! }
+  }
+  const phrase = (t: string): boolean => GENERIC_CHANCE_PHRASES.some(re => re.test(t))
+  it("the licensed claim's own words are left out (contrast: without the exemption they are read)", () => {
+    const { root, claim } = dom('<h3 data-goal-chance-claim="highest" data-option-id="b">In this model, Birch plan is the most likely to meet your goal</h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(false)
+    expect(phrase(textOutside(root, []))).toBe(true)
+  })
+  it('a wrong-id claim nested inside the licensed one is still read', () => {
+    const { root, claim } = dom('<h3 data-goal-chance-claim="highest" data-option-id="b">Birch <span data-goal-chance-claim="highest" data-option-id="a">Alder plan is the most likely to meet your goal</span></h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(true)
+  })
+  it("an attribute on the licensed claim is left out only where it repeats the claim's own text", () => {
+    const own = dom('<p data-goal-chance-claim="highest" data-option-id="b" title="In this model, Birch plan is the most likely to meet your goal">In this model, Birch plan is the most likely to meet your goal</p>')
+    expect(phrase(textOutside(own.root, [own.claim]))).toBe(false)
+    const other = dom('<p data-goal-chance-claim="highest" data-option-id="b" aria-label="Alder plan is the most likely to meet your goal">In this model, Birch plan is the most likely to meet your goal</p>')
+    expect(phrase(textOutside(other.root, [other.claim]))).toBe(true)
+  })
+  it('a phrase split across elements outside the claim is still seen (the glued reading)', () => {
+    const { root, claim } = dom('<p>ch<span>ance</span> of meeting your goal</p><h3 data-goal-chance-claim="highest" data-option-id="b">x</h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(true)
+  })
+})
