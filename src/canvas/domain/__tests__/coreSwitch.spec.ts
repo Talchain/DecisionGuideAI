@@ -63,6 +63,11 @@ describe('core option switches: never drawn, never laid out, never framed; their
     expect(allUnlockedNodesMeasured(NODES as never, measured as never)).toBe(false)
   })
 
+  it('⛔ Codex R2: renaming the option never brings its switch back', () => {
+    const renamed = NODES.map((x) => (x.id === 'new_courier_partner' ? n(x.id, 'option', 'Use FastShip instead') : x))
+    expect(coreSwitchOptionOf(renamed).get('new_courier_partner__on')).toBe('new_courier_partner')
+  })
+
   it('a switch is not framed or counted as part of the model', () => {
     expect(excludeNonModelNodes(NODES).map((n) => n.id)).not.toContain('new_courier_partner__on')
     expect(excludeNonModelNodes(NODES)).toHaveLength(5)

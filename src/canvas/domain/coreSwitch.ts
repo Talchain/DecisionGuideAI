@@ -10,14 +10,16 @@ const labelOf = (n: SwitchNode): string | undefined => {
   return typeof l === 'string' ? l : undefined
 }
 
-/** A switch is a FACTOR `<option id>__on` whose label is exactly "<option label> in place" (Codex R1: never a look-alike). */
+/**
+ * A switch is a FACTOR `<option id>__on` labelled "… in place", the mapper's own words (Codex R1: never a look-alike; R2: not
+ * tied to the option's label, so renaming the option never brings its switch back).
+ */
 export function coreSwitchOptionOf<T extends SwitchNode>(nodes: readonly T[]): ReadonlyMap<string, string> {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const out = new Map<string, string>()
   for (const n of nodes) {
     const s = n.type === 'option' ? byId.get(`${n.id}__on`) : undefined
-    const label = labelOf(n)
-    if (s && s.type === 'factor' && label !== undefined && labelOf(s) === `${label} in place`) out.set(s.id, n.id)
+    if (s && s.type === 'factor' && labelOf(s)?.endsWith(' in place') === true) out.set(s.id, n.id)
   }
   return out
 }
