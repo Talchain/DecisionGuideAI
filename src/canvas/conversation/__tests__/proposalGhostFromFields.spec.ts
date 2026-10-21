@@ -129,6 +129,12 @@ describe('core adds: a new factor or link drawn where it would land', () => {
   it('⛔ an unknown add kind or a malformed add is dropped, never the card (a newer CEE never breaks this reader)', () => {
     const ops = previewOfLatestReply([coreReply(withAdds([{ kind: 'risk_add', field_id: 'risk_add:r' }, { ...ADDS[1], direction: 'sideways' }, ADDS[0]]))])?.ops
     expect(ops?.map((o) => o.op)).toEqual(['add_node'])
+    // Codex R1: a malformed container is no adds, never a lost card (its editable fields survive).
+    for (const bad of [null, {}, 'x']) {
+      const turn = structuredClone(factorTurn) as Json
+      ;((fieldsOf(turn).proposals as Json[])[0] as Json).adds = bad
+      expect(previewOfLatestReply([coreReply(turn)])?.ops.map((o) => o.op)).toEqual(['set_factor_value', 'set_factor_value'])
+    }
     // A card with no adds at all (every served card before CEE projects them) reads as before.
     expect(previewOfLatestReply([coreReply(factorTurn as Json)])?.ops.map((o) => o.op)).toEqual(['set_factor_value', 'set_factor_value'])
   })
@@ -141,6 +147,13 @@ describe('core adds: a new factor or link drawn where it would land', () => {
     expect(g.lines.map((l) => l.key)).toEqual(['sickness->fac_cost'])
     expect(g.bands.map((b) => ghostBandText(b))).toEqual(['Olumi proposes: lowers'])
     expect(ghostCardDetail(c)).toBe('5 tickets')
+  })
+  it('⛔ Codex R1: the legacy wire is unchanged: its new card\'s sized link draws no band mark on the ghost line', () => {
+    const nodes = [{ id: 'fac_cost', position: { x: 0, y: 200 }, measured: { width: 280, height: 100 } }]
+    const g = proposalGhostGeometry({ proposalId: 'p', ops: [
+      { op: 'add_node', id: 'n', label: 'New', kind: 'factor' }, { op: 'add_edge', fromId: 'n', toId: 'fac_cost', band: 'strong' },
+    ] }, nodes)
+    expect([g.cards.length, g.lines.length, g.bands.length]).toEqual([1, 1, 0])
   })
   it('words: a new link raises or lowers, the person\'s says so; a new factor\'s level and whose it is', () => {
     expect(ghostBandText({ band: null, keeps: false, reverses: false, direction: 'positive', source: 'yours' })).toBe('Olumi proposes: raises · from your message')

@@ -50,8 +50,8 @@ const proposalSchema = z.object({
   }).transform(fields => fields.filter(field => field !== null && typeof field === 'object' && 'kind' in field
     && (field.kind === 'link_strength' || field.kind === 'factor_value'))).pipe(z.array(fieldSchema)),
   missing: z.array(z.object({ node_id: z.string().min(1), label: z.string().min(1), kind: z.enum(['risk', 'factor']), what: z.literal('level_today') })),
-  // Each entry on its own: an unknown kind or a malformed entry is dropped, never the card.
-  adds: z.array(z.unknown()).optional().transform(adds => (adds ?? []).flatMap(a => {
+  // Each entry on its own: an unknown kind, a malformed entry or a malformed container is dropped, never the card (Codex R1).
+  adds: z.unknown().optional().transform(adds => (Array.isArray(adds) ? adds : []).flatMap(a => {
     const r = addSchema.safeParse(a)
     return r.success ? [r.data] : []
   })),

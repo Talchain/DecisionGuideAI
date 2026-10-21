@@ -266,8 +266,8 @@ export function proposalGhostGeometry(
   for (const op of preview.ops) {
     if (op.op !== 'set_link_strength' && op.op !== 'update_edge' && op.op !== 'add_edge') continue
     if (op.op === 'add_edge' && op.band === null && op.direction === undefined) continue
-    // A new link may end on a ghost card (its mark sits on the ghost line); an existing link's ends are both on the canvas.
-    const endOf = (id: string) => real.get(id) ?? (op.op === 'add_edge' ? cards.find((c) => c.id === id) : undefined)
+    // A core new link may end on a ghost card (its mark sits on the ghost line); the legacy wire's ends stay on the canvas.
+    const endOf = (id: string) => real.get(id) ?? (op.op === 'add_edge' && op.direction !== undefined ? cards.find((c) => c.id === id) : undefined)
     const a = endOf(op.fromId)
     const b = endOf(op.toId)
     if (!a || !b) continue
