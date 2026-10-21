@@ -172,6 +172,38 @@ describe('useRestoredLayoutWidth', () => {
     expect(perKind?.decision).not.toBe(perKind?.factor)
   })
 
+  it('⭐ [saved reload, core] an option switch the canvas never draws is never waited for (served 21 Oct: every card stayed at 400)', () => {
+    // Core's mapper keeps each option's switch `<option>__on` ("… in place") in the store; the canvas never draws it, so React
+    // Flow never measures it (`coreSwitch.ts`). The per-kind widths are published from the model as drawn, as `layoutGraph`
+    // lays it out.
+    const { nodes, edges } = restoredGraph(4)
+    const measured = nodes.map((x) => ({ ...x, measured: { width: 260, height: 120 } })) as Node[]
+    const sw = { ...n('o1__on', 'factor', 1400, 900), data: { label: 'o1 in place' } } as Node
+    seed({ nodes: [...measured, sw], edges, currentScenarioId: 'scSwitch' })
+    // The record is a module store the suite's beforeEach does not reset: start from none, or the row reads a neighbour's.
+    act(() => { useLayoutStore.setState({ layoutCardWidths: null } as never) })
+    expect(useLayoutStore.getState().layoutCardWidths).toBeNull()
+
+    renderHook(() => useRestoredLayoutWidth())
+
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(302)
+    // The same answer as the board without its switch: the switch neither counts in the factor row nor holds the wait.
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(4))
+  })
+
+  it('⛔ CONTRAST: a DRAWN card not yet measured still holds the per-kind widths (the wait is kept)', () => {
+    const { nodes, edges } = restoredGraph(4)
+    const partly = nodes.map((x, i) => (i === 0 ? x : { ...x, measured: { width: 260, height: 120 } })) as Node[]
+    seed({ nodes: partly, edges, currentScenarioId: 'scUnmeasured' })
+    // The record is a module store the suite's beforeEach does not reset: start from none, or the row reads a neighbour's.
+    act(() => { useLayoutStore.setState({ layoutCardWidths: null } as never) })
+    expect(useLayoutStore.getState().layoutCardWidths).toBeNull()
+
+    renderHook(() => useRestoredLayoutWidth())
+
+    expect(useLayoutStore.getState().layoutCardWidths).toBeNull()
+  })
+
   it('[saved reload, pre-17-Aug stride] re-spreads ONLY the sub-floor row, in the store, and the widths it publishes clear it', () => {
     // Canvas owner, 27 Sep 2026 (landing text cap): no overlap beats an old
     // stride. Options saved at 196 (140 cards + 56 gap) — under the narrowest

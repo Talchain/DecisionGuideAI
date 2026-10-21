@@ -76,6 +76,14 @@ import { useLayoutStore } from '../layoutStore'
 import { applyRespreadX, planSubFloorRespread, solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
+import { withoutCoreSwitches } from '../domain/coreSwitch'
+
+/**
+ * ⛔ THE MODEL AS DRAWN, AS `layoutGraph` LAYS IT OUT (served 21 Oct 2026). Core's option switch (`<option>__on`) stays in
+ * the store but is never drawn (`coreSwitch.ts`), so React Flow never measures it. Waiting for it held every reopened core
+ * board at the 400 resting width on a 276 pitch: cards overlapped, the Question and the goal read narrow.
+ */
+const drawnOf = <N extends { id: string; type?: string; data?: unknown }>(nodes: readonly N[]): N[] => withoutCoreSwitches(nodes, []).nodes
 
 export function useRestoredLayoutWidth(): void {
   // Selected individually and as stable references / primitives — a selector
@@ -131,7 +139,7 @@ export function useRestoredLayoutWidth(): void {
     // graph than the one whose positions are on screen.
     if (derivedForRef.current !== key) {
       derivedForRef.current = key
-      const derived = solveLayoutNodeWidth(nodes, { direction, preserveLocked: respectLocked })
+      const derived = solveLayoutNodeWidth(drawnOf(nodes), { direction, preserveLocked: respectLocked })
       if (derived !== useLayoutStore.getState().layoutNodeWidth) {
         useLayoutStore.getState().setLayoutNodeWidth(derived)
       }
@@ -213,7 +221,7 @@ export function useRestoredLayoutWidth(): void {
     // ⚠ Read from the store's CURRENT nodes, like the re-spread and the widths
     // below (Delivery Lead, #2235 r1): one snapshot for the whole block, so the
     // evidence it waits for is the evidence it then uses.
-    const live = useCanvasStore.getState().nodes
+    const live = drawnOf(useCanvasStore.getState().nodes)
     const everyCardMeasured = live.every((n) => {
       if ((n as { hidden?: boolean }).hidden === true) return true
       const h = (n as unknown as { measured?: { height?: number } }).measured?.height
@@ -264,7 +272,7 @@ export function useRestoredLayoutWidth(): void {
       }
     }
 
-    const derivedPerKind = solveRestoredCardWidths(useCanvasStore.getState().nodes, {
+    const derivedPerKind = solveRestoredCardWidths(drawnOf(useCanvasStore.getState().nodes), {
       direction,
       preserveLocked: respectLocked,
       spacing: nodeSpacing,
