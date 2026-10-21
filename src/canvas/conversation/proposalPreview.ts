@@ -138,18 +138,21 @@ export function consentChipIdFor(proposalId: string): string {
 }
 
 /**
- * The preview the canvas may show NOW: the latest REPLY's (a restore's "Session resumed" divider is not a reply), and
- * only while that reply still offers the consent chip for its proposal id.
+ * The preview the canvas may show NOW: the latest REAL reply's (a restore's "Session resumed" divider and a synthetic
+ * notice are not replies, as in ChatThread), and only while its consent chip is offered.
  */
 export function previewOfLatestReply(messages: readonly ConversationMessage[]): ProposalPreview | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m.role !== 'assistant' || typeof m.sessionDivider === 'string') continue
-    const offered = (id: string) => (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(id))
+    if (m.role !== 'assistant' || m.synthetic || typeof m.sessionDivider === 'string') continue
     const preview = m.proposalPreview ?? null
-    if (preview !== null) return offered(preview.proposalId) ? preview : null
-    // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name the existing factor or link
-    // it changes (DL GO 21 Oct; an add-item or add-link proposal has no fields yet, so it keeps the dock card alone).
+    if (preview !== null) return (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(preview.proposalId)) ? preview : null
+    // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name what it changes or adds.
+    // The latest reply's fields are CEE's CURRENT held set; the card itself sits on its ISSUING reply, which a reopen
+    // puts it back on (`reconcileRestoredProposalFields`). So the ghost shows exactly while the chat shows the card: held
+    // now, and its approve offered on some reply (served 21 Oct: a later reply, then a reopen, lost the ghost, not the card).
+    const offered = (id: string) => messages.some((r) => r.role === 'assistant' && !r.synthetic
+      && (r.actionChips ?? []).some((c) => c.id === consentChipIdFor(id)))
     for (const p of readProposalFields(m.proposalFields)?.proposals ?? []) {
       const derived = previewFromFields(p)
       if (derived !== null && offered(derived.proposalId)) return derived
