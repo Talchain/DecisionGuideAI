@@ -12,13 +12,11 @@ import { NOT_RANKED_MARKER } from '../state/winShareGate'
 import { COACHING_ICON_GLYPH, OLUMI_CARD_MARK_SRC } from '../nodes/shared/NodeCoachingIcon'
 import { nodeTypeNumber, NODE_NUMBER_PREFIX } from '../nodes/shared/nodeTypeOrdinal'
 import {
-  briefCoachingFor,
-  BRIEF_COACHING_CARDS,
-  MAX_BRIEF_COACHING_CARDS,
-  BRIEF_COACHING_WHY_MAX,
+  briefPromptFor,
+  BRIEF_PROMPTS,
+  BRIEF_PROMPT_WHY_MAX,
   takeQueuedBriefCoachingPrefill,
 } from '../components/briefCoaching'
-import { ACTIONS_MENU } from '../components/pre-analysis-v3/constants'
 import { BriefReadingCard } from '../components/BriefReadingCard'
 
 const ROOT = join(__dirname, '..', '..', '..')
@@ -137,63 +135,70 @@ describe('"each node having a number relating to the node type"', () => {
 describe('"design that panel so it looks good … science-grounded, concise, easy-to-understand, action-oriented coaching"', () => {
   beforeEach(() => { takeQueuedBriefCoachingPrefill() })
 
-  it('⭐ gaps are coached first (goal → limits → options), then the always-useful habits, at most three', () => {
-    expect(briefCoachingFor({ hasGoal: true, hasLimits: false, optionCount: 3 }).map((c) => c.id))
-      .toEqual(['limits', 'pre_mortem', 'outside_view'])
-    expect(briefCoachingFor({ hasGoal: false, hasLimits: false, optionCount: 1 }).map((c) => c.id))
-      .toEqual(['goal', 'limits', 'options'])
-    expect(briefCoachingFor({ hasGoal: true, hasLimits: true, optionCount: 4 }).map((c) => c.id))
-      .toEqual(['pre_mortem', 'outside_view'])
-    expect(MAX_BRIEF_COACHING_CARDS).toBe(3)
+  // Paul 21 Oct 2026, of the three habit cards: "a lot of text and not a lot of useful functionality". ONE question
+  // about this brief, answered in place.
+  it('⭐ the first gap is asked (goal → limits → options); with no gap, a pre-mortem', () => {
+    expect(briefPromptFor({ hasGoal: false, hasLimits: false, optionCount: 1 }).id).toBe('goal')
+    expect(briefPromptFor({ hasGoal: true, hasLimits: false, optionCount: 1 }).id).toBe('limits')
+    expect(briefPromptFor({ hasGoal: true, hasLimits: true, optionCount: 1 }).id).toBe('options')
+    // CONTROL: a brief with no gap still gets a question it can answer.
+    expect(briefPromptFor({ hasGoal: true, hasLimits: true, optionCount: 4 }).id).toBe('pre_mortem')
   })
 
-  it('every card names its source, and the method actions reuse the panel\'s own prompts (one act, one wording)', () => {
-    // Concise (Paul, 1 Oct, second note: "easy to digest"): ONE line of why, and a named source shown beside it.
-    for (const c of Object.values(BRIEF_COACHING_CARDS)) {
-      expect(c.why.length, c.id).toBeLessThanOrEqual(BRIEF_COACHING_WHY_MAX)
-      expect(c.why.split(/(?<=[.!?])\s+/).filter(Boolean), c.id).toHaveLength(1)
-      expect(c.source, c.id).toMatch(/\([^)]+\)/)
+  it('every question has one plain line of why, and no citation on screen', () => {
+    for (const p of Object.values(BRIEF_PROMPTS)) {
+      expect(p.why.length, p.id).toBeLessThanOrEqual(BRIEF_PROMPT_WHY_MAX)
+      expect(p.why.split(/(?<=[.!?])\s+/).filter(Boolean), p.id).toHaveLength(1)
+      expect(`${p.question} ${p.why}`, p.id).not.toMatch(/\(|\bdecision/i)
     }
-    const prompt = (id: string) => (ACTIONS_MENU as readonly { id: string; prompt: string }[]).find((a) => a.id === id)!.prompt
-    expect(BRIEF_COACHING_CARDS.pre_mortem.prefill).toBe(prompt('pre_mortem'))
-    expect(BRIEF_COACHING_CARDS.outside_view.prefill).toBe(prompt('outside_view'))
-    expect(BRIEF_COACHING_CARDS.options.prefill).toBe(prompt('widen_options'))
   })
 
-  it('⭐ the card shows the brief (options numbered), the coaching, and a click QUEUES a pre-fill — it sends nothing', () => {
+  it('⭐ typing an answer QUEUES a pre-fill in the user\'s words — it sends nothing — and "Add" confirms it', () => {
     render(<BriefReadingCard reading={{ goal: 'reach £200k MRR', options: ['build the module', 'fix the bug'], limits: [] }} />)
     const card = screen.getByTestId('brief-reading')
     expect(within(card).getByText('Your brief')).toBeTruthy()
     expect(within(screen.getByTestId('brief-reading-considerations')).getByText('Not stated yet')).toBeTruthy()
-    const coaching = screen.getByTestId('brief-coaching')
-    expect(within(coaching).getByTestId('brief-coaching-limits')).toBeTruthy()
+    const prompt = screen.getByTestId('brief-prompt')
+    expect(prompt.getAttribute('data-prompt')).toBe('limits')
+    expect(within(prompt).getByLabelText(BRIEF_PROMPTS.limits.question)).toBe(screen.getByTestId('brief-prompt-input'))
     expect(takeQueuedBriefCoachingPrefill()).toBeNull()
-    fireEvent.click(screen.getByTestId('brief-coaching-action-limits'))
-    expect(screen.getByTestId('brief-coaching-action-limits').getAttribute('aria-pressed')).toBe('true')
-    expect(takeQueuedBriefCoachingPrefill()).toBe(BRIEF_COACHING_CARDS.limits.prefill)
-    // CONTROL: taking it clears it — one pick, handed over once.
+    // CONTROL: an empty answer cannot be added.
+    expect((screen.getByTestId('brief-prompt-submit') as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(screen.getByTestId('brief-prompt-input'), { target: { value: 'under £40k' } })
+    fireEvent.click(screen.getByTestId('brief-prompt-submit'))
+    expect(screen.getByTestId('brief-prompt-added').textContent).toContain('Added')
+    expect(takeQueuedBriefCoachingPrefill()).toBe('My limits are: under £40k')
+    // CONTROL: taking it clears it — one answer, handed over once.
     expect(takeQueuedBriefCoachingPrefill()).toBeNull()
+    expect(card.textContent, 'the reading never speaks of a model').not.toMatch(/\bmodel\b/i)
   })
 
-  it('⭐ the user\'s own Options field is ONE free-text box: never numbered, never counted, never coached as "one option"', () => {
+  it('⭐ the user\'s own Options field is ONE free-text box: never numbered, never counted, never asked for "another option"', () => {
     // Paul's 1 Oct preview: "promise … by next month; fix that now" read as option "1", and the card coached "Add a real
     // alternative" to someone who had written two. The card parses no language, so the count is unknown, not one.
-    const fields = { context: 'Our biggest customer asked for an AI reporting module.', goal: '', options: 'promise an AI reporting module by next month; fix that now', considerations: '' }
+    const fields = { context: 'Our biggest customer asked for an AI reporting module.', goal: 'keep the account', options: 'promise an AI reporting module by next month; fix that now', considerations: 'by March' }
     render(<BriefReadingCard reading={null} userFields={fields} />)
     const options = screen.getByTestId('brief-reading-options')
     expect(options.textContent).toBe('Options“promise an AI reporting module by next month; fix that now”')
     expect(options.querySelector('ol')).toBeNull()
-    expect(screen.queryByTestId('brief-coaching-options')).toBeNull()
-    expect(briefCoachingFor({ hasGoal: true, hasLimits: true, optionCount: null }).map((c) => c.id)).toEqual(['pre_mortem', 'outside_view'])
+    expect(screen.getByTestId('brief-prompt').getAttribute('data-prompt')).toBe('pre_mortem')
     cleanup()
-    // CONTROL: an EMPTY Options field is a known zero, and is coached.
+    // CONTROL: an EMPTY Options field is a known zero, and is asked.
     render(<BriefReadingCard reading={null} userFields={{ ...fields, options: '' }} />)
-    expect(screen.getByTestId('brief-coaching-options')).toBeTruthy()
+    expect(screen.getByTestId('brief-prompt').getAttribute('data-prompt')).toBe('options')
     cleanup()
-    // CONTROL: CEE's spans are one per option, so a single span still counts as one and is coached.
+    // CONTROL: CEE's spans are one per option, so a single span still counts as one and is asked.
     render(<BriefReadingCard reading={{ goal: 'reach £200k MRR', options: ['build the module'], limits: ['by March'] }} />)
     expect(screen.getByTestId('brief-reading-options').querySelector('ol')).not.toBeNull()
-    expect(screen.getByTestId('brief-coaching-options')).toBeTruthy()
+    expect(screen.getByTestId('brief-prompt').getAttribute('data-prompt')).toBe('options')
+  })
+
+  it('DS v5: outlined option pills, no tinted containers, no decorative icon tiles', () => {
+    const s = src('src/canvas/components/BriefReadingCard.tsx')
+    expect(s).not.toMatch(/bg-[a-z]+-light|bg-panel-hover\//)
+    expect(s).toContain('rounded-pill border border-option/30 bg-transparent')
+    // CONTROL: the probe reads the real file.
+    expect(s).toContain('data-testid="brief-prompt"')
   })
 
   it('one type size across the card: every text class is a 14px token (Paul 30 Sep: "Multiple different font sizes")', () => {

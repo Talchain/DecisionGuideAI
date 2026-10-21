@@ -126,9 +126,8 @@ describe('FirstUseComposer — the brief reading during the first-brief wait (C6
     drafting({ goal: GOAL, options: OPTIONS })
     render(<FirstUseComposer />, { wrapper: Wrapper })
     const card = screen.getByTestId('brief-reading')
-    // Paul 1 Oct 2026 redesign: ONE header, ONE "in your words" note for the whole reading, options numbered.
+    // Paul 1 Oct 2026 redesign: ONE header, options numbered. Since 21 Oct the quote marks alone carry "your words".
     expect(within(card).getByText('Your brief')).toBeTruthy()
-    expect(within(card).getByTestId('brief-reading-your-words').textContent).toBe('Quoted in your words')
     const goal = screen.getByTestId('brief-reading-goal')
     expect(within(goal).getByText(`\u201C${GOAL}\u201D`)).toBeTruthy()
     const options = screen.getByTestId('brief-reading-options')

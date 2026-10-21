@@ -1,92 +1,73 @@
 /**
- * ⭐ SCIENCE-GROUNDED COACHING WHILE THE FIRST DRAFT IS BUILT (Paul, 1 Oct 2026: "We need to design that panel so it
- * looks good, is easy to digest, and takes the opportunity to provide science-grounded, concise, easy-to-understand,
- * action-oriented coaching.").
+ * ⭐ ONE QUESTION WHILE THE FIRST DRAFT IS BUILT (Paul, 21 Oct 2026, of the drafting screen: "a lot of text and not a
+ * lot of useful functionality"). Replaces the three habit cards of 1 Oct (#2392), which asked the user to queue a
+ * method they could not act on until the draft landed, and showed the same two methods for every brief.
  *
- * The first draft takes about a minute, and the user is looking straight at their brief. Each card shows:
- * - ONE habit with a named, citable basis (`source`, shown muted);
- * - ONE line on why it helps (`why`, ≤ `BRIEF_COACHING_WHY_MAX` characters: no paragraphs);
- * - ONE action, which pre-fills Olumi's next message once the draft lands. It is never sent.
+ * The first draft takes about a minute, and the user is looking straight at their brief. The sheet asks ONE question
+ * about THIS brief, which the user can answer in the wait:
+ * - the first gap the brief card already shows (goal → limits → options);
+ * - with no gap, a pre-mortem question (prospective hindsight, Klein), because it needs nothing the brief lacks.
  *
- * ── WHICH CARDS, AND WHY THIS IS NOT THE UI DECIDING ─────────────────────────
- * The choice reads only what the brief card already shows: which of the four slots are EMPTY, and how many options
- * the user wrote. No language is parsed and no inference is made. A gap is coached first (goal, then limits, then
- * options), and the always-useful habits (pre-mortem, outside view) fill the rest, up to `MAX_BRIEF_COACHING_CARDS`.
+ * ── WHY THESE QUESTIONS (said in plain words on screen, never as a citation) ─────
+ * - goal: a specific target and date lets every option be tested against it (goal-setting, Locke & Latham);
+ * - limits: a stated threshold stops an option passing just by being first (satisficing, Simon);
+ * - options: decisions that weigh one option fail more often than those that compare several (Nutt);
+ * - pre_mortem: imagining a failure surfaces more of its causes (prospective hindsight, Klein).
  *
- * ── WORDS ───────────────────────────────────────────────────────────────────
- * The pre-mortem, outside-view and widen-options actions reuse the coaching prompts the panel already sends
- * (`ACTIONS_MENU`), so one act has one wording. Each card names its source, as `SIGNAL_COPY`'s "Pre-mortem (Klein)"
- * already does. The lines state each method's claim and attach no figure.
+ * ── WHICH QUESTION, AND WHY THIS IS NOT THE UI DECIDING ─────────────────────
+ * The choice reads only what the brief card already shows: which slots are EMPTY, and how many options the user
+ * wrote. No language is parsed and no inference is made.
+ *
+ * ── WHAT AN ANSWER DOES ─────────────────────────────────────────────────────
+ * The answer becomes a PRE-FILL of Olumi's next message once the draft lands. It is never sent: the user reads it
+ * beside their model and sends it, edits it or deletes it.
  */
-import { ACTIONS_MENU } from './pre-analysis-v3/constants'
 
-export const MAX_BRIEF_COACHING_CARDS = 3
+export type BriefPromptId = 'goal' | 'limits' | 'options' | 'pre_mortem'
 
-/** One line on the brief card at its 720px measure: the why never wraps to a paragraph. */
-export const BRIEF_COACHING_WHY_MAX = 90
-
-export type BriefCoachingId = 'goal' | 'limits' | 'options' | 'pre_mortem' | 'outside_view'
-
-export interface BriefCoachingCard {
-  id: BriefCoachingId
-  /** The habit, as a short imperative. */
-  title: string
-  /** Why it helps, in ONE line (≤ `BRIEF_COACHING_WHY_MAX` characters; Paul 1 Oct: "concise, easy-to-understand"). */
+export interface BriefPrompt {
+  id: BriefPromptId
+  /** The question, as the user would ask it of themselves. */
+  question: string
+  /** Why it helps, in one plain line (≤ `BRIEF_PROMPT_WHY_MAX` characters). */
   why: string
-  /** The named, citable basis, shown muted after the line. */
-  source: string
-  /** The button's words. */
-  actionLabel: string
-  /** What the action pre-fills in Olumi's next message (never sent). */
-  prefill: string
+  /** A synthetic example, never a brief's own words. */
+  placeholder: string
+  /** Leads the pre-fill, so the message reads as the user's answer. */
+  lead: string
 }
 
-const menuPrompt = (id: string): string => {
-  const entry = (ACTIONS_MENU as readonly { id: string; prompt: string }[]).find((a) => a.id === id)
-  if (!entry) throw new Error(`briefCoaching: ACTIONS_MENU has no '${id}'`)
-  return entry.prompt
-}
+/** One line at the sheet's measure: the why never wraps to a paragraph. */
+export const BRIEF_PROMPT_WHY_MAX = 90
 
-export const BRIEF_COACHING_CARDS: Readonly<Record<BriefCoachingId, BriefCoachingCard>> = Object.freeze({
+export const BRIEF_PROMPTS: Readonly<Record<BriefPromptId, BriefPrompt>> = Object.freeze({
   goal: {
     id: 'goal',
-    title: 'Make success measurable',
-    why: 'A number and a date focus effort, and let Olumi test every option against them.',
-    source: 'Goal-setting research (Locke & Latham)',
-    actionLabel: 'Add a target',
-    prefill: 'My target is ',
+    question: 'What would success look like, and by when?',
+    why: 'A number and a date let Olumi test every option against them.',
+    placeholder: 'e.g. 500 paying customers by June',
+    lead: 'My target is: ',
   },
   limits: {
     id: 'limits',
-    title: 'Name your limits',
-    why: 'Say your budget, deadline or must-haves, so no option passes just by being first.',
-    source: 'Satisficing (Simon)',
-    actionLabel: 'Add your limits',
-    prefill: 'My limits are: ',
+    question: 'What limits does this have to respect?',
+    why: 'A budget, deadline or must-have stops an option passing just by being first.',
+    placeholder: 'e.g. no more than £50k, live before March',
+    lead: 'My limits are: ',
   },
   options: {
     id: 'options',
-    title: 'Add a real alternative',
-    why: 'Decisions that weigh one option fail far more often than those that compare several.',
-    source: 'Studies of organisational decisions (Nutt)',
-    actionLabel: 'Ask for options',
-    prefill: menuPrompt('widen_options'),
+    question: 'What else could you do instead?',
+    why: 'Comparing at least two options leads to better choices than weighing one.',
+    placeholder: 'e.g. partner with a supplier instead',
+    lead: 'Another option to consider: ',
   },
   pre_mortem: {
     id: 'pre_mortem',
-    title: 'Run a pre-mortem',
-    why: 'Picture the decision has already failed: you will spot more of the ways it could.',
-    source: 'Prospective hindsight (Klein’s pre-mortem)',
-    actionLabel: 'Start a pre-mortem',
-    prefill: menuPrompt('pre_mortem'),
-  },
-  outside_view: {
-    id: 'outside_view',
-    title: 'Take the outside view',
-    why: 'Start from how similar decisions usually turn out, then adjust for yours.',
-    source: 'Reference-class forecasting (Kahneman & Lovallo)',
-    actionLabel: 'Ask for base rates',
-    prefill: menuPrompt('outside_view'),
+    question: 'If this goes wrong, what is the most likely reason?',
+    why: 'Naming a likely failure now points Olumi at what to check first.',
+    placeholder: 'e.g. the team is stretched too thin',
+    lead: 'If this goes wrong, the most likely reason is: ',
   },
 })
 
@@ -103,23 +84,27 @@ export interface BriefShape {
   optionCount: number | null
 }
 
-/** The cards for this brief: gaps first (goal → limits → options), then the always-useful habits. */
-export function briefCoachingFor(shape: BriefShape): BriefCoachingCard[] {
-  const ids: BriefCoachingId[] = []
-  if (!shape.hasGoal) ids.push('goal')
-  if (!shape.hasLimits) ids.push('limits')
-  // Only a KNOWN count of fewer than two coaches widening; an unknown count (the user's own field) never claims it.
-  if (shape.optionCount !== null && shape.optionCount < 2) ids.push('options')
-  ids.push('pre_mortem', 'outside_view')
-  return ids.slice(0, MAX_BRIEF_COACHING_CARDS).map((id) => BRIEF_COACHING_CARDS[id])
+/** The one question for this brief: the first gap (goal → limits → options), else a pre-mortem. */
+export function briefPromptFor(shape: BriefShape): BriefPrompt {
+  if (!shape.hasGoal) return BRIEF_PROMPTS.goal
+  if (!shape.hasLimits) return BRIEF_PROMPTS.limits
+  // Only a KNOWN count of fewer than two asks for another option; an unknown count (the user's own field) never does.
+  if (shape.optionCount !== null && shape.optionCount < 2) return BRIEF_PROMPTS.options
+  return BRIEF_PROMPTS.pre_mortem
+}
+
+/** The pre-fill for an answer: the prompt's lead plus the user's words, or null for an empty answer. */
+export function briefPromptPrefill(prompt: BriefPrompt, answer: string): string | null {
+  const text = answer.trim()
+  return text ? `${prompt.lead}${text}` : null
 }
 
 /**
- * The one pre-fill a click queues while the draft is still being built. It is taken (and cleared) when the draft
- * lands, so the action never pulls the user away from the brief mid-build and never sends anything.
+ * The one pre-fill an answer queues while the draft is still being built. It is taken (and cleared) when the draft
+ * lands, so the answer never pulls the user away from the brief mid-build and never sends anything.
  */
 let queuedPrefill: string | null = null
-export function queueBriefCoachingPrefill(text: string): void {
+export function queueBriefCoachingPrefill(text: string | null): void {
   queuedPrefill = text
 }
 export function takeQueuedBriefCoachingPrefill(): string | null {

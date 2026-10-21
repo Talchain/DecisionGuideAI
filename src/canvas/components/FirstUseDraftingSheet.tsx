@@ -7,8 +7,8 @@
  * Now: ONE sheet.
  * - The top shows a model that draws itself from Olumi's node shapes (`DraftingModelMark`), the status line, the
  *   elapsed time, and Stop.
- * - The middle shows the brief, quoted in the user's words.
- * - The bottom shows the habits to pick while the draft is built (`BriefReadingCard`).
+ * - Below it, the brief quoted in the user's words, and one question about it to answer in the wait
+ *   (`BriefReadingCard`).
  *
  * What did not change:
  * - The status line is `DraftLoadingAnimation`'s elapsed-time table, verbatim (`messageForElapsed`). It names no
@@ -23,6 +23,7 @@ import { Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { messageForElapsed } from './DraftLoadingAnimation'
 import { DraftingModelMark } from './DraftingModelMark'
+import { Button } from '../../components/ui/Button'
 import { BriefReadingCard, type BriefReadingCardProps } from './BriefReadingCard'
 
 export interface FirstUseDraftingSheetProps {
@@ -45,7 +46,7 @@ const DraftingStatus = memo(function DraftingStatus() {
   return (
     <>
       <div role="status" aria-live="polite" data-testid="first-use-thinking">
-        <p data-testid="first-use-drafting-message" className="m-0 text-xl font-semibold leading-snug tracking-tight text-text-header [text-wrap:balance]">
+        <p data-testid="first-use-drafting-message" className={typo('h4', 'm-0 text-text-header [text-wrap:balance]')}>
           {messageForElapsed(elapsed)}
         </p>
       </div>
@@ -66,29 +67,19 @@ export const FirstUseDraftingSheet = memo(function FirstUseDraftingSheet({ readi
     <section
       data-testid="first-use-drafting-sheet"
       aria-label="Drafting"
-      className="w-full max-w-2xl overflow-hidden rounded-2xl border border-panel-border bg-panel shadow-2"
+      className="flex w-full max-w-2xl flex-col gap-5 overflow-hidden rounded-lg border border-panel-border bg-panel shadow-1"
     >
-      <div className="flex flex-col gap-4 px-5 pb-5 pt-6 sm:flex-row sm:items-center sm:gap-6 sm:px-8 sm:pb-6 sm:pt-7">
-        <DraftingModelMark className="h-[84px] w-[99px] shrink-0" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 pt-5 sm:flex-nowrap sm:gap-x-6 sm:px-8 sm:pt-6">
+        <DraftingModelMark className="h-[56px] w-[66px] shrink-0 sm:h-[84px] sm:w-[99px]" />
+        <div className="flex min-w-[180px] flex-1 flex-col gap-1 sm:min-w-0">
           <DraftingStatus />
-          {onStop ? (
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={onStop}
-                data-testid="first-use-drafting-stop"
-                className={typo(
-                  'bodySmall',
-                  'inline-flex items-center gap-2 rounded-full border border-border-emphasis px-3 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
-                )}
-              >
-                <Square className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true" />
-                Stop drafting
-              </button>
-            </div>
-          ) : null}
         </div>
+        {onStop ? (
+          <Button variant="secondary" size="sm" onClick={onStop} data-testid="first-use-drafting-stop" className="inline-flex shrink-0 items-center gap-2">
+            <Square className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true" />
+            Stop drafting
+          </Button>
+        ) : null}
       </div>
       <BriefReadingCard reading={reading} userFields={userFields} />
     </section>

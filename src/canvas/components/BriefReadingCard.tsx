@@ -8,15 +8,18 @@
  *   consider. Each is an exact substring of what the user typed (CEE drops any span that is not). CEE sends no
  *   context span, so on this path the Context slot is left out rather than claiming "Not mentioned" over a brief
  *   that may well give context.
- * A filled slot is marked "your words"; an empty one reads "Not mentioned". No leader, no ranking, nothing Olumi
- * inferred (AIQ #70 5858767026), and never the word "model". It lives only while the turn is drafting
+ * A filled slot is quoted; an empty one reads "Not stated yet". No leader, no ranking, nothing Olumi inferred
+ * (AIQ #70 5858767026), and never the word "model". It lives only while the turn is drafting
  * (`draftStore.draftStreamBriefReading`); the model supersedes it.
+ *
+ * Below the brief sits ONE question about it that the user can answer in the wait (`briefCoaching`).
  */
-import { memo, useState } from 'react'
-import { GitFork, Globe, History, Ruler, Target, type LucideIcon } from 'lucide-react'
+import { memo, useId, useState } from 'react'
+import { Check } from 'lucide-react'
 import { typo } from '../../styles/typography'
+import { Button } from '../../components/ui/Button'
 import { BRIEF_SLOTS, type BriefFields, type BriefSlotKey } from './structuredBrief'
-import { briefCoachingFor, queueBriefCoachingPrefill, type BriefCoachingId } from './briefCoaching'
+import { briefPromptFor, briefPromptPrefill, queueBriefCoachingPrefill, type BriefPrompt } from './briefCoaching'
 import { NodeShape } from '../conversation/primitives/NodeShape'
 import type { NodeType } from '../domain/nodes'
 
@@ -56,25 +59,72 @@ const SLOT_SHAPE: Record<BriefSlotKey, NodeType> = {
   considerations: 'factor',
 }
 
-/** One icon per habit, from the product's icon library (lucide), never drawn by hand. */
-const COACHING_ICON: Record<BriefCoachingId, LucideIcon> = {
-  goal: Target,
-  limits: Ruler,
-  options: GitFork,
-  pre_mortem: History,
-  outside_view: Globe,
-}
-
-/** Columns the habits fill exactly: two habits never leave an empty third column. */
-const HABIT_COLUMNS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3' }
-
+/**
+ * The one question, answered in place. Typing queues the pre-fill at once, so an answer is never lost to a draft
+ * that lands mid-sentence; "Add" confirms it. Nothing is sent.
+ */
+const BriefPromptField = memo(function BriefPromptField({ prompt }: { prompt: BriefPrompt }) {
+  const inputId = useId()
+  const [answer, setAnswer] = useState('')
+  const [added, setAdded] = useState(false)
+  const update = (value: string) => {
+    setAnswer(value)
+    queueBriefCoachingPrefill(briefPromptPrefill(prompt, value))
+  }
+  return (
+    <div data-testid="brief-prompt" data-prompt={prompt.id} className="flex flex-col gap-3 rounded-md border border-panel-border p-4">
+      <div className="flex flex-col gap-0.5">
+        <label htmlFor={inputId} className={typo('label', 'text-text-header')}>
+          {prompt.question}
+        </label>
+        <p className={typo('bodySmall', 'text-text-light m-0')}>{prompt.why}</p>
+      </div>
+      {added ? (
+        <div className="flex items-center justify-between gap-3">
+          <div data-testid="brief-prompt-added" role="status" className="flex min-w-0 items-start gap-2">
+            <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+            <p className={typo('bodySmall', 'text-text-body m-0 min-w-0')}>
+              Added {quoted(answer.trim())}.{' '}
+              <span className="text-text-light">It will be waiting in your message to Olumi once the draft is ready.</span>
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" data-testid="brief-prompt-change" onClick={() => setAdded(false)}>
+            Change
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="flex flex-col gap-2 sm:flex-row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (answer.trim()) setAdded(true)
+          }}
+        >
+          <input
+            id={inputId}
+            data-testid="brief-prompt-input"
+            value={answer}
+            onChange={(e) => update(e.target.value)}
+            placeholder={prompt.placeholder}
+            className={typo(
+              'bodySmall',
+              'min-h-[44px] min-w-0 flex-1 rounded-sm border border-border-emphasis bg-panel px-4 text-text-header placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2',
+            )}
+          />
+          <Button type="submit" size="sm" data-testid="brief-prompt-submit" disabled={!answer.trim()}>
+            Add
+          </Button>
+        </form>
+      )}
+    </div>
+  )
+})
 
 export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFields = null }: BriefReadingCardProps) {
   const items = slotItems(reading, userFields)
   const slots = BRIEF_SLOTS.filter((slot) => items[slot.key] !== undefined)
-  const [queuedId, setQueuedId] = useState<BriefCoachingId | null>(null)
   if (slots.every((slot) => (items[slot.key] ?? []).length === 0)) return null
-  const coaching = briefCoachingFor({
+  const prompt = briefPromptFor({
     hasGoal: (items.goal ?? []).length > 0,
     hasLimits: (items.considerations ?? []).length > 0,
     // CEE's spans are one per option, so they count; the user's own Options field is one box of free text, so the
@@ -82,23 +132,15 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
     optionCount: userFields ? ((items.options ?? []).length === 0 ? 0 : null) : (items.options ?? []).length,
   })
   return (
-    <section data-testid="brief-reading" aria-label="Your brief">
-      {/* ⭐ PAUL, 7 OCT 2026, of this screen: "The layout looks terrible… How can you really enhance it so it looks
-          premium?" This card is now the lower half of ONE drafting sheet (`FirstUseDraftingSheet`), not a second card
-          of its own.
-          - Each row is keyed by the canvas shape it becomes.
-          - Options sit as numbered chips, numbered as the canvas numbers them.
-          - The habits are equal cards: icon, title, one line of why, the source, and the action at the same height.
-          Paul's 1 Oct rules still hold: one 14px type size, only the user's words, an empty slot said plainly,
-          nothing inferred. */}
-      <div className="flex flex-col gap-4 px-5 py-5 sm:px-8 sm:py-6">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
-          <span data-testid="brief-reading-your-words" className={typo('bodySmall', 'text-text-light')}>
-            Quoted in your words
-          </span>
-        </header>
-        <dl className="m-0 grid grid-cols-1 gap-y-1.5 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-5 sm:gap-y-3.5">
+    <section data-testid="brief-reading" aria-label="Your brief" className="flex flex-col gap-4 px-5 pb-5 sm:px-8 sm:pb-6">
+      {/* ⭐ PAUL, 21 OCT 2026, of this screen: "a lot of text and not a lot of useful functionality … cut off at the
+          bottom". The brief is a compact read-back and the habit cards are ONE question about this brief, answered in
+          place, so the sheet fits one viewport. Paul's 1 Oct rules still hold: one 14px type size, only the user's
+          words, an empty slot said plainly, nothing inferred. DS v5: outlined pills, no tinted containers, no
+          decorative icons. */}
+      <div className="flex flex-col gap-2.5">
+        <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
+        <dl className="m-0 grid grid-cols-1 gap-y-1 sm:grid-cols-[148px_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-2">
           {slots.map((slot) => {
             const values = items[slot.key] ?? []
             return (
@@ -119,19 +161,17 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
                           key={v}
                           className={typo(
                             'bodySmall',
-                            'text-text-header inline-flex max-w-full items-center gap-2 rounded-lg border border-option/40 bg-option-light/50 py-1 pl-1 pr-2.5',
+                            'text-text-body inline-flex max-w-full items-baseline gap-1.5 rounded-pill border border-option/30 bg-transparent px-3 py-0.5',
                           )}
                         >
-                          <span aria-hidden="true" className="tabular-nums font-medium text-text-body rounded-md bg-option/30 px-1.5">
-                            {i + 1}
-                          </span>
+                          <span aria-hidden="true" className="tabular-nums text-text-light">{i + 1}</span>
                           <span className="min-w-0">{quoted(v)}</span>
                         </li>
                       ))}
                     </ol>
                   </dd>
                 ) : values.length === 1 ? (
-                  <dd className={typo('bodySmall', 'text-text-header m-0 mb-2 min-w-0 whitespace-pre-line sm:mb-0 sm:py-1')}>{quoted(values[0])}</dd>
+                  <dd title={values[0]} className={typo('bodySmall', 'text-text-header m-0 mb-2 min-w-0 whitespace-pre-line line-clamp-3 sm:mb-0 sm:py-1')}>{quoted(values[0])}</dd>
                 ) : (
                   <dd className="m-0 mb-2 min-w-0 sm:mb-0 sm:py-1">
                     <ul className="m-0 p-0 list-none flex flex-col gap-1">
@@ -146,52 +186,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
           })}
         </dl>
       </div>
-      <div data-testid="brief-coaching" className="flex flex-col gap-4 bg-panel-hover/60 px-5 py-5 sm:px-8 sm:py-6">
-        <div className="flex flex-col gap-0.5">
-          <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the question</h3>
-          <p className={typo('bodySmall', 'text-text-light m-0')}>
-            Research-backed habits. Pick one and Olumi starts there when your draft is ready.
-          </p>
-        </div>
-        <ul className={`m-0 p-0 list-none grid grid-cols-1 gap-3 ${HABIT_COLUMNS[coaching.length] ?? 'sm:grid-cols-3'}`}>
-          {coaching.map((card) => {
-            const queued = queuedId === card.id
-            const Icon = COACHING_ICON[card.id]
-            return (
-              <li
-                key={card.id}
-                data-testid={`brief-coaching-${card.id}`}
-                className={`flex flex-col gap-2 rounded-xl border bg-panel p-4 transition-colors ${
-                  queued ? 'border-info/50' : 'border-panel-border hover:border-border-emphasis'
-                }`}
-              >
-                <span aria-hidden="true" className="grid h-8 w-8 place-items-center rounded-lg bg-info-light/60 text-info-ink">
-                  <Icon className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <p className={typo('label', 'text-text-header m-0 mt-1')}>{card.title}</p>
-                <p className={typo('bodySmall', 'text-text-body m-0 flex-1')}>{card.why}</p>
-                <p data-testid={`brief-coaching-source-${card.id}`} className={typo('bodySmall', 'text-text-light m-0')}>
-                  {card.source}
-                </p>
-                <button
-                  type="button"
-                  aria-pressed={queued}
-                  data-testid={`brief-coaching-action-${card.id}`}
-                  onClick={() => {
-                    queueBriefCoachingPrefill(card.prefill)
-                    setQueuedId(card.id)
-                  }}
-                  className={`${typo('bodySmall')} mt-1 w-full rounded-lg border px-3 py-1.5 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                    queued ? 'border-info bg-info text-text-on-color' : 'border-border-emphasis bg-panel text-text-body hover:bg-panel-hover'
-                  }`}
-                >
-                  {queued ? 'Ready when the draft lands' : card.actionLabel}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
+      <BriefPromptField key={prompt.id} prompt={prompt} />
     </section>
   )
 })
