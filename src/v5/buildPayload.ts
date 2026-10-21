@@ -476,6 +476,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'option_status_edit': {
+      const event = adaptOptionStatusEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'structural_rename': {
       const event = adaptStructuralRename(eventPayload)
       if (event === null) return null
@@ -1139,6 +1144,22 @@ function adaptStructuralDelete(
  * the right outcome: an unsendable rename must not become a turn that claims
  * something happened.
  */
+type OptionStatus = 'feasible' | 'infeasible' | 'removed'
+const OPTION_STATUSES: ReadonlySet<unknown> = new Set<OptionStatus>(['feasible', 'infeasible', 'removed'])
+
+/** schemas 0.69.0: one option's status, with the status last read; a no-op (the contract's own refinement) is no turn. */
+function adaptOptionStatusEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): { kind: 'option_status_edit'; option_node_id: string; expected_status: OptionStatus; status: OptionStatus; base_graph_hash: string } | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  const option_node_id = eventPayload?.option_node_id
+  const expected_status = eventPayload?.expected_status
+  const status = eventPayload?.status
+  if (!base_graph_hash || !isWireUsableNodeId(option_node_id)) return null
+  if (!OPTION_STATUSES.has(expected_status) || !OPTION_STATUSES.has(status) || expected_status === status) return null
+  return { kind: 'option_status_edit', option_node_id, expected_status: expected_status as OptionStatus, status: status as OptionStatus, base_graph_hash }
+}
+
 function adaptStructuralRename(
   eventPayload: Record<string, unknown> | undefined,
 ): StructuralRenameWireEvent | null {

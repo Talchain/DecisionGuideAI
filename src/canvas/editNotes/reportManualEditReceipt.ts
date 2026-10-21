@@ -49,6 +49,8 @@ export function reportManualEditReceipt(input: {
   const p = (event.payload ?? {}) as Record<string, unknown>
   if (p.intent === 'confirm_current') return
   if (p.applied_from !== undefined) { clearPendingEditNotes(); return }
+  // An option put in or out of the comparison takes the latest Undo step: an older note's Undo would reverse it instead (Codex on #2890).
+  if (event.type === 'option_status_edit') { clearPendingEditNotes(); return }
   const kinds: readonly string[] = ['factor_value_edit', 'option_intervention_edit', 'goal_target_edit', 'edge_strength_edit', 'structural_delete', 'structural_add', 'structural_add_edge', 'structural_rename']
   if (!kinds.includes(event.type)) return
   const elementId = event.type === 'factor_value_edit' ? p.target_id

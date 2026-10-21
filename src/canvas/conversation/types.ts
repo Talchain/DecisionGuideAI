@@ -1137,6 +1137,9 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // pins schemas 0.50.0 and its `SYSTEM_EVENT_HANDLING` declares
   // `structural_rename: 'mutating'` (the writer landed in #1273, `a705319f`).
   'structural_rename',
+  // schemas 0.69.0 — one option in or out of the comparison (CEE's core edit door applies it to the living model's option
+  // status; the option stays in the model and on the board).
+  'option_status_edit',
   // schemas 0.50.0 — the DURABLE NODE writer, and the close of "the factor I
   // added wasn't there when I came back". A canvas add previously reached CEE
   // only as a `direct_graph_edit` NOTIFICATION, which CEE classifies
@@ -1365,6 +1368,8 @@ export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   'structural_add_edge',
   'structural_delete',
   'structural_rename',
+  // In or out of the comparison: `analysis_participation` is inside CEE's analysis hash.
+  'option_status_edit',
   // Joined the wire vocabulary 2026-09-07 with its emitter. HELD, because CEE
   // declares it `'mutating'` and an undispatched graph-changing edit means any
   // verdict computed without it is a statement about a DIFFERENT graph.

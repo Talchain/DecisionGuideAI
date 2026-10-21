@@ -17,6 +17,7 @@
  * (model fact, true before any Run) and the panel (Run fact) say the same thing. Never "Not compared yet".
  */
 import { TAKEN_OUT_INFEASIBLE_LABEL, TAKEN_OUT_REMOVED_LABEL } from '../../components/results/utils/notAnalysedCopy'
+import type { WireSystemEvent } from '../conversation/types'
 
 export type TakenOutStatus = 'infeasible' | 'removed'
 
@@ -38,4 +39,14 @@ export function optionTakenOut(data: unknown): TakenOutStatus | null {
 export function optionTakenOutLine(data: unknown): string | null {
   const status = optionTakenOut(data)
   return status === null ? null : OPTION_TAKEN_OUT_COPY[status]
+}
+
+/**
+ * The one event the inspector's control sends: a compared option is taken out (`removed`), a taken-out one is put back
+ * (`feasible`), each with the status last read and the saved hash. `null` with no saved hash to assert (a turn sets one).
+ */
+export function optionStatusToggleEvent(optionId: string, data: unknown, baseGraphHash: string | null): WireSystemEvent | null {
+  if (baseGraphHash === null || baseGraphHash === '') return null
+  const current = optionTakenOut(data) ?? 'feasible'
+  return { type: 'option_status_edit', payload: { option_node_id: optionId, expected_status: current, status: current === 'feasible' ? 'removed' : 'feasible', base_graph_hash: baseGraphHash } }
 }
