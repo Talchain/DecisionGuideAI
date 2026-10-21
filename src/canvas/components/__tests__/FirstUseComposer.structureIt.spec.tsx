@@ -212,9 +212,8 @@ describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s o
     thinkingMockState.isThinking = true
     rerender(<FirstUseComposer />)
     const card = screen.getByTestId('brief-reading')
-    // Paul 1 Oct 2026 redesign: one header, and ONE "in your words" note for the whole reading.
+    // Paul 1 Oct 2026 redesign: one header; since 21 Oct the quote marks alone carry "your words".
     expect(within(card).getByText('Your brief')).toBeTruthy()
-    expect(within(card).getAllByTestId('brief-reading-your-words')).toHaveLength(1)
     for (const [slot, words] of [['context', CONTEXT], ['goal', GOAL], ['options', OPTIONS]] as const) {
       const el = screen.getByTestId(`brief-reading-${slot}`)
       expect(within(el).getByText(`“${words}”`)).toBeTruthy()
@@ -252,7 +251,6 @@ describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s o
     expect(card.querySelector('[data-testid*="assumed"]')).toBeNull()
     // CONTRAST CONTROL: the same card DOES render the user's words and an empty slot, so the absence above is about
     // "assumed" items and not an empty card.
-    expect(within(card).getAllByTestId('brief-reading-your-words')).toHaveLength(1)
     expect(card.textContent).toContain(`“${GOAL}”`)
     expect(within(card).getAllByTestId('brief-reading-not-mentioned')).toHaveLength(1)
   })
