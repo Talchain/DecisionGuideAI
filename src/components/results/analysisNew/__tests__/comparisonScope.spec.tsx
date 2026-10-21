@@ -64,7 +64,7 @@ import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../../utils/goalAn
 import { notAnalysedReasonCopy } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import type { OptionResult } from '../../types'
-import { genuineDecision } from './analysisNewFixtures'
+import { genuineDecision, OUTCOME_READING, withOutcomeWords } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 afterEach(() => cleanup())
@@ -79,7 +79,7 @@ const option = (over: Partial<OptionResult> & { id: string; label: string }): Op
  * difference in output is attributable to scope and to nothing else.
  */
 function withOptions(allOptions: OptionResult[]): ResultsSectionDataReturn {
-  const base = genuineDecision()
+  const base = withOutcomeWords(genuineDecision())
   const leader = allOptions.find((o) => o.notAnalysed !== true) ?? allOptions[0]
   return {
     ...base,
@@ -123,7 +123,7 @@ const THREE_OPTIONS_TWO_ANALYSED = [
 describe('1 · a subset run shows the share WITH its scope, and names who was left out', () => {
   it('states the scope beside the number, from the sanctioned register', () => {
     const glance = glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))
-    expect(glance.winShare).toBe('In this model, one option had the highest score in 60% of simulated futures.')
+    expect(glance.winShare).toBe(OUTCOME_READING)
     expect(glance.comparisonScope.kind).toBe('partial')
 
     render(<AtAGlance
@@ -337,9 +337,9 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     // percentages describe those N only" with no percentage anywhere — the
     // round-1 defect in miniature, and the reason the gate reads what RENDERS.
     const glance = glanceOf(
-      partialWith({ robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
+      withOutcomeWords(partialWith({ robustnessVerdict: undefined, robustnessVerdictReason: undefined })),
     )
-    expect(glance.winShare, 'precondition: the model DOES hold a share').toBeTruthy()
+    expect(glance.winShare, 'precondition: the model DOES hold a reading').toBeTruthy()
     expect(glance.verdict, 'precondition: nothing renders it').toBeNull()
     expect(glance.comparativeClaim).toBe('order')
 
@@ -377,7 +377,7 @@ describe('2 · a whole-set run carries NO partial-scope qualification', () => {
     ]
     const glance = glanceOf(withOptions(all))
 
-    expect(glance.winShare).toBe('In this model, one option had the highest score in 60% of simulated futures.')
+    expect(glance.winShare).toBe(OUTCOME_READING)
     expect(glance.comparisonScope.kind).toBe('whole_set')
 
     render(<AtAGlance

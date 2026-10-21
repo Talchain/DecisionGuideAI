@@ -108,26 +108,6 @@ describe('the read — no UI-generated strategic conclusion', () => {
    * status word with nothing between, and that arrangement is proven. This pins
    * the same ordering here so a future edit cannot silently re-separate them.
    */
-  it('the verdict reason renders BEFORE the win bar, adjacent to its label', () => {
-    const data = genuineDecision()
-    const g = glanceOf(data)
-    // Precondition pinned in-arm: without a reason AND a win fraction there is
-    // nothing to order, and the assertion below would pass vacuously.
-    expect(g.verdict?.reason, 'fixture must carry a producer reason').toBeTruthy()
-    expect(g.winFraction, 'fixture must carry a win fraction, or there is no bar').not.toBeNull()
-
-    render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={g} />)
-    const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
-    const bar = screen.getByTestId('analysis-new-glance-win-bar')
-    // DOCUMENT_POSITION_FOLLOWING === 4: the bar comes after the reason.
-    expect(
-      reason.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING,
-      'the win bar separates the verdict label from the sentence it continues',
-    ).toBeTruthy()
-  })
-
   it('renders no headline for an open strategic challenge, but still has drivers to lead with', () => {
     const g = glanceOf(openStrategicChallenge())
     expect(g.headline).toBeNull()

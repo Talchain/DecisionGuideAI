@@ -44,6 +44,8 @@ import {
   makeData,
   makeDriver,
   uncertaintyDerivedFindings,
+  OUTCOME_READING,
+  withOutcomeWords,
 } from './analysisNewFixtures'
 
 afterEach(() => cleanup())
@@ -83,14 +85,11 @@ const build = (data: ResultsSectionDataReturn) =>
 // Answer zone: At a glance
 // ─────────────────────────────────────────────────────────────────────────────
 describe('At a glance', () => {
-  it('the share sentence is model-relative and still names no option', () => {
-    const share = build(genuineDecision()).atAGlance.winShare
-    expect(share, 'the entitled fixture no longer yields a share').not.toBeNull()
-    expectModelRelative(
-      share!,
-      'In this model, one option had the highest score in 69% of simulated futures.',
-    )
-    expect(share).not.toMatch(/Raise price|Hold price/)
+  it('the reading is CEE\'s outcome words, verbatim, with no share of runs (Paul 21 Oct)', () => {
+    const reading = buildAnalysisNewViewModel({ data: withOutcomeWords(genuineDecision()), recommendations: [], isPreRun: false,
+      isRunning: false, isStale: false, analysisIdentityIsCurrent: true }).atAGlance.winShare
+    expect(reading).toBe(OUTCOME_READING)
+    expect(reading).not.toMatch(/highest score|simulated futures|of runs|\bwinner\b|\bbest\b|recommend/i)
   })
 })
 

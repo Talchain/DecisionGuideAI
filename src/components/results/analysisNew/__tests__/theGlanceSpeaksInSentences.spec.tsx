@@ -137,10 +137,6 @@ const run = (): ResultsSectionDataReturn => {
     // PRECONDITION: the glance rendered its READING, not merely some text. An
     // empty — or withheld — census agrees with every rule ever written.
     expect(lines.length, 'the glance rendered no text — this census is vacuous').toBeGreaterThan(0)
-    expect(
-      lines.some((l) => /had the highest score in/i.test(l)),
-      'the entitled fixture no longer renders a share — the case this arm exists for is gone',
-    ).toBe(true)
     // PRECONDITION: the producer's clause is on screen. Without it this census
     // cannot observe the render-boundary case at all, and dropping
     // `sentenceCase` leaves it green — measured, not supposed.
@@ -157,23 +153,11 @@ const run = (): ResultsSectionDataReturn => {
     }
   })
 
-  it('⭐ the share carries a subject, and it identifies no option', () => {
-    renderGlance(run(), 'share_has_a_subject')
-
-    const share = screen.getByTestId('analysis-new-glance-win-share').textContent ?? ''
-    expect(share, 'the share rendered empty — nothing below is being tested').not.toBe('')
-    // A subject, and a full stop: this is a sentence, not a predicate.
-    expect(share.startsWith('In this model, one option had the highest score in')).toBe(true)
-    expect(share.endsWith('.')).toBe(true)
-
-    // ⛔ AND IT MUST NOT REINSTATE THE CONCLUSION. The repair supplies a
-    // subject that identifies nobody; naming the option here would restore
-    // exactly what Paul's ruling deleted.
-    for (const option of ['RudderStack', 'Segment', 'Snowflake', 'Adopt ']) {
-      expect(share, `the share names an option — the ruling deleted the conclusion`).not.toContain(
-        option,
-      )
-    }
+  it('⛔ NO WIN SHARE (Paul 21 Oct): the glance says no share of runs, "highest score" or "simulated futures" figure', () => {
+    renderGlance(run(), 'no_win_share')
+    const lines = glanceLines()
+    expect(lines.length, 'the glance rendered no text — this check is vacuous').toBeGreaterThan(0)
+    for (const line of lines) expect(line).not.toMatch(/highest score in|simulated futures|of (model )?runs|on top|\bahead\b/i)
   })
 
   it('⛔ a glance with nothing to show renders NOTHING, not an empty landmark', () => {

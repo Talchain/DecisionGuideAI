@@ -41,6 +41,7 @@
  *     caught exactly that here before it shipped.
  */
 
+import { optionOutcomeReading, readOptionOutcomeWords } from '../utils/optionOutcomeWords'
 import { formatThresholdFigure } from './thresholdFigure'
 import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
@@ -2689,28 +2690,18 @@ function buildAtAGlance(
   // sentence below supplies a subject that identifies nobody. The number, its
   // meaning and its two gates are untouched.
   //
-  // Gated twice: on the leader entitlement AND on scope being establishable.
-  const winPct =
-    headline && comparisonScope.kind !== 'unresolved'
-      // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-      ? pctOrNull(leader?.winProbability ?? rec.winProbability)
-      : null
-
-  // ⚠ THE NUMBER'S MEANING IS UNCHANGED AND MUST NOT DRIFT. `winProbability` is
-  // how often this option SCORED HIGHEST in the comparison — it is NOT the
-  // probability of reaching the goal. "Achieves your goal in 99%" would have
-  // been a worse claim than the contest framing it replaced, so the wording
-  // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `In this model, one option had the highest score in ${winPct} of simulated futures.` : null
-  // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
-  // same condition as `winPct`, so the number and the bar can never disagree
-  // about whether there is a share at all.
-  // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: a win share, said as a share of runs where the option comes out on top, never as a chance
-  const winRaw = leader?.winProbability ?? rec.winProbability
-  const winFraction =
-    winPct && typeof winRaw === 'number' && Number.isFinite(winRaw)
-      ? Math.max(0, Math.min(1, winRaw > 1 ? winRaw / 100 : winRaw))
-      : null
+  // ⭐ NO WIN SHARE (Paul 21 Oct; DL rulings). The share of runs an option "had the highest score in" is gone: the reading is
+  // CEE's own words for what each option most likely gives, in the goal's units, and whether the likely ranges separate
+  // (`optionOutcomeWords.ts`), said verbatim, for a Run known to be current. No share figure, so no share bar.
+  const winShare = analysisIdentityIsCurrent && comparisonScope.kind !== 'unresolved'
+    ? optionOutcomeReading(readOptionOutcomeWords(data.confidence?.inferenceWarnings))
+    : null
+  // The set-dependent LICENCE is unchanged: an entitled leader on an establishable scope still licenses the comparative
+  // figures (the options' ranges and goal figures below), whether or not CEE's words are on this Run. Only the words said
+  // changed; the share itself is never shown.
+  const entitledComparison = Boolean(headline && comparisonScope.kind !== 'unresolved'
+    // eslint-disable-next-line chance-gate/no-raw-chance-read -- chance-gate: win-share: presence only, to keep the comparative licence; never shown
+    && pctOrNull(leader?.winProbability ?? rec.winProbability))
   /**
    * ⭐⭐ THE REASON IS GATED ON THE LEADER ENTITLEMENT; THE GRADE IS NOT.
    *
@@ -2782,7 +2773,7 @@ function buildAtAGlance(
   // and an ordering verdict with no percentage at all. Both are set-dependent
   // claims and both need the scope disclosure. Gating on the share alone
   // suppressed it on exactly those runs.
-  const shareOnScreen = Boolean(verdictBlock && winShare)
+  const shareOnScreen = Boolean(verdictBlock && (winShare || entitledComparison))
 
   // ⚠⚠ HOISTED, AND THE HOIST IS THE FIX (ROADMAP 2.1340 row F).
   // `condition` used to be computed in the returned object literal BELOW this
@@ -2855,7 +2846,6 @@ function buildAtAGlance(
     designationWithheldParameters,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
-    winFraction,
     comparisonScope,
     comparativeClaim,
     verdict: verdictBlock,
@@ -4062,7 +4052,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, conditionAbsence: null, inputProvenance: null, optionOrigin: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, conditionAbsence: null, inputProvenance: null, optionOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF
