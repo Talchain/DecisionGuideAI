@@ -53,6 +53,24 @@ describe('attributionLine — which recorded change moved which chance', () => {
     expect(line.text).not.toMatch(/With that change/)
   })
 
+  it('several recorded changes and ONE mover → still "with those changes" (the count is the changes\', not the movers\')', () => {
+    const view = viewOf({ ...C1, input_coverage: 'complete', input_changes: [effect('option_b__on', 35, 30), effect('option_a__on', 40, 50)] } as never)
+    const line = attributionLine(view, BOTH)!
+    expect(line.text).toContain("With those changes, Option B (a price cut)'s chance of meeting your goal in this model moved from about 61% to about 50%.")
+    expect(line.text).not.toMatch(/With that change/)
+  })
+
+  it('moved is decided by the gate\'s WORDS, never by chart position: equal words at different positions do not move; different words at one position do', () => {
+    const view = viewOf({ ...C1, input_coverage: 'complete', input_changes: [effect('option_b__on', 35, 30)] } as never)
+    const samePositionNewWords = chances([
+      { optionId: 'option_a', label: 'Option A (a referral programme)', earlier: point('about 78%', 40), now: point('about 78%', 90) },
+      { optionId: 'option_b', label: 'Option B (a price cut)', earlier: point('between 40% and 60%', 50), now: point('about 50%', 50) },
+    ])
+    const line = attributionLine(view, samePositionNewWords)!
+    expect(line.movement).toBe("Option B (a price cut)'s chance of meeting your goal in this model moved from between 40% and 60% to about 50%")
+    expect(line.text).not.toMatch(/Option A/)
+  })
+
   it.each([
     ['C2_unpaired (not attributable)', { attribution_case: 'C2_unpaired', input_coverage: 'complete' }],
     ['C3_engine_drift (not attributable)', { attribution_case: 'C3_engine_drift', pair_provenance: { seed_equal: true, hash_equal: false, builds_equal: 'unequal', n_equal: true }, input_coverage: 'complete' }],
