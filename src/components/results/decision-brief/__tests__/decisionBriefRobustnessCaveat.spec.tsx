@@ -141,6 +141,20 @@ describe('the caveat is gated on the leader claim, and never asserts one', () =>
     expect(document.body.textContent ?? '').not.toMatch(/held up|robust|no caveat|stable/i)
   })
 
+  it('a caveat-only section promises no drivers it does not show (served capacity/core, 21 Oct)', () => {
+    const vm = readDecisionBriefViewModel(brief({ top_drivers: [], robustness_caveat: caveat() }))
+    render(<DecisionBriefSection brief={vm!} leaderClaimPermitted estimatedInterventions={[]} />)
+    expect(screen.getByTestId('decision-brief-robustness-caveat').textContent).toBe(HELD)
+    expect(screen.queryByText(/Top drivers/)).toBeNull()
+    expect(screen.queryByTestId('decision-brief-groups')).toBeNull()
+  })
+
+  it('CONTRAST: with a driver, the section still says what it holds', () => {
+    render(<DecisionBriefSection brief={vmWith({ robustness_caveat: caveat() })!} leaderClaimPermitted estimatedInterventions={[]} />)
+    expect(screen.getByText('Top drivers, the values Olumi assumed, and what could change.')).toBeTruthy()
+    expect(screen.getByTestId('decision-brief-groups')).toBeTruthy()
+  })
+
   it('renders the fragile wording as faithfully as the reassuring one', () => {
     const vm = vmWith({ robustness_caveat: caveat(FRAGILE) })!
     render(<DecisionBriefSection brief={vm} leaderClaimPermitted estimatedInterventions={[]} />)

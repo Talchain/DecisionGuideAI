@@ -194,13 +194,16 @@ export function DecisionBriefSection({
           <h3 id={`${detailsId}-heading`} className={`${typography.panelHeader} text-text-header`}>
             Behind this result
           </h3>
-          <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>
-            {hasOptionResult ? 'Top drivers, the values Olumi assumed, and what could change.' : 'The values Olumi assumed, and what could change.'}
-          </p>
+          {/* A caveat-only section (no drivers, assumptions or changes on this run) promises none of them. */}
+          {groups.length > 0 && (
+            <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>
+              {hasOptionResult ? 'Top drivers, the values Olumi assumed, and what could change.' : 'The values Olumi assumed, and what could change.'}
+            </p>
+          )}
         </div>
       </div>
 
-      <dl
+      {groups.length > 0 && <dl
         id={detailsId}
         className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 pt-2"
         data-testid="decision-brief-groups"
@@ -208,7 +211,7 @@ export function DecisionBriefSection({
         {groups.map(group => (
           <BriefGroup key={group.title} {...group} expanded={expanded} />
         ))}
-      </dl>
+      </dl>}
 
       {leaderClaimPermitted && brief.robustnessCaveat && (
         <p
