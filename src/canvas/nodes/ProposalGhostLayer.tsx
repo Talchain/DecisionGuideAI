@@ -46,10 +46,15 @@ export const OLUMI_PROPOSES = 'Olumi proposes'
 const VALUE_SOURCE_WORDS = { estimate: '', yours: ' · from your message', from_brief: ' · from your brief' } as const
 
 /** A link mark's words: a change says "Proposed", a keep says what the Yes records; the band in the canvas's word. */
-export function ghostBandText(b: { band: PreviewBand; keeps: boolean; reverses: boolean; source?: 'estimate' | 'yours' }): string {
+export function ghostBandText(b: {
+  band: PreviewBand | null; keeps: boolean; reverses: boolean; direction?: 'positive' | 'negative'; source?: 'estimate' | 'yours'
+}): string {
+  const whose = b.source === undefined ? '' : VALUE_SOURCE_WORDS[b.source]
+  // A new link with no size (core): which way it moves, in the canvas legend's words.
+  if (b.band === null) return `${OLUMI_PROPOSES}: ${b.direction === 'negative' ? 'lowers' : 'raises'}${whose}`
   const word = CANVAS_BAND_WORD[b.band]
   if (b.keeps && !b.reverses) return `Record as ${word}`
-  return `${OLUMI_PROPOSES}: ${word}${b.reverses ? ', direction reversed' : ''}${b.source === undefined ? '' : VALUE_SOURCE_WORDS[b.source]}`
+  return `${OLUMI_PROPOSES}: ${word}${b.reverses ? ', direction reversed' : ''}${whose}`
 }
 
 /** An option mark's words: the card's own words, verbatim, for taken out (they carry a colon, hence the dot). */
@@ -60,8 +65,18 @@ export function ghostStatusText(status: PreviewOptionStatus): string {
 
 /** A factor's proposed value: the figure as the held card says it, and whose it is. */
 export function ghostValueText(v: { value: number; unit: string; source: keyof typeof VALUE_SOURCE_WORDS }): string {
-  const figure = formatMoneyFigure(v.value, v.unit) ?? (v.unit === '%' ? `${v.value}%` : `${v.value} ${v.unit}`.trim())
-  return `${OLUMI_PROPOSES}: ${figure}${VALUE_SOURCE_WORDS[v.source]}`
+  return `${OLUMI_PROPOSES}: ${figureText(v)}${VALUE_SOURCE_WORDS[v.source]}`
+}
+
+/** A figure as the held card says it. */
+const figureText = (v: { value: number; unit: string }): string =>
+  formatMoneyFigure(v.value, v.unit) ?? (v.unit === '%' ? `${v.value}%` : `${v.value} ${v.unit}`.trim())
+
+/** A new factor's second line (core): its level, when it has one, and whose item it is; null when there is nothing to say. */
+export function ghostCardDetail(c: { value?: { value: number; unit: string } | null; source?: 'estimate' | 'yours' }): string | null {
+  const figure = c.value ? figureText(c.value) : null
+  const whose = c.source === 'yours' ? 'from your message' : null
+  return figure && whose ? `${figure} · ${whose}` : figure ?? whose
 }
 
 /** Where along a real edge a band mark may sit, middle first (geometry takes the first that covers nothing). */
@@ -185,6 +200,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
               <span className={`${typography.nodeLabel} text-text-light`}>{OLUMI_PROPOSES}</span>
             </span>
             <span className={`${typography.nodeTitle} text-text-header`}>{c.label}</span>
+            {ghostCardDetail(c) !== null && <span className={`${typography.edgeLabel} text-text-body`} data-testid={`proposal-ghost-node-${c.id}-detail`}>{ghostCardDetail(c)}</span>}
           </div>
           )
         })}

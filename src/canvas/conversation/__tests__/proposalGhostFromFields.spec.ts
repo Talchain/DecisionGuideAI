@@ -11,7 +11,7 @@ import linkTurn from './fixtures/sd-s2-a6-proposing-turn.json'
 import placeholderTurn from './fixtures/served-held-proposal-sdwire4.json'
 import { consentChipIdFor, previewOfLatestReply } from '../proposalPreview'
 import { proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
-import { ghostBandText, ghostValueText } from '../../nodes/ProposalGhostLayer'
+import { ghostBandText, ghostCardDetail, ghostValueText } from '../../nodes/ProposalGhostLayer'
 import type { ConversationMessage } from '../types'
 
 type Json = Record<string, unknown>
@@ -102,5 +102,50 @@ describe('the value mark: beside the factor it changes, said as Olumi\'s proposa
     expect(ghostValueText({ value: 5, unit: 'tickets per week', source: 'yours' })).toBe('Olumi proposes: 5 tickets per week · from your message')
     expect(ghostValueText({ value: 40, unit: '%', source: 'from_brief' })).toBe('Olumi proposes: 40% · from your brief')
     expect(ghostBandText({ band: 'moderate', keeps: false, reverses: false })).toBe('Olumi proposes: moderate')
+  })
+})
+
+/**
+ * ⭐ A core proposal's NEW factor or link (CEE `adds`, claude/proposal-fields-adds: the shape its own row pins). The new
+ * factor is a ghost card beside the card its new link ties it to; the new link a ghost line saying which way it moves.
+ */
+describe('core adds: a new factor or link drawn where it would land', () => {
+  const ADDS = [
+    { field_id: 'factor_add:sickness', kind: 'factor_add', node_id: 'sickness', label: 'Capacity lost to sickness', value: { value: 5, unit: 'tickets' }, source: 'estimate', editable: false },
+    { field_id: 'link_add:l_sick', kind: 'link_add', link_id: 'l_sick', from_id: 'sickness', to_id: 'fac_cost', from_label: 'Capacity lost to sickness',
+      to_label: 'Cost', direction: 'negative', source: 'estimate', editable: false },
+  ]
+  const withAdds = (adds: unknown[]): Json => {
+    const pf = structuredClone(fieldsOf(factorTurn as Json))
+    ;(pf.proposals as Json[])[0] = { ...(pf.proposals as Json[])[0], fields: [], adds }
+    return { _proposal_fields: pf }
+  }
+  it('⭐ adds become a ghost card and a ghost line, each saying whose it is', () => {
+    expect(previewOfLatestReply([coreReply(withAdds(ADDS))])?.ops).toEqual([
+      { op: 'add_node', id: 'sickness', label: 'Capacity lost to sickness', kind: 'factor', value: { value: 5, unit: 'tickets' }, source: 'estimate' },
+      { op: 'add_edge', fromId: 'sickness', toId: 'fac_cost', band: null, direction: 'negative', source: 'estimate' },
+    ])
+  })
+  it('⛔ an unknown add kind or a malformed add is dropped, never the card (a newer CEE never breaks this reader)', () => {
+    const ops = previewOfLatestReply([coreReply(withAdds([{ kind: 'risk_add', field_id: 'risk_add:r' }, { ...ADDS[1], direction: 'sideways' }, ADDS[0]]))])?.ops
+    expect(ops?.map((o) => o.op)).toEqual(['add_node'])
+    // A card with no adds at all (every served card before CEE projects them) reads as before.
+    expect(previewOfLatestReply([coreReply(factorTurn as Json)])?.ops.map((o) => o.op)).toEqual(['set_factor_value', 'set_factor_value'])
+  })
+  it('the card sits beside the card its new link ties it to, covering nothing; the line\'s mark says "lowers"', () => {
+    const nodes = [{ id: 'fac_cost', position: { x: 0, y: 200 }, measured: { width: 280, height: 100 } }]
+    const g = proposalGhostGeometry(previewOfLatestReply([coreReply(withAdds(ADDS))])!, nodes)
+    expect(g.cards).toHaveLength(1)
+    const c = g.cards[0]
+    expect(c.x).toBeGreaterThanOrEqual(280)
+    expect(g.lines.map((l) => l.key)).toEqual(['sickness->fac_cost'])
+    expect(g.bands.map((b) => ghostBandText(b))).toEqual(['Olumi proposes: lowers'])
+    expect(ghostCardDetail(c)).toBe('5 tickets')
+  })
+  it('words: a new link raises or lowers, the person\'s says so; a new factor\'s level and whose it is', () => {
+    expect(ghostBandText({ band: null, keeps: false, reverses: false, direction: 'positive', source: 'yours' })).toBe('Olumi proposes: raises · from your message')
+    expect(ghostCardDetail({ value: null, source: 'yours' })).toBe('from your message')
+    expect(ghostCardDetail({ value: { value: 200, unit: 'GBP' }, source: 'yours' })).toBe('£200 · from your message')
+    expect(ghostCardDetail({ value: null, source: 'estimate' })).toBeNull()
   })
 })
