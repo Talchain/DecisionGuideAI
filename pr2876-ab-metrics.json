@@ -1,0 +1,14 @@
+{
+  "board": "guest scenario b8e1b2d9-1438-40d6-9a37-6fa871636472 (weekly orders), graph read captured from staging 21 Oct ~04:38Z, served identically to both builds by a local stub",
+  "viewport": [1024, 768],
+  "base": { "sha": "dc4a769d7e0f73d89b28878bbcbe2f1ec21de2c0",
+    "compare": { "figureH": 229, "rows": [
+      { "id": "option_a", "h": 89, "marks": 2 }, { "id": "option_b", "h": 70, "marks": 2 } ], "fontSizes": ["11px", "12px"] },
+    "reasoning_receipt": { "h": 71.5, "glance": "option_a", "marks": ["earlier", "now"], "title": null, "fontSizes": ["11px", "12px"] } },
+  "head": { "sha": "ba1ad52b599616ab8beac9c917c5fad4c0f11309",
+    "compare": { "figureH": 284, "rows": [
+      { "id": "option_a", "h": 89, "marks": 2 }, { "id": "option_b", "h": 70, "marks": 2 },
+      { "id": "carry_on", "h": 51, "marks": 0, "text": "Carrying on as now | No change, by assumption" } ], "fontSizes": ["11px", "12px"] },
+    "reasoning_receipt": { "h": 71.5, "glance": "option_a", "marks": ["earlier", "now"], "title": "Option A (a referral programme)", "fontSizes": ["11px", "12px"] } },
+  "pixel_diff_gt40": { "compare_canvas": 0, "compare_panel_above_new_row": 0, "compare_panel_from_new_row": 4081, "reasoning_whole_screen": 0 }
+}
