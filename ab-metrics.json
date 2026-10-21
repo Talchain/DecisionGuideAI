@@ -1,0 +1,16 @@
+{
+  "board": "guest scenario b8e1b2d9 (weekly orders); graph read captured from staging 21 Oct ~04:38Z, served identically to both builds by a local stub",
+  "viewport": [1024, 768],
+  "base": { "sha": "9a4303e022c53c24a6d924aaadc8b0674c6f66f9",
+    "compare": { "caption": "Chance of meeting your goal, in this model", "headline_attrs": null, "figureH": 284,
+      "rows": ["option_a:89:2", "option_b:70:2", "carry_on:51:0"], "axis_ticks_with_role": 0, "not_current_line": false },
+    "reasoning_receipt": { "h": 71.5, "glance": "option_a", "sr_claim_attrs": null } },
+  "head": { "sha": "6d0a720fbf126b036c6d3d80713e3be051f4de44",
+    "compare": { "caption": "chance of ‘Reach at least 150 orders a week within three months’ being at least 150 orders a week (CEE chance_words; first letter shown upper-case by CSS)",
+      "headline_attrs": { "data-goal-chance-claim": "highest", "data-option-id": "option_a" }, "figureH": 314,
+      "rows": ["option_a:89:2", "option_b:70:2", "carry_on:51:0"], "axis_ticks_with_role": 5, "not_current_line": false },
+    "reasoning_receipt": { "h": 71.5, "glance": "option_a", "sr_claim_attrs": { "data-goal-chance-claim": "highest", "data-option-id": "option_a" } } },
+  "pixel_diff_gt40": { "compare_panel_above_caption": 0, "compare_rows_axis_key_aligned_for_caption_shift_24px": 1182,
+    "compare_canvas": 215, "reasoning_whole_screen": 215,
+    "canvas_note": "the 215 px are F1/F2 factor cards' two icons in swapped order (target/sparkle); this PR touches no canvas file, and the #2876 A/B showed the same build draw both orders across reloads" }
+}
