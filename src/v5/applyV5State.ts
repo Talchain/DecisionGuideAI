@@ -111,6 +111,7 @@ import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
 import { isKnownLimitFrame, limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
+import { bumpSavedGraphEpoch } from '../canvas/nodes/shared/savedGraphEpoch'
 import { relabelLinkSizing, withoutLinkSizingLabels } from '../canvas/domain/linkSizingLabels'
 
 /**
@@ -2038,6 +2039,8 @@ export function applyV5State(
   if (typeof rawGraphHash === 'string' && rawGraphHash.length > 0) {
     store.setLastServerGraphHash?.(rawGraphHash)
     applied.push('graph_hash:captured')
+    // The living model may have moved under an unchanged analysis hash: the shared saved-graph view reads again.
+    bumpSavedGraphEpoch()
   }
 
   // ── ROADMAP 2.1163 / EXT-2 — the refusal READER ────────────────────────
