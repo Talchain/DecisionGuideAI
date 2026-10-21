@@ -40,7 +40,10 @@ export function useSavedGraph(): unknown {
   const key = `${scenarioId ?? ''}:${graphHash ?? ''}:${epoch}`
   const [read, setRead] = useState<{ key: string; graph: unknown } | null>(null)
   useEffect(() => {
-    if (resolveAiComparisonMode() !== 'core' || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
+    // CEE serves the core lane under the default `openai` mode too (`laneModeFor`): reading only on `?ai=core` left every
+    // living-model reader dark on the default path. A legacy graph carries no living model, so its readers show nothing.
+    const mode = resolveAiComparisonMode()
+    if ((mode !== 'core' && mode !== 'openai') || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
     let live = true
     void readOnce(key, scenarioId, graphHash).then((graph) => { if (live) setRead({ key, graph }) })
     return () => { live = false }
