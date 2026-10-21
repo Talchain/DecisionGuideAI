@@ -24,6 +24,11 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 vi.mock('../../store', () => ({ useCanvasStore: vi.fn() }))
+const readiness: { current: { status: string; blockers: unknown[] } | null } = { current: null }
+vi.mock('../../state/analysisStateSelector', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../state/analysisStateSelector')>()),
+  useAnalysisReadinessAuthority: () => readiness.current,
+}))
 vi.mock('../../layoutStore', () => ({
   useLayoutStore: vi.fn(((s: (x: { layoutNodeWidth: number | null }) => unknown) =>
     s({ layoutNodeWidth: null })) as unknown as (...a: never[]) => unknown),
@@ -104,7 +109,7 @@ const marked = (c: HTMLElement) => ({
 beforeEach(() => {
   vi.clearAllMocks()
 })
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); readiness.current = null })
 
 describe('POM-1 · the baseline is the reference, not a gap', () => {
   it('the typed baseline (analysis_ready is_baseline:true, interventions {}) carries no "Needs input"', () => {
@@ -148,5 +153,41 @@ describe('POM-1 · the option CEE blocked on a missing value IS marked', () => {
     })
     expect(container.textContent).toContain(VALUED.label)
     expect(marked(container)).toEqual({ pill: false, overlay: false })
+  })
+})
+
+describe('core readiness names an option: that option card says it needs input (Paul, 21 Oct 2026)', () => {
+  const MSG = 'An option has no factor connections and cannot be analysed. Connect it to at least one factor.'
+  function renderCore(opt: { id: string; label: string }, blockers: unknown[]) {
+    // The core read's own shape: analysis_state.readiness, ids on the option-scoped codes.
+    readiness.current = { status: 'blocked', blockers }
+    const nodes = [EMPTY, VALUED].map((o) => ({ id: o.id, type: 'option', data: { type: 'option', label: o.label } }))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector({
+        hoveredOptionId: null, nodes, edges: [], ceeAnalysisReady: null,
+        results: { status: 'idle', report: null }, highlightedNodes: new Set(), dimmedNodeIds: new Set(),
+        lens: { _dimmedNodeIds: new Set() }, goalThreshold: null, goalConstraints: [], setHoveredOption: vi.fn(), viewMode: 'expert',
+      } as never),
+    )
+    return render(
+      <ReactFlowProvider>
+        <OptionNode {...(baseProps as any)} id={opt.id} data={{ label: opt.label, type: 'option' }} />
+      </ReactFlowProvider>,
+    )
+  }
+
+  it('the named option shows the existing "Needs input" pill, with CEE\'s own sentence as its tooltip', () => {
+    const { container } = renderCore(EMPTY, [{ code: 'OPTION_NO_FACTOR_EDGES', category: 'graph_structure', message: MSG, option_id: EMPTY.id }])
+    const pill = container.querySelector('[data-testid="needs-input-pill"]')
+    expect(pill).not.toBeNull()
+    expect(pill?.getAttribute('title')).toBe(MSG)
+  })
+
+  it('CONTRAST: a blocker naming ANOTHER option, or an unscoped one, marks nothing here', () => {
+    const other = renderCore(VALUED, [{ code: 'OPTION_NO_FACTOR_EDGES', category: 'graph_structure', message: MSG, option_id: EMPTY.id }])
+    expect(other.container.querySelector('[data-testid="needs-input-pill"]')).toBeNull()
+    cleanup()
+    const unscoped = renderCore(EMPTY, [{ code: 'NO_PATH_TO_GOAL', category: 'graph_structure', message: 'A part of the model cannot reach the goal.' }])
+    expect(unscoped.container.querySelector('[data-testid="needs-input-pill"]')).toBeNull()
   })
 })
