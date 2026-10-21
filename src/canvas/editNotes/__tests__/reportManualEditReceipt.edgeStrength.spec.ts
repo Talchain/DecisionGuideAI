@@ -31,3 +31,10 @@ it('a refused edit earns no note: the canvas shows the new size, CEE\'s committe
   send(0.3, graph(0.55))
   expect(useEditNoteStore.getState().note).toBeNull()
 })
+it('⛔ Codex on #2890: an option taken out of the comparison clears the older note, whose Undo would now reverse the status change', () => {
+  send(0.55, graph(0.55))
+  expect(useEditNoteStore.getState().note).toMatchObject({ check: 'S1', elementId: 'ab' })
+  reportManualEditReceipt({ event: { type: 'option_status_edit', payload: { option_node_id: 'o', expected_status: 'feasible', status: 'removed' } },
+    response: { draft_graph: { nodes: [{ id: 'o', option_status: 'removed' }], edges: [] } }, before: graph(0.55), after: graph(0.55), lastRun })
+  expect(useEditNoteStore.getState().note).toBeNull()
+})
