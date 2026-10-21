@@ -9,6 +9,7 @@ import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { coreSwitchOptionOf, withoutCoreSwitches } from '../../../domain/coreSwitch'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { resolveNodeTypeLiteral } from '../../../domain/nodes'
@@ -101,8 +102,12 @@ export const OptionPanel = memo(function OptionPanel({
   readOnly = false,
   summaryContext,
 }: InspectorPanelProps) {
-  const nodes = useSwitchFactorNodes()
-  const edges = useCanvasStore(s => s.edges)
+  const allNodes = useSwitchFactorNodes()
+  const allEdges = useCanvasStore(s => s.edges)
+  // Core's option switch (`<option>__on`) is the engine's working, never the model (#2884): the panel reads the graph as the
+  // canvas draws it, so "Changes … in place" and its value box never appear (served 82fc0fde, 21 Oct walkthrough).
+  const switches = useMemo(() => coreSwitchOptionOf(allNodes), [allNodes])
+  const { nodes, edges } = useMemo(() => withoutCoreSwitches(allNodes, allEdges), [allNodes, allEdges])
   /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   /** CEE's baseline flags: the live `analysis_ready`, else the cold read's. */
@@ -249,7 +254,7 @@ export const OptionPanel = memo(function OptionPanel({
         n.id === factorId && resolveNodeTypeLiteral(n) === 'factor',
       ))
     const entries = [
-      ...Object.entries(raw),
+      ...Object.entries(raw).filter(([factorId]) => !switches.has(factorId)),
       ...linkedWithoutValues.map(factorId => [factorId, undefined] as const),
     ]
     return entries.flatMap(([factorId, rawValue]) => {
@@ -308,7 +313,7 @@ export const OptionPanel = memo(function OptionPanel({
         userMaterialUnverified: interventionIsUserMaterialUnverified(rawValue),
       }]
     })
-  }, [node?.data, nodes, edges, nodeId])
+  }, [node?.data, nodes, edges, nodeId, switches])
 
   // Readings and summaries describe recorded targets only, never empty boxes.
   const interventions = useMemo(() => interventionRows.filter(
