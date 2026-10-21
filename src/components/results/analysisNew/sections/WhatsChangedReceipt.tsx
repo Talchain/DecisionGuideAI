@@ -49,7 +49,7 @@ export function WhatsChangedReceipt({ view, responseHash }: {
       {leader !== undefined ? (
         <div className="mt-1 flex items-center gap-3" data-testid={`${WHATS_CHANGED_RECEIPT_TESTID}-glance`} data-option-id={leader.optionId}>
           <span className="sr-only">{`${leader.label ?? 'An option'} is the most likely to meet your goal in this model: earlier run ${leader.earlier?.words ?? 'not shown'}, this run ${leader.now!.words}`}</span>
-          <span className={`${typography.panelBody} text-text-header min-w-0 flex-1 truncate`} aria-hidden="true">{leader.label ?? 'An option'}</span>
+          <span className={`${typography.panelBody} text-text-header min-w-0 flex-1 truncate`} title={leader.label ?? undefined} aria-hidden="true">{leader.label ?? 'An option'}</span>
           <span className="w-16 flex-shrink-0"><PairChanceTrack earlier={leader.earlier} now={leader.now} /></span>
           <span className={`${typography.panelTabular} text-text-header flex-shrink-0 whitespace-nowrap`} aria-hidden="true">{leader.now!.words}</span>
         </div>
