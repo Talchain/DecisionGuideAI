@@ -8,37 +8,19 @@
  * ⛔ Display only: never a node or edge, never Run or the engine graph. Core lane only: legacy graphs carry no living model.
  * One graph-route read per saved-graph change (the turn payload carries no living model).
  */
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { CircleSlash } from 'lucide-react'
 
-import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
-import { getSessionIdentity } from '../../../lib/supabase'
-import { resolveAiComparisonMode } from '../../../v5/aiComparisonMode'
 import { typography } from '../../../styles/typography'
-import { isCeeAddressableScenarioId } from '../../hydrate/bootGraphRead'
 import { VALUE_PROVENANCE_ICON } from '../../domain/valueProvenanceIcon'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
-import { useCanvasStore } from '../../store'
+import { useSavedGraph } from './savedGraph'
 import { OTHER_AIM_COPY, otherAimLinkWords, otherAimSourceWords, otherAimsOf, type OtherAim } from './otherAims'
 
-/** The saved model's other aims, re-read whenever the saved graph moves (a new hash) on the core lane. */
+/** The saved model's other aims, for the scenario and saved graph on screen now (one shared read, `savedGraph.ts`). */
 export function useOtherAims(): OtherAim[] {
-  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const graphHash = useCanvasStore((s) => s.lastServerGraphHash)
-  const key = `${scenarioId ?? ''}:${graphHash ?? ''}`
-  // Bound to the scenario and saved graph they were read for: after a switch or a save, nothing shows until that read answers.
-  const [read, setRead] = useState<{ key: string; aims: OtherAim[] } | null>(null)
-  useEffect(() => {
-    if (resolveAiComparisonMode() !== 'core' || !isCeeAddressableScenarioId(scenarioId) || graphHash === null) return
-    const controller = new AbortController()
-    void (async () => {
-      const identity = await getSessionIdentity().catch(() => ({ userId: null, accessToken: null }))
-      const result = await fetchScenarioGraph(scenarioId, { userId: identity.userId, accessToken: identity.accessToken, signal: controller.signal })
-      if (!controller.signal.aborted) setRead({ key, aims: result.status === 'graph' ? otherAimsOf(result.graph) : [] })
-    })().catch(() => { if (!controller.signal.aborted) setRead({ key, aims: [] }) })
-    return () => controller.abort()
-  }, [scenarioId, graphHash, key])
-  return read?.key === key ? read.aims : []
+  const graph = useSavedGraph()
+  return useMemo(() => (graph === null ? [] : otherAimsOf(graph)), [graph])
 }
 
 const SOURCE_ICON = { user: VALUE_PROVENANCE_ICON.human, party: VALUE_PROVENANCE_ICON.panel, olumi: VALUE_PROVENANCE_ICON.ai, unverified: VALUE_PROVENANCE_ICON.unverified_brief } as const
