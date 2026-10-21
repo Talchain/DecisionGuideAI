@@ -3,15 +3,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 
 const pending = new Map<string, (v: unknown) => void>()
-vi.mock('../../../adapters/cee/scenarioGraph', () => ({
+vi.mock('../../../../adapters/cee/scenarioGraph', () => ({
   fetchScenarioGraph: vi.fn((scenarioId: string) => new Promise((resolve) => pending.set(scenarioId, resolve))),
 }))
-vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })) }))
-vi.mock('../../../v5/aiComparisonMode', () => ({ resolveAiComparisonMode: () => 'core' }))
-vi.mock('../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
+vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: vi.fn(async () => ({ userId: null, accessToken: null })) }))
+vi.mock('../../../../v5/aiComparisonMode', () => ({ resolveAiComparisonMode: () => 'core' }))
+vi.mock('../../../hydrate/bootGraphRead', () => ({ isCeeAddressableScenarioId: (id: unknown) => typeof id === 'string' }))
 
-import { useOtherAims } from '../OtherAimsLayer'
-import { useCanvasStore } from '../../store'
+import { useOtherAims } from '../GoalOtherAims'
+import { useCanvasStore } from '../../../store'
 
 const graphWith = (aimId: string) => ({ status: 'graph', graph: { nodes: [], living_model: { aims: [{ id: aimId, text: `Aim ${aimId}`, source: 'user', status: 'current' }], links: [] } } })
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })

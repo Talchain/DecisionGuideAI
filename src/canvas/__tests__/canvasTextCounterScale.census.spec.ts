@@ -300,9 +300,7 @@ const KNOWN_FIXED = [
  */
 // `ProposalGhostLayer` (suggestion preview, DL 5941839936): the ghost of a proposed node/link lives in graph space for
 // the same reason the tier bands do; its text goes through `typography.nodeTitle` / `nodeLabel` / `edgeLabel` only.
-// `OtherAimsLayer` (Paul, 21 Oct 2026: aims the analysis does not include yet, shown beside the goal): graph space, like the
-// ghost; its text goes through `typography.nodeTitle` / `edgeLabel` and `StatusPill` only.
-const VIEWPORT_PORTALLED = ['src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/OtherAimsLayer.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
 
 const FOREIGN_RENDERED = [
   // 18 Oct 2026 (Lenses on the model): the "Rests on" number on a card and on a link's line. It is drawn inside the

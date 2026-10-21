@@ -72,13 +72,13 @@ export function otherAimSourceWords(aim: Pick<OtherAim, 'source' | 'party'>): st
   }
 }
 
-export const OTHER_AIM_COPY = { notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from' } as const
+export const OTHER_AIM_COPY = { header: 'Also in your model · not in this analysis yet', notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from' } as const
 
 /** What links into the aim, said once: "both options" / "all N options" when every option does, else the names. */
 export function otherAimLinkWords(aim: Pick<OtherAim, 'linkedFrom' | 'allOptionsCount'>): string | null {
   if (aim.linkedFrom.length === 0) return null
-  if (aim.allOptionsCount !== null) return `${OTHER_AIM_COPY.linkedFrom} ${aim.allOptionsCount === 2 ? 'both options' : `all ${aim.allOptionsCount} options`}`
-  return `${OTHER_AIM_COPY.linkedFrom} ${aim.linkedFrom.join(', ')}`
+  if (aim.allOptionsCount !== null) return `${OTHER_AIM_COPY.linkedFrom.toLowerCase()} ${aim.allOptionsCount === 2 ? 'both options' : `all ${aim.allOptionsCount} options`}`
+  return `${OTHER_AIM_COPY.linkedFrom.toLowerCase()} ${aim.linkedFrom.join(', ')}`
 }
 
 /** The card's status words: an aim the person withdrew says so instead of "not in this analysis yet". */
