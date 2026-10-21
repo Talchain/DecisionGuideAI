@@ -247,11 +247,17 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
         ) : null}
       </div>
   )
+  const empty = option.routes.length === 0 ? (
+    <p data-testid={`${TRADE_OFFS_KEY_TESTID}-empty`} className={`${typography.panelBody} text-text-body`}>
+      {option.changes > 0 ? TRADE_OFFS_COPY.noRoute(goal) : TRADE_OFFS_COPY.noChange}
+    </p>
+  ) : null
   if (folded) {
+    // A legend only for routes that are there: an option with none says why, folded or not (A/B 21 Oct).
     return (
       <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} data-folded="" className="space-y-2">
         {header}
-        <p data-testid={`${TRADE_OFFS_KEY_TESTID}-legend`} className={`${typography.panelBody} text-text-body`}>{TRADE_OFFS_COPY.legend(goal)}</p>
+        {empty ?? <p data-testid={`${TRADE_OFFS_KEY_TESTID}-legend`} className={`${typography.panelBody} text-text-body`}>{TRADE_OFFS_COPY.legend(goal)}</p>}
       </div>
     )
   }
@@ -260,11 +266,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
     <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} className="space-y-3">
       {header}
 
-      {option.routes.length === 0 ? (
-        <p data-testid={`${TRADE_OFFS_KEY_TESTID}-empty`} className={`${typography.panelBody} text-text-body`}>
-          {option.changes > 0 ? TRADE_OFFS_COPY.noRoute(goal) : TRADE_OFFS_COPY.noChange}
-        </p>
-      ) : unsorted ? (
+      {empty !== null ? empty : unsorted ? (
         <RouteGroup heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
         <div className="space-y-2.5">

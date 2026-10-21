@@ -124,6 +124,13 @@ describe('the Trade-offs key card', () => {
     assert.equal(useCanvasStore.getState().lens.selectedOptionId, 'p54')
   })
 
+  it('⛔ folded, an option that changes nothing says so: never a legend for routes that are not there (A/B 21 Oct)', () => {
+    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'p59' ? { ...n, data: { ...n.data, interventions: {} } } : n) } as never)
+    const view = render(<TradeOffsKey folded />)
+    assert.equal(view.getByTestId('trade-offs-key-empty').textContent, 'This option does not change anything in the model yet.')
+    assert.equal(view.queryByTestId('trade-offs-key-legend'), null)
+  })
+
   it('the stepper moves the lens’s own option pick, and the card follows it', () => {
     const view = render(<TradeOffsKey />)
     fireEvent.click(view.getByTestId('trade-offs-key-next'))
