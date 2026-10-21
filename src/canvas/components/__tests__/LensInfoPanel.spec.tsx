@@ -17,7 +17,7 @@
  * path, so the absence assertions are not vacuous (trap 13).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { LensInfoPanel } from '../LensInfoPanel'
 import { useCanvasStore } from '../../store'
 
@@ -53,6 +53,12 @@ function seedRobustnessLens(fragileEdges: Array<Record<string, unknown>>): void 
   } as never)
 }
 
+/** The key opens folded to its legend (step 4); these rows read the list, one press away. */
+function openKey() {
+  render(<LensInfoPanel />)
+  fireEvent.click(screen.getByTestId('lens-info-fold'))
+}
+
 describe('LensInfoPanel "What would change" list — presence-branch on measured switch_probability', () => {
   beforeEach(() => {
     localStorage.setItem('feature.graphLens', '1')
@@ -78,7 +84,7 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
         alternative_winner_label: 'Plan B',
       },
     ])
-    render(<LensInfoPanel />)
+    openKey()
     const panel = screen.getByTestId('lens-info-robustness')
     // The row itself surfaces (labels are real data) — only the number is absent.
     expect(panel.textContent).toContain('Price')
@@ -101,7 +107,7 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
         alternative_winner_label: 'Plan C',
       },
     ])
-    render(<LensInfoPanel />)
+    openKey()
     const panel = screen.getByTestId('lens-info-robustness')
     const text = panel.textContent ?? ''
     // The marginal 0.9 never becomes a number (#2747 re-scope 2: nor does the measured 40%, not shown in C).
@@ -128,7 +134,7 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
         alternative_winner_label: 'Plan B',
       },
     ])
-    render(<LensInfoPanel />)
+    openKey()
     const panel = screen.getByTestId('lens-info-robustness')
     // Measured 0 <= 0.3 floor: not listed. The marginal 0.9 must not resurrect
     // it (that would prefer a substitute over a present measurement).
@@ -145,7 +151,7 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
         alternative_winner_label: 'Plan B',
       },
     ])
-    render(<LensInfoPanel />)
+    openKey()
     const panel = screen.getByTestId('lens-info-robustness')
     // POSITIVE CONTROL: the panel rendered its surviving sentence, so the
     // absence assertions below are not about a panel that failed to mount.
@@ -173,7 +179,7 @@ describe('LensInfoPanel "What would change" list — presence-branch on measured
         alternative_winner_label: 'Plan B',
       },
     ])
-    render(<LensInfoPanel />)
+    openKey()
     const panel = screen.getByTestId('lens-info-robustness')
     // POSITIVE CONTROLS: the panel is mounted and populated — the heading, the
     // surviving sentence, and the measured fragile edge (its label; #2747 re-scope 2: no switch figure in C) all render.
@@ -233,8 +239,29 @@ describe('"What would change" says when fragile links were not checked', () => {
 
   it('CONTRAST: an assessed Run with no fragile links does not say "not checked"', () => {
     seedRobustnessLens([])
-    render(<LensInfoPanel />)
+    openKey()
     expect(screen.queryByTestId('lens-key-fragile-not-checked')).toBeNull()
+    expect(screen.getByTestId('lens-info-robustness').textContent).toContain('measured nothing')
+  })
+})
+
+describe('⭐ legend first (Reasoning Canvas plan, step 4): the key opens on what the lens draws, the detail one press away', () => {
+  beforeEach(() => { localStorage.setItem('feature.graphLens', '1'); seedRobustnessLens([]) })
+  afterEach(() => {
+    localStorage.removeItem('feature.graphLens')
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } as never, nodes: [] as never,
+      lens: { ...useCanvasStore.getState().lens, active: 'full' } } as never)
+  })
+  it('opens folded to the one legend line; the list is not shown until the key is opened', () => {
+    render(<LensInfoPanel />)
+    const key = screen.getByTestId('lens-info-robustness')
+    expect(key.hasAttribute('data-folded')).toBe(true)
+    expect(key.textContent).toBe('In front: what this Run is most sensitive to, with the links it moves with most drawn wider.')
+    expect(screen.getByTestId('lens-info-fold').getAttribute('aria-expanded')).toBe('false')
+  })
+  it('CONTRAST: opening the key shows the list it held before', () => {
+    openKey()
+    expect(screen.getByTestId('lens-info-robustness').hasAttribute('data-folded')).toBe(false)
     expect(screen.getByTestId('lens-info-robustness').textContent).toContain('measured nothing')
   })
 })

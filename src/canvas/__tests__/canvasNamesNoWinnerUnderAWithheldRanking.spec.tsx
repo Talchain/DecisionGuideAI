@@ -23,7 +23,7 @@
  * `useResultsSectionData`. A withheld run lists options in canvas order.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, renderHook, screen, cleanup } from '@testing-library/react'
+import { fireEvent, render, renderHook, screen, cleanup } from '@testing-library/react'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import { LensInfoPanel } from '../components/LensInfoPanel'
 import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
@@ -87,6 +87,7 @@ describe('the fragile-edge alternative is named without a winner verb', () => {
       lens: { ...useCanvasStore.getState().lens, active: 'what_changes' },
     } as never)
     render(<LensInfoPanel />)
+    fireEvent.click(screen.getByTestId('lens-info-fold'))
     const panel = screen.getByTestId('lens-info-robustness')
     expect(panel.querySelector('[title="Price → Revenue"]')).not.toBeNull()
     // The label is now the row's only content, so it must read as one: an arrow, not the six characters "\u2192".

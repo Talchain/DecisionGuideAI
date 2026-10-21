@@ -76,6 +76,8 @@ export const LENS_KEY_COPY = {
   nothingMeasured: 'This Run measured nothing it is especially sensitive to.',
   fragileNotChecked: "Fragile links weren't checked on this Run.",
   modelRelative: 'These describe this model as it stands, not what to choose.',
+  premortemLegend: 'In front: what Olumi’s failure stories rest on. Open the key to read them.',
+  whatChangesLegend: 'In front: what this Run is most sensitive to, with the links it moves with most drawn wider.',
 } as const
 
 const LENS_ICON: Readonly<Record<Exclude<BarLens, 'full'>, LucideIcon>> = {
@@ -94,14 +96,16 @@ function askAndReveal(request: Parameters<typeof askAi>[0]): void {
   }
 }
 
-/** "If it failed": the worksheet, or what it is and the one way to ask for it. */
-function PremortemKey() {
+/** "If it failed": the worksheet, or what it is and the one way to ask for it. Folded: the legend, while the stories are held. */
+function PremortemKey({ folded }: { folded: boolean }) {
   const worksheet = useCurrentPremortemWorksheet()
   const viewer = useIsViewer()
   // The pre-mortem press exists only on a Run it can read (`actionRegistry.ts`): before one, the ask would reach Olumi as
   // a chat question and no worksheet could come back (verifier, staging fe4e4b9d), so the lens says why instead.
   const canAsk = useCanvasStore(s => typedPressIdOf('pre_mortem', askAiStage(s)) !== undefined)
-  if (worksheet) return <PreMortemWorksheet />
+  if (worksheet) return folded
+    ? <p data-testid="premortem-legend" className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.premortemLegend}</p>
+    : <PreMortemWorksheet />
   return (
     <div data-testid="premortem-not-yet" className="space-y-3">
       <p className={`${typography.panelQuestion} text-text-header`}>{LENS_KEY_COPY.premortemEmpty}</p>
@@ -129,7 +133,7 @@ interface ChangeRow { readonly key: string; readonly label: string; readonly tar
  * focuses its element. Model-relative attention only: no switch probability, no option named (see the fragile list's
  * own note), no recommendation.
  */
-function WhatChangesKey() {
+function WhatChangesKey({ folded }: { folded: boolean }) {
   const report = useCanvasStore(s => s.results.report)
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -209,6 +213,17 @@ function WhatChangesKey() {
       </ul>
     </section>
   )
+
+  if (folded) {
+    return (
+      <div data-testid="lens-info-robustness" data-folded="" className="space-y-2">
+        <p className={`${typography.panelBody} text-text-body`}>{LENS_KEY_COPY.whatChangesLegend}</p>
+        {fragileNotChecked
+          ? <p data-testid="lens-key-fragile-not-checked" className={`${typography.panelMeta} text-text-light`}>{LENS_KEY_COPY.fragileNotChecked}</p>
+          : null}
+      </div>
+    )
+  }
 
   return (
     <div data-testid="lens-info-robustness" className="space-y-3">
@@ -349,11 +364,13 @@ export function LensInfoPanel() {
   const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
   const hasRun = useCanvasStore(s => s.results.status === 'complete' && !!s.results.report)
   const setLens = useCanvasStore(s => s.setLens)
-  // The key folds so the user can see the model under it; the lens stays on. "Rests on" opens folded to its one
-  // attention sentence (its numbers are on the model) and unfolds when a figure is picked; the others open unfolded.
-  const [folded, setFolded] = useState(lensMode === 'rests_on')
+  // ⭐ LEGEND FIRST (Reasoning Canvas plan, step 4; Paul 20 Oct: lenses "a duplication of the right-hand panel"). The lens
+  // is what it draws on the graph, so every key opens folded to ONE line saying what its marks mean ("Rests on": its
+  // attention sentence; "Trade-offs": the option it shows, with its stepper); the detail is one press away. "Rests on"
+  // unfolds when a figure is picked.
+  const [folded, setFolded] = useState(true)
   const picked = usePickedKey()
-  useEffect(() => { setFolded(lensMode === 'rests_on') }, [lensMode])
+  useEffect(() => { setFolded(true) }, [lensMode])
   useEffect(() => { if (picked !== null) setFolded(false) }, [picked])
 
   const wants = lensMode === 'tradeoffs' || lensMode === 'rests_on' || lensMode === 'premortem' || lensMode === 'what_changes'
@@ -376,10 +393,10 @@ export function LensInfoPanel() {
     ? `${LAST_RUN_PREFIX}${LENS_COPY.label[lensMode]}`
     : LENS_COPY.label[lensMode]
   let content: ReactNode
-  if (lensMode === 'tradeoffs') content = <TradeOffsKey />
+  if (lensMode === 'tradeoffs') content = <TradeOffsKey folded={folded} />
   else if (lensMode === 'rests_on') content = <RestsOnKey folded={folded} />
-  else if (lensMode === 'premortem') content = <PremortemKey />
-  else content = hasRun ? <WhatChangesKey /> : <p className={`${typography.panelBody} text-text-body`}>{LENS_COPY.needsRun}</p>
+  else if (lensMode === 'premortem') content = <PremortemKey folded={folded} />
+  else content = hasRun ? <WhatChangesKey folded={folded} /> : <p className={`${typography.panelBody} text-text-body`}>{LENS_COPY.needsRun}</p>
 
   // The card holds the band's bottom-left cell (so the foot line yields to it, and its stale sentence moves in here),
   // and stands just ABOVE the band (`useKeyCardPlacement`): the cell is too short and narrow for a key.
@@ -400,7 +417,7 @@ export function LensInfoPanel() {
         animation: 'thinkingModeIn 200ms cubic-bezier(0.0, 0, 0.2, 1) both',
       }}
     >
-      <header className={`flex items-center gap-2 px-4 ${folded && lensMode !== 'rests_on' ? 'py-2.5' : 'pb-2 pt-3'}`}>
+      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 data-testid="lens-info-heading" className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{title}</h2>
         <button
@@ -425,7 +442,7 @@ export function LensInfoPanel() {
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <div hidden={folded && lensMode !== 'rests_on'} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4">
         {/* The whole-graph stale sentence, carried while this panel displaces
             the foot line that normally says it. Same words, same live region. */}
         {modelChangedSinceRun && (

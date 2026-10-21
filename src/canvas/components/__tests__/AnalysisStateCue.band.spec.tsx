@@ -35,7 +35,7 @@
  * `ReactFlowGraph.tsx` — never as a pixel reading.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, within, act } from '@testing-library/react'
+import { render, screen, within, act, fireEvent } from '@testing-library/react'
 import { createPortal } from 'react-dom'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -314,6 +314,8 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
     seedLens('what_changes')
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
+    // The key opens folded to its legend (step 4): the figures are one press away.
+    fireEvent.click(within(panel).getByTestId('lens-info-fold'))
     const figures = within(panel).getByTestId('lens-info-robustness')
     // POSITIVE CONTROL: the run's figures really are on screen, so the label below is not vacuous. (#2747 re-scope 2:
     // the switch figure "85%" is not shown in C, DL ruling; the panel's focus line is the control.)
@@ -343,6 +345,8 @@ describe('AnalysisStateCue — the stale fact survives a lens panel taking its s
     seedLens('what_changes')
     renderLensAndCue()
     const panel = screen.getByTestId('lens-info-panel')
+    // The key opens folded to its legend (step 4): the figures are one press away.
+    fireEvent.click(within(panel).getByTestId('lens-info-fold'))
     // The same figures render — so the absences below are about the state, not a missing panel. (#2747 re-scope 2: the
     // switch figure "85%" is not shown in C; the focus line is the same-render control.)
     expect(within(panel).getByTestId('lens-info-robustness').textContent).toContain('focus on: Price → Revenue')
