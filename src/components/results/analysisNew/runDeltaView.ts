@@ -397,7 +397,10 @@ function formatInputValue(
   if (field === 'strength' && typeof v.raw === 'number') return scienceBand('strength', v.raw)
   // 0.78.0 `effect` (SD-1 cut 6): a link's size in the user's terms is a figure PER a source change; the per is part of
   // the figure ("2 customers per 1 percentage point"), so it is never dropped. Both ends carry the same per (contract).
+  // One exception, by identity (DL ruling 21 Oct, matching CEE #3556's display sites): a per of exactly 1 'switch' means
+  // "with the option in place", which the row's link sentence already says ("How much Option B in place changes …").
   if (field === 'effect' && typeof v.raw === 'number' && v.per !== undefined) {
+    if (v.per.amount === 1 && v.per.unit === 'switch') return formatRawValueWithUnit(v.raw, v.unit ?? null)
     return `${formatRawValueWithUnit(v.raw, v.unit ?? null)} per ${formatRawValueWithUnit(v.per.amount, v.per.unit)}`
   }
   if (typeof v.raw === 'number') {

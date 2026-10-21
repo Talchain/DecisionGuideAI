@@ -9,6 +9,8 @@
  *   E2  no author is claimed: the row does not record who wrote the size, so the sentence never says "You".
  *   E3  the Panel's one sentence claims no author either (it narrates only a link sentence that starts "You").
  *   CONTROL  a `strength` row says its no-author link sentence (cut 6: it records no author either).
+ *   E4  the one exception (DL ruling 21 Oct, matching CEE #3556): a per of exactly 1 `switch` is "with the option in
+ *       place", which the link sentence already says, so it is dropped; any other per (1 subscriber, 2 switch) is kept.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it } from 'vitest'
@@ -67,5 +69,31 @@ describe('CONTROL · a strength row is unchanged', () => {
     const strength = { ...maximalRunDeltaInputChangeEffect, field: 'strength', before: { raw: 'moderate' }, after: { raw: 'strong' } }
     const view = buildRunDeltaView(withChanges([strength]), () => null, nodeLabel)
     expect(inputRowText(view.inputs!.rows[0])).toBe('How much Customers lost changes Monthly recurring revenue: moderate → strong')
+  })
+})
+
+describe('E4 · "per 1 switch" is dropped by identity; every other per is kept', () => {
+  const effectWith = (per: { amount: number; unit: string }) => ({
+    ...maximalRunDeltaInputChangeEffect,
+    before: { raw: 35, unit: 'orders a week', per },
+    after: { raw: 30, unit: 'orders a week', per },
+  })
+  const rowOf = (per: { amount: number; unit: string }) =>
+    buildRunDeltaView(withChanges([effectWith(per)]), () => null, nodeLabel).inputs!.rows[0]
+
+  it('per 1 switch → the figures alone (the sentence already says the option is in place)', () => {
+    const row = rowOf({ amount: 1, unit: 'switch' })
+    expect(row.before).toBe('35 orders a week')
+    expect(row.after).toBe('30 orders a week')
+    expect(inputRowText(row)).not.toMatch(/\bper\b/)
+  })
+
+  it.each([
+    [{ amount: 1, unit: 'subscriber' }, /^35 orders a week per 1 subscriber$/, /^30 orders a week per 1 subscriber$/],
+    [{ amount: 2, unit: 'switch' }, /^35 orders a week per 2 switch/, /^30 orders a week per 2 switch/],
+  ])('CONTROL per %o is kept', (per, before, after) => {
+    const row = rowOf(per)
+    expect(row.before).toMatch(before)
+    expect(row.after).toMatch(after)
   })
 })

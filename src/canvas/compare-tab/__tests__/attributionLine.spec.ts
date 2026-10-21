@@ -37,6 +37,7 @@ describe('attributionLine — which recorded change moved which chance', () => {
     expect(line?.text).toBe(`Changed since the earlier run: ${change}. With that change, Option B (a price cut)'s chance of meeting your goal in this model moved from about 61% to about 50%.`)
     expect(change).toContain('35')
     expect(change).toContain('30')
+    expect(change).not.toMatch(/per 1 switch/)
     expect(line?.text).not.toMatch(/Option A|78%|best|winner|recommend|because|caused/i)
   })
 
