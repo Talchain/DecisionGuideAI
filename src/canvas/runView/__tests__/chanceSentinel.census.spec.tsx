@@ -169,9 +169,21 @@ function rulingClaimElements(root: Element, hash: string): Element[] {
   const report = state.results?.hash === hash ? state.results.report : null
   const held = useCanonicalAnalysisViewStore.getState()
   const licence = runViewOf(report, held.scenarioId === state.currentScenarioId ? held.view : null).goalChance
-  if (licence === null || (licence.form !== 'highest' && licence.form !== 'highest_all_likely_to_miss')) return []
-  return [...root.querySelectorAll('[data-goal-chance-claim]')]
-    .filter(el => el.getAttribute('data-goal-chance-claim') === licence.form && el.getAttribute('data-option-id') === licence.leaderOptionId)
+  const claims = licence === null || (licence.form !== 'highest' && licence.form !== 'highest_all_likely_to_miss') ? []
+    : [...root.querySelectorAll('[data-goal-chance-claim]')]
+      .filter(el => el.getAttribute('data-goal-chance-claim') === licence.form && el.getAttribute('data-option-id') === licence.leaderOptionId)
+  return [...claims, ...attributionElements(root)]
+}
+/**
+ * DL lease, 21 Oct 2026: Compare's "which change moved which chance" line names a chance in the UI's words, so it too is
+ * allowed only on CEE's identities: the SERVED pair is `C1_attributable` with a `complete` input record, and the element
+ * says exactly that (`data-attribution-case`, `data-input-coverage`). Same terms as the claim: UI-phrase check only, by node.
+ */
+function attributionElements(root: Element): Element[] {
+  const delta = useCanvasStore.getState().runDelta?.delta
+  if (delta?.attribution_case !== 'C1_attributable' || delta.input_coverage !== 'complete') return []
+  return [...root.querySelectorAll('[data-attribution-case]')]
+    .filter(el => el.getAttribute('data-attribution-case') === 'C1_attributable' && el.getAttribute('data-input-coverage') === 'complete')
 }
 /**
  * The surface's text and accessible attributes with ONLY the ruled claim's own words left out, by node (Codex r2): a text
@@ -181,7 +193,7 @@ function rulingClaimElements(root: Element, hash: string): Element[] {
  */
 function textOutside(root: Element, claims: readonly Element[]): string {
   const ownClaim = (el: Element | null): boolean => {
-    const nearest = el?.closest('[data-goal-chance-claim]') ?? null
+    const nearest = el?.closest('[data-goal-chance-claim], [data-attribution-case]') ?? null
     return nearest !== null && claims.includes(nearest)
   }
   const kept: string[] = []
@@ -931,5 +943,23 @@ describe('the ruled-claim exemption is bound to its own node (Codex r2 probes)',
   it('a phrase split across elements outside the claim is still seen (the glued reading)', () => {
     const { root, claim } = dom('<p>ch<span>ance</span> of meeting your goal</p><h3 data-goal-chance-claim="highest" data-option-id="b">x</h3>')
     expect(phrase(textOutside(root, [claim]))).toBe(true)
+  })
+})
+
+describe("the attribution line's exemption is bound to the SERVED pair (DL lease, 21 Oct 2026)", () => {
+  const LINE = '<p data-attribution-case="C1_attributable" data-input-coverage="complete">Changed since the earlier run: x. With that change, Birch plan\'s chance of meeting your goal in this model moved from about 61% to about 50%.</p>'
+  const phrase = (t: string): boolean => GENERIC_CHANCE_PHRASES.some(re => re.test(t))
+  const withServed = (o: Record<string, unknown>) => act(() => {
+    useCanvasStore.setState({ runDelta: { delta: { ...sentinelRunDelta(), ...o }, analysisHash: 'h', scenarioId: 's' } } as never)
+  })
+  it('a C1 + complete served pair → the line is left out of the phrase check (contrast: a C2 served pair reads it)', () => {
+    const root = document.createElement('div')
+    root.innerHTML = LINE
+    withServed({ attribution_case: 'C1_attributable', input_coverage: 'complete' })
+    expect(phrase(textOutside(root, attributionElements(root)))).toBe(false)
+    withServed({ attribution_case: 'C2_unpaired', input_coverage: 'complete' })
+    expect(phrase(textOutside(root, attributionElements(root)))).toBe(true)
+    withServed({ attribution_case: 'C1_attributable', input_coverage: 'partial' })
+    expect(phrase(textOutside(root, attributionElements(root)))).toBe(true)
   })
 })
