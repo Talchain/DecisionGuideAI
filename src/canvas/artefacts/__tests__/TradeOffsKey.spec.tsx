@@ -112,6 +112,25 @@ describe('the Trade-offs key card', () => {
     assert.deepEqual(opened, [])
   })
 
+  it('⭐ folded (step 4: legend first): the option, its stepper and one legend line; no route list until opened', () => {
+    const view = render(<TradeOffsKey folded />)
+    const key = view.getByTestId('trade-offs-key')
+    assert.ok(key.hasAttribute('data-folded'))
+    assert.equal(view.getByTestId('trade-offs-key-option').textContent, 'Increase price to £59')
+    assert.equal(view.getByTestId('trade-offs-key-legend').textContent, 'In front: this option’s routes to MRR. Open the key to read each one.')
+    assert.equal(view.queryByTestId('trade-offs-key-group-gains'), null)
+    // The stepper still moves the lens's option pick, so the graph's emphasis follows it while folded.
+    fireEvent.click(view.getByTestId('trade-offs-key-next'))
+    assert.equal(useCanvasStore.getState().lens.selectedOptionId, 'p54')
+  })
+
+  it('⛔ folded, an option that changes nothing says so: never a legend for routes that are not there (A/B 21 Oct)', () => {
+    useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map((n) => n.id === 'p59' ? { ...n, data: { ...n.data, interventions: {} } } : n) } as never)
+    const view = render(<TradeOffsKey folded />)
+    assert.equal(view.getByTestId('trade-offs-key-empty').textContent, 'This option does not change anything in the model yet.')
+    assert.equal(view.queryByTestId('trade-offs-key-legend'), null)
+  })
+
   it('the stepper moves the lens’s own option pick, and the card follows it', () => {
     const view = render(<TradeOffsKey />)
     fireEvent.click(view.getByTestId('trade-offs-key-next'))
