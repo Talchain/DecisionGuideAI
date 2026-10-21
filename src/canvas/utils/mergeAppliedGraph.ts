@@ -721,8 +721,8 @@ function nonEmptyHash(v: unknown): string | null {
  *
  * ONLY WITH IDENTITY, NEVER FROM THE WORD `fresh` ALONE. All of:
  *   · the response's own `analysis_ready` (attached to this object by
- *     `attachAnalysisReadyToInlineDraftGraph` — the same readback that built
- *     the receipt) says `fresh` AND carries `graph_hash_at_run ===
+ *     `attachAnalysisReadyToInlineDraftGraph`), or, when it is absent, the SAME turn's existing
+ *     `runStateFreshnessVerdict` projection passed by the caller, says `fresh` AND carries `graph_hash_at_run ===
  *     current_graph_hash`, both non-empty — the attestation CEE stamps only
  *     when the run's `computed_against_hash` equals the readback's hash
  *     (`analysis-ready-freshness.ts`), the same pair the boot restore demands;
@@ -739,9 +739,13 @@ function nonEmptyHash(v: unknown): string | null {
  * hash pair — keeps the mark. Fail closed: the cost of a false "changed" is a
  * rerun; the cost of a false "current" is a decision on the wrong model.
  */
-function receiptIsTheAttestedAnalysedGraph(draftData: unknown): boolean {
+function receiptIsTheAttestedAnalysedGraph(
+  draftData: unknown,
+  runStateFreshness?: Readonly<Record<string, string>>,
+): boolean {
   if (draftData == null || typeof draftData !== 'object') return false
-  const ready = (draftData as { analysis_ready?: unknown }).analysis_ready
+  const ownReady = (draftData as { analysis_ready?: unknown }).analysis_ready
+  const ready = ownReady === undefined ? runStateFreshness : ownReady
   if (ready == null || typeof ready !== 'object' || Array.isArray(ready)) return false
   const verdict = ready as Record<string, unknown>
   if (verdict.freshness !== 'fresh') return false
@@ -767,6 +771,8 @@ export function reconcileAppliedGraph(
      * note below. Omitted → false.
      */
     readonly analysisHashUnmoved?: boolean
+    /** The existing same-turn Run/state/result-hash projection, only when legacy analysis_ready is absent. */
+    readonly runStateFreshness?: Readonly<Record<string, string>>
     /**
      * The graph is a VERSION RESTORE: the complete stored model, not a receipt.
      * A key it omits is a key that version did not have, so nodes and edges it
@@ -1078,7 +1084,7 @@ export function reconcileAppliedGraph(
 
   // Asked BEFORE the commit, of the state the response itself left behind
   // (applyV5State has already applied this turn's verdict).
-  const analysedGraphAttested = receiptIsTheAttestedAnalysedGraph(draftData)
+  const analysedGraphAttested = receiptIsTheAttestedAnalysedGraph(draftData, opts?.runStateFreshness)
 
   // --- Commit: one history entry, one atomic store write ---
   const canvas = useCanvasStore.getState()
