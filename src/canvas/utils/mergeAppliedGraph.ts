@@ -431,6 +431,13 @@ export function overlayNode(existing: any, wireNode: any, opts?: { dropOmittedDi
     }
   }
   const nextType = mapped.type ?? existing.type
+  // An option's status is the server's to clear: CEE omits it on an option in the comparison (absent = feasible, included,
+  // the contract's own reading), so a put-back must not leave "Taken out" standing (served 7804a698, 21 Oct).
+  if (nextType === 'option') {
+    for (const key of ['option_status', 'analysis_participation']) {
+      if (!Object.prototype.hasOwnProperty.call(mapped.data ?? {}, key)) delete nextData[key]
+    }
+  }
 
   if (nextType === existing.type && sameValue(existing.data, nextData)) {
     return existing
