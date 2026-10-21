@@ -23,6 +23,7 @@ import { OPTION_TAKEN_OUT_COPY } from '../domain/optionStatus'
 import type { PreviewBand, PreviewOptionStatus } from '../conversation/proposalPreview'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NodeTypeEnum } from '../domain/nodes'
+import { formatMoneyFigure } from '../../utils/unitClassifier'
 
 export const PROPOSAL_GHOST_TESTID = 'proposal-ghost-layer'
 
@@ -39,16 +40,28 @@ export const CANVAS_BAND_WORD: Readonly<Record<PreviewBand, string>> = {
   'very strong': 'very strong',
 }
 
+/** A ghost is Olumi's, never saved model state: every mark and card says whose proposal it is (DL, 21 Oct 2026). */
+export const OLUMI_PROPOSES = 'Olumi proposes'
+
 /** A link mark's words: a change says "Proposed", a keep says what the Yes records; the band in the canvas's word. */
 export function ghostBandText(b: { band: PreviewBand; keeps: boolean; reverses: boolean }): string {
   const word = CANVAS_BAND_WORD[b.band]
   if (b.keeps && !b.reverses) return `Record as ${word}`
-  return `Proposed: ${word}${b.reverses ? ', direction reversed' : ''}`
+  return `${OLUMI_PROPOSES}: ${word}${b.reverses ? ', direction reversed' : ''}`
 }
 
 /** An option mark's words: the card's own words, verbatim, for taken out (they carry a colon, hence the dot). */
 export function ghostStatusText(status: PreviewOptionStatus): string {
-  return `Proposed · ${status === 'feasible' ? 'Back in the comparison' : OPTION_TAKEN_OUT_COPY[status]}`
+  return `${OLUMI_PROPOSES} · ${status === 'feasible' ? 'Back in the comparison' : OPTION_TAKEN_OUT_COPY[status]}`
+}
+
+// Whose figure it is, in the held card's words (HeldProposalPanel `sourceWords`); Olumi's own is said once, by the prefix.
+const VALUE_SOURCE_WORDS = { estimate: '', yours: ' · from your message', from_brief: ' · from your brief' } as const
+
+/** A factor's proposed value: the figure as the held card says it, and whose it is. */
+export function ghostValueText(v: { value: number; unit: string; source: keyof typeof VALUE_SOURCE_WORDS }): string {
+  const figure = formatMoneyFigure(v.value, v.unit) ?? (v.unit === '%' ? `${v.value}%` : `${v.value} ${v.unit}`.trim())
+  return `${OLUMI_PROPOSES}: ${figure}${VALUE_SOURCE_WORDS[v.source]}`
 }
 
 /** Where along a real edge a band mark may sit, middle first (geometry takes the first that covers nothing). */
@@ -109,13 +122,13 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
     const next = { heights, markSizes, bandPaths, bandEdgePaths, obstacles }
     setMeasures((prev) => (measuresKey(prev) === measuresKey(next) ? prev : next))
   })
-  if (!geo || geo.cards.length + geo.lines.length + geo.bands.length + geo.statuses.length === 0) return null
+  if (!geo || geo.cards.length + geo.lines.length + geo.bands.length + geo.statuses.length + geo.values.length === 0) return null
 
   return (
     <ViewportPortal>
       <div ref={layerRef} aria-hidden="true" data-testid={PROPOSAL_GHOST_TESTID} style={{ pointerEvents: 'none' }}>
         <svg className="absolute overflow-visible" style={{ left: 0, top: 0, pointerEvents: 'none' }} width={1} height={1}>
-          {[...geo.bands, ...geo.statuses].map((b) => (
+          {[...geo.bands, ...geo.statuses, ...geo.values].map((b) => (
             <g key={b.key}>
               {'edgePath' in b && b.edgePath && (
                 <path
@@ -169,7 +182,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           >
             <span className="flex items-center" style={{ gap: 4 }}>
               {kind?.success && <NodeShapeIndicator nodeKind={kind.data} size={14} />}
-              <span className={`${typography.nodeLabel} text-text-light`}>Proposed</span>
+              <span className={`${typography.nodeLabel} text-text-light`}>{OLUMI_PROPOSES}</span>
             </span>
             <span className={`${typography.nodeTitle} text-text-header`}>{c.label}</span>
           </div>
@@ -180,6 +193,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           ...geo.statuses.map((st) => ({
             key: st.key, testid: `proposal-ghost-status-${st.optionId}`, x: st.x, y: st.y, text: ghostStatusText(st.status),
           })),
+          ...geo.values.map((v) => ({ key: v.key, testid: `proposal-ghost-value-${v.nodeId}`, x: v.x, y: v.y, text: ghostValueText(v) })),
         ].map((m) => (
           <span
             key={m.key}
