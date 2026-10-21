@@ -10,6 +10,7 @@ const graph = () => ({
     { id: 'decision_1', kind: 'decision', label: 'Courier choice' },
     { id: 'on_time', kind: 'goal', label: 'Deliveries on time' },
     { id: 'switch_courier', kind: 'option', label: 'Switch courier' },
+    { id: 'add_tracking', kind: 'option', label: 'Add live tracking' },
   ],
   edges: [],
   living_model: {
@@ -37,7 +38,7 @@ describe('otherAimsOf', () => {
 
   it('keeps each aim\'s own words, source and the labels the model links into it', () => {
     const [goodwill, refunds, cap] = otherAimsOf(graph())
-    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'], optionsLinked: 2, optionCount: 2, status: 'current' })
+    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'], allOptionsCount: 2, status: 'current' })
     expect(refunds).toMatchObject({ id: 'refund_volume', source: 'olumi', linkedFrom: [] })
     expect(cap).toMatchObject({ id: 'cost_cap', source: 'party', party: 'Sam' })
   })
@@ -50,12 +51,21 @@ describe('otherAimsOf', () => {
     expect(otherAimsOf(g)).toEqual([])
   })
 
-  it('says what links in once: "both options" only when every option (and nothing else) does; otherwise the names', () => {
-    expect(otherAimLinkWords({ linkedFrom: ['Switch courier', 'Add live tracking'], optionsLinked: 2, optionCount: 2 })).toBe('Linked from both options')
-    expect(otherAimLinkWords({ linkedFrom: ['A', 'B', 'C'], optionsLinked: 3, optionCount: 3 })).toBe('Linked from all 3 options')
-    expect(otherAimLinkWords({ linkedFrom: ['Switch courier'], optionsLinked: 1, optionCount: 2 })).toBe('Linked from Switch courier')
-    expect(otherAimLinkWords({ linkedFrom: ['Switch courier', 'Add live tracking', 'Fuel price'], optionsLinked: 2, optionCount: 2 })).toBe('Linked from Switch courier, Add live tracking, Fuel price')
-    expect(otherAimLinkWords({ linkedFrom: [], optionsLinked: 0, optionCount: 2 })).toBeNull()
+  it('says "both options" only when exactly the options link in and the canvas shows those same options; otherwise the names', () => {
+    expect(otherAimLinkWords(otherAimsOf(graph())[0])).toBe('Linked from both options')
+    expect(otherAimLinkWords({ linkedFrom: ['A', 'B', 'C'], allOptionsCount: 3 })).toBe('Linked from all 3 options')
+    expect(otherAimLinkWords({ linkedFrom: [], allOptionsCount: null })).toBeNull()
+  })
+
+  it('Codex R4: a factor sharing an option\'s label, or an option card the living model lacks, falls back to the names', () => {
+    const withFactor = graph()
+    withFactor.living_model.factors = [{ id: 'f_switch', label: 'Switch courier' }] as never
+    withFactor.living_model.links.push({ id: 'l4', from: 'f_switch', to: 'goodwill' })
+    expect(otherAimsOf(withFactor)[0].allOptionsCount).toBeNull()
+    const extraCanvasOption = graph()
+    extraCanvasOption.nodes.push({ id: 'third_way', kind: 'option', label: 'Hire drivers' })
+    expect(otherAimsOf(extraCanvasOption)[0].allOptionsCount).toBeNull()
+    expect(otherAimLinkWords(otherAimsOf(extraCanvasOption)[0])).toBe('Linked from Switch courier, Add live tracking')
   })
 
   it('names who each aim came from in the canvas\'s provenance words', () => {

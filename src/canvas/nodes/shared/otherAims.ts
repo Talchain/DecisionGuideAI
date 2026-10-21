@@ -16,9 +16,11 @@ export interface OtherAim {
   readonly party: string | null
   /** The labels of the items the model links into this aim, in the model's order. */
   readonly linkedFrom: readonly string[]
-  /** How many of the model's options link into it, and how many options the model has (for "both" / "all" wording). */
-  readonly optionsLinked: number
-  readonly optionCount: number
+  /**
+   * The option count when EXACTLY the model's options (and nothing else) link into it, and the canvas's option cards are
+   * those same options; else null. Only then may the card say "both options" / "all N options" instead of the names.
+   */
+  readonly allOptionsCount: number | null
   /** The model's own status: shown, never filtered out (a withdrawn aim says so). */
   readonly status: 'current' | 'later' | 'withdrawn'
 }
@@ -45,14 +47,18 @@ export function otherAimsOf(graph: unknown): OtherAim[] {
   }
   const links = recs(lm.links)
   const optionIds = new Set(recs(lm.options).map((o) => o.id).filter((id): id is string => typeof id === 'string'))
+  const canvasOptionIds = new Set(nodes.filter((n) => n.kind === 'option' || n.type === 'option').map((n) => n.id).filter((id): id is string => typeof id === 'string'))
+  const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean => a.size === b.size && [...a].every((x) => b.has(x))
+  const optionInventoriesAgree = optionIds.size >= 2 && sameSet(optionIds, canvasOptionIds)
   return recs(lm.aims).flatMap((aim): OtherAim[] => {
     const id = str(aim.id); const text = str(aim.text)
     if (!id || !text || onCanvas.has(id)) return []
     const source = typeof aim.source === 'string' && SOURCES.has(aim.source) ? aim.source as OtherAimSource : 'unverified'
     const linkedFrom = [...new Set(links.filter((l) => l.to === id).map((l) => labelOf.get(String(l.from))).filter((l): l is string => !!l))]
     const status = aim.status === 'later' || aim.status === 'withdrawn' ? aim.status : 'current'
-    const optionsLinked = new Set(links.filter((l) => l.to === id && optionIds.has(String(l.from))).map((l) => String(l.from))).size
-    return [{ id, text, source, party: source === 'party' ? str(aim.party) : null, linkedFrom, optionsLinked, optionCount: optionIds.size, status }]
+    const incoming = new Set(links.filter((l) => l.to === id).map((l) => String(l.from)))
+    const allOptionsCount = optionInventoriesAgree && sameSet(incoming, optionIds) && linkedFrom.length === optionIds.size ? optionIds.size : null
+    return [{ id, text, source, party: source === 'party' ? str(aim.party) : null, linkedFrom, allOptionsCount, status }]
   })
 }
 
@@ -69,10 +75,9 @@ export function otherAimSourceWords(aim: Pick<OtherAim, 'source' | 'party'>): st
 export const OTHER_AIM_COPY = { notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from' } as const
 
 /** What links into the aim, said once: "both options" / "all N options" when every option does, else the names. */
-export function otherAimLinkWords(aim: Pick<OtherAim, 'linkedFrom' | 'optionsLinked' | 'optionCount'>): string | null {
+export function otherAimLinkWords(aim: Pick<OtherAim, 'linkedFrom' | 'allOptionsCount'>): string | null {
   if (aim.linkedFrom.length === 0) return null
-  const onlyAllOptions = aim.optionCount >= 2 && aim.optionsLinked === aim.optionCount && aim.linkedFrom.length === aim.optionCount
-  if (onlyAllOptions) return `${OTHER_AIM_COPY.linkedFrom} ${aim.optionCount === 2 ? 'both options' : `all ${aim.optionCount} options`}`
+  if (aim.allOptionsCount !== null) return `${OTHER_AIM_COPY.linkedFrom} ${aim.allOptionsCount === 2 ? 'both options' : `all ${aim.allOptionsCount} options`}`
   return `${OTHER_AIM_COPY.linkedFrom} ${aim.linkedFrom.join(', ')}`
 }
 
