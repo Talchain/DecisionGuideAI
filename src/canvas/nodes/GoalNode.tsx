@@ -66,6 +66,9 @@ import { openModelValueEditor } from './shared/openModelValueEditor'
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
 import { GoalOtherAims } from './shared/GoalOtherAims'
+import { suggestedMeasureWords, useSuggestedMeasure } from './shared/suggestedMeasure'
+import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { SOURCE_MARK_GLYPH_CLASSES } from './shared/EstimateMarker'
 import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
@@ -674,6 +677,8 @@ export const GoalNode = memo((props: NodeProps) => {
    * reduced line derived from `targetLine` is unchanged.
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
+  // Olumi's suggested measure for a vague aim (CEE #3585): said as Olumi's, never a threshold (`suggestedMeasure.ts`).
+  const suggestedMeasure = useSuggestedMeasure(props.id)
   const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
   // Editable only where a write exists for it: the core lane, on a goal with a stated target and unit.
   const todayLevelEditable = resolveAiComparisonMode() === 'core' && hasThreshold && typeof thresholdUnit === 'string' && thresholdUnit.trim() !== ''
@@ -1020,6 +1025,12 @@ export const GoalNode = memo((props: NodeProps) => {
               so it can never wrap onto a line it did not already take. */}
         <div className="pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
           {canCaptureTarget && !goalOwnRowIsTheTarget && noTargetStatusChip}
+          {targetLine === null && suggestedMeasure !== null && (
+            <span className={`${typography.nodeLabel} text-text-light`} data-testid={`goal-suggested-measure-${props.id}`}>
+              <VALUE_PROVENANCE_ICON.ai aria-hidden="true" className={`${SOURCE_MARK_GLYPH_CLASSES} inline align-[-2px]`} />{' '}
+              {suggestedMeasureWords(suggestedMeasure)}
+            </span>
+          )}
           {inPlaceTarget !== null && thresholdDisplay !== null && (
             <span className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body inline-flex min-w-0 items-baseline gap-x-1`}>
               <span>{GOAL_TARGET_PREFIX}</span>
