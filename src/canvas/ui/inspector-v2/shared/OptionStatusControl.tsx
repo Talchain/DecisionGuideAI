@@ -9,6 +9,7 @@ import { controls } from '../../../../styles/controls'
 import { typography } from '../../../../styles/typography'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../../conversation/settleSystemEventSend'
+import { clearPendingEditNotes } from '../../../editNotes/reportManualEditReceipt'
 import { optionStatusToggleEvent, optionTakenOut } from '../../../domain/optionStatus'
 import { useCanvasStore } from '../../../store'
 
@@ -34,6 +35,9 @@ export function OptionStatusControl({ optionId, data }: { optionId: string; data
         className={`${controls.actionChip} ${typography.panelMeta}`}
         disabled={note === OPTION_STATUS_COPY.saving}
         onClick={() => {
+          // The change takes the latest Undo step, so an older note's Undo would reverse it instead. Cleared at the press,
+          // not on the reply: a quiet acknowledgement can skip the receipt reporter (Codex R2 on #2890).
+          clearPendingEditNotes()
           setNote(OPTION_STATUS_COPY.saving)
           settleSystemEventSend(sendSystemEvent(event, { deferIfBusy: false }), (settlement) => {
             setNote(settlement === 'blocked' || settlement === 'queued' ? OPTION_STATUS_COPY.notSent : null)
