@@ -87,7 +87,10 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
     <figure className="m-0 mt-4" data-testid={PAIR_CHANCE_SLOPE_TESTID}>
       {/* CEE's own words for what the chance is OF, or no caption (DL, 21 Oct 2026: never a UI label beside a chance). */}
       {chanceWords !== null
-        ? <figcaption className={`${typography.panelMeta} text-text-light mb-2 first-letter:uppercase`} data-wire-fields="canonical_analysis_view.goal_chance.chance_words">{chanceWords}</figcaption>
+        ? <figcaption className={`${typography.panelMeta} text-text-light mb-2`} data-wire-fields="canonical_analysis_view.goal_chance.chance_words">
+            {/* Sentence case only (as `compareOutOfDateCopy` says CEE's words); the words themselves are CEE's, unchanged. */}
+            {`${chanceWords.charAt(0).toUpperCase()}${chanceWords.slice(1)}`}
+          </figcaption>
         : null}
       <div className="relative">
         <ul className="list-none p-0 m-0 space-y-1">
