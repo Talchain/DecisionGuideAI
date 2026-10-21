@@ -99,6 +99,9 @@ import { DecisionBriefView } from '../../decisionBrief/DecisionBriefView'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { useDisplayedRunDeltaView } from '../../../components/results/analysisNew/displayedRunDeltaView'
+import { pairChanceFigures, runViewOf } from '../runView'
 import {
   A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, SPREAD_NOTE, SHORTFALL_A, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
@@ -126,6 +129,30 @@ interface Surface {
   readonly reaches?: Partial<Readonly<Record<Form, readonly string[]>>>
   /** [test id, words]: the element must say CEE's served words itself (bound to the element, not the whole surface). */
   readonly saysWithin?: Partial<Readonly<Record<Form, ReadonlyArray<readonly [string, string]>>>>
+  /**
+   * The words the surface's own chance gate PASSED for the seeded Run, read from the gate itself (never from the screen):
+   * only these strings are lifted out before the raw-figure scan. A figure the surface prints outside the gate stays in.
+   */
+  readonly gated?: (hash: string) => readonly string[]
+}
+
+/**
+ * Compare's gate (DL, 21 Oct 2026): the run pair's figures exactly as `pairChanceFigures` passes them for the view the
+ * body displays (`useDisplayedRunDeltaView`), called here directly, so a figure the chart or its hook draws around the
+ * gate is not whitelisted by it.
+ */
+function compareGateWords(hash: string): string[] {
+  const { result, unmount } = renderHook(() => useDisplayedRunDeltaView(hash, 'all'))
+  const view = result.current
+  unmount()
+  if (view === null) return []
+  const state = useCanvasStore.getState()
+  const report = state.results?.hash === hash ? state.results.report : null
+  const held = useCanonicalAnalysisViewStore.getState()
+  const canonical = held.scenarioId === state.currentScenarioId ? held.view : null
+  return pairChanceFigures(view, runViewOf(report, canonical)).rows
+    .flatMap(row => [row.earlier?.words, row.now?.words, row.note])
+    .filter((w): w is string => typeof w === 'string' && w.length > 0)
 }
 
 // ─── the deployed flags, derived ───
@@ -302,6 +329,7 @@ const SURFACES: readonly Surface[] = [
   {
     name: 'Compare tab (CompareRunPairBody: goal chances, run shares)', u0: false,
     mount: hash => render(<CompareRunPairBody responseHash={hash} />).container,
+    gated: compareGateWords,
   },
   {
     // Mounted inside the Analysis tab's act-on-it queue; the sentinel Run withholds the leader, which hides its labels, so
@@ -615,7 +643,8 @@ for (const form of FORMS) {
         const { text, spaced, aria } = exploreSurface(root, () => {
           for (const el of [...document.body.children]) for (const n of renderedComponentNames(el)) RENDERED.add(n.replace(/\d+$/, ''))
         })
-        const said = `${text} || ${spaced} || ${aria}`
+        // A gated surface's own gate words are lifted out first (read from its gate, not the screen); all else is read.
+        const said = withoutServed(`${text} || ${spaced} || ${aria}`, surface.gated?.(hash) ?? [])
         expect(text.length, 'the surface rendered nothing: the census would be vacuous').toBeGreaterThan(surface.minText ?? 40)
         const licensedU0 = surface.u0 && form !== 'withheld'
         const served = servedStrings(form)

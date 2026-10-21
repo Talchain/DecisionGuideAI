@@ -121,7 +121,7 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
       </div>
       <div className={`${typography.panelMeta} text-text-light relative h-4 mt-1`} aria-hidden="true">
         {[0, ...QUARTERS, 100].map((t, i, all) => (
-          <span key={t} className={`absolute top-0 ${i === 0 ? '' : i === all.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${t}%` }}>{t}%</span>
+          <span key={t} data-chart-role="axis-tick" className={`absolute top-0 ${i === 0 ? '' : i === all.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${t}%` }}>{t}%</span>
         ))}
       </div>
       <p className={`${typography.panelMeta} text-text-light mt-2 mb-0 flex flex-wrap items-center gap-x-3 gap-y-1`} aria-hidden="true">
