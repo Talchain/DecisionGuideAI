@@ -247,7 +247,7 @@ import {
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
-import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
+import { AnalysisStateV1Schema, DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
 import { readActionBar } from './actionBar/actionBarContract'
 import { reportActionBarIssue, useActionBarStore } from './actionBar/actionBarStore'
 import { readProposalPreview } from './proposalPreview'
@@ -5396,6 +5396,19 @@ export function useConversation(): UseConversationReturn {
         }
 
         const target = routeV5Response(v5Result)
+        // A canvas event can acknowledge its saved state without a chat reply. It must still enter the existing state /
+        // receipt applicator; only a validated graph/hash/state acknowledgement may bypass the empty-reply failure.
+        // Typed errors, ordinary empty chat replies and incomplete acknowledgements keep their existing failure paths.
+        const quietAckResponse = mode === 'system' && systemEvent && target.kind === 'empty'
+          ? target.response : null
+        const quietSystemAck = quietAckResponse !== null &&
+          quietAckResponse.blocks.length === 0 && quietAckResponse.suggested_actions.length === 0 &&
+          typeof quietAckResponse.graph_hash === 'string' && quietAckResponse.graph_hash.trim().length > 0 &&
+          isRecord(quietAckResponse.draft_graph) &&
+          Array.isArray(quietAckResponse.draft_graph.nodes) && Array.isArray(quietAckResponse.draft_graph.edges) &&
+          AnalysisStateV1Schema.safeParse(
+            (quietAckResponse as OlumiResponseWithExtensions & { analysis_state?: unknown }).analysis_state,
+          ).success
         // CEE's revision CAS can use error.v1 or additive code keys, retained as raw JSON by strict parsing.
         const conflictEnvelope = target.kind === 'typed_error'
           ? target.boundaryError ?? (v5Result.kind === 'parse_error' && v5Result.http_status === 409 ? target.rawBody : undefined)
@@ -5731,9 +5744,9 @@ export function useConversation(): UseConversationReturn {
         // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
         // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
         if (target.kind === 'typed_error' && !stillFinishing && !replayUnresolved) turnFailure = unanswered ?? (httpServerFailure ? 'server' : target.transportMeta ? 'transport' : 'rejected')
-        else if (target.kind === 'empty') turnFailure = 'empty'
+        else if (target.kind === 'empty' && !quietSystemAck) turnFailure = 'empty'
 
-        if (target.kind === 'text_only' || target.kind === 'blocks') {
+        if (target.kind === 'text_only' || target.kind === 'blocks' || (target.kind === 'empty' && quietSystemAck)) {
           // Apply side-effects (stage, graph_patch mutations) BEFORE the
           // message renders so subsequent React effects (panel data, chat
           // auto-scroll) see consistent canvas state.
@@ -6443,7 +6456,7 @@ export function useConversation(): UseConversationReturn {
           )
           // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
           // is drawn (the surfaces keep the controls they had).
-          useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
+          if (!quietSystemAck) useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration) && !isBoundExplain) {
             latestRunKeyRef.current = narration.runKey
@@ -6453,7 +6466,7 @@ export function useConversation(): UseConversationReturn {
           const guidedSizing = readGuidedSizing(target.response)
           const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))
           const pendingServerTurnId = readRecordedServerTurnId(target.response)
-          if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
+          if (!quietSystemAck && !isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
