@@ -38,6 +38,38 @@ describe('readGoalChanceLicence refuses self-contradicting records', () => {
   })
 })
 
+describe('a resolved shortfall does not block the summary (Science via DL, 21 Oct 2026)', () => {
+  const sq = { pct_by_option: { a: 69, b: 16 }, withheld_option_ids: ['c'] }
+  const highest = { form: 'highest', leader_option_id: 'a', next_option_id: 'b' }
+
+  it('accepts: highest, with carrying on as now withheld and resolved → the leader, and c still withheld (no figure)', () => {
+    const l = readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['c'] }))
+    expect(l?.form).toBe('highest')
+    expect(l?.leaderOptionId).toBe('a')
+    expect(l?.withheldOptionIds).toEqual(['c'])
+    expect(l?.pctByOption).not.toHaveProperty('c')
+  })
+
+  it('refuses: highest with a withheld id that is not resolved (contrast: the same record with it resolved is read above)', () => {
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: [] }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ pct_by_option: { a: 69 }, withheld_option_ids: ['b', 'c'], form: 'all_likely_to_miss',
+      resolved_withheld_option_ids: ['c'] }))).toBeNull()
+  })
+
+  it('refuses: a resolved id outside the withheld list, a repeat, or a superlative naming a withheld option', () => {
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['b'] }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest, resolved_withheld_option_ids: ['c', 'c'] }))).toBeNull()
+    expect(readGoalChanceLicence(rec({ ...sq, form: 'highest', leader_option_id: 'a', next_option_id: 'c',
+      resolved_withheld_option_ids: ['c'] }))).toBeNull()
+  })
+
+  it('an old record (no field) reads exactly as before: each with a withheld id is read; highest with one is refused', () => {
+    expect(readGoalChanceLicence(rec(sq))?.withheldOptionIds).toEqual(['c'])
+    expect(readGoalChanceLicence(rec({ ...sq, ...highest }))).toBeNull()
+  })
+})
+
 describe('share-by-date target reader', () => {
   const share = { comparator: 'at_least', value: 100, unit: '% of the feature launch' }
   it('carries a real YYYY-MM-DD date verbatim, including leap day', () => {
