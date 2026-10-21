@@ -12,6 +12,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import { applyV5State } from '../applyV5State'
+import { savedGraphEpoch } from '../../canvas/nodes/shared/savedGraphEpoch'
 
 function store(over: Record<string, unknown> = {}) {
   return {
@@ -60,5 +61,13 @@ describe('applyV5State captures CEE\'s graph_hash for the next durable delete', 
     expect((s as unknown as { setLastServerGraphHash: ReturnType<typeof vi.fn> })
       .setLastServerGraphHash).not.toHaveBeenCalled()
     expect(result.applied).not.toContain('graph_hash:captured')
+  })
+
+  it('⭐ an applied hash (even the same one: a rename moves no analysis hash) re-reads the saved model; a stale turn does not', () => {
+    const before = savedGraphEpoch()
+    apply({ assistant_text: 'ok', graph_hash: 'c81a4e906280a992' }, store())
+    expect(savedGraphEpoch()).toBe(before + 1)
+    applyV5State({ blocks: [], suggested_actions: [], insights: [], graph_hash: 'c81a4e906280a992' } as never, store(), { turnClientId: 'old', currentClientTurnId: 't2' })
+    expect(savedGraphEpoch()).toBe(before + 1)
   })
 })
