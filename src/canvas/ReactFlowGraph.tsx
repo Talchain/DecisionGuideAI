@@ -104,7 +104,6 @@ import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
 import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
-import { OtherAimsLayer } from './nodes/OtherAimsLayer'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -2872,8 +2871,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             <TierLanes nodes={memoizedNodes} />
             {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
             <ProposalGhostLayer />
-            {/* The saved model's other aims, beside the goal: "Not in this analysis yet" (render-only; see the file). */}
-            <OtherAimsLayer />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
             {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED

@@ -65,6 +65,7 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { NeedsInputSlot, emptyValueUnit } from './shared/NeedsInputSlot'
+import { GoalOtherAims } from './shared/GoalOtherAims'
 import { resolveAiComparisonMode } from '../../v5/aiComparisonMode'
 import { GoalTargetPopover } from '../components/GoalTargetPopover'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
@@ -1179,6 +1180,9 @@ export const GoalNode = memo((props: NodeProps) => {
             {goalTodayLevelCopy(todayLevel)}
           </p>
         )}
+
+        {/* The saved model's other aims (Paul, 21 Oct 2026: never hide what Olumi has); display only, see the file. */}
+        <GoalOtherAims />
 
         {showLayer2Inline && layer2Content}
       </BaseNode>
