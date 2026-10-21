@@ -1037,21 +1037,20 @@ export function turnCanonicalRunOf(response: unknown): TurnCanonicalRun | null {
  *  · `complete_stale` → 'stale';
  *  · anything else (no state, another kind, no result, a hash mismatch) → undefined: today's behaviour. Fresh is never
  *    inferred from a missing field or from a hash that does not match.
- * Only when `analysis_ready` is absent; its own verdict always governs when present.
+ * Only when `analysis_ready` is absent (its own verdict always governs when present), and only for a NEW analysis_result
+ * (step 5's new-hash branch), so a re-delivered echo of an earlier Run never re-affirms it. No `computed_at`: the schema
+ * says it is provenance, never a freshness input, so the reducer never orders this verdict against another.
  */
 export function runStateFreshnessVerdict(response: unknown): Record<string, string> | undefined {
-  const r = response as { analysis_ready?: unknown; analysis_state?: { run_state?: { kind?: unknown; computed_at?: unknown } }; graph_hash?: unknown; blocks?: unknown }
+  const r = response as { analysis_ready?: unknown; analysis_state?: { run_state?: { kind?: unknown } }; graph_hash?: unknown; blocks?: unknown }
   if (r === null || typeof r !== 'object' || r.analysis_ready !== undefined) return undefined
   const runState = r.analysis_state?.run_state
-  const computedAt: Record<string, string> = typeof runState?.computed_at === 'string' && runState.computed_at !== '' ? { computed_at: runState.computed_at } : {}
-  if (runState?.kind === 'complete_stale') {
-    return { freshness: 'stale', freshness_reason: 'run_state_complete_stale', ...computedAt }
-  }
+  if (runState?.kind === 'complete_stale') return { freshness: 'stale', freshness_reason: 'run_state_complete_stale' }
   if (runState?.kind !== 'complete_current' || typeof r.graph_hash !== 'string' || r.graph_hash === '') return undefined
   const result = (Array.isArray(r.blocks) ? r.blocks : []).find((b) => (b as { type?: unknown } | null)?.type === 'analysis_result') as
     { computed_against_hash?: unknown } | undefined
   if (result?.computed_against_hash !== r.graph_hash) return undefined
-  return { freshness: 'fresh', freshness_reason: 'run_state_complete_current', graph_hash_at_run: r.graph_hash, current_graph_hash: r.graph_hash, ...computedAt }
+  return { freshness: 'fresh', freshness_reason: 'run_state_complete_current', graph_hash_at_run: r.graph_hash, current_graph_hash: r.graph_hash }
 }
 
 export function applyV5State(
@@ -2016,12 +2015,9 @@ export function applyV5State(
   // Stale-turn guard lives at the top of applyV5State (before step 1) so
   // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
-  // The freshness verdict this turn carries: `analysis_ready`'s own, or (core, which omits `analysis_ready`) the one CEE states
-  // in `analysis_state.run_state`. Feeds the freshness slice only, never the readiness arm below.
-  const freshnessVerdict = rawAnalysisReady !== undefined ? rawAnalysisReady : runStateFreshnessVerdict(response)
   // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
-  store.setAnalysisFreshness?.(freshnessVerdict)
+  store.setAnalysisFreshness?.(rawAnalysisReady)
 
   // ── schemas 0.48.0 — the base for the next durable delete ───────────────
   //
@@ -2509,14 +2505,20 @@ export function applyV5State(
         // re-show false-fresh — so without a freshness verdict we keep the overlay
         // dirty (the retained 'fresh' stays displayed as cannot-confirm).
         const ar =
-          freshnessVerdict && typeof freshnessVerdict === 'object'
-            ? (freshnessVerdict as { freshness?: unknown })
+          rawAnalysisReady && typeof rawAnalysisReady === 'object'
+            ? (rawAnalysisReady as { freshness?: unknown })
             : null
         const hasExplicitFreshness =
           !!ar &&
           typeof ar.freshness === 'string' &&
           (['fresh', 'stale', 'unknown', 'none'] as const).includes(ar.freshness as 'fresh')
+        // Core omits analysis_ready: this NEW result's own run_state is the producer's verdict (never an echo: an echo
+        // repeats the hash and never reaches this branch).
+        const runStateVerdict = rawAnalysisReady === undefined ? runStateFreshnessVerdict(response) : undefined
         if (hasExplicitFreshness) {
+          store.clearAnalysisFreshnessDirty?.()
+        } else if (runStateVerdict !== undefined) {
+          store.setAnalysisFreshness?.(runStateVerdict)
           store.clearAnalysisFreshnessDirty?.()
         } else {
           // F10: the run completed but the engine said nothing about

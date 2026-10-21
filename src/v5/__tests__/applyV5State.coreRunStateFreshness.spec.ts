@@ -15,7 +15,7 @@ import { classifyFreshnessForDisplay } from '../../canvas/store/analysisFreshnes
 type Json = Record<string, unknown>
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 
-function applicator(setCeeAnalysisReady = vi.fn()): V5ApplicatorStore {
+function applicator(setCeeAnalysisReady = vi.fn(), currentResultsHash: string | null = null, resultsComplete = vi.fn()): V5ApplicatorStore {
   const s = () => useCanvasStore.getState()
   return {
     setCurrentStage: vi.fn(),
@@ -23,13 +23,13 @@ function applicator(setCeeAnalysisReady = vi.fn()): V5ApplicatorStore {
     updateEdgeData: vi.fn(),
     setRunMeta: vi.fn(),
     setCeeAnalysisReady,
-    resultsComplete: vi.fn(),
+    resultsComplete,
     setAnalysisFreshness: (raw) => s().setAnalysisFreshness?.(raw),
     clearAnalysisFreshnessDirty: () => s().clearAnalysisFreshnessDirty?.(),
     noteRunCompletedWithoutVerdict: () => s().noteRunCompletedWithoutVerdict?.(),
     nodes: [],
     edges: [],
-    currentResultsHash: null,
+    currentResultsHash,
   }
 }
 
@@ -91,9 +91,35 @@ describe('core Run turn: the producer\'s run_state is the freshness verdict when
     expect(liveTabAfter(run)).toBe('changed')
   })
 
-  it('the derived verdict never reaches the readiness arm (core keeps no host readiness panel)', () => {
-    const setCeeAnalysisReady = vi.fn()
-    applyV5State(clone(runTurn) as never, applicator(setCeeAnalysisReady))
-    for (const call of setCeeAnalysisReady.mock.calls) expect(JSON.stringify(call)).not.toContain('run_state_complete_current')
+  it('⭐ Codex R1 (1): a re-delivered ECHO of the same Run after a local edit never re-affirms it (stays cannot-confirm)', () => {
+    const resultsComplete = vi.fn()
+    // The Run first arrives with CEE's own raw verdict (a different reason from the derived one).
+    const withRaw = clone(runTurn) as Json
+    withRaw.analysis_ready = { freshness: 'fresh', freshness_reason: 'graph_hash_match', graph_hash_at_run: withRaw.graph_hash, current_graph_hash: withRaw.graph_hash, status: 'ready' }
+    applyV5State(clone(editTurn) as never, applicator())
+    applyV5State(withRaw as never, applicator(vi.fn(), null, resultsComplete))
+    const hash = (resultsComplete.mock.calls[0]?.[0] as { hash?: string } | undefined)?.hash
+    expect(hash, 'PRECONDITION: the Run hydrated and its result hash is known').toBeTruthy()
+    expect(classifyFreshnessForDisplay(useCanvasStore.getState().analysisFreshness, useCanvasStore.getState().analysisFreshnessDirty, false)).toBe('current')
+    // The person edits the canvas; then the same Run's result arrives again (same hash), with no analysis_ready.
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    applyV5State(clone(runTurn) as never, applicator(vi.fn(), hash!))
+    const s = useCanvasStore.getState()
+    expect(s.analysisFreshnessDirty).toBe(true)
+    expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).not.toBe('current')
+  })
+
+  it('the derived verdict never reaches the readiness arm: the core Run sets no readiness from it (control: a raw analysis_ready does)', () => {
+    const core = vi.fn()
+    applyV5State(clone(runTurn) as never, applicator(core))
+    for (const call of core.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain('run_state_complete')
+      expect(call[0] ?? null).toBeNull()
+    }
+    const legacy = vi.fn()
+    const withReady = clone(runTurn) as Json
+    withReady.analysis_ready = clone((editTurn as Json).analysis_ready)
+    applyV5State(withReady as never, applicator(legacy))
+    expect(legacy.mock.calls.some((c) => c[0] !== null && c[0] !== undefined), 'CONTROL: a raw analysis_ready reaches the readiness setter').toBe(true)
   })
 })
