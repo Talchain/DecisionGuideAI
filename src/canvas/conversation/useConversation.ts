@@ -110,7 +110,7 @@ import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisC
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
 import { deriveV5Stage } from '../../v5/stageMapper'
-import { applyV5State, turnCanonicalRunOf } from '../../v5/applyV5State'
+import { applyV5State, runStateFreshnessVerdict, turnCanonicalRunOf } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
@@ -6163,7 +6163,12 @@ export function useConversation(): UseConversationReturn {
                 typeof sentBaseHash === 'string' &&
                 sentBaseHash.length > 0 &&
                 target.response.graph_hash === sentBaseHash
-              const merged = reconcileAppliedGraph(inlineGraph as any, { analysisHashUnmoved })
+              const merged = reconcileAppliedGraph(inlineGraph as any, {
+                analysisHashUnmoved,
+                // The same Run/state/hash projection applyV5State just used. Receipt reconciliation must not re-dirty
+                // that analysed graph merely because core retires analysis_ready; it still checks the held verdict.
+                runStateFreshness: runStateFreshnessVerdict(target.response),
+              })
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
                 // An own link the commit does not carry yet (an add's chained
