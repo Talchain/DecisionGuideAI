@@ -1,7 +1,7 @@
 /** The saved model's aims that the analysis does not include yet: listed by id, never hidden, never on the engine graph. */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { otherAimsOf, otherAimSourceWords } from '../otherAims'
+import { otherAimLinkWords, otherAimsOf, otherAimSourceWords } from '../otherAims'
 import { OtherAimCard } from '../../OtherAimsLayer'
 
 /** A SYNTHETIC core graph: one analysed goal on the canvas, three more aims only in the living model. */
@@ -37,7 +37,7 @@ describe('otherAimsOf', () => {
 
   it('keeps each aim\'s own words, source and the labels the model links into it', () => {
     const [goodwill, refunds, cap] = otherAimsOf(graph())
-    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'], status: 'current' })
+    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'], optionsLinked: 2, optionCount: 2, status: 'current' })
     expect(refunds).toMatchObject({ id: 'refund_volume', source: 'olumi', linkedFrom: [] })
     expect(cap).toMatchObject({ id: 'cost_cap', source: 'party', party: 'Sam' })
   })
@@ -50,6 +50,14 @@ describe('otherAimsOf', () => {
     expect(otherAimsOf(g)).toEqual([])
   })
 
+  it('says what links in once: "both options" only when every option (and nothing else) does; otherwise the names', () => {
+    expect(otherAimLinkWords({ linkedFrom: ['Switch courier', 'Add live tracking'], optionsLinked: 2, optionCount: 2 })).toBe('Linked from both options')
+    expect(otherAimLinkWords({ linkedFrom: ['A', 'B', 'C'], optionsLinked: 3, optionCount: 3 })).toBe('Linked from all 3 options')
+    expect(otherAimLinkWords({ linkedFrom: ['Switch courier'], optionsLinked: 1, optionCount: 2 })).toBe('Linked from Switch courier')
+    expect(otherAimLinkWords({ linkedFrom: ['Switch courier', 'Add live tracking', 'Fuel price'], optionsLinked: 2, optionCount: 2 })).toBe('Linked from Switch courier, Add live tracking, Fuel price')
+    expect(otherAimLinkWords({ linkedFrom: [], optionsLinked: 0, optionCount: 2 })).toBeNull()
+  })
+
   it('names who each aim came from in the canvas\'s provenance words', () => {
     expect(['user', 'olumi', 'unverified'].map((source) => otherAimSourceWords({ source: source as never, party: null }))).toEqual(['Yours', 'Olumi’s', 'Source not confirmed'])
     expect(otherAimSourceWords({ source: 'party', party: 'Sam' })).toBe('From Sam')
@@ -57,7 +65,7 @@ describe('otherAimsOf', () => {
 })
 
 describe('OtherAimCard', () => {
-  it('shows the aim, "Not in this analysis yet", its source, and says what links into it, bound to the aim id', () => {
+  it('shows the aim, "Not in this analysis yet", its source and what links into it, bound to the aim id', () => {
     const [goodwill] = otherAimsOf(graph())
     render(<OtherAimCard aim={goodwill} />)
     const card = screen.getByTestId('other-aim-goodwill')
@@ -65,8 +73,7 @@ describe('OtherAimCard', () => {
     expect(card.textContent).toContain('Keep customer goodwill')
     expect(screen.getByTestId('other-aim-goodwill-status').textContent).toBe('Not in this analysis yet')
     expect(screen.getByTestId('other-aim-goodwill-source').textContent).toBe('Yours')
-    expect(card.getAttribute('aria-description')).toBe('Linked from Switch courier, Add live tracking')
-    expect(card.getAttribute('title')).toBe('Linked from Switch courier, Add live tracking')
+    expect(screen.getByTestId('other-aim-goodwill-links').textContent).toBe('Linked from both options')
   })
 
   it('a withdrawn aim is shown and says so, never "not in this analysis yet"', () => {
@@ -75,10 +82,10 @@ describe('OtherAimCard', () => {
     expect(screen.getByTestId('other-aim-dropped_aim-status').textContent).toBe('Withdrawn')
   })
 
-  it('an Olumi aim says so, and an aim nothing links into carries no links description', () => {
+  it('an Olumi aim says so, and an aim nothing links into shows no links line', () => {
     const [, refunds] = otherAimsOf(graph())
     render(<OtherAimCard aim={refunds} />)
     expect(screen.getByTestId('other-aim-refund_volume-source').textContent).toBe('Olumi’s')
-    expect(screen.getByTestId('other-aim-refund_volume').getAttribute('aria-description')).toBeNull()
+    expect(screen.queryByTestId('other-aim-refund_volume-links')).toBeNull()
   })
 })
