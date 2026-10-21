@@ -30,8 +30,24 @@ const BANDS: ReadonlySet<string> = new Set<PreviewBand>(['weak', 'moderate', 'st
 const OPTION_STATUSES: ReadonlySet<string> = new Set<PreviewOptionStatus>(['feasible', 'infeasible', 'removed'])
 
 export type ProposalPreviewOp =
-  | { readonly op: 'add_node'; readonly id: string; readonly label: string; readonly kind: string | null }
-  | { readonly op: 'add_edge'; readonly fromId: string; readonly toId: string; readonly band: PreviewBand | null }
+  | {
+      readonly op: 'add_node'
+      readonly id: string
+      readonly label: string
+      readonly kind: string | null
+      /** Core only (`adds`): its point level, when it has one, and whose item it is. */
+      readonly value?: { readonly value: number; readonly unit: string } | null
+      readonly source?: 'estimate' | 'yours'
+    }
+  | {
+      readonly op: 'add_edge'
+      readonly fromId: string
+      readonly toId: string
+      readonly band: PreviewBand | null
+      /** Core only (`adds`): which way the new link moves its target, and whose link it is. */
+      readonly direction?: 'positive' | 'negative'
+      readonly source?: 'estimate' | 'yours'
+    }
   | {
       readonly op: 'set_link_strength'
       readonly fromId: string
@@ -150,7 +166,7 @@ const FIELD_BAND: Readonly<Record<Band, PreviewBand>> = {
 
 /** A held proposal's fields as display ops. A link nobody has sized (`placeholder`) is never drawn as a size. */
 export function previewFromFields(p: Proposal): ProposalPreview | null {
-  const ops = p.fields.flatMap<ProposalPreviewOp>((f) => {
+  const ops: ProposalPreviewOp[] = p.fields.flatMap<ProposalPreviewOp>((f) => {
     if (f.kind === 'factor_value') {
       // The held card's unit authority (HeldProposalPanel formats with `field.unit`), never `current.unit`.
       return [{ op: 'set_factor_value', nodeId: f.node_id, value: f.current.value, unit: f.unit, source: f.current.source }]
@@ -158,5 +174,11 @@ export function previewFromFields(p: Proposal): ProposalPreview | null {
     if (f.current.source === 'placeholder') return []
     return [{ op: 'set_link_strength', fromId: f.from_id, toId: f.to_id, band: FIELD_BAND[f.current.band], keeps: false, source: f.current.source }]
   })
+  // A new factor is a ghost card (beside what its new link ties it to); a new link, a ghost line saying which way it moves.
+  for (const add of p.adds) {
+    ops.push(add.kind === 'factor_add'
+      ? { op: 'add_node', id: add.node_id, label: add.label, kind: 'factor', value: add.value, source: add.source }
+      : { op: 'add_edge', fromId: add.from_id, toId: add.to_id, band: null, direction: add.direction, source: add.source })
+  }
   return ops.length > 0 ? { proposalId: p.proposal_id, ops } : null
 }

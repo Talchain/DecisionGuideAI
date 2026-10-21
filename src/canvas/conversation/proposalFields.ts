@@ -24,6 +24,14 @@ const factorValueFieldSchema = z.object({
   filled_missing: z.boolean(), editable: z.boolean(),
 })
 const fieldSchema = z.discriminatedUnion('kind', [linkStrengthFieldSchema, factorValueFieldSchema])
+// A core proposal's NEW factors and signed links (CEE `adds`, 21 Oct): shown on the canvas, never edited.
+const addSource = z.enum(['estimate', 'yours'])
+const addSchema = z.discriminatedUnion('kind', [
+  z.object({ field_id: z.string().regex(/^factor_add:.+$/), kind: z.literal('factor_add'), node_id: z.string().min(1), label: z.string().min(1),
+    value: z.object({ value: z.number().finite(), unit: z.string().min(1) }).nullable(), source: addSource }),
+  z.object({ field_id: z.string().regex(/^link_add:.+$/), kind: z.literal('link_add'), link_id: z.string().min(1), from_id: z.string().min(1),
+    to_id: z.string().min(1), from_label: z.string().min(1), to_label: z.string().min(1), direction: z.enum(['positive', 'negative']), source: addSource }),
+])
 const proposalSchema = z.object({
   proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
   // CEE (EDIT-PANEL, 8 Oct): the turn whose reply first offered this proposal; null = CEE could not match it (= absent).
@@ -42,6 +50,11 @@ const proposalSchema = z.object({
   }).transform(fields => fields.filter(field => field !== null && typeof field === 'object' && 'kind' in field
     && (field.kind === 'link_strength' || field.kind === 'factor_value'))).pipe(z.array(fieldSchema)),
   missing: z.array(z.object({ node_id: z.string().min(1), label: z.string().min(1), kind: z.enum(['risk', 'factor']), what: z.literal('level_today') })),
+  // Each entry on its own: an unknown kind, a malformed entry or a malformed container is dropped, never the card (Codex R1).
+  adds: z.unknown().optional().transform(adds => (Array.isArray(adds) ? adds : []).flatMap(a => {
+    const r = addSchema.safeParse(a)
+    return r.success ? [r.data] : []
+  })),
 }).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
   && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
   && (p.review_action === undefined || p.review_action.id === `${REVIEW_PROPOSAL_PREFIX}${p.proposal_id}`))

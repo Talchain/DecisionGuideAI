@@ -49,14 +49,24 @@ export interface GhostNodeInput {
 }
 
 interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
-export interface GhostCard extends Rect { readonly id: string; readonly label: string; readonly kind: string | null }
+export interface GhostCard extends Rect {
+  readonly id: string
+  readonly label: string
+  readonly kind: string | null
+  /** Core only: the new factor's point level, and whose item it is. */
+  readonly value?: { readonly value: number; readonly unit: string } | null
+  readonly source?: 'estimate' | 'yours'
+}
 export interface GhostLine { readonly key: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
 export interface GhostBand {
   readonly key: string
   /** The mark's centre. */
   readonly x: number
   readonly y: number
-  readonly band: PreviewBand
+  /** Null for a new link with no size (core): its mark says which way it moves instead. */
+  readonly band: PreviewBand | null
+  /** Core only: which way a new link moves its target. */
+  readonly direction?: 'positive' | 'negative'
   /** Core only: whose strength it is (the held card's words). */
   readonly source?: 'estimate' | 'yours'
   /** The Yes only RECORDS the strength the link already has: never drawn as a change. */
@@ -211,7 +221,8 @@ export function proposalGhostGeometry(
       slot = { x: right + GHOST_GAP_X, y: top }
       while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
     }
-    const card = { id: op.id, label: op.label, kind: op.kind, x: slot.x, y: slot.y, w: GHOST_CARD_WIDTH, h }
+    const card = { id: op.id, label: op.label, kind: op.kind, x: slot.x, y: slot.y, w: GHOST_CARD_WIDTH, h,
+      ...(op.value !== undefined ? { value: op.value } : {}), ...(op.source !== undefined ? { source: op.source } : {}) }
     cards.push(card)
     taken.push(card)
   }
@@ -254,9 +265,11 @@ export function proposalGhostGeometry(
   const bands: GhostBand[] = []
   for (const op of preview.ops) {
     if (op.op !== 'set_link_strength' && op.op !== 'update_edge' && op.op !== 'add_edge') continue
-    if (op.op === 'add_edge' && op.band === null) continue
-    const a = real.get(op.fromId)
-    const b = real.get(op.toId)
+    if (op.op === 'add_edge' && op.band === null && op.direction === undefined) continue
+    // A core new link may end on a ghost card (its mark sits on the ghost line); the legacy wire's ends stay on the canvas.
+    const endOf = (id: string) => real.get(id) ?? (op.op === 'add_edge' && op.direction !== undefined ? cards.find((c) => c.id === id) : undefined)
+    const a = endOf(op.fromId)
+    const b = endOf(op.toId)
     if (!a || !b) continue
     const key = `${op.fromId}->${op.toId}`
     const ca = centre(a)
@@ -268,7 +281,8 @@ export function proposalGhostGeometry(
       // A new link has no drawn edge: its mark sits on the ghost line.
       const l = lines.find((x) => x.key === key)
       const along = l ? [{ x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2 }] : []
-      bands.push({ key, band: op.band!, keeps, reverses, ...placeMark(key, along, mid) })
+      bands.push({ key, band: op.band, keeps, reverses, ...placeMark(key, along, mid),
+        ...(op.direction !== undefined ? { direction: op.direction } : {}), ...(op.source !== undefined ? { source: op.source } : {}) })
       continue
     }
     const edgePath = bandEdgePaths?.get(key)
