@@ -20,6 +20,7 @@
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { CONSENT_CHIP_PREFIX } from './messageComposition'
+import { readProposalFields, type Band, type Proposal } from './proposalFields'
 import type { ConversationMessage } from './types'
 
 /** The producer's bands (CEE `InfluenceBand`), shown in its words: the consent card says "as moderate" too. */
@@ -31,7 +32,15 @@ const OPTION_STATUSES: ReadonlySet<string> = new Set<PreviewOptionStatus>(['feas
 export type ProposalPreviewOp =
   | { readonly op: 'add_node'; readonly id: string; readonly label: string; readonly kind: string | null }
   | { readonly op: 'add_edge'; readonly fromId: string; readonly toId: string; readonly band: PreviewBand | null }
-  | { readonly op: 'set_link_strength'; readonly fromId: string; readonly toId: string; readonly band: PreviewBand; readonly keeps: boolean }
+  | {
+      readonly op: 'set_link_strength'
+      readonly fromId: string
+      readonly toId: string
+      readonly band: PreviewBand
+      readonly keeps: boolean
+      /** Core only (`_proposal_fields`): whose strength it is, as the held card says it. Absent on the legacy wire. */
+      readonly source?: 'estimate' | 'yours'
+    }
   | {
       readonly op: 'update_edge'
       readonly fromId: string
@@ -41,6 +50,14 @@ export type ProposalPreviewOp =
       readonly reverses: boolean
     }
   | { readonly op: 'set_option_status'; readonly optionId: string; readonly status: PreviewOptionStatus }
+  /** Core lane only, from `_proposal_fields` (never the legacy wire): a new value on a factor already on the canvas. */
+  | {
+      readonly op: 'set_factor_value'
+      readonly nodeId: string
+      readonly value: number
+      readonly unit: string
+      readonly source: 'estimate' | 'yours' | 'from_brief'
+    }
 
 export interface ProposalPreview {
   readonly proposalId: string
@@ -112,10 +129,34 @@ export function previewOfLatestReply(messages: readonly ConversationMessage[]): 
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
     if (m.role !== 'assistant' || typeof m.sessionDivider === 'string') continue
+    const offered = (id: string) => (m.actionChips ?? []).some((c) => c.id === consentChipIdFor(id))
     const preview = m.proposalPreview ?? null
-    if (preview === null) return null
-    const chip = consentChipIdFor(preview.proposalId)
-    return (m.actionChips ?? []).some((c) => c.id === chip) ? preview : null
+    if (preview !== null) return offered(preview.proposalId) ? preview : null
+    // ⭐ Core sends no `proposal_preview`: the held card's own fields (`_proposal_fields`) name the existing factor or link
+    // it changes (DL GO 21 Oct; an add-item or add-link proposal has no fields yet, so it keeps the dock card alone).
+    for (const p of readProposalFields(m.proposalFields)?.proposals ?? []) {
+      const derived = previewFromFields(p)
+      if (derived !== null && offered(derived.proposalId)) return derived
+    }
+    return null
   }
   return null
+}
+
+/** The CEE edit panel's bands, in the producer's preview words (`slight` is the canvas word for `weak`). */
+const FIELD_BAND: Readonly<Record<Band, PreviewBand>> = {
+  slight: 'weak', moderate: 'moderate', strong: 'strong', very_strong: 'very strong',
+}
+
+/** A held proposal's fields as display ops. A link nobody has sized (`placeholder`) is never drawn as a size. */
+export function previewFromFields(p: Proposal): ProposalPreview | null {
+  const ops = p.fields.flatMap<ProposalPreviewOp>((f) => {
+    if (f.kind === 'factor_value') {
+      // The held card's unit authority (HeldProposalPanel formats with `field.unit`), never `current.unit`.
+      return [{ op: 'set_factor_value', nodeId: f.node_id, value: f.current.value, unit: f.unit, source: f.current.source }]
+    }
+    if (f.current.source === 'placeholder') return []
+    return [{ op: 'set_link_strength', fromId: f.from_id, toId: f.to_id, band: FIELD_BAND[f.current.band], keeps: false, source: f.current.source }]
+  })
+  return ops.length > 0 ? { proposalId: p.proposal_id, ops } : null
 }

@@ -184,7 +184,7 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
       { op: 'add_edge', from_id: 'gone', to_id: 'enterprise_prospect_signing_likelihood' },
       { op: 'set_link_strength', from_id: 'gone', to_id: 'ai_reporting_module_availability', band: 'strong', keeps: false },
     ]), NODES)
-    expect(g).toEqual({ cards: [], lines: [], bands: [], statuses: [] })
+    expect(g).toEqual({ cards: [], lines: [], bands: [], statuses: [], values: [] })
   })
 
   it('a strength change between two nodes on the canvas marks the midpoint of their centres', () => {
@@ -213,18 +213,18 @@ describe('the producer\'s other ops: a new link\'s band, an option\'s status', (
     expect(proposalGhostGeometry(preview([{ ...op, option_id: 'gone' }]), [opt], sizes).statuses).toEqual([])
   })
 
-  it('words: a keep RECORDS (never "Proposed"); a change is "Proposed"; a reversal says so; option words are the card\'s', () => {
+  it('words: a keep RECORDS (never "Proposed"); a change is "Olumi proposes"; a reversal says so; option words are the card\'s', () => {
     expect(ghostBandText({ band: 'moderate', keeps: true, reverses: false })).toBe('Record as moderate')
-    expect(ghostBandText({ band: 'moderate', keeps: false, reverses: false })).toBe('Proposed: moderate')
-    expect(ghostBandText({ band: 'strong', keeps: true, reverses: true })).toBe('Proposed: strong, direction reversed')
+    expect(ghostBandText({ band: 'moderate', keeps: false, reverses: false })).toBe('Olumi proposes: moderate')
+    expect(ghostBandText({ band: 'strong', keeps: true, reverses: true })).toBe('Olumi proposes: strong, direction reversed')
     // ⛔ The canvas's word, never the enum's: CEE `weak` is the canvas's "slight" (served: "Proposed: weak" beside "as slight").
-    expect(ghostBandText({ band: 'weak', keeps: false, reverses: false })).toBe('Proposed: slight')
+    expect(ghostBandText({ band: 'weak', keeps: false, reverses: false })).toBe('Olumi proposes: slight')
     expect(ghostBandText({ band: 'weak', keeps: true, reverses: false })).toBe('Record as slight')
     // The map is CEE's CANVAS_BAND_WORD (edge-strength-bands.ts @ 41105c78), literal for literal.
     expect(CANVAS_BAND_WORD).toEqual({ weak: 'slight', moderate: 'moderate', strong: 'strong', 'very strong': 'very strong' })
-    expect(ghostStatusText('infeasible')).toBe('Proposed · Taken out: not feasible')
-    expect(ghostStatusText('removed')).toBe('Proposed · Taken out')
-    expect(ghostStatusText('feasible')).toBe('Proposed · Back in the comparison')
+    expect(ghostStatusText('infeasible')).toBe('Olumi proposes · Taken out: not feasible')
+    expect(ghostStatusText('removed')).toBe('Olumi proposes · Taken out')
+    expect(ghostStatusText('feasible')).toBe('Olumi proposes · Back in the comparison')
   })
 })
 
@@ -235,18 +235,18 @@ describe('ProposalGhostLayer: draws the store’s ghost, render-only', () => {
     expect(screen.queryByTestId(PROPOSAL_GHOST_TESTID)).toBeNull()
   })
 
-  it('a ghost → the card (shape, "Proposed", the label), its line and a band in the canvas band words; cleared with the store', () => {
+  it('a ghost → the card (shape, "Olumi proposes", the label), its line and a band in the canvas band words; cleared with the store', () => {
     rfNodes = NODES
     const p = preview([ADD, TIE, { op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: false }])
     render(<ProposalGhostLayer />)
     act(() => useProposalGhostStore.getState().showGhost(p))
     const card = screen.getByTestId('proposal-ghost-node-fac_onboarding_time')
-    expect(card.textContent).toContain('Proposed')
+    expect(card.textContent).toContain('Olumi proposes')
     expect(card.textContent).toContain('Customer onboarding time')
     expect(card.querySelector('svg')).not.toBeNull()
     expect(screen.getByTestId('proposal-ghost-line-fac_onboarding_time->enterprise_prospect_signing_likelihood')).toBeTruthy()
     expect(screen.getByTestId('proposal-ghost-band-sprint_capacity_for_ai_reporting->ai_reporting_module_availability').textContent)
-      .toBe('Proposed: moderate')
+      .toBe('Olumi proposes: moderate')
     act(() => useProposalGhostStore.getState().clearGhost('prop_1'))
     expect(screen.queryByTestId(PROPOSAL_GHOST_TESTID)).toBeNull()
   })

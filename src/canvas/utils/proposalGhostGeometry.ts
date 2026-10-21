@@ -17,7 +17,8 @@
  *     layered layout an edge's whole run can be a 48 px column gap (served CDP template: GDPR → GDPR risk at zoom 0.5).
  *     An `add_edge` with a band marks its ghost line the same way. The centres' midpoint only when nothing is drawn;
  *   - a STATUS mark per `set_option_status` on an option on the canvas: just above its card, else just below, else a
- *     callout. No mark ever covers a node, card or edge label while a clear place exists.
+ *     callout. No mark ever covers a node, card or edge label while a clear place exists;
+ *   - a VALUE mark per `set_factor_value` (core, from `_proposal_fields`) on a factor on the canvas: placed as a status.
  * An op naming anything that is neither on the canvas nor a ghost card is dropped (fail closed: never a guessed place).
  */
 import type { PreviewBand, PreviewOptionStatus, ProposalPreview } from '../conversation/proposalPreview'
@@ -56,6 +57,8 @@ export interface GhostBand {
   readonly x: number
   readonly y: number
   readonly band: PreviewBand
+  /** Core only: whose strength it is (the held card's words). */
+  readonly source?: 'estimate' | 'yours'
   /** The Yes only RECORDS the strength the link already has: never drawn as a change. */
   readonly keeps: boolean
   /** The Yes reverses the link's direction. */
@@ -74,11 +77,22 @@ export interface GhostStatus {
   readonly y: number
   readonly connector?: GhostConnector
 }
+export interface GhostValue {
+  readonly key: string
+  readonly nodeId: string
+  readonly value: number
+  readonly unit: string
+  readonly source: 'estimate' | 'yours' | 'from_brief'
+  readonly x: number
+  readonly y: number
+  readonly connector?: GhostConnector
+}
 export interface GhostGeometry {
   readonly cards: GhostCard[]
   readonly lines: GhostLine[]
   readonly bands: GhostBand[]
   readonly statuses: GhostStatus[]
+  readonly values: GhostValue[]
 }
 
 const rectOf = (n: GhostNodeInput): Rect => ({
@@ -129,7 +143,7 @@ const slotsBeside = (a: Rect, h: number) => [
 export interface GhostMeasures {
   /** Card height by proposed node id; a missing or zero height reads as GHOST_CARD_HEIGHT. */
   readonly heights?: ReadonlyMap<string, number>
-  /** Mark size by mark key (`from->to` for a link, `option:<id>` for an option). */
+  /** Mark size by mark key (`from->to` for a link, `option:<id>` for an option, `value:<id>` for a factor). */
   readonly markSizes?: ReadonlyMap<string, { readonly w: number; readonly h: number }>
   /** Points along the real edge's drawn path by band key, in preference order (the middle first). */
   readonly bandPaths?: ReadonlyMap<string, ReadonlyArray<{ readonly x: number; readonly y: number }>>
@@ -260,20 +274,28 @@ export function proposalGhostGeometry(
     const edgePath = bandEdgePaths?.get(key)
     bands.push({
       key, band: op.band, keeps, reverses, ...placeMark(key, bandPaths?.get(key) ?? [], mid), ...(edgePath ? { edgePath } : {}),
+      ...(op.op === 'set_link_strength' && op.source !== undefined ? { source: op.source } : {}),
     })
   }
 
   // An option put in or taken out of the comparison: a mark just above its card, else just below, else a callout.
-  const statuses: GhostStatus[] = []
-  for (const op of preview.ops) {
-    if (op.op !== 'set_option_status') continue
-    const o = real.get(op.optionId)
-    if (!o) continue
-    const key = `option:${op.optionId}`
+  // Just above the card, else just below, else a callout: an option's status, a factor's proposed value.
+  const besideCard = (key: string, o: Rect) => {
     const h = (markSizes?.get(key) ?? BAND_FALLBACK).h
     const above = { x: o.x + o.w / 2, y: o.y - CLEARANCE - h / 2 }
     const below = { x: o.x + o.w / 2, y: o.y + o.h + CLEARANCE + h / 2 }
-    statuses.push({ key, optionId: op.optionId, status: op.status, ...placeMark(key, [above, below], above) })
+    return placeMark(key, [above, below], above)
   }
-  return { cards, lines, bands, statuses }
+  const statuses: GhostStatus[] = []
+  const values: GhostValue[] = []
+  for (const op of preview.ops) {
+    if (op.op === 'set_option_status') {
+      const o = real.get(op.optionId)
+      if (o) statuses.push({ key: `option:${op.optionId}`, optionId: op.optionId, status: op.status, ...besideCard(`option:${op.optionId}`, o) })
+    } else if (op.op === 'set_factor_value') {
+      const f = real.get(op.nodeId)
+      if (f) values.push({ key: `value:${op.nodeId}`, nodeId: op.nodeId, value: op.value, unit: op.unit, source: op.source, ...besideCard(`value:${op.nodeId}`, f) })
+    }
+  }
+  return { cards, lines, bands, statuses, values }
 }
