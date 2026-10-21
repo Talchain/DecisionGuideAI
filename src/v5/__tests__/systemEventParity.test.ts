@@ -42,6 +42,7 @@ const UI_WIRE_EVENT_TYPES = [
   'prior_range_edit',
   'structural_delete',
   'structural_rename',
+  'option_status_edit',
   'structural_add',
   'edge_strength_edit',
   // schemas 0.54.0. ⚠ OMITTING IT HERE WAS ONE MISSING LINE THAT CAUSED ALL
@@ -180,6 +181,12 @@ const UI_COVERAGE: Record<
   // `base_graph_hash`: `label` is absent from CEE's analysis-affecting hash
   // projection, so two concurrent renames move no hash and the second would
   // silently clobber the first without it.
+  // 0.69.0: one option in or out of the comparison, from the option inspector (`OptionStatusControl`).
+  option_status_edit: {
+    kind: 'system_event',
+    eventKind: 'option_status_edit',
+    payload: { option_node_id: 'opt_push', expected_status: 'feasible', status: 'removed', base_graph_hash: 'f3d31f75957c5cb5' },
+  },
   structural_rename: {
     kind: 'system_event',
     eventKind: 'structural_rename',
@@ -490,16 +497,6 @@ describe('UI ↔ V5 system event parity', () => {
       //     nothing else — and worse, pairing it with `structural_add` would
       //     durably save a node while silently dropping its edge.
       'structural_add_edge',
-      // 0.69.0 (MG F1 T6, 2026-10-01): `option_status_edit` — take an option out of the
-      // comparison, or put it back. Deferred for a CEE-side, derived reason:
-      // its writer arrives in the CEE F1 T1+T6 PR, which pushes only AFTER this
-      // pin is served (UI-first: that PR's Run emits `excluded_infeasible` /
-      // `excluded_removed`, which a UI below 0.69.0 cannot parse). Until that
-      // writer is live, a UI emission would earn only a refusal. The first emitter
-      // is CEE's own Agent (`authorise_change` sends this event in-process); the
-      // UI control is the canvas option-status work, and it moves this entry
-      // into UI_COVERAGE.
-      'option_status_edit',
       // ⚠ `finding_dissent` (0.55.0) DOES NOT BELONG HERE AND MUST NOT BE ADDED.
       // It is UI-EMITTED — see its `UI_COVERAGE` entry above. It is called out
       // by name because parking it in this set is the cheapest way to clear the
@@ -520,7 +517,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 15 of 20 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 16 of 20 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -593,10 +590,12 @@ describe('UI ↔ V5 system event parity', () => {
     // 2026-10-01: the 0.68.0 → 0.69.0 re-vendor grows the union to 20 with
     // `option_status_edit` (MG F1 T6). It is deferred (see knownDeferred), so
     // the emitter count stays at 15.
+    //
+    // 2026-10-21: `option_status_edit` is EMITTED by the option inspector's in/out control (`OptionStatusControl`). 16.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(15)
+    expect(uiEmittedCount).toBe(16)
     expect(V5_EVENT_KINDS).toHaveLength(20)
   })
 })
