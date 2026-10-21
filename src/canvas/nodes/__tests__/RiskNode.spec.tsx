@@ -100,7 +100,9 @@ describe('RiskNode', () => {
     [{ p_low: 0.1, p_high: 0.3, basis: 'user' }, 6, 'May happen · about 10–30% within 6 months', 'you said'],
     [{ p_low: 0.2, p_high: 0.2, basis: 'user' }, 6, 'May happen · about 20% within 6 months', 'you said'],
     [{ p_low: 0.1, p_high: 0.3, basis: 'user' }, 1, 'May happen · about 10–30% within a month', 'you said'],
-    [{ p_low: 0.1, p_high: 0.3, basis: 'olumi' }, 6, 'May happen · about 10–30% within 6 months', 'Olumi estimate'],
+    [{ p_low: 0.1, p_high: 0.3, basis: 'olumi' }, 6, 'May happen · about 10–30% within 6 months', "Olumi's estimate"],
+    // DL ruling 21 Oct: a reference figure is never called Olumi's.
+    [{ p_low: 0.1, p_high: 0.3, basis: 'reference' }, 6, 'May happen · about 10–30% within 6 months', 'a reference figure'],
   ])('renders an event risk before the legacy exposure row', (occurrence, months, line, basis) => {
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     renderRisk({ event_risk: { version: 1, occurrence, horizon: { months } } })

@@ -90,7 +90,7 @@ export const REVIEW_TOOL_COPY = {
   confirmUnverified: 'Olumi may not have recorded this. Check the conversation before confirming again.',
   confirmNoCarrier: 'Not sent: Olumi is not connected here, so nothing was confirmed.',
   yourValue: 'Your value',
-  olumiEstimate: 'Olumi estimate',
+  olumiEstimate: "Olumi's estimate",
   unnamedFactor: 'A factor with no name',
   askFactorDraft: (name: string) =>
     `Help me check the estimate for ${name}. What would support it, and what would change it?`,

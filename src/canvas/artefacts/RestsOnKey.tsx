@@ -30,7 +30,7 @@ export const RESTS_ON_KEY_TESTID = 'rests-on-key'
 
 export const RESTS_ON_COPY = {
   restsOn: (n: number) => `This model rests on ${n} ${n === 1 ? 'figure' : 'figures'}.`,
-  unchecked: (n: number) => `${n} ${n === 1 ? 'is an Olumi estimate' : 'are Olumi’s estimates'} nobody has checked`,
+  unchecked: (n: number) => `${n} ${n === 1 ? "is Olumi's estimate" : "are Olumi's estimates"} nobody has checked`,
   missing: (n: number) => `${n} ${n === 1 ? 'has' : 'have'} no figure yet`,
   unknown: (n: number) => `${n} ${n === 1 ? 'has' : 'have'} no known origin`,
   allSettled: 'Each one is yours, or an estimate of Olumi’s you accepted.',

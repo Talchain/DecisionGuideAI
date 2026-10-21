@@ -99,7 +99,7 @@ afterEach(() => {
 describe('the icon rows, in the contract’s words', () => {
   it.each([
     ['template', 'From brief', 'lucide-file-text'],
-    ['cee', 'Olumi estimate', 'lucide-sparkles'],
+    ['cee', "Olumi's estimate", 'lucide-sparkles'],
     ['user', 'Set by you', 'lucide-user-check'],
   ] as const)('keys the %s link-source glyph from the shared register', (source, words, glyph) => {
     const key = openKey()

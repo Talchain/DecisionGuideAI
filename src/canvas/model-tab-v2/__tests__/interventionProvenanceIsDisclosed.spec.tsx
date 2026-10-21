@@ -376,7 +376,7 @@ describe('⭐ the option projection carries each intervention’s OWN provenance
 // ── 4. The surface — what the user actually reads ────────────────────────────
 
 describe('⭐ the detail region marks an invented target where the number is read', () => {
-  it('shows "Olumi estimate" on the invented row', () => {
+  it('shows "Olumi\'s estimate" on the invented row', () => {
     const detail = toRowDetail(projection(), OPTION_PHASED)!
     render(
       <ModelDetailRegion

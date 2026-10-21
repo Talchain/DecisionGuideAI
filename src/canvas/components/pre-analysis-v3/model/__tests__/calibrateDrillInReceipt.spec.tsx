@@ -448,7 +448,7 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
     expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
     expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
-    expect(screen.getByText('Olumi estimate')).toBeInTheDocument()
+    expect(screen.getByText("Olumi's estimate")).toBeInTheDocument()
   })
 })
 

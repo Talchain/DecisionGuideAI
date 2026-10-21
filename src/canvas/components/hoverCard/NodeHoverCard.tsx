@@ -43,6 +43,7 @@ import {
   viewportSize,
   type HoverCardPlacement,
 } from './hoverCardPlacement'
+import { useLivingAuthorship } from '../../nodes/shared/livingAuthorship'
 
 export const NOT_ON_RECORD = 'Not on record'
 const MAX_LINKED_NAMES = 4
@@ -176,7 +177,8 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
   const nodes = useCanvasStore(s => (s.nodes as GraphNode[] | undefined) ?? EMPTY)
   const edges = useCanvasStore(s => (s.edges as GraphEdge[] | undefined) ?? EMPTY)
   const displayNodes = useSwitchFactorNodes<GraphNode>(nodes)
-  const displayData = displayNodes.find(n => n.id === nodeId)?.data ?? data
+  // An item Olumi added on a core scenario says so, as its card does (`livingAuthorship.ts`).
+  const displayData = useLivingAuthorship(nodeId, displayNodes.find(n => n.id === nodeId)?.data ?? data)
   const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, displayData, displayNodes, edges), [nodeId, nodeType, displayData, displayNodes, edges])
   const cardRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<HoverCardPlacement | null>(null)

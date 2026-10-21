@@ -111,6 +111,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
+import { useLivingAuthorship } from './shared/livingAuthorship'
 import { RestsOnMarker } from '../artefacts/RestsOnMarker'
 import { OlumiMarkGroupProvider } from './shared/olumiMarkGroup'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
@@ -675,6 +676,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    */
   const isDetailedView = useCanvasStore(s => s.viewMode === 'expert')
   const provenanceDefault = useProvenanceDefaultKind()
+  // An item Olumi added on a core scenario says so (its living model's source; `livingAuthorship.ts`).
+  const provenanceData = useLivingAuthorship(id, data)
   // Row 23: a known-changed model keeps the last run's cue, labelled (`attentionCueSentence`).
   const attentionText = attentionCueSentence(attention, nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data))
   /**
@@ -2787,7 +2790,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-testid="node-provenance-mark-group"
           className="inline-flex items-center gap-1 shrink-0"
         >
-          <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
+          <NodeProvenanceMark nodeType={nodeType} data={provenanceData} hideKind={isDetailedView ? null : provenanceDefault} />
         </span></BottomCardMark>
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right

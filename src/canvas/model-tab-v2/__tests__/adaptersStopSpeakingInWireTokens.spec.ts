@@ -141,7 +141,7 @@ describe('the canonical editor names elements in the user’s words, never by wi
 // ── 2. Provenance is a label, not an enum ────────────────────────────────────
 
 describe('provenance reaches the user as a label, never as the wire token', () => {
-  it('the confirm queue’s basis reads "Olumi estimate", not "cee_inference"', () => {
+  it('the confirm queue’s basis reads "Olumi\'s estimate", not "cee_inference"', () => {
     const items = toRepairQueueItems(
       project([factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })]),
       'confirm-estimates',

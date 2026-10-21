@@ -132,6 +132,10 @@ import { OLUMI_SUGGESTION_TAG, OLUMI_RISK_NOT_IN_CHANCE_SUFFIX } from '../../com
  * `Likelihood and impact not set yet`, a state label like its sibling
  * `Outcome not quantified` on the outcome card, not a sentence.
  */
+
+const EVENT_BASIS_WORDS: Readonly<Record<'user' | 'olumi' | 'reference', string>> = {
+  user: 'you said', olumi: "Olumi's estimate", reference: 'a reference figure',
+}
 export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}`
 
 /**
@@ -193,7 +197,8 @@ export const RiskNode = memo((props: NodeProps) => {
     : null
   const eventHorizon = eventRisk ? (eventRisk.months === 1 ? 'a month' : `${eventRisk.months} months`) : null
   const eventLine = eventRisk ? `May happen · about ${eventPercent} within ${eventHorizon}` : null
-  const eventBasis = eventRisk?.basis === 'user' ? 'you said' : 'Olumi estimate'
+  // Whose chance it is, in the canvas's one wording (DL ruling 21 Oct): a reference figure is never called Olumi's.
+  const eventBasis = eventRisk ? EVENT_BASIS_WORDS[eventRisk.basis] : null
   const eventFull = eventLine ? `${eventLine} · ${eventBasis}` : null
 
   // The defining probability × impact pair (P1.7). Honest absence: each half only

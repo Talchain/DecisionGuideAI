@@ -538,7 +538,7 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     renderCard(OptionNode as never, 'opt-raise')
     // fac-conv and fac-seats are both Olumi's (`cee_hypothesis`): one merged sparkle names both, no per-row copies.
     const raiseBand = within(screen.getByTestId('option-bottom-marks-opt-raise'))
-    expect(raiseBand.getByTestId('node-olumi-mark').getAttribute('aria-label')).toBe('2 target values are Olumi estimates')
+    expect(raiseBand.getByTestId('node-olumi-mark').getAttribute('aria-label')).toBe('2 target values are Olumi\'s estimates')
     expect(raiseBand.queryByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeNull()
     // Truth stays on the card: the price row carries its own `brief` mark.
     expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')

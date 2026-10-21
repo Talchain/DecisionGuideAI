@@ -514,7 +514,7 @@ export const ATTRIBUTION_COPY = {
   olumiAuthored: 'Olumi',
   olumiNoticed: 'Olumi noticed',
   olumiPrefix: 'Olumi:',
-  olumiEstimate: 'Olumi estimate',
+  olumiEstimate: "Olumi's estimate",
   /**
    * User-set success target (lane 35 fix 2): the stored goal constraint
    * carries provenance 'explicit' — the user stated this number in their

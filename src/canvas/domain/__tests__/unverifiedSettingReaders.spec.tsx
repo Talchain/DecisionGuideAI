@@ -104,11 +104,11 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     expect(flagged.getAttribute('aria-label')).toContain(UNVERIFIED)
     expect(screen.queryByTestId(`option-change-row-estimate-${OPT}-${F_FLAGGED}`)).toBeNull()
 
-    // CONTRAST: the same literal without the stamp is still an Olumi estimate — counted in the card's ONE Olumi
+    // CONTRAST: the same literal without the stamp is still Olumi's estimate — counted in the card's ONE Olumi
     // sparkle beside the option's own authorship (Paul, 14 Oct 2026: one sparkle per card), while the flagged row is not.
     const olumi = screen.getByTestId('node-provenance-mark')
     expect(olumi).toHaveAttribute('data-card-mark', 'source-olumi')
-    expect(olumi.getAttribute('aria-label')).toBe('Olumi suggested this option · 1 target value is an Olumi estimate')
+    expect(olumi.getAttribute('aria-label')).toBe('Olumi suggested this option · 1 target value is Olumi\'s estimate')
 
     // CONTRAST: a target the user set stays theirs, flag or no flag.
     cleanup()
@@ -116,7 +116,7 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     expect(screen.getByTestId(`option-change-row-source-${OPT}-${F_USER}`)).toHaveAttribute('data-card-mark', 'source-you')
   })
 
-  it('⭐⭐ T-MODEL-TAB the Model tab detail marks the flagged target "Not confirmed from your brief", not "Olumi estimate"', () => {
+  it('⭐⭐ T-MODEL-TAB the Model tab detail marks the flagged target "Not confirmed from your brief", not "Olumi\'s estimate"', () => {
     const input: ModelProjectionInput = { nodes: NODES(), edges: [], goalThreshold: null }
     const detail = toRowDetail(input, OPT)!
     const row: ModelRow = { id: OPT, kind: 'option', group: 'options', label: OPT_LABEL, primaryValue: '3 changes', attention: [], editable: true }
@@ -124,9 +124,9 @@ describe('T-UNVERIFIED-READERS — the stamp reaches every reader of an interven
     const mark = (id: string) => screen.getByTestId(`model-detail-v2-intervention-${id}-provenance`)
 
     expect(within(mark(F_FLAGGED)).getByText(UNVERIFIED)).toBeInTheDocument()
-    expect(within(mark(F_FLAGGED)).queryByText('Olumi estimate')).toBeNull()
+    expect(within(mark(F_FLAGGED)).queryByText("Olumi's estimate")).toBeNull()
     // CONTRAST: the plain hypothesis is still the estimate; the user's target is still theirs.
-    expect(within(mark(F_PLAIN)).getByText('Olumi estimate')).toBeInTheDocument()
+    expect(within(mark(F_PLAIN)).getByText("Olumi's estimate")).toBeInTheDocument()
     expect(within(mark(F_USER)).getByText('User edited')).toBeInTheDocument()
     expect(within(mark(F_USER)).queryByText(UNVERIFIED)).toBeNull()
   })

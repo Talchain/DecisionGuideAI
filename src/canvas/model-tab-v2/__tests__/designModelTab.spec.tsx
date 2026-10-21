@@ -188,9 +188,9 @@ describe('MODEL-9 — a selected row is an outline, never a 1.03:1 fill', () => 
   })
 })
 
-describe('MODEL-11 — one name for the fact: "Olumi estimate", never "AI estimate"', () => {
-  it('VALUE_PROVENANCE_LABEL.ai reads "Olumi estimate"', () => {
-    expect(VALUE_PROVENANCE_LABEL.ai).toBe('Olumi estimate')
+describe('MODEL-11 — one name for the fact: "Olumi\'s estimate", never "AI estimate"', () => {
+  it('VALUE_PROVENANCE_LABEL.ai reads "Olumi\'s estimate"', () => {
+    expect(VALUE_PROVENANCE_LABEL.ai).toBe("Olumi's estimate")
   })
 
   it('the rename is keyed to the ai kind only — every other kind is untouched', () => {

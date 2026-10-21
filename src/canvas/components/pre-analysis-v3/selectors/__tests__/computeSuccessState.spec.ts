@@ -37,7 +37,7 @@ describe('computeSuccessState — value-scale guard on the success measure', () 
     )
     expect(s.isSet).toBe(true)
     expect(s.displayText).toBe('20%')
-    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
+    // AIQ 5904308095: "Olumi's estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
     expect(s.attribution).toBeNull()
     expect(s.scaleAmbiguous).toBe(false)
   })
@@ -69,7 +69,7 @@ describe('computeSuccessState — value-scale guard on the success measure', () 
 describe('computeSuccessState — explicit-provenance targets are user-set, not Olumi estimates (lane 35 fix 2)', () => {
   // CEE stores goal constraints with provenance 'explicit' when the USER
   // stated the target in their own brief (CEE schemas/assist.ts:
-  // explicit | inferred | proxy). Labelling that number "Olumi estimate"
+  // explicit | inferred | proxy). Labelling that number "Olumi's estimate"
   // misattributes the user's own target to Olumi.
   const CEE_DERIVED_GOAL = {
     goal_threshold: 0.8,

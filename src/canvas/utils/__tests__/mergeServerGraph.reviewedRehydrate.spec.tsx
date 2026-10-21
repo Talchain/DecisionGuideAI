@@ -162,7 +162,7 @@ describe('boot merge re-earns "checked by you" from the server provenance claim 
     expect(row.getAttribute('data-reviewed')).toBe('true')
     expect(row.textContent).toContain('checked by you')
     // The regression the walk witnessed: the row must NOT re-prompt the check.
-    expect(row.textContent).not.toContain('Olumi estimate')
+    expect(row.textContent).not.toContain("Olumi's estimate")
     expect(row.textContent).not.toContain('check first')
   })
 })
