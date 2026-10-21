@@ -5402,6 +5402,7 @@ export function useConversation(): UseConversationReturn {
         const quietAckResponse = mode === 'system' && systemEvent && target.kind === 'empty'
           ? target.response : null
         const quietSystemAck = quietAckResponse !== null &&
+          quietAckResponse.blocks.length === 0 && quietAckResponse.suggested_actions.length === 0 &&
           typeof quietAckResponse.graph_hash === 'string' && quietAckResponse.graph_hash.trim().length > 0 &&
           isRecord(quietAckResponse.draft_graph) &&
           Array.isArray(quietAckResponse.draft_graph.nodes) && Array.isArray(quietAckResponse.draft_graph.edges) &&
