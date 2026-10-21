@@ -75,6 +75,9 @@ interface FirstUseComposerProps {
  */
 const PANEL_WIDTH = 960
 const PANEL_MARGIN = 16
+/** How long the sheet stays up, "Model ready" ticked, after the model lands; the last part of it is the fade. */
+export const COMPLETION_HOLD_MS = 900
+const COMPLETION_FADE_MS = 300
 
 /**
  * Point-of-failure copy for the hero (dress-rehearsal trust item #3,
@@ -146,10 +149,37 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // silent. Since 7 Oct (Paul: "The layout looks terrible… make it
   // premium") the composer is hidden for that window and ONE drafting sheet
   // takes its place (`FirstUseDraftingSheet`): a model that draws itself
-  // from the node shapes, the elapsed-time status line, Stop, and the brief.
+  // from the node shapes, the status line and two milestones, Stop, and the brief.
   // It unmounts as soon as the first graph appears (nodeCount > 0 → hero
   // unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+  // ⭐ THE SECOND MILESTONE MUST BE SEEN (Paul, 21 Oct 2026: a checklist driven by BRIEF_READ and GRAPH_READY). The
+  // model landing (nodeCount 0 → N while generating) is GRAPH_READY on screen, and it unmounts this hero in the same
+  // commit, so its tick would never show. The sheet is held for `COMPLETION_HOLD_MS`, inert and fading, with "Model
+  // ready" ticked. Only a model that actually landed is marked ready: a Stop or a failure ends without a hold.
+  const [completion, setCompletion] = useState<'none' | 'shown' | 'fading'>('none')
+  const generatingForCompletionRef = useRef(false)
+  useEffect(() => {
+    const was = generatingForCompletionRef.current
+    generatingForCompletionRef.current = isGenerating
+    if (isGenerating) {
+      setCompletion('none')
+      return
+    }
+    if (was && nodeCount > 0) setCompletion('shown')
+  }, [isGenerating, nodeCount])
+  // Each step owns its own timer, so nodes still arriving during the hold cannot cancel it.
+  useEffect(() => {
+    if (completion === 'none') return
+    const id = window.setTimeout(
+      () => setCompletion(completion === 'shown' ? 'fading' : 'none'),
+      completion === 'shown' ? COMPLETION_HOLD_MS - COMPLETION_FADE_MS : COMPLETION_FADE_MS,
+    )
+    return () => window.clearTimeout(id)
+  }, [completion])
+  const completing = completion !== 'none'
+  /** The drafting sheet is up while the brief is drafted, and for the short hold after its model lands. */
+  const showSheet = isGenerating || completing
   // ⭐ A coaching action picked while the draft was built (`BriefReadingCard`) lands as a PRE-FILL of Olumi's next
   // message once the build ends, never sent. That moment is either when the draft draws (this hero unmounts) or when
   // the build stops without one.
@@ -162,9 +192,16 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // C6-2: the user's own goal and options, read from the brief while this scenario's draft is still `drafting`.
   // The store clears it on every phase change, and the hero unmounts once the model draws (nodeCount > 0).
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const briefReading = useDraftStore((s) =>
+  const liveBriefReading = useDraftStore((s) =>
     draftStreamPhaseFor(s, currentScenarioId) === 'drafting' ? s.draftStreamBriefReading : null,
   )
+  // The store clears the reading on the phase change GRAPH_READY brings, a moment before the model draws. The sheet
+  // keeps the last one this draft received, so the brief does not blink out under the completion hold; a new draft
+  // starts empty. Its arrival is the first milestone ("Read your brief").
+  const heldBriefReadingRef = useRef<typeof liveBriefReading>(null)
+  if (liveBriefReading) heldBriefReadingRef.current = liveBriefReading
+  else if (!showSheet) heldBriefReadingRef.current = null
+  const briefReading = liveBriefReading ?? heldBriefReadingRef.current
   // Stop on the drafting sheet: the SAME predicate and handler as the composer's own Stop (`AIInputBar`, ROADMAP
   // 2.134), which is hidden while the sheet is up.
   const draftInFlight = useDraftStore((s) => draftStreamInFlight(draftStreamPhaseFor(s, currentScenarioId)))
@@ -174,7 +211,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // the active surface, the failure must be visible HERE — not only in the
   // collapsed dock's transcript. Notice below the composer + the user's
   // text restored into it, so nothing reads as vanished.
-  const showSendFailure = lastSendFailure !== null && !isGenerating
+  const showSendFailure = lastSendFailure !== null && !showSheet
 
   // "STRUCTURE IT": four labelled fields as an alternative to the single box (the default). Every field edit is
   // mirrored into `draft` as the composed brief, so switching back to the box — or a surface swap that hands the
@@ -464,6 +501,16 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // pre-graph generation window, and any post-reset state. Once nodeCount
   // > 0 the hero unmounts and the floating panel takes over.
   const shouldRender = isOpen && source === 'system-first-use' && nodeCount === 0
+  // The completion hold renders the same surface, inert and hidden from assistive tech, after the hero's own
+  // lifecycle (focus, dock inset) has already handed over: every effect above keys on `shouldRender`, not on this.
+  const renderSurface = shouldRender || completing
+  const surfaceRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = surfaceRef.current
+    if (!el) return
+    if (completing && !shouldRender) el.setAttribute('inert', '')
+    else el.removeAttribute('inert')
+  }, [completing, shouldRender])
 
   // Register the floating-focus channel from THIS surface when the hero is
   // active. FloatingOlumiPanel yields to us in the same window, so its
@@ -619,17 +666,23 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
     // mounted since.
   }, [shouldRender, dockOpen])
 
-  if (!shouldRender) return null
+  if (!renderSurface) return null
   if (typeof document === 'undefined') return null
 
   return createPortal(
     <div
-      role="dialog"
-      aria-label="Write your brief"
+      ref={surfaceRef}
+      role={shouldRender ? 'dialog' : undefined}
+      aria-label={shouldRender ? 'Write your brief' : undefined}
+      aria-hidden={shouldRender ? undefined : true}
       data-testid="first-use-composer"
+      data-completing={completing ? completion : undefined}
       className="fixed flex flex-col items-center"
       style={{
         zIndex: 300,
+        pointerEvents: shouldRender ? undefined : 'none',
+        opacity: completion === 'fading' ? 0 : 1,
+        transition: `opacity ${COMPLETION_FADE_MS}ms ease-out`,
         // Responsive width: cap at PANEL_WIDTH on wide viewports, shrink to
         // viewport - 2*margin on narrow ones. The container itself is
         // invisible (no bg, no border, no shadow) — it only provides
@@ -675,7 +728,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
         style={{ height: 'auto' }}
         draggable={false}
       />
-      {briefMode === 'structured' && !isGenerating ? (
+      {briefMode === 'structured' && !showSheet ? (
         <div className="w-full max-w-2xl">
           <StructuredBriefFields
             fields={fields}
@@ -687,7 +740,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
       ) : (
         // ⭐ Hidden, not unmounted, while the draft is built (Paul 7 Oct: the drafting sheet below replaces a greyed-out
         // input as the thing the user reads). Kept mounted so its draft, ref and focus handling survive a failed send.
-        <div className="relative w-full max-w-2xl" hidden={isGenerating}>
+        <div className="relative w-full max-w-2xl" hidden={showSheet}>
           <AIInputBar
             ref={inputBarRef}
             variant="welcome"
@@ -710,7 +763,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
       )}
       {/* The single box is the default ("just tell us"); "Structure it" swaps in the four labelled fields and the
           text carries over both ways. Hidden while generating: the brief is already committed. */}
-      {!isGenerating ? (
+      {!showSheet ? (
         <div className="w-full max-w-2xl flex justify-between items-start gap-3" style={{ marginTop: -16 }}>
           {/* The upload's count line, errors and privacy line; its paperclip sits inside the box. */}
           {briefMode === 'single' && !isViewer ? briefUpload.feedback : <span />}
@@ -724,11 +777,12 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           </Button>
         </div>
       ) : null}
-      {isGenerating ? (
+      {showSheet ? (
         <FirstUseDraftingSheet
           reading={briefReading}
           userFields={sentFields}
           onStop={showStopControl ? cancelTurn : null}
+          ready={completing}
         />
       ) : null}
       {/* Trust item #3: send-failure notice at the point of failure. Plain
@@ -761,7 +815,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           Deliberately NOT a minimum, a counter, or a send block — sending
           still needs only `draft.trim().length > 0`. It is guidance, not a
           gate. Hidden while generating: the brief is already committed. */}
-      {!isGenerating && briefMode === 'single' && draft.length > 0 ? (
+      {!showSheet && briefMode === 'single' && draft.length > 0 ? (
         <p
           data-testid="first-use-brief-guidance"
           className="w-full max-w-2xl text-center text-sm text-text-light m-0"
@@ -776,7 +830,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           the manifest is empty, leaving the hero exactly as it was. Gated on
           the EXPLICIT mount opt-in — see the `showStarters` prop doc for the
           proxy this replaced and how it shipped the strip dark. */}
-      {!isGenerating && showStarters ? <StarterDecisions /> : null}
+      {!showSheet && showStarters ? <StarterDecisions /> : null}
     </div>,
     document.body,
   )
