@@ -16,6 +16,7 @@
  */
 
 import type { Node } from '@xyflow/react'
+import { coreSwitchOptionOf } from '../domain/coreSwitch'
 
 export type GateDecision =
   | 'idle'                  // no pending layout — do nothing
@@ -82,8 +83,10 @@ export function allUnlockedNodesMeasured(
   storeNodes: Node[],
   measuredById: MeasuredLookup,
 ): boolean {
+  // Core's option switches are never rendered, so never measured (coreSwitch.ts, Codex R1).
+  const switches = coreSwitchOptionOf(storeNodes)
   for (const node of storeNodes) {
-    if ((node.data as Record<string, unknown> | undefined)?.locked === true) continue
+    if ((node.data as Record<string, unknown> | undefined)?.locked === true || switches.has(node.id)) continue
     const internal = measuredById.get(node.id)
     const m = internal?.measured
     if (!m || !(m.width && m.width > 0) || !(m.height && m.height > 0)) {

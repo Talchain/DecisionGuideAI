@@ -5,15 +5,17 @@
 import { describe, expect, it } from 'vitest'
 import { coreSwitchOptionOf, withoutCoreSwitches } from '../coreSwitch'
 import { excludeNonModelNodes } from '../../utils/fitTargets'
+import { allUnlockedNodesMeasured } from '../../utils/measureLayoutGate'
 
+const n = (id: string, type: string, label: string) => ({ id, type, data: { label } })
 const NODES = [
-  { id: 'decision_on_time_goal', type: 'decision' },
-  { id: 'on_time_goal', type: 'goal' },
-  { id: 'new_courier_partner', type: 'option' },
-  { id: 'new_courier_partner__on', type: 'factor' },
-  { id: 'live_parcel_tracking', type: 'option' },
-  { id: 'live_parcel_tracking__on', type: 'factor' },
-  { id: 'delivery_speed', type: 'factor' },
+  n('decision_on_time_goal', 'decision', 'Decision'),
+  n('on_time_goal', 'goal', 'On time'),
+  n('new_courier_partner', 'option', 'Switching to a new courier partner'),
+  n('new_courier_partner__on', 'factor', 'Switching to a new courier partner in place'),
+  n('live_parcel_tracking', 'option', 'Adding live parcel tracking'),
+  n('live_parcel_tracking__on', 'factor', 'Adding live parcel tracking in place'),
+  n('delivery_speed', 'factor', 'Delivery speed'),
 ]
 const EDGES = [
   { id: 'e1', source: 'decision_on_time_goal', target: 'new_courier_partner' },
@@ -37,12 +39,28 @@ describe('core option switches: never drawn, never laid out, never framed; their
 
   it('⛔ a factor that only looks like one is the person\'s model: no option of that id, or not an option, or no `__on` suffix', () => {
     const nodes = [
-      { id: 'pricing__on', type: 'factor' },
-      { id: 'goal_x', type: 'goal' }, { id: 'goal_x__on', type: 'factor' },
-      { id: 'opt', type: 'option' }, { id: 'opt_on', type: 'factor' },
+      n('pricing__on', 'factor', 'Pricing in place'),
+      n('goal_x', 'goal', 'Goal'), n('goal_x__on', 'factor', 'Goal in place'),
+      n('opt', 'option', 'Opt'), n('opt_on', 'factor', 'Opt in place'),
+      // Codex R1: the right id, but not the mapper's switch: the person's own factor, or not a factor at all.
+      n('b', 'option', 'Bonus'), n('b__on', 'factor', 'Bonus uptake'),
+      n('c', 'option', 'Cut'), n('c__on', 'risk', 'Cut in place'),
     ]
     expect(coreSwitchOptionOf(nodes).size).toBe(0)
     expect(withoutCoreSwitches(nodes, [])).toEqual({ nodes, edges: [], hidden: [] })
+  })
+
+  it('⛔ Codex R1: a link the option already has and the switch\'s own link are BOTH kept, each with its own id', () => {
+    const edges = [{ id: 'own', source: 'new_courier_partner', target: 'delivery_speed' }, ...EDGES]
+    const drawn = withoutCoreSwitches(NODES, edges).edges
+    expect(drawn.filter((e) => e.target === 'delivery_speed').map((e) => e.id)).toEqual(['own', 'e3'])
+  })
+
+  it('⛔ Codex R1: a switch is never waited on for measurement (it is never rendered)', () => {
+    const measured = new Map(NODES.filter((x) => !x.id.endsWith('__on')).map((x) => [x.id, { measured: { width: 100, height: 50 } }]))
+    expect(allUnlockedNodesMeasured(NODES as never, measured as never)).toBe(true)
+    measured.delete('delivery_speed')
+    expect(allUnlockedNodesMeasured(NODES as never, measured as never)).toBe(false)
   })
 
   it('a switch is not framed or counted as part of the model', () => {
