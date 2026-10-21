@@ -30,6 +30,8 @@ describe('"Since your last run": the comparison at one glance', () => {
     expect(glance.textContent).toContain('Raise prices is the most likely to meet your goal in this model: earlier run about 41%, this run about 58%')
     expect(glance.querySelector('[data-mark="earlier"]')).not.toBeNull()
     expect(glance.querySelector('[data-mark="now"]')).not.toBeNull()
+    // A long name truncates at panel width; its full text stays one hover away (staging, 21 Oct: "Option A (a refer…").
+    expect(glance.querySelector('[title="Raise prices"]')).not.toBeNull()
     // Two rows: the heading row and the glance; the old "compared with" line is not a third.
     expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-compared-with`)).toBeNull()
     expect(screen.getByTestId(WHATS_CHANGED_RECEIPT_TESTID).textContent).not.toMatch(/Cut waste|best|winner|recommend/i)

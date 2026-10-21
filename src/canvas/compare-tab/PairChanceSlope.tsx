@@ -89,6 +89,15 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
         <ul className="list-none p-0 m-0 space-y-1">
           {rows.map(row => {
             const strong = row.optionId === strongId
+            if (row.note !== undefined && row.earlier === null && row.now === null) {
+              // CEE's own words for an option with no figure: a name and its line, no track (never a mark at 0%).
+              return (
+                <li key={row.optionId} data-option-id={row.optionId} data-chance-note="true" className="-mx-2 px-2 py-2 rounded-md">
+                  <span className={`${typography.panelBody} text-text-body block min-w-0`}>{name(row.label)}</span>
+                  <p className={`${typography.panelMeta} text-text-light m-0`}>{row.note}</p>
+                </li>
+              )
+            }
             return (
               <li key={row.optionId} data-option-id={row.optionId} data-goal-chance-leader={strong ? 'true' : undefined}
                 className="-mx-2 px-2 py-2 rounded-md transition-colors hover:bg-option-light">
