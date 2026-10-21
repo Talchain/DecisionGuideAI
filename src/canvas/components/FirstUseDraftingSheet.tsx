@@ -5,8 +5,8 @@
  * Before: a disabled text box holding the status line, a row of pulsing shapes inside it, and a separate brief card of
  * a different width and frame below. Two mismatched objects, and the one the user reads first was a greyed-out input.
  * Now: ONE sheet.
- * - The top shows a model that draws itself from Olumi's node shapes (`DraftingModelMark`), and once the brief is
- *   read, from the user's own goal and options; the status line and two milestones; and Stop.
+ * - The top shows a model that draws itself from Olumi's node shapes (`DraftingModelMark`), the status line and two
+ *   milestones, and Stop.
  * - Below it, the brief quoted in the user's words, and one question about it to answer in the wait
  *   (`BriefReadingCard`).
  *
@@ -90,7 +90,7 @@ export const FirstUseDraftingSheet = memo(function FirstUseDraftingSheet({ readi
       className="flex w-full max-w-2xl flex-col gap-5 overflow-hidden rounded-lg border border-panel-border bg-panel shadow-1"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 pt-5 sm:flex-nowrap sm:gap-x-6 sm:px-8 sm:pt-6">
-        <DraftingModelMark brief={reading} numbered={!userFields} ready={ready} className="h-[56px] w-[66px] shrink-0 sm:h-[84px] sm:w-[99px]" />
+        <DraftingModelMark className="h-[56px] w-[66px] shrink-0 sm:h-[84px] sm:w-[99px]" />
         <div className="flex min-w-[180px] flex-1 flex-col sm:min-w-0">
           <DraftingStatus briefRead={reading !== null} ready={ready} />
         </div>
