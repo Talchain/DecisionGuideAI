@@ -31,13 +31,13 @@ const graph = () => ({
 })
 
 describe('otherAimsOf', () => {
-  it('lists every aim that is not a node, by id, in the model\'s order (the analysed goal and a withdrawn aim excluded)', () => {
-    expect(otherAimsOf(graph()).map((a) => a.id)).toEqual(['goodwill', 'refund_volume', 'cost_cap'])
+  it('lists every aim that is not a node, by id, in the model\'s order (only the analysed goal excluded; a withdrawn aim is kept)', () => {
+    expect(otherAimsOf(graph()).map((a) => [a.id, a.status])).toEqual([['goodwill', 'current'], ['refund_volume', 'later'], ['cost_cap', 'current'], ['dropped_aim', 'withdrawn']])
   })
 
   it('keeps each aim\'s own words, source and the labels the model links into it', () => {
     const [goodwill, refunds, cap] = otherAimsOf(graph())
-    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'] })
+    expect(goodwill).toEqual({ id: 'goodwill', text: 'Keep customer goodwill', source: 'user', party: null, linkedFrom: ['Switch courier', 'Add live tracking'], status: 'current' })
     expect(refunds).toMatchObject({ id: 'refund_volume', source: 'olumi', linkedFrom: [] })
     expect(cap).toMatchObject({ id: 'cost_cap', source: 'party', party: 'Sam' })
   })
@@ -66,6 +66,12 @@ describe('OtherAimCard', () => {
     expect(screen.getByTestId('other-aim-goodwill-status').textContent).toBe('Not in this analysis yet')
     expect(screen.getByTestId('other-aim-goodwill-source').textContent).toBe('Yours')
     expect(screen.getByTestId('other-aim-goodwill-links').textContent).toBe('Linked from Switch courier, Add live tracking')
+  })
+
+  it('a withdrawn aim is shown and says so, never "not in this analysis yet"', () => {
+    const dropped = otherAimsOf(graph()).find((a) => a.id === 'dropped_aim')!
+    render(<OtherAimCard aim={dropped} />)
+    expect(screen.getByTestId('other-aim-dropped_aim-status').textContent).toBe('Withdrawn')
   })
 
   it('an Olumi aim says so, and an aim nothing links into shows no links line', () => {

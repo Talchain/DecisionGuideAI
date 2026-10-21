@@ -16,6 +16,8 @@ export interface OtherAim {
   readonly party: string | null
   /** The labels of the items the model links into this aim, in the model's order. */
   readonly linkedFrom: readonly string[]
+  /** The model's own status: shown, never filtered out (a withdrawn aim says so). */
+  readonly status: 'current' | 'later' | 'withdrawn'
 }
 
 type Rec = Record<string, unknown>
@@ -41,10 +43,11 @@ export function otherAimsOf(graph: unknown): OtherAim[] {
   const links = recs(lm.links)
   return recs(lm.aims).flatMap((aim): OtherAim[] => {
     const id = str(aim.id); const text = str(aim.text)
-    if (!id || !text || onCanvas.has(id) || aim.status === 'withdrawn') return []
+    if (!id || !text || onCanvas.has(id)) return []
     const source = typeof aim.source === 'string' && SOURCES.has(aim.source) ? aim.source as OtherAimSource : 'unverified'
     const linkedFrom = [...new Set(links.filter((l) => l.to === id).map((l) => labelOf.get(String(l.from))).filter((l): l is string => !!l))]
-    return [{ id, text, source, party: source === 'party' ? str(aim.party) : null, linkedFrom }]
+    const status = aim.status === 'later' || aim.status === 'withdrawn' ? aim.status : 'current'
+    return [{ id, text, source, party: source === 'party' ? str(aim.party) : null, linkedFrom, status }]
   })
 }
 
@@ -58,4 +61,9 @@ export function otherAimSourceWords(aim: Pick<OtherAim, 'source' | 'party'>): st
   }
 }
 
-export const OTHER_AIM_COPY = { notInAnalysis: 'Not in this analysis yet', linkedFrom: 'Linked from' } as const
+export const OTHER_AIM_COPY = { notInAnalysis: 'Not in this analysis yet', withdrawn: 'Withdrawn', linkedFrom: 'Linked from' } as const
+
+/** The card's status words: an aim the person withdrew says so instead of "not in this analysis yet". */
+export function otherAimStatusWords(aim: Pick<OtherAim, 'status'>): string {
+  return aim.status === 'withdrawn' ? OTHER_AIM_COPY.withdrawn : OTHER_AIM_COPY.notInAnalysis
+}
