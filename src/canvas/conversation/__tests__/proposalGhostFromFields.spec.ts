@@ -38,9 +38,27 @@ describe('core: the held card\'s fields become its ghost', () => {
   it('⭐ a link strength: on the existing link, in the canvas band words', () => {
     const preview = previewOfLatestReply([coreReply(linkTurn as Json)])
     expect(preview?.ops).toEqual([
-      { op: 'set_link_strength', fromId: 'fac_hours', toId: 'goal_x', band: 'moderate', keeps: false },
-      { op: 'set_link_strength', fromId: 'fac_cost', toId: 'goal_x', band: 'moderate', keeps: false },
+      { op: 'set_link_strength', fromId: 'fac_hours', toId: 'goal_x', band: 'moderate', keeps: false, source: 'estimate' },
+      { op: 'set_link_strength', fromId: 'fac_cost', toId: 'goal_x', band: 'moderate', keeps: false, source: 'estimate' },
     ])
+  })
+
+  it('⛔ Codex R1 (1): whose strength it is survives to the mark: the person\'s own is never said as Olumi\'s estimate', () => {
+    const turn = structuredClone(linkTurn) as Json
+    const field = ((fieldsOf(turn).proposals as Json[])[0].fields as Json[])[0]
+    field.current = { ...(field.current as Json), source: 'yours' }
+    const op = previewOfLatestReply([coreReply(turn)])!.ops[0] as Parameters<typeof ghostBandText>[0]
+    expect(ghostBandText(op)).toBe('Olumi proposes: moderate · from your message')
+    expect(ghostBandText({ ...op, source: 'estimate' })).toBe('Olumi proposes: moderate')
+  })
+
+  it('⛔ Codex R1 (2): the figure is said in the held card\'s unit (`unit`), never `current.unit`', () => {
+    const turn = structuredClone(factorTurn) as Json
+    const field = ((fieldsOf(turn).proposals as Json[])[0].fields as Json[])[0]
+    field.current = { ...(field.current as Json), unit: '' }
+    const op = previewOfLatestReply([coreReply(turn)])!.ops[0]
+    expect(op).toMatchObject({ op: 'set_factor_value', nodeId: 'fac_cost', unit: 'GBP' })
+    expect(ghostValueText(op as Parameters<typeof ghostValueText>[0])).toBe('Olumi proposes: £200')
   })
 
   it('⛔ a link nobody has sized is never drawn as a size (no ghost for a placeholder band)', () => {

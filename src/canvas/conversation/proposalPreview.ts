@@ -32,7 +32,15 @@ const OPTION_STATUSES: ReadonlySet<string> = new Set<PreviewOptionStatus>(['feas
 export type ProposalPreviewOp =
   | { readonly op: 'add_node'; readonly id: string; readonly label: string; readonly kind: string | null }
   | { readonly op: 'add_edge'; readonly fromId: string; readonly toId: string; readonly band: PreviewBand | null }
-  | { readonly op: 'set_link_strength'; readonly fromId: string; readonly toId: string; readonly band: PreviewBand; readonly keeps: boolean }
+  | {
+      readonly op: 'set_link_strength'
+      readonly fromId: string
+      readonly toId: string
+      readonly band: PreviewBand
+      readonly keeps: boolean
+      /** Core only (`_proposal_fields`): whose strength it is, as the held card says it. Absent on the legacy wire. */
+      readonly source?: 'estimate' | 'yours'
+    }
   | {
       readonly op: 'update_edge'
       readonly fromId: string
@@ -144,10 +152,11 @@ const FIELD_BAND: Readonly<Record<Band, PreviewBand>> = {
 export function previewFromFields(p: Proposal): ProposalPreview | null {
   const ops = p.fields.flatMap<ProposalPreviewOp>((f) => {
     if (f.kind === 'factor_value') {
-      return [{ op: 'set_factor_value', nodeId: f.node_id, value: f.current.value, unit: f.current.unit, source: f.current.source }]
+      // The held card's unit authority (HeldProposalPanel formats with `field.unit`), never `current.unit`.
+      return [{ op: 'set_factor_value', nodeId: f.node_id, value: f.current.value, unit: f.unit, source: f.current.source }]
     }
     if (f.current.source === 'placeholder') return []
-    return [{ op: 'set_link_strength', fromId: f.from_id, toId: f.to_id, band: FIELD_BAND[f.current.band], keeps: false }]
+    return [{ op: 'set_link_strength', fromId: f.from_id, toId: f.to_id, band: FIELD_BAND[f.current.band], keeps: false, source: f.current.source }]
   })
   return ops.length > 0 ? { proposalId: p.proposal_id, ops } : null
 }

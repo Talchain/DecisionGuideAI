@@ -57,6 +57,8 @@ export interface GhostBand {
   readonly x: number
   readonly y: number
   readonly band: PreviewBand
+  /** Core only: whose strength it is (the held card's words). */
+  readonly source?: 'estimate' | 'yours'
   /** The Yes only RECORDS the strength the link already has: never drawn as a change. */
   readonly keeps: boolean
   /** The Yes reverses the link's direction. */
@@ -272,6 +274,7 @@ export function proposalGhostGeometry(
     const edgePath = bandEdgePaths?.get(key)
     bands.push({
       key, band: op.band, keeps, reverses, ...placeMark(key, bandPaths?.get(key) ?? [], mid), ...(edgePath ? { edgePath } : {}),
+      ...(op.op === 'set_link_strength' && op.source !== undefined ? { source: op.source } : {}),
     })
   }
 

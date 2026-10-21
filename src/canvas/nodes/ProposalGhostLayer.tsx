@@ -42,12 +42,14 @@ export const CANVAS_BAND_WORD: Readonly<Record<PreviewBand, string>> = {
 
 /** A ghost is Olumi's, never saved model state: every mark and card says whose proposal it is (DL, 21 Oct 2026). */
 export const OLUMI_PROPOSES = 'Olumi proposes'
+// Whose figure it is, in the held card's words (HeldProposalPanel `sourceWords`); Olumi's own is said once, by the prefix.
+const VALUE_SOURCE_WORDS = { estimate: '', yours: ' · from your message', from_brief: ' · from your brief' } as const
 
 /** A link mark's words: a change says "Proposed", a keep says what the Yes records; the band in the canvas's word. */
-export function ghostBandText(b: { band: PreviewBand; keeps: boolean; reverses: boolean }): string {
+export function ghostBandText(b: { band: PreviewBand; keeps: boolean; reverses: boolean; source?: 'estimate' | 'yours' }): string {
   const word = CANVAS_BAND_WORD[b.band]
   if (b.keeps && !b.reverses) return `Record as ${word}`
-  return `${OLUMI_PROPOSES}: ${word}${b.reverses ? ', direction reversed' : ''}`
+  return `${OLUMI_PROPOSES}: ${word}${b.reverses ? ', direction reversed' : ''}${b.source === undefined ? '' : VALUE_SOURCE_WORDS[b.source]}`
 }
 
 /** An option mark's words: the card's own words, verbatim, for taken out (they carry a colon, hence the dot). */
@@ -55,8 +57,6 @@ export function ghostStatusText(status: PreviewOptionStatus): string {
   return `${OLUMI_PROPOSES} · ${status === 'feasible' ? 'Back in the comparison' : OPTION_TAKEN_OUT_COPY[status]}`
 }
 
-// Whose figure it is, in the held card's words (HeldProposalPanel `sourceWords`); Olumi's own is said once, by the prefix.
-const VALUE_SOURCE_WORDS = { estimate: '', yours: ' · from your message', from_brief: ' · from your brief' } as const
 
 /** A factor's proposed value: the figure as the held card says it, and whose it is. */
 export function ghostValueText(v: { value: number; unit: string; source: keyof typeof VALUE_SOURCE_WORDS }): string {
