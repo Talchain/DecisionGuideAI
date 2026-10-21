@@ -1028,6 +1028,32 @@ export function turnCanonicalRunOf(response: unknown): TurnCanonicalRun | null {
     ? { run_id: run.run_id, graph_hash_at_run: run.graph_hash_at_run } : null
 }
 
+/**
+ * ⭐ CORE STATES ITS FRESHNESS IN `analysis_state`, NOT `analysis_ready` (DL lease, 21 Oct 2026). Core omits `analysis_ready`
+ * on purpose (CEE #3495: readiness stays in the AI's context, with no host panel), so a Run turn carried no freshness verdict
+ * and the live tab said "Cannot confirm whether this analysis is current" over the Run it had just received, until a reopen.
+ * The producer's verdict is there, in `analysis_state.run_state`:
+ *  · `complete_current` AND this turn's analysis_result was computed against this response's `graph_hash` → 'fresh';
+ *  · `complete_stale` → 'stale';
+ *  · anything else (no state, another kind, no result, a hash mismatch) → undefined: today's behaviour. Fresh is never
+ *    inferred from a missing field or from a hash that does not match.
+ * Only when `analysis_ready` is absent; its own verdict always governs when present.
+ */
+export function runStateFreshnessVerdict(response: unknown): Record<string, string> | undefined {
+  const r = response as { analysis_ready?: unknown; analysis_state?: { run_state?: { kind?: unknown; computed_at?: unknown } }; graph_hash?: unknown; blocks?: unknown }
+  if (r === null || typeof r !== 'object' || r.analysis_ready !== undefined) return undefined
+  const runState = r.analysis_state?.run_state
+  const computedAt: Record<string, string> = typeof runState?.computed_at === 'string' && runState.computed_at !== '' ? { computed_at: runState.computed_at } : {}
+  if (runState?.kind === 'complete_stale') {
+    return { freshness: 'stale', freshness_reason: 'run_state_complete_stale', ...computedAt }
+  }
+  if (runState?.kind !== 'complete_current' || typeof r.graph_hash !== 'string' || r.graph_hash === '') return undefined
+  const result = (Array.isArray(r.blocks) ? r.blocks : []).find((b) => (b as { type?: unknown } | null)?.type === 'analysis_result') as
+    { computed_against_hash?: unknown } | undefined
+  if (result?.computed_against_hash !== r.graph_hash) return undefined
+  return { freshness: 'fresh', freshness_reason: 'run_state_complete_current', graph_hash_at_run: r.graph_hash, current_graph_hash: r.graph_hash, ...computedAt }
+}
+
 export function applyV5State(
   response: OlumiResponse,
   store: V5ApplicatorStore,
@@ -1990,9 +2016,12 @@ export function applyV5State(
   // Stale-turn guard lives at the top of applyV5State (before step 1) so
   // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
+  // The freshness verdict this turn carries: `analysis_ready`'s own, or (core, which omits `analysis_ready`) the one CEE states
+  // in `analysis_state.run_state`. Feeds the freshness slice only, never the readiness arm below.
+  const freshnessVerdict = rawAnalysisReady !== undefined ? rawAnalysisReady : runStateFreshnessVerdict(response)
   // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
-  store.setAnalysisFreshness?.(rawAnalysisReady)
+  store.setAnalysisFreshness?.(freshnessVerdict)
 
   // ── schemas 0.48.0 — the base for the next durable delete ───────────────
   //
@@ -2480,8 +2509,8 @@ export function applyV5State(
         // re-show false-fresh — so without a freshness verdict we keep the overlay
         // dirty (the retained 'fresh' stays displayed as cannot-confirm).
         const ar =
-          rawAnalysisReady && typeof rawAnalysisReady === 'object'
-            ? (rawAnalysisReady as { freshness?: unknown })
+          freshnessVerdict && typeof freshnessVerdict === 'object'
+            ? (freshnessVerdict as { freshness?: unknown })
             : null
         const hasExplicitFreshness =
           !!ar &&

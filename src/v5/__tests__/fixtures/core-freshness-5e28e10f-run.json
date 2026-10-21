@@ -1,0 +1,442 @@
+{
+ "response_version": 2,
+ "assistant_text": "",
+ "blocks": [
+  {
+   "type": "analysis_result",
+   "summary": "",
+   "leading_option_id": "focal_reducer",
+   "win_probabilities": {
+    "Focal reducer": 1,
+    "Wider eyepiece": 0
+   },
+   "enrichment": {
+    "option_comparison": [
+     {
+      "id": "focal_reducer",
+      "label": "Focal reducer",
+      "status": "computed",
+      "outcome": {
+       "p10": 102.2,
+       "p50": 102.2,
+       "p90": 102.2,
+       "std": 1.3877787807814457e-14,
+       "mean": 102.20000000000002,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.8176,
+       "cvar_10": 0.8176000000000001,
+       "expected_regret": 0
+      },
+      "option_id": "focal_reducer",
+      "option_label": "Focal reducer",
+      "win_probability": 1
+     },
+     {
+      "id": "wider_eyepiece",
+      "label": "Wider eyepiece",
+      "status": "computed",
+      "outcome": {
+       "p10": 101.89999999999999,
+       "p50": 101.89999999999999,
+       "p90": 101.9,
+       "std": 2.197165446342411e-14,
+       "mean": 101.90000000000002,
+       "n_samples": 10000,
+       "validity_ratio": 1,
+       "n_valid_samples": 10000,
+       "percentiles_source": "samples"
+      },
+      "downside": {
+       "p05": 0.8151999999999999,
+       "cvar_10": 0.8152,
+       "expected_regret": 0.0024000000000000132
+      },
+      "option_id": "wider_eyepiece",
+      "option_label": "Wider eyepiece",
+      "win_probability": 0
+     }
+    ],
+    "factor_sensitivity": [
+     {
+      "source": "graph",
+      "direction": "positive",
+      "factor_id": "usable_field_goal_today",
+      "confidence": 0.5,
+      "elasticity": 1,
+      "evpi_method": "heuristic",
+      "driver_label": "biggest",
+      "factor_label": "Usable telescope field width of at least 100 arcminutes for next week's astronomy club observation today",
+      "value_source": "user_edited",
+      "evidence_hint": false,
+      "influence_rank": 2,
+      "importance_rank": 1,
+      "influence_basis": "isl_structural",
+      "influence_score": 1,
+      "importance_basis": "isl_structural",
+      "confidence_source": "plot_unified_from_graph",
+      "sensitivity_score": 1,
+      "flip_risk_category": "negligible",
+      "value_of_information": 0,
+      "confidence_components": {
+       "sampling_stability": null,
+       "structural_certainty": 0.5
+      },
+      "confidence_provenance": {
+       "input_quality": "degenerate_fallback",
+       "is_provisional": true,
+       "formula_version": "plot_unified_v2",
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "computation_source": "plot_unified_from_graph"
+      },
+      "value_extraction_type": "explicit",
+      "evpi_percentage_points": 0,
+      "range_derivation_source": "explicit_cap"
+     },
+     {
+      "source": "graph",
+      "direction": "positive",
+      "factor_id": "usable_field_goal__change",
+      "confidence": 0.5,
+      "elasticity": 0,
+      "zero_reason": "intervention_override",
+      "driver_label": "strong",
+      "factor_label": "Change in usable telescope field width",
+      "value_source": "cee_inference",
+      "influence_rank": 1,
+      "importance_rank": 2,
+      "influence_basis": "isl_structural",
+      "influence_score": 1,
+      "importance_basis": "isl_structural",
+      "confidence_source": "plot_unified_from_graph",
+      "sensitivity_score": 0,
+      "flip_risk_category": "negligible",
+      "value_of_information": 0,
+      "confidence_components": {
+       "sampling_stability": null,
+       "structural_certainty": 0.5
+      },
+      "confidence_provenance": {
+       "input_quality": "degenerate_fallback",
+       "is_provisional": true,
+       "formula_version": "plot_unified_v2",
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "computation_source": "plot_unified_from_graph"
+      },
+      "range_derivation_source": "explicit_cap"
+     }
+    ],
+    "robustness": {
+     "level": "high",
+     "near_tie": {
+      "gap": 1,
+      "is_tie": false,
+      "threshold": 0.1,
+      "top_option_id": "focal_reducer",
+      "tied_option_ids": [
+       "focal_reducer"
+      ],
+      "second_option_id": "wider_eyepiece"
+     },
+     "is_robust": true,
+     "confidence": 1,
+     "robust_edges": [],
+     "fragile_edges": [],
+     "display_verdict": "robust",
+     "confidence_basis": "recommendation_stability_uncalibrated",
+     "recommended_option_id": "focal_reducer",
+     "display_verdict_reason": "this run held up under the changes we tested",
+     "recommended_option_label": "Focal reducer",
+     "recommended_option_compliance": "not_applicable",
+     "recommended_option_compliance_reason": "no limits were set for this decision"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [],
+    "inference_warnings": [
+     {
+      "code": "EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE",
+      "message": "Edge-level sensitivity was requested but this ISL response did not carry it (emitted by ISL builds 9a22a1a+ at robustness.edge_sensitivity) \u2014 edge_sensitivity is empty because the deployed ISL wire omitted the field, not by computation failure. Factor-level sensitivity is unaffected.",
+      "severity": "info"
+     },
+     {
+      "code": "EDGE_E_VALUES_UNAVAILABLE_V2_WIRE",
+      "message": "Edge E-values were requested but this ISL response carries no robustness.edge_e_values location (emitted by ISL builds f3f5d92+) \u2014 edge_e_values is empty because the deployed ISL wire omitted the field, not by computation failure.",
+      "severity": "info"
+     },
+     {
+      "code": "GOAL_CHANCE_LICENSED",
+      "form": "each",
+      "target": {
+       "unit": "arcminutes",
+       "value": 100,
+       "comparator": "at_least"
+      },
+      "message": "",
+      "severity": "info",
+      "goal_label": "Usable telescope field width of at least 100 arcminutes for next week's astronomy club observation",
+      "option_ids": [
+       "focal_reducer",
+       "wider_eyepiece"
+      ],
+      "goal_node_id": "usable_field_goal",
+      "pct_by_option": {},
+      "withheld_option_ids": [
+       "focal_reducer",
+       "wider_eyepiece"
+      ],
+      "option_labels_by_option": {
+       "focal_reducer": "Focal reducer",
+       "wider_eyepiece": "Wider eyepiece"
+      },
+      "withheld_reason_by_option": {
+       "focal_reducer": {
+        "line": "Chance not shown: this result reports a very narrow central range or a very small spread. That alone does not establish certainty. Review whether the model captures the uncertainties that matter for this option.",
+        "side": "meets",
+        "reason": "zero_spread"
+       },
+       "wider_eyepiece": {
+        "line": "Chance not shown: this result reports a very narrow central range or a very small spread. That alone does not establish certainty. Review whether the model captures the uncertainties that matter for this option.",
+        "side": "meets",
+        "reason": "zero_spread"
+       }
+      }
+     }
+    ],
+    "confidence_tier": "needs_work",
+    "flip_thresholds": [
+     {
+      "unit": "arcminutes",
+      "factor_id": "usable_field_goal_today",
+      "flip_value": null,
+      "flip_reason": "structurally_invariant",
+      "probes_used": 0,
+      "value_scale": "display",
+      "factor_label": "Usable telescope field width of at least 100 arcminutes for next week's astronomy club observation today",
+      "current_value": 82,
+      "current_display": "82 arcminutes",
+      "iterations_used": 0,
+      "no_flip_in_range": true,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null
+     }
+    ],
+    "decision_brief": {
+     "options": [
+      {
+       "rank": 1,
+       "label": "Focal reducer",
+       "option_id": "focal_reducer",
+       "win_probability": 1
+      },
+      {
+       "rank": 2,
+       "label": "Wider eyepiece",
+       "option_id": "wider_eyepiece",
+       "win_probability": 0
+      }
+     ],
+     "version": "1",
+     "brief_id": "fdf0f90c-ff00-4f5f-a0c6-0c4317d32b92",
+     "headline": "Focal reducer currently leads by 100 points on the current model. The decision framing should be reconsidered before proceeding. Reconsider the decision framing and alternatives.",
+     "warnings": [
+      {
+       "code": "NARROW_FRAMING",
+       "message": "Only 2 options without a baseline. Are you missing alternatives?",
+       "severity": "error"
+      },
+      {
+       "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+       "message": "Option 'Focal reducer' has zero variance \u2014 intervention may have no causal path to goal",
+       "severity": "warning"
+      },
+      {
+       "code": "DEGENERATE_OUTCOMES",
+       "message": "All options produce nearly identical outcomes",
+       "severity": "warning"
+      },
+      {
+       "code": "M2_UNAVAILABLE",
+       "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+       "severity": "warning"
+      },
+      {
+       "code": "MISSING_RISK_PATHWAY",
+       "message": "No risk factors materially affect your goal. What could go wrong?",
+       "severity": "warning"
+      }
+     ],
+     "created_at": "2026-10-21T00:47:58.162Z",
+     "robustness": "robust",
+     "top_drivers": [
+      {
+       "direction": "positive",
+       "sensitivity": 1,
+       "factor_label": "Usable telescope field width of at least 100 arcminutes for next week's astronomy club observation today"
+      }
+     ],
+     "warning_codes": [],
+     "headline_banded": {
+      "band": "clearly_ahead",
+      "text": "Focal reducer is clearly ahead.",
+      "doctrine": "provisional_doctrine_v0",
+      "leader_label": "Focal reducer",
+      "runner_up_label": "Wider eyepiece",
+      "leader_option_id": "focal_reducer",
+      "robustness_gated": false,
+      "runner_up_option_id": "wider_eyepiece",
+      "win_probability_gap": 1
+     },
+     "key_assumptions": [
+      "Usable telescope field width of at least 100 arcminutes for next week's astronomy club observation today"
+     ],
+     "analysis_summary": {
+      "goal_fit": 1,
+      "leading_option": "Focal reducer",
+      "robustness_band": "robust",
+      "win_probability": 1
+     },
+     "robustness_caveat": {
+      "text": "This run held up under the changes we tested. That is not a guarantee. Defaulted or uncertain inputs could still change it.",
+      "basis": "is_robust",
+      "doctrine": "provisional_doctrine_v0",
+      "flip_evidence": {
+       "text": "Varying any one of the factors we could test did not change the most-supported option.",
+       "status": "all_no_effect"
+      }
+     },
+     "what_would_change": [],
+     "defaulted_assumptions": []
+    },
+    "factor_evppi": [
+     {
+      "evppi": 0,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "status": "below_resolution",
+      "evppi_raw": 0,
+      "factor_id": "usable_field_goal_today",
+      "n_samples": 10000,
+      "clamped_low": true,
+      "noise_floor": 0,
+      "clamped_high": false,
+      "status_reason": "at_or_below_noise_floor",
+      "regression_degree": 4,
+      "correlation_active": false,
+      "baseline_max_expected_utility": 0.8176,
+      "conditional_max_expected_utility": 0.8176
+     }
+    ],
+    "decision_evpi": 0,
+    "p_win_sensitivity": [
+     {
+      "method": "p_win_delta_at_mean_v1",
+      "status": "below_resolution",
+      "clamped": false,
+      "factor_id": "usable_field_goal__change",
+      "n_samples": 2000,
+      "metric_type": "p_win_recommended",
+      "noise_floor": 0.03099,
+      "p_win_delta": 0,
+      "current_metric": 1,
+      "perfect_metric": 1,
+      "labelling_doctrine": "provisional_doctrine_v0",
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "p_win_delta_percentage_points": 0
+     },
+     {
+      "method": "p_win_delta_at_mean_v1",
+      "status": "below_resolution",
+      "clamped": false,
+      "factor_id": "usable_field_goal_today",
+      "n_samples": 2000,
+      "metric_type": "p_win_recommended",
+      "noise_floor": 0.03099,
+      "p_win_delta": 0,
+      "current_metric": 1,
+      "perfect_metric": 1,
+      "labelling_doctrine": "provisional_doctrine_v0",
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "p_win_delta_percentage_points": 0
+     }
+    ],
+    "critiques": [
+     {
+      "id": "critique_4032892324f5",
+      "code": "DEGENERATE_OUTCOMES",
+      "severity": "warning",
+      "source": "isl",
+      "blocks_analysis": false,
+      "suggestion": "Check that options specify different intervention values and that intervention targets are connected to the goal with non-zero effect",
+      "user_message": "In this model, every option produced almost the same outcome, so the result does not separate them. Check that your options really do set different values, and that what they change is connected to the goal."
+     },
+     {
+      "id": "critique_3c6b6a8fe9e0",
+      "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+      "severity": "warning",
+      "source": "isl",
+      "blocks_analysis": false,
+      "affected_option_ids": [
+       "focal_reducer"
+      ],
+      "user_message": "Option 'Focal reducer' produces the same result in every simulation, so nothing in your model makes its outcome uncertain. If you expected it to move, review the factors it changes and the ranges set on them."
+     },
+     {
+      "id": "critique_6d747a7197ec",
+      "code": "DEGENERATE_OPTION_ZERO_VARIANCE",
+      "severity": "warning",
+      "source": "isl",
+      "blocks_analysis": false,
+      "affected_option_ids": [
+       "wider_eyepiece"
+      ],
+      "user_message": "Option 'Wider eyepiece' produces the same result in every simulation, so nothing in your model makes its outcome uncertain. If you expected it to move, review the factors it changes and the ranges set on them."
+     }
+    ],
+    "conditional_winners": [],
+    "flip_thresholds_status": "all_no_effect"
+   },
+   "computed_against_hash": "19ed7f3dc288c81b"
+  }
+ ],
+ "suggested_actions": [
+  {
+   "id": "agent-explain-run:78d3369dcc0606d9",
+   "label": "Explain this result",
+   "message": "Explain this result"
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "frame",
+ "graph_hash": "19ed7f3dc288c81b",
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-10-21T00:47:54.072Z"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": true,
+   "separation": "separated"
+  },
+  "robustness": {
+   "aggregate_level": "high"
+  },
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "_capture": {
+  "source": "served staging UI 3da8a2a8 / CEE 46d30e6e, guest scenario 5e28e10f, 21 Oct 2026 00:47Z (Lenses guest witness trace)",
+  "turn": "run"
+ }
+}

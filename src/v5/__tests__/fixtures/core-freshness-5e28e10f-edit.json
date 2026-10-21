@@ -1,0 +1,133 @@
+{
+ "response_version": 2,
+ "assistant_text": "",
+ "blocks": [],
+ "suggested_actions": [],
+ "insights": [],
+ "stage_indicator": "analyse",
+ "graph_hash": "19ed7f3dc288c81b",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "focal_reducer",
+    "label": "Focal reducer",
+    "status": "ready",
+    "interventions": {
+     "usable_field_goal__change": 0.1616
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "usable_field_goal__change": {
+      "display_value": "20.2 arcminutes",
+      "normalised_value": 0.1616,
+      "raw_value": 20.2,
+      "unit": "arcminutes"
+     }
+    },
+    "raw_interventions": {
+     "usable_field_goal__change": 20.2
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "wider_eyepiece",
+    "label": "Wider eyepiece",
+    "status": "ready",
+    "interventions": {
+     "usable_field_goal__change": 0.15919999999999998
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "usable_field_goal__change": {
+      "display_value": "19.9 arcminutes",
+      "normalised_value": 0.15919999999999998,
+      "raw_value": 19.9,
+      "unit": "arcminutes"
+     }
+    },
+    "raw_interventions": {
+     "usable_field_goal__change": 19.9
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   }
+  ],
+  "goal_node_id": "usable_field_goal",
+  "status": "ready",
+  "goal_threshold": 0.8,
+  "goal_threshold_raw": 100,
+  "goal_threshold_unit": "arcminutes",
+  "goal_threshold_cap": 125,
+  "goal_threshold_cap_provenance": "target_derived_headroom",
+  "bias_findings": [],
+  "may_run": true,
+  "analysis_admission": {
+   "structurally_analysable": true,
+   "missing_important_inputs": [],
+   "semantic_quality_sufficient": false,
+   "permitted_analysis_mode": "quantified_provisional",
+   "reasons": [
+    {
+     "field": "structurally_analysable",
+     "code": "READY_TO_COMPARE",
+     "message": "Analysis can run on this model as it stands."
+    },
+    {
+     "field": "semantic_quality_sufficient",
+     "code": "USER_STATED_PARAMETERS_NOT_MATERIAL",
+     "message": "The values you have set sit outside what this comparison turns on, so none of the figures that decide it are yours yet. Figures, and which option they favour, can be shown only as provisional until you have set a value on a factor one of the options changes, or on another factor on the chain from there to your goal."
+    },
+    {
+     "field": "permitted_analysis_mode",
+     "code": "USER_STATED_PARAMETERS_NOT_MATERIAL",
+     "message": "The values you have set sit outside what this comparison turns on, so none of the figures that decide it are yours yet. Figures, and which option they favour, can be shown only as provisional until you have set a value on a factor one of the options changes, or on another factor on the chain from there to your goal."
+    }
+   ],
+   "graph_hash": "19ed7f3dc288c81b6dbebf8fe17d03a95254fd98aaf628556f9a02fda6031105",
+   "semantic_signals": {
+    "confidence_parameters_total": 5,
+    "confidence_parameters_user_stated": 2,
+    "confidence_parameters_machine_authored": 3,
+    "confidence_parameters_unattributed": 0,
+    "material_parameters_total": 2,
+    "material_parameters_user_stated": 0,
+    "intervened_factor_baselines_total": 1,
+    "intervened_factor_baselines_user_stated": 0,
+    "material_parameters_awaiting_user_node_ids": [
+     "usable_field_goal__change"
+    ],
+    "goal_target_stated": true
+   }
+  },
+  "computed_at": "2026-10-21T00:17:49.704Z",
+  "freshness": "stale",
+  "freshness_reason": "graph_hash_diverged",
+  "graph_hash_at_run": "0c8ea116b6a5a1c9",
+  "current_graph_hash": "19ed7f3dc288c81b"
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_stale",
+   "computed_at": "2026-10-21T00:17:49.704Z",
+   "cause": "graph_changed"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "analysis_out_of_date"
+  },
+  "robustness": {},
+  "usable_for_prose": true,
+  "usable_for_chips": false,
+  "usable_for_followup": true,
+  "requires_rerun": true,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "_capture": {
+  "source": "served staging UI 3da8a2a8 / CEE 46d30e6e, guest scenario 5e28e10f, 21 Oct 2026 00:47Z (Lenses guest witness trace)",
+  "turn": "edit"
+ }
+}
