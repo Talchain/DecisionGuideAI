@@ -320,7 +320,11 @@ export function sentinelCanonical(form: SentinelForm): Rec {
   const run = { run_id: RUN_ID, graph_hash_at_run: GRAPH_HASH, computed_at: null }
   const sq = { option_id: SQ, cell: { kind: 'withheld', face: SQ_FACE, why: SQ_LINE, reasons: [{ code: 'status_quo_by_assumption', message: SQ_LINE }] },
     main_driver: { kind: 'none_licensed', reason: DRIVER_NONE_REASON } }
-  const base = { schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', run, staleness: STALENESS, leader_licence: 'withheld' }
+  // Form (f)'s licence names B highest; CEE's canonical leader says the same (`goal_chance_leader`), so the ruled headline is
+  // drawn and its identity-bound exemption is exercised (DL, 21 Oct 2026). No other form names a goal-chance leader.
+  const leader = form === 'boundary'
+    ? { leader: { licence: 'withheld', option_id: null, goal_chance_leader: B, similar_option_ids: [], near_tie: false, robustness: null } } : {}
+  const base = { schema: 'canonical_analysis_view.v1', source: 'stored_run_facts', run, staleness: STALENESS, leader_licence: 'withheld', ...leader }
   if (form === 'withheld') {
     const withheld = (why: string) => ({ kind: 'withheld', face: WITHHELD_FACE, why, reasons: [{ code: 'value_unconfirmed', message: why }] })
     return { ...base,
@@ -381,6 +385,8 @@ export function sentinelRunDelta(): RunDelta {
     ],
     goal_chances: [
       { option_id: A, prior: { kind: 'point', pct: RAW.run_delta_prior, rounding: 'whole' }, current: { kind: 'point', pct: RAW.run_delta_current, rounding: 'whole' } },
+      // Carrying on as now: withheld on both Runs, so Compare keeps its row in CEE's own face (no figure) and that row is read.
+      { option_id: SQ, prior: { kind: 'withheld' }, current: { kind: 'withheld' } },
     ],
     endpoints: { prior: { run_id: 'run-before-sentinel', computed_at: '2026-10-12T01:00:00.000Z' },
       current: { run_id: RUN_ID, computed_at: '2026-10-12T02:00:00.000Z' } },

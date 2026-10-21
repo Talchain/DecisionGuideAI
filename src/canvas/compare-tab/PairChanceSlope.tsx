@@ -9,7 +9,8 @@
  *
  * Draws ONLY what `pairChanceFigures` (runView.ts, the chance gate) returns: its words and where each mark sits. It
  * computes no difference, ranks nothing and names no leader of its own (CEE's goal-chance leader's name is the darker
- * text). Type is the panel scale only (DS v5 §2.2): `panelBody` names, `panelTabular` figures, `panelMeta` notes and axis.
+ * text). Its caption is CEE's served `chance_words` or none. Type is the panel scale only (DS v5 §2.2): `panelBody` names,
+ * `panelTabular` figures, `panelMeta` notes and axis.
  */
 import { useEffect, useState } from 'react'
 import { typography } from '../../styles/typography'
@@ -78,13 +79,19 @@ export function PairChanceTrack({ earlier, now, grid = false }: {
 }
 
 export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JSX.Element | null {
-  const { rows, claim } = figures
-  const strongId = claim !== null && 'optionId' in claim ? claim.optionId : null
+  const { rows, claim, chanceWords } = figures
+  const strongId = claim?.optionId ?? null
   if (rows.length === 0) return null
   const name = (label: string | null): string => label ?? 'An option'
   return (
     <figure className="m-0 mt-4" data-testid={PAIR_CHANCE_SLOPE_TESTID}>
-      <figcaption className={`${typography.panelMeta} text-text-light mb-2`}>Chance of meeting your goal, in this model</figcaption>
+      {/* CEE's own words for what the chance is OF, or no caption (DL, 21 Oct 2026: never a UI label beside a chance). */}
+      {chanceWords !== null
+        ? <figcaption className={`${typography.panelMeta} text-text-light mb-2`} data-wire-fields="canonical_analysis_view.goal_chance.chance_words">
+            {/* Sentence case only (as `compareOutOfDateCopy` says CEE's words); the words themselves are CEE's, unchanged. */}
+            {`${chanceWords.charAt(0).toUpperCase()}${chanceWords.slice(1)}`}
+          </figcaption>
+        : null}
       <div className="relative">
         <ul className="list-none p-0 m-0 space-y-1">
           {rows.map(row => {
@@ -121,7 +128,7 @@ export function PairChanceSlope({ figures }: { figures: PairChanceFigures }): JS
       </div>
       <div className={`${typography.panelMeta} text-text-light relative h-4 mt-1`} aria-hidden="true">
         {[0, ...QUARTERS, 100].map((t, i, all) => (
-          <span key={t} className={`absolute top-0 ${i === 0 ? '' : i === all.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${t}%` }}>{t}%</span>
+          <span key={t} data-chart-role="axis-tick" className={`absolute top-0 ${i === 0 ? '' : i === all.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${t}%` }}>{t}%</span>
         ))}
       </div>
       <p className={`${typography.panelMeta} text-text-light mt-2 mb-0 flex flex-wrap items-center gap-x-3 gap-y-1`} aria-hidden="true">

@@ -5,7 +5,7 @@
  */
 import { act, fireEvent } from '@testing-library/react'
 
-const ARIA_ATTRS = ['aria-label', 'aria-valuetext', 'aria-valuenow', 'aria-description', 'title', 'alt', 'placeholder']
+export const ARIA_ATTRS = ['aria-label', 'aria-valuetext', 'aria-valuenow', 'aria-description', 'title', 'alt', 'placeholder']
 
 /** Open every closed disclosure inside `root`, repeatedly (a door can hold doors), up to a bound. */
 export function openEveryDisclosure(root: ParentNode): number {
@@ -28,6 +28,9 @@ export function openEveryDisclosure(root: ParentNode): number {
  * "Sensitive assumptions: 0." beside "86%" reads "0.86%" and hides the 86% (the base census on a1efd4a, LensInfoPanel).
  * Every negative check reads both.
  */
+/** The attribute a chart sets on its axis tick labels (`PairChanceSlope`); the census reads no figure inside one. */
+export const CHART_ROLE = 'data-chart-role'
+
 export function readSurface(root: Element): { text: string; spaced: string; aria: string } {
   const aria: string[] = []
   for (const el of [root, ...root.querySelectorAll('*')]) {
@@ -38,9 +41,12 @@ export function readSurface(root: Element): { text: string; spaced: string; aria
   }
   const nodes: string[] = []
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) if (n.textContent) nodes.push(n.textContent)
+  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+    // A chart's axis tick labels are scale, not results: exempt by their ROLE (`data-chart-role="axis-tick"`), never by value.
+    if (n.textContent && n.parentElement?.closest(`[${CHART_ROLE}="axis-tick"]`) == null) nodes.push(n.textContent)
+  }
   return {
-    text: (root.textContent ?? '').replace(/\s+/g, ' '),
+    text: nodes.join('').replace(/\s+/g, ' '),
     spaced: nodes.join(' ').replace(/\s+/g, ' '),
     aria: aria.join(' | '),
   }

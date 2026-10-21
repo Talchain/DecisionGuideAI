@@ -23,7 +23,7 @@ describe('"Since your last run": the comparison at one glance', () => {
   beforeEach(() => { figures = null })
 
   it("CEE names the most likely option → that option, its mini track and this run's figure, in two rows", () => {
-    figures = { rows, claim: { kind: 'highest', optionId: 'a' } }
+    figures = { rows, claim: { kind: 'highest', optionId: 'a' }, chanceWords: null, notCurrent: false }
     render(<WhatsChangedReceipt view={view} responseHash="h" />)
     const glance = screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)
     expect(glance.getAttribute('data-option-id')).toBe('a')
@@ -37,22 +37,39 @@ describe('"Since your last run": the comparison at one glance', () => {
     expect(screen.getByTestId(WHATS_CHANGED_RECEIPT_TESTID).textContent).not.toMatch(/Cut waste|best|winner|recommend/i)
   })
 
-  it('another goal-chance claim → that claim in its words; no option is singled out', () => {
-    figures = { rows, claim: { kind: 'similar', optionIds: ['a', 'b'] } }
+  it("the glance's ruled sentence carries CEE's claim identities (the census binds the exemption to them)", () => {
+    figures = { rows, claim: { kind: 'highest', optionId: 'a' }, chanceWords: null, notCurrent: false }
     render(<WhatsChangedReceipt view={view} responseHash="h" />)
-    expect(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-claim`).textContent).toBe('In this model, Raise prices and Cut waste have similar chances of meeting your goal')
-    expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
+    const line = screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`).querySelector('[data-goal-chance-claim]')
+    expect(line?.getAttribute('data-goal-chance-claim')).toBe('highest')
+    expect(line?.getAttribute('data-option-id')).toBe('a')
   })
 
   it('no goal-chance claim (contrast: the same rows with a claim draw the glance above) → the earlier run it is compared with', () => {
-    figures = { rows, claim: null }
+    figures = { rows, claim: null, chanceWords: null, notCurrent: false }
     render(<WhatsChangedReceipt view={view} responseHash="h" />)
     expect(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-compared-with`).textContent).toBe('Compared with the earlier run at 14:02.')
     expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
   })
 
+  it("all likely to miss, with the highest named → its own ruled sentence, never \"most likely\" (contrast: plain highest draws the glance)", () => {
+    figures = { rows, claim: { kind: 'highest_all_likely_to_miss', optionId: 'a' }, chanceWords: null, notCurrent: false }
+    render(<WhatsChangedReceipt view={view} responseHash="h" />)
+    expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
+    const claim = screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-claim`)
+    expect(claim.textContent).toMatch(/^In this model, every option is likely to miss your goal; Raise prices has the highest chance/)
+    expect(claim.getAttribute('data-goal-chance-claim')).toBe('highest_all_likely_to_miss')
+  })
+
+  it("CEE's leader is not on any row of this pair → no claim sentence (never \"An option\"); the earlier run it is compared with", () => {
+    figures = { rows, claim: { kind: 'highest', optionId: 'z' }, chanceWords: null, notCurrent: false }
+    render(<WhatsChangedReceipt view={view} responseHash="h" />)
+    expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-claim`)).toBeNull()
+    expect(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-compared-with`).textContent).toBe('Compared with the earlier run at 14:02.')
+  })
+
   it("a named leader with no figure this run → no glance (never an invented mark)", () => {
-    figures = { rows: [{ ...rows[0], now: null }], claim: { kind: 'highest', optionId: 'a' } }
+    figures = { rows: [{ ...rows[0], now: null }], claim: { kind: 'highest', optionId: 'a' }, chanceWords: null, notCurrent: false }
     render(<WhatsChangedReceipt view={view} responseHash="h" />)
     expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
   })

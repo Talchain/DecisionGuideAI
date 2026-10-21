@@ -1,20 +1,21 @@
 /**
  * Compare-chance (schemas 0.81.0 `run_delta.goal_chances`; lease #87 6035414740). The reader still carries the producer's
- * goal chances by identity (first block). ⭐ #2747 re-scope 2 (U0, DL ruling (A)): in C, Compare SHOWS no goal chance and no
- * run share — each option's chance is said on the journey path only (the Analysis tab, the chat analysis card), in CEE's
- * words, and CEE serves no share string. The headline keeps the producer's leader claim in words, under its entitlement.
- * Interim limit; restore trigger: each measure's own served string and Run licence on Compare (post-C).
+ * goal chances by identity (first block). ⭐ DL ruling, 20 Oct 2026 (superseding #2747 re-scope 2 (A)'s interim "Compare shows
+ * no goal chance"): Compare shows each option's goal chance ONLY as the chance gate passes it (`pairChanceFigures`: this
+ * run's side from the canonical view, the earlier run's from run_delta's own licensed side). No run share figure, and no
+ * figure the gate did not pass (run_delta's own current side included), ever reaches the screen.
  *
  * Bound by IDENTITY (option ids, producer order); every "absent" row has a present control (the reader's own rows).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import type { RunDelta, RunDeltaGoalChanceDelta } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
 import { buildRunDeltaView } from '../../../components/results/analysisNew/runDeltaView'
+import { pairChanceFigures, runViewOf } from '../../runView/runView'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
 import { parseCanonicalAnalysisView } from '../../runView/canonicalAnalysisView'
@@ -29,8 +30,6 @@ const GOAL_CHANCES: RunDeltaGoalChanceDelta[] = [
   { option_id: 'opt_60', prior: { kind: 'not_recorded' }, current: { kind: 'range', low_pct: 20, high_pct: 40, low_rounding: 'whole', high_rounding: 'nearest_5' } },
 ]
 const withGoal = (overrides: Partial<RunDelta> = {}) => runChangeDelta({ goal_chances: GOAL_CHANCES, ...overrides })
-/** Every figure the pair holds: its goal chances (47, 15, 20–40) and both Runs' shares (41/44, 59/56). */
-const PAIR_FIGURES = /\b(?:47|15|20|40|41|44|59|56)%/
 
 describe('the view carries the producer\'s goal chances by identity', () => {
   const labelFor = (id: string) => RUN_CHANGE_LABELS.get(id) ?? null
@@ -72,6 +71,8 @@ function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.44, opt_49: 0.56 } })
   report.producer_leader_permission = permission
+  // The pair's Latest Run (`run-b`): the canonical view below is matched to it by identity when `latest` is 'current'.
+  ;(report as unknown as Record<string, unknown>).run_id = 'run-b'
   const hash = report.model_card.response_hash
   useCanvasStore.setState({ currentScenarioId: 'scn-1',
     nodes: [...RUN_CHANGE_LABELS.keys()].map((id) => ({ id, type: id.startsWith('opt') ? 'option' : 'factor', position: { x: 0, y: 0 }, data: { label: RUN_CHANGE_LABELS.get(id) } })), edges: [],
@@ -86,8 +87,6 @@ function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?
   } as never)
   return hash
 }
-// The RESULT heading, by its section: the inputs section has its own level-3 heading (Compare v3 rows).
-const heading = () => within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading', { level: 3 })
 const headlineSection = () => document.querySelector('[data-compare-section="headline"]') as HTMLElement
 
 beforeEach(() => {
@@ -97,29 +96,65 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useCanonicalAnalysisViewStore.setState({ scenarioId: null, view: null }) })
 
-describe('#2747 re-scope 2 (U0, DL ruling (A)): Compare shows no goal chance and no run share in C', () => {
+/** What the gate passes for the seeded pair: read from `pairChanceFigures` itself, never from the screen. */
+function gateWords(delta: RunDelta, hash: string): Map<string, string[]> {
+  const view = buildRunDeltaView(delta, (id) => RUN_CHANGE_LABELS.get(id) ?? null)
+  const state = useCanvasStore.getState()
+  const report = state.results?.hash === hash ? state.results.report : null
+  const out = new Map<string, string[]>()
+  for (const row of pairChanceFigures(view, runViewOf(report, useCanonicalAnalysisViewStore.getState().view)).rows) {
+    out.set(row.optionId, [row.earlier?.words, row.now?.words].filter((w): w is string => typeof w === 'string'))
+  }
+  return out
+}
+/** Figures the gate never passes here: run_delta's own CURRENT sides (15, 20–40) and both Runs' shares (41/44, 59/56). */
+const NEVER = /\b(?:15|20|40|41|44|59|56)%/
+
+describe("Compare's goal chances come only through the chance gate (DL ruling, 20 Oct 2026)", () => {
   it.each([
     ['current', true], ['stale', true], ['other', true], ['absent', true], ['current', false],
-  ] as const)('Latest %s, results permitted %s: no goal-chance rows, no share figures, no not-current line', (latest, permitted) => {
+  ] as const)('Latest %s, results permitted %s: each option row says exactly what the gate passed; no share, no ungated figure', (latest, permitted) => {
     const delta = withGoal()
-    // CONTROL: the reader holds the goal chances for this pair, so the absence below is the surface's, not the fixture's.
+    // CONTROL: the reader holds both options' goal chances, so what is absent below is the gate's doing, not the fixture's.
     expect(buildRunDeltaView(delta, (id) => RUN_CHANGE_LABELS.get(id) ?? null).goalChances).toHaveLength(2)
-    render(<CompareRunPairBody responseHash={seed(delta, permitted ? { permitted: true } : { permitted: false, producer_cause: 'constraint_verdict_withheld' }, true, latest)} />)
-    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
-    expect(screen.queryByTestId('compare-goal-chances-not-current')).toBeNull()
+    const hash = seed(delta, permitted ? { permitted: true } : { permitted: false, producer_cause: 'constraint_verdict_withheld' }, true, latest)
+    render(<CompareRunPairBody responseHash={hash} />)
+    const passed = gateWords(delta, hash)
+    // Bound by option id: a row exists only for an option the gate passed a figure for, and says that figure.
+    for (const id of ['opt_49', 'opt_60']) {
+      const row = document.querySelector(`[data-testid="compare-pair-chance-slope"] [data-option-id="${id}"]`)
+      const words = passed.get(id) ?? []
+      if (words.length === 0) expect(row, `${id}: the gate passed nothing, so no row`).toBeNull()
+      else for (const w of words) expect(row?.textContent ?? '', `${id} says the gate's words`).toContain(w)
+    }
+    expect(headlineSection().textContent).not.toMatch(NEVER)
+    // DL 21 Oct: a Latest Run that is not current shows NO figure on either side, only the way back to a comparison.
+    if (latest !== 'current') {
+      expect(screen.queryByTestId('compare-pair-chance-slope')).toBeNull()
+      expect(headlineSection().textContent).not.toMatch(/\b47%/)
+      // …and it is the ONLY result line: no share headline, no withheld reason (contrast: the current case keeps them).
+      expect(screen.getByTestId('compare-goal-chances-not-current')).toHaveTextContent('Re-run to compare results for the model as it stands.')
+      expect(headlineSection().querySelector('h3')?.textContent).toBe('Result comparison not shown')
+      expect(screen.queryByTestId('compare-withheld-reason')).toBeNull()
+    } else {
+      expect(screen.queryByTestId('compare-goal-chances-not-current')).toBeNull()
+    }
     expect(screen.queryByTestId('compare-share-results')).toBeNull()
     expect(screen.queryByTestId('compare-result-details-toggle')).toBeNull()
-    expect(headlineSection().textContent).not.toMatch(PAIR_FIGURES)
-    expect(headlineSection().textContent).not.toMatch(/chance of meeting your goal/i)
-    // The headline keeps the producer's leader claim in words, under its own entitlement.
-    expect(heading()).toHaveTextContent(permitted ? 'The latest run names no option' : 'Result comparison not shown')
-    if (!permitted) expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
+    if (!permitted && latest === 'current') expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
   })
 
-  it('a pair that is not the current model\'s says no figure either (control: its inputs still list)', () => {
+  it("the earlier run's licensed 47% is shown because the gate passed it (contrast: its 15% current side never is)", () => {
+    const hash = seed(withGoal())
+    render(<CompareRunPairBody responseHash={hash} />)
+    expect(gateWords(withGoal(), hash).get('opt_49')).toContain('about 47%')
+    expect(document.querySelector('[data-testid="compare-pair-chance-slope"] [data-option-id="opt_49"]')?.textContent).toContain('from about 47% on the earlier run')
+    expect(headlineSection().textContent).not.toMatch(/\b15%/)
+  })
+
+  it("a pair that is not the current model's says no ungated figure either (control: its inputs still list)", () => {
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, false)} />)
-    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
-    expect(headlineSection().textContent).not.toMatch(PAIR_FIGURES)
+    expect(headlineSection().textContent).not.toMatch(NEVER)
     expect(document.querySelector('[data-compare-section="inputs"]')).not.toBeNull()
   })
 })

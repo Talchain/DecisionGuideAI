@@ -99,13 +99,16 @@ import { DecisionBriefView } from '../../decisionBrief/DecisionBriefView'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
+import { useCanonicalAnalysisViewStore } from '../../stores/canonicalAnalysisViewStore'
+import { useDisplayedRunDeltaView } from '../../../components/results/analysisNew/displayedRunDeltaView'
+import { pairChanceFigures, runViewOf } from '../runView'
 import {
   A, B, DISPLAY_A, EDGES, FACE_A, FACE_B, LOW_FACE, SPREAD_NOTE, SHORTFALL_A, FACE_B_SAME, GENERIC_CHANCE_PHRASES, UI_CHANCE_LABELS, type SentinelForm, GRAPH_HASH, LABEL, NODES, RAW, RUN_ID, SENTINELS, SERVED_FIGURES, SQ,
   ONE_IN, SQ_LINE, WHY_A, WHY_B, resetSentinel, seedSentinel, seededForm, sentinelBlock, sentinelHits, sentinelPatterns, sentinelRunDelta,
   BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
   DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState, WITHHELD_FACE, SQ_FACE,
 } from './helpers/chanceSentinels'
-import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
+import { ARIA_ATTRS, exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
 import { chanceReaderComponents, componentNamesOf, payloadChanceFields, productionModules, sourceFiles, textBuilderFiles } from './helpers/censusDerivation'
 
@@ -126,6 +129,73 @@ interface Surface {
   readonly reaches?: Partial<Readonly<Record<Form, readonly string[]>>>
   /** [test id, words]: the element must say CEE's served words itself (bound to the element, not the whole surface). */
   readonly saysWithin?: Partial<Readonly<Record<Form, ReadonlyArray<readonly [string, string]>>>>
+  /**
+   * The words the surface's own chance gate PASSED for the seeded Run, read from the gate itself (never from the screen):
+   * only these strings are lifted out before the raw-figure scan. A figure the surface prints outside the gate stays in.
+   */
+  readonly gated?: (hash: string) => readonly string[]
+  /** Forms in which the surface must draw the ruled goal-chance claim on CEE's identities (a positive control). */
+  readonly claimsIn?: readonly Form[]
+}
+
+/**
+ * Compare's gate (DL, 21 Oct 2026): the run pair's figures exactly as `pairChanceFigures` passes them for the view the
+ * body displays (`useDisplayedRunDeltaView`), called here directly, so a figure the chart or its hook draws around the
+ * gate is not whitelisted by it.
+ */
+function compareGateWords(hash: string): string[] {
+  const { result, unmount } = renderHook(() => useDisplayedRunDeltaView(hash, 'all'))
+  const view = result.current
+  unmount()
+  if (view === null) return []
+  const state = useCanvasStore.getState()
+  const report = state.results?.hash === hash ? state.results.report : null
+  const held = useCanonicalAnalysisViewStore.getState()
+  const canonical = held.scenarioId === state.currentScenarioId ? held.view : null
+  const figures = pairChanceFigures(view, runViewOf(report, canonical))
+  // Figure words only: a row's note and the caption are CEE's own words and are read like any other text.
+  return figures.rows.flatMap(row => [row.earlier?.words, row.now?.words])
+    .filter((w): w is string => typeof w === 'string' && w.length > 0)
+}
+
+/**
+ * DL ruling, 21 Oct 2026: the ruled goal-chance claim sentence ("In this model, X is the most likely to meet your goal") is a
+ * UI phrase allowed ONLY on CEE's identities: the element says which claim it words (`data-goal-chance-claim`) and for whom
+ * (`data-option-id`), and both must equal the served licence's highest form and `leader_option_id`. Exempt from the
+ * UI-phrase check only; every figure in it is still read by the raw-figure scan.
+ */
+function rulingClaimElements(root: Element, hash: string): Element[] {
+  const state = useCanvasStore.getState()
+  const report = state.results?.hash === hash ? state.results.report : null
+  const held = useCanonicalAnalysisViewStore.getState()
+  const licence = runViewOf(report, held.scenarioId === state.currentScenarioId ? held.view : null).goalChance
+  if (licence === null || (licence.form !== 'highest' && licence.form !== 'highest_all_likely_to_miss')) return []
+  return [...root.querySelectorAll('[data-goal-chance-claim]')]
+    .filter(el => el.getAttribute('data-goal-chance-claim') === licence.form && el.getAttribute('data-option-id') === licence.leaderOptionId)
+}
+/**
+ * The surface's text and accessible attributes with ONLY the ruled claim's own words left out, by node (Codex r2): a text
+ * node is left out when its NEAREST claim element is one of `claims` (a claim nested inside it is still read); an attribute
+ * is left out only on such an element and only where it repeats that element's own text exactly (a `title` mirroring a
+ * truncated line). Both the glued and the spaced readings are returned, so a phrase split across elements is still seen.
+ */
+function textOutside(root: Element, claims: readonly Element[]): string {
+  const ownClaim = (el: Element | null): boolean => {
+    const nearest = el?.closest('[data-goal-chance-claim]') ?? null
+    return nearest !== null && claims.includes(nearest)
+  }
+  const kept: string[] = []
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) if (n.textContent && !ownClaim(n.parentElement)) kept.push(n.textContent)
+  const attrs: string[] = []
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    const own = claims.includes(el) ? (el.textContent ?? '').replace(/\s+/g, ' ').trim() : null
+    for (const attr of ARIA_ATTRS) {
+      const v = el.getAttribute(attr)
+      if (v && !(own !== null && v.replace(/\s+/g, ' ').trim() === own)) attrs.push(v)
+    }
+  }
+  return [kept.join(''), kept.join(' '), attrs.join(' | ')].join(' ‖ ').replace(/\s+/g, ' ')
 }
 
 // ─── the deployed flags, derived ───
@@ -302,6 +372,8 @@ const SURFACES: readonly Surface[] = [
   {
     name: 'Compare tab (CompareRunPairBody: goal chances, run shares)', u0: false,
     mount: hash => render(<CompareRunPairBody responseHash={hash} />).container,
+    gated: compareGateWords,
+    claimsIn: ['boundary'],
   },
   {
     // Mounted inside the Analysis tab's act-on-it queue; the sentinel Run withholds the leader, which hides its labels, so
@@ -612,10 +684,17 @@ for (const form of FORMS) {
           expect.soft(root.querySelector(`[data-testid="${id}"]`)?.textContent ?? '', `${id} says CEE's served words itself`).toContain(words)
         }
         // Then every state a person can reach without typing: each disclosure open, each tab in turn (round 2, B).
+        let claimsDrawn = 0
+        const phraseTexts: string[] = []
         const { text, spaced, aria } = exploreSurface(root, () => {
           for (const el of [...document.body.children]) for (const n of renderedComponentNames(el)) RENDERED.add(n.replace(/\d+$/, ''))
+          const claims = rulingClaimElements(root, hash)
+          claimsDrawn += claims.length
+          phraseTexts.push(textOutside(root, claims))
         })
-        const said = `${text} || ${spaced} || ${aria}`
+        // A gated surface's own gate words are lifted out first (read from its gate, not the screen); all else is read.
+        if (surface.claimsIn?.includes(form)) expect.soft(claimsDrawn, 'the ruled claim is drawn on CEE\'s identities').toBeGreaterThan(0)
+        const said = withoutServed(`${text} || ${spaced} || ${aria}`, surface.gated?.(hash) ?? [])
         expect(text.length, 'the surface rendered nothing: the census would be vacuous').toBeGreaterThan(surface.minText ?? 40)
         const licensedU0 = surface.u0 && form !== 'withheld'
         const served = servedStrings(form)
@@ -649,7 +728,10 @@ for (const form of FORMS) {
           expect.soft(shown, `${surface.u0 ? 'a figure with every cell withheld' : 'a chance figure off the journey path (U0)'}: ${shown.join(' ; ')}`).toEqual([])
         }
         if (surface.u0 || form !== 'withheld') {
-          const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null).map(m => around(said, m.index))
+          // The ruled claim sentence, where its identities hold, is the only UI chance phrase allowed: those ELEMENTS are left
+          // out of this check (by node), and their figures were read by the raw scan above.
+          const phrased = withoutServed(phraseTexts.join(' ‖ '), surface.gated?.(hash) ?? [])
+          const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(phrased)).filter((m): m is RegExpExecArray => m !== null).map(m => around(phrased, m.index))
           expect.soft(generic, `a UI-composed chance phrase: ${generic.join(' ; ')}`).toEqual([])
           const labels = UI_CHANCE_LABELS.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null).map(m => around(said, m.index))
           expect.soft(labels, `a UI-composed label beside a chance (only CEE's served words may label it): ${labels.join(' ; ')}`).toEqual([])
@@ -718,6 +800,7 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   winner_pct: { excluded: DEBUG_ONLY }, defaulted_percentage: { excluded: DEBUG_ONLY }, confidence_unique_values: { excluded: DEBUG_ONLY },
   never_truncate_key_max_length: { excluded: DEBUG_ONLY }, rank_displayed: { excluded: DEBUG_ONLY }, win_probability_displayed: { excluded: DEBUG_ONLY },
   chance_words: { excluded: 'CEE\'s served words (rule C: the only text a chance becomes); not a number' },
+  goal_chance_leader: { excluded: 'an option id (whom CEE\'s goal-chance licence names highest), not a number; the ruled claim it permits is censused by identity (rulingClaimElements)' },
   goal_chance: { excluded: 'CEE\'s served goal-chance detail (its words and displays, which are CEE\'s served strings above); not a number' },
   alt_winner_label: { excluded: NOT_A_NUMBER }, alternative_winner: { excluded: NOT_A_NUMBER }, alternative_winner_id: { excluded: NOT_A_NUMBER },
   alternative_winner_label: { excluded: NOT_A_NUMBER }, percentiles_source: { excluded: NOT_A_NUMBER }, robust_winner: { excluded: NOT_A_NUMBER },
@@ -822,3 +905,31 @@ describe('⭐⭐ ROUND 2: the census inputs are DERIVED, and every derived item 
 })
 
 afterAll(() => { if (process.env.CENSUS_DUMP) writeFileSync(process.env.CENSUS_DUMP, JSON.stringify([...RENDERED].sort())) })
+
+describe('the ruled-claim exemption is bound to its own node (Codex r2 probes)', () => {
+  const dom = (html: string): { root: Element; claim: Element } => {
+    const root = document.createElement('div')
+    root.innerHTML = html
+    return { root, claim: root.querySelector('[data-option-id="b"]')! }
+  }
+  const phrase = (t: string): boolean => GENERIC_CHANCE_PHRASES.some(re => re.test(t))
+  it("the licensed claim's own words are left out (contrast: without the exemption they are read)", () => {
+    const { root, claim } = dom('<h3 data-goal-chance-claim="highest" data-option-id="b">In this model, Birch plan is the most likely to meet your goal</h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(false)
+    expect(phrase(textOutside(root, []))).toBe(true)
+  })
+  it('a wrong-id claim nested inside the licensed one is still read', () => {
+    const { root, claim } = dom('<h3 data-goal-chance-claim="highest" data-option-id="b">Birch <span data-goal-chance-claim="highest" data-option-id="a">Alder plan is the most likely to meet your goal</span></h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(true)
+  })
+  it("an attribute on the licensed claim is left out only where it repeats the claim's own text", () => {
+    const own = dom('<p data-goal-chance-claim="highest" data-option-id="b" title="In this model, Birch plan is the most likely to meet your goal">In this model, Birch plan is the most likely to meet your goal</p>')
+    expect(phrase(textOutside(own.root, [own.claim]))).toBe(false)
+    const other = dom('<p data-goal-chance-claim="highest" data-option-id="b" aria-label="Alder plan is the most likely to meet your goal">In this model, Birch plan is the most likely to meet your goal</p>')
+    expect(phrase(textOutside(other.root, [other.claim]))).toBe(true)
+  })
+  it('a phrase split across elements outside the claim is still seen (the glued reading)', () => {
+    const { root, claim } = dom('<p>ch<span>ance</span> of meeting your goal</p><h3 data-goal-chance-claim="highest" data-option-id="b">x</h3>')
+    expect(phrase(textOutside(root, [claim]))).toBe(true)
+  })
+})
