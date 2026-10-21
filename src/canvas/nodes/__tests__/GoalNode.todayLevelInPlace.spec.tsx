@@ -33,6 +33,10 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+// The saved model on screen: a core scenario carries a living model; a legacy one does not.
+const saved = vi.hoisted(() => ({ graph: { nodes: [], living_model: { aims: [], links: [] } } as unknown }))
+vi.mock('../shared/savedGraph', () => ({ useSavedGraph: () => saved.graph }))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null, influence: null, confidence: null,
@@ -85,9 +89,20 @@ describe("today's level on the goal card", () => {
     expect(empty.textContent).toContain('tickets per week')
   })
 
-  it('CONTRAST: the default lane has no write for it, so no field', () => {
+  // ⭐ Served 21 Oct: the default `openai` mode is served by core (CEE `laneModeFor`), so a core scenario on the default
+  // path has the write, and gets the field. (Supersedes "the default lane has no write": that was the URL mode, not the
+  // scenario.)
+  it('a core scenario on the DEFAULT path (no ?ai=core) gets the field', () => {
+    renderCard(TARGET_SET)
+    expect(screen.getByTestId('goal-today-level-editor-goal_pricing_transition')).toBeTruthy()
+  })
+
+  it('CONTRAST: a legacy scenario (no living model) has no write for it, so no field, whatever the URL says', () => {
+    saved.graph = { nodes: [] }
+    window.history.replaceState(null, '', '/#/canvas?ai=core')
     renderCard(TARGET_SET)
     expect(screen.queryByTestId('goal-today-level-editor-goal_pricing_transition')).toBeNull()
+    saved.graph = { nodes: [], living_model: { aims: [], links: [] } }
   })
 
   it('CONTRAST: no target, no field (CEE refuses `no_target`)', () => {

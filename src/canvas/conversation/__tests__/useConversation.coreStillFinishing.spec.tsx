@@ -176,8 +176,8 @@ afterEach(() => {
 afterEach(() => { window.history.replaceState(null, '', '/') })
 
 describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a failure', () => {
-  async function runCore(payload: unknown) {
-    window.history.replaceState(null, '', '/#/canvas?ai=core')
+  async function runCore(payload: unknown, mode = 'core') {
+    window.history.replaceState(null, '', `/#/canvas?ai=${mode}`)
     vi.useFakeTimers({ shouldAdvanceTime: true })
     mockRecover.mockResolvedValue('recovered')
     // The one re-send: core's claim wait ran out, nothing was run again.
@@ -311,6 +311,20 @@ describe('core: a 504 UPSTREAM_TIMEOUT stream end is an UNKNOWN outcome, not a f
     expect(mockOpenStream).toHaveBeenCalledTimes(1)
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     expect(turnIdOf(mockCallV5Turn.mock.calls[0])).toBe(turnIdOf(mockOpenStream.mock.calls[0]))
+    vi.useRealTimers()
+  })
+
+  // ⭐ Served 21 Oct: the staging default `openai` mode is served by core (CEE `laneModeFor`), so its turns get the same
+  // still-finishing handling; the legacy `conventional` comparison mode does not.
+  it('the DEFAULT `openai` mode is core-served: the same frame says Olumi is still finishing', async () => {
+    const result = await runCore(CORE_STREAM_BUDGET_TIMEOUT, 'openai')
+    expect(result.current.messages.map((m) => m.content)).toContain(CORE_STILL_FINISHING_NOTICE)
+    vi.useRealTimers()
+  })
+
+  it('CONTRAST: the legacy `conventional` mode keeps today\'s kept-model behaviour', async () => {
+    const result = await runCore(CORE_STREAM_BUDGET_TIMEOUT, 'conventional')
+    expect(result.current.messages.map((m) => m.content)).not.toContain(CORE_STILL_FINISHING_NOTICE)
     vi.useRealTimers()
   })
 
