@@ -52,6 +52,22 @@ describe('"Since your last run": the comparison at one glance', () => {
     expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
   })
 
+  it("all likely to miss, with the highest named → its own ruled sentence, never \"most likely\" (contrast: plain highest draws the glance)", () => {
+    figures = { rows, claim: { kind: 'highest_all_likely_to_miss', optionId: 'a' }, chanceWords: null, notCurrent: false }
+    render(<WhatsChangedReceipt view={view} responseHash="h" />)
+    expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-glance`)).toBeNull()
+    const claim = screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-claim`)
+    expect(claim.textContent).toMatch(/^In this model, every option is likely to miss your goal; Raise prices has the highest chance/)
+    expect(claim.getAttribute('data-goal-chance-claim')).toBe('highest_all_likely_to_miss')
+  })
+
+  it("CEE's leader is not on any row of this pair → no claim sentence (never \"An option\"); the earlier run it is compared with", () => {
+    figures = { rows, claim: { kind: 'highest', optionId: 'z' }, chanceWords: null, notCurrent: false }
+    render(<WhatsChangedReceipt view={view} responseHash="h" />)
+    expect(screen.queryByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-claim`)).toBeNull()
+    expect(screen.getByTestId(`${WHATS_CHANGED_RECEIPT_TESTID}-compared-with`).textContent).toBe('Compared with the earlier run at 14:02.')
+  })
+
   it("a named leader with no figure this run → no glance (never an invented mark)", () => {
     figures = { rows: [{ ...rows[0], now: null }], claim: { kind: 'highest', optionId: 'a' }, chanceWords: null, notCurrent: false }
     render(<WhatsChangedReceipt view={view} responseHash="h" />)

@@ -29,10 +29,14 @@ export function WhatsChangedReceipt({ view, responseHash }: {
   const figures = usePairChanceFigures(view, responseHash)
   if (view === null) return null
   const claim = figures?.claim ?? null
-  const leaderId = claim?.optionId ?? null
+  // The glance's sentence says "most likely to meet your goal": only the plain highest form (all-likely-to-miss keeps its
+  // own ruled sentence below, `goalChanceHeadline`).
+  const leaderId = claim?.kind === 'highest' ? claim.optionId : null
   const leader = leaderId === null ? undefined : figures?.rows.find(r => r.optionId === leaderId && r.now !== null)
   const labels = new Map((figures?.rows ?? []).map(r => [r.optionId, r.label] as const))
-  const claimWords = figures && leader === undefined ? goalChanceHeadline(figures, id => labels.get(id) ?? null) : null
+  // The claim is said only for an option this pair names (its label is on a row); never "An option" (21 Oct 2026).
+  const named = claim !== null && labels.get(claim.optionId) != null
+  const claimWords = figures && leader === undefined && named ? goalChanceHeadline(figures, id => labels.get(id) ?? null) : null
   return (
     <section className={surface('neutral')} data-testid={WHATS_CHANGED_RECEIPT_TESTID} aria-labelledby={`${WHATS_CHANGED_RECEIPT_TESTID}-title`}>
       <div className="flex items-baseline justify-between gap-3">

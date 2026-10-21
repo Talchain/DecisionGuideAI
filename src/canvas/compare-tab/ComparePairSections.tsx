@@ -112,11 +112,13 @@ export function ComparePairSections({
   // Restore trigger: each measure's own served string and Run licence on this surface (post-C).
   // 20 Oct 2026: where CEE's goal-chance licence makes a claim about this run, the headline is that claim (each option's
   // chance of meeting the goal is the headline, DL ruling 6 Oct); otherwise the comparative sentence stands, as before.
+  // DL 21 Oct: when this run's view is not current, no result is said at all, only the way back to a comparison.
+  const notCurrent = chances?.notCurrent === true
   const goalHeadline = chances ? goalChanceHeadline(chances, label) : null
-  const shareHeadline = resultsAllowed ? headline(delta, label, nearTie) : null
+  const shareHeadline = resultsAllowed && !notCurrent ? headline(delta, label, nearTie) : null
   const resultHeadline = goalHeadline ?? shareHeadline ?? 'Result comparison not shown'
   // The noise qualifier speaks about the comparative leader's share, so it never sits under a goal-chance headline.
-  const qualification = resultsAllowed && goalHeadline === null ? noiseQualifier(delta.leader.noise_verdict) : null
+  const qualification = resultsAllowed && !notCurrent && goalHeadline === null ? noiseQualifier(delta.leader.noise_verdict) : null
   const askAvailable = runIsCurrent && !analysing
   // The not-shown line's named links as the user's next step (DL GO "A", 8 Oct): only CEE's named links, never the canvas's.
   const sizingLinks = !resultsAllowed && linkSizingState ? sizingLinksOf(withheldSegments) : []
@@ -161,13 +163,13 @@ export function ComparePairSections({
           <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
         </div>
         {chances ? <PairChanceSlope figures={chances} /> : null}
-        {/* This run's view is not current: no figure on either side, only the way back to a comparison (DL, 21 Oct 2026). */}
-        {resultsAllowed && chances?.notCurrent ? (
+        {/* This run's view is not current: no figure on either side and no other result line, only the way back to a
+            comparison (DL, 21 Oct 2026). */}
+        {notCurrent ? (
           <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-goal-chances-not-current">
             Re-run to compare results for the model as it stands.
           </p>
-        ) : null}
-        {!resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
+        ) : !resultsAllowed && sizingLinks.length > 0 && linkSizingState ? (
           // The shared sentence, word for word; its named links are the checklist's rows below, each with its own press.
           <>
             <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">

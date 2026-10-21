@@ -108,7 +108,7 @@ import {
   BOUNDARY_DISPLAY, BOUNDARY_FACE, BOUNDARY_VARIANTS, sentinelCanonical, sentinelFlipAnalysisBlock, sentinelReport,
   DISPLAY_B_SAME, LOW_DISPLAY, seedServedRangeState, WITHHELD_FACE, SQ_FACE,
 } from './helpers/chanceSentinels'
-import { exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
+import { ARIA_ATTRS, exploreSurface, openEveryDisclosure, readSurface, renderedComponentNames, withoutServed } from './helpers/sentinelScan'
 import { readGoalChanceLicence } from '../../../components/results/utils/goalChanceLicence'
 import { chanceReaderComponents, componentNamesOf, payloadChanceFields, productionModules, sourceFiles, textBuilderFiles } from './helpers/censusDerivation'
 
@@ -153,7 +153,8 @@ function compareGateWords(hash: string): string[] {
   const held = useCanonicalAnalysisViewStore.getState()
   const canonical = held.scenarioId === state.currentScenarioId ? held.view : null
   const figures = pairChanceFigures(view, runViewOf(report, canonical))
-  return [...figures.rows.flatMap(row => [row.earlier?.words, row.now?.words, row.note]), figures.chanceWords]
+  // Figure words only: a row's note and the caption are CEE's own words and are read like any other text.
+  return figures.rows.flatMap(row => [row.earlier?.words, row.now?.words])
     .filter((w): w is string => typeof w === 'string' && w.length > 0)
 }
 
@@ -163,7 +164,7 @@ function compareGateWords(hash: string): string[] {
  * (`data-option-id`), and both must equal the served licence's highest form and `leader_option_id`. Exempt from the
  * UI-phrase check only; every figure in it is still read by the raw-figure scan.
  */
-function rulingClaimTexts(root: Element, hash: string): string[] {
+function rulingClaimElements(root: Element, hash: string): Element[] {
   const state = useCanvasStore.getState()
   const report = state.results?.hash === hash ? state.results.report : null
   const held = useCanonicalAnalysisViewStore.getState()
@@ -171,8 +172,22 @@ function rulingClaimTexts(root: Element, hash: string): string[] {
   if (licence === null || (licence.form !== 'highest' && licence.form !== 'highest_all_likely_to_miss')) return []
   return [...root.querySelectorAll('[data-goal-chance-claim]')]
     .filter(el => el.getAttribute('data-goal-chance-claim') === licence.form && el.getAttribute('data-option-id') === licence.leaderOptionId)
-    .map(el => (el.textContent ?? '').replace(/\s+/g, ' ').trim())
-    .filter(t => t.length > 0)
+}
+/**
+ * The surface's text AND accessible attributes with those elements (and only those, by node, never by matching their words
+ * elsewhere) left out.
+ */
+function textOutside(root: Element, skip: readonly Element[]): string {
+  const out: string[] = []
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+    if (n.textContent && !skip.some(el => el.contains(n))) out.push(n.textContent)
+  }
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    if (skip.some(s => s.contains(el))) continue
+    for (const attr of ARIA_ATTRS) { const v = el.getAttribute(attr); if (v) out.push(v) }
+  }
+  return out.join(' ').replace(/\s+/g, ' ')
 }
 
 // ─── the deployed flags, derived ───
@@ -661,13 +676,16 @@ for (const form of FORMS) {
           expect.soft(root.querySelector(`[data-testid="${id}"]`)?.textContent ?? '', `${id} says CEE's served words itself`).toContain(words)
         }
         // Then every state a person can reach without typing: each disclosure open, each tab in turn (round 2, B).
-        const claimTexts = new Set<string>()
+        let claimsDrawn = 0
+        const phraseTexts: string[] = []
         const { text, spaced, aria } = exploreSurface(root, () => {
           for (const el of [...document.body.children]) for (const n of renderedComponentNames(el)) RENDERED.add(n.replace(/\d+$/, ''))
-          for (const t of rulingClaimTexts(root, hash)) claimTexts.add(t)
+          const claims = rulingClaimElements(root, hash)
+          claimsDrawn += claims.length
+          phraseTexts.push(textOutside(root, claims))
         })
         // A gated surface's own gate words are lifted out first (read from its gate, not the screen); all else is read.
-        if (surface.claimsIn?.includes(form)) expect.soft(claimTexts.size, 'the ruled claim is drawn on CEE\'s identities').toBeGreaterThan(0)
+        if (surface.claimsIn?.includes(form)) expect.soft(claimsDrawn, 'the ruled claim is drawn on CEE\'s identities').toBeGreaterThan(0)
         const said = withoutServed(`${text} || ${spaced} || ${aria}`, surface.gated?.(hash) ?? [])
         expect(text.length, 'the surface rendered nothing: the census would be vacuous').toBeGreaterThan(surface.minText ?? 40)
         const licensedU0 = surface.u0 && form !== 'withheld'
@@ -702,8 +720,9 @@ for (const form of FORMS) {
           expect.soft(shown, `${surface.u0 ? 'a figure with every cell withheld' : 'a chance figure off the journey path (U0)'}: ${shown.join(' ; ')}`).toEqual([])
         }
         if (surface.u0 || form !== 'withheld') {
-          // The ruled claim sentence, where its identities hold, is the only UI chance phrase allowed (its figures were read above).
-          const phrased = withoutServed(said, [...claimTexts])
+          // The ruled claim sentence, where its identities hold, is the only UI chance phrase allowed: those ELEMENTS are left
+          // out of this check (by node), and their figures were read by the raw scan above.
+          const phrased = withoutServed(phraseTexts.join(' ‖ '), surface.gated?.(hash) ?? [])
           const generic = GENERIC_CHANCE_PHRASES.map(re => re.exec(phrased)).filter((m): m is RegExpExecArray => m !== null).map(m => around(phrased, m.index))
           expect.soft(generic, `a UI-composed chance phrase: ${generic.join(' ; ')}`).toEqual([])
           const labels = UI_CHANCE_LABELS.map(re => re.exec(said)).filter((m): m is RegExpExecArray => m !== null).map(m => around(said, m.index))
@@ -773,7 +792,7 @@ const FIELD_DISPOSITION: Readonly<Record<string, FieldDisposition>> = {
   winner_pct: { excluded: DEBUG_ONLY }, defaulted_percentage: { excluded: DEBUG_ONLY }, confidence_unique_values: { excluded: DEBUG_ONLY },
   never_truncate_key_max_length: { excluded: DEBUG_ONLY }, rank_displayed: { excluded: DEBUG_ONLY }, win_probability_displayed: { excluded: DEBUG_ONLY },
   chance_words: { excluded: 'CEE\'s served words (rule C: the only text a chance becomes); not a number' },
-  goal_chance_leader: { excluded: 'an option id (whom CEE\'s goal-chance licence names highest), not a number; the ruled claim it permits is censused by identity (rulingClaimTexts)' },
+  goal_chance_leader: { excluded: 'an option id (whom CEE\'s goal-chance licence names highest), not a number; the ruled claim it permits is censused by identity (rulingClaimElements)' },
   goal_chance: { excluded: 'CEE\'s served goal-chance detail (its words and displays, which are CEE\'s served strings above); not a number' },
   alt_winner_label: { excluded: NOT_A_NUMBER }, alternative_winner: { excluded: NOT_A_NUMBER }, alternative_winner_id: { excluded: NOT_A_NUMBER },
   alternative_winner_label: { excluded: NOT_A_NUMBER }, percentiles_source: { excluded: NOT_A_NUMBER }, robust_winner: { excluded: NOT_A_NUMBER },

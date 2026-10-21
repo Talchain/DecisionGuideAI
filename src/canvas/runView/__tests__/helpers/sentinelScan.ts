@@ -5,7 +5,7 @@
  */
 import { act, fireEvent } from '@testing-library/react'
 
-const ARIA_ATTRS = ['aria-label', 'aria-valuetext', 'aria-valuenow', 'aria-description', 'title', 'alt', 'placeholder']
+export const ARIA_ATTRS = ['aria-label', 'aria-valuetext', 'aria-valuenow', 'aria-description', 'title', 'alt', 'placeholder']
 
 /** Open every closed disclosure inside `root`, repeatedly (a door can hold doors), up to a bound. */
 export function openEveryDisclosure(root: ParentNode): number {

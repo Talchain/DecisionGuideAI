@@ -132,11 +132,16 @@ describe("Compare's goal chances come only through the chance gate (DL ruling, 2
     if (latest !== 'current') {
       expect(screen.queryByTestId('compare-pair-chance-slope')).toBeNull()
       expect(headlineSection().textContent).not.toMatch(/\b47%/)
-      if (permitted) expect(screen.getByTestId('compare-goal-chances-not-current')).toHaveTextContent('Re-run to compare results for the model as it stands.')
+      // …and it is the ONLY result line: no share headline, no withheld reason (contrast: the current case keeps them).
+      expect(screen.getByTestId('compare-goal-chances-not-current')).toHaveTextContent('Re-run to compare results for the model as it stands.')
+      expect(headlineSection().querySelector('h3')?.textContent).toBe('Result comparison not shown')
+      expect(screen.queryByTestId('compare-withheld-reason')).toBeNull()
+    } else {
+      expect(screen.queryByTestId('compare-goal-chances-not-current')).toBeNull()
     }
     expect(screen.queryByTestId('compare-share-results')).toBeNull()
     expect(screen.queryByTestId('compare-result-details-toggle')).toBeNull()
-    if (!permitted) expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
+    if (!permitted && latest === 'current') expect(screen.getByTestId('compare-withheld-reason')).toBeInTheDocument()
   })
 
   it("the earlier run's licensed 47% is shown because the gate passed it (contrast: its 15% current side never is)", () => {

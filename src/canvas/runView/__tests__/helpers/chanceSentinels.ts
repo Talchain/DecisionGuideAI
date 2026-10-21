@@ -385,6 +385,8 @@ export function sentinelRunDelta(): RunDelta {
     ],
     goal_chances: [
       { option_id: A, prior: { kind: 'point', pct: RAW.run_delta_prior, rounding: 'whole' }, current: { kind: 'point', pct: RAW.run_delta_current, rounding: 'whole' } },
+      // Carrying on as now: withheld on both Runs, so Compare keeps its row in CEE's own face (no figure) and that row is read.
+      { option_id: SQ, prior: { kind: 'withheld' }, current: { kind: 'withheld' } },
     ],
     endpoints: { prior: { run_id: 'run-before-sentinel', computed_at: '2026-10-12T01:00:00.000Z' },
       current: { run_id: RUN_ID, computed_at: '2026-10-12T02:00:00.000Z' } },
