@@ -645,6 +645,17 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
     expect(arg.note).toEqual({ body: 'This link carries most of the result.' })
   })
 
+  it('CEE note_on_item (#3535): its exact block, `source: composer` included, holds attention on that item with its sentence', () => {
+    applyV5State(
+      envelope(ADMISSION_PERMITTED, { type: 'ui_directive', verb: 'highlight', targets: [{ id: RIVAL, label: DELL, kind: 'option' }],
+        note: 'What would this option cost that the model does not hold yet?', source: 'composer' } as never),
+      makeStore(),
+    )
+    const arg = attentionMock.mock.calls[0][0] as { nodeIds?: string[]; note?: { body?: string } | null }
+    expect(arg.nodeIds).toEqual([RIVAL])
+    expect(arg.note).toEqual({ body: 'What would this option cost that the model does not hold yet?' })
+  })
+
   it('A MOVE OUTSIDE THE GRAMMAR IS LEFT UNSAID, never relabelled as a challenge', () => {
     applyV5State(
       envelope(ADMISSION_PERMITTED, directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }], {
